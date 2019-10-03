@@ -99,7 +99,7 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 
 	for {
 		vote, err := ns.readBuckets(prevIndex, limit)
-		log.L().Info("Read native buckets from contract", zap.Int("size", len(vote)))
+		log.L().Debug("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
 			break

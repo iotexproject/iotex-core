@@ -8,13 +8,11 @@ package chainservice
 
 import (
 	"context"
-	"database/sql"
 	"os"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -27,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -107,52 +104,11 @@ func New(
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
 		if committeeConfig.GravityChainStartHeight != 0 {
-			fileExists := func(path string) bool {
-				_, err := os.Stat(path)
-				if os.IsNotExist(err) {
-					return false
-				}
-				if err != nil {
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				return true
-			}
-			isOldCommitteeDB := func(dbCfg config.DB) bool {
-				if !fileExists(dbCfg.DbPath) {
-					return false
-				}
-				db, err := bolt.Open(dbCfg.DbPath, 0666, nil)
-				if err != nil {
-					if err == bolt.ErrInvalid {
-						return false
-					}
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				if err = db.Close(); err != nil {
-					log.L().Panic("unexpected error", zap.Error(err))
-				}
-				return true
-			}
-			oldDBCfg := cfg.Chain.GravityChainDB
-			oldDBCfg.DbPath = oldDBCfg.DbPath + ".old"
-			var kvstore db.KVStore
-			if isOldCommitteeDB(cfg.Chain.GravityChainDB) {
-				if err = os.Rename(cfg.Chain.GravityChainDB.DbPath, oldDBCfg.DbPath); err != nil {
-					return nil, err
-				}
-			}
-			if fileExists(oldDBCfg.DbPath) {
-				kvstore = db.NewBoltDB(oldDBCfg)
-			}
-			sqlDB, err := sql.Open("sqlite3", cfg.Chain.GravityChainDB.DbPath)
-			if err != nil {
-				return nil, err
-			}
-
 			archive, err := committee.NewArchive(
-				sqlDB, committeeConfig.GravityChainStartHeight,
+				cfg.Chain.GravityChainDB.DbPath,
+				cfg.Chain.GravityChainDB.NumRetries,
+				committeeConfig.GravityChainStartHeight,
 				committeeConfig.GravityChainHeightInterval,
-				kvstore,
 			)
 			if err != nil {
 				return nil, err

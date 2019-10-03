@@ -151,9 +151,9 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
-	log.L().Info("Store native buckets", zap.Int("size", len(sc.currentNativeBuckets)))
+	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
 	if err := sc.electionCommittee.PutNativePollByEpoch(
-		sc.rp.GetEpochNum(raCtx.BlockHeight),
+		sc.rp.GetEpochNum(raCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
 		raCtx.BlockTimeStamp,
 		sc.currentNativeBuckets,
 	); err != nil {
