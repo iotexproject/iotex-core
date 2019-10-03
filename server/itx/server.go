@@ -90,7 +90,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		)
 	cs.Blockchain().Validator().
 		SetActPool(
-			protocol.NewActPoolInterface(cs.ActionPool()),
+			cs.ActionPool(),
 		)
 	// Install protocols
 	if err := registerDefaultProtocols(cs, cfg); err != nil {

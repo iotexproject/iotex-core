@@ -33,7 +33,7 @@ type Validator interface {
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
 	// SetActPool set ActPoolManager
-	SetActPool(actPool protocol.ActPoolManager)
+	SetActPool(actPool ActPoolManager)
 }
 
 type validator struct {
@@ -42,7 +42,7 @@ type validator struct {
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
 	actionValidators         []protocol.ActionValidator
 	senderBlackList          map[string]bool
-	actPool                  protocol.ActPoolManager
+	actPool                  ActPoolManager
 }
 
 var (
@@ -89,7 +89,7 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 }
 
 // SetActPool set ActPool
-func (v *validator) SetActPool(actPool protocol.ActPoolManager) {
+func (v *validator) SetActPool(actPool ActPoolManager) {
 	v.actPool = actPool
 }
 

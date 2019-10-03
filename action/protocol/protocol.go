@@ -121,9 +121,3 @@ func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[str
 func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	return nil, nil, nil
 }
-
-// ActPoolManager defines the actpool interface
-type ActPoolManager interface {
-	// GetActionByHash returns the pending action in pool given action's hash
-	GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error)
-}
