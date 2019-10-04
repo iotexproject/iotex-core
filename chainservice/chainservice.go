@@ -104,16 +104,12 @@ func New(
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
 		if committeeConfig.GravityChainStartHeight != 0 {
-			archive, err := committee.NewArchive(
+			arch, err := committee.NewArchive(
 				cfg.Chain.GravityChainDB.DbPath,
 				cfg.Chain.GravityChainDB.NumRetries,
 				committeeConfig.GravityChainStartHeight,
 				committeeConfig.GravityChainHeightInterval,
 			)
-			if err != nil {
-				return nil, err
-			}
-			arch, err := committee.NewArchive(sqlDB, cfg.Genesis.GravityChainStartHeight, cfg.Genesis.GravityChainHeightInterval, kvstore)
 			if err != nil {
 				return nil, err
 			}
