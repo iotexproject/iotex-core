@@ -78,14 +78,14 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime,
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes() (*VoteTally, error) {
+func (ns *NativeStaking) Votes() (*VoteTally, time.Time, error) {
 	if ns.contract == "" {
-		return nil, ErrNoData
+		return nil, time.Time{}, ErrNoData
 	}
 
 	now, err := ns.getTipBlockTime()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current block time")
+		return nil, time.Time{}, errors.Wrap(err, "failed to get current block time")
 	}
 	// read voter list from staking contract
 	votes := VoteTally{
@@ -103,7 +103,7 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, now, err
 		}
 		votes.tally(vote, now)
 		if len(vote) < int(limit.Int64()) {
@@ -112,7 +112,7 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 		}
 		prevIndex.Add(prevIndex, limit)
 	}
-	return &votes, nil
+	return &votes, now, nil
 }
 
 func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket, error) {

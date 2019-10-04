@@ -8,7 +8,9 @@ package poll
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -21,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-election/util"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -106,7 +109,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
-	nativeVotes, err := sc.nativeStaking.Votes()
+	nativeVotes, ts, err := sc.nativeStaking.Votes()
 	if err == ErrNoData {
 		// no native staking data
 		return cand, nil
@@ -115,18 +118,19 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
 	sc.currentNativeBuckets = nativeVotes.Buckets
-	return sc.mergeDelegates(cand, nativeVotes), nil
+	return sc.mergeDelegates(cand, nativeVotes, ts), nil
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 
-func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally) state.CandidateList {
+func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally, ts time.Time) state.CandidateList {
 	// as of now, native staking does not have register contract, only voting/staking contract
 	// it is assumed that all votes done on native staking target for delegates registered on Ethereum
 	// votes cast to all outside address will not be counted and simply ignored
-	var merged state.CandidateList
+	candidates := make(map[string]*state.Candidate)
+	candidateScores := make(map[string]*big.Int)
 	for _, cand := range list {
 		clone := cand.Clone()
 		name := to12Bytes(clone.CanName)
@@ -134,8 +138,14 @@ func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *Vote
 			clone.Votes.Add(clone.Votes, v.Votes)
 		}
 		if clone.Votes.Cmp(sc.scoreThreshold) >= 0 {
-			merged = append(merged, clone)
+			candidates[hex.EncodeToString(name[:])] = clone
+			candidateScores[hex.EncodeToString(name[:])] = clone.Votes
 		}
+	}
+	sorted := util.Sort(candidateScores, uint64(ts.Unix()))
+	var merged state.CandidateList
+	for _, name := range sorted {
+		merged = append(merged, candidates[name])
 	}
 	return merged
 }
