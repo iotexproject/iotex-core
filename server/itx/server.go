@@ -306,6 +306,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 			}
 			if pollProtocol, err = poll.NewStakingCommittee(
 				config.NewHeightUpgrade(cfg),
+				electionCommittee,
 				governance,
 				cs.Blockchain(),
 				func() (time.Time, error) {
@@ -322,6 +323,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 				rolldposProtocol.GetEpochHeight,
 				rolldposProtocol.GetEpochNum,
 				cfg.Genesis.NativeStakingContractAddress,
+				rolldposProtocol,
 				scoreThreshold,
 			); err != nil {
 				return

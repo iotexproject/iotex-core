@@ -20,6 +20,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -61,7 +62,8 @@ type BroadcastOutbound func(ctx context.Context, chainID uint32, msg proto.Messa
 
 // Config represents the config to setup api
 type Config struct {
-	broadcastHandler BroadcastOutbound
+	broadcastHandler  BroadcastOutbound
+	electionCommittee committee.Committee
 }
 
 // Option is the option to override the api config
@@ -75,18 +77,27 @@ func WithBroadcastOutbound(broadcastHandler BroadcastOutbound) Option {
 	}
 }
 
+// WithNativeElection is the option to return native election data through API.
+func WithNativeElection(committee committee.Committee) Option {
+	return func(cfg *Config) error {
+		cfg.electionCommittee = committee
+		return nil
+	}
+}
+
 // Server provides api for user to query blockchain data
 type Server struct {
-	bc               blockchain.Blockchain
-	dp               dispatcher.Dispatcher
-	ap               actpool.ActPool
-	gs               *gasstation.GasStation
-	broadcastHandler BroadcastOutbound
-	cfg              config.Config
-	registry         *protocol.Registry
-	chainListener    Listener
-	grpcserver       *grpc.Server
-	hasActionIndex   bool
+	bc                blockchain.Blockchain
+	dp                dispatcher.Dispatcher
+	ap                actpool.ActPool
+	gs                *gasstation.GasStation
+	broadcastHandler  BroadcastOutbound
+	cfg               config.Config
+	registry          *protocol.Registry
+	chainListener     Listener
+	grpcserver        *grpc.Server
+	hasActionIndex    bool
+	electionCommittee committee.Committee
 }
 
 // NewServer creates a new server
@@ -115,14 +126,15 @@ func NewServer(
 	}
 
 	svr := &Server{
-		bc:               chain,
-		dp:               dispatcher,
-		ap:               actPool,
-		broadcastHandler: apiCfg.broadcastHandler,
-		cfg:              cfg,
-		registry:         registry,
-		chainListener:    NewChainListener(),
-		gs:               gasstation.NewGasStation(chain, cfg.API),
+		bc:                chain,
+		dp:                dispatcher,
+		ap:                actPool,
+		broadcastHandler:  apiCfg.broadcastHandler,
+		cfg:               cfg,
+		registry:          registry,
+		chainListener:     NewChainListener(),
+		gs:                gasstation.NewGasStation(chain, cfg.API),
+		electionCommittee: apiCfg.electionCommittee,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
@@ -602,6 +614,36 @@ func (api *Server) GetVotes(
 	// Moreover, it relies on election committee but not the poll protocol.
 	// Before we are able to provide an API to query votes by iotex chain height, deleting this implementation as if it has been deprecated.
 	return nil, nil
+}
+
+// GetElectionBuckets returns the native election buckets.
+func (api *Server) GetElectionBuckets(
+	ctx context.Context,
+	in *iotexapi.GetElectionBucketsRequest,
+) (*iotexapi.GetElectionBucketsResponse, error) {
+	if api.electionCommittee == nil {
+		return nil, status.Error(codes.Unavailable, "Native election no supported")
+	}
+	buckets, err := api.electionCommittee.NativeBucketsByEpoch(in.GetEpochNum())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	re := make([]*iotextypes.ElectionBucket, len(buckets))
+	for i, b := range buckets {
+		startTime, err := ptypes.TimestampProto(b.StartTime())
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		re[i] = &iotextypes.ElectionBucket{
+			Voter:     b.Voter(),
+			Candidate: b.Candidate(),
+			Amount:    b.Amount().Bytes(),
+			StartTime: startTime,
+			Duration:  ptypes.DurationProto(b.Duration()),
+			Decay:     b.Decay(),
+		}
+	}
+	return &iotexapi.GetElectionBucketsResponse{Buckets: re}, nil
 }
 
 // Start starts the API server

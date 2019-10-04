@@ -15,6 +15,7 @@ const (
 	Pacific = iota
 	Aleutian
 	Bering
+	Cook
 )
 
 type (
@@ -26,6 +27,7 @@ type (
 		pacificHeight  uint64
 		aleutianHeight uint64
 		beringHeight   uint64
+		cookHeight     uint64
 	}
 )
 
@@ -35,19 +37,23 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 		cfg.Genesis.PacificBlockHeight,
 		cfg.Genesis.AleutianBlockHeight,
 		cfg.Genesis.BeringBlockHeight,
+		cfg.Genesis.CookBlockHeight,
 	}
 }
 
 // IsPost return true if height is after the height upgrade
 func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 	var h uint64
-	if name == Pacific {
+	switch name {
+	case Pacific:
 		h = hu.pacificHeight
-	} else if name == Aleutian {
+	case Aleutian:
 		h = hu.aleutianHeight
-	} else if name == Bering {
+	case Bering:
 		h = hu.beringHeight
-	} else {
+	case Cook:
+		h = hu.cookHeight
+	default:
 		log.Panic("invalid height name!")
 	}
 	return height >= h
@@ -66,3 +72,6 @@ func (hu *HeightUpgrade) AleutianBlockHeight() uint64 { return hu.aleutianHeight
 
 // BeringBlockHeight returns the bering height
 func (hu *HeightUpgrade) BeringBlockHeight() uint64 { return hu.beringHeight }
+
+// CookBlockHeight returns the cook height
+func (hu *HeightUpgrade) CookBlockHeight() uint64 { return hu.cookHeight }
