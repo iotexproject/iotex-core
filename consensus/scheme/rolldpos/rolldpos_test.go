@@ -191,8 +191,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(5)
-	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
+	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).AnyTimes()
+	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).AnyTimes()
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
 		{Address: candidates[1]},
@@ -211,8 +211,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	r, err := NewRollDPoSBuilder().
-		SetConfig(cfg).
+	b := NewRollDPoSBuilder().
 		SetAddr(identityset.Address(1).String()).
 		SetPriKey(sk1).
 		SetChainManager(blockchain).
@@ -221,35 +220,14 @@ func TestValidateBlockFooter(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		RegisterProtocol(rp).
-		Build()
-	require.NoError(t, err)
-	require.NotNil(t, r)
+		RegisterProtocol(rp)
 
-	// all right
-	blk := makeBlock(t, 1, 4, false, 9)
-	err = r.ValidateBlockFooter(blk)
-	require.NoError(t, err)
-
-	// Proposer is wrong
-	blk = makeBlock(t, 0, 4, false, 9)
-	err = r.ValidateBlockFooter(blk)
-	require.Error(t, err)
-
-	// Not enough endorsements
-	blk = makeBlock(t, 1, 2, false, 9)
-	err = r.ValidateBlockFooter(blk)
-	require.Error(t, err)
-
-	// round information is wrong
-	blk = makeBlock(t, 1, 4, false, 0)
-	err = r.ValidateBlockFooter(blk)
-	require.Error(t, err)
-
-	// Some endorsement is invalid
-	blk = makeBlock(t, 1, 4, true, 9)
-	err = r.ValidateBlockFooter(blk)
-	require.Error(t, err)
+	t.Run("withRoundInfo", func(t *testing.T) {
+		validateBlockFooter(t, true, cfg, b)
+	})
+	t.Run("withoutRoundInfo", func(t *testing.T) {
+		validateBlockFooter(t, false, cfg, b)
+	})
 }
 
 func TestRollDPoS_Metrics(t *testing.T) {
@@ -700,4 +678,42 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 		}
 	})
+}
+
+func validateBlockFooter(t *testing.T, withRoundInfo bool, cfg config.Config, b *Builder) {
+	cfg.Consensus.RollDPoS.ParticipateConsensus = withRoundInfo
+	r, err := b.SetConfig(cfg).Build()
+	require.NoError(t, err)
+	require.NotNil(t, r)
+	require.NoError(t, r.Start(context.Background()))
+	defer func() {
+		require.NoError(t, r.Stop(context.Background()))
+	}()
+
+	// all right
+	blk := makeBlock(t, 1, 4, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.NoError(t, err)
+
+	// Proposer is wrong
+	blk = makeBlock(t, 0, 4, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	// Not enough endorsements
+	blk = makeBlock(t, 1, 2, false, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
+
+	//round information is wrong
+	if withRoundInfo {
+		blk = makeBlock(t, 1, 4, false, 0)
+		err = r.ValidateBlockFooter(blk)
+		require.Error(t, err)
+	}
+
+	// Some endorsement is invalid
+	blk = makeBlock(t, 1, 4, true, 9)
+	err = r.ValidateBlockFooter(blk)
+	require.Error(t, err)
 }

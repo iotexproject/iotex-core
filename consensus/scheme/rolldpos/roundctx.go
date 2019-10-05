@@ -106,11 +106,11 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 }
 
 func (ctx *roundCtx) Block(blkHash []byte) *block.Block {
-	return ctx.block(blkHash)
+	return fetchBlock(ctx.eManager, blkHash)
 }
 
 func (ctx *roundCtx) Endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
-	return ctx.endorsements(blkHash, topics)
+	return endorsements(ctx.eManager, blkHash, topics)
 }
 
 func (ctx *roundCtx) IsLocked() bool {
@@ -183,7 +183,7 @@ func (ctx *roundCtx) EndorsedByMajority(
 	blockHash []byte,
 	topics []ConsensusVoteTopic,
 ) bool {
-	return ctx.endorsedByMajority(blockHash, topics)
+	return endorsedByMajority(ctx.eManager, blockHash, topics, len(ctx.delegates))
 }
 
 func (ctx *roundCtx) AddBlock(blk *block.Block) error {
@@ -194,28 +194,22 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
 ) error {
-	if !endorsement.VerifyEndorsement(vote, en) {
-		return errors.New("invalid endorsement for the vote")
-	}
-	blockHash := vote.BlockHash()
-	// TODO: (zhi) request for block
-	if len(blockHash) != 0 && ctx.block(blockHash) == nil {
-		return errors.New("the corresponding block not received")
-	}
-	if err := ctx.eManager.AddVoteEndorsement(vote, en); err != nil {
+	if err := addVoteEndorsement(ctx.eManager, vote, en, len(ctx.delegates)); err != nil {
 		return err
 	}
 	if vote.Topic() == LOCK {
 		return nil
 	}
+	blockHash := vote.BlockHash()
 	if len(blockHash) != 0 && ctx.status == locked {
 		return nil
 	}
-	endorsements := ctx.endorsements(
+	endorsements := endorsements(
+		ctx.eManager,
 		blockHash,
 		[]ConsensusVoteTopic{PROPOSAL, COMMIT},
 	)
-	if !ctx.isMajority(endorsements) {
+	if !isMajority(endorsements, len(ctx.delegates)) {
 		return nil
 	}
 	if len(blockHash) == 0 {
@@ -232,20 +226,8 @@ func (ctx *roundCtx) AddVoteEndorsement(
 
 // private functions
 
-func (ctx *roundCtx) endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
-	c := ctx.eManager.CollectionByBlockHash(blkHash)
-	if c == nil {
-		return []*endorsement.Endorsement{}
-	}
-	return c.Endorsements(topics)
-}
-
 func (ctx *roundCtx) endorsedByMajority(blockHash []byte, topics []ConsensusVoteTopic) bool {
-	return ctx.isMajority(ctx.endorsements(blockHash, topics))
-}
-
-func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
-	return 3*len(endorsements) > 2*len(ctx.delegates)
+	return isMajority(endorsements(ctx.eManager, blockHash, topics), len(ctx.delegates))
 }
 
 func (ctx *roundCtx) block(blkHash []byte) *block.Block {

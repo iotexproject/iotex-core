@@ -31,9 +31,6 @@ var (
 	statusKey             = []byte("status")
 )
 
-//EndorsedByMajorityFunc defines a function to give an information of consensus status
-type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
-
 type endorserEndorsementCollection struct {
 	endorsements map[ConsensusVoteTopic]*endorsement.Endorsement
 }
@@ -218,9 +215,8 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
-	isMajorityFunc EndorsedByMajorityFunc
-	eManagerDB     db.KVStore
-	collections    map[string]*blockEndorsementCollection
+	eManagerDB  db.KVStore
+	collections map[string]*blockEndorsementCollection
 }
 
 func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
@@ -270,11 +266,6 @@ func (m *endorsementManager) PutEndorsementManagerToDB() error {
 		return err
 	}
 	return nil
-}
-
-func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
-	m.isMajorityFunc = isMajorityFunc
-	return
 }
 
 func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
@@ -342,11 +333,9 @@ func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
 func (m *endorsementManager) AddVoteEndorsement(
 	vote *ConsensusVote,
 	en *endorsement.Endorsement,
+	numDelegates int,
 ) error {
-	var beforeVote, afterVote bool
-	if m.isMajorityFunc != nil {
-		beforeVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
-	}
+	beforeVote := endorsedByMajority(m, vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()}, numDelegates)
 	encoded := encodeToString(vote.BlockHash())
 	c, exists := m.collections[encoded]
 	if !exists {
@@ -357,8 +346,8 @@ func (m *endorsementManager) AddVoteEndorsement(
 	}
 	m.collections[encoded] = c
 
-	if m.eManagerDB != nil && m.isMajorityFunc != nil {
-		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
+	if m.eManagerDB != nil {
+		afterVote := endorsedByMajority(m, vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()}, numDelegates)
 		if !beforeVote && afterVote {
 			//put into DB only it changes the status of consensus
 			return m.PutEndorsementManagerToDB()

@@ -82,7 +82,11 @@ type rollDPoSCtx struct {
 	broadcastHandler  scheme.Broadcast
 	roundCalc         *roundCalculator
 	eManagerDB        db.KVStore
+	eManager          *endorsementManager
 	toleratedOvertime time.Duration
+
+	rp                     *rolldpos.Protocol
+	candidatesByHeightFunc CandidatesByHeightFunc
 
 	encodedAddr string
 	priKey      crypto.PrivateKey
@@ -121,7 +125,7 @@ func newRollDPoSCtx(
 	if candidatesByHeightFunc == nil {
 		candidatesByHeightFunc = chain.CandidatesByHeight
 	}
-	if cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
+	if cfg.ParticipateConsensus && cfg.FSM.AcceptBlockTTL+cfg.FSM.AcceptProposalEndorsementTTL+cfg.FSM.AcceptLockEndorsementTTL+cfg.FSM.CommitTTL > blockInterval {
 		return nil, errors.Errorf(
 			"invalid ttl config, the sum of ttls should be equal to block interval. acceptBlockTTL %d, acceptProposalEndorsementTTL %d, acceptLockEndorsementTTL %d, commitTTL %d, blockInterval %d",
 			cfg.FSM.AcceptBlockTTL,
@@ -135,40 +139,47 @@ func newRollDPoSCtx(
 	if len(consensusDBConfig.DbPath) > 0 {
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
-	roundCalc := &roundCalculator{
-		blockInterval:          blockInterval,
-		candidatesByHeightFunc: candidatesByHeightFunc,
-		chain:                  chain,
-		rp:                     rp,
-		timeBasedRotation:      timeBasedRotation,
-		beringHeight:           beringHeight,
+	var roundCalc *roundCalculator
+	if cfg.ParticipateConsensus {
+		roundCalc = &roundCalculator{
+			blockInterval:          blockInterval,
+			candidatesByHeightFunc: candidatesByHeightFunc,
+			chain:                  chain,
+			rp:                     rp,
+			timeBasedRotation:      timeBasedRotation,
+			beringHeight:           beringHeight,
+		}
 	}
 	return &rollDPoSCtx{
-		cfg:               cfg,
-		active:            active,
-		encodedAddr:       encodedAddr,
-		priKey:            priKey,
-		chain:             chain,
-		actPool:           actPool,
-		broadcastHandler:  broadcastHandler,
-		clock:             clock,
-		roundCalc:         roundCalc,
-		eManagerDB:        eManagerDB,
-		toleratedOvertime: toleratedOvertime,
+		cfg:                    cfg,
+		active:                 active,
+		encodedAddr:            encodedAddr,
+		priKey:                 priKey,
+		chain:                  chain,
+		actPool:                actPool,
+		broadcastHandler:       broadcastHandler,
+		clock:                  clock,
+		roundCalc:              roundCalc,
+		eManagerDB:             eManagerDB,
+		toleratedOvertime:      toleratedOvertime,
+		rp:                     rp,
+		candidatesByHeightFunc: candidatesByHeightFunc,
 	}, nil
 }
 
 func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
-	var eManager *endorsementManager
 	if ctx.eManagerDB != nil {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), eManager, ctx.toleratedOvertime)
-
-	return err
+	if ctx.eManager, err = newEndorsementManager(ctx.eManagerDB); err != nil {
+		return errors.Wrap(err, "failed to create endorsement manager")
+	}
+	if ctx.cfg.ParticipateConsensus {
+		ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.clock.Now(), ctx.eManager, ctx.toleratedOvertime)
+	}
+	return
 }
 
 func (ctx *rollDPoSCtx) Stop(c context.Context) error {

@@ -106,19 +106,19 @@ func TestEndorsementManager(t *testing.T) {
 	require.NoError(em.RegisterBlock(&b))
 
 	require.Panics(func() {
-		em.AddVoteEndorsement(nil, nil)
+		em.AddVoteEndorsement(nil, nil, 0)
 	}, "vote is nil")
 	blkHash := b.HashBlock()
 	cv := NewConsensusVote(blkHash[:], PROPOSAL)
 	require.NotNil(cv)
 
 	require.Panics(func() {
-		em.AddVoteEndorsement(cv, nil)
+		em.AddVoteEndorsement(cv, nil, 0)
 	}, "endorsement is nil")
 
 	timestamp := time.Now()
 	end := endorsement.NewEndorsement(timestamp, b.PublicKey(), []byte("123"))
-	require.NoError(em.AddVoteEndorsement(cv, end))
+	require.NoError(em.AddVoteEndorsement(cv, end, 0))
 
 	require.Panics(func() {
 		em.Log(nil, nil)
@@ -130,7 +130,7 @@ func TestEndorsementManager(t *testing.T) {
 	cv2 := NewConsensusVote(blkHash[:], LOCK)
 	require.NotNil(cv2)
 	end2 := endorsement.NewEndorsement(timestamp.Add(time.Second*10), b.PublicKey(), []byte("456"))
-	require.NoError(em.AddVoteEndorsement(cv2, end2))
+	require.NoError(em.AddVoteEndorsement(cv2, end2, 0))
 	l.Info("test output2")
 
 	encoded := encodeToString(cv.BlockHash())
@@ -172,7 +172,7 @@ func TestEndorsementManagerProto(t *testing.T) {
 	cv := NewConsensusVote(blkHash[:], PROPOSAL)
 	require.NotNil(cv)
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
-	require.NoError(em.AddVoteEndorsement(cv, end))
+	require.NoError(em.AddVoteEndorsement(cv, end, 0))
 
 	//test converting endorsement pb
 	endProto, err := end.Proto()

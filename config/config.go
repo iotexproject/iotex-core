@@ -118,6 +118,7 @@ var (
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
+				ParticipateConsensus: true,
 				FSM: consensusfsm.Config{
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
@@ -248,10 +249,11 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		FSM               consensusfsm.Config `yaml:"fsm"`
-		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
-		Delay             time.Duration       `yaml:"delay"`
-		ConsensusDBPath   string              `yaml:"consensusDBPath"`
+		ParticipateConsensus bool                `yaml:"participateConsensus"`
+		FSM                  consensusfsm.Config `yaml:"fsm"`
+		ToleratedOvertime    time.Duration       `yaml:"toleratedOvertime"`
+		Delay                time.Duration       `yaml:"delay"`
+		ConsensusDBPath      string              `yaml:"consensusDBPath"`
 	}
 
 	// Dispatcher is the dispatcher config

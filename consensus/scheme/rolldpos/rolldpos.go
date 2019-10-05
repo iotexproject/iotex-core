@@ -77,6 +77,9 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 	if err := r.ctx.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the roll dpos context")
 	}
+	if !r.ctx.cfg.ParticipateConsensus {
+		return nil
+	}
 	if err := r.cfsm.Start(ctx); err != nil {
 		return errors.Wrap(err, "error when starting the consensus FSM")
 	}
@@ -92,11 +95,18 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 	if err := r.ctx.Stop(ctx); err != nil {
 		return errors.Wrap(r.ctx.Stop(ctx), "error when stopping the roll dpos context")
 	}
+	if !r.ctx.cfg.ParticipateConsensus {
+		return nil
+	}
 	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
 }
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+	if !r.ctx.cfg.ParticipateConsensus {
+		log.Logger("consensus").Warn("Current roll dpos scheme does not participate consensus.")
+		return nil
+	}
 	<-r.ready
 	consensusHeight := r.ctx.Height()
 	switch {
@@ -154,11 +164,88 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 
 // Calibrate called on receive a new block not via consensus
 func (r *RollDPoS) Calibrate(height uint64) {
-	r.cfsm.Calibrate(height)
+	if r.ctx.cfg.ParticipateConsensus {
+		r.cfsm.Calibrate(height)
+	}
 }
 
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
+	if r.ctx.cfg.ParticipateConsensus {
+		return r.validateBlockFooterWithRoundInfo(blk)
+	}
+	return r.validateBlockFooterWithoutRoundInfo(blk)
+}
+
+// Metrics returns RollDPoS consensus metrics
+func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
+	if !r.ctx.cfg.ParticipateConsensus {
+		return scheme.ConsensusMetrics{}, errors.Wrapf(
+			scheme.ErrNotImplemented,
+			"current roll dpos scheme does not participate consensus",
+		)
+	}
+	var metrics scheme.ConsensusMetrics
+	height := r.ctx.chain.TipHeight()
+	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now(), nil)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when calculating round")
+	}
+	// Get all candidates
+	candidates, err := r.ctx.chain.CandidatesByHeight(height)
+	if err != nil {
+		return metrics, errors.Wrap(err, "error when getting all candidates")
+	}
+	candidateAddresses := make([]string, len(candidates))
+	for i, c := range candidates {
+		candidateAddresses[i] = c.Address
+	}
+
+	return scheme.ConsensusMetrics{
+		LatestEpoch:         round.EpochNum(),
+		LatestHeight:        height,
+		LatestDelegates:     round.Delegates(),
+		LatestBlockProducer: round.proposer,
+		Candidates:          candidateAddresses,
+	}, nil
+}
+
+// NumPendingEvts returns the number of pending events
+func (r *RollDPoS) NumPendingEvts() int {
+	if r.ctx.cfg.ParticipateConsensus {
+		return r.cfsm.NumPendingEvents()
+	}
+	return 0
+}
+
+// CurrentState returns the current state
+func (r *RollDPoS) CurrentState() fsm.State {
+	if r.ctx.cfg.ParticipateConsensus {
+		return r.cfsm.CurrentState()
+	}
+	return ""
+}
+
+// Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
+// consensus round if it is doing the work and then return the the initial state
+func (r *RollDPoS) Activate(active bool) {
+	if r.ctx.cfg.ParticipateConsensus {
+		log.S().Warn("Current roll dpos scheme does not participate consensus")
+		return
+	}
+	r.ctx.Activate(active)
+}
+
+// Active is true if the roll-DPoS consensus is active, or false if it is stand-by
+func (r *RollDPoS) Active() bool {
+	if r.ctx.cfg.ParticipateConsensus {
+		return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
+	}
+	// If the node does not participate in consensus, it is always active
+	return true
+}
+
+func (r *RollDPoS) validateBlockFooterWithRoundInfo(blk *block.Block) error {
 	round, err := r.ctx.RoundCalc().NewRound(blk.Height(), blk.Timestamp(), nil)
 	if err != nil {
 		return err
@@ -188,50 +275,106 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	return nil
 }
 
-// Metrics returns RollDPoS consensus metrics
-func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
-	var metrics scheme.ConsensusMetrics
-	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.clock.Now(), nil)
+func (r *RollDPoS) validateBlockFooterWithoutRoundInfo(blk *block.Block) error {
+	isDel, delegates, err := r.isDelegate(blk.ProducerAddress(), blk.Height())
 	if err != nil {
-		return metrics, errors.Wrap(err, "error when calculating round")
+		return err
 	}
-	// Get all candidates
-	candidates, err := r.ctx.chain.CandidatesByHeight(height)
+	if !isDel {
+		return errors.Errorf(
+			"block proposer %s is not a valid delegate",
+			blk.ProducerAddress(),
+		)
+	}
+	if err := r.ctx.eManager.Cleanup(time.Time{}); err != nil {
+		return errors.Wrap(err, "failed to clean up endorsement manager")
+	}
+	if err := r.addBlock(blk); err != nil {
+		return err
+	}
+	blkHash := blk.HashBlock()
+	for _, en := range blk.Endorsements() {
+		if err := r.addVoteEndorsement(
+			NewConsensusVote(blkHash[:], COMMIT),
+			en,
+			len(delegates),
+		); err != nil {
+			return err
+		}
+	}
+	if !endorsedByMajority(r.ctx.eManager, blkHash[:], []ConsensusVoteTopic{COMMIT}, len(delegates)) {
+		return ErrInsufficientEndorsements
+	}
+	return nil
+}
+
+func (r *RollDPoS) getDelegates(height uint64) ([]string, error) {
+	epochStartHeight := r.ctx.rp.GetEpochHeight(r.ctx.rp.GetEpochNum(height))
+	numDelegates := r.ctx.rp.NumDelegates()
+	candidates, err := r.ctx.candidatesByHeightFunc(epochStartHeight)
 	if err != nil {
-		return metrics, errors.Wrap(err, "error when getting all candidates")
+		return nil, errors.Wrapf(
+			err,
+			"failed to get candidates on height %d",
+			epochStartHeight,
+		)
 	}
-	candidateAddresses := make([]string, len(candidates))
-	for i, c := range candidates {
-		candidateAddresses[i] = c.Address
+	if len(candidates) < int(numDelegates) {
+		return nil, errors.Errorf(
+			"# of candidates %d is less than from required number %d",
+			len(candidates),
+			numDelegates,
+		)
 	}
+	var addrs []string
+	for i, candidate := range candidates {
+		if uint64(i) >= r.ctx.rp.NumCandidateDelegates() {
+			break
+		}
+		addrs = append(addrs, candidate.Address)
+	}
+	crypto.SortCandidates(addrs, epochStartHeight, crypto.CryptoSeed)
 
-	return scheme.ConsensusMetrics{
-		LatestEpoch:         round.EpochNum(),
-		LatestHeight:        height,
-		LatestDelegates:     round.Delegates(),
-		LatestBlockProducer: round.proposer,
-		Candidates:          candidateAddresses,
-	}, nil
+	return addrs[:numDelegates], nil
 }
 
-// NumPendingEvts returns the number of pending events
-func (r *RollDPoS) NumPendingEvts() int {
-	return r.cfsm.NumPendingEvents()
+func (r *RollDPoS) isDelegate(addr string, height uint64) (bool, []string, error) {
+	delegates, err := r.getDelegates(height)
+	if err != nil {
+		return false, nil, errors.Wrapf(err, "failed to get delegates on height %d", height)
+	}
+	for _, d := range delegates {
+		if addr == d {
+			return true, delegates, nil
+		}
+	}
+	return false, delegates, nil
 }
 
-// CurrentState returns the current state
-func (r *RollDPoS) CurrentState() fsm.State {
-	return r.cfsm.CurrentState()
+func (r *RollDPoS) addBlock(blk *block.Block) error {
+	return r.ctx.eManager.RegisterBlock(blk)
 }
 
-// Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
-// consensus round if it is doing the work and then return the the initial state
-func (r *RollDPoS) Activate(active bool) { r.ctx.Activate(active) }
-
-// Active is true if the roll-DPoS consensus is active, or false if it is stand-by
-func (r *RollDPoS) Active() bool {
-	return r.ctx.Active() || r.cfsm.CurrentState() != consensusfsm.InitState
+func (r *RollDPoS) addVoteEndorsement(
+	vote *ConsensusVote,
+	en *endorsement.Endorsement,
+	numDelegates int,
+) error {
+	if err := addVoteEndorsement(r.ctx.eManager, vote, en, numDelegates); err != nil {
+		return err
+	}
+	if vote.Topic() == LOCK {
+		return nil
+	}
+	if !endorsedByMajority(
+		r.ctx.eManager,
+		vote.BlockHash(),
+		[]ConsensusVoteTopic{PROPOSAL, COMMIT},
+		numDelegates,
+	) {
+		return nil
+	}
+	return nil
 }
 
 // Builder is the builder for RollDPoS
@@ -345,9 +488,12 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
-	cfsm, err := consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, ctx, b.clock)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
+	var cfsm *consensusfsm.ConsensusFSM
+	if b.cfg.Consensus.RollDPoS.ParticipateConsensus {
+		cfsm, err = consensusfsm.NewConsensusFSM(b.cfg.Consensus.RollDPoS.FSM, ctx, b.clock)
+		if err != nil {
+			return nil, errors.Wrap(err, "error when constructing the consensus FSM")
+		}
 	}
 	return &RollDPoS{
 		cfsm:       cfsm,
