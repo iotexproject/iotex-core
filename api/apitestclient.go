@@ -38,6 +38,8 @@ type ServiceClient interface {
 	SuggestGasPrice(ctx context.Context, in *iotexapi.SuggestGasPriceRequest, opts ...grpc.CallOption) (*iotexapi.SuggestGasPriceResponse, error)
 	// estimate gas for action
 	EstimateGasForAction(ctx context.Context, in *iotexapi.EstimateGasForActionRequest, opts ...grpc.CallOption) (*iotexapi.EstimateGasForActionResponse, error)
+	// estimate gas for action and transfer not sealed
+	EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest, opts ...grpc.CallOption) (*iotexapi.EstimateActionGasConsumptionResponse, error)
 	// read state from blockchain
 	ReadState(ctx context.Context, in *iotexapi.ReadStateRequest, opts ...grpc.CallOption) (*iotexapi.ReadStateResponse, error)
 	// get epoch metadata
@@ -46,8 +48,12 @@ type ServiceClient interface {
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
 	// get logs filtered by contract address and topics
 	GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest, opts ...grpc.CallOption) (*iotexapi.GetLogsResponse, error)
+	// get a single address' votes
+	GetVotes(ctx context.Context, in *iotexapi.GetVotesRequest, opts ...grpc.CallOption) (*iotexapi.GetVotesResponse, error)
 	// get block info in stream
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get filtered logs in stream
 	StreamLogs(ctx context.Context, in *iotexapi.StreamLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamLogsClient, error)
+	// get native elction buckets
+	GetElectionBuckets(ctx context.Context, in *iotexapi.GetElectionBucketsRequest, opts ...grpc.CallOption) (*iotexapi.GetElectionBucketsResponse, error)
 }
