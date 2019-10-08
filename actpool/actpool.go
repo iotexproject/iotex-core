@@ -7,7 +7,9 @@
 package actpool
 
 import (
+	"bytes"
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -80,6 +82,7 @@ type actPool struct {
 	cfg                       config.ActPool
 	bc                        blockchain.Blockchain
 	accountActs               map[string]ActQueue
+	accountDesActs            map[string][]action.SealedEnvelope
 	allActions                map[hash.Hash256]action.SealedEnvelope
 	gasInPool                 uint64
 	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
@@ -105,6 +108,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 		bc:              bc,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
+		accountDesActs:  make(map[string][]action.SealedEnvelope),
 		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
 	}
 	for _, opt := range opts {
@@ -262,28 +266,8 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	if queue, ok := ap.accountActs[addr]; ok {
 		ret = queue.AllActs()
 	}
-	addressAction, err := address.FromString(addr)
-	if err != nil {
-		return nil
-	}
-	//TODO Need add map to cache these datas if there's performance problem,related to #1259
-	for _, action := range ap.allActions {
-		dst, ok := action.Destination()
-		if !ok {
-			continue
-		}
-		dstAddr, err := address.FromString(dst)
-		if err != nil {
-			continue
-		}
-		pubKeyHash := action.SrcPubkey().Hash()
-		srcAddr, _ := address.FromBytes(pubKeyHash)
-		if address.Equal(srcAddr, addressAction) {
-			continue
-		}
-		if address.Equal(dstAddr, addressAction) {
-			ret = append(ret, action)
-		}
+	if queue, ok := ap.accountDesActs[addr]; ok {
+		ret = append(ret, queue...)
 	}
 	return ret
 }
@@ -392,6 +376,16 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 	}
 	ap.allActions[hash] = act
 
+	//add actions to destination map
+	desAddress, ok := act.Destination()
+	if ok && !strings.EqualFold(sender, desAddress) {
+		dst := ap.accountDesActs[desAddress]
+		if dst == nil {
+			ap.accountDesActs[desAddress] = make([]action.SealedEnvelope, 0)
+		}
+		ap.accountDesActs[desAddress] = append(ap.accountDesActs[desAddress], act)
+	}
+
 	intrinsicGas, _ := act.IntrinsicGas()
 	ap.gasInPool += intrinsicGas
 	// If the pending nonce equals this nonce, update queue
@@ -429,6 +423,21 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		delete(ap.allActions, hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		ap.gasInPool -= intrinsicGas
+
+		//del actions in destination map
+		desAddress, ok := act.Destination()
+		if ok {
+			dst := ap.accountDesActs[desAddress]
+			if dst != nil {
+				for i, v := range ap.accountDesActs[desAddress] {
+					h := v.Hash()
+					if bytes.Equal(h[:], hash[:]) {
+						ap.accountDesActs[desAddress] = append(ap.accountDesActs[desAddress][:i], ap.accountDesActs[desAddress][i+1:]...)
+						break
+					}
+				}
+			}
+		}
 	}
 }
 
