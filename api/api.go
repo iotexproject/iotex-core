@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -39,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -88,7 +88,6 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
-	dp                dispatcher.Dispatcher
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -104,7 +103,6 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
-	dispatcher dispatcher.Dispatcher,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
@@ -127,7 +125,6 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
-		dp:                dispatcher,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
@@ -304,13 +301,11 @@ func (api *Server) GetServerMeta(ctx context.Context,
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
 	log.L().Debug("receive send action request")
-
-	// broadcast to the network
-	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
-		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
-	}
-	// send to actpool via dispatcher
-	api.dp.HandleBroadcast(context.Background(), api.bc.ChainID(), in.Action)
+	t := time.Now()
+	defer func() {
+		t1 := time.Now()
+		fmt.Println("send action execution time", t1.Sub(t)*100)
+	}()
 
 	var selp action.SealedEnvelope
 	if err = selp.LoadProto(in.Action); err != nil {
@@ -318,6 +313,15 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	hash := selp.Hash()
 
+	// add to local actpool
+	if err = api.ap.Add(selp); err != nil {
+		log.L().Debug(err.Error())
+		return
+	}
+	// broadcast to the network
+	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
+		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
+	}
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
@@ -411,7 +415,7 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// EstimateActionGasConsumption estimate gas consume for exectution and transfer
+// EstimateActionGasConsumption estimate gas consume for execution and transfer
 func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	switch {
 	case in.GetExecution() != nil:

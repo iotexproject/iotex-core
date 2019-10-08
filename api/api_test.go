@@ -955,7 +955,7 @@ func TestServer_SendAction(t *testing.T) {
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
 	broadcastHandlerCount := 0
-	svr := Server{bc: chain, dp: mDp, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+	svr := Server{bc: chain, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
 		broadcastHandlerCount++
 		return nil
 	}}
