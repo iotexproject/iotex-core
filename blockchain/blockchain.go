@@ -15,16 +15,19 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-pkgs/bloom"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -45,6 +48,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -944,6 +948,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
+	bc.loadingNativeStakingContract()
 	log.L().Info("Restarting blockchain.",
 		zap.Uint64("chainHeight",
 			bc.tipHeight),
@@ -1330,6 +1335,11 @@ func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
 			return err
 		}
 	}
+	if bc.config.Genesis.NativeStakingContractCode != "" {
+		if err := bc.createNativeStakingContract(ctx, ws); err != nil {
+			return err
+		}
+	}
 	return bc.createRewardingGenesisStates(ctx, ws)
 }
 
@@ -1386,6 +1396,61 @@ func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.Wo
 		)
 	}
 	return nil
+}
+
+func (bc *blockchain) createNativeStakingContract(ctx context.Context, ws factory.WorkingSet) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
+	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
+	raCtx.GasLimit = bc.config.Genesis.BlockGasLimit
+	bytes, err := hexutil.Decode(bc.config.Genesis.NativeStakingContractCode)
+	if err != nil {
+		return err
+	}
+	hu := config.NewHeightUpgrade(bc.config)
+	execution, err := action.NewExecution(
+		"",
+		0,
+		big.NewInt(0),
+		bc.config.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		bytes,
+	)
+	if err != nil {
+		return err
+	}
+	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc, hu)
+	if err != nil {
+		return err
+	}
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
+	}
+	p, ok := bc.registry.Find(poll.ProtocolID)
+	if ok {
+		pp, ok := p.(poll.Protocol)
+		if ok {
+			pp.SetNativeStakingContract(receipt.ContractAddress)
+			log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
+		}
+	}
+	return nil
+}
+
+func (bc *blockchain) loadingNativeStakingContract() {
+	if bc.config.Genesis.NativeStakingContractAddress == "" && bc.config.Genesis.NativeStakingContractCode != "" {
+		p, ok := bc.registry.Find(poll.ProtocolID)
+		if ok {
+			pp, ok := p.(poll.Protocol)
+			if ok {
+				caller, _ := address.FromString(address.ZeroAddress)
+				ethAddr := ecrypto.CreateAddress(common.BytesToAddress(caller.Bytes()), 0)
+				iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
+				pp.SetNativeStakingContract(iotxAddr.String())
+				log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
+			}
+		}
+	}
 }
 
 func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws factory.WorkingSet) error {

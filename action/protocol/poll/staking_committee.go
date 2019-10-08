@@ -49,7 +49,8 @@ func NewStakingCommittee(
 	getTipBlockTime GetTipBlockTime,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
-	staking string,
+	nativeStakingContractAddress string,
+	nativeStakingContractCode string,
 	rp *rolldpos.Protocol,
 	scoreThreshold *big.Int,
 ) (Protocol, error) {
@@ -60,10 +61,13 @@ func NewStakingCommittee(
 		return nil, errors.New("failed to create native staking: empty getEpochNum")
 	}
 	var ns *NativeStaking
-	if staking != "" {
+	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
 		var err error
-		if ns, err = NewNativeStaking(cm, getTipBlockTime, staking); err != nil {
+		if ns, err = NewNativeStaking(cm, getTipBlockTime); err != nil {
 			return nil, errors.New("failed to create native staking")
+		}
+		if nativeStakingContractAddress != "" {
+			ns.SetContract(nativeStakingContractAddress)
 		}
 	}
 	return &stakingCommittee{
@@ -123,6 +127,11 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
+}
+
+// SetNativeStakingContract sets the address of native staking contract
+func (sc *stakingCommittee) SetNativeStakingContract(contract string) {
+	sc.nativeStaking.SetContract(contract)
 }
 
 func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally, ts time.Time) state.CandidateList {

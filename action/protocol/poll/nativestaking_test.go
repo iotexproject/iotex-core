@@ -39,13 +39,10 @@ func TestStaking(t *testing.T) {
 
 	mcm := &protocol.MockChainManager{}
 	getTime := func() (time.Time, error) { return time.Now(), nil }
-	ns, err := NewNativeStaking(nil, getTime, "")
+	ns, err := NewNativeStaking(mcm, nil)
 	require.Error(err)
-	ns, err = NewNativeStaking(mcm, nil, "")
-	require.Error(err)
-	ns, err = NewNativeStaking(mcm, getTime, "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39yn7")
-	require.Error(err)
-	ns, err = NewNativeStaking(mcm, getTime, "io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
+	ns, err = NewNativeStaking(mcm, getTime)
+	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
 	require.NoError(err)
 
 	pygg := &pygg{}
