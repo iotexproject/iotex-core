@@ -69,6 +69,8 @@ type Protocol interface {
 	DelegatesByHeight(uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
+	// SetContract sets the native staking contract address
+	SetNativeStakingContract(string)
 }
 
 type lifeLongDelegatesProtocol struct {
@@ -140,6 +142,10 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
+}
+
+func (p *lifeLongDelegatesProtocol) SetNativeStakingContract(contract string) {
+	zap.S().Panic("Not implemented")
 }
 
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
@@ -335,6 +341,10 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		return nil, errors.New("corresponding method isn't found")
 
 	}
+}
+
+func (p *governanceChainCommitteeProtocol) SetNativeStakingContract(contract string) {
+	zap.S().Panic("Not implemented")
 }
 
 func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {

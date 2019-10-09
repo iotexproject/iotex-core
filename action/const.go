@@ -12,7 +12,7 @@ var (
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
 	// ErrHitGasLimit is the error when hit gas limit
-	ErrHitGasLimit = errors.New("Hit Gas Limit")
+	ErrHitGasLimit = errors.New("Hit gas limit")
 	// ErrInsufficientBalanceForGas is the error that the balance in executor account is lower than gas
 	ErrInsufficientBalanceForGas = errors.New("Insufficient balance for gas")
 	// ErrOutOfGas is the error when running out of gas

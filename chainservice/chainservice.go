@@ -104,7 +104,7 @@ func New(
 		committeeConfig.SelfStakingThreshold = cfg.Genesis.SelfStakingThreshold
 
 		if committeeConfig.GravityChainStartHeight != 0 {
-			archive, err := committee.NewArchive(
+			arch, err := committee.NewArchive(
 				cfg.Chain.GravityChainDB.DbPath,
 				cfg.Chain.GravityChainDB.NumRetries,
 				committeeConfig.GravityChainStartHeight,
@@ -113,10 +113,7 @@ func New(
 			if err != nil {
 				return nil, err
 			}
-			if electionCommittee, err = committee.NewCommittee(
-				archive,
-				committeeConfig,
-			); err != nil {
+			if electionCommittee, err = committee.NewCommittee(arch, committeeConfig); err != nil {
 				return nil, err
 			}
 		}

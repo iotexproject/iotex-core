@@ -60,7 +60,7 @@ type (
 )
 
 // NewNativeStaking creates a NativeStaking instance
-func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime, staking string) (*NativeStaking, error) {
+func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime) (*NativeStaking, error) {
 	abi, err := abi.JSON(strings.NewReader(NsAbi))
 	if err != nil {
 		return nil, err
@@ -71,21 +71,22 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime,
 	if getTipBlockTime == nil {
 		return nil, errors.New("failed to create native staking: empty getBlockTime")
 	}
-	if _, err := address.FromString(staking); err != nil {
-		return nil, errors.Errorf("invalid staking contract %s", staking)
-	}
-	return &NativeStaking{cm, getTipBlockTime, staking, abi}, nil
+	return &NativeStaking{
+		cm:              cm,
+		getTipBlockTime: getTipBlockTime,
+		abi:             abi,
+	}, nil
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes() (*VoteTally, error) {
+func (ns *NativeStaking) Votes() (*VoteTally, time.Time, error) {
 	if ns.contract == "" {
-		return nil, ErrNoData
+		return nil, time.Time{}, ErrNoData
 	}
 
 	now, err := ns.getTipBlockTime()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get current block time")
+		return nil, time.Time{}, errors.Wrap(err, "failed to get current block time")
 	}
 	// read voter list from staking contract
 	votes := VoteTally{
@@ -103,7 +104,7 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, now, err
 		}
 		votes.tally(vote, now)
 		if len(vote) < int(limit.Int64()) {
@@ -112,7 +113,7 @@ func (ns *NativeStaking) Votes() (*VoteTally, error) {
 		}
 		prevIndex.Add(prevIndex, limit)
 	}
-	return &votes, nil
+	return &votes, now, nil
 }
 
 func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket, error) {
@@ -158,6 +159,15 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 		}
 	}
 	return buckets, nil
+}
+
+// SetContract sets the contract address
+func (ns *NativeStaking) SetContract(contract string) {
+	if _, err := address.FromString(contract); err != nil {
+		zap.S().Panicf("Invalid staking contract %s", contract)
+	}
+	ns.contract = contract
+	zap.S().Infof("Set native staking contract address = %s", contract)
 }
 
 func (vt *VoteTally) tally(buckets []*types.Bucket, now time.Time) error {
