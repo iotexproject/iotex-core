@@ -184,6 +184,12 @@ type blockchain struct {
 	registry *protocol.Registry
 }
 
+// ActPoolManager defines the actpool interface
+type ActPoolManager interface {
+	// GetActionByHash returns the pending action in pool given action's hash
+	GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error)
+}
+
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
 

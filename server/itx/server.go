@@ -88,6 +88,10 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 		AddActionEnvelopeValidators(
 			protocol.NewGenericValidator(cs.Blockchain()),
 		)
+	cs.Blockchain().Validator().
+		SetActPool(
+			cs.ActionPool(),
+		)
 	// Install protocols
 	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return nil, err
