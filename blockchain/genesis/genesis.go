@@ -142,8 +142,10 @@ type (
 		RegisterContractAddress string `yaml:"registerContractAddress"`
 		// StakingContractAddress is the address of staking contract
 		StakingContractAddress string `yaml:"stakingContractAddress"`
-		// NativeStakingContractAddress is the address of staking contract on mainnet
+		// NativeStakingContractAddress is the address of native staking contract
 		NativeStakingContractAddress string `yaml:"nativeStakingContractAddress"`
+		// NativeStakingContractCode is the code of native staking contract
+		NativeStakingContractCode string `yaml:"nativeStakingContractCode"`
 		// VoteThreshold is the vote threshold amount in decimal string format
 		VoteThreshold string `yaml:"voteThreshold"`
 		// ScoreThreshold is the score threshold amount in decimal string format

@@ -319,6 +319,7 @@ func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) 
 				rolldposProtocol.GetEpochHeight,
 				rolldposProtocol.GetEpochNum,
 				cfg.Genesis.NativeStakingContractAddress,
+				cfg.Genesis.NativeStakingContractCode,
 				rolldposProtocol,
 				scoreThreshold,
 			); err != nil {
