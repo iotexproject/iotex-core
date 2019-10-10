@@ -309,7 +309,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		log.L().Debug(err.Error())
 		return
 	}
-	// If there is no error putting into local actpool, 
+	// If there is no error putting into local actpool,
 	// Broadcast it to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
 		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
