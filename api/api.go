@@ -9,7 +9,6 @@ package api
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -301,27 +300,21 @@ func (api *Server) GetServerMeta(ctx context.Context,
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
 	log.L().Debug("receive send action request")
-	t := time.Now()
-	defer func() {
-		t1 := time.Now()
-		fmt.Println("send action execution time", t1.Sub(t)*100)
-	}()
-
 	var selp action.SealedEnvelope
 	if err = selp.LoadProto(in.Action); err != nil {
 		return
 	}
-	hash := selp.Hash()
-
-	// add to local actpool
+	// Add to local actpool
 	if err = api.ap.Add(selp); err != nil {
 		log.L().Debug(err.Error())
 		return
 	}
-	// broadcast to the network
+	// If there is no error putting into local actpool, 
+	// Broadcast it to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
 		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
+	hash := selp.Hash()
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 
