@@ -7,8 +7,8 @@
 package actpool
 
 import (
-	"bytes"
 	"context"
+	"sort"
 	"strings"
 	"sync"
 
@@ -65,6 +65,13 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
+// A slice of actions that implements sort.Interface to sort by Value.
+type SortedActions []action.SealedEnvelope
+
+func (p SortedActions) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p SortedActions) Len() int           { return len(p) }
+func (p SortedActions) Less(i, j int) bool { return p[i].Nonce() < p[j].Nonce() }
+
 // Option sets action pool construction parameter
 type Option func(pool *actPool) error
 
@@ -82,7 +89,7 @@ type actPool struct {
 	cfg                       config.ActPool
 	bc                        blockchain.Blockchain
 	accountActs               map[string]ActQueue
-	accountDesActs            map[string][]action.SealedEnvelope
+	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
 	allActions                map[hash.Hash256]action.SealedEnvelope
 	gasInPool                 uint64
 	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
@@ -108,7 +115,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 		bc:              bc,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
-		accountDesActs:  make(map[string][]action.SealedEnvelope),
+		accountDesActs:  make(map[string]map[hash.Hash256]action.SealedEnvelope),
 		allActions:      make(map[hash.Hash256]action.SealedEnvelope),
 	}
 	for _, opt := range opts {
@@ -266,8 +273,15 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 	if queue, ok := ap.accountActs[addr]; ok {
 		ret = queue.AllActs()
 	}
-	if queue, ok := ap.accountDesActs[addr]; ok {
-		ret = append(ret, queue...)
+	if desMap, ok := ap.accountDesActs[addr]; ok {
+		if desMap != nil {
+			sortActions := make(SortedActions, 0)
+			for _, v := range desMap {
+				sortActions = append(sortActions, v)
+			}
+			sort.Sort(sortActions)
+			ret = append(ret, sortActions...)
+		}
 	}
 	return ret
 }
@@ -313,11 +327,11 @@ func (ap *actPool) GetGasCapacity() uint64 {
 //======================================
 // private functions
 //======================================
-func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash hash.Hash256, actNonce uint64) error {
+func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
 	confirmedNonce, err := ap.bc.Nonce(sender)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
-		return errors.Wrapf(err, "failed to get sender's nonce for action %x", hash)
+		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
 
 	queue := ap.accountActs[sender]
@@ -332,20 +346,20 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		balance, err := ap.bc.Balance(sender)
 		if err != nil {
 			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
-			return errors.Wrapf(err, "failed to get sender's balance for action %x", hash)
+			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
 		}
 		queue.SetPendingBalance(balance)
 	}
 	if queue.Overlaps(act) {
 		// Nonce already exists
 		actpoolMtc.WithLabelValues("nonceUsed").Inc()
-		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", hash)
+		return errors.Wrapf(action.ErrNonce, "duplicate nonce for action %x", actHash)
 	}
 
 	if actNonce-confirmedNonce-1 >= ap.cfg.MaxNumActsPerAcct {
 		// Nonce exceeds current range
 		log.L().Debug("Rejecting action because nonce is too large.",
-			log.Hex("hash", hash[:]),
+			log.Hex("hash", actHash[:]),
 			zap.Uint64("startNonce", confirmedNonce+1),
 			zap.Uint64("actNonce", actNonce))
 		actpoolMtc.WithLabelValues("nonceTooLarge").Inc()
@@ -355,7 +369,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 	cost, err := act.Cost()
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetCost").Inc()
-		return errors.Wrapf(err, "failed to get cost of action %x", hash)
+		return errors.Wrapf(err, "failed to get cost of action %x", actHash)
 	}
 	if queue.PendingBalance().Cmp(cost) < 0 {
 		// Pending balance is insufficient
@@ -363,7 +377,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 		return errors.Wrapf(
 			action.ErrBalance,
 			"insufficient balance for action %x, cost = %s, pending balance = %s, sender = %s",
-			hash,
+			actHash,
 			cost.String(),
 			queue.PendingBalance().String(),
 			sender,
@@ -372,18 +386,18 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, hash 
 
 	if err := queue.Put(act); err != nil {
 		actpoolMtc.WithLabelValues("failedPutActQueue").Inc()
-		return errors.Wrapf(err, "cannot put action %x into ActQueue", hash)
+		return errors.Wrapf(err, "cannot put action %x into ActQueue", actHash)
 	}
-	ap.allActions[hash] = act
+	ap.allActions[actHash] = act
 
 	//add actions to destination map
 	desAddress, ok := act.Destination()
 	if ok && !strings.EqualFold(sender, desAddress) {
-		dst := ap.accountDesActs[desAddress]
-		if dst == nil {
-			ap.accountDesActs[desAddress] = make([]action.SealedEnvelope, 0)
+		desQueue := ap.accountDesActs[desAddress]
+		if desQueue == nil {
+			ap.accountDesActs[desAddress] = make(map[hash.Hash256]action.SealedEnvelope)
 		}
-		ap.accountDesActs[desAddress] = append(ap.accountDesActs[desAddress], act)
+		ap.accountDesActs[desAddress][actHash] = act
 	}
 
 	intrinsicGas, _ := act.IntrinsicGas()
@@ -408,7 +422,8 @@ func (ap *actPool) removeConfirmedActs() {
 		// Remove all actions that are committed to new block
 		acts := queue.FilterNonce(pendingNonce)
 		ap.removeInvalidActs(acts)
-
+		//del actions in destination map
+		ap.deleteAction(acts...)
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
 			delete(ap.accountActs, from)
@@ -423,19 +438,19 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		delete(ap.allActions, hash)
 		intrinsicGas, _ := act.IntrinsicGas()
 		ap.gasInPool -= intrinsicGas
-
 		//del actions in destination map
+		ap.deleteAction(act)
+	}
+}
+
+// just for destination map
+func (ap *actPool) deleteAction(acts ...action.SealedEnvelope) {
+	for _, act := range acts {
 		desAddress, ok := act.Destination()
 		if ok {
 			dst := ap.accountDesActs[desAddress]
 			if dst != nil {
-				for i, v := range ap.accountDesActs[desAddress] {
-					h := v.Hash()
-					if bytes.Equal(h[:], hash[:]) {
-						ap.accountDesActs[desAddress] = append(ap.accountDesActs[desAddress][:i], ap.accountDesActs[desAddress][i+1:]...)
-						break
-					}
-				}
+				delete(dst, act.Hash())
 			}
 		}
 	}
