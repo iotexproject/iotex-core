@@ -65,7 +65,7 @@ type ActPool interface {
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
 
-// A slice of actions that implements sort.Interface to sort by Value.
+// SortedActions is a slice of actions that implements sort.Interface to sort by Value.
 type SortedActions []action.SealedEnvelope
 
 func (p SortedActions) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
