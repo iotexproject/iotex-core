@@ -1085,6 +1085,11 @@ func (bc *blockchain) runActions(
 			return nil, err
 		}
 	}
+	if acts.BlockHeight() == bc.config.Genesis.BeringBlockHeight {
+		if err := bc.halfBlockRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 
@@ -1477,6 +1482,22 @@ func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws fa
 		return errors.Errorf("error when casting protocol")
 	}
 	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
+}
+
+func (bc *blockchain) halfBlockRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*rewarding.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	blockReward, err := rp.BlockReward(ctx, ws)
+	if err != nil {
+		return errors.Errorf("failed to get current block reward")
+	}
+	return rp.SetReward(ctx, ws, new(big.Int).Div(blockReward, big.NewInt(2)), true)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
