@@ -80,7 +80,7 @@ func NewParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if hu.IsPre(config.Aleutian, raCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
+	if raCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, raCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
