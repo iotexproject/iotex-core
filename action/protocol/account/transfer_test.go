@@ -72,7 +72,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			0,
 			0,
 			0,
-			10000,
 		),
 	)
 

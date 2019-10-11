@@ -391,12 +391,6 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 		return m.BackToPrepare(0)
 	}
 
-	cEvt, ok := evt.(*ConsensusEvent)
-	if !ok {
-		m.ctx.Logger().Error("invalid fsm event", zap.Any("event", evt))
-		return sAcceptBlockProposal, nil
-	}
-
 	overtime := m.ctx.WaitUntilRoundStart()
 	if !m.ctx.IsDelegate() {
 		return m.BackToPrepare(0)
@@ -405,7 +399,14 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 		m.ctx.Broadcast(proposal)
 		m.ProduceReceiveBlockEvent(proposal)
 	}
-	ttl := m.ctx.AcceptBlockTTL(cEvt.Height()) - overtime
+
+	var h uint64
+	cEvt, ok := evt.(*ConsensusEvent)
+	if !ok {
+		m.ctx.Logger().Panic("failed to convert ConsensusEvent in prepare")
+	}
+	h = cEvt.Height()
+	ttl := m.ctx.AcceptBlockTTL(h) - overtime
 	// Setup timeouts
 	if preCommitEndorsement := m.ctx.PreCommitEndorsement(); preCommitEndorsement != nil {
 		cEvt := m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement)
@@ -419,11 +420,11 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 		return sAcceptPreCommitEndorsement, nil
 	}
 	m.produceConsensusEvent(eFailedToReceiveBlock, ttl)
-	ttl += m.ctx.AcceptProposalEndorsementTTL(cEvt.Height())
+	ttl += m.ctx.AcceptProposalEndorsementTTL(h)
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
-	ttl += m.ctx.AcceptLockEndorsementTTL(cEvt.Height())
+	ttl += m.ctx.AcceptLockEndorsementTTL(h)
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
-	ttl += m.ctx.CommitTTL(cEvt.Height())
+	ttl += m.ctx.CommitTTL(h)
 	m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
 	return sAcceptBlockProposal, nil
 }

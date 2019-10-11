@@ -388,7 +388,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			5,
 			365,
 			50,
-			10000,
 		))
 	require.NoError(t, stateDB.Commit(ws))
 

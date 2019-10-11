@@ -17,8 +17,6 @@ message Admin {
     uint64 numDelegatesForFoundationBonus = 5;
     uint64 foundationBonusLastEpoch = 6;
     uint64 productivityThreshold = 7;
-    uint64 beringHeight = 8;
-    string beringBlockReward = 9;
 }
 
 message Fund {
