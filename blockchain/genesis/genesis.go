@@ -19,10 +19,11 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // Default contains the default genesis config
@@ -48,8 +49,8 @@ func defaultConfig() Genesis {
 			TimeBasedRotation:     false,
 			PacificBlockHeight:    432001,
 			AleutianBlockHeight:   864001,
-			BeringBlockHeight:     1382401,
-			CookBlockHeight:       1555201,
+			BeringBlockHeight:     1512001,
+			CookBlockHeight:       1641601,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
