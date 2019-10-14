@@ -298,16 +298,17 @@ func (api *Server) GetServerMeta(ctx context.Context,
 }
 
 // SendAction is the API to send an action to blockchain.
-func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (res *iotexapi.SendActionResponse, err error) {
+func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (*iotexapi.SendActionResponse, error) {
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
+	var err error
 	if err = selp.LoadProto(in.Action); err != nil {
-		return
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
 	if err = api.ap.Add(selp); err != nil {
 		log.L().Debug(err.Error())
-		return
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
