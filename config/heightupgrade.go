@@ -16,6 +16,7 @@ const (
 	Aleutian
 	Bering
 	Cook
+	Hudson
 )
 
 type (
@@ -28,6 +29,7 @@ type (
 		aleutianHeight uint64
 		beringHeight   uint64
 		cookHeight     uint64
+		hudsonHeight   uint64
 	}
 )
 
@@ -38,6 +40,7 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 		cfg.Genesis.AleutianBlockHeight,
 		cfg.Genesis.BeringBlockHeight,
 		cfg.Genesis.CookBlockHeight,
+		cfg.Genesis.HudsonBlockHeight,
 	}
 }
 
@@ -53,6 +56,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.beringHeight
 	case Cook:
 		h = hu.cookHeight
+	case Hudson:
+		h = hu.hudsonHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -75,3 +80,6 @@ func (hu *HeightUpgrade) BeringBlockHeight() uint64 { return hu.beringHeight }
 
 // CookBlockHeight returns the cook height
 func (hu *HeightUpgrade) CookBlockHeight() uint64 { return hu.cookHeight }
+
+// HudsonBlockHeight returns the hudson height
+func (hu *HeightUpgrade) HudsonBlockHeight() uint64 { return hu.hudsonHeight }

@@ -73,14 +73,14 @@ func (ss *strs) Set(str string) error {
 }
 
 const (
-	BeringUnmatchedEventTTL            = 2 * time.Second
-	BeringUnmatchedEventInterval       = 100 * time.Millisecond
-	BeringAcceptBlockTTL               = 2 * time.Second
-	BeringAcceptProposalEndorsementTTL = time.Second
-	BeringAcceptLockEndorsementTTL     = time.Second
-	BeringCommitTTL                    = time.Second
-	BeringBlockInterval                = 5 * time.Second
-	BeringDelay                        = 2 * time.Second
+	HudsonUnmatchedEventTTL            = 2 * time.Second
+	HudsonUnmatchedEventInterval       = 100 * time.Millisecond
+	HudsonAcceptBlockTTL               = 2 * time.Second
+	HudsonAcceptProposalEndorsementTTL = time.Second
+	HudsonAcceptLockEndorsementTTL     = time.Second
+	HudsonCommitTTL                    = time.Second
+	HudsonBlockInterval                = 5 * time.Second
+	HudsonDelay                        = 2 * time.Second
 )
 
 var (

@@ -49,57 +49,57 @@ func (c *consensusCfg) EventChanSize() uint {
 }
 
 func (c *consensusCfg) UnmatchedEventTTL(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringUnmatchedEventTTL
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonUnmatchedEventTTL
 	}
 	return c.cfg.UnmatchedEventTTL
 }
 
 func (c *consensusCfg) UnmatchedEventInterval(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringUnmatchedEventInterval
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonUnmatchedEventInterval
 	}
 	return c.cfg.UnmatchedEventInterval
 }
 
 func (c *consensusCfg) AcceptBlockTTL(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringAcceptBlockTTL
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonAcceptBlockTTL
 	}
 	return c.cfg.AcceptBlockTTL
 }
 
 func (c *consensusCfg) AcceptProposalEndorsementTTL(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringAcceptProposalEndorsementTTL
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonAcceptProposalEndorsementTTL
 	}
 	return c.cfg.AcceptProposalEndorsementTTL
 }
 
 func (c *consensusCfg) AcceptLockEndorsementTTL(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringAcceptLockEndorsementTTL
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonAcceptLockEndorsementTTL
 	}
 	return c.cfg.AcceptLockEndorsementTTL
 }
 
 func (c *consensusCfg) CommitTTL(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringCommitTTL
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonCommitTTL
 	}
 	return c.cfg.CommitTTL
 }
 
 func (c *consensusCfg) BlockInterval(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringBlockInterval
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonBlockInterval
 	}
 	return c.blockInterval
 }
 
 func (c *consensusCfg) Delay(height uint64) time.Duration {
-	if c.hu.IsPost(config.Bering, height) {
-		return config.BeringDelay
+	if c.hu.IsPost(config.Hudson, height) {
+		return config.HudsonDelay
 	}
 	return c.delay
 }
