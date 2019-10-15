@@ -72,6 +72,7 @@ func (ss *strs) Set(str string) error {
 	return nil
 }
 
+// Hudson consensus config
 const (
 	HudsonUnmatchedEventTTL            = 2 * time.Second
 	HudsonUnmatchedEventInterval       = 100 * time.Millisecond
@@ -264,7 +265,7 @@ type (
 		ConsensusDBPath   string          `yaml:"consensusDBPath"`
 	}
 
-	// Config defines a set of time durations used in fsm and event queue size
+	// ConsensusTiming defines a set of time durations used in fsm and event queue size
 	ConsensusTiming struct {
 		EventChanSize                uint          `yaml:"eventChanSize"`
 		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`

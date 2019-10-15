@@ -35,6 +35,7 @@ type (
 	}
 )
 
+// NewConsensusConfig creates a ConsensusConfig out of config.
 func NewConsensusConfig(cfg config.Config) ConsensusConfig {
 	return &consensusCfg{
 		cfg.Consensus.RollDPoS.FSM,
