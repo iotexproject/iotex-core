@@ -186,7 +186,6 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
-		dispatcher,
 		actPool,
 		&registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {

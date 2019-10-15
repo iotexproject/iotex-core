@@ -315,10 +315,9 @@ func TestLocalTransfer(t *testing.T) {
 			_, err := client.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: tsf.Proto()})
 			return err
 		}, bo)
-		require.NoError(err, tsfTest.message)
-
 		switch tsfTest.expectedResult {
 		case TsfSuccess:
+			require.NoError(err, tsfTest.message)
 			//Wait long enough for a block to be minted, and check the balance of both
 			//sender and receiver.
 			var selp action.SealedEnvelope
@@ -351,6 +350,7 @@ func TestLocalTransfer(t *testing.T) {
 			}
 			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
 		case TsfFail:
+			require.Error(err, tsfTest.message)
 			//The transfer should be rejected right after we inject it
 			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
 			err := backoff.Retry(func() error {
@@ -368,6 +368,7 @@ func TestLocalTransfer(t *testing.T) {
 			}
 
 		case TsfPending:
+			require.NoError(err, tsfTest.message)
 			//Need to wait long enough to make sure the pending transfer is not minted, only stay in action pool
 			err := backoff.Retry(func() error {
 				var err error
@@ -378,6 +379,7 @@ func TestLocalTransfer(t *testing.T) {
 			_, err = bc.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
+			require.NoError(err, tsfTest.message)
 			//After a blocked is minted, check all the pending transfers in action pool are cleared
 			//This checking procedure is simplified for this test case, because of the complexity of
 			//handling pending transfers.

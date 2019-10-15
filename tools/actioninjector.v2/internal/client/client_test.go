@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -45,18 +44,17 @@ func TestClient(t *testing.T) {
 
 	bc := mock_blockchain.NewMockBlockchain(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
-	dp := mock_dispatcher.NewMockDispatcher(mockCtrl)
 
 	bc.EXPECT().StateByAddr(gomock.Any()).Return(&state, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	bc.EXPECT().GetActionCountByAddress(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
-	dp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	ap.EXPECT().Add(gomock.Any()).Return(nil).AnyTimes()
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
 	})
-	apiServer, err := api.NewServer(cfg, bc, dp, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()
