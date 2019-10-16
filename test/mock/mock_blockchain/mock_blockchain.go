@@ -12,6 +12,7 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -378,6 +379,18 @@ func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFactory", reflect.TypeOf((*MockBlockchain)(nil).GetFactory))
 }
 
+// GetBlockDAO mocks base method
+func (m *MockBlockchain) GetBlockDAO() blockdao.BlockDAO {
+	ret := m.ctrl.Call(m, "GetBlockDAO")
+	ret0, _ := ret[0].(blockdao.BlockDAO)
+	return ret0
+}
+
+// GetBlockDAO indicates an expected call of GetBlockDAO
+func (mr *MockBlockchainMockRecorder) GetBlockDAO() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDAO", reflect.TypeOf((*MockBlockchain)(nil).GetBlockDAO))
+}
+
 // ChainID mocks base method
 func (m *MockBlockchain) ChainID() uint32 {
 	ret := m.ctrl.Call(m, "ChainID")
@@ -558,4 +571,40 @@ func (m *MockBlockchain) RemoveSubscriber(arg0 blockchain.BlockCreationSubscribe
 // RemoveSubscriber indicates an expected call of RemoveSubscriber
 func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
+}
+
+// MockActPoolManager is a mock of ActPoolManager interface
+type MockActPoolManager struct {
+	ctrl     *gomock.Controller
+	recorder *MockActPoolManagerMockRecorder
+}
+
+// MockActPoolManagerMockRecorder is the mock recorder for MockActPoolManager
+type MockActPoolManagerMockRecorder struct {
+	mock *MockActPoolManager
+}
+
+// NewMockActPoolManager creates a new mock instance
+func NewMockActPoolManager(ctrl *gomock.Controller) *MockActPoolManager {
+	mock := &MockActPoolManager{ctrl: ctrl}
+	mock.recorder = &MockActPoolManagerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActPoolManager) EXPECT() *MockActPoolManagerMockRecorder {
+	return m.recorder
+}
+
+// GetActionByHash mocks base method
+func (m *MockActPoolManager) GetActionByHash(hash hash.Hash256) (action.SealedEnvelope, error) {
+	ret := m.ctrl.Call(m, "GetActionByHash", hash)
+	ret0, _ := ret[0].(action.SealedEnvelope)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActionByHash indicates an expected call of GetActionByHash
+func (mr *MockActPoolManagerMockRecorder) GetActionByHash(hash interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByHash", reflect.TypeOf((*MockActPoolManager)(nil).GetActionByHash), hash)
 }

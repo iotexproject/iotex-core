@@ -1,10 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
-
-package blockchain
+package blockdao
 
 import (
 	"context"
@@ -170,7 +164,9 @@ func TestBlockDAO(t *testing.T) {
 
 	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, false, false, 0, config.Default.DB)
+		blkDAO := NewBlockDAO(kvstore, false, false, 0, config.Default.DB)
+		dao, ok := blkDAO.(*blockDAO)
+		require.True(t, ok)
 		err := dao.Start(ctx)
 		assert.Nil(t, err)
 		defer func() {
@@ -188,11 +184,11 @@ func TestBlockDAO(t *testing.T) {
 		assert.Nil(t, err)
 		require.NotNil(t, blk)
 		assert.Equal(t, blks[0].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
+		height, err = dao.GetBlockchainHeight()
 		assert.Nil(t, err)
 		assert.Equal(t, uint64(1), height)
 
-		err = dao.putBlock(blks[2])
+		err = dao.PutBlock(blks[2])
 		assert.Nil(t, err)
 		blk, err = dao.getBlock(blkHash[2])
 		assert.Nil(t, err)
@@ -230,7 +226,9 @@ func TestBlockDAO(t *testing.T) {
 
 	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		blkDAO := NewBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		dao, ok := blkDAO.(*blockDAO)
+		require.True(t, ok)
 		err := dao.Start(ctx)
 		require.NoError(t, err)
 		defer func() {
@@ -257,8 +255,8 @@ func TestBlockDAO(t *testing.T) {
 		}
 
 		for i := uint64(0); i < 3; i++ {
-			require.NoError(t, dao.putBlock(blks[i]))
-			require.NoError(t, dao.putReceipts(i+1, receipts[i]))
+			require.NoError(t, dao.PutBlock(blks[i]))
+			require.NoError(t, dao.PutReceipts(i+1, receipts[i]))
 		}
 
 		// Test getBlockHashByActionHash
@@ -328,7 +326,9 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		blkDAO := NewBlockDAO(kvstore, true, false, 0, config.Default.DB)
+		dao, ok := blkDAO.(*blockDAO)
+		require.True(ok)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -432,7 +432,9 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		store := db.NewBoltDB(cfg)
 
-		blkDao := newBlockDAO(store, false, false, cacheSize, config.Default.DB)
+		blkDao := NewBlockDAO(store, false, false, cacheSize, config.Default.DB)
+		dao, ok := blkDao.(*blockDAO)
+		require.True(b, ok)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
@@ -462,15 +464,15 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
-			err = blkDao.putBlock(&blk)
+			err = dao.putBlock(&blk)
 			require.NoError(b, err)
 			prevHash = blk.HashBlock()
 		}
 		b.ResetTimer()
 		b.StartTimer()
 		for n := 0; n < b.N; n++ {
-			hash, _ := blkDao.getBlockHash(uint64(rand.Intn(numBlks) + 1))
-			_, _ = blkDao.getBlock(hash)
+			hash, _ := dao.getBlockHash(uint64(rand.Intn(numBlks) + 1))
+			_, _ = dao.getBlock(hash)
 		}
 		b.StopTimer()
 	}
