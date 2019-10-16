@@ -41,8 +41,8 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_dispatcher"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
@@ -953,15 +953,15 @@ func TestServer_SendAction(t *testing.T) {
 	defer ctrl.Finish()
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
-	mDp := mock_dispatcher.NewMockDispatcher(ctrl)
+	ap := mock_actpool.NewMockActPool(ctrl)
 	broadcastHandlerCount := 0
-	svr := Server{bc: chain, dp: mDp, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
+	svr := Server{bc: chain, ap: ap, broadcastHandler: func(_ context.Context, _ uint32, _ proto.Message) error {
 		broadcastHandlerCount++
 		return nil
 	}}
 
-	chain.EXPECT().ChainID().Return(uint32(1)).Times(4)
-	mDp.EXPECT().HandleBroadcast(gomock.Any(), gomock.Any(), gomock.Any()).Times(2)
+	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
+	ap.EXPECT().Add(gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
