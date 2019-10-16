@@ -1,10 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
-// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
-// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
-// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
-// License 2.0 that can be found in the LICENSE file.
-
-package blockchain
+package blockdao
 
 import (
 	"context"
@@ -71,7 +65,9 @@ func TestIndexer(t *testing.T) {
 	testIndexer := func(kvstore db.KVStore, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		dao := newBlockDAO(kvstore, false, false, 0, config.Default.DB)
+		blockDao := NewBlockDAO(kvstore, false, false, 0, config.Default.DB)
+		dao, ok := blockDao.(*blockDAO)
+		require.True(ok)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -85,7 +81,6 @@ func TestIndexer(t *testing.T) {
 		require.NoError(dao.putBlock(blks[1]))
 
 		ib := &IndexBuilder{
-			store:       dao.kvstore,
 			pendingBlks: make(chan *block.Block, 64),
 			cancelChan:  make(chan interface{}),
 			dao:         dao,

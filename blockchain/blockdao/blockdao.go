@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package blockdao
 
 import (
 	"context"
@@ -75,6 +75,32 @@ var (
 	ErrNotOpened = errors.New("DB is not opened")
 )
 
+// BlockDAO represents the block data access object
+type BlockDAO interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+	GetBlockHash(height uint64) (hash.Hash256, error)
+	GetBlockHeight(hash hash.Hash256) (uint64, error)
+	GetBlock(hash hash.Hash256) (*block.Block, error)
+	GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
+	GetActionsByAddress(addrBytes hash.Hash160, start, count uint64) ([][]byte, error)
+	GetActionCountByAddress(addrBytes hash.Hash160) (uint64, error)
+	GetActionHashFromIndex(start, count uint64) ([][]byte, error)
+	Header(h hash.Hash256) (*block.Header, error)
+	Body(h hash.Hash256) (*block.Body, error)
+	Footer(h hash.Hash256) (*block.Footer, error)
+	GetBlockchainHeight() (uint64, error)
+	GetTotalActions() (uint64, error)
+	GetNumActions(height uint64) (uint64, error)
+	GetTranferAmount(height uint64) (*big.Int, error)
+	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
+	GetReceipts(blkHeight uint64) ([]*action.Receipt, error)
+	PutBlock(blk *block.Block) error
+	PutReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error
+	DeleteTipBlock() error
+	KVStore() db.KVStore
+}
+
 type blockDAO struct {
 	writeIndex    bool
 	compressBlock bool
@@ -90,8 +116,8 @@ type blockDAO struct {
 	mutex         sync.Mutex // for create new db file
 }
 
-// newBlockDAO instantiates a block DAO
-func newBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool, maxCacheSize int, cfg config.DB) *blockDAO {
+// NewBlockDAO instantiates a block DAO
+func NewBlockDAO(kvstore db.KVStore, writeIndex bool, compressBlock bool, maxCacheSize int, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
 		writeIndex:    writeIndex,
 		compressBlock: compressBlock,
@@ -168,6 +194,91 @@ func (dao *blockDAO) initStores() error {
 // Stop stops block DAO.
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
+func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
+	return dao.getBlockHash(height)
+}
+
+func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+	return dao.getBlockHeight(hash)
+}
+
+func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+	return dao.getBlock(hash)
+}
+
+func (dao *blockDAO) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
+	return dao.getBlockHashByActionHash(h)
+}
+
+// getActionHashFromIndex returns the action hash from index
+func (dao *blockDAO) GetActionHashFromIndex(start, count uint64) ([][]byte, error) {
+	return dao.getActionHashFromIndex(start, count)
+}
+
+func (dao *blockDAO) GetActionsByAddress(addrBytes hash.Hash160, start, count uint64) ([][]byte, error) {
+	return dao.getActionsByAddress(addrBytes, start, count)
+}
+
+func (dao *blockDAO) GetActionCountByAddress(addrBytes hash.Hash160) (uint64, error) {
+	return dao.getActionCountByAddress(addrBytes)
+}
+
+// Header returns a block header
+func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
+	return dao.header(h)
+}
+
+// Body returns a block body
+func (dao *blockDAO) Body(h hash.Hash256) (*block.Body, error) {
+	return dao.body(h)
+}
+
+// Footer returns a block footer
+func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
+	return dao.footer(h)
+}
+
+func (dao *blockDAO) GetBlockchainHeight() (uint64, error) {
+	return dao.getBlockchainHeight()
+}
+
+func (dao *blockDAO) GetTotalActions() (uint64, error) {
+	return dao.getTotalActions()
+}
+
+func (dao *blockDAO) GetNumActions(height uint64) (uint64, error) {
+	return dao.getNumActions(height)
+}
+
+func (dao *blockDAO) GetTranferAmount(height uint64) (*big.Int, error) {
+	return dao.getTranferAmount(height)
+}
+
+func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
+	return dao.getReceiptByActionHash(h)
+}
+
+// GetReceipts gets receipts
+func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
+	return dao.getReceipts(blkHeight)
+}
+
+func (dao *blockDAO) PutBlock(blk *block.Block) error {
+	return dao.putBlock(blk)
+}
+
+func (dao *blockDAO) PutReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error {
+	return dao.putReceipts(blkHeight, blkReceipts)
+}
+
+func (dao *blockDAO) DeleteTipBlock() error {
+	return dao.deleteTipBlock()
+}
+
+func (dao *blockDAO) KVStore() db.KVStore {
+	return dao.kvstore
+}
+
 // getBlockHash returns the block hash by height
 func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
@@ -220,11 +331,6 @@ func (dao *blockDAO) getBlock(hash hash.Hash256) (*block.Block, error) {
 	}, nil
 }
 
-// Header returns a block header
-func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
-	return dao.header(h)
-}
-
 func (dao *blockDAO) header(h hash.Hash256) (*block.Header, error) {
 	if dao.headerCache != nil {
 		header, ok := dao.headerCache.Get(h)
@@ -259,11 +365,6 @@ func (dao *blockDAO) header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-// Body returns a block body
-func (dao *blockDAO) Body(h hash.Hash256) (*block.Body, error) {
-	return dao.body(h)
-}
-
 func (dao *blockDAO) body(h hash.Hash256) (*block.Body, error) {
 	if dao.bodyCache != nil {
 		body, ok := dao.bodyCache.Get(h)
@@ -296,11 +397,6 @@ func (dao *blockDAO) body(h hash.Hash256) (*block.Body, error) {
 		dao.bodyCache.Add(h, body)
 	}
 	return body, nil
-}
-
-// Footer returns a block footer
-func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
-	return dao.footer(h)
 }
 
 func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
@@ -367,15 +463,6 @@ func (dao *blockDAO) getTotalActions() (uint64, error) {
 	return indexer.Size(), nil
 }
 
-// getActionHashFromIndex returns the action hash from index
-func (dao *blockDAO) getActionHashFromIndex(start, count uint64) ([][]byte, error) {
-	indexer, err := dao.kvstore.CountingIndex(totalActionsKey)
-	if err != nil {
-		return nil, err
-	}
-	return indexer.Range(start, count)
-}
-
 // getBlockHashByActionHash returns block hash of the action
 func (dao *blockDAO) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
 	hashAndHeight, err := dao.kvstore.Get(blockActionBlockMappingNS, h[hashOffset:])
@@ -387,6 +474,15 @@ func (dao *blockDAO) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, err
 	}
 	// hash is the front 32-byte
 	return hash.BytesToHash256(hashAndHeight[:32]), nil
+}
+
+// getActionHashFromIndex returns the action hash from index
+func (dao *blockDAO) getActionHashFromIndex(start, count uint64) ([][]byte, error) {
+	indexer, err := dao.kvstore.CountingIndex(totalActionsKey)
+	if err != nil {
+		return nil, err
+	}
+	return indexer.Range(start, count)
 }
 
 // getActionCountByAddress returns action count by address
@@ -439,6 +535,31 @@ func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, er
 		}
 	}
 	return nil, errors.Errorf("receipt of action %x isn't found", h)
+}
+
+func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
+	kvstore, _, err := dao.getDBFromHeight(blkHeight)
+	if err != nil {
+		return nil, err
+	}
+	value, err := kvstore.Get(receiptsNS, byteutil.Uint64ToBytes(blkHeight))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get receipts")
+	}
+	if len(value) == 0 {
+		return nil, errors.Wrap(db.ErrNotExist, "block receipts missing")
+	}
+	receiptsPb := &iotextypes.Receipts{}
+	if err := proto.Unmarshal(value, receiptsPb); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal block receipts")
+	}
+	var blockReceipts []*action.Receipt
+	for _, receiptPb := range receiptsPb.Receipts {
+		receipt := &action.Receipt{}
+		receipt.ConvertFromReceiptPb(receiptPb)
+		blockReceipts = append(blockReceipts, receipt)
+	}
+	return blockReceipts, nil
 }
 
 // putBlock puts a block
@@ -570,32 +691,6 @@ func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 		return err
 	}
 	return kvstore.Put(receiptsNS, byteutil.Uint64ToBytes(blkHeight), receiptsBytes)
-}
-
-// getReceipts gets receipts
-func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
-	kvstore, _, err := dao.getDBFromHeight(blkHeight)
-	if err != nil {
-		return nil, err
-	}
-	value, err := kvstore.Get(receiptsNS, byteutil.Uint64ToBytes(blkHeight))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get receipts")
-	}
-	if len(value) == 0 {
-		return nil, errors.Wrap(db.ErrNotExist, "block receipts missing")
-	}
-	receiptsPb := &iotextypes.Receipts{}
-	if err := proto.Unmarshal(value, receiptsPb); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal block receipts")
-	}
-	var blockReceipts []*action.Receipt
-	for _, receiptPb := range receiptsPb.Receipts {
-		receipt := &action.Receipt{}
-		receipt.ConvertFromReceiptPb(receiptPb)
-		blockReceipts = append(blockReceipts, receipt)
-	}
-	return blockReceipts, nil
 }
 
 // deleteTipBlock deletes the tip block
