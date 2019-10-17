@@ -71,11 +71,15 @@ build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 
 .PHONY: build-all
-build-all: build build-actioninjector build-minicluster build-staterecoverer
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer
 
 .PHONY: build-actioninjector
 build-actioninjector: 
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
+
+.PHONY: build-addrgen
+build-addrgen:
+	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
 
 .PHONY: build-minicluster
 build-minicluster:
@@ -173,7 +177,11 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
+	$(DOCKERCMD) build -f Dockerfile -t $(USER)/iotex-core:latest .
+
+.PHONY: docker-all 
+docker-all:
+	$(DOCKERCMD) build -f all.Dockerfile -t $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:
