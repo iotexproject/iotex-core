@@ -38,4 +38,5 @@ type Context interface {
 	NewLockEndorsement(interface{}) (interface{}, error)
 	NewPreCommitEndorsement(interface{}) (interface{}, error)
 	Commit(interface{}) (bool, error)
+	ConsensusConfig
 }
