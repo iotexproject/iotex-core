@@ -443,7 +443,7 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 	}
 }
 
-// just for destination map
+// deleteAccountDestinationActions just for destination map
 func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
 	for _, act := range acts {
 		desAddress, ok := act.Destination()
