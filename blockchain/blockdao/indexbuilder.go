@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package blockdao
 
 import (
 	"bytes"
@@ -48,36 +48,30 @@ type addrIndex map[hash.Hash160]db.CountingIndex
 
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
-	store        db.KVStore
 	pendingBlks  chan *block.Block
 	cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
-	dao          *blockDAO
+	dao          BlockDAO
 	reindex      bool
 	dirtyAddr    addrIndex
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chain Blockchain, reindex bool) (*IndexBuilder, error) {
-	bc, ok := chain.(*blockchain)
-	if !ok {
-		log.S().Panic("unexpected blockchain implementation")
-	}
+func NewIndexBuilder(chainID uint32, dao BlockDAO, reindex bool) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
 		[]string{"topic", "chainID"},
-		[]string{"default", strconv.FormatUint(uint64(bc.ChainID()), 10)},
+		[]string{"default", strconv.FormatUint(uint64(chainID), 10)},
 	)
 	if err != nil {
 		return nil, err
 	}
 	return &IndexBuilder{
-		store:        bc.dao.kvstore,
 		pendingBlks:  make(chan *block.Block, 64), // Actually 1 should be enough
 		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
-		dao:          bc.dao,
+		dao:          dao,
 		reindex:      reindex,
 		dirtyAddr:    make(addrIndex),
 	}, nil
@@ -96,14 +90,14 @@ func (ib *IndexBuilder) Start(_ context.Context) error {
 			case blk := <-ib.pendingBlks:
 				timer := ib.timerFactory.NewTimer("indexBlock")
 				batch := db.NewBatch()
-				if err := indexBlock(ib.store, blk.HashBlock(), blk.Height(), blk.Actions, batch, nil); err != nil {
+				if err := indexBlock(ib.dao.KVStore(), blk.HashBlock(), blk.Height(), blk.Actions, batch, nil); err != nil {
 					log.L().Error(
 						"Error when indexing the block",
 						zap.Uint64("height", blk.Height()),
 						zap.Error(err),
 					)
 				}
-				if err := ib.store.Commit(batch); err != nil {
+				if err := ib.dao.KVStore().Commit(batch); err != nil {
 					log.L().Error(
 						"Error when indexing the block",
 						zap.Uint64("height", blk.Height()),
@@ -130,7 +124,7 @@ func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
 }
 
 func (ib *IndexBuilder) init() error {
-	tipHeight, err := ib.dao.getBlockchainHeight()
+	tipHeight, err := ib.dao.GetBlockchainHeight()
 	if err != nil {
 		return err
 	}
@@ -150,18 +144,18 @@ func (ib *IndexBuilder) init() error {
 	zap.L().Info("Loading blocks", zap.Uint64("startHeight", startHeight))
 	batch := db.NewBatch()
 	for i := startHeight; i <= tipHeight; i++ {
-		hash, err := ib.dao.getBlockHash(i)
+		hash, err := ib.dao.GetBlockHash(i)
 		if err != nil {
 			return err
 		}
-		body, err := ib.dao.body(hash)
+		body, err := ib.dao.Body(hash)
 		if err != nil {
 			return err
 		}
 		blk := &block.Block{
 			Body: *body,
 		}
-		err = indexBlock(ib.store, hash, i, blk.Actions, batch, ib.dirtyAddr)
+		err = indexBlock(ib.dao.KVStore(), hash, i, blk.Actions, batch, ib.dirtyAddr)
 		if err != nil {
 			return err
 		}
@@ -177,7 +171,7 @@ func (ib *IndexBuilder) init() error {
 }
 
 func (ib *IndexBuilder) checkReindex() error {
-	if _, err := ib.store.CountingIndex(totalActionsKey); err != nil && errors.Cause(err) == db.ErrBucketNotExist {
+	if _, err := ib.dao.KVStore().CountingIndex(totalActionsKey); err != nil && errors.Cause(err) == db.ErrBucketNotExist {
 		// counting index does not exist, need to re-index
 		ib.reindex = true
 	}
@@ -188,16 +182,17 @@ func (ib *IndexBuilder) checkReindex() error {
 }
 
 func (ib *IndexBuilder) purgeObsoleteIndex() error {
-	if err := ib.dao.kvstore.Delete(blockAddressActionMappingNS, nil); err != nil {
+	store := ib.dao.KVStore()
+	if err := store.Delete(blockAddressActionMappingNS, nil); err != nil {
 		return err
 	}
-	if err := ib.dao.kvstore.Delete(blockAddressActionCountMappingNS, nil); err != nil {
+	if err := store.Delete(blockAddressActionCountMappingNS, nil); err != nil {
 		return err
 	}
-	if err := ib.dao.kvstore.Delete(blockActionBlockMappingNS, nil); err != nil {
+	if err := store.Delete(blockActionBlockMappingNS, nil); err != nil {
 		return err
 	}
-	if err := ib.dao.kvstore.Delete(blockActionReceiptMappingNS, nil); err != nil {
+	if err := store.Delete(blockActionReceiptMappingNS, nil); err != nil {
 		return err
 	}
 	return nil
@@ -213,11 +208,11 @@ func (ib *IndexBuilder) commitBatchAndClear(tipHeight uint64, batch db.KVStoreBa
 	ib.dirtyAddr = make(addrIndex)
 	// update indexed height
 	batch.Put(blockNS, topIndexedHeightKey, byteutil.Uint64ToBytes(tipHeight), "failed to put indexed height")
-	return ib.store.Commit(batch)
+	return ib.dao.KVStore().Commit(batch)
 }
 
 func (ib *IndexBuilder) getNextHeight() (uint64, error) {
-	value, err := ib.store.Get(blockNS, topIndexedHeightKey)
+	value, err := ib.dao.KVStore().Get(blockNS, topIndexedHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get indexed height")
 	}

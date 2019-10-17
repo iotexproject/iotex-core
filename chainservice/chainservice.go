@@ -8,6 +8,7 @@ package chainservice
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -43,7 +44,7 @@ type ChainService struct {
 	rDPoSProtocol     *rolldpos.Protocol
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
-	indexBuilder *blockchain.IndexBuilder
+	indexBuilder *blockdao.IndexBuilder
 	registry     *protocol.Registry
 }
 
@@ -135,9 +136,9 @@ func New(
 		chain = blockchain.NewBlockchain(cfg, chainOpts...)
 	}
 
-	var indexBuilder *blockchain.IndexBuilder
+	var indexBuilder *blockdao.IndexBuilder
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockchain.NewIndexBuilder(chain, cfg.DB.Reindex); err != nil {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), cfg.DB.Reindex); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
