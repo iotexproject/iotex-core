@@ -177,11 +177,7 @@ run:
 
 .PHONY: docker
 docker:
-	$(DOCKERCMD) build -f Dockerfile -t $(USER)/iotex-core:latest .
-
-.PHONY: docker-all 
-docker-all:
-	$(DOCKERCMD) build -f all.Dockerfile -t $(USER)/iotex-core:latest .
+	$(DOCKERCMD) build -t $(USER)/iotex-core:latest .
 
 .PHONY: minicluster
 minicluster:
