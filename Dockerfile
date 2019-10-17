@@ -12,7 +12,7 @@ RUN go mod download
 COPY . .
 
 RUN mkdir -p $GOPATH/pkg/linux_amd64/github.com/iotexproject/ && \
-    make clean build && \
+    make clean build-all && \
     cp ./bin/server /usr/local/bin/iotex-server  && \
     cp ./bin/actioninjectorv2 /usr/local/bin/iotex-actioninjectorv2 && \
     cp ./bin/addrgen /usr/local/bin/iotex-addrgen && \

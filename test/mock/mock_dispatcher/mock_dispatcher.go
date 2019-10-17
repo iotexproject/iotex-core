@@ -40,6 +40,7 @@ func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 
 // HandleAction mocks base method
 func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.Action) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleAction", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -47,11 +48,13 @@ func (m *MockSubscriber) HandleAction(arg0 context.Context, arg1 *iotextypes.Act
 
 // HandleAction indicates an expected call of HandleAction
 func (mr *MockSubscriberMockRecorder) HandleAction(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAction", reflect.TypeOf((*MockSubscriber)(nil).HandleAction), arg0, arg1)
 }
 
 // HandleBlock mocks base method
 func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *iotextypes.Block) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -59,11 +62,13 @@ func (m *MockSubscriber) HandleBlock(arg0 context.Context, arg1 *iotextypes.Bloc
 
 // HandleBlock indicates an expected call of HandleBlock
 func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0, arg1)
 }
 
 // HandleBlockSync mocks base method
 func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.Block) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -71,11 +76,13 @@ func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.
 
 // HandleBlockSync indicates an expected call of HandleBlockSync
 func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockSync", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockSync), arg0, arg1)
 }
 
 // HandleSyncRequest mocks base method
 func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -83,11 +90,13 @@ func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_
 
 // HandleSyncRequest indicates an expected call of HandleSyncRequest
 func (mr *MockSubscriberMockRecorder) HandleSyncRequest(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSyncRequest", reflect.TypeOf((*MockSubscriber)(nil).HandleSyncRequest), arg0, arg1, arg2)
 }
 
 // HandleConsensusMsg mocks base method
 func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -95,6 +104,7 @@ func (m *MockSubscriber) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) e
 
 // HandleConsensusMsg indicates an expected call of HandleConsensusMsg
 func (mr *MockSubscriberMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockSubscriber)(nil).HandleConsensusMsg), arg0)
 }
 
@@ -123,6 +133,7 @@ func (m *MockDispatcher) EXPECT() *MockDispatcherMockRecorder {
 
 // Start mocks base method
 func (m *MockDispatcher) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Start", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -130,11 +141,13 @@ func (m *MockDispatcher) Start(arg0 context.Context) error {
 
 // Start indicates an expected call of Start
 func (mr *MockDispatcherMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockDispatcher)(nil).Start), arg0)
 }
 
 // Stop mocks base method
 func (m *MockDispatcher) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -142,35 +155,42 @@ func (m *MockDispatcher) Stop(arg0 context.Context) error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockDispatcherMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockDispatcher)(nil).Stop), arg0)
 }
 
 // AddSubscriber mocks base method
 func (m *MockDispatcher) AddSubscriber(arg0 uint32, arg1 dispatcher.Subscriber) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "AddSubscriber", arg0, arg1)
 }
 
 // AddSubscriber indicates an expected call of AddSubscriber
 func (mr *MockDispatcherMockRecorder) AddSubscriber(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSubscriber", reflect.TypeOf((*MockDispatcher)(nil).AddSubscriber), arg0, arg1)
 }
 
 // HandleBroadcast mocks base method
 func (m *MockDispatcher) HandleBroadcast(arg0 context.Context, arg1 uint32, arg2 proto.Message) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandleBroadcast", arg0, arg1, arg2)
 }
 
 // HandleBroadcast indicates an expected call of HandleBroadcast
 func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBroadcast", reflect.TypeOf((*MockDispatcher)(nil).HandleBroadcast), arg0, arg1, arg2)
 }
 
 // HandleTell mocks base method
 func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 go_libp2p_peerstore.PeerInfo, arg3 proto.Message) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
 }
 
 // HandleTell indicates an expected call of HandleTell
 func (mr *MockDispatcherMockRecorder) HandleTell(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleTell", reflect.TypeOf((*MockDispatcher)(nil).HandleTell), arg0, arg1, arg2, arg3)
 }

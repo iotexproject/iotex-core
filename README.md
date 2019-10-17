@@ -46,10 +46,15 @@ export GO111MODULE=on
 set GO111MODULE=on (for windows)
 ```
 
-Build the project by
+Build the project for general purpose (server, ioctl) by
 
 ```
 make
+```
+
+Build the project for broader purpose (server, ioctl, injector...) by
+```
+make all 
 ```
 
 If the dependency needs to be updated, run

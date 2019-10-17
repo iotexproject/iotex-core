@@ -156,6 +156,7 @@ func New(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
+		rolldpos.EnableHudsonSubEpoch(cfg.Genesis.HudsonBlockHeight, cfg.Genesis.HudsonNumSubEpochs),
 	)
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {

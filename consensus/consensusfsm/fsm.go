@@ -84,34 +84,21 @@ var (
 	}
 )
 
-// Config defines a set of time durations used in fsm and event queue size
-type Config struct {
-	EventChanSize                uint          `yaml:"eventChanSize"`
-	UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
-	UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
-	AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
-	AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
-	AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
-	CommitTTL                    time.Duration `yaml:"commitTTL"`
-}
-
 // ConsensusFSM wraps over the general purpose FSM and implements the consensus logic
 type ConsensusFSM struct {
 	fsm   fsm.FSM
 	evtq  chan *ConsensusEvent
 	close chan interface{}
 	clock clock.Clock
-	cfg   Config
 	ctx   Context
 	wg    sync.WaitGroup
 }
 
 // NewConsensusFSM returns a new fsm
-func NewConsensusFSM(cfg Config, ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
+func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 	cm := &ConsensusFSM{
-		evtq:  make(chan *ConsensusEvent, cfg.EventChanSize),
+		evtq:  make(chan *ConsensusEvent, ctx.EventChanSize()),
 		close: make(chan interface{}),
-		cfg:   cfg,
 		ctx:   ctx,
 		clock: clock,
 	}
@@ -332,7 +319,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 	if m.ctx.IsFutureEvent(evt) {
 		m.ctx.Logger().Debug("future event", zap.Any("event", evt.Type()))
 		// TODO: find a more appropriate delay
-		m.produce(evt, m.cfg.UnmatchedEventInterval)
+		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
 		consensusEvtsMtc.WithLabelValues(string(evt.Type()), "backoff").Inc()
 		return nil
 	}
@@ -352,7 +339,7 @@ func (m *ConsensusFSM) handle(evt *ConsensusEvent) error {
 			consensusEvtsMtc.WithLabelValues(string(evt.Type()), "stale").Inc()
 			return nil
 		}
-		m.produce(evt, m.cfg.UnmatchedEventInterval)
+		m.produce(evt, m.ctx.UnmatchedEventInterval(evt.Height()))
 		m.ctx.Logger().Debug(
 			"consensus state transition could find the match",
 			zap.String("src", string(src)),
@@ -392,7 +379,7 @@ func (m *ConsensusFSM) calibrate(evt fsm.Event) (fsm.State, error) {
 	return m.BackToPrepare(0)
 }
 
-func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
+func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 	if err := m.ctx.Prepare(); err != nil {
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
 		return m.BackToPrepare(0)
@@ -403,6 +390,7 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Error("failed to generate block proposal", zap.Error(err))
 		return m.BackToPrepare(0)
 	}
+
 	overtime := m.ctx.WaitUntilRoundStart()
 	if !m.ctx.IsDelegate() {
 		return m.BackToPrepare(0)
@@ -411,31 +399,33 @@ func (m *ConsensusFSM) prepare(_ fsm.Event) (fsm.State, error) {
 		m.ctx.Broadcast(proposal)
 		m.ProduceReceiveBlockEvent(proposal)
 	}
-	ttl := m.cfg.AcceptBlockTTL
-	if overtime > 0 {
-		ttl -= overtime
+
+	var h uint64
+	cEvt, ok := evt.(*ConsensusEvent)
+	if !ok {
+		m.ctx.Logger().Panic("failed to convert ConsensusEvent in prepare")
 	}
+	h = cEvt.Height()
+	ttl := m.ctx.AcceptBlockTTL(h) - overtime
 	// Setup timeouts
 	if preCommitEndorsement := m.ctx.PreCommitEndorsement(); preCommitEndorsement != nil {
 		cEvt := m.ctx.NewConsensusEvent(eBroadcastPreCommitEndorsement, preCommitEndorsement)
 		m.produce(cEvt, ttl)
-		ttl += m.cfg.AcceptProposalEndorsementTTL
+		ttl += m.ctx.AcceptProposalEndorsementTTL(cEvt.Height())
 		m.produce(cEvt, ttl)
-		ttl += m.cfg.AcceptLockEndorsementTTL
+		ttl += m.ctx.AcceptLockEndorsementTTL(cEvt.Height())
 		m.produce(cEvt, ttl)
-		ttl += m.cfg.CommitTTL
+		ttl += m.ctx.CommitTTL(cEvt.Height())
 		m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
-
 		return sAcceptPreCommitEndorsement, nil
 	}
 	m.produceConsensusEvent(eFailedToReceiveBlock, ttl)
-	ttl += m.cfg.AcceptProposalEndorsementTTL
+	ttl += m.ctx.AcceptProposalEndorsementTTL(h)
 	m.produceConsensusEvent(eStopReceivingProposalEndorsement, ttl)
-	ttl += m.cfg.AcceptLockEndorsementTTL
+	ttl += m.ctx.AcceptLockEndorsementTTL(h)
 	m.produceConsensusEvent(eStopReceivingLockEndorsement, ttl)
-	ttl += m.cfg.CommitTTL
+	ttl += m.ctx.CommitTTL(h)
 	m.produceConsensusEvent(eStopReceivingPreCommitEndorsement, ttl)
-
 	return sAcceptBlockProposal, nil
 }
 

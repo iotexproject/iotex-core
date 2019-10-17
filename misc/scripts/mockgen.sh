@@ -52,6 +52,7 @@ mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
 mockgen -destination=./consensus/consensusfsm/mock_context_test.go  \
         -source=./consensus/consensusfsm/context.go \
 	-self_package=github.com/iotexproject/iotex-core/consensus/consensusfsm \
+	-aux_files=github.com/iotexproject/iotex-core/consensus/consensusfsm=./consensus/consensusfsm/consensus_ttl.go \
 	-package=consensusfsm \
         Context
 
