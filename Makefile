@@ -63,14 +63,30 @@ else
 	DEBUG_FLAG = -debug
 endif
 
-all: clean build test
+default: clean build test
+all: clean build-all test
 
 .PHONY: build
 build: ioctl
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
+
+.PHONY: build-all
+build-all: build build-actioninjector build-addrgen build-minicluster build-staterecoverer
+
+.PHONY: build-actioninjector
+build-actioninjector: 
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ACTINJV2) -v ./tools/actioninjector.v2
+
+.PHONY: build-addrgen
+build-addrgen:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_ADDRGEN) -v ./tools/addrgen
+
+.PHONY: build-minicluster
+build-minicluster:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
+
+.PHONY: build-staterecoverer
+build-staterecoverer:
 	$(GOBUILD) -o ./bin/$(BUILD_TARGET_RECOVER) -v ./tools/staterecoverer
 
 .PHONY: fmt
