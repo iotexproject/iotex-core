@@ -22,7 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
@@ -73,6 +72,18 @@ func (ss *strs) Set(str string) error {
 	return nil
 }
 
+// Hudson consensus config
+const (
+	HudsonUnmatchedEventTTL            = 2 * time.Second
+	HudsonUnmatchedEventInterval       = 100 * time.Millisecond
+	HudsonAcceptBlockTTL               = 2 * time.Second
+	HudsonAcceptProposalEndorsementTTL = time.Second
+	HudsonAcceptLockEndorsementTTL     = time.Second
+	HudsonCommitTTL                    = time.Second
+	HudsonBlockInterval                = 5 * time.Second
+	HudsonDelay                        = 2 * time.Second
+)
+
 var (
 	// Default is the default config
 	Default = Config{
@@ -118,7 +129,7 @@ var (
 		Consensus: Consensus{
 			Scheme: StandaloneScheme,
 			RollDPoS: RollDPoS{
-				FSM: consensusfsm.Config{
+				FSM: ConsensusTiming{
 					UnmatchedEventTTL:            3 * time.Second,
 					UnmatchedEventInterval:       100 * time.Millisecond,
 					AcceptBlockTTL:               4 * time.Second,
@@ -248,10 +259,21 @@ type (
 
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
-		FSM               consensusfsm.Config `yaml:"fsm"`
-		ToleratedOvertime time.Duration       `yaml:"toleratedOvertime"`
-		Delay             time.Duration       `yaml:"delay"`
-		ConsensusDBPath   string              `yaml:"consensusDBPath"`
+		FSM               ConsensusTiming `yaml:"fsm"`
+		ToleratedOvertime time.Duration   `yaml:"toleratedOvertime"`
+		Delay             time.Duration   `yaml:"delay"`
+		ConsensusDBPath   string          `yaml:"consensusDBPath"`
+	}
+
+	// ConsensusTiming defines a set of time durations used in fsm and event queue size
+	ConsensusTiming struct {
+		EventChanSize                uint          `yaml:"eventChanSize"`
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
 	}
 
 	// Dispatcher is the dispatcher config

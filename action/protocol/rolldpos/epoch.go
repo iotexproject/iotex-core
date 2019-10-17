@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // ProtocolID is the identity of this protocol
@@ -21,18 +22,40 @@ type Protocol struct {
 	numCandidateDelegates uint64
 	numDelegates          uint64
 	numSubEpochs          uint64
+	numSubEpochsHudson    uint64
+	hudsonHeight          uint64
+	hudsonOn              bool
+}
+
+// Option is optional setting for epoch protocol
+type Option func(*Protocol) error
+
+// EnableHudsonSubEpoch will set give numSubEpochs at give height.
+func EnableHudsonSubEpoch(height, numSubEpochs uint64) Option {
+	return func(p *Protocol) error {
+		p.hudsonOn = true
+		p.numSubEpochsHudson = numSubEpochs
+		p.hudsonHeight = height
+		return nil
+	}
 }
 
 // NewProtocol returns a new rolldpos protocol
-func NewProtocol(numCandidateDelegates uint64, numDelegates uint64, numSubEpochs uint64) *Protocol {
+func NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs uint64, opts ...Option) *Protocol {
 	if numCandidateDelegates < numDelegates {
 		numCandidateDelegates = numDelegates
 	}
-	return &Protocol{
+	p := &Protocol{
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
 		numSubEpochs:          numSubEpochs,
 	}
+	for _, opt := range opts {
+		if err := opt(p); err != nil {
+			log.S().Panicf("Failed to execute epoch protocol creation option %p: %v", opt, err)
+		}
+	}
+	return p
 }
 
 // Handle handles a modification
@@ -60,17 +83,17 @@ func (p *Protocol) NumDelegates() uint64 {
 	return p.numDelegates
 }
 
-// NumSubEpochs returns the number of sub-epochs in an epoch
-func (p *Protocol) NumSubEpochs() uint64 {
-	return p.numSubEpochs
-}
-
 // GetEpochNum returns the number of the epoch for a given height
 func (p *Protocol) GetEpochNum(height uint64) uint64 {
 	if height == 0 {
 		return 0
 	}
-	return (height-1)/p.numDelegates/p.numSubEpochs + 1
+	if !p.hudsonOn || height <= p.hudsonHeight {
+		return (height-1)/p.numDelegates/p.numSubEpochs + 1
+	}
+	hudsonEpoch := p.GetEpochNum(p.hudsonHeight)
+	hudsonEpochHeight := p.GetEpochHeight(hudsonEpoch)
+	return hudsonEpoch + (height-hudsonEpochHeight)/p.numDelegates/p.numSubEpochsHudson
 }
 
 // GetEpochHeight returns the start height of an epoch
@@ -78,21 +101,20 @@ func (p *Protocol) GetEpochHeight(epochNum uint64) uint64 {
 	if epochNum == 0 {
 		return 0
 	}
-	return (epochNum-1)*p.numDelegates*p.numSubEpochs + 1
+	hudsonEpoch := p.GetEpochNum(p.hudsonHeight)
+	if !p.hudsonOn || epochNum <= hudsonEpoch {
+		return (epochNum-1)*p.numDelegates*p.numSubEpochs + 1
+	}
+	hudsonEpochHeight := p.GetEpochHeight(hudsonEpoch)
+	return hudsonEpochHeight + (epochNum-hudsonEpoch)*p.numDelegates*p.numSubEpochsHudson
 }
 
 // GetEpochLastBlockHeight returns the last height of an epoch
 func (p *Protocol) GetEpochLastBlockHeight(epochNum uint64) uint64 {
-	if epochNum == 0 {
-		return 0
-	}
-	return epochNum * p.numDelegates * p.numSubEpochs
+	return p.GetEpochHeight(epochNum+1) - 1
 }
 
 // GetSubEpochNum returns the sub epoch number of a block height
 func (p *Protocol) GetSubEpochNum(height uint64) uint64 {
-	if height == 0 {
-		return 0
-	}
-	return (height - 1) % (p.numDelegates * p.numSubEpochs) / p.numDelegates
+	return (height - p.GetEpochHeight(p.GetEpochNum(height))) / p.numDelegates
 }

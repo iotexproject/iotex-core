@@ -633,6 +633,13 @@ func (bc *blockchain) MintNewBlock(
 			return nil, err
 		}
 	}
+
+	if newblockHeight == bc.config.Genesis.HudsonBlockHeight {
+		if err := bc.updateHudsonBlockRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
+
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
@@ -1085,6 +1092,13 @@ func (bc *blockchain) runActions(
 			return nil, err
 		}
 	}
+
+	if acts.BlockHeight() == bc.config.Genesis.HudsonBlockHeight {
+		if err := bc.updateHudsonBlockRewardAmount(ctx, ws); err != nil {
+			return nil, err
+		}
+	}
+
 	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
 }
 
@@ -1477,6 +1491,18 @@ func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws fa
 		return errors.Errorf("error when casting protocol")
 	}
 	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
+}
+
+func (bc *blockchain) updateHudsonBlockRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
+	p, ok := bc.registry.Find(rewarding.ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*rewarding.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting protocol")
+	}
+	return rp.SetReward(ctx, ws, bc.config.Genesis.HudsonBlockReward(), true)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
