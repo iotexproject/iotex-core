@@ -279,7 +279,7 @@ func (ap *actPool) GetUnconfirmedActs(addr string) []action.SealedEnvelope {
 			for _, v := range desMap {
 				sortActions = append(sortActions, v)
 			}
-			sort.Sort(sortActions)
+			sort.Stable(sortActions)
 			ret = append(ret, sortActions...)
 		}
 	}
@@ -423,7 +423,7 @@ func (ap *actPool) removeConfirmedActs() {
 		acts := queue.FilterNonce(pendingNonce)
 		ap.removeInvalidActs(acts)
 		//del actions in destination map
-		ap.deleteAction(acts...)
+		ap.deleteAccountDestinationActions(acts...)
 		// Delete the queue entry if it becomes empty
 		if queue.Empty() {
 			delete(ap.accountActs, from)
@@ -439,12 +439,12 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		intrinsicGas, _ := act.IntrinsicGas()
 		ap.gasInPool -= intrinsicGas
 		//del actions in destination map
-		ap.deleteAction(act)
+		ap.deleteAccountDestinationActions(act)
 	}
 }
 
 // just for destination map
-func (ap *actPool) deleteAction(acts ...action.SealedEnvelope) {
+func (ap *actPool) deleteAccountDestinationActions(acts ...action.SealedEnvelope) {
 	for _, act := range acts {
 		desAddress, ok := act.Destination()
 		if ok {
