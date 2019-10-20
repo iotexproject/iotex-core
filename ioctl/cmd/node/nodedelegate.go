@@ -232,7 +232,7 @@ func nextDelegates() error {
 			Address: bp.Address,
 			Rank:    rank + 1,
 			Alias:   aliases[bp.Address],
-			Active:  !(isActive[bp.Address]),
+			Active:  isActive[bp.Address],
 			Votes:   util.RauToString(votes, util.IotxDecimalNum),
 		})
 	}
