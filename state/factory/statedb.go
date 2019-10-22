@@ -7,16 +7,13 @@
 package factory
 
 import (
-	"bytes"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"math/big"
 	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
