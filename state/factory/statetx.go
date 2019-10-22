@@ -7,17 +7,27 @@
 package factory
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 
 	"github.com/pkg/errors"
+	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
+)
+
+const (
+	// CheckHistoryDeleteInterval 300 block heights to check if history needs to delete
+	CheckHistoryDeleteInterval = 300
 )
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
@@ -27,6 +37,8 @@ type stateTX struct {
 	cb             db.CachedBatch // cached batch for pending writes
 	dao            db.KVStore     // the underlying DB for account/contract storage
 	actionHandlers []protocol.ActionHandler
+	deleting       chan struct{} // make sure there's only one goroutine deleting history state
+	cfg            config.DB
 }
 
 // newStateTX creates a new state tx
@@ -34,12 +46,15 @@ func newStateTX(
 	version uint64,
 	kv db.KVStore,
 	actionHandlers []protocol.ActionHandler,
+	cfg config.DB,
 ) *stateTX {
 	return &stateTX{
 		ver:            version,
 		cb:             db.NewCachedBatch(),
 		dao:            kv,
 		actionHandlers: actionHandlers,
+		deleting:       make(chan struct{}, 1),
+		cfg:            cfg,
 	}
 }
 
@@ -121,6 +136,9 @@ func (stx *stateTX) RunAction(
 
 // UpdateBlockLevelInfo runs action in the block and track pending changes in working set
 func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
+	if stx.cfg.EnableHistoryState && blockHeight%CheckHistoryDeleteInterval == 0 && blockHeight != 0 {
+		stx.deleteHistory()
+	}
 	stx.blkHeight = blockHeight
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(blockHeight)
@@ -178,6 +196,99 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
 	stx.cb.Put(AccountKVNameSpace, pkHash[:], ss, "error when putting k = %x", pkHash)
+	if !stx.cfg.EnableHistoryState {
+		return nil
+	}
+	return stx.putIndex(pkHash, ss)
+}
+
+func (stx *stateTX) getMaxVersion(pkHash hash.Hash160) (uint64, error) {
+	indexKey := append(AccountMaxVersionPrefix, pkHash[:]...)
+	value, err := stx.dao.Get(AccountKVNameSpace, indexKey)
+	if err != nil {
+		return 0, err
+	}
+	return binary.BigEndian.Uint64(value), nil
+}
+
+func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
+	version := stx.ver + 1
+	maxVersion, _ := stx.getMaxVersion(pkHash)
+	if (maxVersion != 0) && (maxVersion != 1) && (maxVersion > version) {
+		return nil
+	}
+
+	currentVersion := make([]byte, 8)
+	binary.BigEndian.PutUint64(currentVersion, version)
+	indexKey := append(AccountMaxVersionPrefix, pkHash[:]...)
+	err := stx.dao.Put(AccountKVNameSpace, indexKey, currentVersion)
+	if err != nil {
+		return err
+	}
+	stateKey := append(pkHash[:], currentVersion...)
+	return stx.dao.Put(AccountKVNameSpace, stateKey, ss)
+}
+
+// deleteAccountHistory delete history of account
+func (stx *stateTX) deleteAccountHistory(pkHash hash.Hash160, deleteHeight uint64) error {
+	db := stx.dao.DB()
+	boltdb, ok := db.(*bolt.DB)
+	if !ok {
+		log.L().Error("convert to bolt db error")
+		return nil
+	}
+	prefix := pkHash[:]
+	err := boltdb.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(AccountKVNameSpace))
+		if b == nil {
+			// return when heightToTrieNodeKeyNS not exists
+			return errors.New("bucket is nil")
+		}
+		c := b.Cursor()
+		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			if len(k) <= len(pkHash) || len(k) > len(pkHash)+8 {
+				continue
+			}
+			kHeight := binary.BigEndian.Uint64(k[20:])
+			if kHeight < deleteHeight {
+				b.Delete(k)
+			}
+		}
+		return nil
+	})
+	return err
+}
+
+// delete history asynchronous,this will find all account
+func (stx *stateTX) deleteHistory() error {
+	currentHeight := stx.ver + 1
+	if currentHeight < stx.cfg.HistoryStateHeight {
+		return nil
+	}
+	deleteHeight := currentHeight - stx.cfg.HistoryStateHeight
+	go func() {
+		stx.deleting <- struct{}{}
+		db := stx.dao.DB()
+		boltdb, ok := db.(*bolt.DB)
+		if !ok {
+			log.L().Error("convert to bolt db error")
+			return
+		}
+		allPk := make([]hash.Hash160, 0)
+		boltdb.View(func(tx *bolt.Tx) error {
+			c := tx.Bucket([]byte(AccountKVNameSpace)).Cursor()
+			for k, _ := c.Seek(AccountMaxVersionPrefix); bytes.HasPrefix(k, AccountMaxVersionPrefix); k, _ = c.Next() {
+				addrHash := k[len(AccountMaxVersionPrefix):]
+				h := hash.BytesToHash160(addrHash)
+				allPk = append(allPk, h)
+			}
+			return nil
+		})
+		for _, h := range allPk {
+			stx.deleteAccountHistory(h, deleteHeight)
+		}
+		<-stx.deleting
+	}()
 	return nil
 }
 
