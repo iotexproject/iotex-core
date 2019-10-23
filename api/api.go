@@ -723,6 +723,9 @@ func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iote
 
 // GetActions returns actions within the range
 func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
@@ -792,6 +795,9 @@ func (api *Server) getSingleAction(actionHash string, checkPending bool) (*iotex
 
 // getActionsByAddress returns all actions associated with an address
 func (api *Server) getActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
@@ -817,6 +823,9 @@ func (api *Server) getActionsByAddress(address string, start uint64, count uint6
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
 func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
@@ -845,6 +854,9 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
@@ -873,6 +885,9 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 
 // getBlockMetas returns blockmetas response within the height range
 func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlockMetasResponse, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
@@ -1153,6 +1168,9 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 }
 
 func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
 	// filter logs within start --> end
 	var logs []*iotextypes.Log
 	end := start + count - 1
