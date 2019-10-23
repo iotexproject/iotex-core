@@ -107,7 +107,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	// convert to epoch start height
 	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
 	if sc.hu.IsPre(config.Cook, epochHeight) {
-		return cand, nil
+		return sc.filterDelegates(cand), nil
 	}
 	// native staking starts from Cook
 	if sc.nativeStaking == nil {
@@ -116,7 +116,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	nativeVotes, ts, err := sc.nativeStaking.Votes()
 	if err == ErrNoData {
 		// no native staking data
-		return cand, nil
+		return sc.filterDelegates(cand), nil
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
@@ -132,6 +132,17 @@ func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateMana
 // SetNativeStakingContract sets the address of native staking contract
 func (sc *stakingCommittee) SetNativeStakingContract(contract string) {
 	sc.nativeStaking.SetContract(contract)
+}
+
+// return candidates whose votes are above threshold
+func (sc *stakingCommittee) filterDelegates(candidates state.CandidateList) state.CandidateList {
+	var cand state.CandidateList
+	for _, c := range candidates {
+		if c.Votes.Cmp(sc.scoreThreshold) >= 0 {
+			cand = append(cand, c)
+		}
+	}
+	return cand
 }
 
 func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally, ts time.Time) state.CandidateList {
