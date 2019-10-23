@@ -18,7 +18,7 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.1
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.1
-	github.com/iotexproject/iotex-election v0.2.7
+	github.com/iotexproject/iotex-election v0.2.8
 	github.com/iotexproject/iotex-proto v0.2.5
 	github.com/ipfs/go-datastore v0.0.5 // indirect
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
@@ -44,7 +44,7 @@ require (
 	golang.org/x/net v0.0.0-20190603091049-60506f45cf65
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
 	google.golang.org/grpc v1.21.0
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
 	gopkg.in/yaml.v2 v2.2.2
