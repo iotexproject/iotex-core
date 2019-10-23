@@ -501,6 +501,9 @@ func (dao *blockDAO) getActionsByAddress(addrBytes hash.Hash160, start, count ui
 		return nil, err
 	}
 	total := address.Size()
+	if start >= total {
+		return nil, errors.New("invalid start index")
+	}
 	if start+count > total {
 		count = total - start
 	}
