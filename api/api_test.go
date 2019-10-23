@@ -679,12 +679,12 @@ func TestServer_GetActions(t *testing.T) {
 			},
 		}
 		res, err := svr.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		if test.numActions == 0 {
-			// returns empty response body in case of no result
-			require.Equal(&iotexapi.GetActionsResponse{}, res)
-		}
 	}
 }
 
@@ -792,15 +792,13 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 			},
 		}
 		res, err := svr.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		if test.numActions > 0 {
-			require.Equal(test.address, res.ActionInfo[0].Sender)
-		} else {
-			// returns empty response body in case of no result
-			res.Total = 0
-			require.Equal(&iotexapi.GetActionsResponse{}, res)
-		}
+		require.Equal(test.address, res.ActionInfo[0].Sender)
 	}
 }
 
@@ -825,15 +823,13 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 			},
 		}
 		res, err := svr.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		if test.numActions > 0 {
-			require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
-		} else {
-			// returns empty response body in case of no result
-			res.Total = 0
-			require.Equal(&iotexapi.GetActionsResponse{}, res)
-		}
+		require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
 	}
 }
 
@@ -854,6 +850,10 @@ func TestServer_GetBlockMetas(t *testing.T) {
 			},
 		}
 		res, err := svr.GetBlockMetas(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
 		var prevBlkPb *iotextypes.BlockMeta
