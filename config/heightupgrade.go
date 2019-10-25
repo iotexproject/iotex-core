@@ -16,7 +16,7 @@ const (
 	Aleutian
 	Bering
 	Cook
-	Hudson
+	Dardanelles
 )
 
 type (
@@ -25,11 +25,11 @@ type (
 
 	// HeightUpgrade lists heights at which certain fixes take effect
 	HeightUpgrade struct {
-		pacificHeight  uint64
-		aleutianHeight uint64
-		beringHeight   uint64
-		cookHeight     uint64
-		hudsonHeight   uint64
+		pacificHeight     uint64
+		aleutianHeight    uint64
+		beringHeight      uint64
+		cookHeight        uint64
+		dardanellesHeight uint64
 	}
 )
 
@@ -40,7 +40,7 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 		cfg.Genesis.AleutianBlockHeight,
 		cfg.Genesis.BeringBlockHeight,
 		cfg.Genesis.CookBlockHeight,
-		cfg.Genesis.HudsonBlockHeight,
+		cfg.Genesis.DardanellesBlockHeight,
 	}
 }
 
@@ -56,8 +56,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.beringHeight
 	case Cook:
 		h = hu.cookHeight
-	case Hudson:
-		h = hu.hudsonHeight
+	case Dardanelles:
+		h = hu.dardanellesHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -81,5 +81,5 @@ func (hu *HeightUpgrade) BeringBlockHeight() uint64 { return hu.beringHeight }
 // CookBlockHeight returns the cook height
 func (hu *HeightUpgrade) CookBlockHeight() uint64 { return hu.cookHeight }
 
-// HudsonBlockHeight returns the hudson height
-func (hu *HeightUpgrade) HudsonBlockHeight() uint64 { return hu.hudsonHeight }
+// DardanellesBlockHeight returns the dardanelles height
+func (hu *HeightUpgrade) DardanellesBlockHeight() uint64 { return hu.dardanellesHeight }

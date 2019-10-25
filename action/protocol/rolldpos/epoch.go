@@ -19,23 +19,23 @@ const ProtocolID = "rolldpos"
 
 // Protocol defines an epoch protocol
 type Protocol struct {
-	numCandidateDelegates uint64
-	numDelegates          uint64
-	numSubEpochs          uint64
-	numSubEpochsHudson    uint64
-	hudsonHeight          uint64
-	hudsonOn              bool
+	numCandidateDelegates   uint64
+	numDelegates            uint64
+	numSubEpochs            uint64
+	numSubEpochsDardanelles uint64
+	dardanellesHeight       uint64
+	dardanellesOn           bool
 }
 
 // Option is optional setting for epoch protocol
 type Option func(*Protocol) error
 
-// EnableHudsonSubEpoch will set give numSubEpochs at give height.
-func EnableHudsonSubEpoch(height, numSubEpochs uint64) Option {
+// EnableDardanellesSubEpoch will set give numSubEpochs at give height.
+func EnableDardanellesSubEpoch(height, numSubEpochs uint64) Option {
 	return func(p *Protocol) error {
-		p.hudsonOn = true
-		p.numSubEpochsHudson = numSubEpochs
-		p.hudsonHeight = height
+		p.dardanellesOn = true
+		p.numSubEpochsDardanelles = numSubEpochs
+		p.dardanellesHeight = height
 		return nil
 	}
 }
@@ -88,12 +88,12 @@ func (p *Protocol) GetEpochNum(height uint64) uint64 {
 	if height == 0 {
 		return 0
 	}
-	if !p.hudsonOn || height <= p.hudsonHeight {
+	if !p.dardanellesOn || height <= p.dardanellesHeight {
 		return (height-1)/p.numDelegates/p.numSubEpochs + 1
 	}
-	hudsonEpoch := p.GetEpochNum(p.hudsonHeight)
-	hudsonEpochHeight := p.GetEpochHeight(hudsonEpoch)
-	return hudsonEpoch + (height-hudsonEpochHeight)/p.numDelegates/p.numSubEpochsHudson
+	dardanellesEpoch := p.GetEpochNum(p.dardanellesHeight)
+	dardanellesEpochHeight := p.GetEpochHeight(dardanellesEpoch)
+	return dardanellesEpoch + (height-dardanellesEpochHeight)/p.numDelegates/p.numSubEpochsDardanelles
 }
 
 // GetEpochHeight returns the start height of an epoch
@@ -101,12 +101,12 @@ func (p *Protocol) GetEpochHeight(epochNum uint64) uint64 {
 	if epochNum == 0 {
 		return 0
 	}
-	hudsonEpoch := p.GetEpochNum(p.hudsonHeight)
-	if !p.hudsonOn || epochNum <= hudsonEpoch {
+	dardanellesEpoch := p.GetEpochNum(p.dardanellesHeight)
+	if !p.dardanellesOn || epochNum <= dardanellesEpoch {
 		return (epochNum-1)*p.numDelegates*p.numSubEpochs + 1
 	}
-	hudsonEpochHeight := p.GetEpochHeight(hudsonEpoch)
-	return hudsonEpochHeight + (epochNum-hudsonEpoch)*p.numDelegates*p.numSubEpochsHudson
+	dardanellesEpochHeight := p.GetEpochHeight(dardanellesEpoch)
+	return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*p.numDelegates*p.numSubEpochsDardanelles
 }
 
 // GetEpochLastBlockHeight returns the last height of an epoch

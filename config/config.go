@@ -72,16 +72,16 @@ func (ss *strs) Set(str string) error {
 	return nil
 }
 
-// Hudson consensus config
+// Dardanelles consensus config
 const (
-	HudsonUnmatchedEventTTL            = 2 * time.Second
-	HudsonUnmatchedEventInterval       = 100 * time.Millisecond
-	HudsonAcceptBlockTTL               = 2 * time.Second
-	HudsonAcceptProposalEndorsementTTL = time.Second
-	HudsonAcceptLockEndorsementTTL     = time.Second
-	HudsonCommitTTL                    = time.Second
-	HudsonBlockInterval                = 5 * time.Second
-	HudsonDelay                        = 2 * time.Second
+	DardanellesUnmatchedEventTTL            = 2 * time.Second
+	DardanellesUnmatchedEventInterval       = 100 * time.Millisecond
+	DardanellesAcceptBlockTTL               = 2 * time.Second
+	DardanellesAcceptProposalEndorsementTTL = time.Second
+	DardanellesAcceptLockEndorsementTTL     = time.Second
+	DardanellesCommitTTL                    = time.Second
+	DardanellesBlockInterval                = 5 * time.Second
+	DardanellesDelay                        = 2 * time.Second
 )
 
 var (
