@@ -39,19 +39,19 @@ func init() {
 func defaultConfig() Genesis {
 	return Genesis{
 		Blockchain: Blockchain{
-			Timestamp:             1546329600,
-			BlockGasLimit:         20000000,
-			ActionGasLimit:        5000000,
-			BlockInterval:         10 * time.Second,
-			NumSubEpochs:          2,
-			NumDelegates:          24,
-			NumCandidateDelegates: 36,
-			TimeBasedRotation:     false,
-			PacificBlockHeight:    432001,
-			AleutianBlockHeight:   864001,
-			BeringBlockHeight:     1512001,
-			CookBlockHeight:       1641601,
-			HudsonBlockHeight:     1855201,
+			Timestamp:              1546329600,
+			BlockGasLimit:          20000000,
+			ActionGasLimit:         5000000,
+			BlockInterval:          10 * time.Second,
+			NumSubEpochs:           2,
+			NumDelegates:           24,
+			NumCandidateDelegates:  36,
+			TimeBasedRotation:      false,
+			PacificBlockHeight:     432001,
+			AleutianBlockHeight:    864001,
+			BeringBlockHeight:      1512001,
+			CookBlockHeight:        1641601,
+			DardanellesBlockHeight: 1855201,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -62,7 +62,7 @@ func defaultConfig() Genesis {
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
 			BlockRewardStr:                 unit.ConvertIotxToRau(16).String(),
-			HudsonBlockRewardStr:           unit.ConvertIotxToRau(8).String(),
+			DardanellesBlockRewardStr:      unit.ConvertIotxToRau(8).String(),
 			EpochRewardStr:                 unit.ConvertIotxToRau(12500).String(),
 			AleutianEpochRewardStr:         unit.ConvertIotxToRau(18750).String(),
 			NumDelegatesForEpochReward:     100,
@@ -112,8 +112,8 @@ type (
 		BlockInterval time.Duration `yaml:"blockInterval"`
 		// NumSubEpochs is the number of sub epochs in one epoch of block production
 		NumSubEpochs uint64 `yaml:"numSubEpochs"`
-		// HudsonNumSubEpochs is the number of sub epochs starts from hudson height in one epoch of block production
-		HudsonNumSubEpochs uint64 `yaml:"hudsonNumSubEpochs"`
+		// DardanellesNumSubEpochs is the number of sub epochs starts from dardanelles height in one epoch of block production
+		DardanellesNumSubEpochs uint64 `yaml:"dardanellesNumSubEpochs"`
 		// NumDelegates is the number of delegates that participate into one epoch of block production
 		NumDelegates uint64 `yaml:"numDelegates"`
 		// NumCandidateDelegates is the number of candidate delegates, who may be selected as a delegate via roll dpos
@@ -129,8 +129,8 @@ type (
 		BeringBlockHeight uint64 `yaml:"beringHeight"`
 		// CookBlockHeight is the start height of native staking
 		CookBlockHeight uint64 `yaml:"cookHeight"`
-		// HudsonBlockHeight is the start height of 5s block internal
-		HudsonBlockHeight uint64 `yaml:"hudsonHeight"`
+		// DardanellesBlockHeight is the start height of 5s block internal
+		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -177,8 +177,8 @@ type (
 		InitBalanceStr string `yaml:"initBalance"`
 		// BlockReward is the block reward amount in decimal string format
 		BlockRewardStr string `yaml:"blockReward"`
-		// HudsonBlockReward is the block reward amount starts from hudson height in decimal string format
-		HudsonBlockRewardStr string `yaml:"hudsonBlockReward"`
+		// DardanellesBlockReward is the block reward amount starts from dardanelles height in decimal string format
+		DardanellesBlockRewardStr string `yaml:"dardanellesBlockReward"`
 		// EpochReward is the epoch reward amount in decimal string format
 		EpochRewardStr string `yaml:"epochReward"`
 		// AleutianEpochRewardStr is the epoch reward amount in decimal string format after aleutian fork
@@ -384,9 +384,9 @@ func (r *Rewarding) AleutianEpochReward() *big.Int {
 	return val
 }
 
-// HudsonBlockReward returns the block reward amount after hudson fork
-func (r *Rewarding) HudsonBlockReward() *big.Int {
-	val, ok := big.NewInt(0).SetString(r.HudsonBlockRewardStr, 10)
+// DardanellesBlockReward returns the block reward amount after dardanelles fork
+func (r *Rewarding) DardanellesBlockReward() *big.Int {
+	val, ok := big.NewInt(0).SetString(r.DardanellesBlockRewardStr, 10)
 	if !ok {
 		log.S().Panicf("Error when casting block reward string %s into big int", r.EpochRewardStr)
 	}

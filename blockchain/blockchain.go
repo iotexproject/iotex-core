@@ -634,8 +634,8 @@ func (bc *blockchain) MintNewBlock(
 		}
 	}
 
-	if newblockHeight == bc.config.Genesis.HudsonBlockHeight {
-		if err := bc.updateHudsonBlockRewardAmount(ctx, ws); err != nil {
+	if newblockHeight == bc.config.Genesis.DardanellesBlockHeight {
+		if err := bc.updateDardanellesBlockRewardAmount(ctx, ws); err != nil {
 			return nil, err
 		}
 	}
@@ -1093,8 +1093,8 @@ func (bc *blockchain) runActions(
 		}
 	}
 
-	if acts.BlockHeight() == bc.config.Genesis.HudsonBlockHeight {
-		if err := bc.updateHudsonBlockRewardAmount(ctx, ws); err != nil {
+	if acts.BlockHeight() == bc.config.Genesis.DardanellesBlockHeight {
+		if err := bc.updateDardanellesBlockRewardAmount(ctx, ws); err != nil {
 			return nil, err
 		}
 	}
@@ -1493,7 +1493,7 @@ func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws fa
 	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
 }
 
-func (bc *blockchain) updateHudsonBlockRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
+func (bc *blockchain) updateDardanellesBlockRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
 	p, ok := bc.registry.Find(rewarding.ProtocolID)
 	if !ok {
 		return nil
@@ -1502,7 +1502,7 @@ func (bc *blockchain) updateHudsonBlockRewardAmount(ctx context.Context, ws fact
 	if !ok {
 		return errors.Errorf("error when casting protocol")
 	}
-	return rp.SetReward(ctx, ws, bc.config.Genesis.HudsonBlockReward(), true)
+	return rp.SetReward(ctx, ws, bc.config.Genesis.DardanellesBlockReward(), true)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
