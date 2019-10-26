@@ -21,16 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
 
-// these NS belong to old DB before migrating to separate index
-const (
-	blockActionBlockMappingNS        = "a2b"
-	blockAddressActionMappingNS      = "a2a"
-	blockAddressActionCountMappingNS = "a2c"
-	blockActionReceiptMappingNS      = "a2r"
-	numActionsNS                     = "nac"
-	transferAmountNS                 = "tfa"
-)
-
 var batchSizeMtc = prometheus.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Name: "iotex_indexer_batch_size",
@@ -140,14 +130,14 @@ func (ib *IndexBuilder) init() error {
 	}
 	if startHeight == tipHeight {
 		// indexer height consistent with dao height
-		zap.L().Info("======= Consistent DB", zap.Uint64("height", startHeight))
+		zap.L().Info("Consistent DB", zap.Uint64("height", startHeight))
 		return nil
 	}
 	if startHeight > tipHeight {
 		// indexer height > dao height
 		// this shouldn't happen unless blocks are deliberately removed from dao w/o removing index
 		// in this case we revert the extra block index, but nothing we can do to revert action index
-		zap.L().Error("======= Inconsistent DB: indexer height > blockDAO height",
+		zap.L().Error("Inconsistent DB: indexer height > blockDAO height",
 			zap.Uint64("indexer", startHeight), zap.Uint64("blockDAO", tipHeight))
 		return ib.indexer.RevertBlocks(startHeight - tipHeight)
 	}
@@ -168,12 +158,12 @@ func (ib *IndexBuilder) init() error {
 			if err := ib.indexer.Commit(); err != nil {
 				return err
 			}
-			zap.L().Info("======= Finished indexing blocks up to", zap.Uint64("height", startHeight))
+			zap.L().Info("Finished indexing blocks up to", zap.Uint64("height", startHeight))
 		}
 	}
 	if startHeight == tipHeight {
 		// successfully migrated to latest block
-		zap.L().Info("======= Finished migrating DB", zap.Uint64("height", startHeight))
+		zap.L().Info("Finished migrating DB", zap.Uint64("height", startHeight))
 		return ib.purgeObsoleteIndex()
 	}
 	return nil

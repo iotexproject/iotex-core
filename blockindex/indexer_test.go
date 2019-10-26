@@ -219,11 +219,11 @@ func TestIndexer(t *testing.T) {
 			}
 			require.Equal(amount, bd.TsfAmount())
 
-			// Test GetBlockHeightByActionHash
+			// Test GetActionIndex
 			for j := 0; j < 3; j++ {
-				height, err := indexer.GetBlockHeightByActionHash(hash.BytesToHash256(indexTests[0].hashTotal[i*3+j]))
+				actIndex, err := indexer.GetActionIndex(indexTests[0].hashTotal[i*3+j])
 				require.NoError(err)
-				require.Equal(blks[i].Height(), height)
+				require.Equal(blks[i].Height(), actIndex.blkHeight)
 			}
 		}
 

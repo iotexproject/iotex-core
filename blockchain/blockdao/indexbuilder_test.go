@@ -62,7 +62,7 @@ func TestIndexer(t *testing.T) {
 	testIndexer := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, true, true, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, indexer, false, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -108,16 +108,16 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(3, height)
 
-		// Test GetBlockHeightByActionHash
-		blkHeight, err := indexer.GetBlockHeightByActionHash(t1Hash)
+		// Test GetActionIndex
+		actIndex, err := indexer.GetActionIndex(t1Hash[:])
 		require.NoError(err)
-		require.Equal(blks[0].Height(), blkHeight)
-		blkHeight, err = indexer.GetBlockHeightByActionHash(t2Hash)
+		require.Equal(blks[0].Height(), actIndex.BlockHeight())
+		actIndex, err = indexer.GetActionIndex(t2Hash[:])
 		require.NoError(err)
-		require.Equal(blks[1].Height(), blkHeight)
-		blkHeight, err = indexer.GetBlockHeightByActionHash(t3Hash)
+		require.Equal(blks[1].Height(), actIndex.BlockHeight())
+		actIndex, err = indexer.GetActionIndex(t3Hash[:])
 		require.NoError(err)
-		require.Equal(blks[2].Height(), blkHeight)
+		require.Equal(blks[2].Height(), actIndex.BlockHeight())
 
 		// Test get actions
 		total, err := indexer.GetTotalActions()

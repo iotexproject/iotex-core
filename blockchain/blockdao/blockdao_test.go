@@ -158,7 +158,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, true, false, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, indexer, true, false, config.Default.DB)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -222,7 +222,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, true, false, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, indexer, true, false, config.Default.DB)
 		err := dao.Start(ctx)
 		require.NoError(err)
 		defer func() {
@@ -353,7 +353,7 @@ func BenchmarkBlockCache(b *testing.B) {
 
 		db := config.Default.DB
 		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO(store, indexer, false, false, false, db)
+		blkDao := NewBlockDAO(store, indexer, false, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

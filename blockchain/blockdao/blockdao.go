@@ -45,11 +45,24 @@ const (
 	receiptsNS               = "rpt"
 )
 
+// these NS belong to old DB before migrating to separate index
+// they are left here only for record
+// do NOT use them in the future to avoid potential conflict
+const (
+	blockActionBlockMappingNS        = "a2b"
+	blockAddressActionMappingNS      = "a2a"
+	blockAddressActionCountMappingNS = "a2c"
+	blockActionReceiptMappingNS      = "a2r"
+	numActionsNS                     = "nac"
+	transferAmountNS                 = "tfa"
+)
+
 var (
-	topHeightKey = []byte("th")
-	topHashKey   = []byte("ts")
-	hashPrefix   = []byte("ha.")
-	heightPrefix = []byte("he.")
+	topHeightKey       = []byte("th")
+	topHashKey         = []byte("ts")
+	hashPrefix         = []byte("ha.")
+	heightPrefix       = []byte("he.")
+	heightToFileBucket = []byte("h2f")
 )
 
 var (
@@ -84,45 +97,36 @@ type BlockDAO interface {
 	PutBlock(*block.Block) error
 	PutReceipts(uint64, []*action.Receipt) error
 	DeleteTipBlock() error
+	IndexFile(uint64, []byte) error
+	GetFileIndex(uint64) ([]byte, error)
 	KVStore() db.KVStore
 }
 
 type blockDAO struct {
-	writeBlockIndex  bool
-	writeActionIndex bool
-	compressBlock    bool
-	kvstore          db.KVStore
-	indexer          blockindex.Indexer
-	kvstores         sync.Map //store like map[index]db.KVStore,index from 1...N
-	topIndex         atomic.Value
-	timerFactory     *prometheustimer.TimerFactory
-	lifecycle        lifecycle.Lifecycle
-	headerCache      *cache.ThreadSafeLruCache
-	bodyCache        *cache.ThreadSafeLruCache
-	footerCache      *cache.ThreadSafeLruCache
-	cfg              config.DB
-	mutex            sync.Mutex // for create new db file
+	writeIndex    bool
+	compressBlock bool
+	kvstore       db.KVStore
+	indexer       blockindex.Indexer
+	htf           db.RangeIndex
+	kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
+	topIndex      atomic.Value
+	timerFactory  *prometheustimer.TimerFactory
+	lifecycle     lifecycle.Lifecycle
+	headerCache   *cache.ThreadSafeLruCache
+	bodyCache     *cache.ThreadSafeLruCache
+	footerCache   *cache.ThreadSafeLruCache
+	cfg           config.DB
+	mutex         sync.RWMutex // for create new db file
 }
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvstore db.KVStore, indexer blockindex.Indexer, gateway, async, compressBlock bool, cfg config.DB) BlockDAO {
-	/*
-	 * who should do indexing according to Chain.GatewayPlugin and Chain.EnableAsyncIndexWrite
-	 *
-	 * | Gateway | EnableAsyncIndexWrite | who to index | what to index
-	 * |----------------------------------------------------------------
-	 * |  False  |           x           | blockDAO     | block
-	 * |  False  |           x           | blockDAO     | block
-	 * |  True   |         False         | blockDAO     | block + action
-	 * |  True   |         True          | IndexBuilder | block + action
-	 */
+func NewBlockDAO(kvstore db.KVStore, indexer blockindex.Indexer, writeIndex, compressBlock bool, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
-		writeBlockIndex:  !(gateway && async),
-		writeActionIndex: gateway && !async,
-		compressBlock:    compressBlock,
-		kvstore:          kvstore,
-		indexer:          indexer,
-		cfg:              cfg,
+		writeIndex:    indexer != nil && writeIndex,
+		compressBlock: compressBlock,
+		kvstore:       kvstore,
+		indexer:       indexer,
+		cfg:           cfg,
 	}
 	if cfg.MaxCacheSize > 0 {
 		blockDAO.headerCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
@@ -251,6 +255,35 @@ func (dao *blockDAO) PutReceipts(blkHeight uint64, blkReceipts []*action.Receipt
 
 func (dao *blockDAO) DeleteTipBlock() error {
 	return dao.deleteTipBlock()
+}
+
+func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
+	dao.mutex.Lock()
+	defer dao.mutex.Unlock()
+
+	if dao.htf == nil {
+		htf, err := dao.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8))
+		if err != nil {
+			return err
+		}
+		dao.htf = htf
+	}
+	return dao.htf.Insert(height, index)
+}
+
+// GetFileIndex return the db filename
+func (dao *blockDAO) GetFileIndex(height uint64) ([]byte, error) {
+	dao.mutex.RLock()
+	defer dao.mutex.RUnlock()
+
+	if dao.htf == nil {
+		htf, err := dao.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8))
+		if err != nil {
+			return nil, err
+		}
+		dao.htf = htf
+	}
+	return dao.htf.Get(height)
 }
 
 func (dao *blockDAO) KVStore() db.KVStore {
@@ -434,27 +467,20 @@ func (dao *blockDAO) getTipHash() (hash.Hash256, error) {
 
 // getReceiptByActionHash returns the receipt by execution hash
 func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	height, err := dao.indexer.GetBlockHeightByActionHash(h)
+	if dao.indexer == nil {
+		return nil, blockindex.ErrActionIndexNA
+	}
+	actIndex, err := dao.indexer.GetActionIndex(h[:])
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
 	}
-	kvstore, _, err := dao.getDBFromHeight(height)
+	receipts, err := dao.getReceipts(actIndex.BlockHeight())
 	if err != nil {
 		return nil, err
 	}
-	receiptsBytes, err := kvstore.Get(receiptsNS, byteutil.Uint64ToBytes(height))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get receipts of block %d", height)
-	}
-	receipts := iotextypes.Receipts{}
-	if err := proto.Unmarshal(receiptsBytes, &receipts); err != nil {
-		return nil, err
-	}
-	for _, receipt := range receipts.Receipts {
-		r := action.Receipt{}
-		r.ConvertFromReceiptPb(receipt)
+	for _, r := range receipts {
 		if r.ActionHash == h {
-			return &r, nil
+			return r, nil
 		}
 	}
 	return nil, errors.Errorf("receipt of action %x isn't found", h)
@@ -467,7 +493,7 @@ func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	}
 	value, err := kvstore.Get(receiptsNS, byteutil.Uint64ToBytes(blkHeight))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get receipts")
+		return nil, errors.Wrapf(err, "failed to get receipts of block %d", blkHeight)
 	}
 	if len(value) == 0 {
 		return nil, errors.Wrap(db.ErrNotExist, "block receipts missing")
@@ -553,14 +579,11 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	}
 
 	// index block and actions
-	if !dao.writeBlockIndex {
+	if !dao.writeIndex {
 		return nil
 	}
-	if err = dao.indexer.IndexBlock(blk, dao.writeActionIndex); err != nil {
+	if err = dao.indexer.IndexBlock(blk, true); err != nil {
 		return err
-	}
-	if !dao.writeActionIndex {
-		return nil
 	}
 	if err := dao.indexer.IndexAction(blk); err != nil {
 		return err
@@ -649,15 +672,12 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return errors.Wrap(err, "failed to update top hash")
 	}
 
-	if !dao.writeBlockIndex {
+	if !dao.writeIndex {
 		return nil
 	}
 	// delete block index
 	if err = dao.indexer.DeleteBlockIndex(blk); err != nil {
 		return err
-	}
-	if !dao.writeActionIndex {
-		return nil
 	}
 	// delete action index
 	return dao.indexer.DeleteActionIndex(blk)
@@ -685,7 +705,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	dat, err := os.Stat(longFileName)
 	if err != nil && os.IsNotExist(err) {
 		// index the height --> file index mapping
-		if err = dao.indexer.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
+		if err = dao.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
 			return
 		}
 		// db file does not exist, create it
@@ -700,7 +720,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 		kvstore, index, err = dao.openDB(topIndex + 1)
 		dao.topIndex.Store(index)
 		// index the height --> file index mapping
-		err = dao.indexer.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex))
+		err = dao.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex))
 		return
 	}
 	// db exist,need load from kvstores
@@ -745,7 +765,7 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, inde
 		return dao.kvstore, 0, nil
 	}
 	// get file index
-	value, err := dao.indexer.GetFileIndex(blkHeight)
+	value, err := dao.GetFileIndex(blkHeight)
 	if err != nil {
 		return
 	}

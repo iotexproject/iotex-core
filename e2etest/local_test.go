@@ -145,9 +145,6 @@ func TestLocalCommit(t *testing.T) {
 		return
 	}
 	require.EqualValues(5, bc.TipHeight())
-	height, err := bc.GetIndexer().GetBlockchainHeight()
-	require.NoError(err)
-	require.EqualValues(5, height)
 
 	// create local chain
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
@@ -184,9 +181,6 @@ func TestLocalCommit(t *testing.T) {
 	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
-	height, err = chain.GetIndexer().GetBlockchainHeight()
-	require.NoError(err)
-	require.EqualValues(5, height)
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()

@@ -910,25 +910,25 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(funcSig[:]))
 			require.True(f.Exist(setTopic))
 			require.True(f.Exist(getTopic))
-		}
 
-		// verify getting number of actions
-		blk, err = bc.GetBlockByHeight(h)
-		require.NoError(err)
-		numActs := uint64(len(blk.Actions))
-		na, err := bc.GetNumActions(h)
-		require.NoError(err)
-		require.Equal(na, numActs)
+			// verify getting number of actions
+			blk, err = bc.GetBlockByHeight(h)
+			require.NoError(err)
+			numActs := uint64(len(blk.Actions))
+			na, err := bc.GetNumActions(h)
+			require.NoError(err)
+			require.Equal(na, numActs)
 
-		// verify getting transfer amount
-		tsfs, _ := action.ClassifyActions(blk.Actions)
-		tsfa := big.NewInt(0)
-		for _, tsf := range tsfs {
-			tsfa.Add(tsfa, tsf.Amount())
+			// verify getting transfer amount
+			tsfs, _ := action.ClassifyActions(blk.Actions)
+			tsfa := big.NewInt(0)
+			for _, tsf := range tsfs {
+				tsfa.Add(tsfa, tsf.Amount())
+			}
+			ta, err := bc.GetTranferAmount(h)
+			require.NoError(err)
+			require.Equal(ta, tsfa)
 		}
-		ta, err := bc.GetTranferAmount(h)
-		require.NoError(err)
-		require.Equal(ta, tsfa)
 	}
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")

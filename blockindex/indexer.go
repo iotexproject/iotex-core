@@ -22,17 +22,20 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// the NS/bucket name here are used in index.db, which is separate from chain.db
+// still we use 2-byte NS/bucket name here, to clearly differentiate from those (3-byte) in BlockDAO
 const (
-	// first 12-byte of hash is cut off, only last 20-byte is saved to reduce storage
+	// first 12-byte of hash is cut off, only last 20-byte is written to DB to reduce storage
 	hashOffset          = 12
 	blockHashToHeightNS = "hh"
 	actionToBlockHashNS = "ab"
 )
 
 var (
-	totalBlocksBucket  = []byte("tbk")
-	totalActionsBucket = []byte("tac")
-	heightToFileBucket = []byte("h2f")
+	totalBlocksBucket  = []byte("bk")
+	totalActionsBucket = []byte("ac")
+	// ErrActionIndexNA indicates action index is not supported
+	ErrActionIndexNA = errors.New("action index not supported")
 )
 
 type (
@@ -45,7 +48,6 @@ type (
 		Commit() error
 		IndexBlock(*block.Block, bool) error
 		IndexAction(*block.Block) error
-		IndexFile(uint64, []byte) error
 		DeleteBlockIndex(*block.Block) error
 		DeleteActionIndex(*block.Block) error
 		RevertBlocks(uint64) error
@@ -54,10 +56,8 @@ type (
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
 		GetBlockIndex(uint64) (*blockIndex, error)
 		GetActionIndex([]byte) (*actionIndex, error)
-		GetFileIndex(uint64) ([]byte, error)
 		GetTotalActions() (uint64, error)
 		GetActionHashFromIndex(uint64, uint64) ([][]byte, error)
-		GetBlockHeightByActionHash(hash.Hash256) (uint64, error)
 		GetActionCountByAddress(hash.Hash160) (uint64, error)
 		GetActionsByAddress(hash.Hash160, uint64, uint64) ([][]byte, error)
 	}
@@ -70,7 +70,6 @@ type (
 		dirtyAddr addrIndex
 		tbk       db.CountingIndex
 		tac       db.CountingIndex
-		htf       db.RangeIndex
 	}
 )
 
@@ -173,20 +172,6 @@ func (x *blockIndexer) IndexAction(blk *block.Block) error {
 		}
 	}
 	return nil
-}
-
-// IndexFile index the start height of a new file
-func (x *blockIndexer) IndexFile(height uint64, index []byte) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-
-	if x.htf == nil {
-		var err error
-		if x.htf, err = x.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8)); err != nil {
-			return err
-		}
-	}
-	return x.htf.Insert(height, index)
 }
 
 // DeleteBlockIndex deletes a block's index
@@ -309,20 +294,6 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	return a, nil
 }
 
-// GetFileIndex return the db filename
-func (x *blockIndexer) GetFileIndex(height uint64) ([]byte, error) {
-	x.mutex.RLock()
-	defer x.mutex.RUnlock()
-
-	if x.htf == nil {
-		var err error
-		if x.htf, err = x.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8)); err != nil {
-			return nil, err
-		}
-	}
-	return x.htf.Get(height)
-}
-
 // GetTotalActions return total number of all actions
 func (x *blockIndexer) GetTotalActions() (uint64, error) {
 	x.mutex.RLock()
@@ -341,22 +312,6 @@ func (x *blockIndexer) GetActionHashFromIndex(start, count uint64) ([][]byte, er
 	defer x.mutex.RUnlock()
 
 	return x.tac.Range(start, count)
-}
-
-// GetBlockHeightByActionHash return block height of an action
-func (x *blockIndexer) GetBlockHeightByActionHash(h hash.Hash256) (uint64, error) {
-	x.mutex.RLock()
-	defer x.mutex.RUnlock()
-
-	v, err := x.kvstore.Get(actionToBlockHashNS, h[hashOffset:])
-	if err != nil {
-		return 0, errors.Wrapf(err, "failed to get action %x", h)
-	}
-	ad := &actionIndex{}
-	if err := ad.Deserialize(v); err != nil {
-		return 0, errors.Wrapf(err, "failed to decode action %x", h)
-	}
-	return ad.blkHeight, nil
 }
 
 // GetActionCountByAddress return total number of actions of an address
