@@ -97,6 +97,10 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+	// Do not handle consensus message if the node is not active in consensus
+	if !r.ctx.Active() {
+		return nil
+	}
 	<-r.ready
 	consensusHeight := r.ctx.Height()
 	switch {
