@@ -255,7 +255,7 @@ func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway {
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
-			indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB))
+			indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 			if err != nil {
 				return err
 			}
@@ -278,7 +278,7 @@ func BoltDBDaoOption() Option {
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway {
-			indexer, err := blockindex.NewIndexer(db.NewMemKVStore())
+			indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 			if err != nil {
 				return err
 			}

@@ -156,7 +156,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	t.Run("In-memory KV indexer", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore())
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 		require.NoError(t, err)
 		testIndexer(db.NewMemKVStore(), indexer, t)
 	})
@@ -174,7 +174,7 @@ func TestIndexer(t *testing.T) {
 			testutil.CleanupPath(t, indexPath)
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg))
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
 		require.NoError(t, err)
 		cfg.DbPath = testPath
 		testIndexer(db.NewBoltDB(cfg), indexer, t)

@@ -64,24 +64,26 @@ type (
 
 	// blockIndexer implements the Indexer interface
 	blockIndexer struct {
-		mutex     sync.RWMutex
-		kvstore   db.KVStore
-		batch     db.KVStoreBatch
-		dirtyAddr addrIndex
-		tbk       db.CountingIndex
-		tac       db.CountingIndex
+		mutex       sync.RWMutex
+		genesisHash hash.Hash256
+		kvstore     db.KVStore
+		batch       db.KVStoreBatch
+		dirtyAddr   addrIndex
+		tbk         db.CountingIndex
+		tac         db.CountingIndex
 	}
 )
 
 // NewIndexer creates a new indexer
-func NewIndexer(kv db.KVStore) (Indexer, error) {
+func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvstore")
 	}
 	x := blockIndexer{
-		kvstore:   kv,
-		batch:     db.NewBatch(),
-		dirtyAddr: make(addrIndex),
+		kvstore:     kv,
+		batch:       db.NewBatch(),
+		dirtyAddr:   make(addrIndex),
+		genesisHash: genesisHash,
 	}
 	return &x, nil
 }
@@ -99,7 +101,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	if x.tbk.Size() == 0 {
 		// insert genesis block
 		if err = x.tbk.Add((&blockIndex{
-			hash.ZeroHash256[:],
+			x.genesisHash[:],
 			0,
 			big.NewInt(0)}).Serialize(), false); err != nil {
 			return err

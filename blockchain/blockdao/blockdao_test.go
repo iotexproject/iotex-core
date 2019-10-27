@@ -286,7 +286,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore())
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 		require.NoError(t, err)
 		testBlockDao(db.NewMemKVStore(), indexer, t)
 	})
@@ -304,14 +304,14 @@ func TestBlockDAO(t *testing.T) {
 			testutil.CleanupPath(t, indexPath)
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg))
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
 		require.NoError(t, err)
 		cfg.DbPath = testPath
 		testBlockDao(db.NewBoltDB(cfg), indexer, t)
 	})
 
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore())
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 		require.NoError(t, err)
 		testDeleteDao(db.NewMemKVStore(), indexer, t)
 	})
@@ -323,7 +323,7 @@ func TestBlockDAO(t *testing.T) {
 			testutil.CleanupPath(t, indexPath)
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg))
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
 		require.NoError(t, err)
 		cfg.DbPath = testPath
 		testDeleteDao(db.NewBoltDB(cfg), indexer, t)
@@ -346,7 +346,7 @@ func BenchmarkBlockCache(b *testing.B) {
 			require.NoError(b, os.RemoveAll(indexPath))
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg))
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
 		require.NoError(b, err)
 		cfg.DbPath = testPath
 		store := db.NewBoltDB(cfg)

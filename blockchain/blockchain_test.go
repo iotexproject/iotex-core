@@ -911,23 +911,31 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(setTopic))
 			require.True(f.Exist(getTopic))
 
-			// verify getting number of actions
-			blk, err = bc.GetBlockByHeight(h)
+			// verify genesis block index
+			bi, err := bc.GetIndexer().GetBlockIndex(0)
 			require.NoError(err)
-			numActs := uint64(len(blk.Actions))
-			na, err := bc.GetNumActions(h)
-			require.NoError(err)
-			require.Equal(na, numActs)
+			require.Equal(cfg.Genesis.Hash(), hash.BytesToHash256(bi.Hash()))
+			require.EqualValues(0, bi.NumAction())
+			require.Equal(big.NewInt(0), bi.TsfAmount())
 
-			// verify getting transfer amount
-			tsfs, _ := action.ClassifyActions(blk.Actions)
-			tsfa := big.NewInt(0)
-			for _, tsf := range tsfs {
-				tsfa.Add(tsfa, tsf.Amount())
+			for h := uint64(1); h <= 5; h++ {
+				// verify getting number of actions
+				blk, err = bc.GetBlockByHeight(h)
+				require.NoError(err)
+				na, err := bc.GetNumActions(h)
+				require.NoError(err)
+				require.EqualValues(na, len(blk.Actions))
+
+				// verify getting transfer amount
+				tsfs, _ := action.ClassifyActions(blk.Actions)
+				tsfa := big.NewInt(0)
+				for _, tsf := range tsfs {
+					tsfa.Add(tsfa, tsf.Amount())
+				}
+				ta, err := bc.GetTranferAmount(h)
+				require.NoError(err)
+				require.Equal(ta, tsfa)
 			}
-			ta, err := bc.GetTranferAmount(h)
-			require.NoError(err)
-			require.Equal(ta, tsfa)
 		}
 	}
 
