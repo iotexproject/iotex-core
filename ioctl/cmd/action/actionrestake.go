@@ -33,7 +33,7 @@ var actionRestakeCmd = &cobra.Command{
 }
 
 func init() {
-	actionStakeCmd.Flags().BoolVar(&autoStake, "auto stake", false, "auto stake without power decay")
+	actionStakeCmd.Flags().BoolVar(&autoStake, "auto-stake", false, "auto stake without power decay")
 	registerWriteCommand(actionStakeCmd)
 }
 
