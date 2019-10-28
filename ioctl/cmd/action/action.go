@@ -30,8 +30,13 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
+
+const defaultGasLimit = uint64(20000000)
+
+var defaultGasPrice = big.NewInt(unit.Qev)
 
 // Flags
 var (
