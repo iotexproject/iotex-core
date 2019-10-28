@@ -71,6 +71,8 @@ func init() {
 	ActionCmd.AddCommand(actionReadCmd)
 	ActionCmd.AddCommand(actionClaimCmd)
 	ActionCmd.AddCommand(actionDepositCmd)
+	ActionCmd.AddCommand(actionStakeCmd)
+	ActionCmd.AddCommand(actionRestakeCmd)
 	ActionCmd.AddCommand(actionSendRawCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")

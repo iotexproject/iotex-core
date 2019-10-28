@@ -23,11 +23,11 @@ import (
 )
 
 var autoStake bool
-var stackContractAddress string
+var stackingContractAddress string
 
 // actionStakeCmd represents the action stake command
 var actionStakeCmd = &cobra.Command{
-	Use: "stake AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-stake]" +
+	Use: "stake AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
 	Short: "Native staking on IoTeX blockchain",
 	Args:  cobra.RangeArgs(3, 4),
@@ -39,12 +39,15 @@ var actionStakeCmd = &cobra.Command{
 }
 
 func init() {
+	//TODO: initialize stackingContractAddress by setting default value for `--staking-contract-address` flag
+	actionStakeCmd.Flags().StringVarP(&stackingContractAddress, "staking-contract-address", "c",
+		"", "set staking contract address")
 	actionStakeCmd.Flags().BoolVar(&autoStake, "auto-stake", false, "auto stake without power decay")
 	registerWriteCommand(actionStakeCmd)
 }
 
-func stackContract() (address.Address, error) {
-	return alias.IOAddress(stackContractAddress)
+func stackingContract() (address.Address, error) {
+	return alias.IOAddress(stackingContractAddress)
 }
 
 func stake(args []string) error {
@@ -63,7 +66,7 @@ func stake(args []string) error {
 		data = make([]byte, 2*len([]byte(args[3])))
 		hex.Encode(data, []byte(args[3]))
 	}
-	contract, err := stackContract()
+	contract, err := stackingContract()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}

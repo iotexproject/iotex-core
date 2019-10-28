@@ -21,7 +21,7 @@ import (
 // actionRestakeCmd represents the action stake command
 var actionRestakeCmd = &cobra.Command{
 	// PYGG_INDEX is  BUCKET_INDEX
-	Use: "restake PYGG_INDEX STAKE_DURATION [DATA] [--auto-stake]" +
+	Use: "restake PYGG_INDEX STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
 	Short: "restake pygg on IoTeX blockchain",
 	Args:  cobra.RangeArgs(2, 3),
@@ -33,12 +33,14 @@ var actionRestakeCmd = &cobra.Command{
 }
 
 func init() {
-	actionStakeCmd.Flags().BoolVar(&autoStake, "auto-stake", false, "auto stake without power decay")
+	//TODO: initialize stackingContractAddress by setting default value for `--staking-contract-address` flag
+	actionStakeCmd.Flags().StringVarP(&stackingContractAddress, "staking-contract-address", "c",
+		"", "set staking contract address")
+	actionRestakeCmd.Flags().BoolVar(&autoStake, "auto-stake", false, "auto stake without power decay")
 	registerWriteCommand(actionStakeCmd)
 }
 
 func restake(args []string) error {
-
 	pyggIndex, ok := new(big.Int).SetString(args[0], 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
@@ -53,7 +55,7 @@ func restake(args []string) error {
 		data = make([]byte, 2*len([]byte(args[2])))
 		hex.Encode(data, []byte(args[2]))
 	}
-	contract, err := stackContract()
+	contract, err := stackingContract()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
