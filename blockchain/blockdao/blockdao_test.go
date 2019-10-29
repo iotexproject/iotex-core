@@ -191,7 +191,6 @@ func TestBlockDAO(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			// test putBlock/Receipt
 			require.NoError(dao.PutBlock(blks[i]))
-			require.NoError(dao.PutReceipts(blks[i].Height(), receipts[i]))
 
 			// test getBlockchainHeight
 			height, err := indexer.GetBlockchainHeight()

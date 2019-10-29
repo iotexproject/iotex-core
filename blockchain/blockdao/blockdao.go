@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -31,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -95,7 +97,6 @@ type BlockDAO interface {
 	GetReceiptByActionHash(hash.Hash256) (*action.Receipt, error)
 	GetReceipts(uint64) ([]*action.Receipt, error)
 	PutBlock(*block.Block) error
-	PutReceipts(uint64, []*action.Receipt) error
 	DeleteTipBlock() error
 	IndexFile(uint64, []byte) error
 	GetFileIndex(uint64) ([]byte, error)
@@ -247,10 +248,6 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 
 func (dao *blockDAO) PutBlock(blk *block.Block) error {
 	return dao.putBlock(blk)
-}
-
-func (dao *blockDAO) PutReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error {
-	return dao.putReceipts(blkHeight, blkReceipts)
 }
 
 func (dao *blockDAO) DeleteTipBlock() error {
@@ -517,8 +514,9 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
-	if blk.Height() <= enc.MachineEndian.Uint64(heightValue) {
-		return errors.Errorf("block %d already exist", blk.Height())
+	blkHeight := blk.Height()
+	if blkHeight <= enc.MachineEndian.Uint64(heightValue) {
+		return errors.Errorf("block %d already exist", blkHeight)
 	}
 
 	serHeader, err := blk.Header.Serialize()
@@ -558,9 +556,21 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	kv, _, err := dao.getTopDB(blk.Height())
+	kv, _, err := dao.getTopDB(blkHeight)
 	if err != nil {
 		return err
+	}
+	// write receipts
+	if blk.Receipts != nil {
+		receipts := iotextypes.Receipts{}
+		for _, r := range blk.Receipts {
+			receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
+		}
+		if receiptsBytes, err := proto.Marshal(&receipts); err == nil {
+			batchForBlock.Put(receiptsNS, byteutil.Uint64ToBytes(blkHeight), receiptsBytes, "failed to put receipts")
+		} else {
+			log.L().Error("failed to serialize receipits for block", zap.Uint64("height", blkHeight))
+		}
 	}
 	if err = kv.Commit(batchForBlock); err != nil {
 		return err
@@ -568,7 +578,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 
 	batch := db.NewBatch()
 	hashKey := append(hashPrefix, hash[:]...)
-	heightValue = byteutil.Uint64ToBytes(blk.Height())
+	heightValue = byteutil.Uint64ToBytes(blkHeight)
 	batch.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
 	heightKey := append(heightPrefix, heightValue...)
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
@@ -589,26 +599,6 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		return err
 	}
 	return dao.indexer.Commit()
-}
-
-// putReceipts store receipt into db
-func (dao *blockDAO) putReceipts(blkHeight uint64, blkReceipts []*action.Receipt) error {
-	kvstore, err := dao.getTopDBOfOpened(blkHeight)
-	if err != nil {
-		return err
-	}
-	if blkReceipts == nil {
-		return nil
-	}
-	receipts := iotextypes.Receipts{}
-	for _, r := range blkReceipts {
-		receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
-	}
-	receiptsBytes, err := proto.Marshal(&receipts)
-	if err != nil {
-		return err
-	}
-	return kvstore.Put(receiptsNS, byteutil.Uint64ToBytes(blkHeight), receiptsBytes)
 }
 
 // deleteTipBlock deletes the tip block
