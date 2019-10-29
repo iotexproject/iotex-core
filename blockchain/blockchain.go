@@ -96,32 +96,14 @@ type Blockchain interface {
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
 	// BlockHeaderByHash return block header by hash
 	BlockHeaderByHash(h hash.Hash256) (*block.Header, error)
-	// BlockBodyByHeight return block body by height
-	BlockBodyByHeight(height uint64) (*block.Body, error)
-	// BlockBodyByHash return block body by hash
-	BlockBodyByHash(h hash.Hash256) (*block.Body, error)
 	// BlockFooterByHeight return block footer by height
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// GetTotalActions returns the total number of actions
-	GetTotalActions() (uint64, error)
-	// GetNumActions returns the number of actions in certain block
-	GetNumActions(height uint64) (uint64, error)
-	// GetTranferAmount returns the transfer amount
-	GetTranferAmount(height uint64) (*big.Int, error)
 	// GetReceiptByActionHash returns the receipt by action hash
 	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
-	// GetActionsFromIndex returns action hash from index
-	GetActionsFromIndex(uint64, uint64) ([][]byte, error)
-	// GetActionsByAddress returns actions by address
-	GetActionsByAddress(string, uint64, uint64) ([][]byte, error)
-	// GetActionCountByAddress returns action count by address
-	GetActionCountByAddress(address string) (uint64, error)
 	// GetActionByActionHash returns action by action hash
 	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
-	// GetBlockHashByActionHash returns Block hash by action hash
-	GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error)
 	// GetReceiptsByHeight returns action receipts by block height
 	GetReceiptsByHeight(height uint64) ([]*action.Receipt, error)
 	// GetFactory returns the state factory
@@ -502,52 +484,12 @@ func (bc *blockchain) BlockHeaderByHash(h hash.Hash256) (*block.Header, error) {
 	return bc.dao.Header(h)
 }
 
-func (bc *blockchain) BlockBodyByHeight(height uint64) (*block.Body, error) {
-	return bc.blockBodyByHeight(height)
-}
-
-func (bc *blockchain) BlockBodyByHash(h hash.Hash256) (*block.Body, error) {
-	return bc.dao.Body(h)
-}
-
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
 	return bc.blockFooterByHeight(height)
 }
 
 func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 	return bc.dao.Footer(h)
-}
-
-// GetTotalActions returns the total number of actions
-func (bc *blockchain) GetTotalActions() (uint64, error) {
-	if bc.indexer == nil {
-		return 0, blockindex.ErrActionIndexNA
-	}
-	return bc.indexer.GetTotalActions()
-}
-
-// GetNumActions returns the number of actions
-func (bc *blockchain) GetNumActions(height uint64) (uint64, error) {
-	if bc.indexer == nil {
-		return 0, blockindex.ErrActionIndexNA
-	}
-	index, err := bc.indexer.GetBlockIndex(height)
-	if err != nil {
-		return 0, err
-	}
-	return uint64(index.NumAction()), nil
-}
-
-// GetTranferAmount returns the transfer amount
-func (bc *blockchain) GetTranferAmount(height uint64) (*big.Int, error) {
-	if bc.indexer == nil {
-		return big.NewInt(0), blockindex.ErrActionIndexNA
-	}
-	index, err := bc.indexer.GetBlockIndex(height)
-	if err != nil {
-		return nil, err
-	}
-	return index.TsfAmount(), nil
 }
 
 // GetReceiptByActionHash returns the receipt by action hash
@@ -571,43 +513,6 @@ func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, e
 	return nil, errors.Errorf("receipt of action %x isn't found", h)
 }
 
-// GetActionsFromIndex returns action hash from index
-func (bc *blockchain) GetActionsFromIndex(start, count uint64) ([][]byte, error) {
-	if bc.indexer == nil {
-		return nil, blockindex.ErrActionIndexNA
-	}
-	return bc.indexer.GetActionHashFromIndex(start, count)
-}
-
-// GetActionsByAddress returns action hash by address
-func (bc *blockchain) GetActionsByAddress(addrStr string, start, count uint64) ([][]byte, error) {
-	if bc.indexer == nil {
-		return nil, blockindex.ErrActionIndexNA
-	}
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return nil, err
-	}
-	actions, err := bc.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
-	if err != nil && errors.Cause(err) == db.ErrBucketNotExist {
-		// no actions associated with address, return nil
-		return nil, nil
-	}
-	return actions, err
-}
-
-// GetActionCountByAddress returns action count by address
-func (bc *blockchain) GetActionCountByAddress(addrStr string) (uint64, error) {
-	if bc.indexer == nil {
-		return 0, blockindex.ErrActionIndexNA
-	}
-	addr, err := address.FromString(addrStr)
-	if err != nil {
-		return 0, err
-	}
-	return bc.indexer.GetActionCountByAddress(hash.BytesToHash160(addr.Bytes()))
-}
-
 // GetActionByActionHash returns action by action hash
 func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
 	if bc.indexer == nil {
@@ -628,18 +533,6 @@ func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelo
 		}
 	}
 	return action.SealedEnvelope{}, errors.Errorf("block %d does not have action %x", actIndex.BlockHeight(), h)
-}
-
-// GetBlockHashByActionHash returns Block hash by action hash
-func (bc *blockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	if bc.indexer == nil {
-		return hash.ZeroHash256, blockindex.ErrActionIndexNA
-	}
-	actIndex, err := bc.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return bc.dao.GetBlockHash(actIndex.BlockHeight())
 }
 
 // GetReceiptsByHeight returns action receipts by block height

@@ -337,6 +337,11 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
+// ApiServer returns the API server
+func (cs *ChainService) ApiServer() *api.Server {
+	return cs.api
+}
+
 // Consensus returns the consensus instance
 func (cs *ChainService) Consensus() consensus.Consensus {
 	return cs.consensus

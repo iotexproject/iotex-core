@@ -680,7 +680,9 @@ func TestConstantinople(t *testing.T) {
 			require.Equal(actHash, r.ActionHash)
 			require.Equal(uint64(i)+1, r.BlockHeight)
 
-			blkHash, err := bc.GetBlockHashByActionHash(actHash)
+			actIndex, err := bc.GetIndexer().GetActionIndex(actHash[:])
+			require.NoError(err)
+			blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
 			require.NoError(err)
 			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
 
@@ -696,11 +698,11 @@ func TestConstantinople(t *testing.T) {
 		}
 
 		// test getActions
-		addr0 := identityset.Address(27).String()
-		total, err := bc.GetActionCountByAddress(addr0)
+		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
+		total, err := bc.GetIndexer().GetActionCountByAddress(addr27)
 		require.NoError(err)
 		require.EqualValues(7, total)
-		actions, err := bc.GetActionsByAddress(addr0, 0, total)
+		actions, err := bc.GetIndexer().GetActionsByAddress(addr27, 0, total)
 		require.EqualValues(total, len(actions))
 		for i := range actions {
 			require.Equal(hashTopic[i].h[:], actions[i])
@@ -921,9 +923,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				// verify getting number of actions
 				blk, err = bc.GetBlockByHeight(h)
 				require.NoError(err)
-				na, err := bc.GetNumActions(h)
+				blkIndex, err := bc.GetIndexer().GetBlockIndex(h)
 				require.NoError(err)
-				require.EqualValues(na, len(blk.Actions))
+				require.EqualValues(blkIndex.NumAction(), len(blk.Actions))
 
 				// verify getting transfer amount
 				tsfs, _ := action.ClassifyActions(blk.Actions)
@@ -931,9 +933,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				for _, tsf := range tsfs {
 					tsfa.Add(tsfa, tsf.Amount())
 				}
-				ta, err := bc.GetTranferAmount(h)
-				require.NoError(err)
-				require.Equal(ta, tsfa)
+				require.Equal(blkIndex.TsfAmount(), tsfa)
 			}
 		}
 	}

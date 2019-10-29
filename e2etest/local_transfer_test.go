@@ -299,6 +299,7 @@ func TestLocalTransfer(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
+	as := svr.ChainService(chainID).ApiServer()
 	preProcessTestCases(t, bc)
 	initExistingAccounts(t, big.NewInt(30000), bc)
 
@@ -328,7 +329,7 @@ func TestLocalTransfer(t *testing.T) {
 			var selp action.SealedEnvelope
 			err := backoff.Retry(func() error {
 				var err error
-				selp, err = bc.GetActionByActionHash(tsf.Hash())
+				selp, err = as.GetActionByActionHash(tsf.Hash())
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)

@@ -212,32 +212,6 @@ func (mr *MockBlockchainMockRecorder) BlockHeaderByHash(h interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockHeaderByHash), h)
 }
 
-// BlockBodyByHeight mocks base method
-func (m *MockBlockchain) BlockBodyByHeight(height uint64) (*block.Body, error) {
-	ret := m.ctrl.Call(m, "BlockBodyByHeight", height)
-	ret0, _ := ret[0].(*block.Body)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockBodyByHeight indicates an expected call of BlockBodyByHeight
-func (mr *MockBlockchainMockRecorder) BlockBodyByHeight(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockBodyByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockBodyByHeight), height)
-}
-
-// BlockBodyByHash mocks base method
-func (m *MockBlockchain) BlockBodyByHash(h hash.Hash256) (*block.Body, error) {
-	ret := m.ctrl.Call(m, "BlockBodyByHash", h)
-	ret0, _ := ret[0].(*block.Body)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockBodyByHash indicates an expected call of BlockBodyByHash
-func (mr *MockBlockchainMockRecorder) BlockBodyByHash(h interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockBodyByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockBodyByHash), h)
-}
-
 // BlockFooterByHeight mocks base method
 func (m *MockBlockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
 	ret := m.ctrl.Call(m, "BlockFooterByHeight", height)
@@ -264,43 +238,17 @@ func (mr *MockBlockchainMockRecorder) BlockFooterByHash(h interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHash), h)
 }
 
-// GetTotalActions mocks base method
-func (m *MockBlockchain) GetTotalActions() (uint64, error) {
-	ret := m.ctrl.Call(m, "GetTotalActions")
-	ret0, _ := ret[0].(uint64)
+// GetReceiptsByHeight mocks base method
+func (m *MockBlockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
+	ret := m.ctrl.Call(m, "GetReceiptsByHeight", height)
+	ret0, _ := ret[0].([]*action.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetTotalActions indicates an expected call of GetTotalActions
-func (mr *MockBlockchainMockRecorder) GetTotalActions() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTotalActions", reflect.TypeOf((*MockBlockchain)(nil).GetTotalActions))
-}
-
-// GetNumActions mocks base method
-func (m *MockBlockchain) GetNumActions(height uint64) (uint64, error) {
-	ret := m.ctrl.Call(m, "GetNumActions", height)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetNumActions indicates an expected call of GetNumActions
-func (mr *MockBlockchainMockRecorder) GetNumActions(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNumActions", reflect.TypeOf((*MockBlockchain)(nil).GetNumActions), height)
-}
-
-// GetTranferAmount mocks base method
-func (m *MockBlockchain) GetTranferAmount(height uint64) (*big.Int, error) {
-	ret := m.ctrl.Call(m, "GetTranferAmount", height)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetTranferAmount indicates an expected call of GetTranferAmount
-func (mr *MockBlockchainMockRecorder) GetTranferAmount(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTranferAmount", reflect.TypeOf((*MockBlockchain)(nil).GetTranferAmount), height)
+// GetReceiptsByHeight indicates an expected call of GetReceiptsByHeight
+func (mr *MockBlockchainMockRecorder) GetReceiptsByHeight(height interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptsByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptsByHeight), height)
 }
 
 // GetReceiptByActionHash mocks base method
@@ -316,45 +264,6 @@ func (mr *MockBlockchainMockRecorder) GetReceiptByActionHash(h interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptByActionHash), h)
 }
 
-// GetActionsFromIndex mocks base method
-func (m *MockBlockchain) GetActionsFromIndex(arg0, arg1 uint64) ([][]byte, error) {
-	ret := m.ctrl.Call(m, "GetActionsFromIndex", arg0, arg1)
-	ret0, _ := ret[0].([][]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionsFromIndex indicates an expected call of GetActionsFromIndex
-func (mr *MockBlockchainMockRecorder) GetActionsFromIndex(arg0, arg1 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsFromIndex", reflect.TypeOf((*MockBlockchain)(nil).GetActionsFromIndex), arg0, arg1)
-}
-
-// GetActionsByAddress mocks base method
-func (m *MockBlockchain) GetActionsByAddress(arg0 string, arg1, arg2 uint64) ([][]byte, error) {
-	ret := m.ctrl.Call(m, "GetActionsByAddress", arg0, arg1, arg2)
-	ret0, _ := ret[0].([][]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionsByAddress indicates an expected call of GetActionsByAddress
-func (mr *MockBlockchainMockRecorder) GetActionsByAddress(arg0, arg1, arg2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionsByAddress", reflect.TypeOf((*MockBlockchain)(nil).GetActionsByAddress), arg0, arg1, arg2)
-}
-
-// GetActionCountByAddress mocks base method
-func (m *MockBlockchain) GetActionCountByAddress(address string) (uint64, error) {
-	ret := m.ctrl.Call(m, "GetActionCountByAddress", address)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionCountByAddress indicates an expected call of GetActionCountByAddress
-func (mr *MockBlockchainMockRecorder) GetActionCountByAddress(address interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionCountByAddress", reflect.TypeOf((*MockBlockchain)(nil).GetActionCountByAddress), address)
-}
-
 // GetActionByActionHash mocks base method
 func (m *MockBlockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
 	ret := m.ctrl.Call(m, "GetActionByActionHash", h)
@@ -366,32 +275,6 @@ func (m *MockBlockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnv
 // GetActionByActionHash indicates an expected call of GetActionByActionHash
 func (mr *MockBlockchainMockRecorder) GetActionByActionHash(h interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetActionByActionHash), h)
-}
-
-// GetBlockHashByActionHash mocks base method
-func (m *MockBlockchain) GetBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error) {
-	ret := m.ctrl.Call(m, "GetBlockHashByActionHash", h)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockHashByActionHash indicates an expected call of GetBlockHashByActionHash
-func (mr *MockBlockchainMockRecorder) GetBlockHashByActionHash(h interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockHashByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockHashByActionHash), h)
-}
-
-// GetReceiptsByHeight mocks base method
-func (m *MockBlockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "GetReceiptsByHeight", height)
-	ret0, _ := ret[0].([]*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetReceiptsByHeight indicates an expected call of GetReceiptsByHeight
-func (mr *MockBlockchainMockRecorder) GetReceiptsByHeight(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptsByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptsByHeight), height)
 }
 
 // GetFactory mocks base method

@@ -1772,6 +1772,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	svr := &Server{
 		bc:             bc,
+		indexer:        bc.GetIndexer(),
 		ap:             ap,
 		cfg:            cfg,
 		gs:             gasstation.NewGasStation(bc, cfg.API),
