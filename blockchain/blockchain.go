@@ -241,11 +241,28 @@ func InMemStateFactoryOption() Option {
 	}
 }
 
-// PrecreatedDaoOption sets blockchain's dao
-func PrecreatedDaoOption(dao blockdao.BlockDAO) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.dao = dao
+// IndexerOption sets blockchain's indexer
+func DefaultIndexerOption() Option {
+	return func(bc *blockchain, cfg config.Config) error {
+		cfg.DB.DbPath = cfg.Chain.IndexDBPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
+		if err != nil {
+			return err
+		}
+		bc.indexer = indexer
+		return nil
+	}
+}
 
+// InMemIndexerOption sets blockchain's indexer
+func InMemIndexerOption() Option {
+	return func(bc *blockchain, cfg config.Config) error {
+		cfg.DB.DbPath = cfg.Chain.IndexDBPath
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+		if err != nil {
+			return err
+		}
+		bc.indexer = indexer
 		return nil
 	}
 }
@@ -253,20 +270,9 @@ func PrecreatedDaoOption(dao blockdao.BlockDAO) Option {
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway {
-			cfg.DB.DbPath = cfg.Chain.IndexDBPath
-			indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
-			if err != nil {
-				return err
-			}
-			bc.indexer = indexer
-		}
-
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewBoltDB(cfg.DB),
-			bc.indexer,
-			!cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -277,18 +283,8 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
-		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway {
-			indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
-			if err != nil {
-				return err
-			}
-			bc.indexer = indexer
-		}
-
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewMemKVStore(),
-			bc.indexer,
-			!cfg.Chain.EnableAsyncIndexWrite,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -354,6 +350,9 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	}
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
+	}
+	if chain.indexer != nil {
+		chain.lifecycle.Add(chain.indexer)
 	}
 	return chain
 }
@@ -553,7 +552,23 @@ func (bc *blockchain) GetTranferAmount(height uint64) (*big.Int, error) {
 
 // GetReceiptByActionHash returns the receipt by action hash
 func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	return bc.dao.GetReceiptByActionHash(h)
+	if bc.indexer == nil {
+		return nil, blockindex.ErrActionIndexNA
+	}
+	actIndex, err := bc.indexer.GetActionIndex(h[:])
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
+	}
+	receipts, err := bc.dao.GetReceipts(actIndex.BlockHeight())
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range receipts {
+		if r.ActionHash == h {
+			return r, nil
+		}
+	}
+	return nil, errors.Errorf("receipt of action %x isn't found", h)
 }
 
 // GetActionsFromIndex returns action hash from index
@@ -1112,6 +1127,19 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
+
+	// index the block if there's indexer
+	if bc.indexer != nil {
+		if err = bc.indexer.IndexBlock(blk, true); err != nil {
+			return err
+		}
+		if err := bc.indexer.IndexAction(blk); err != nil {
+			return err
+		}
+		if err := bc.indexer.Commit(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1344,6 +1372,24 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 	for bc.tipHeight > targetHeight {
+		if bc.indexer != nil {
+			h, err := bc.dao.GetTipHash()
+			if err != nil {
+				return errors.Wrap(err, "failed to get tip block hash")
+			}
+			blk, err := bc.dao.GetBlock(h)
+			if err != nil {
+				return errors.Wrap(err, "failed to get tip block")
+			}
+			// delete block index
+			if err := bc.indexer.DeleteBlockIndex(blk); err != nil {
+				return err
+			}
+			// delete action index
+			if err := bc.indexer.DeleteActionIndex(blk); err != nil {
+				return err
+			}
+		}
 		if err := bc.dao.DeleteTipBlock(); err != nil {
 			return err
 		}

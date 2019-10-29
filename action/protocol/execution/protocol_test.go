@@ -287,6 +287,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
+		blockchain.InMemIndexerOption(),
 		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -465,6 +466,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.DefaultIndexerOption(),
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))

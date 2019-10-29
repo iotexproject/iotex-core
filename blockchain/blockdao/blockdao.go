@@ -25,7 +25,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/cache"
@@ -94,7 +93,6 @@ type BlockDAO interface {
 	Header(hash.Hash256) (*block.Header, error)
 	Body(hash.Hash256) (*block.Body, error)
 	Footer(hash.Hash256) (*block.Footer, error)
-	GetReceiptByActionHash(hash.Hash256) (*action.Receipt, error)
 	GetReceipts(uint64) ([]*action.Receipt, error)
 	PutBlock(*block.Block) error
 	DeleteTipBlock() error
@@ -104,10 +102,8 @@ type BlockDAO interface {
 }
 
 type blockDAO struct {
-	writeIndex    bool
 	compressBlock bool
 	kvstore       db.KVStore
-	indexer       blockindex.Indexer
 	htf           db.RangeIndex
 	kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
 	topIndex      atomic.Value
@@ -121,12 +117,10 @@ type blockDAO struct {
 }
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvstore db.KVStore, indexer blockindex.Indexer, writeIndex, compressBlock bool, cfg config.DB) BlockDAO {
+func NewBlockDAO(kvstore db.KVStore, compressBlock bool, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
-		writeIndex:    indexer != nil && writeIndex,
 		compressBlock: compressBlock,
 		kvstore:       kvstore,
-		indexer:       indexer,
 		cfg:           cfg,
 	}
 	if cfg.MaxCacheSize > 0 {
@@ -145,7 +139,6 @@ func NewBlockDAO(kvstore db.KVStore, indexer blockindex.Indexer, writeIndex, com
 	}
 	blockDAO.timerFactory = timerFactory
 	blockDAO.lifecycle.Add(kvstore)
-	blockDAO.lifecycle.Add(indexer)
 	return blockDAO
 }
 
@@ -238,10 +231,6 @@ func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
 	return dao.footer(h)
 }
 
-func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	return dao.getReceiptByActionHash(h)
-}
-
 func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	return dao.getReceipts(blkHeight)
 }
@@ -289,20 +278,20 @@ func (dao *blockDAO) KVStore() db.KVStore {
 
 // getBlockHash returns the block hash by height
 func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
+	h := hash.ZeroHash256
 	if height == 0 {
-		return hash.ZeroHash256, nil
+		return h, nil
 	}
 	key := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
-	hash := hash.ZeroHash256
 	if err != nil {
-		return hash, errors.Wrap(err, "failed to get block hash")
+		return h, errors.Wrap(err, "failed to get block hash")
 	}
-	if len(hash) != len(value) {
-		return hash, errors.Wrap(err, "blockhash is broken")
+	if len(h) != len(value) {
+		return h, errors.Wrapf(err, "blockhash is broken with length = %d", len(value))
 	}
-	copy(hash[:], value)
-	return hash, nil
+	copy(h[:], value)
+	return h, nil
 }
 
 // getBlockHeight returns the block height by hash
@@ -462,27 +451,6 @@ func (dao *blockDAO) getTipHash() (hash.Hash256, error) {
 	return hash.BytesToHash256(value), nil
 }
 
-// getReceiptByActionHash returns the receipt by execution hash
-func (dao *blockDAO) getReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if dao.indexer == nil {
-		return nil, blockindex.ErrActionIndexNA
-	}
-	actIndex, err := dao.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
-	}
-	receipts, err := dao.getReceipts(actIndex.BlockHeight())
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range receipts {
-		if r.ActionHash == h {
-			return r, nil
-		}
-	}
-	return nil, errors.Errorf("receipt of action %x isn't found", h)
-}
-
 func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	kvstore, _, err := dao.getDBFromHeight(blkHeight)
 	if err != nil {
@@ -510,12 +478,9 @@ func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 
 // putBlock puts a block
 func (dao *blockDAO) putBlock(blk *block.Block) error {
-	heightValue, err := dao.kvstore.Get(blockNS, topHeightKey)
-	if err != nil {
-		return errors.Wrap(err, "failed to get top height")
-	}
 	blkHeight := blk.Height()
-	if blkHeight <= enc.MachineEndian.Uint64(heightValue) {
+	h, err := dao.getBlockHash(blkHeight)
+	if h != hash.ZeroHash256 && err == nil {
 		return errors.Errorf("block %d already exist", blkHeight)
 	}
 
@@ -577,28 +542,20 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	}
 
 	batch := db.NewBatch()
+	heightValue := byteutil.Uint64ToBytes(blkHeight)
 	hashKey := append(hashPrefix, hash[:]...)
-	heightValue = byteutil.Uint64ToBytes(blkHeight)
 	batch.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
 	heightKey := append(heightPrefix, heightValue...)
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
-	batch.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
-	batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
-	if err = dao.kvstore.Commit(batch); err != nil {
-		return err
+	tipHeight, err := dao.kvstore.Get(blockNS, topHeightKey)
+	if err != nil {
+		return errors.Wrap(err, "failed to get top height")
 	}
-
-	// index block and actions
-	if !dao.writeIndex {
-		return nil
+	if blkHeight > enc.MachineEndian.Uint64(tipHeight) {
+		batch.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
+		batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
-	if err = dao.indexer.IndexBlock(blk, true); err != nil {
-		return err
-	}
-	if err := dao.indexer.IndexAction(blk); err != nil {
-		return err
-	}
-	return dao.indexer.Commit()
+	return dao.kvstore.Commit(batch)
 }
 
 // deleteTipBlock deletes the tip block
@@ -616,12 +573,6 @@ func (dao *blockDAO) deleteTipBlock() error {
 	hash, err := dao.getTipHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
-	}
-
-	// Obtain block
-	blk, err := dao.getBlock(hash)
-	if err != nil {
-		return errors.Wrap(err, "failed to get tip block")
 	}
 
 	batchForBlock := db.NewBatch()
@@ -658,19 +609,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
 	}
-	if err := dao.kvstore.Put(blockNS, topHashKey, hash[:]); err != nil {
-		return errors.Wrap(err, "failed to update top hash")
-	}
-
-	if !dao.writeIndex {
-		return nil
-	}
-	// delete block index
-	if err = dao.indexer.DeleteBlockIndex(blk); err != nil {
-		return err
-	}
-	// delete action index
-	return dao.indexer.DeleteActionIndex(blk)
+	return dao.kvstore.Put(blockNS, topHashKey, hash[:])
 }
 
 // getDBFromHash returns db of this block stored

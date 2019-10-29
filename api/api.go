@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
@@ -87,6 +88,7 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
+	indexer           blockindex.Indexer
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -102,6 +104,7 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	indexer blockindex.Indexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
@@ -124,6 +127,7 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
+		indexer:           indexer,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,

@@ -612,6 +612,7 @@ func TestConstantinople(t *testing.T) {
 			cfg,
 			PrecreatedStateFactoryOption(sf),
 			BoltDBDaoOption(),
+			DefaultIndexerOption(),
 			RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -750,12 +751,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-		bc := NewBlockchain(
-			cfg,
+		chainOpts := []Option{
 			PrecreatedStateFactoryOption(sf),
 			BoltDBDaoOption(),
 			RegistryOption(&registry),
-		)
+		}
+		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
+			chainOpts = append(chainOpts, DefaultIndexerOption())
+		}
+		bc := NewBlockchain(cfg, chainOpts...)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		exec := execution.NewProtocol(bc, hu)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
@@ -781,12 +785,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		sf.AddActionHandlers(accountProtocol)
 		registry = protocol.Registry{}
 		require.NoError(registry.Register(account.ProtocolID, accountProtocol))
-		bc = NewBlockchain(
-			cfg,
-			PrecreatedStateFactoryOption(sf),
-			BoltDBDaoOption(),
-			RegistryOption(&registry),
-		)
+		bc = NewBlockchain(cfg, chainOpts...)
 		rolldposProtocol := rolldpos.NewProtocol(
 			genesis.Default.NumCandidateDelegates,
 			genesis.Default.NumDelegates,
