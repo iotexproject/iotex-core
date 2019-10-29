@@ -89,13 +89,9 @@ func TestIndexer(t *testing.T) {
 		// test Start() which should build index for 2 blocks
 		for i := startHeight + 1; i <= tipHeight; i++ {
 			blk := blks[i-1]
-			require.NoError(ib.indexer.IndexBlock(blk, true))
-			require.NoError(ib.indexer.IndexAction(blk))
-			// commit once every 10000 blocks
-			if i%10000 == 0 || i == tipHeight {
-				require.NoError(ib.indexer.Commit())
-			}
+			require.NoError(ib.indexer.PutBlock(blk, true))
 		}
+		require.NoError(ib.indexer.Commit())
 		height, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)

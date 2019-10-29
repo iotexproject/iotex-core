@@ -107,23 +107,9 @@ func (ib *IndexBuilder) handler() {
 			return
 		case blk := <-ib.pendingBlks:
 			timer := ib.timerFactory.NewTimer("indexBlock")
-			if err := ib.indexer.IndexBlock(blk, false); err != nil {
+			if err := ib.indexer.PutBlock(blk, false); err != nil {
 				log.L().Error(
 					"Error when indexing the block",
-					zap.Uint64("height", blk.Height()),
-					zap.Error(err),
-				)
-			}
-			if err := ib.indexer.IndexAction(blk); err != nil {
-				log.L().Error(
-					"Error when indexing the block",
-					zap.Uint64("height", blk.Height()),
-					zap.Error(err),
-				)
-			}
-			if err := ib.indexer.Commit(); err != nil {
-				log.L().Error(
-					"Error when committing the block index",
 					zap.Uint64("height", blk.Height()),
 					zap.Error(err),
 				)
@@ -161,14 +147,11 @@ func (ib *IndexBuilder) init() error {
 		if err != nil {
 			return err
 		}
-		if err := ib.indexer.IndexBlock(blk, true); err != nil {
+		if err := ib.indexer.PutBlock(blk, true); err != nil {
 			return err
 		}
-		if err := ib.indexer.IndexAction(blk); err != nil {
-			return err
-		}
-		// commit once every 10000 blocks
-		if startHeight%10000 == 0 || startHeight == tipHeight {
+		// commit once every 5000 blocks
+		if startHeight%5000 == 0 || startHeight == tipHeight {
 			if err := ib.indexer.Commit(); err != nil {
 				return err
 			}

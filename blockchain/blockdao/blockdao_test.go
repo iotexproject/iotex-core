@@ -211,9 +211,7 @@ func TestBlockDAO(t *testing.T) {
 			blks[i].Receipts = receipts[i]
 			require.NoError(dao.PutBlock(blks[i]))
 			blks[i].Receipts = nil
-			require.NoError(indexer.IndexBlock(blks[i], true))
-			require.NoError(indexer.IndexAction(blks[i]))
-			require.NoError(indexer.Commit())
+			require.NoError(indexer.PutBlock(blks[i], false))
 
 			// test getBlockchainHeight
 			height, err := indexer.GetBlockchainHeight()
@@ -258,10 +256,9 @@ func TestBlockDAO(t *testing.T) {
 		}
 		// index blocks
 		for i := 0; i < 3; i++ {
-			require.NoError(indexer.IndexBlock(blks[i], true))
-			require.NoError(indexer.IndexAction(blks[i]))
-			require.NoError(indexer.Commit())
+			require.NoError(indexer.PutBlock(blks[i], false))
 		}
+		require.NoError(indexer.Commit())
 		height, err := indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -277,8 +274,7 @@ func TestBlockDAO(t *testing.T) {
 			blk, err := dao.GetBlock(h)
 			require.NoError(err)
 			require.NoError(dao.DeleteTipBlock())
-			require.NoError(indexer.DeleteBlockIndex(blk))
-			require.NoError(indexer.DeleteActionIndex(blk))
+			require.NoError(indexer.DeleteBlock(blk))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)

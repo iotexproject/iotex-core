@@ -1023,13 +1023,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// index the block if there's indexer
 	if bc.indexer != nil {
-		if err = bc.indexer.IndexBlock(blk, true); err != nil {
-			return err
-		}
-		if err := bc.indexer.IndexAction(blk); err != nil {
-			return err
-		}
-		if err := bc.indexer.Commit(); err != nil {
+		if err = bc.indexer.PutBlock(blk, false); err != nil {
 			return err
 		}
 	}
@@ -1274,12 +1268,8 @@ func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 			if err != nil {
 				return errors.Wrap(err, "failed to get tip block")
 			}
-			// delete block index
-			if err := bc.indexer.DeleteBlockIndex(blk); err != nil {
-				return err
-			}
-			// delete action index
-			if err := bc.indexer.DeleteActionIndex(blk); err != nil {
+			// delete index
+			if err := bc.indexer.DeleteBlock(blk); err != nil {
 				return err
 			}
 		}

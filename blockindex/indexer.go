@@ -46,10 +46,8 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		Commit() error
-		IndexBlock(*block.Block, bool) error
-		IndexAction(*block.Block) error
-		DeleteBlockIndex(*block.Block) error
-		DeleteActionIndex(*block.Block) error
+		PutBlock(*block.Block, bool) error
+		DeleteBlock(*block.Block) error
 		RevertBlocks(uint64) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
@@ -124,8 +122,8 @@ func (x *blockIndexer) Commit() error {
 	return x.commit()
 }
 
-// IndexBlock index the block
-func (x *blockIndexer) IndexBlock(blk *block.Block, batch bool) error {
+// PutBlock index the block
+func (x *blockIndexer) PutBlock(blk *block.Block, batch bool) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -136,27 +134,15 @@ func (x *blockIndexer) IndexBlock(blk *block.Block, batch bool) error {
 	}
 	// index hash --> height
 	hash := blk.HashBlock()
-	var err error
-	if !batch {
-		err = x.kvstore.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height))
-	} else {
-		x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
-	}
-	if err != nil {
-		return errors.Wrap(err, "failed to put hash --> height index")
-	}
+	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &blockIndex{
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
-	return x.tbk.Add(bd.Serialize(), batch)
-}
-
-// IndexAction index the actions in the block
-func (x *blockIndexer) IndexAction(blk *block.Block) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
+	if err := x.tbk.Add(bd.Serialize(), batch); err != nil {
+		return errors.Wrapf(err, "failed to put block %d index", height)
+	}
 
 	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
 	ad := (&actionIndex{
@@ -173,11 +159,14 @@ func (x *blockIndexer) IndexAction(blk *block.Block) error {
 			return err
 		}
 	}
+	if !batch {
+		return x.commit()
+	}
 	return nil
 }
 
-// DeleteBlockIndex deletes a block's index
-func (x *blockIndexer) DeleteBlockIndex(blk *block.Block) error {
+// DeleteBlock deletes a block's index
+func (x *blockIndexer) DeleteBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -188,15 +177,11 @@ func (x *blockIndexer) DeleteBlockIndex(blk *block.Block) error {
 	}
 	// delete hash --> height
 	hash := blk.HashBlock()
-	x.kvstore.Delete(blockHashToHeightNS, hash[hashOffset:])
+	x.batch.Delete(blockHashToHeightNS, hash[hashOffset:], "failed to delete block at height %d", height)
 	// delete from total block index
-	return x.tbk.Revert(1)
-}
-
-// DeleteActionIndex deletes action index in a block
-func (x *blockIndexer) DeleteActionIndex(blk *block.Block) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
+	if err := x.tbk.Revert(1); err != nil {
+		return err
+	}
 
 	// delete action index
 	for _, selp := range blk.Actions {
@@ -206,11 +191,11 @@ func (x *blockIndexer) DeleteActionIndex(blk *block.Block) error {
 			return err
 		}
 	}
-	if err := x.commit(); err != nil {
+	// delete from total action index
+	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
 		return err
 	}
-	// delete from total action index
-	return x.tac.Revert(uint64(len(blk.Actions)))
+	return x.commit()
 }
 
 // RevertBlocks revert the top 'n' blocks

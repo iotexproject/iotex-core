@@ -169,13 +169,11 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		require.NoError(indexer.IndexBlock(blks[0], true))
-		require.NoError(indexer.IndexAction(blks[0]))
+		require.NoError(indexer.PutBlock(blks[0], true))
 		// cannot skip block when indexing
-		err = indexer.IndexBlock(blks[2], true)
+		err = indexer.PutBlock(blks[2], true)
 		require.Equal(db.ErrInvalid, errors.Cause(err))
-		require.NoError(indexer.IndexBlock(blks[1], true))
-		require.NoError(indexer.IndexAction(blks[1]))
+		require.NoError(indexer.PutBlock(blks[1], true))
 		// height still == 0 before Commit()
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
@@ -191,8 +189,7 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(6, total)
 
-		require.NoError(indexer.IndexBlock(blks[2], false))
-		require.NoError(indexer.IndexAction(blks[2]))
+		require.NoError(indexer.PutBlock(blks[2], false))
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -263,13 +260,9 @@ func TestIndexer(t *testing.T) {
 			require.NoError(indexer.Stop(ctx))
 		}()
 
-		require.NoError(indexer.IndexBlock(blks[0], true))
-		require.NoError(indexer.IndexAction(blks[0]))
-		require.NoError(indexer.IndexBlock(blks[1], true))
-		require.NoError(indexer.IndexAction(blks[1]))
-		require.NoError(indexer.Commit())
-		require.NoError(indexer.IndexBlock(blks[2], false))
-		require.NoError(indexer.IndexAction(blks[2]))
+		for i := 0; i < 3; i++ {
+			require.NoError(indexer.PutBlock(blks[i], true))
+		}
 		require.NoError(indexer.Commit())
 
 		for i := range indexTests[0].actions {
@@ -284,8 +277,7 @@ func TestIndexer(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			require.NoError(indexer.DeleteBlockIndex(blks[3-i]))
-			require.NoError(indexer.DeleteActionIndex(blks[3-i]))
+			require.NoError(indexer.DeleteBlock(blks[3-i]))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
