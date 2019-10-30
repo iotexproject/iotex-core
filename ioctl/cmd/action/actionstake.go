@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/iotexproject/iotex-core/ioctl/validator"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -77,15 +79,15 @@ func stake(args []string) error {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
 
-	candidateName := args[1]
+	candidateName := []byte(args[1])
 
 	stakeDuration, err := strconv.Atoi(args[2])
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
 
-	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
-		return output.NewError(output.ValidationError, "invalid stake duration", nil)
+	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
+		return output.NewError(output.ValidationError, "", err)
 	}
 
 	data := []byte{}
@@ -123,8 +125,8 @@ func restake(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
 
-	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
-		return output.NewError(output.ValidationError, "invalid stake duration", nil)
+	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
+		return output.NewError(output.ValidationError, "", err)
 	}
 
 	data := []byte{}

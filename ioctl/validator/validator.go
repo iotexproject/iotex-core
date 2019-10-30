@@ -20,6 +20,8 @@ var (
 	ErrLongAlias = errors.New("invalid long alias that is more than 40 characters")
 	// ErrNonPositiveNumber indicates error for a non-positive number
 	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
+	// ErrInvalidStakeDuration indicates error for invalid stake duration
+	ErrInvalidStakeDuration = errors.New("invalid stake duration")
 )
 
 const (
@@ -47,6 +49,14 @@ func ValidateAlias(alias string) error {
 func ValidatePositiveNumber(number int64) error {
 	if number <= 0 {
 		return ErrNonPositiveNumber
+	}
+	return nil
+}
+
+// ValidateStakeDuration validates stake duration for native staking
+func ValidateStakeDuration(stakeDuration int) error {
+	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
+		return ErrInvalidStakeDuration
 	}
 	return nil
 }
