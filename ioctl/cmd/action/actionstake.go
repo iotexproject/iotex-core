@@ -83,10 +83,12 @@ func stake(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
+
 	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
 		return output.NewError(output.ValidationError, "invalid stake duration", nil)
 	}
-	var data []byte
+
+	data := []byte{}
 	if len(args) == 4 {
 		data = make([]byte, 2*len([]byte(args[3])))
 		hex.Encode(data, []byte(args[3]))
@@ -120,11 +122,12 @@ func restake(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
+
 	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
 		return output.NewError(output.ValidationError, "invalid stake duration", nil)
 	}
 
-	var data []byte
+	data := []byte{}
 	if len(args) == 3 {
 		data = make([]byte, 2*len([]byte(args[2])))
 		hex.Encode(data, []byte(args[2]))
