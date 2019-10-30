@@ -115,6 +115,9 @@ func (ib *IndexBuilder) handler() {
 				)
 			}
 			timer.End()
+			if blk.Height()%100 == 0 {
+				log.L().Info("<<<<<<< indexing new block", zap.Uint64("height", blk.Height()))
+			}
 		}
 	}
 }
@@ -158,7 +161,7 @@ func (ib *IndexBuilder) init() error {
 			zap.L().Info("Finished indexing blocks up to", zap.Uint64("height", startHeight))
 		}
 	}
-	if startHeight == tipHeight {
+	if startHeight >= tipHeight {
 		// successfully migrated to latest block
 		zap.L().Info("Finished migrating DB", zap.Uint64("height", startHeight))
 		return ib.purgeObsoleteIndex()

@@ -666,26 +666,6 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	return dao.openDB(topIndex)
 }
 
-func (dao *blockDAO) getTopDBOfOpened(blkHeight uint64) (kvstore db.KVStore, err error) {
-	if dao.cfg.SplitDBSizeMB == 0 {
-		return dao.kvstore, nil
-	}
-	if blkHeight <= dao.cfg.SplitDBHeight {
-		return dao.kvstore, nil
-	}
-	topIndex := dao.topIndex.Load().(uint64)
-	kv, ok := dao.kvstores.Load(topIndex)
-	if ok {
-		kvstore, ok = kv.(db.KVStore)
-		if !ok {
-			err = errors.New("db convert error")
-		}
-		return
-	}
-	err = ErrNotOpened
-	return
-}
-
 func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSizeMB == 0 {
 		return dao.kvstore, 0, nil

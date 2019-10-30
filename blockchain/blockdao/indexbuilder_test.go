@@ -73,6 +73,7 @@ func TestIndexer(t *testing.T) {
 		ib := &IndexBuilder{
 			pendingBlks: make(chan *block.Block, 8),
 			cancelChan:  make(chan interface{}),
+			dao:         dao,
 			indexer:     indexer,
 		}
 		defer ib.Stop(context.Background())
@@ -86,12 +87,8 @@ func TestIndexer(t *testing.T) {
 		tipHeight, err := dao.GetTipHeight()
 		require.EqualValues(2, tipHeight)
 
-		// test Start() which should build index for 2 blocks
-		for i := startHeight + 1; i <= tipHeight; i++ {
-			blk := blks[i-1]
-			require.NoError(ib.indexer.PutBlock(blk, true))
-		}
-		require.NoError(ib.indexer.Commit())
+		// init() should build index for first 2 blocks
+		require.NoError(ib.init())
 		height, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)
