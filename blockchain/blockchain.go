@@ -223,7 +223,7 @@ func InMemStateFactoryOption() Option {
 	}
 }
 
-// IndexerOption sets blockchain's indexer
+// DefaultIndexerOption sets blockchain's indexer
 func DefaultIndexerOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath

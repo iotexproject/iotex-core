@@ -299,7 +299,7 @@ func TestLocalTransfer(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
-	as := svr.ChainService(chainID).ApiServer()
+	as := svr.ChainService(chainID).APIServer()
 	preProcessTestCases(t, bc)
 	initExistingAccounts(t, big.NewInt(30000), bc)
 

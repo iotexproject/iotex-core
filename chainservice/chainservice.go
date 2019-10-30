@@ -337,8 +337,8 @@ func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
 }
 
-// ApiServer returns the API server
-func (cs *ChainService) ApiServer() *api.Server {
+// APIServer returns the API server
+func (cs *ChainService) APIServer() *api.Server {
 	return cs.api
 }
 
