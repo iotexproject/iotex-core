@@ -21,7 +21,9 @@ var (
 	// ErrNonPositiveNumber indicates error for a non-positive number
 	ErrNonPositiveNumber = errors.New("invalid number that is not positive")
 	// ErrInvalidStakeDuration indicates error for invalid stake duration
-	ErrInvalidStakeDuration = errors.New("invalid stake duration")
+	ErrInvalidStakeDuration = errors.New("stake duration must be within 0 and 1050 and in multiples of 7")
+	// ErrInvalidCandidateName indicates error for invalid candidate name
+	ErrLongCandidateName = errors.New("invalid length of candidate name that is more than 12 ")
 )
 
 const (
@@ -57,6 +59,14 @@ func ValidatePositiveNumber(number int64) error {
 func ValidateStakeDuration(stakeDuration int) error {
 	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
 		return ErrInvalidStakeDuration
+	}
+	return nil
+}
+
+// ValidateCandidateName validates candidate name for native staking
+func ValidateCandidateName(candidateName string) error {
+	if len(candidateName) > 12 {
+		return ErrLongCandidateName
 	}
 	return nil
 }

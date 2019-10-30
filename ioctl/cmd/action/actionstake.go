@@ -79,7 +79,11 @@ func stake(args []string) error {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
 
-	candidateName := []byte(args[1])
+	var candidateName [12]byte
+	if err := validator.ValidateCandidateName(args[1]); err != nil {
+		return output.NewError(output.ValidationError, "invalid candidate name", err)
+	}
+	copy(candidateName[:], append(make([]byte, 12-len(args)), []byte(args[1])...))
 
 	stakeDuration, err := strconv.Atoi(args[2])
 	if err != nil {
@@ -87,7 +91,7 @@ func stake(args []string) error {
 	}
 
 	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
-		return output.NewError(output.ValidationError, "", err)
+		return output.NewError(output.ValidationError, "invalid stake duration", err)
 	}
 
 	data := []byte{}
@@ -126,7 +130,7 @@ func restake(args []string) error {
 	}
 
 	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
-		return output.NewError(output.ValidationError, "", err)
+		return output.NewError(output.ValidationError, "invalid stake duration", err)
 	}
 
 	data := []byte{}
