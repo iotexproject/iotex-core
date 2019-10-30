@@ -76,7 +76,9 @@ func stake(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
+
 	candidateName := args[1]
+
 	stakeDuration, err := strconv.Atoi(args[2])
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
@@ -89,18 +91,22 @@ func stake(args []string) error {
 		data = make([]byte, 2*len([]byte(args[3])))
 		hex.Encode(data, []byte(args[3]))
 	}
+
 	contract, err := stackingContract()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
+
 	stakeABI, err := abi.JSON(strings.NewReader(poll.NsAbi))
 	if err != nil {
 		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}
+
 	bytecode, err := stakeABI.Pack("createPygg", candidateName, stakeDuration, autoStake, data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}
+
 	return Execute(contract.String(), amount, bytecode)
 }
 
@@ -109,6 +115,7 @@ func restake(args []string) error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
 	}
+
 	stakeDuration, err := strconv.Atoi(args[2])
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
@@ -116,22 +123,27 @@ func restake(args []string) error {
 	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
 		return output.NewError(output.ValidationError, "invalid stake duration", nil)
 	}
+
 	var data []byte
 	if len(args) == 3 {
 		data = make([]byte, 2*len([]byte(args[2])))
 		hex.Encode(data, []byte(args[2]))
 	}
+
 	contract, err := stackingContract()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
+
 	stakeABI, err := abi.JSON(strings.NewReader(poll.NsAbi))
 	if err != nil {
 		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}
+
 	bytecode, err := stakeABI.Pack("restake", pyggIndex, stakeDuration, autoStake, data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}
+
 	return Execute(contract.String(), big.NewInt(0), bytecode)
 }
