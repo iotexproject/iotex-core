@@ -8,11 +8,35 @@ package testutil
 
 import (
 	"math/rand"
+	"net"
+	"strconv"
 	"time"
 )
+
+func checkPortIsOpen(port int) bool {
+	timeout := time.Millisecond * 10
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
+	if err != nil {
+		// port not opened
+		return false
+	}
+	// port has opened
+	if conn != nil {
+		conn.Close()
+	}
+	return true
+}
 
 // RandomPort returns a random port number between 30000 and 50000
 func RandomPort() int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return r.Intn(20000) + 30000
+	port := r.Intn(2000) + 30000
+	for i := 0; i < 18000; i++ {
+		if checkPortIsOpen(port) == false {
+			break
+		}
+		port++
+		// retry next port
+	}
+	return port
 }

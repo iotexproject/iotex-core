@@ -17,8 +17,8 @@ import (
 
 // xrc20ApproveCmd could config target address limited amount
 var xrc20ApproveCmd = &cobra.Command{
-	Use: "approve (ALIAS|SPENDER_ADDRESS) (XRC20_AMOUNT)" +
-		" -c ALIAS|CONTRACT_ADDRESS [-s SIGNER] [-l GAS_LIMIT] [-P PASSWORD] [-y]",
+	Use: "approve (ALIAS|SPENDER_ADDRESS) (XRC20_AMOUNT) -c ALIAS|CONTRACT_ADDRESS" +
+		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
 	Short: "Allow spender to withdraw from your account, multiple times, up to the amount",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {

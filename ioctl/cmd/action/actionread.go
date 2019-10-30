@@ -7,23 +7,16 @@
 package action
 
 import (
-	"math/big"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
-
-const defaultGasLimit = uint64(20000000)
-
-var defaultGasPrice = big.NewInt(unit.Qev)
 
 // actionReadCmd represents the action Read command
 var actionReadCmd = &cobra.Command{
-	Use:   "Read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
-	Short: "Read smart contract on IoTeX blockchain",
+	Use:   "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
+	Short: "read smart contract on IoTeX blockchain",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
