@@ -7,6 +7,7 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -76,11 +77,13 @@ func stake(args []string) error {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
 	candidateName := args[1]
-	stakeDuration, ok := new(big.Int).SetString(args[2], 10)
-	if !ok {
+	stakeDuration, err := strconv.Atoi(args[2])
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
-	// TODO: check whether stake duration is in valid range
+	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
+		return output.NewError(output.ValidationError, "invalid stake duration", nil)
+	}
 	var data []byte
 	if len(args) == 4 {
 		data = make([]byte, 2*len([]byte(args[3])))
@@ -106,9 +109,12 @@ func restake(args []string) error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
 	}
-	stakeDuration, ok := new(big.Int).SetString(args[1], 10)
-	if !ok {
+	stakeDuration, err := strconv.Atoi(args[2])
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
+	}
+	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
+		return output.NewError(output.ValidationError, "invalid stake duration", nil)
 	}
 	// TODO: check whether stake duration is in valid range
 	var data []byte
