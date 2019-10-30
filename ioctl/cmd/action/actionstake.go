@@ -7,7 +7,6 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
-	"strconv"
 	"strings"
 
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -85,8 +84,8 @@ func stake(args []string) error {
 	}
 	copy(candidateName[:], append(make([]byte, 12-len(args)), []byte(args[1])...))
 
-	stakeDuration, err := strconv.Atoi(args[2])
-	if err != nil {
+	stakeDuration, ok := new(big.Int).SetString(args[1], 10)
+	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
 
@@ -124,8 +123,8 @@ func restake(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
 	}
 
-	stakeDuration, err := strconv.Atoi(args[2])
-	if err != nil {
+	stakeDuration, ok := new(big.Int).SetString(args[1], 10)
+	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
 

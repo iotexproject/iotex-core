@@ -8,6 +8,7 @@ package validator
 
 import (
 	"errors"
+	"math/big"
 
 	"github.com/iotexproject/iotex-address/address"
 )
@@ -56,8 +57,9 @@ func ValidatePositiveNumber(number int64) error {
 }
 
 // ValidateStakeDuration validates stake duration for native staking
-func ValidateStakeDuration(stakeDuration int) error {
-	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
+func ValidateStakeDuration(stakeDuration *big.Int) error {
+	stakeDurationInt := stakeDuration.Int64()
+	if stakeDurationInt%7 != 0 || stakeDurationInt < 0 || stakeDurationInt > 1050 {
 		return ErrInvalidStakeDuration
 	}
 	return nil
