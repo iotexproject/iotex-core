@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
@@ -140,9 +141,9 @@ func (ib *IndexBuilder) init() error {
 		// indexer height > dao height
 		// this shouldn't happen unless blocks are deliberately removed from dao w/o removing index
 		// in this case we revert the extra block index, but nothing we can do to revert action index
-		zap.L().Error("Inconsistent DB: indexer height > blockDAO height",
-			zap.Uint64("indexer", startHeight), zap.Uint64("blockDAO", tipHeight))
-		return ib.indexer.RevertBlocks(startHeight - tipHeight)
+		err := errors.Errorf("Inconsistent DB: indexer height %d > blockDAO height %d", startHeight, tipHeight)
+		zap.L().Error(err.Error())
+		return err
 	}
 	// update index to latest block
 	for startHeight++; startHeight <= tipHeight; startHeight++ {

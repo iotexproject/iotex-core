@@ -225,7 +225,7 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 
 // handleBlockSyncMsg handles block messages from peers.
 func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
-	log.L().Info("Receive blockSyncMsg.",
+	log.L().Debug("Receive blockSyncMsg.",
 		zap.String("src", fmt.Sprintf("%v", m.peer)),
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))

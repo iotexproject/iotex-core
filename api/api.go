@@ -232,6 +232,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		}, nil
 	}
 	if api.indexer == nil {
+		// TODO: in case indexer does not exist, may consider return a value like 0 instead of exit
 		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 	totalActions, err := api.indexer.GetTotalActions()

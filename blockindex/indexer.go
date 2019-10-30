@@ -48,7 +48,6 @@ type (
 		Commit() error
 		PutBlock(*block.Block, bool) error
 		DeleteBlock(*block.Block) error
-		RevertBlocks(uint64) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -196,17 +195,6 @@ func (x *blockIndexer) DeleteBlock(blk *block.Block) error {
 		return err
 	}
 	return x.commit()
-}
-
-// RevertBlocks revert the top 'n' blocks
-func (x *blockIndexer) RevertBlocks(n uint64) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-
-	if n == 0 || n > x.tbk.Size() {
-		return nil
-	}
-	return x.tbk.Revert(n)
 }
 
 // GetBlockchainHeight return the blockchain height
