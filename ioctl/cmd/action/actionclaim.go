@@ -16,7 +16,7 @@ import (
 
 // actionClaimCmd represents the action claim command
 var actionClaimCmd = &cobra.Command{
-	Use:   "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
+	Use:   "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
 	Short: "Claim rewards from rewarding fund",
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
