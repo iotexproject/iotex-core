@@ -84,7 +84,7 @@ func stake(args []string) error {
 	}
 	copy(candidateName[:], append(make([]byte, 12-len(args)), []byte(args[1])...))
 
-	stakeDuration, ok := new(big.Int).SetString(args[1], 10)
+	stakeDuration, ok := new(big.Int).SetString(args[2], 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
 	}
