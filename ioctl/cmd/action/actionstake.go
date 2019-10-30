@@ -116,7 +116,6 @@ func restake(args []string) error {
 	if stakeDuration%7 != 0 || stakeDuration < 0 || stakeDuration > 1050 {
 		return output.NewError(output.ValidationError, "invalid stake duration", nil)
 	}
-	// TODO: check whether stake duration is in valid range
 	var data []byte
 	if len(args) == 3 {
 		data = make([]byte, 2*len([]byte(args[2])))
