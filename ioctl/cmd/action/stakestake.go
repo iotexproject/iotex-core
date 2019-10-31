@@ -40,10 +40,11 @@ func stake(args []string) error {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
 
-	var candidateName [12]byte
 	if err := validator.ValidateCandidateName(args[1]); err != nil {
 		return output.NewError(output.ValidationError, "invalid candidate name", err)
 	}
+
+	var candidateName [12]byte
 	copy(candidateName[:], append(make([]byte, 12-len(args)), []byte(args[1])...))
 
 	stakeDuration, ok := new(big.Int).SetString(args[2], 10)
