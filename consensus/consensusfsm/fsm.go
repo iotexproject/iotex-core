@@ -262,8 +262,10 @@ func (m *ConsensusFSM) Calibrate(height uint64) {
 
 // BackToPrepare produces an ePrepare event after delay
 func (m *ConsensusFSM) BackToPrepare(delay time.Duration) (fsm.State, error) {
-	m.produceConsensusEvent(ePrepare, delay)
-
+	// If the node is not active in consensus, stay at sPrepare and no need to produce ePrepare
+	if m.ctx.Active() {
+		m.produceConsensusEvent(ePrepare, delay)
+	}
 	return sPrepare, nil
 }
 

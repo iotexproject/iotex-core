@@ -97,6 +97,10 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+	// Do not handle consensus message if the node is not active in consensus
+	if !r.ctx.Active() {
+		return nil
+	}
 	<-r.ready
 	consensusHeight := r.ctx.Height()
 	switch {
@@ -228,7 +232,13 @@ func (r *RollDPoS) CurrentState() fsm.State {
 
 // Activate activates or pauses the roll-DPoS consensus. When it is deactivated, the node will finish the current
 // consensus round if it is doing the work and then return the the initial state
-func (r *RollDPoS) Activate(active bool) { r.ctx.Activate(active) }
+func (r *RollDPoS) Activate(active bool) {
+	r.ctx.Activate(active)
+	// reactivate cfsm if the node is reactivated
+	if _, err := r.cfsm.BackToPrepare(0); err != nil {
+		log.L().Panic("Failed to reactivate cfsm", zap.Error(err))
+	}
+}
 
 // Active is true if the roll-DPoS consensus is active, or false if it is stand-by
 func (r *RollDPoS) Active() bool {
