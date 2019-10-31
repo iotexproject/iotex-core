@@ -48,7 +48,7 @@ func claim(args []string) error {
 		gasLimit = action.ClaimFromRewardingFundBaseGas +
 			action.ClaimFromRewardingFundGasPerByte*uint64(len(payload))
 	}
-	gasPriceRau, err := gasPriceInRau()
+	gasPriceRau, _ := gasPriceInRau()
 	nonce, err := nonce(sender)
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)

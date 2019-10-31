@@ -48,7 +48,7 @@ func deposit(args []string) error {
 		gasLimit = action.DepositToRewardingFundBaseGas +
 			action.DepositToRewardingFundGasPerByte*uint64(len(payload))
 	}
-	gasPriceRau, err := gasPriceInRau()
+	gasPriceRau, _ := gasPriceInRau()
 	nonce, err := nonce(sender)
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)

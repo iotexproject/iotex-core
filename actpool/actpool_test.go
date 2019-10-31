@@ -1108,7 +1108,7 @@ func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
 	cfg := config.Default.ActPool
 	ap, err := NewActPool(bc, cfg, EnableExperimentalActions())
 	require.NoError(t, err)
-	tsf, err := testutil.SignedTransfer(
+	tsf, _ := testutil.SignedTransfer(
 		identityset.Address(0).String(),
 		identityset.PrivateKey(1),
 		uint64(1),

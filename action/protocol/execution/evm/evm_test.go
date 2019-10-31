@@ -116,7 +116,7 @@ func TestConstantinople(t *testing.T) {
 	}
 
 	for _, e := range execHeights {
-		ex, err := action.NewExecution(
+		ex, _ := action.NewExecution(
 			e.contract,
 			1,
 			big.NewInt(0),

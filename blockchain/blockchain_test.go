@@ -698,7 +698,7 @@ func TestConstantinople(t *testing.T) {
 		total, err := bc.GetActionCountByAddress(addr0)
 		require.NoError(err)
 		require.EqualValues(7, total)
-		actions, err := bc.GetActionsByAddress(addr0, 0, total)
+		actions, _ := bc.GetActionsByAddress(addr0, 0, total)
 		require.EqualValues(total, len(actions))
 		for i := range actions {
 			require.Equal(hashTopic[i].h[:], actions[i])

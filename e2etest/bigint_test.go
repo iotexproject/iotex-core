@@ -138,7 +138,7 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 	return prepare(bc, elp, r)
 }
 func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
-	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
+	priKey, _ := crypto.HexStringToPrivateKey(executorPriKey)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)

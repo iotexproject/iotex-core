@@ -461,7 +461,7 @@ func injectClaim(
 		wg.Add(1)
 	}
 	payload := []byte{}
-	beneficiaryAddr, err := address.FromBytes(beneficiaryPri.PublicKey().Hash())
+	beneficiaryAddr, _ := address.FromBytes(beneficiaryPri.PublicKey().Hash())
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: beneficiaryAddr.String()}
 	response, err := c.GetAccount(ctx, &request)

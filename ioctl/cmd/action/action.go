@@ -207,7 +207,7 @@ func SendAction(elp action.Envelope, signer string) error {
 		if err != nil {
 			return output.NewError(output.InputError, "failed to get private key", err)
 		}
-		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
+		crypto.HexStringToPrivateKey(prvKeyOrPassword)
 	} else if passwordFlag.Value() == "" {
 		output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
