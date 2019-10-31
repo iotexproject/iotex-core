@@ -185,6 +185,7 @@ func TestEndorsementManagerProto(t *testing.T) {
 	emProto, err := em.toProto()
 	require.Nil(err)
 	em2, err := newEndorsementManager(nil)
+	require.Nil(err)
 	require.NoError(em2.fromProto(emProto))
 
 	require.Equal(len(em.collections), len(em2.collections))
