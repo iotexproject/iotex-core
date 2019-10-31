@@ -37,6 +37,7 @@ func ValidateAddress(addr string) error {
 	if _, err := address.FromString(addr); err != nil {
 		return ErrInvalidAddr
 	}
+
 	return nil
 }
 
@@ -45,6 +46,7 @@ func ValidateAlias(alias string) error {
 	if len(alias) > 40 {
 		return ErrLongAlias
 	}
+
 	return nil
 }
 
@@ -53,6 +55,7 @@ func ValidatePositiveNumber(number int64) error {
 	if number <= 0 {
 		return ErrNonPositiveNumber
 	}
+
 	return nil
 }
 
@@ -62,6 +65,7 @@ func ValidateStakeDuration(stakeDuration *big.Int) error {
 	if stakeDurationInt%7 != 0 || stakeDurationInt < 0 || stakeDurationInt > 1050 {
 		return ErrInvalidStakeDuration
 	}
+
 	return nil
 }
 
@@ -70,5 +74,6 @@ func ValidateCandidateName(candidateName string) error {
 	if len(candidateName) > 12 {
 		return ErrLongCandidateName
 	}
+
 	return nil
 }
