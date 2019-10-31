@@ -29,7 +29,11 @@ var Xrc20Cmd = &cobra.Command{
 var xrc20ContractAddress string
 
 func xrc20Contract() (address.Address, error) {
-	return alias.IOAddress(xrc20ContractAddress)
+	addr, err := alias.IOAddress(xrc20ContractAddress)
+	if err != nil {
+		return nil, output.NewError(output.FlagError, "invalid xrc20 address flag", err)
+	}
+	return addr, nil
 }
 
 type amountMessage struct {
