@@ -47,11 +47,13 @@ func TestLocalCommit(t *testing.T) {
 	require.Nil(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
-
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
+	indexDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBPath := indexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = indexDBPath
 
 	// create server
 	ctx := context.Background()
@@ -72,10 +74,8 @@ func TestLocalCommit(t *testing.T) {
 	p := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
-
 		},
 		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
-
 		},
 	)
 	require.NotNil(p)
@@ -84,6 +84,7 @@ func TestLocalCommit(t *testing.T) {
 	defer func() {
 		require.Nil(p.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
+		require.Nil(bc.Stop(ctx))
 	}()
 
 	// check balance
@@ -143,18 +144,21 @@ func TestLocalCommit(t *testing.T) {
 	if beta.Sign() == 0 || fox.Sign() == 0 || test.Sign() == 0 {
 		return
 	}
-	require.True(5 == bc.TipHeight())
+	require.EqualValues(5, bc.TipHeight())
 
 	// create local chain
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
 	testTriePath2 := testTrieFile2.Name()
-
 	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
 	testDBPath2 := testDBFile2.Name()
+	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	indexDBPath2 := indexDBFile2.Name()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.Chain.IndexDBPath = indexDBPath2
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
+	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.Registry{}
 	chain := blockchain.NewBlockchain(
 		cfg,
@@ -176,7 +180,7 @@ func TestLocalCommit(t *testing.T) {
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
 	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
-	require.True(5 == bc.TipHeight())
+	require.EqualValues(5, chain.TipHeight())
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
@@ -360,11 +364,13 @@ func TestLocalSync(t *testing.T) {
 	require.Nil(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
-
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
+	indexDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBPath := indexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = indexDBPath
 
 	// Create server
 	ctx := context.Background()
@@ -399,11 +405,14 @@ func TestLocalSync(t *testing.T) {
 	testDBPath2 := testDBFile2.Name()
 	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
 	testTriePath2 := testTrieFile2.Name()
+	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	indexDBPath2 := indexDBFile2.Name()
 
 	cfg, err = newTestConfig()
 	require.Nil(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
+	cfg.Chain.IndexDBPath = indexDBPath2
 
 	// Create client
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
@@ -484,13 +493,15 @@ func TestStartExistingBlockchain(t *testing.T) {
 	ctx := context.Background()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
-
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testIndexPath := testIndexFile.Name()
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()

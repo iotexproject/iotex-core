@@ -2,27 +2,24 @@ package blockdao
 
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -60,7 +57,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 	blk1, err := block.NewTestingBuilder().
 		SetHeight(1).
 		SetPrevBlockHash(hash1).
-		SetTimeStamp(testutil.TimestampNow()).
+		SetTimeStamp(testutil.TimestampNow().UTC()).
 		AddActions(tsf1, tsf4, execution1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
@@ -70,7 +67,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 	blk2, err := block.NewTestingBuilder().
 		SetHeight(2).
 		SetPrevBlockHash(hash2).
-		SetTimeStamp(testutil.TimestampNow()).
+		SetTimeStamp(testutil.TimestampNow().UTC()).
 		AddActions(tsf2, tsf5, execution2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
@@ -80,7 +77,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 	blk3, err := block.NewTestingBuilder().
 		SetHeight(3).
 		SetPrevBlockHash(hash3).
-		SetTimeStamp(testutil.TimestampNow()).
+		SetTimeStamp(testutil.TimestampNow().UTC()).
 		AddActions(tsf3, tsf6, execution3).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
@@ -90,11 +87,6 @@ func getTestBlocks(t *testing.T) []*block.Block {
 func TestBlockDAO(t *testing.T) {
 
 	blks := getTestBlocks(t)
-	assert.Equal(t, 3, len(blks))
-	blkHash := []hash.Hash256{
-		blks[0].HashBlock(), blks[1].HashBlock(), blks[2].HashBlock(),
-	}
-
 	t1Hash := blks[0].Actions[0].Hash()
 	t4Hash := blks[0].Actions[1].Hash()
 	e1Hash := blks[0].Actions[2].Hash()
@@ -162,77 +154,16 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(kvstore db.KVStore, t *testing.T) {
+	testBlockDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+		require := require.New(t)
+
 		ctx := context.Background()
-		blkDAO := NewBlockDAO(kvstore, false, false, 0, config.Default.DB)
-		dao, ok := blkDAO.(*blockDAO)
-		require.True(t, ok)
-		err := dao.Start(ctx)
-		assert.Nil(t, err)
+		dao := NewBlockDAO(kvstore, false, config.Default.DB)
+		require.NoError(dao.Start(ctx))
+		require.NoError(indexer.Start(ctx))
 		defer func() {
-			require.NoError(t, dao.Stop(ctx))
-		}()
-
-		height, err := dao.getBlockchainHeight()
-		assert.Nil(t, err)
-		assert.Equal(t, uint64(0), height)
-
-		// block put order is 0 2 1
-		err = dao.putBlock(blks[0])
-		assert.Nil(t, err)
-		blk, err := dao.getBlock(blkHash[0])
-		assert.Nil(t, err)
-		require.NotNil(t, blk)
-		assert.Equal(t, blks[0].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.GetBlockchainHeight()
-		assert.Nil(t, err)
-		assert.Equal(t, uint64(1), height)
-
-		err = dao.PutBlock(blks[2])
-		assert.Nil(t, err)
-		blk, err = dao.getBlock(blkHash[2])
-		assert.Nil(t, err)
-		assert.NotNil(t, blk)
-		assert.Equal(t, blks[2].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
-		assert.Nil(t, err)
-		assert.Equal(t, uint64(3), height)
-
-		err = dao.putBlock(blks[1])
-		assert.Nil(t, err)
-		blk, err = dao.getBlock(blkHash[1])
-		assert.Nil(t, err)
-		assert.NotNil(t, blk)
-		assert.Equal(t, blks[1].Actions[0].Hash(), blk.Actions[0].Hash())
-		height, err = dao.getBlockchainHeight()
-		assert.Nil(t, err)
-		assert.Equal(t, uint64(3), height)
-
-		// test hash <--> height mapping
-		for i := uint64(0); i < 3; i++ {
-			hash, err := dao.getBlockHash(blks[i].Height())
-			assert.NoError(t, err)
-			assert.Equal(t, blkHash[i], hash)
-			height, err = dao.getBlockHeight(hash)
-			assert.Nil(t, err)
-			assert.Equal(t, blks[i].Height(), height)
-		}
-
-		// test getTipHash
-		hash, err := dao.getTipHash()
-		assert.Nil(t, err)
-		assert.Equal(t, blks[2].HashBlock(), hash)
-	}
-
-	testActionsDao := func(kvstore db.KVStore, t *testing.T) {
-		ctx := context.Background()
-		blkDAO := NewBlockDAO(kvstore, true, false, 0, config.Default.DB)
-		dao, ok := blkDAO.(*blockDAO)
-		require.True(t, ok)
-		err := dao.Start(ctx)
-		require.NoError(t, err)
-		defer func() {
-			require.NoError(t, dao.Stop(ctx))
+			require.NoError(indexer.Stop(ctx))
+			require.NoError(dao.Stop(ctx))
 		}()
 
 		// receipts for the 3 blocks
@@ -254,91 +185,84 @@ func TestBlockDAO(t *testing.T) {
 			},
 		}
 
-		for i := uint64(0); i < 3; i++ {
-			require.NoError(t, dao.PutBlock(blks[i]))
-			require.NoError(t, dao.PutReceipts(i+1, receipts[i]))
+		getReceiptByActionHash := func(h hash.Hash256) (*action.Receipt, error) {
+			actIndex, err := indexer.GetActionIndex(h[:])
+			if err != nil {
+				return nil, err
+			}
+			receipts, err := dao.GetReceipts(actIndex.BlockHeight())
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range receipts {
+				if r.ActionHash == h {
+					return r, nil
+				}
+			}
+			return nil, errors.Errorf("receipt of action %x isn't found", h)
 		}
 
-		// Test getBlockHashByActionHash
-		h, err := dao.getBlockHashByActionHash(t1Hash)
-		require.NoError(t, err)
-		require.Equal(t, blkHash[0], h)
-		h, err = dao.getBlockHashByActionHash(t2Hash)
-		require.NoError(t, err)
-		require.Equal(t, blkHash[1], h)
-		h, err = dao.getBlockHashByActionHash(t3Hash)
-		require.NoError(t, err)
-		require.Equal(t, blkHash[2], h)
+		height, err := indexer.GetBlockchainHeight()
+		require.NoError(err)
+		require.EqualValues(0, height)
+
+		for i := 0; i < 3; i++ {
+			// test putBlock/Receipt
+			blks[i].Receipts = receipts[i]
+			require.NoError(dao.PutBlock(blks[i]))
+			blks[i].Receipts = nil
+			require.NoError(indexer.PutBlock(blks[i]))
+			require.NoError(indexer.Commit())
+
+			// test getBlockchainHeight
+			height, err := indexer.GetBlockchainHeight()
+			require.NoError(err)
+			require.Equal(blks[i].Height(), height)
+
+			// test getTipHash
+			hash, err := dao.GetTipHash()
+			require.NoError(err)
+			require.Equal(blks[i].HashBlock(), hash)
+
+			// test getBlock()
+			blk, err := dao.GetBlock(blks[i].HashBlock())
+			require.NoError(err)
+			require.Equal(blks[i], blk)
+		}
 
 		// Test getReceiptByActionHash
 		for j := range daoTests[0].hashTotal {
 			h := hash.BytesToHash256(daoTests[0].hashTotal[j])
-			receipt, err := dao.getReceiptByActionHash(h)
-			require.NoError(t, err)
-			require.Equal(t, receipts[j/3][j%3], receipt)
-		}
-
-		// Test get actions
-		total, err := dao.getTotalActions()
-		require.NoError(t, err)
-		require.EqualValues(t, daoTests[0].total, total)
-		_, err = dao.getActionHashFromIndex(1, total)
-		require.Equal(t, db.ErrInvalid, errors.Cause(err))
-		actions, err := dao.getActionHashFromIndex(0, total)
-		require.NoError(t, err)
-		require.Equal(t, actions, daoTests[0].hashTotal)
-		for j := range daoTests[0].actions {
-			actionCount, err := dao.getActionCountByAddress(daoTests[0].actions[j].addr)
-			require.NoError(t, err)
-			require.EqualValues(t, len(daoTests[0].actions[j].hashes), actionCount)
-			if actionCount > 0 {
-				actions, err := dao.getActionsByAddress(daoTests[0].actions[j].addr, 0, actionCount)
-				require.NoError(t, err)
-				require.Equal(t, actions, daoTests[0].actions[j].hashes)
-			}
-		}
-
-		// non-existing address has 0 actions
-		actionCount, err := dao.getActionCountByAddress(hash.BytesToHash160(identityset.Address(13).Bytes()))
-		require.NoError(t, err)
-		require.EqualValues(t, 0, actionCount)
-
-		for i := 0; i < 3; i++ {
-			amount := big.NewInt(0)
-			tsfs, _ := action.ClassifyActions(blks[i].Actions)
-			for _, tsf := range tsfs {
-				amount.Add(amount, tsf.Amount())
-			}
-
-			// test getNumActions
-			numActions, err := dao.getNumActions(blks[i].Height())
-			require.NoError(t, err)
-			require.EqualValues(t, len(blks[i].Actions), numActions)
-
-			// test getTranferAmount
-			transferAmount, err := dao.getTranferAmount(blks[i].Height())
-			require.NoError(t, err)
-			require.Equal(t, amount, transferAmount)
+			receipt, err := getReceiptByActionHash(h)
+			require.NoError(err)
+			require.Equal(receipts[j/3][j%3], receipt)
 		}
 	}
 
-	testDeleteDao := func(kvstore db.KVStore, t *testing.T) {
+	testDeleteDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		blkDAO := NewBlockDAO(kvstore, true, false, 0, config.Default.DB)
-		dao, ok := blkDAO.(*blockDAO)
-		require.True(ok)
-		err := dao.Start(ctx)
-		require.NoError(err)
+		dao := NewBlockDAO(kvstore, false, config.Default.DB)
+		require.NoError(dao.Start(ctx))
+		require.NoError(indexer.Start(ctx))
 		defer func() {
+			require.NoError(indexer.Stop(ctx))
 			require.NoError(dao.Stop(ctx))
 		}()
 
-		// Put blocks first
-		require.NoError(dao.putBlock(blks[0]))
-		require.NoError(dao.putBlock(blks[1]))
-		require.NoError(dao.putBlock(blks[2]))
+		// blocks can be written in arbitrary order
+		for i := 2; i >= 0; i-- {
+			require.NoError(dao.PutBlock(blks[i]))
+		}
+		// index blocks
+		for i := 0; i < 3; i++ {
+			require.NoError(indexer.PutBlock(blks[i]))
+		}
+		require.NoError(indexer.Commit())
+		height, err := indexer.GetBlockchainHeight()
+		require.NoError(err)
+		require.EqualValues(3, height)
 
 		// delete tip block one by one, verify address/action after each deletion
 		for i := range daoTests {
@@ -346,101 +270,127 @@ func TestBlockDAO(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			err = dao.deleteTipBlock()
+			h, err := dao.GetTipHash()
 			require.NoError(err)
-			tipHeight, err := dao.getBlockchainHeight()
+			blk, err := dao.GetBlock(h)
+			require.NoError(err)
+			require.NoError(dao.DeleteTipBlock())
+			require.NoError(indexer.DeleteBlock(blk))
+			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
-			h, err := dao.getTipHash()
+			tipHeight, err = dao.GetTipHeight()
 			require.NoError(err)
+			require.EqualValues(uint64(3-i), tipHeight)
+			h, err = indexer.GetBlockHash(tipHeight)
+			require.NoError(err)
+			h1, err := dao.GetTipHash()
+			require.NoError(err)
+			require.Equal(h, h1)
 			if i <= 2 {
 				require.Equal(blks[2-i].HashBlock(), h)
 			} else {
 				require.Equal(hash.ZeroHash256, h)
 			}
-			total, err := dao.getTotalActions()
+			total, err := indexer.GetTotalActions()
 			require.NoError(err)
 			require.EqualValues(daoTests[i].total, total)
 			if total > 0 {
-				_, err = dao.getActionHashFromIndex(1, total)
+				_, err = indexer.GetActionHashFromIndex(1, total)
 				require.Equal(db.ErrInvalid, errors.Cause(err))
-				actions, err := dao.getActionHashFromIndex(0, total)
+				actions, err := indexer.GetActionHashFromIndex(0, total)
 				require.NoError(err)
 				require.Equal(actions, daoTests[i].hashTotal)
 			}
 			for j := range daoTests[i].actions {
-				actionCount, err := dao.getActionCountByAddress(daoTests[i].actions[j].addr)
+				actionCount, err := indexer.GetActionCountByAddress(daoTests[i].actions[j].addr)
 				require.NoError(err)
 				require.EqualValues(len(daoTests[i].actions[j].hashes), actionCount)
 				if actionCount > 0 {
-					actions, err := dao.getActionsByAddress(daoTests[i].actions[j].addr, 0, actionCount)
+					actions, err := indexer.GetActionsByAddress(daoTests[i].actions[j].addr, 0, actionCount)
 					require.NoError(err)
 					require.Equal(actions, daoTests[i].actions[j].hashes)
 				}
 			}
 		}
 		// cannot delete genesis block
-		require.Equal("cannot delete genesis block", dao.deleteTipBlock().Error())
+		require.Equal("cannot delete genesis block", dao.DeleteTipBlock().Error())
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
-		testBlockDao(db.NewMemKVStore(), t)
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+		require.NoError(t, err)
+		testBlockDao(db.NewMemKVStore(), indexer, t)
 	})
 	path := "test-kv-store"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
+	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
+	indexPath := indexFile.Name()
 	cfg := config.Default.DB
-	cfg.DbPath = testPath
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testBlockDao(db.NewBoltDB(cfg), t)
-	})
-
-	t.Run("In-memory KV Store for actions", func(t *testing.T) {
-		testActionsDao(db.NewMemKVStore(), t)
-	})
-	t.Run("Bolt DB for actions", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testActionsDao(db.NewBoltDB(cfg), t)
+		testutil.CleanupPath(t, indexPath)
+		defer func() {
+			testutil.CleanupPath(t, testPath)
+			testutil.CleanupPath(t, indexPath)
+		}()
+		cfg.DbPath = indexPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+		require.NoError(t, err)
+		cfg.DbPath = testPath
+		testBlockDao(db.NewBoltDB(cfg), indexer, t)
 	})
 
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
-		testDeleteDao(db.NewMemKVStore(), t)
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+		require.NoError(t, err)
+		testDeleteDao(db.NewMemKVStore(), indexer, t)
 	})
 	t.Run("Bolt DB deletions", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testDeleteDao(db.NewBoltDB(cfg), t)
+		testutil.CleanupPath(t, indexPath)
+		defer func() {
+			testutil.CleanupPath(t, testPath)
+			testutil.CleanupPath(t, indexPath)
+		}()
+		cfg.DbPath = indexPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+		require.NoError(t, err)
+		cfg.DbPath = testPath
+		testDeleteDao(db.NewBoltDB(cfg), indexer, t)
 	})
 }
 
 func BenchmarkBlockCache(b *testing.B) {
 	test := func(cacheSize int, b *testing.B) {
 		b.StopTimer()
-		path := filepath.Join(os.TempDir(), fmt.Sprintf("test-%d.db", rand.Int()))
+		path := "test-kv-store"
+		testFile, _ := ioutil.TempFile(os.TempDir(), path)
+		testPath := testFile.Name()
+		indexFile, _ := ioutil.TempFile(os.TempDir(), path)
+		indexPath := indexFile.Name()
 		cfg := config.DB{
-			DbPath:     path,
 			NumRetries: 1,
 		}
 		defer func() {
-			if !fileutil.FileExists(path) {
-				return
-			}
-			require.NoError(b, os.RemoveAll(path))
+			require.NoError(b, os.RemoveAll(testPath))
+			require.NoError(b, os.RemoveAll(indexPath))
 		}()
+		cfg.DbPath = indexPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+		require.NoError(b, err)
+		cfg.DbPath = testPath
 		store := db.NewBoltDB(cfg)
 
-		blkDao := NewBlockDAO(store, false, false, cacheSize, config.Default.DB)
-		dao, ok := blkDao.(*blockDAO)
-		require.True(b, ok)
+		db := config.Default.DB
+		db.MaxCacheSize = cacheSize
+		blkDao := NewBlockDAO(store, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
 		}()
 		prevHash := hash.ZeroHash256
-		var err error
 		numBlks := 8640
 		for i := 1; i <= numBlks; i++ {
 			actions := make([]action.SealedEnvelope, 10)
@@ -464,15 +414,15 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
-			err = dao.putBlock(&blk)
+			err = blkDao.PutBlock(&blk)
 			require.NoError(b, err)
 			prevHash = blk.HashBlock()
 		}
 		b.ResetTimer()
 		b.StartTimer()
 		for n := 0; n < b.N; n++ {
-			hash, _ := dao.getBlockHash(uint64(rand.Intn(numBlks) + 1))
-			_, _ = dao.getBlock(hash)
+			hash, _ := indexer.GetBlockHash(uint64(rand.Intn(numBlks) + 1))
+			_, _ = blkDao.GetBlock(hash)
 		}
 		b.StopTimer()
 	}

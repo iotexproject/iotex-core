@@ -269,6 +269,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) blockchain.Blockchain {
 	cfg := config.Default
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
@@ -284,6 +287,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blockchain.InMemDaoOption(),
+		blockchain.InMemIndexerOption(),
 		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -435,15 +439,21 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ctx := context.Background()
 		cfg := config.Default
+		defer func() {
+			delete(cfg.Plugins, config.GatewayPlugin)
+		}()
 
 		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 		testTriePath := testTrieFile.Name()
 		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 		testDBPath := testDBFile.Name()
+		testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+		testIndexPath := testIndexFile.Name()
 
 		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath
 		cfg.Chain.ChainDBPath = testDBPath
+		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}
@@ -456,6 +466,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.BoltDBDaoOption(),
+			blockchain.DefaultIndexerOption(),
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -525,14 +536,16 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
-		total, err := bc.GetActionCountByAddress(identityset.Address(27).String())
+		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
+		total, err := bc.GetIndexer().GetActionCountByAddress(addr27)
 		require.NoError(err)
-		exes, err := bc.GetActionsByAddress(identityset.Address(27).String(), 0, total)
+		exes, err := bc.GetIndexer().GetActionsByAddress(addr27, 0, total)
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash[:], exes[0])
 
-		blkHash, err := bc.GetBlockHashByActionHash(eHash)
+		actIndex, err := bc.GetIndexer().GetActionIndex(eHash[:])
+		blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
 

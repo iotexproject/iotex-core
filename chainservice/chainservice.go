@@ -9,6 +9,7 @@ package chainservice
 import (
 	"context"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"os"
 
 	"github.com/golang/protobuf/proto"
@@ -119,6 +120,11 @@ func New(
 			}
 		}
 	}
+	// check if the config asks for an internal indexer
+	_, gateway := cfg.Plugins[config.GatewayPlugin]
+	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
+		chainOpts = append(chainOpts, blockchain.DefaultIndexerOption())
+	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, chainOpts...)
 	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
@@ -135,17 +141,24 @@ func New(
 		}
 		chain = blockchain.NewBlockchain(cfg, chainOpts...)
 	}
-
+	// config asks for a standalone indexer
 	var indexBuilder *blockdao.IndexBuilder
-	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), cfg.DB.Reindex); err != nil {
+	if gateway && cfg.Chain.EnableAsyncIndexWrite {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), cfg); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
 		}
 	}
-
+	var indexer blockindex.Indexer
+	if gateway {
+		if cfg.Chain.EnableAsyncIndexWrite {
+			indexer = indexBuilder.Indexer()
+		} else {
+			indexer = chain.GetIndexer()
+		}
+	}
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
 	actPool, err := actpool.NewActPool(chain, cfg.ActPool, actOpts...)
@@ -188,6 +201,7 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
+		indexer,
 		actPool,
 		&registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
@@ -321,6 +335,11 @@ func (cs *ChainService) Blockchain() blockchain.Blockchain {
 // ActionPool returns the Action pool
 func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
+}
+
+// APIServer returns the API server
+func (cs *ChainService) APIServer() *api.Server {
+	return cs.api
 }
 
 // Consensus returns the consensus instance

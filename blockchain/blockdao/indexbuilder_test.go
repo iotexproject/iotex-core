@@ -14,6 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -23,10 +24,6 @@ import (
 func TestIndexer(t *testing.T) {
 
 	blks := getTestBlocks(t)
-	require.Equal(t, 3, len(blks))
-	blkHash1 := blks[0].HashBlock()
-	blkHash2 := blks[1].HashBlock()
-	blkHash3 := blks[2].HashBlock()
 
 	t1Hash := blks[0].Actions[0].Hash()
 	t4Hash := blks[0].Actions[1].Hash()
@@ -62,73 +59,76 @@ func TestIndexer(t *testing.T) {
 		},
 	}
 
-	testIndexer := func(kvstore db.KVStore, t *testing.T) {
+	testIndexer := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		blockDao := NewBlockDAO(kvstore, false, false, 0, config.Default.DB)
-		dao, ok := blockDao.(*blockDAO)
-		require.True(ok)
+		dao := NewBlockDAO(kvstore, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
+		require.NoError(indexer.Start(ctx))
 		defer func() {
+			require.NoError(indexer.Stop(ctx))
 			require.NoError(dao.Stop(ctx))
 		}()
 
-		zero := make([]byte, 8)
-		require.NoError(dao.kvstore.Put(blockNS, totalActionsKey, zero))
-		v, _ := dao.kvstore.Get(blockNS, totalActionsKey)
-		require.Equal(zero, v)
-		require.NoError(dao.putBlock(blks[0]))
-		require.NoError(dao.putBlock(blks[1]))
-
 		ib := &IndexBuilder{
-			pendingBlks: make(chan *block.Block, 64),
+			pendingBlks: make(chan *block.Block, 8),
 			cancelChan:  make(chan interface{}),
 			dao:         dao,
-			reindex:     false,
-			dirtyAddr:   make(map[hash.Hash160]db.CountingIndex),
+			indexer:     indexer,
 		}
-		require.NoError(ib.Start(context.Background()))
 		defer ib.Stop(context.Background())
-		require.True(ib.reindex)
-		height, err := ib.getNextHeight()
+
+		// put 2 blocks first
+		require.NoError(dao.PutBlock(blks[0]))
+		require.NoError(dao.PutBlock(blks[1]))
+		startHeight, err := ib.indexer.GetBlockchainHeight()
+		require.NoError(err)
+		require.EqualValues(0, startHeight)
+		tipHeight, err := dao.GetTipHeight()
+		require.EqualValues(2, tipHeight)
+
+		// init() should build index for first 2 blocks
+		require.NoError(ib.init())
+		height, err := ib.indexer.GetBlockchainHeight()
+		require.NoError(err)
+		require.EqualValues(2, height)
+		go ib.handler()
+
+		// test handle 1 new block
+		require.NoError(dao.PutBlock(blks[2]))
+		ib.HandleBlock(blks[2])
+		time.Sleep(500 * time.Millisecond)
+
+		height, err = ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
 
-		// test handle new block
-		require.NoError(dao.putBlock(blks[2]))
-		ib.pendingBlks <- blks[2]
-		time.Sleep(500 * time.Millisecond)
-
-		height, err = ib.getNextHeight()
+		// Test GetActionIndex
+		actIndex, err := indexer.GetActionIndex(t1Hash[:])
 		require.NoError(err)
-		require.EqualValues(4, height)
-
-		// Test getBlockHashByActionHash
-		blkHash, err := dao.getBlockHashByActionHash(t1Hash)
+		require.Equal(blks[0].Height(), actIndex.BlockHeight())
+		actIndex, err = indexer.GetActionIndex(t2Hash[:])
 		require.NoError(err)
-		require.Equal(blkHash1, blkHash)
-		blkHash, err = dao.getBlockHashByActionHash(t2Hash)
+		require.Equal(blks[1].Height(), actIndex.BlockHeight())
+		actIndex, err = indexer.GetActionIndex(t3Hash[:])
 		require.NoError(err)
-		require.Equal(blkHash2, blkHash)
-		blkHash, err = dao.getBlockHashByActionHash(t3Hash)
-		require.NoError(err)
-		require.Equal(blkHash3, blkHash)
+		require.Equal(blks[2].Height(), actIndex.BlockHeight())
 
 		// Test get actions
-		total, err := dao.getTotalActions()
+		total, err := indexer.GetTotalActions()
 		require.NoError(err)
 		require.EqualValues(indexTests.total, total)
-		_, err = dao.getActionHashFromIndex(1, total)
+		_, err = indexer.GetActionHashFromIndex(1, total)
 		require.Equal(db.ErrInvalid, errors.Cause(err))
-		actions, err := dao.getActionHashFromIndex(0, total)
+		actions, err := indexer.GetActionHashFromIndex(0, total)
 		require.NoError(err)
 		require.Equal(actions, indexTests.hashTotal)
 		for j := range indexTests.actions {
-			actionCount, err := dao.getActionCountByAddress(indexTests.actions[j].addr)
+			actionCount, err := indexer.GetActionCountByAddress(indexTests.actions[j].addr)
 			require.NoError(err)
 			require.EqualValues(len(indexTests.actions[j].hashes), actionCount)
 			if actionCount > 0 {
-				actions, err := dao.getActionsByAddress(indexTests.actions[j].addr, 0, actionCount)
+				actions, err := indexer.GetActionsByAddress(indexTests.actions[j].addr, 0, actionCount)
 				require.NoError(err)
 				require.Equal(actions, indexTests.actions[j].hashes)
 			}
@@ -141,30 +141,37 @@ func TestIndexer(t *testing.T) {
 				amount.Add(amount, tsf.Amount())
 			}
 
-			// test getNumActions
-			numActions, err := dao.getNumActions(blks[i].Height())
+			// test getNumActions/getTranferAmount
+			index, err := indexer.GetBlockIndex(blks[i].Height())
 			require.NoError(err)
-			require.EqualValues(len(blks[i].Actions), numActions)
-
-			// test getTranferAmount
-			transferAmount, err := dao.getTranferAmount(blks[i].Height())
-			require.NoError(err)
-			require.Equal(amount, transferAmount)
+			require.Equal(blks[i].HashBlock(), hash.BytesToHash256(index.Hash()))
+			require.EqualValues(len(blks[i].Actions), index.NumAction())
+			require.Equal(amount, index.TsfAmount())
 		}
 	}
 
 	t.Run("In-memory KV indexer", func(t *testing.T) {
-		testIndexer(db.NewMemKVStore(), t)
+		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+		require.NoError(t, err)
+		testIndexer(db.NewMemKVStore(), indexer, t)
 	})
 	path := "test-indexer"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
+	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
+	indexPath := indexFile.Name()
 	cfg := config.Default.DB
-	cfg.DbPath = testPath
-
 	t.Run("Bolt DB indexer", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testIndexer(db.NewBoltDB(cfg), t)
+		testutil.CleanupPath(t, indexPath)
+		defer func() {
+			testutil.CleanupPath(t, testPath)
+			testutil.CleanupPath(t, indexPath)
+		}()
+		cfg.DbPath = indexPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+		require.NoError(t, err)
+		cfg.DbPath = testPath
+		testIndexer(db.NewBoltDB(cfg), indexer, t)
 	})
 }
