@@ -8,11 +8,14 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/api"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -48,13 +51,14 @@ func TestClient(t *testing.T) {
 	bc.EXPECT().StateByAddr(gomock.Any()).Return(&state, nil).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
-	bc.EXPECT().GetActionCountByAddress(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
 	ap.EXPECT().Add(gomock.Any()).Return(nil).AnyTimes()
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
 	})
-	apiServer, err := api.NewServer(cfg, bc, ap, nil, newOption)
+	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+	require.NoError(err)
+	apiServer, err := api.NewServer(cfg, bc, indexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

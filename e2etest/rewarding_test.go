@@ -61,6 +61,8 @@ func TestBlockReward(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.StandaloneScheme
@@ -69,6 +71,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Network.Port = testutil.RandomPort()
 
 	svr, err := itx.NewServer(cfg)
@@ -139,13 +142,15 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, chainDBPath)
 		trieDBPath := fmt.Sprintf("./trie%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, trieDBPath)
+		indexDBPath := fmt.Sprintf("./index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, indexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
-		cfg := newConfig(chainDBPath, trieDBPath, identityset.PrivateKey(i),
+		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
@@ -592,7 +597,8 @@ func waitActionToSettle(
 
 func newConfig(
 	chainDBPath,
-	trieDBPath string,
+	trieDBPath,
+	indexDBPath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
@@ -600,14 +606,13 @@ func newConfig(
 ) config.Config {
 	cfg := config.Default
 
-	cfg.Plugins[config.GatewayPlugin] = true
-
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 	cfg.Chain.EnableAsyncIndexWrite = false

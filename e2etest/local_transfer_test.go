@@ -261,10 +261,15 @@ func TestLocalTransfer(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
 	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, networkPort, apiPort)
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
 	require.NoError(err)
 
 	// create server
@@ -294,6 +299,7 @@ func TestLocalTransfer(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
+	as := svr.ChainService(chainID).APIServer()
 	preProcessTestCases(t, bc)
 	initExistingAccounts(t, big.NewInt(30000), bc)
 
@@ -323,7 +329,7 @@ func TestLocalTransfer(t *testing.T) {
 			var selp action.SealedEnvelope
 			err := backoff.Retry(func() error {
 				var err error
-				selp, err = bc.GetActionByActionHash(tsf.Hash())
+				selp, err = as.GetActionByActionHash(tsf.Hash())
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
@@ -499,7 +505,8 @@ func preProcessTestCases(
 
 func newTransferConfig(
 	chainDBPath,
-	trieDBPath string,
+	trieDBPath,
+	indexDBPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -510,11 +517,12 @@ func newTransferConfig(
 	cfg.Chain.ID = 1
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
+	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
-	cfg.Genesis.BlockInterval = 2 * time.Second
+	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 
 	return cfg, nil
 }
