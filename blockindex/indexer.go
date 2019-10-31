@@ -46,7 +46,7 @@ type (
 		Start(context.Context) error
 		Stop(context.Context) error
 		Commit() error
-		PutBlock(*block.Block, bool) error
+		PutBlock(*block.Block) error
 		DeleteBlock(*block.Block) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
@@ -122,7 +122,7 @@ func (x *blockIndexer) Commit() error {
 }
 
 // PutBlock index the block
-func (x *blockIndexer) PutBlock(blk *block.Block, batch bool) error {
+func (x *blockIndexer) PutBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -139,7 +139,7 @@ func (x *blockIndexer) PutBlock(blk *block.Block, batch bool) error {
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.Add(bd.Serialize(), batch); err != nil {
+	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
 		return errors.Wrapf(err, "failed to put block %d index", height)
 	}
 
@@ -157,9 +157,6 @@ func (x *blockIndexer) PutBlock(blk *block.Block, batch bool) error {
 		if err := x.indexAction(actHash, selp, true); err != nil {
 			return err
 		}
-	}
-	if !batch {
-		return x.commit()
 	}
 	return nil
 }

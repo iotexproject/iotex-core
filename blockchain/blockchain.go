@@ -1023,7 +1023,10 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// index the block if there's indexer
 	if bc.indexer != nil {
-		if err = bc.indexer.PutBlock(blk, false); err != nil {
+		if err = bc.indexer.PutBlock(blk); err != nil {
+			return err
+		}
+		if err = bc.indexer.Commit(); err != nil {
 			return err
 		}
 	}
