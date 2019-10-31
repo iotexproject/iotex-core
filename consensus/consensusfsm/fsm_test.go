@@ -101,10 +101,10 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.Equal(ePrepare, evt.Type())
 		})
 		t.Run("stand-by-or-is-not-delegate", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(nil).Times(1)
-			mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
-			mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
-			mockCtx.EXPECT().IsDelegate().Return(false).Times(1)
+			mockCtx.EXPECT().Prepare().Return(nil).Times(2)
+			mockCtx.EXPECT().Proposal().Return(nil, nil).Times(2)
+			mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(2)
+			mockCtx.EXPECT().IsDelegate().Return(false).Times(2)
 			mockCtx.EXPECT().Active().Return(true).Times(1)
 			state, err := cfsm.prepare(evt)
 			require.NoError(err)
@@ -112,6 +112,22 @@ func TestStateTransitionFunctions(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 			mockClock.Add(10 * time.Second)
 			evt := <-cfsm.evtq
+			require.Equal(ePrepare, evt.Type())
+			// deactivate node
+			mockCtx.EXPECT().Active().Return(false).Times(1)
+			state, err = cfsm.prepare(evt)
+			require.NoError(err)
+			require.Equal(sPrepare, state)
+			time.Sleep(100 * time.Millisecond)
+			mockClock.Add(10 * time.Second)
+			require.Equal(0, len(cfsm.evtq))
+			// reactivate node
+			mockCtx.EXPECT().Active().Return(true).Times(1)
+			_, err = cfsm.BackToPrepare(0)
+			require.NoError(err)
+			time.Sleep(100 * time.Millisecond)
+			mockClock.Add(10 * time.Second)
+			evt = <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
 		t.Run("is-delegate", func(t *testing.T) {
