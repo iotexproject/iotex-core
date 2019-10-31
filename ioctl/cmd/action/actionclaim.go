@@ -49,6 +49,9 @@ func claim(args []string) error {
 			action.ClaimFromRewardingFundGasPerByte*uint64(len(payload))
 	}
 	gasPriceRau, err := gasPriceInRau()
+	if err != nil {
+		return output.NewError(0, "failed to get gasPriceRau", err)
+	}
 	nonce, err := nonce(sender)
 	if err != nil {
 		return output.NewError(0, "failed to get nonce", err)

@@ -35,6 +35,9 @@ func init() {
 
 func accountSign(msg string) error {
 	addr, err := util.GetAddress(signer)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get signer addr", err)
+	}
 	fmt.Printf("Enter password #%s:\n", addr)
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {

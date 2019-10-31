@@ -58,13 +58,13 @@ func TestNewRound(t *testing.T) {
 	require := require.New(t)
 	bc, roll := makeChain(t)
 	rc := &roundCalculator{bc, true, roll, bc.CandidatesByHeight, 0}
-	proposer, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
+	_, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
 	var validDelegates [24]string
 	for i := 0; i < 24; i++ {
 		validDelegates[i] = identityset.Address(i).String()
 	}
-	proposer, err = rc.calculateProposer(5, 1, validDelegates[:])
+	proposer, err := rc.calculateProposer(5, 1, validDelegates[:])
 	require.NoError(err)
 	require.Equal(validDelegates[6], proposer)
 
