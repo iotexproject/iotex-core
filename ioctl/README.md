@@ -19,7 +19,7 @@ specific release so install-cli.sh can download them.
 
 # Usage
     ioctl [command]
-    
+
     Available Commands:
       account     Manage accounts of IoTeX blockchain
       action      Manage actions of IoTeX blockchain
