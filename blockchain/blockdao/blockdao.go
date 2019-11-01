@@ -715,6 +715,9 @@ func (dao *blockDAO) getBlockValue(blockNS string, h hash.Hash256) ([]byte, erro
 			return nil, err
 		}
 		value, err = db.Get(blockNS, h[:])
+		if err != nil {
+			return nil, err
+		}
 	}
 	return value, err
 }
