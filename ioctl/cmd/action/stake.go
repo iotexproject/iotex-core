@@ -29,7 +29,7 @@ var stakeABI abi.ABI
 //StakeCmd represent stake command
 var StakeCmd = &cobra.Command{
 	Use:   "stake",
-	Short: "Supporting native staking from ioctl",
+	Short: "Support native staking from ioctl",
 }
 
 func init() {

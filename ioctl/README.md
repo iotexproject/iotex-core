@@ -18,8 +18,7 @@ specific release so install-cli.sh can download them.
     curl https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-cli.sh | sh -s "unstable"
 
 # Usage
-    Usage:
-      ioctl [command]
+    ioctl [command]
     
     Available Commands:
       account     Manage accounts of IoTeX blockchain
@@ -29,10 +28,10 @@ specific release so install-cli.sh can download them.
       config      Get, set, or reset configuration for ioctl
       help        Help about any command
       node        Deal with nodes of IoTeX blockchain
-      stake       Supporting native staking from ioctl
+      stake       Support native staking from ioctl
       update      Update ioctl with latest version
       version     Print the version of ioctl and node
-      xrc20       Supporting ERC20 standard command-line from ioctl
+      xrc20       Support ERC20 standard command-line from ioctl
     
     Flags:
       -h, --help                   help for ioctl
