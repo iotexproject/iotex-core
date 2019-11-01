@@ -1255,7 +1255,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil, status.Error(codes.Internal, "receipt status failed")
+		return nil, status.Error(codes.Internal, "execution simulation gets failure status")
 	}
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: receipt.GasConsumed,
