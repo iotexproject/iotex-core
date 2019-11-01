@@ -3,16 +3,10 @@ package action
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"
-	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // stakeRestakeCmd represents the stake stake command
@@ -40,13 +34,9 @@ func restake(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
 	}
 
-	stakeDuration, ok := new(big.Int).SetString(args[1], 10)
-	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert stake duration", nil)
-	}
-
-	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
-		return output.NewError(output.ValidationError, "invalid stake duration", err)
+	stakeDuration, err := parseStakeDuration(args[1])
+	if err != nil {
+		return output.NewError(0, "", err)
 	}
 
 	data := []byte{}
@@ -58,11 +48,6 @@ func restake(args []string) error {
 	contract, err := stakingContract()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
-	}
-
-	stakeABI, err := abi.JSON(strings.NewReader(poll.NsAbi))
-	if err != nil {
-		log.L().Panic("cannot get abi JSON data", zap.Error(err))
 	}
 
 	bytecode, err := stakeABI.Pack("restake", pyggIndex, stakeDuration, autoRestake, data)
