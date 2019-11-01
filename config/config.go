@@ -109,7 +109,6 @@ var (
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
-			EnableFallBackToFreshDB:       false,
 			EnableTrielessStateDB:         true,
 			EnableAsyncIndexWrite:         true,
 			CompressBlock:                 false,
@@ -225,8 +224,7 @@ type (
 		GravityChainDB  DB               `yaml:"gravityChainDB"`
 		Committee       committee.Config `yaml:"committee"`
 
-		EnableFallBackToFreshDB bool `yaml:"enableFallbackToFreshDb"`
-		EnableTrielessStateDB   bool `yaml:"enableTrielessStateDB"`
+		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// CompressBlock enables gzip compression on block data

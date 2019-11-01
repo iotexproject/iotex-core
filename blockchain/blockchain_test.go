@@ -31,8 +31,11 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -87,7 +90,7 @@ func addTestingConstantinopleBlocks(bc Blockchain) error {
 	}
 
 	// get deployed contract address
-	r, err := bc.GetReceiptByActionHash(deployHash)
+	r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, 1)
 	if err != nil {
 		return err
 	}
@@ -261,7 +264,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	cfg := bc.(*blockchain).config
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := bc.GetReceiptByActionHash(deployHash)
+		r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, 2)
 		if err != nil {
 			return err
 		}
@@ -421,7 +424,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, hu)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
@@ -454,7 +457,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, hu)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
@@ -518,7 +521,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	hu := config.NewHeightUpgrade(cfg)
 	acc := account.NewProtocol(hu)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -608,11 +611,18 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		// create indexer
+		cfg.DB.DbPath = cfg.Chain.IndexDBPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
+		require.NoError(err)
+		// create BlockDAO
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
+			dao,
 			PrecreatedStateFactoryOption(sf),
-			BoltDBDaoOption(),
-			DefaultIndexerOption(),
 			RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -673,14 +683,20 @@ func TestConstantinople(t *testing.T) {
 		// test getReceipt
 		for i := range hashTopic {
 			actHash := hashTopic[i].h
-			r, err := bc.GetReceiptByActionHash(actHash)
+			ai, err := indexer.GetActionIndex(actHash[:])
+			require.NoError(err)
+			r, err := bc.GetBlockDAO().GetReceiptByActionHash(actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
 			require.Equal(actHash, r.ActionHash)
 			require.Equal(uint64(i)+1, r.BlockHeight)
+			a, err := bc.GetBlockDAO().GetActionByActionHash(actHash, ai.BlockHeight())
+			require.NoError(err)
+			require.NotNil(a)
+			require.Equal(actHash, a.Hash())
 
-			actIndex, err := bc.GetIndexer().GetActionIndex(actHash[:])
+			actIndex, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
 			blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
 			require.NoError(err)
@@ -699,11 +715,10 @@ func TestConstantinople(t *testing.T) {
 
 		// test getActions
 		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
-		total, err := bc.GetIndexer().GetActionCountByAddress(addr27)
+		total, err := indexer.GetActionCountByAddress(addr27)
 		require.NoError(err)
 		require.EqualValues(7, total)
-		actions, err := bc.GetIndexer().GetActionsByAddress(addr27, 0, total)
-		require.NoError(err)
+		actions, err := indexer.GetActionsByAddress(addr27, 0, total)
 		require.EqualValues(total, len(actions))
 		for i := range actions {
 			require.Equal(hashTopic[i].h[:], actions[i])
@@ -754,15 +769,23 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-		chainOpts := []Option{
-			PrecreatedStateFactoryOption(sf),
-			BoltDBDaoOption(),
-			RegistryOption(&registry),
-		}
+		var indexer blockindex.Indexer
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
-			chainOpts = append(chainOpts, DefaultIndexerOption())
+			// create indexer
+			cfg.DB.DbPath = cfg.Chain.IndexDBPath
+			indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
+			require.NoError(err)
 		}
-		bc := NewBlockchain(cfg, chainOpts...)
+		// create BlockDAO
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		require.NotNil(dao)
+		bc := NewBlockchain(
+			cfg,
+			dao,
+			PrecreatedStateFactoryOption(sf),
+			RegistryOption(&registry),
+		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		exec := execution.NewProtocol(bc, hu)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
@@ -782,13 +805,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(24, ms.Counter())
 
 		// Load a blockchain from DB
-		sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-		require.NoError(err)
 		accountProtocol := account.NewProtocol(hu)
-		sf.AddActionHandlers(accountProtocol)
 		registry = protocol.Registry{}
 		require.NoError(registry.Register(account.ProtocolID, accountProtocol))
-		bc = NewBlockchain(cfg, chainOpts...)
+		bc = NewBlockchain(
+			cfg,
+			dao,
+			PrecreatedStateFactoryOption(sf),
+			RegistryOption(&registry),
+		)
 		rolldposProtocol := rolldpos.NewProtocol(
 			genesis.Default.NumCandidateDelegates,
 			genesis.Default.NumDelegates,
@@ -888,7 +913,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		_, gateway := cfg.Plugins[config.GatewayPlugin]
 		if gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// verify deployed contract
-			r, err := bc.GetReceiptByActionHash(deployHash)
+			ai, err := indexer.GetActionIndex(deployHash[:])
+			require.NoError(err)
+			r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -914,7 +941,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.True(f.Exist(getTopic))
 
 			// verify genesis block index
-			bi, err := bc.GetIndexer().GetBlockIndex(0)
+			bi, err := indexer.GetBlockIndex(0)
 			require.NoError(err)
 			require.Equal(cfg.Genesis.Hash(), hash.BytesToHash256(bi.Hash()))
 			require.EqualValues(0, bi.NumAction())
@@ -924,7 +951,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 				// verify getting number of actions
 				blk, err = bc.GetBlockByHeight(h)
 				require.NoError(err)
-				blkIndex, err := bc.GetIndexer().GetBlockIndex(h)
+				blkIndex, err := indexer.GetBlockIndex(h)
 				require.NoError(err)
 				require.EqualValues(blkIndex.NumAction(), len(blk.Actions))
 
@@ -993,7 +1020,7 @@ func TestBlockchain_Validator(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 
 	ctx := context.Background()
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, nil, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
@@ -1030,6 +1057,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
 	bc := NewBlockchain(
 		cfg,
+		nil,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
 		RegistryOption(&registry),
@@ -1059,7 +1087,7 @@ func TestBlockchain_StateByAddr(t *testing.T) {
 	// disable account-based testing
 	// create chain
 
-	bc := NewBlockchain(cfg, InMemDaoOption(), InMemStateFactoryOption())
+	bc := NewBlockchain(cfg, nil, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	_, err := bc.CreateState(identityset.Address(0).String(), big.NewInt(100))
@@ -1092,7 +1120,7 @@ func TestBlocks(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1156,7 +1184,7 @@ func TestActions(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))

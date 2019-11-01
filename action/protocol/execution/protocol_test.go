@@ -37,7 +37,10 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -259,7 +262,7 @@ func runExecution(
 	t2 := time.Now()
 	fmt.Println("exec time:", t1.Sub(t))
 	fmt.Println("commit time:", t2.Sub(t1))
-	receipt, err := bc.GetReceiptByActionHash(exec.Hash())
+	receipt, err := bc.GetBlockDAO().GetReceiptByActionHash(exec.Hash(), blk.Height())
 
 	return nil, receipt, err
 }
@@ -286,8 +289,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
-		blockchain.InMemDaoOption(),
+		nil,
 		blockchain.InMemIndexerOption(),
+		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -462,11 +466,18 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		// create indexer
+		cfg.DB.DbPath = cfg.Chain.IndexDBPath
+		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), hash.ZeroHash256)
+		require.NoError(err)
+		// create BlockDAO
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
+			dao,
 			blockchain.DefaultStateFactoryOption(),
-			blockchain.BoltDBDaoOption(),
-			blockchain.DefaultIndexerOption(),
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
@@ -518,7 +529,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
-		r, _ := bc.GetReceiptByActionHash(eHash)
+		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
+		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
@@ -532,19 +544,19 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(err)
 		require.Equal(data[31:], code)
 
-		exe, err := bc.GetActionByActionHash(eHash)
+		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
 		require.Nil(err)
 		require.Equal(eHash, exe.Hash())
 
 		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
-		total, err := bc.GetIndexer().GetActionCountByAddress(addr27)
+		total, err := indexer.GetActionCountByAddress(addr27)
 		require.NoError(err)
-		exes, err := bc.GetIndexer().GetActionsByAddress(addr27, 0, total)
+		exes, err := indexer.GetActionsByAddress(addr27, 0, total)
 		require.Nil(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash[:], exes[0])
 
-		actIndex, err := bc.GetIndexer().GetActionIndex(eHash[:])
+		actIndex, err := indexer.GetActionIndex(eHash[:])
 		blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
@@ -582,7 +594,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(byte(15), v[31])
 
 		eHash = execution.Hash()
-		r, _ = bc.GetReceiptByActionHash(eHash)
+		r, _ = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.Equal(eHash, r.ActionHash)
 
 		// read from key 0
@@ -610,7 +622,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash = execution.Hash()
-		r, _ = bc.GetReceiptByActionHash(eHash)
+		r, _ = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.Equal(eHash, r.ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")

@@ -13,7 +13,6 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
-	blockindex "github.com/iotexproject/iotex-core/blockindex"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -238,45 +237,6 @@ func (mr *MockBlockchainMockRecorder) BlockFooterByHash(h interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHash), h)
 }
 
-// GetReceiptsByHeight mocks base method
-func (m *MockBlockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "GetReceiptsByHeight", height)
-	ret0, _ := ret[0].([]*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetReceiptsByHeight indicates an expected call of GetReceiptsByHeight
-func (mr *MockBlockchainMockRecorder) GetReceiptsByHeight(height interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptsByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptsByHeight), height)
-}
-
-// GetReceiptByActionHash mocks base method
-func (m *MockBlockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	ret := m.ctrl.Call(m, "GetReceiptByActionHash", h)
-	ret0, _ := ret[0].(*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetReceiptByActionHash indicates an expected call of GetReceiptByActionHash
-func (mr *MockBlockchainMockRecorder) GetReceiptByActionHash(h interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetReceiptByActionHash), h)
-}
-
-// GetActionByActionHash mocks base method
-func (m *MockBlockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	ret := m.ctrl.Call(m, "GetActionByActionHash", h)
-	ret0, _ := ret[0].(action.SealedEnvelope)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionByActionHash indicates an expected call of GetActionByActionHash
-func (mr *MockBlockchainMockRecorder) GetActionByActionHash(h interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByActionHash", reflect.TypeOf((*MockBlockchain)(nil).GetActionByActionHash), h)
-}
-
 // GetFactory mocks base method
 func (m *MockBlockchain) GetFactory() factory.Factory {
 	ret := m.ctrl.Call(m, "GetFactory")
@@ -299,18 +259,6 @@ func (m *MockBlockchain) GetBlockDAO() blockdao.BlockDAO {
 // GetBlockDAO indicates an expected call of GetBlockDAO
 func (mr *MockBlockchainMockRecorder) GetBlockDAO() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDAO", reflect.TypeOf((*MockBlockchain)(nil).GetBlockDAO))
-}
-
-// GetIndexer mocks base method
-func (m *MockBlockchain) GetIndexer() blockindex.Indexer {
-	ret := m.ctrl.Call(m, "GetIndexer")
-	ret0, _ := ret[0].(blockindex.Indexer)
-	return ret0
-}
-
-// GetIndexer indicates an expected call of GetIndexer
-func (mr *MockBlockchainMockRecorder) GetIndexer() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndexer", reflect.TypeOf((*MockBlockchain)(nil).GetIndexer))
 }
 
 // ChainID mocks base method

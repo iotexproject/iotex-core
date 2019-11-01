@@ -365,7 +365,7 @@ func TestLocalTransfer(t *testing.T) {
 				return err
 			}, bo)
 			require.Error(err, tsfTest.message)
-			_, err = bc.GetActionByActionHash(tsf.Hash())
+			_, err = as.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -382,7 +382,7 @@ func TestLocalTransfer(t *testing.T) {
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
-			_, err = bc.GetActionByActionHash(tsf.Hash())
+			_, err = as.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)
