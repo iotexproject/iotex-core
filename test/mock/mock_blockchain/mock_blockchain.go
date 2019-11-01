@@ -12,7 +12,6 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -247,18 +246,6 @@ func (m *MockBlockchain) GetFactory() factory.Factory {
 // GetFactory indicates an expected call of GetFactory
 func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFactory", reflect.TypeOf((*MockBlockchain)(nil).GetFactory))
-}
-
-// GetBlockDAO mocks base method
-func (m *MockBlockchain) GetBlockDAO() blockdao.BlockDAO {
-	ret := m.ctrl.Call(m, "GetBlockDAO")
-	ret0, _ := ret[0].(blockdao.BlockDAO)
-	return ret0
-}
-
-// GetBlockDAO indicates an expected call of GetBlockDAO
-func (mr *MockBlockchainMockRecorder) GetBlockDAO() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockDAO", reflect.TypeOf((*MockBlockchain)(nil).GetBlockDAO))
 }
 
 // ChainID mocks base method

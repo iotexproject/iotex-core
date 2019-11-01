@@ -1656,21 +1656,21 @@ func addActsToActPool(ap actpool.ActPool) error {
 	return ap.Add(execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockindex.Indexer, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	registry := protocol.Registry{}
@@ -1681,7 +1681,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockindex.Indexer, *
 		blockchain.RegistryOption(&registry),
 	)
 	if bc == nil {
-		return nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -1698,25 +1698,25 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockindex.Indexer, *
 	r := rewarding.NewProtocol(bc, rolldposProtocol)
 
 	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if err := registry.Register(account.ProtocolID, acc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if err := registry.Register(execution.ProtocolID, evm); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	if err := registry.Register(poll.ProtocolID, p); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	sf.AddActionHandlers(acc, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(acc, evm, r)
 
-	return bc, indexer, &registry, nil
+	return bc, dao, indexer, &registry, nil
 }
 
 func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool, error) {
@@ -1752,7 +1752,7 @@ func newConfig() config.Config {
 }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
-	bc, indexer, registry, err := setupChain(cfg)
+	bc, dao, indexer, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1788,7 +1788,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	svr := &Server{
 		bc:             bc,
-		dao:            bc.GetBlockDAO(),
+		dao:            dao,
 		indexer:        indexer,
 		ap:             ap,
 		cfg:            cfg,

@@ -59,7 +59,7 @@ var (
 	crt2Topic, _ = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 8
 )
 
-func addTestingConstantinopleBlocks(bc Blockchain) error {
+func addTestingConstantinopleBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	// Add block 1
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
@@ -90,11 +90,14 @@ func addTestingConstantinopleBlocks(bc Blockchain) error {
 	}
 
 	// get deployed contract address
-	r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, 1)
-	if err != nil {
-		return err
+	var contract string
+	if dao != nil {
+		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		if err != nil {
+			return err
+		}
+		contract = r.ContractAddress
 	}
-	contract := r.ContractAddress
 
 	addOneBlock := func(nonce uint64, data []byte) (hash.Hash256, error) {
 		ex1, err := testutil.SignedExecution(contract, priKey0, nonce, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
@@ -174,7 +177,7 @@ func addTestingConstantinopleBlocks(bc Blockchain) error {
 	return nil
 }
 
-func addTestingTsfBlocks(bc Blockchain) error {
+func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	// Add block 1
 	addr0 := identityset.Address(27).String()
 	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -264,7 +267,7 @@ func addTestingTsfBlocks(bc Blockchain) error {
 	cfg := bc.(*blockchain).config
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, 2)
+		r, err := dao.GetReceiptByActionHash(deployHash, 2)
 		if err != nil {
 			return err
 		}
@@ -441,7 +444,7 @@ func TestCreateBlockchain(t *testing.T) {
 	}()
 
 	// add 4 sample blocks
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, nil))
 	height = bc.TipHeight()
 	require.Equal(5, int(height))
 }
@@ -539,7 +542,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	addr1 := identityset.Address(28).String()
 	addr3 := identityset.Address(30).String()
 	priKey3 := identityset.PrivateKey(30)
-	require.NoError(t, addTestingTsfBlocks(bc))
+	require.NoError(t, addTestingTsfBlocks(bc, nil))
 
 	// test third block
 	bytes := []byte{}
@@ -636,7 +639,7 @@ func TestConstantinople(t *testing.T) {
 			require.NoError(bc.Stop(ctx))
 		}()
 
-		require.Nil(addTestingConstantinopleBlocks(bc))
+		require.NoError(addTestingConstantinopleBlocks(bc, dao))
 
 		hashTopic := []struct {
 			h       hash.Hash256
@@ -685,13 +688,13 @@ func TestConstantinople(t *testing.T) {
 			actHash := hashTopic[i].h
 			ai, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
-			r, err := bc.GetBlockDAO().GetReceiptByActionHash(actHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
 			require.Equal(actHash, r.ActionHash)
 			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, err := bc.GetBlockDAO().GetActionByActionHash(actHash, ai.BlockHeight())
+			a, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(a)
 			require.Equal(actHash, a.Hash())
@@ -800,7 +803,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		height := bc.TipHeight()
 		fmt.Printf("Open blockchain pass, height = %d\n", height)
-		require.Nil(addTestingTsfBlocks(bc))
+		require.Nil(addTestingTsfBlocks(bc, dao))
 		require.NoError(bc.Stop(ctx))
 		require.Equal(24, ms.Counter())
 
@@ -915,7 +918,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			// verify deployed contract
 			ai, err := indexer.GetActionIndex(deployHash[:])
 			require.NoError(err)
-			r, err := bc.GetBlockDAO().GetReceiptByActionHash(deployHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(deployHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)

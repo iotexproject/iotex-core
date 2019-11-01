@@ -102,8 +102,6 @@ type Blockchain interface {
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
-	// GetBlockDAO returns the block DAO
-	GetBlockDAO() blockdao.BlockDAO
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -211,19 +209,6 @@ func InMemStateFactoryOption() Option {
 		}
 		bc.sf = sf
 
-		return nil
-	}
-}
-
-// InMemIndexerOption sets blockchain's indexer
-func InMemIndexerOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		cfg.DB.DbPath = cfg.Chain.IndexDBPath
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
-		if err != nil {
-			return err
-		}
-		bc.indexer = indexer
 		return nil
 	}
 }
@@ -480,11 +465,6 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 // GetFactory returns the state factory
 func (bc *blockchain) GetFactory() factory.Factory {
 	return bc.sf
-}
-
-// GetBlockDAO returns the block DAO
-func (bc *blockchain) GetBlockDAO() blockdao.BlockDAO {
-	return bc.dao
 }
 
 // TipHash returns tip block's hash
