@@ -91,6 +91,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 	t.Run("prepare", func(t *testing.T) {
 		t.Run("with-error", func(t *testing.T) {
 			mockCtx.EXPECT().Prepare().Return(errors.New("some error")).Times(1)
+			mockCtx.EXPECT().Active().Return(true).Times(1)
 			state, err := cfsm.prepare(evt)
 			require.NoError(err)
 			require.Equal(sPrepare, state)
@@ -100,16 +101,33 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.Equal(ePrepare, evt.Type())
 		})
 		t.Run("stand-by-or-is-not-delegate", func(t *testing.T) {
-			mockCtx.EXPECT().Prepare().Return(nil).Times(1)
-			mockCtx.EXPECT().Proposal().Return(nil, nil).Times(1)
-			mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(1)
-			mockCtx.EXPECT().IsDelegate().Return(false).Times(1)
+			mockCtx.EXPECT().Prepare().Return(nil).Times(2)
+			mockCtx.EXPECT().Proposal().Return(nil, nil).Times(2)
+			mockCtx.EXPECT().WaitUntilRoundStart().Return(time.Duration(0)).Times(2)
+			mockCtx.EXPECT().IsDelegate().Return(false).Times(2)
+			mockCtx.EXPECT().Active().Return(true).Times(1)
 			state, err := cfsm.prepare(evt)
 			require.NoError(err)
 			require.Equal(sPrepare, state)
 			time.Sleep(100 * time.Millisecond)
 			mockClock.Add(10 * time.Second)
 			evt := <-cfsm.evtq
+			require.Equal(ePrepare, evt.Type())
+			// deactivate node
+			mockCtx.EXPECT().Active().Return(false).Times(1)
+			state, err = cfsm.prepare(evt)
+			require.NoError(err)
+			require.Equal(sPrepare, state)
+			time.Sleep(100 * time.Millisecond)
+			mockClock.Add(10 * time.Second)
+			require.Equal(0, len(cfsm.evtq))
+			// reactivate node
+			mockCtx.EXPECT().Active().Return(true).Times(1)
+			_, err = cfsm.BackToPrepare(0)
+			require.NoError(err)
+			time.Sleep(100 * time.Millisecond)
+			mockClock.Add(10 * time.Second)
+			evt = <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
 		t.Run("is-delegate", func(t *testing.T) {
@@ -167,6 +185,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 				t.Run("fail-to-mint", func(t *testing.T) {
 					mockCtx.EXPECT().Prepare().Return(nil).Times(1)
 					mockCtx.EXPECT().Proposal().Return(nil, errors.New("some error")).Times(1)
+					mockCtx.EXPECT().Active().Return(true).Times(1)
 					state, err := cfsm.prepare(evt)
 					require.NoError(err)
 					require.Equal(sPrepare, state)
@@ -338,6 +357,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 		})
 	})
 	t.Run("onStopReceivingLockEndorsement", func(t *testing.T) {
+		mockCtx.EXPECT().Active().Return(true).Times(1)
 		state, err := cfsm.onStopReceivingLockEndorsement(nil)
 		require.NoError(err)
 		require.Equal(sPrepare, state)
@@ -363,6 +383,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 	})
 	t.Run("onReceivePreCommitEndorsement", func(t *testing.T) {
 		t.Run("invalid-fsm-event", func(t *testing.T) {
+			mockCtx.EXPECT().Active().Return(true).Times(1)
 			state, err := cfsm.onReceivePreCommitEndorsement(nil)
 			require.Error(err)
 			require.Equal(sAcceptPreCommitEndorsement, state)
@@ -402,6 +423,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 	})
 	t.Run("calibrate", func(t *testing.T) {
 		mockCtx.EXPECT().Height().Return(uint64(2)).Times(2)
+		mockCtx.EXPECT().Active().Return(true).Times(2)
 		_, err := cfsm.calibrate(nil)
 		require.Error(err)
 		_, err = cfsm.calibrate(&ConsensusEvent{

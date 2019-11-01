@@ -78,13 +78,13 @@ func TestCountingIndex(t *testing.T) {
 		}
 		require.EqualValues(300, index.Size())
 
-		v, err := index.Range(248, 0)
+		_, err = index.Range(248, 0)
 		require.Equal(ErrInvalid, errors.Cause(err))
-		v, err = index.Range(248, 53)
+		_, err = index.Range(248, 53)
 		require.Equal(ErrInvalid, errors.Cause(err))
 
 		// last key
-		v, err = index.Range(299, 1)
+		v, err := index.Range(299, 1)
 		require.NoError(err)
 		require.Equal(1, len(v))
 		h = hash.Hash160b([]byte(strconv.Itoa(299)))
