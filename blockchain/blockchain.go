@@ -901,7 +901,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err = bc.dao.PutBlock(blk)
+	if err = bc.dao.PutBlock(blk); err == nil {
+		err = bc.dao.Commit()
+	}
 	putTimer.End()
 	if err != nil {
 		return err

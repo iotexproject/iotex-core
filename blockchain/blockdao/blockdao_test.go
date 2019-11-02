@@ -191,6 +191,7 @@ func TestBlockDAO(t *testing.T) {
 			// test putBlock/Receipt
 			blks[i].Receipts = receipts[i]
 			require.NoError(dao.PutBlock(blks[i]))
+			require.NoError(dao.Commit())
 			blks[i].Receipts = nil
 
 			// test getBlockchainHeight
@@ -235,6 +236,7 @@ func TestBlockDAO(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			require.NoError(dao.PutBlock(blks[i]))
 		}
+		require.NoError(dao.Commit())
 		height, err := indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)

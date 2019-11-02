@@ -85,6 +85,7 @@ var (
 type BlockDAO interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
+	Commit() error
 	GetBlockHash(uint64) (hash.Hash256, error)
 	GetBlockHeight(hash.Hash256) (uint64, error)
 	GetBlock(hash.Hash256) (*block.Block, error)
@@ -198,6 +199,10 @@ func (dao *blockDAO) initStores() error {
 }
 
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
+
+func (dao *blockDAO) Commit() error {
+	return nil
+}
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return dao.getBlockHash(height)
