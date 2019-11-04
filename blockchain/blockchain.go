@@ -100,8 +100,6 @@ type Blockchain interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// GetFactory returns the state factory
-	GetFactory() factory.Factory
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -176,43 +174,6 @@ type ActPoolManager interface {
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
 
-// DefaultStateFactoryOption sets blockchain's sf from config
-func DefaultStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) (err error) {
-		if cfg.Chain.EnableTrielessStateDB {
-			bc.sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
-		} else {
-			bc.sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-		}
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create state factory")
-		}
-		return nil
-	}
-}
-
-// PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
-func PrecreatedStateFactoryOption(sf factory.Factory) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.sf = sf
-
-		return nil
-	}
-}
-
-// InMemStateFactoryOption sets blockchain's factory.Factory as in memory sf
-func InMemStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create state factory")
-		}
-		bc.sf = sf
-
-		return nil
-	}
-}
-
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
@@ -264,12 +225,14 @@ func RegistryOption(registry *protocol.Registry) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blockchain {
+
+func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO,  sf factory.Factory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config: cfg,
 		dao:    dao,
 		clk:    clock.New(),
+		sf:     sf,
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
@@ -460,11 +423,6 @@ func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) 
 
 func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 	return bc.dao.Footer(h)
-}
-
-// GetFactory returns the state factory
-func (bc *blockchain) GetFactory() factory.Factory {
-	return bc.sf
 }
 
 // TipHash returns tip block's hash
@@ -1172,10 +1130,15 @@ func (bc *blockchain) refreshStateDB() error {
 	if fileutil.FileExists(bc.config.Chain.TrieDBPath) && os.Remove(bc.config.Chain.TrieDBPath) != nil {
 		return errors.New("failed to delete existing state DB")
 	}
-	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
-		return errors.Wrap(err, "failed to reinitialize state DB")
+	var err error
+	if bc.config.Chain.EnableTrielessStateDB {
+		bc.sf, err = factory.NewStateDB(bc.config, factory.DefaultStateDBOption())
+	} else {
+		bc.sf, err = factory.NewFactory(bc.config, factory.DefaultTrieOption())
 	}
-
+	if err != nil {
+		return errors.Wrapf(err, "failed to reinitialize state DB")
+	}
 	for _, p := range bc.registry.All() {
 		bc.sf.AddActionHandlers(p)
 	}

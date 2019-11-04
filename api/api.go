@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -91,6 +92,7 @@ type Server struct {
 	bc                blockchain.Blockchain
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
+	sf                factory.Factory
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -107,6 +109,7 @@ func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	dao blockdao.BlockDAO,
+	sf factory.Factory,
 	indexer blockindex.Indexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
@@ -132,6 +135,7 @@ func NewServer(
 		bc:                chain,
 		dao:               dao,
 		indexer:           indexer,
+		sf:                sf,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
@@ -729,7 +733,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		BlockHeight: api.bc.TipHeight(),
 		Registry:    api.registry,
 	})
-	ws, err := api.bc.GetFactory().NewWorkingSet()
+	ws, err := api.sf.NewWorkingSet()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

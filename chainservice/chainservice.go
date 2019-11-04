@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
 )
 
@@ -42,6 +43,7 @@ type ChainService struct {
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
 	electionCommittee committee.Committee
+	stateFactory      factory.Factory
 	rDPoSProtocol     *rolldpos.Protocol
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
@@ -80,13 +82,26 @@ func New(
 	}
 
 	var chainOpts []blockchain.Option
+	var sf factory.Factory
 	if ops.isTesting {
 		chainOpts = []blockchain.Option{
-			blockchain.InMemStateFactoryOption(),
+			blockchain.InMemDaoOption(),
+		}
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	} else {
 		chainOpts = []blockchain.Option{
-			blockchain.DefaultStateFactoryOption(),
+			blockchain.BoltDBDaoOption(),
+		}
+		if cfg.Chain.EnableTrielessStateDB {
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		} else {
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	}
 	registry := protocol.Registry{}
@@ -144,7 +159,7 @@ func New(
 		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
 	if chain == nil {
 		panic("failed to create blockchain")
 	}
@@ -201,6 +216,7 @@ func New(
 		cfg,
 		chain,
 		dao,
+		sf,
 		indexer,
 		actPool,
 		&registry,
@@ -221,6 +237,7 @@ func New(
 		consensus:         consensus,
 		rDPoSProtocol:     rDPoSProtocol,
 		electionCommittee: electionCommittee,
+		stateFactory:      sf,
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          &registry,
@@ -367,7 +384,7 @@ func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
 	if err := cs.registry.Register(id, p); err != nil {
 		return err
 	}
-	cs.chain.GetFactory().AddActionHandlers(p)
+	cs.stateFactory.AddActionHandlers(p)
 	cs.actpool.AddActionValidators(p)
 	cs.chain.Validator().AddActionValidators(p)
 	return nil
