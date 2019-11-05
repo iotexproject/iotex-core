@@ -60,8 +60,8 @@ func TestActPool_NewActPool(t *testing.T) {
 
 	// all good
 	opt := EnableExperimentalActions()
-	require.Panics(func() { blockchain.NewBlockchain(cfg, nil) }, "option is nil")
-	bc := blockchain.NewBlockchain(cfg, blockchain.DefaultStateFactoryOption())
+	require.Panics(func() { blockchain.NewBlockchain(cfg, nil, nil) }, "option is nil")
+	bc := blockchain.NewBlockchain(cfg, nil, blockchain.DefaultStateFactoryOption())
 	act, err := NewActPool(bc, cfg.ActPool, opt)
 	require.NoError(err)
 	require.NotNil(act)
@@ -86,6 +86,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -152,6 +153,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -324,6 +326,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require := require.New(t)
 		bc := blockchain.NewBlockchain(
 			config.Default,
+			nil,
 			blockchain.InMemStateFactoryOption(),
 			blockchain.InMemDaoOption(),
 		)
@@ -407,6 +410,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -466,6 +470,7 @@ func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -848,6 +853,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -896,6 +902,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -941,6 +948,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -987,6 +995,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -1025,7 +1034,7 @@ func TestActPool_GetActionByHash(t *testing.T) {
 
 func TestActPool_GetCapacity(t *testing.T) {
 	require := require.New(t)
-	bc := blockchain.NewBlockchain(config.Default, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
+	bc := blockchain.NewBlockchain(config.Default, nil, blockchain.InMemStateFactoryOption(), blockchain.InMemDaoOption())
 	// Create actpool
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig, EnableExperimentalActions())
@@ -1040,6 +1049,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
@@ -1097,6 +1107,7 @@ func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
 	defer ctrl.Finish()
 	bc := blockchain.NewBlockchain(
 		config.Default,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)

@@ -365,7 +365,7 @@ func TestLocalTransfer(t *testing.T) {
 				return err
 			}, bo)
 			require.Error(err, tsfTest.message)
-			_, err = bc.GetActionByActionHash(tsf.Hash())
+			_, err = as.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
@@ -382,7 +382,7 @@ func TestLocalTransfer(t *testing.T) {
 				return err
 			}, bo)
 			require.NoError(err, tsfTest.message)
-			_, err = bc.GetActionByActionHash(tsf.Hash())
+			_, err = as.GetActionByActionHash(tsf.Hash())
 			require.Error(err, tsfTest.message)
 		case TsfFinal:
 			require.NoError(err, tsfTest.message)
@@ -522,7 +522,7 @@ func newTransferConfig(
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme
 	cfg.API.Port = apiPort
-	cfg.Genesis.BlockInterval = 500 * time.Millisecond
+	cfg.Genesis.BlockInterval = 800 * time.Millisecond
 
 	return cfg, nil
 }

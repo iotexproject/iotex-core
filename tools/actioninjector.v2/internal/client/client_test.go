@@ -58,7 +58,7 @@ func TestClient(t *testing.T) {
 	})
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, indexer, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, nil, indexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

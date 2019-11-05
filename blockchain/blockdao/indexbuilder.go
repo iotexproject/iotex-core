@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -47,18 +46,13 @@ type IndexBuilder struct {
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao BlockDAO, cfg config.Config) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
 		[]string{"topic", "chainID"},
 		[]string{"default", strconv.FormatUint(uint64(chainID), 10)},
 	)
-	if err != nil {
-		return nil, err
-	}
-	cfg.DB.DbPath = cfg.Chain.IndexDBPath
-	indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 	if err != nil {
 		return nil, err
 	}

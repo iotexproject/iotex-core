@@ -62,7 +62,7 @@ func TestIndexer(t *testing.T) {
 	testIndexer := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, nil, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {
@@ -81,6 +81,7 @@ func TestIndexer(t *testing.T) {
 		// put 2 blocks first
 		require.NoError(dao.PutBlock(blks[0]))
 		require.NoError(dao.PutBlock(blks[1]))
+		require.NoError(dao.Commit())
 		startHeight, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
@@ -96,6 +97,7 @@ func TestIndexer(t *testing.T) {
 
 		// test handle 1 new block
 		require.NoError(dao.PutBlock(blks[2]))
+		require.NoError(dao.Commit())
 		ib.HandleBlock(blks[2])
 		time.Sleep(500 * time.Millisecond)
 

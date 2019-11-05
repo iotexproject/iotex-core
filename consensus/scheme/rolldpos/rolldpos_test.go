@@ -431,6 +431,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 			chain := blockchain.NewBlockchain(
 				cfg,
+				nil,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
 				blockchain.RegistryOption(&registry),

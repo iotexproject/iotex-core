@@ -39,6 +39,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := blockchain.NewBlockchain(
 		cfg,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
@@ -139,6 +140,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := blockchain.NewBlockchain(
 		cfg,
+		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),

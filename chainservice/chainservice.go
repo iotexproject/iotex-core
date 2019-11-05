@@ -8,11 +8,10 @@ package chainservice
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"os"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -24,15 +23,16 @@ import (
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -83,12 +83,10 @@ func New(
 	if ops.isTesting {
 		chainOpts = []blockchain.Option{
 			blockchain.InMemStateFactoryOption(),
-			blockchain.InMemDaoOption(),
 		}
 	} else {
 		chainOpts = []blockchain.Option{
 			blockchain.DefaultStateFactoryOption(),
-			blockchain.BoltDBDaoOption(),
 		}
 	}
 	registry := protocol.Registry{}
@@ -120,43 +118,44 @@ func New(
 			}
 		}
 	}
-	// check if the config asks for an internal indexer
+	// create indexer
+	var indexer blockindex.Indexer
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
+	if gateway {
+		var err error
+		cfg.DB.DbPath = cfg.Chain.IndexDBPath
+		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
+		if err != nil {
+			return nil, err
+		}
+	}
+	// create BlockDAO
+	var kvstore db.KVStore
+	if ops.isTesting {
+		kvstore = db.NewMemKVStore()
+	} else {
+		cfg.DB.DbPath = cfg.Chain.ChainDBPath
+		kvstore = db.NewBoltDB(cfg.DB)
+	}
+	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		chainOpts = append(chainOpts, blockchain.DefaultIndexerOption())
+		dao = blockdao.NewBlockDAO(kvstore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+	} else {
+		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, chainOpts...)
-	if chain == nil && cfg.Chain.EnableFallBackToFreshDB {
-		log.L().Warn("Chain db and trie db are falling back to fresh ones.")
-		if err := os.Rename(cfg.Chain.ChainDBPath, cfg.Chain.ChainDBPath+".old"); err != nil {
-			return nil, errors.Wrap(err, "failed to rename old chain db")
-		}
-		if err := os.Rename(cfg.Chain.TrieDBPath, cfg.Chain.TrieDBPath+".old"); err != nil {
-			return nil, errors.Wrap(err, "failed to rename old trie db")
-		}
-		chainOpts = []blockchain.Option{
-			blockchain.DefaultStateFactoryOption(),
-			blockchain.BoltDBDaoOption(),
-		}
-		chain = blockchain.NewBlockchain(cfg, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, chainOpts...)
+	if chain == nil {
+		panic("failed to create blockchain")
 	}
 	// config asks for a standalone indexer
 	var indexBuilder *blockdao.IndexBuilder
 	if gateway && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), chain.GetBlockDAO(), cfg); err != nil {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
-		}
-	}
-	var indexer blockindex.Indexer
-	if gateway {
-		if cfg.Chain.EnableAsyncIndexWrite {
-			indexer = indexBuilder.Indexer()
-		} else {
-			indexer = chain.GetIndexer()
 		}
 	}
 	// Create ActPool
@@ -201,6 +200,7 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
+		dao,
 		indexer,
 		actPool,
 		&registry,
