@@ -225,7 +225,6 @@ func RegistryOption(registry *protocol.Registry) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{

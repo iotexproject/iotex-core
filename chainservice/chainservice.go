@@ -349,6 +349,7 @@ func (cs *ChainService) Blockchain() blockchain.Blockchain {
 	return cs.chain
 }
 
+// Factory returns the state factory
 func (cs *ChainService) Factory() factory.Factory {
 	return cs.stateFactory
 }
