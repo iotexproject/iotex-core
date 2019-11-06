@@ -14,7 +14,7 @@ import (
 var stakeStakeCmd = &cobra.Command{
 	Use: "stake AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Create pygg on IoTeX blockchain",
+	Short: "Create bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

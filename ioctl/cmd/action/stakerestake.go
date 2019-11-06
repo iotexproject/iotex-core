@@ -11,10 +11,9 @@ import (
 
 // stakeRestakeCmd represents the stake stake command
 var stakeRestakeCmd = &cobra.Command{
-	// PYGG_INDEX is  BUCKET_INDEX
-	Use: "restake PYGG_INDEX STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
+	Use: "restake BUCKET_INDEX STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Restake pygg on IoTeX blockchain",
+	Short: "Restake bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -29,9 +28,9 @@ func init() {
 }
 
 func restake(args []string) error {
-	pyggIndex, ok := new(big.Int).SetString(args[0], 10)
+	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
 	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
+		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
 	stakeDuration, err := parseStakeDuration(args[1])
@@ -50,7 +49,7 @@ func restake(args []string) error {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	bytecode, err := stakeABI.Pack("restake", pyggIndex, stakeDuration, autoRestake, data)
+	bytecode, err := stakeABI.Pack("restake", bucketIndex, stakeDuration, autoRestake, data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}

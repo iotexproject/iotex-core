@@ -10,33 +10,32 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-// stakeStoreCmd represents the stake store command
-var stakeStoreCmd = &cobra.Command{
-	// PYGG_INDEX is  BUCKET_INDEX
-	Use: "store IOTX_AMOUNT PYGG_INDEX [DATA] [-c ALIAS|CONTRACT_ADDRESS]" +
+// stakeAddCmd represents the stake add command
+var stakeAddCmd = &cobra.Command{
+	Use: "add IOTX_AMOUNT BUCKET_INDEX [DATA] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Store IOTX to pygg on IoTeX blockchain",
+	Short: "Add IOTX to bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := store(args)
+		err := add(args)
 		return output.PrintError(err)
 	},
 }
 
 func init() {
-	registerWriteCommand(stakeStoreCmd)
+	registerWriteCommand(stakeAddCmd)
 }
 
-func store(args []string) error {
+func add(args []string) error {
 	amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
 	}
 
-	pyggIndex, ok := new(big.Int).SetString(args[1], 10)
+	bucketIndex, ok := new(big.Int).SetString(args[1], 10)
 	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert pygg index", nil)
+		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
 	data := []byte{}
@@ -50,7 +49,7 @@ func store(args []string) error {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	bytecode, err := stakeABI.Pack("storeToPygg", pyggIndex, data)
+	bytecode, err := stakeABI.Pack("storeToPygg", bucketIndex, data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}
