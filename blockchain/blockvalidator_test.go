@@ -96,7 +96,7 @@ func TestWrongNonce(t *testing.T) {
 	sf.AddActionHandlers(account.NewProtocol(hu))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -238,7 +238,7 @@ func TestWrongNonce(t *testing.T) {
 func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
@@ -308,7 +308,7 @@ func TestBlackListAddress(t *testing.T) {
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
-	bc := NewBlockchain(cfg, InMemStateFactoryOption(), InMemDaoOption())
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
 	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))

@@ -611,9 +611,9 @@ func CheckPendingActionList(
 
 	pendingActionMap.Range(func(selphash, vi interface{}) bool {
 		empty = false
-		receipt, err := cs.Blockchain().GetReceiptByActionHash(selphash.(hash.Hash256))
+		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
 		if err == nil {
-			selp, err := cs.Blockchain().GetActionByActionHash(selphash.(hash.Hash256))
+			selp, err := cs.APIServer().GetActionByActionHash(selphash.(hash.Hash256))
 			if err != nil {
 				retErr = err
 				return false
