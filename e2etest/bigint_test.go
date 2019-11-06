@@ -83,6 +83,7 @@ func prepareBlockchain(
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := blockchain.NewBlockchain(
 		cfg,
+		nil,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),

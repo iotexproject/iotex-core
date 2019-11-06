@@ -100,18 +100,8 @@ type Blockchain interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// GetReceiptByActionHash returns the receipt by action hash
-	GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error)
-	// GetActionByActionHash returns action by action hash
-	GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error)
-	// GetReceiptsByHeight returns action receipts by block height
-	GetReceiptsByHeight(height uint64) ([]*action.Receipt, error)
 	// GetFactory returns the state factory
 	GetFactory() factory.Factory
-	// GetBlockDAO returns the block DAO
-	GetBlockDAO() blockdao.BlockDAO
-	// GetIndexer returns the chain indexer
-	GetIndexer() blockindex.Indexer
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -223,38 +213,16 @@ func InMemStateFactoryOption() Option {
 	}
 }
 
-// DefaultIndexerOption sets blockchain's indexer
-func DefaultIndexerOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		cfg.DB.DbPath = cfg.Chain.IndexDBPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
-		if err != nil {
-			return err
-		}
-		bc.indexer = indexer
-		return nil
-	}
-}
-
-// InMemIndexerOption sets blockchain's indexer
-func InMemIndexerOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		cfg.DB.DbPath = cfg.Chain.IndexDBPath
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
-		if err != nil {
-			return err
-		}
-		bc.indexer = indexer
-		return nil
-	}
-}
-
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		if bc.dao != nil {
+			return nil
+		}
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewBoltDB(cfg.DB),
+			bc.indexer,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -265,8 +233,12 @@ func BoltDBDaoOption() Option {
 // InMemDaoOption sets blockchain's dao with MemKVStore
 func InMemDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		if bc.dao != nil {
+			return nil
+		}
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewMemKVStore(),
+			bc.indexer,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -292,10 +264,11 @@ func RegistryOption(registry *protocol.Registry) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
+func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config: cfg,
+		dao:    dao,
 		clk:    clock.New(),
 	}
 	for _, opt := range opts {
@@ -332,9 +305,6 @@ func NewBlockchain(cfg config.Config, opts ...Option) Blockchain {
 	}
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
-	}
-	if chain.indexer != nil {
-		chain.lifecycle.Add(chain.indexer)
 	}
 	return chain
 }
@@ -492,67 +462,9 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 	return bc.dao.Footer(h)
 }
 
-// GetReceiptByActionHash returns the receipt by action hash
-func (bc *blockchain) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, error) {
-	if bc.indexer == nil {
-		return nil, blockindex.ErrActionIndexNA
-	}
-	actIndex, err := bc.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get receipt index for action %x", h)
-	}
-	receipts, err := bc.dao.GetReceipts(actIndex.BlockHeight())
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range receipts {
-		if r.ActionHash == h {
-			return r, nil
-		}
-	}
-	return nil, errors.Errorf("receipt of action %x isn't found", h)
-}
-
-// GetActionByActionHash returns action by action hash
-func (bc *blockchain) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope, error) {
-	if bc.indexer == nil {
-		return action.SealedEnvelope{}, blockindex.ErrActionIndexNA
-	}
-	actIndex, err := bc.indexer.GetActionIndex(h[:])
-	if err != nil {
-		return action.SealedEnvelope{}, err
-	}
-
-	blk, err := bc.blockBodyByHeight(actIndex.BlockHeight())
-	if err != nil {
-		return action.SealedEnvelope{}, err
-	}
-	for _, act := range blk.Actions {
-		if act.Hash() == h {
-			return act, nil
-		}
-	}
-	return action.SealedEnvelope{}, errors.Errorf("block %d does not have action %x", actIndex.BlockHeight(), h)
-}
-
-// GetReceiptsByHeight returns action receipts by block height
-func (bc *blockchain) GetReceiptsByHeight(height uint64) ([]*action.Receipt, error) {
-	return bc.dao.GetReceipts(height)
-}
-
 // GetFactory returns the state factory
 func (bc *blockchain) GetFactory() factory.Factory {
 	return bc.sf
-}
-
-// GetBlockDAO returns the block DAO
-func (bc *blockchain) GetBlockDAO() blockdao.BlockDAO {
-	return bc.dao
-}
-
-// GetIndexer returns the chain indexer
-func (bc *blockchain) GetIndexer() blockindex.Indexer {
-	return bc.indexer
 }
 
 // TipHash returns tip block's hash
@@ -866,14 +778,6 @@ func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) 
 	return bc.dao.Header(hash)
 }
 
-func (bc *blockchain) blockBodyByHeight(height uint64) (*block.Body, error) {
-	hash, err := bc.dao.GetBlockHash(height)
-	if err != nil {
-		return nil, err
-	}
-	return bc.dao.Body(hash)
-}
-
 func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) {
 	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
@@ -997,7 +901,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err = bc.dao.PutBlock(blk)
+	if err = bc.dao.PutBlock(blk); err == nil {
+		err = bc.dao.Commit()
+	}
 	putTimer.End()
 	if err != nil {
 		return err
@@ -1020,16 +926,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
-
-	// index the block if there's indexer
-	if bc.indexer != nil {
-		if err = bc.indexer.PutBlock(blk); err != nil {
-			return err
-		}
-		if err = bc.indexer.Commit(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -1262,20 +1158,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 // RecoverToHeight recovers the blockchain to target height
 func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
 	for bc.tipHeight > targetHeight {
-		if bc.indexer != nil {
-			h, err := bc.dao.GetTipHash()
-			if err != nil {
-				return errors.Wrap(err, "failed to get tip block hash")
-			}
-			blk, err := bc.dao.GetBlock(h)
-			if err != nil {
-				return errors.Wrap(err, "failed to get tip block")
-			}
-			// delete index
-			if err := bc.indexer.DeleteBlock(blk); err != nil {
-				return err
-			}
-		}
 		if err := bc.dao.DeleteTipBlock(); err != nil {
 			return err
 		}
