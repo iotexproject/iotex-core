@@ -173,6 +173,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := bc.NewBlockchain(
 		cfg,
+		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
@@ -230,6 +231,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain1 := bc.NewBlockchain(
 		cfg,
+		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
@@ -251,6 +253,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
 	chain2 := bc.NewBlockchain(
 		cfg,
+		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
@@ -323,6 +326,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain1 := bc.NewBlockchain(
 		cfg,
+		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
@@ -343,6 +347,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain2 := bc.NewBlockchain(
 		cfg,
+		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
@@ -408,7 +413,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain := bc.NewBlockchain(cfg, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
+	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

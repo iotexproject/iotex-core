@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockindex"
@@ -158,11 +158,9 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
-		require.NoError(indexer.Start(ctx))
 		defer func() {
-			require.NoError(indexer.Stop(ctx))
 			require.NoError(dao.Stop(ctx))
 		}()
 
@@ -185,23 +183,6 @@ func TestBlockDAO(t *testing.T) {
 			},
 		}
 
-		getReceiptByActionHash := func(h hash.Hash256) (*action.Receipt, error) {
-			actIndex, err := indexer.GetActionIndex(h[:])
-			if err != nil {
-				return nil, err
-			}
-			receipts, err := dao.GetReceipts(actIndex.BlockHeight())
-			if err != nil {
-				return nil, err
-			}
-			for _, r := range receipts {
-				if r.ActionHash == h {
-					return r, nil
-				}
-			}
-			return nil, errors.Errorf("receipt of action %x isn't found", h)
-		}
-
 		height, err := indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(0, height)
@@ -210,9 +191,8 @@ func TestBlockDAO(t *testing.T) {
 			// test putBlock/Receipt
 			blks[i].Receipts = receipts[i]
 			require.NoError(dao.PutBlock(blks[i]))
+			require.NoError(dao.Commit())
 			blks[i].Receipts = nil
-			require.NoError(indexer.PutBlock(blks[i]))
-			require.NoError(indexer.Commit())
 
 			// test getBlockchainHeight
 			height, err := indexer.GetBlockchainHeight()
@@ -233,9 +213,12 @@ func TestBlockDAO(t *testing.T) {
 		// Test getReceiptByActionHash
 		for j := range daoTests[0].hashTotal {
 			h := hash.BytesToHash256(daoTests[0].hashTotal[j])
-			receipt, err := getReceiptByActionHash(h)
+			receipt, err := dao.GetReceiptByActionHash(h, uint64(j/3)+1)
 			require.NoError(err)
 			require.Equal(receipts[j/3][j%3], receipt)
+			action, err := dao.GetActionByActionHash(h, uint64(j/3)+1)
+			require.NoError(err)
+			require.Equal(h, action.Hash())
 		}
 	}
 
@@ -243,23 +226,17 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, false, config.Default.DB)
+		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
-		require.NoError(indexer.Start(ctx))
 		defer func() {
-			require.NoError(indexer.Stop(ctx))
 			require.NoError(dao.Stop(ctx))
 		}()
 
-		// blocks can be written in arbitrary order
-		for i := 2; i >= 0; i-- {
+		// put blocks
+		for i := 0; i < 3; i++ {
 			require.NoError(dao.PutBlock(blks[i]))
 		}
-		// index blocks
-		for i := 0; i < 3; i++ {
-			require.NoError(indexer.PutBlock(blks[i]))
-		}
-		require.NoError(indexer.Commit())
+		require.NoError(dao.Commit())
 		height, err := indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -270,19 +247,14 @@ func TestBlockDAO(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			h, err := dao.GetTipHash()
-			require.NoError(err)
-			blk, err := dao.GetBlock(h)
-			require.NoError(err)
 			require.NoError(dao.DeleteTipBlock())
-			require.NoError(indexer.DeleteBlock(blk))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
 			tipHeight, err = dao.GetTipHeight()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
-			h, err = indexer.GetBlockHash(tipHeight)
+			h, err := indexer.GetBlockHash(tipHeight)
 			require.NoError(err)
 			h1, err := dao.GetTipHash()
 			require.NoError(err)
@@ -385,7 +357,7 @@ func BenchmarkBlockCache(b *testing.B) {
 
 		db := config.Default.DB
 		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO(store, false, db)
+		blkDao := NewBlockDAO(store, indexer, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

@@ -23,7 +23,7 @@ import (
 //Xrc20Cmd represent erc20 standard command-line
 var Xrc20Cmd = &cobra.Command{
 	Use:   "xrc20",
-	Short: "Supporting ERC20 standard command-line from ioctl",
+	Short: "Support ERC20 standard command-line from ioctl",
 }
 
 var xrc20ContractAddress string

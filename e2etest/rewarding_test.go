@@ -13,17 +13,18 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -217,6 +218,7 @@ func TestBlockEpochReward(t *testing.T) {
 	rps := make([]*rewarding.Protocol, numNodes)
 	wss := make([]factory.WorkingSet, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
+	apis := make([]*api.Server, numNodes)
 	//Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
 	//Map of real unclaimed balance for each reward address
@@ -241,6 +243,7 @@ func TestBlockEpochReward(t *testing.T) {
 		wss[i] = ws
 
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
+		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
@@ -303,7 +306,7 @@ func TestBlockEpochReward(t *testing.T) {
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				//Wait until all the pending actions are settled
 
-				updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
 					// if there is pending action, retry
 					return false, nil
@@ -357,7 +360,7 @@ func TestBlockEpochReward(t *testing.T) {
 				}
 
 				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
-				updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
@@ -425,7 +428,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 	//Wait until all the pending actions are settled
 	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
-		updateExpectationWithPendingClaimList(t, chains[0], exptUnclaimed, claimedAmount, pendingClaimActions)
+		updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
 	require.NoError(t, err)
@@ -504,17 +507,17 @@ func injectClaim(
 
 func updateExpectationWithPendingClaimList(
 	t *testing.T,
-	bc blockchain.Blockchain,
+	api *api.Server,
 	exptUnclaimed map[string]*big.Int,
 	claimedAmount map[string]*big.Int,
 	pendingClaimActions map[hash.Hash256]bool,
 ) bool {
 	updated := false
 	for selpHash, expectedSuccess := range pendingClaimActions {
-		receipt, err := bc.GetReceiptByActionHash(selpHash)
+		receipt, err := api.GetReceiptByActionHash(selpHash)
 
 		if err == nil {
-			selp, err := bc.GetActionByActionHash(selpHash)
+			selp, err := api.GetActionByActionHash(selpHash)
 			require.NoError(t, err)
 			addr, err := address.FromBytes(selp.SrcPubkey().Hash())
 			require.NoError(t, err)
@@ -541,59 +544,6 @@ func updateExpectationWithPendingClaimList(
 	}
 
 	return updated
-}
-
-//waitActionToSettle wait the claim action on given reward address to settle to update expectation correctly
-func waitActionToSettle(
-	t *testing.T,
-	rewardAddrStr string,
-	bc blockchain.Blockchain,
-	exptUnclaimed map[string]*big.Int,
-	claimedAmount map[string]*big.Int,
-	unClaimedBalances map[string]*big.Int,
-	pendingClaimActions map[hash.Hash256]bool,
-) error {
-	err := testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
-		for selpHash, expectedSuccess := range pendingClaimActions {
-			receipt, receipterr := bc.GetReceiptByActionHash(selpHash)
-			selp, err := bc.GetActionByActionHash(selpHash)
-			require.Equal(t, err == nil, receipterr == nil)
-
-			if err == nil {
-				addr, err := address.FromBytes(selp.SrcPubkey().Hash())
-				require.NoError(t, err)
-				if addr.String() != rewardAddrStr {
-					continue
-				}
-
-				act := &action.ClaimFromRewardingFund{}
-				err = act.LoadProto(selp.Proto().Core.GetClaimFromRewardingFund())
-				require.NoError(t, err)
-				amount := act.Amount()
-
-				newExpectUnclaimed := big.NewInt(0).Sub(exptUnclaimed[addr.String()], amount)
-
-				if newExpectUnclaimed.Cmp(unClaimedBalances[rewardAddrStr]) != 0 {
-					continue
-				}
-				require.Equal(t, receipt.Status, uint64(iotextypes.ReceiptStatus_Success))
-
-				exptUnclaimed[addr.String()] = newExpectUnclaimed
-
-				newClaimedAmount := big.NewInt(0).Add(claimedAmount[addr.String()], amount)
-				claimedAmount[addr.String()] = newClaimedAmount
-
-				//An test case expected to fail should never success
-				require.NotEqual(t, expectedSuccess, false)
-
-				delete(pendingClaimActions, selpHash)
-				return true, nil
-			}
-		}
-		return false, nil
-	})
-
-	return err
 }
 
 func newConfig(
