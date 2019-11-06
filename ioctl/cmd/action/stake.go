@@ -22,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// NativeStakingAddress stores native staking address as string
-const NativeStakingAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
+// MainnetStakingAddress stores native staking address as string
+const MainnetStakingAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
 
 var autoRestake bool
 var stakingContractAddress string
@@ -43,7 +43,7 @@ func init() {
 	StakeCmd.AddCommand(stakeWithdrawCmd)
 
 	StakeCmd.PersistentFlags().StringVarP(&stakingContractAddress, "staking-contract-address", "c",
-		NativeStakingAddress, "set staking contract address")
+		MainnetStakingAddress, "set staking contract address")
 	StakeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	StakeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
