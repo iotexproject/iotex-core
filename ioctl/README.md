@@ -34,7 +34,7 @@ specific release so install-cli.sh can download them.
         help        Help about any command
     
     Flags:
-      -h, --help                   help for ioctl
-      -o, --output-format string   output format
+        -h, --help                   help for ioctl
+        -o, --output-format string   output format
     
     Use "ioctl [command] --help" for more information about a command.
