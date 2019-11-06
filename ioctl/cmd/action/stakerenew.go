@@ -9,25 +9,25 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
-// stakeRestakeCmd represents the stake stake command
-var stakeRestakeCmd = &cobra.Command{
-	Use: "restake BUCKET_INDEX STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
+// stakeRenewCmd represents the stake renew command
+var stakeRenewCmd = &cobra.Command{
+	Use: "restake BUCKET_INDEX STAKE_DURATION [DATA] [--auto-restake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
 	Short: "Restake bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := restake(args)
+		err := renew(args)
 		return output.PrintError(err)
 	},
 }
 
 func init() {
-	registerWriteCommand(stakeRestakeCmd)
-	stakeRestakeCmd.Flags().BoolVar(&autoRestake, "auto-restake", false, "auto restake without power decay")
+	registerWriteCommand(stakeRenewCmd)
+	stakeRenewCmd.Flags().BoolVar(&autoRestake, "auto-restake", false, "auto restake without power decay")
 }
 
-func restake(args []string) error {
+func renew(args []string) error {
 	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)

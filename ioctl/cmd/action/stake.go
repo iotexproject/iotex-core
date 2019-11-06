@@ -36,9 +36,11 @@ var StakeCmd = &cobra.Command{
 }
 
 func init() {
-	StakeCmd.AddCommand(stakeStakeCmd)
-	StakeCmd.AddCommand(stakeRestakeCmd)
+	StakeCmd.AddCommand(stakeCreateCmd)
 	StakeCmd.AddCommand(stakeAddCmd)
+	StakeCmd.AddCommand(stakeRenewCmd)
+	StakeCmd.AddCommand(stakeReleaseCmd)
+	StakeCmd.AddCommand(stakeWithdrawCmd)
 
 	StakeCmd.PersistentFlags().StringVarP(&stakingContractAddress, "staking-contract-address", "c",
 		NativeStakingAddress, "set staking contract address")
