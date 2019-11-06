@@ -212,7 +212,8 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	// Reject action if the gas price is lower than the threshold
 	if act.GasPrice().Cmp(ap.cfg.MinGasPrice()) < 0 {
 		actpoolMtc.WithLabelValues("gasPriceLower").Inc()
-		return errors.Errorf(
+		return errors.Wrapf(
+			action.ErrGasPrice,
 			"reject the action %x whose gas price %s is lower than minimal gas price threshold",
 			hash,
 			act.GasPrice(),

@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
@@ -327,7 +328,35 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// Add to local actpool
 	if err = api.ap.Add(selp); err != nil {
 		log.L().Debug(err.Error())
-		return nil, status.Error(codes.Internal, err.Error())
+		var desc string
+		switch errors.Cause(err) {
+		case action.ErrBalance:
+			desc = "Invalid balance"
+		case action.ErrInsufficientBalanceForGas:
+			desc = "Insufficient balance for gas"
+		case action.ErrNonce:
+			desc = "Invalid nonce"
+		case action.ErrAddress:
+			desc = "Blacklisted address"
+		case action.ErrActPool:
+			desc = "Invalid actpool"
+		case action.ErrGasPrice:
+			desc = "Invalid gas price"
+		default:
+			desc = "Unknown"
+		}
+		st := status.New(codes.Internal, err.Error())
+		v := &errdetails.BadRequest_FieldViolation{
+			Field:       "Action rejected",
+			Description: desc,
+		}
+		br := &errdetails.BadRequest{}
+		br.FieldViolations = append(br.FieldViolations, v)
+		st, err := st.WithDetails(br)
+		if err != nil {
+			log.S().Panicf("Unexpected error attaching metadata: %v", err)
+		}
+		return nil, st.Err()
 	}
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
