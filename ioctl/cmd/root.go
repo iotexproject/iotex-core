@@ -37,6 +37,7 @@ func Execute() {
 }
 func init() {
 	cobra.EnableCommandSorting = false
+
 	RootCmd.AddCommand(config.ConfigCmd)
 	RootCmd.AddCommand(account.AccountCmd)
 	RootCmd.AddCommand(alias.AliasCmd)
