@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -81,11 +82,13 @@ func prepareBlockchain(
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	r.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
+		sf,
 		blockchain.InMemDaoOption(),
-		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
@@ -94,8 +97,6 @@ func prepareBlockchain(
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu), reward)
-	sf := bc.GetFactory()
-	r.NotNil(sf)
 	sf.AddActionHandlers(execution.NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()

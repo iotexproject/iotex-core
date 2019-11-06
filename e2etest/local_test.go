@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -160,10 +161,12 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.Registry{}
+	sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.DefaultStateFactoryOption(),
+		sf,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -179,7 +182,7 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(account.ProtocolID, acc)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
+	sf.AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -533,7 +536,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to tip
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ := bc.GetFactory().Height()
+	sf := svr.ChainService(chainID).Factory()
+	height, _ := sf.Height()
 	require.Equal(bc.TipHeight(), height)
 
 	// Recover to height 3 from empty state DB
@@ -545,7 +549,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 3
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.GetFactory().Height()
+	sf = svr.ChainService(chainID).Factory()
+	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
 
@@ -557,7 +562,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 2
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.GetFactory().Height()
+	sf = svr.ChainService(chainID).Factory()
+	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
 }

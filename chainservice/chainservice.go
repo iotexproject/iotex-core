@@ -349,6 +349,10 @@ func (cs *ChainService) Blockchain() blockchain.Blockchain {
 	return cs.chain
 }
 
+func (cs *ChainService) Factory() factory.Factory {
+	return cs.stateFactory
+}
+
 // ActionPool returns the Action pool
 func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool

@@ -29,6 +29,7 @@ import (
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
@@ -171,10 +172,12 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain := bc.NewBlockchain(
 		cfg,
 		nil,
-		bc.InMemStateFactoryOption(),
+		sf,
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
@@ -229,10 +232,12 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		nil,
-		bc.InMemStateFactoryOption(),
+		sf,
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
@@ -251,10 +256,12 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.Nil(err)
 	registry2 := protocol.Registry{}
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
+	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		nil,
-		bc.InMemStateFactoryOption(),
+		sf2,
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
 	)
@@ -324,10 +331,12 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		nil,
-		bc.InMemStateFactoryOption(),
+		sf,
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
@@ -345,10 +354,12 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.Nil(err)
 	registry2 := protocol.Registry{}
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
+	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		nil,
-		bc.InMemStateFactoryOption(),
+		sf2,
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
 	)
@@ -413,7 +424,9 @@ func TestBlockSyncerSync(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	chain := bc.NewBlockchain(cfg, nil, sf, bc.InMemDaoOption(), bc.RegistryOption(&registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

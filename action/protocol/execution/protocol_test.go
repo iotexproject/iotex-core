@@ -43,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -271,7 +272,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, blockdao.BlockDAO) {
+) (blockchain.Blockchain, blockdao.BlockDAO, factory.Factory) {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -294,10 +295,12 @@ func (sct *SmartContractTest) prepareBlockchain(
 	// create BlockDAO
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
 	r.NotNil(dao)
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	r.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.RegistryOption(&registry),
 	)
 	reward := rewarding.NewProtocol(bc, rp)
@@ -306,8 +309,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu), reward)
-	sf := bc.GetFactory()
-	r.NotNil(sf)
 	sf.AddActionHandlers(NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
@@ -324,12 +325,13 @@ func (sct *SmartContractTest) prepareBlockchain(
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-	return bc, dao
+	return bc, dao, sf
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
 	dao blockdao.BlockDAO,
+	sf factory.Factory,
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
@@ -357,7 +359,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.GetFactory().NewWorkingSet()
+		ws, err := sf.NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -377,13 +379,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, dao := sct.prepareBlockchain(ctx, r)
+	bc, dao, sf := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, dao, r)
+	contractAddresses := sct.deployContracts(bc, dao, sf, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -480,16 +482,16 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
+		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		require.NoError(err)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			dao,
-			blockchain.DefaultStateFactoryOption(),
+			sf,
 			blockchain.RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 		bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu))
-		sf := bc.GetFactory()
-		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc, hu))
 
 		require.NoError(bc.Start(ctx))

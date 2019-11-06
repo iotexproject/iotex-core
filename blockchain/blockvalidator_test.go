@@ -96,7 +96,7 @@ func TestWrongNonce(t *testing.T) {
 	sf.AddActionHandlers(account.NewProtocol(hu))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption())
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -238,16 +238,18 @@ func TestWrongNonce(t *testing.T) {
 func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
+	sf.AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	val := &validator{sf: bc.GetFactory(), validatorAddr: ""}
+	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
@@ -308,9 +310,11 @@ func TestBlackListAddress(t *testing.T) {
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
+	sf.AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -321,7 +325,7 @@ func TestBlackListAddress(t *testing.T) {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
-	val := &validator{sf: bc.GetFactory(), validatorAddr: "", senderBlackList: senderBlackList}
+	val := &validator{sf: sf, validatorAddr: "", senderBlackList: senderBlackList}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))

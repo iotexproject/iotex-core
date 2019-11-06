@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -45,15 +46,16 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	blkState := blockchain.InMemStateFactoryOption()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(&registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.GetFactory().AddActionHandlers(acc, exec)
+	sf.AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -119,15 +121,16 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	blkState := blockchain.InMemStateFactoryOption()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(&registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
 	exec := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.GetFactory().AddActionHandlers(acc, exec)
+	sf.AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -172,7 +175,9 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.NotNil(act)
 	cfg := config.Default
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blockchain.InMemStateFactoryOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	gs := NewGasStation(bc, config.Default.API)

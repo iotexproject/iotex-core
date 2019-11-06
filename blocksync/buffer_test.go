@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -37,10 +38,12 @@ func TestBlockBufferFlush(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -138,10 +141,12 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	registry := protocol.Registry{}
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)

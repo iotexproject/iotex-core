@@ -292,8 +292,9 @@ func main() {
 
 		for i := 0; i < numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
+			sf := svrs[i].ChainService(configs[i].Chain.ID).Factory()
 
-			stateHeights[i], err = chains[i].GetFactory().Height()
+			stateHeights[i], err = sf.Height()
 			if err != nil {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}

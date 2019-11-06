@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -175,10 +176,12 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	}
 
 	registry := protocol.Registry{}
+	sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.DefaultStateFactoryOption(),
+		sf,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
@@ -196,7 +199,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
+	sf.AddActionHandlers(acc, rewardingProtocol)
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
