@@ -327,23 +327,23 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		var desc string
 		switch errors.Cause(err) {
 		case action.ErrBalance:
-			desc = "invalid balance"
+			desc = "Invalid balance"
 		case action.ErrInsufficientBalanceForGas:
 			desc = "Insufficient balance for gas"
 		case action.ErrNonce:
-			desc = "invalid nonce"
+			desc = "Invalid nonce"
 		case action.ErrAddress:
-			desc = "blacklisted address"
+			desc = "Blacklisted address"
 		case action.ErrActPool:
-			desc = "invalid actpool"
+			desc = "Invalid actpool"
 		case action.ErrGasPrice:
-			desc = "invalid gas price"
+			desc = "Invalid gas price"
 		default:
-			desc = "unknown"
+			desc = "Unknown"
 		}
 		st := status.New(codes.Internal, err.Error())
 		v := &errdetails.BadRequest_FieldViolation{
-			Field:       "rejected action",
+			Field:       "Action rejected",
 			Description: desc,
 		}
 		br := &errdetails.BadRequest{}
