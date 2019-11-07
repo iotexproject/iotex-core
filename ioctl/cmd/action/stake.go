@@ -97,7 +97,7 @@ func bucketAction(function string, args []string) error {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	bytecode, err := stakeABI.Pack("function", bucketIndex, data)
+	bytecode, err := stakeABI.Pack(function, bucketIndex, data)
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}
