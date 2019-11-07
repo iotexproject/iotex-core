@@ -5,6 +5,7 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 	"strings"
 
@@ -22,8 +23,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// NativeStakingAddress stores native staking address as string
-const NativeStakingAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
+// MainnetStakingAddress stores native staking address as string
+const MainnetStakingAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
 
 var autoRestake bool
 var stakingContractAddress string
@@ -36,12 +37,14 @@ var StakeCmd = &cobra.Command{
 }
 
 func init() {
-	StakeCmd.AddCommand(stakeStakeCmd)
-	StakeCmd.AddCommand(stakeRestakeCmd)
-	StakeCmd.AddCommand(stakeStoreCmd)
+	StakeCmd.AddCommand(stakeCreateCmd)
+	StakeCmd.AddCommand(stakeAddCmd)
+	StakeCmd.AddCommand(stakeRenewCmd)
+	StakeCmd.AddCommand(stakeReleaseCmd)
+	StakeCmd.AddCommand(stakeWithdrawCmd)
 
 	StakeCmd.PersistentFlags().StringVarP(&stakingContractAddress, "staking-contract-address", "c",
-		NativeStakingAddress, "set staking contract address")
+		MainnetStakingAddress, "set staking contract address")
 	StakeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, "set endpoint for once")
 	StakeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -75,4 +78,29 @@ func parseStakeDuration(stakeDurationString string) (*big.Int, error) {
 	}
 
 	return stakeDuration, nil
+}
+
+func bucketAction(function string, args []string) error {
+	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
+	if !ok {
+		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
+	}
+
+	data := []byte{}
+	if len(args) == 2 {
+		data = make([]byte, 2*len([]byte(args[1])))
+		hex.Encode(data, []byte(args[1]))
+	}
+
+	contract, err := stakingContract()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+
+	bytecode, err := stakeABI.Pack(function, bucketIndex, data)
+	if err != nil {
+		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
+	}
+
+	return Execute(contract.String(), big.NewInt(0), bytecode)
 }

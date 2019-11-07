@@ -10,25 +10,25 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
-// stakeStakeCmd represents the stake stake command
-var stakeStakeCmd = &cobra.Command{
-	Use: "stake AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-stake] [-c ALIAS|CONTRACT_ADDRESS]" +
+// stakeCreateCmd represents the stake create command
+var stakeCreateCmd = &cobra.Command{
+	Use: "create AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-restake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Create pygg on IoTeX blockchain",
+	Short: "Create bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := stake(args)
+		err := create(args)
 		return output.PrintError(err)
 	},
 }
 
 func init() {
-	registerWriteCommand(stakeStakeCmd)
-	stakeStakeCmd.Flags().BoolVar(&autoRestake, "auto-restake", false, "auto restake without power decay")
+	registerWriteCommand(stakeCreateCmd)
+	stakeCreateCmd.Flags().BoolVar(&autoRestake, "auto-restake", false, "auto restake without power decay")
 }
 
-func stake(args []string) error {
+func create(args []string) error {
 	amount, err := util.StringToRau(args[0], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid IOTX amount", err)
