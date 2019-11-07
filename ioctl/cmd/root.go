@@ -36,16 +36,17 @@ func Execute() {
 	}
 }
 func init() {
-	RootCmd.AddCommand(account.AccountCmd)
-	RootCmd.AddCommand(action.ActionCmd)
-	RootCmd.AddCommand(alias.AliasCmd)
-	RootCmd.AddCommand(bc.BCCmd)
 	RootCmd.AddCommand(config.ConfigCmd)
-	RootCmd.AddCommand(node.NodeCmd)
-	RootCmd.AddCommand(update.UpdateCmd)
-	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(account.AccountCmd)
+	RootCmd.AddCommand(alias.AliasCmd)
+	RootCmd.AddCommand(action.ActionCmd)
 	RootCmd.AddCommand(action.Xrc20Cmd)
 	RootCmd.AddCommand(action.StakeCmd)
+	RootCmd.AddCommand(bc.BCCmd)
+	RootCmd.AddCommand(node.NodeCmd)
+	RootCmd.AddCommand(version.VersionCmd)
+	RootCmd.AddCommand(update.UpdateCmd)
+
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		"output format")
 }
