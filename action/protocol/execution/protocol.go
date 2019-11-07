@@ -53,7 +53,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, nil
 	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.hu)
-
+	
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")
 	}
