@@ -23,8 +23,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -76,6 +78,64 @@ type Protocol interface {
 type lifeLongDelegatesProtocol struct {
 	delegates state.CandidateList
 	addr      address.Address
+}
+
+// NewProtocol instantiates a rewarding protocol instance.
+func NewProtocol(
+	cfg config.Config,
+	cm protocol.ChainManager,
+	electionCommittee committee.Committee,
+	getBlockTimeFunc GetBlockTime,
+	getBlockTipHeightFunc GetTipBlockTime,
+	rp *rolldpos.Protocol) (Protocol, error) {
+	genesisConfig := cfg.Genesis
+	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
+		var pollProtocol Protocol
+		var err error
+		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
+			var governance Protocol
+			if governance, err = NewGovernanceChainCommitteeProtocol(
+				cm,
+				electionCommittee,
+				genesisConfig.GravityChainStartHeight,
+				getBlockTimeFunc,
+				rp.GetEpochHeight,
+				rp.GetEpochNum,
+				genesisConfig.NumCandidateDelegates,
+				genesisConfig.NumDelegates,
+				cfg.Chain.PollInitialCandidatesInterval,
+			); err != nil {
+				return nil, err
+			}
+			scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+			if !ok {
+				return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+			}
+			if pollProtocol, err = NewStakingCommittee(
+				config.NewHeightUpgrade(cfg),
+				electionCommittee,
+				governance,
+				cm,
+				getBlockTipHeightFunc,
+				rp.GetEpochHeight,
+				rp.GetEpochNum,
+				cfg.Genesis.NativeStakingContractAddress,
+				cfg.Genesis.NativeStakingContractCode,
+				rp,
+				scoreThreshold,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			delegates := genesisConfig.Delegates
+			if uint64(len(delegates)) < genesisConfig.NumDelegates {
+				return nil, errors.New("invalid delegate address in genesis block")
+			}
+			pollProtocol = NewLifeLongDelegatesProtocol(delegates)
+		}
+		return pollProtocol, nil
+	}
+	return nil, nil
 }
 
 // NewLifeLongDelegatesProtocol creates a poll protocol with life long delegates

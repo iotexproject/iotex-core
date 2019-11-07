@@ -8,6 +8,7 @@ package chainservice
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -18,6 +19,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
@@ -50,7 +55,8 @@ type ChainService struct {
 }
 
 type optionParams struct {
-	isTesting bool
+	isTesting  bool
+	isSubchain bool
 }
 
 // Option sets ChainService construction parameter.
@@ -60,6 +66,14 @@ type Option func(ops *optionParams) error
 func WithTesting() Option {
 	return func(ops *optionParams) error {
 		ops.isTesting = true
+		return nil
+	}
+}
+
+//WithSubChain is an option to create subChainService
+func WithSubChain() Option {
+	return func(ops *optionParams) error {
+		ops.isSubchain = true
 		return nil
 	}
 }
@@ -213,8 +227,23 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	// Add action validators
+	actPool.
+		AddActionEnvelopeValidators(
+			protocol.NewGenericValidator(chain),
+		)
+	chain.Validator().
+		AddActionEnvelopeValidators(
+			protocol.NewGenericValidator(chain),
+		)
+	if !ops.isSubchain {
+		chain.Validator().
+			SetActPool(
+				actPool,
+			)
+	}
 
-	return &ChainService{
+	cs := &ChainService{
 		actpool:           actPool,
 		chain:             chain,
 		blocksync:         bs,
@@ -224,7 +253,12 @@ func New(
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          &registry,
-	}, nil
+	}
+	// Install protocols
+	if err := cs.registerDefaultProtocols(cfg); err != nil {
+		return nil, err
+	}
+	return cs, nil
 }
 
 // Start starts the server
@@ -352,18 +386,8 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
-// ElectionCommittee returns the election committee
-func (cs *ChainService) ElectionCommittee() committee.Committee {
-	return cs.electionCommittee
-}
-
-// RollDPoSProtocol returns the roll dpos protocol
-func (cs *ChainService) RollDPoSProtocol() *rolldpos.Protocol {
-	return cs.rDPoSProtocol
-}
-
-// RegisterProtocol register a protocol
-func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
+// registerProtocol register a protocol
+func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 	if err := cs.registry.Register(id, p); err != nil {
 		return err
 	}
@@ -375,3 +399,55 @@ func (cs *ChainService) RegisterProtocol(id string, p protocol.Protocol) error {
 
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
+
+// registerDefaultProtocols registers default protocol into chainservice's registry
+func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) {
+	hu := config.NewHeightUpgrade(cfg)
+	accountProtocol := account.NewProtocol(hu)
+	if err = cs.registerProtocol(account.ProtocolID, accountProtocol); err != nil {
+		return
+	}
+	if err = cs.registerProtocol(rolldpos.ProtocolID, cs.rDPoSProtocol); err != nil {
+		return
+	}
+	pollProtocol, err := poll.NewProtocol(
+		cfg,
+		cs.chain,
+		cs.electionCommittee,
+		func(height uint64) (time.Time, error) {
+			header, err := cs.chain.BlockHeaderByHeight(height)
+			if err != nil {
+				return time.Now(), errors.Wrapf(
+					err, "error when getting the block at height: %d",
+					height,
+				)
+			}
+			return header.Timestamp(), nil
+		},
+		func() (time.Time, error) {
+			header, err := cs.chain.BlockHeaderByHeight(cs.chain.TipHeight())
+			if err != nil {
+				return time.Now(), errors.Wrapf(
+					err, "error when getting the block at height: %d",
+					cs.chain.TipHeight(),
+				)
+			}
+			return header.Timestamp(), nil
+		},
+		cs.rDPoSProtocol,
+	)
+	if err != nil {
+		return
+	}
+	if pollProtocol != nil {
+		if err = cs.registerProtocol(poll.ProtocolID, pollProtocol); err != nil {
+			return
+		}
+	}
+	executionProtocol := execution.NewProtocol(cs.chain, hu)
+	if err = cs.registerProtocol(execution.ProtocolID, executionProtocol); err != nil {
+		return
+	}
+	rewardingProtocol := rewarding.NewProtocol(cs.chain, cs.rDPoSProtocol)
+	return cs.registerProtocol(rewarding.ProtocolID, rewardingProtocol)
+}

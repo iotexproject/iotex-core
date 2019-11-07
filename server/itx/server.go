@@ -9,22 +9,14 @@ package itx
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"net/http"
 	"net/http/pprof"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/dispatcher"
@@ -77,24 +69,6 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
-	}
-
-	// Add action validators
-	cs.ActionPool().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	cs.Blockchain().Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	cs.Blockchain().Validator().
-		SetActPool(
-			cs.ActionPool(),
-		)
-	// Install protocols
-	if err := registerDefaultProtocols(cs, cfg); err != nil {
-		return nil, err
 	}
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	chains[cs.ChainID()] = cs
@@ -157,19 +131,9 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
+	opts = append(opts, chainservice.WithSubChain())
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
-		return err
-	}
-	cs.ActionPool().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	cs.Blockchain().Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.Blockchain()),
-		)
-	if err := registerDefaultProtocols(cs, cfg); err != nil {
 		return err
 	}
 	s.chainservices[cs.ChainID()] = cs
@@ -260,90 +224,4 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	if err := svr.Stop(ctx); err != nil {
 		log.L().Panic("Failed to stop server.", zap.Error(err))
 	}
-}
-
-func registerDefaultProtocols(cs *chainservice.ChainService, cfg config.Config) (err error) {
-	genesisConfig := cfg.Genesis
-	hu := config.NewHeightUpgrade(cfg)
-	accountProtocol := account.NewProtocol(hu)
-	if err = cs.RegisterProtocol(account.ProtocolID, accountProtocol); err != nil {
-		return
-	}
-	rolldposProtocol := cs.RollDPoSProtocol()
-	if err = cs.RegisterProtocol(rolldpos.ProtocolID, rolldposProtocol); err != nil {
-		return
-	}
-	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
-		electionCommittee := cs.ElectionCommittee()
-		var pollProtocol poll.Protocol
-		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
-			var governance poll.Protocol
-			if governance, err = poll.NewGovernanceChainCommitteeProtocol(
-				cs.Blockchain(),
-				electionCommittee,
-				genesisConfig.GravityChainStartHeight,
-				func(height uint64) (time.Time, error) {
-					header, err := cs.Blockchain().BlockHeaderByHeight(height)
-					if err != nil {
-						return time.Now(), errors.Wrapf(
-							err, "error when getting the block at height: %d",
-							height,
-						)
-					}
-					return header.Timestamp(), nil
-				},
-				rolldposProtocol.GetEpochHeight,
-				rolldposProtocol.GetEpochNum,
-				genesisConfig.NumCandidateDelegates,
-				genesisConfig.NumDelegates,
-				cfg.Chain.PollInitialCandidatesInterval,
-			); err != nil {
-				return
-			}
-			scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
-			if !ok {
-				return errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
-			}
-			if pollProtocol, err = poll.NewStakingCommittee(
-				config.NewHeightUpgrade(cfg),
-				electionCommittee,
-				governance,
-				cs.Blockchain(),
-				func() (time.Time, error) {
-					chain := cs.Blockchain()
-					header, err := chain.BlockHeaderByHeight(chain.TipHeight())
-					if err != nil {
-						return time.Now(), errors.Wrapf(
-							err, "error when getting the block at height: %d",
-							chain.TipHeight(),
-						)
-					}
-					return header.Timestamp(), nil
-				},
-				rolldposProtocol.GetEpochHeight,
-				rolldposProtocol.GetEpochNum,
-				cfg.Genesis.NativeStakingContractAddress,
-				cfg.Genesis.NativeStakingContractCode,
-				rolldposProtocol,
-				scoreThreshold,
-			); err != nil {
-				return
-			}
-		} else {
-			delegates := genesisConfig.Delegates
-			if uint64(len(delegates)) < genesisConfig.NumDelegates {
-				return errors.New("invalid delegate address in genesis block")
-			}
-			pollProtocol = poll.NewLifeLongDelegatesProtocol(delegates)
-		}
-		if err = cs.RegisterProtocol(poll.ProtocolID, pollProtocol); err != nil {
-			return
-		}
-	}
-	executionProtocol := execution.NewProtocol(cs.Blockchain(), hu)
-	if err = cs.RegisterProtocol(execution.ProtocolID, executionProtocol); err != nil {
-		return
-	}
-	rewardingProtocol := rewarding.NewProtocol(cs.Blockchain(), rolldposProtocol)
-	return cs.RegisterProtocol(rewarding.ProtocolID, rewardingProtocol)
 }
