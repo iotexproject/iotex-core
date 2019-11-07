@@ -286,7 +286,7 @@ func TestBlockDAO(t *testing.T) {
 			}
 		}
 		// cannot delete genesis block
-		require.Equal("cannot delete genesis block", dao.DeleteTipBlock().Error())
+		require.Error(dao.DeleteTipBlock())
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
