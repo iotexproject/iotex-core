@@ -123,18 +123,15 @@ func (s *Server) Stop(ctx context.Context) error {
 }
 
 // NewSubChainService creates a new chain service in this server.
-func (s *Server) NewSubChainService(cfg config.Config) error {
+func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.newSubChainService(cfg)
+	return s.newSubChainService(cfg, opts...)
 }
 
-func (s *Server) newSubChainService(cfg config.Config) error {
+func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
-	var opts []chainservice.Option
-	opts = []chainservice.Option{
-		chainservice.WithSubChain(),
-	}
+	opts = append(opts, chainservice.WithSubChain())
 	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
 	if err != nil {
 		return err

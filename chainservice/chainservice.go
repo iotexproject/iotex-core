@@ -227,6 +227,21 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	// Add action validators
+	actPool.
+		AddActionEnvelopeValidators(
+			protocol.NewGenericValidator(chain),
+		)
+	chain.Validator().
+		AddActionEnvelopeValidators(
+			protocol.NewGenericValidator(chain),
+		)
+	if !ops.isSubchain {
+		chain.Validator().
+			SetActPool(
+				actPool,
+			)
+	}
 
 	cs := &ChainService{
 		actpool:           actPool,
@@ -238,21 +253,6 @@ func New(
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          &registry,
-	}
-	// Add action validators
-	cs.actpool.
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.chain),
-		)
-	cs.chain.Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(cs.chain),
-		)
-	if !ops.isSubchain {
-		cs.chain.Validator().
-			SetActPool(
-				cs.actpool,
-			)
 	}
 	// Install protocols
 	if err := cs.registerDefaultProtocols(cfg); err != nil {
