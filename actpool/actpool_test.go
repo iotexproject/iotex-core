@@ -90,16 +90,16 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	bc.Factory().AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	validator := ap.actionEnvelopeValidators[0]
 	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{})
 	// Case I: Insufficient gas
@@ -123,7 +123,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(prevTsf)
 	require.NoError(err)
-	sf := bc.GetFactory()
+	sf := bc.Factory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -158,9 +158,9 @@ func TestActPool_AddActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2, big.NewInt(10))
+	_, err = bc.Factory().CreateState(addr2, big.NewInt(10))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -168,7 +168,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	hu := config.NewHeightUpgrade(config.Default)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
@@ -331,16 +331,16 @@ func TestActPool_PickActs(t *testing.T) {
 			blockchain.InMemDaoOption(),
 		)
 		require.NoError(bc.Start(context.Background()))
-		_, err := bc.CreateState(addr1, big.NewInt(100))
+		_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 		require.NoError(err)
-		_, err = bc.CreateState(addr2, big.NewInt(10))
+		_, err = bc.Factory().CreateState(addr2, big.NewInt(10))
 		require.NoError(err)
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg, EnableExperimentalActions())
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		hu := config.NewHeightUpgrade(config.Default)
 		ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
@@ -415,9 +415,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	hu := config.NewHeightUpgrade(config.Default)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -425,7 +425,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -448,7 +448,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1])
-	sf := bc.GetFactory()
+	sf := bc.Factory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -475,13 +475,13 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	hu := config.NewHeightUpgrade(config.Default)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2, big.NewInt(200))
+	_, err = bc.Factory().CreateState(addr2, big.NewInt(200))
 	require.NoError(err)
-	_, err = bc.CreateState(addr3, big.NewInt(300))
+	_, err = bc.Factory().CreateState(addr3, big.NewInt(300))
 	require.NoError(err)
 
 	apConfig := getActPoolCfg()
@@ -489,13 +489,13 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	ap1.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	Ap2, err := NewActPool(bc, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	ap2.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
 	// Tsfs to be added to ap1
@@ -602,7 +602,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs := ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	sf := bc.GetFactory()
+	sf := bc.Factory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -763,9 +763,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
-	_, err = bc.CreateState(addr4, big.NewInt(10))
+	_, err = bc.Factory().CreateState(addr4, big.NewInt(10))
 	require.NoError(err)
-	_, err = bc.CreateState(addr5, big.NewInt(20))
+	_, err = bc.Factory().CreateState(addr5, big.NewInt(20))
 	require.NoError(err)
 	tsf21, err := testutil.SignedTransfer(addr5, priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -858,7 +858,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -866,7 +866,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	hu := config.NewHeightUpgrade(config.Default)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
@@ -907,9 +907,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2, big.NewInt(100))
+	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -917,7 +917,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	hu := config.NewHeightUpgrade(config.Default)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
@@ -953,9 +953,9 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2, big.NewInt(100))
+	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -963,7 +963,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	hu := config.NewHeightUpgrade(config.Default)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 
@@ -1000,9 +1000,9 @@ func TestActPool_GetActionByHash(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.CreateState(addr2, big.NewInt(100))
+	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1054,9 +1054,9 @@ func TestActPool_GetSize(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	hu := config.NewHeightUpgrade(config.Default)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.CreateState(addr1, big.NewInt(100))
+	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1064,7 +1064,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
 	require.Zero(ap.GetSize())
 	require.Zero(ap.GetGasSize())
@@ -1083,7 +1083,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(ap.Add(tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
-	sf := bc.GetFactory()
+	sf := bc.Factory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -1137,7 +1137,7 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedNonce, err := ap.bc.Nonce(addr)
+	committedNonce, err := ap.bc.Factory().Nonce(addr)
 	pendingNonce := committedNonce + 1
 	return pendingNonce, err
 }
@@ -1147,7 +1147,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	return ap.bc.Balance(addr)
+	return ap.bc.Factory().Balance(addr)
 }
 
 func getActPoolCfg() config.ActPool {

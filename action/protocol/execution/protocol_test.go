@@ -211,7 +211,7 @@ func runExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	nonce, err := bc.Nonce(ecfg.Executor().String())
+	nonce, err := bc.Factory().Nonce(ecfg.Executor().String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,9 +304,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu), reward)
-	sf := bc.GetFactory()
+	sf := bc.Factory()
 	r.NotNil(sf)
 	sf.AddActionHandlers(NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
@@ -357,7 +357,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.GetFactory().NewWorkingSet()
+		ws, err := bc.Factory().NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -424,7 +424,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			balance, err := bc.Balance(account)
+			balance, err := bc.Factory().Balance(account)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -486,9 +486,9 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.RegistryOption(&registry),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu))
-		sf := bc.GetFactory()
+		sf := bc.Factory()
 		require.NotNil(sf)
 		sf.AddActionHandlers(NewProtocol(bc, hu))
 

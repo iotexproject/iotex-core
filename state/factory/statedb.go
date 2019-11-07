@@ -32,6 +32,7 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
+	cfg                config.Config
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
@@ -75,6 +76,7 @@ func InMemStateDBOption() StateDBOption {
 // NewStateDB creates a new state db
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
+		cfg:                cfg,
 		currentChainHeight: 0,
 	}
 
@@ -109,6 +111,11 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	return sdb.dao.Stop(ctx)
 }
 
+// CreateState adds a new account with initial balance to the factory
+func (sdb *stateDB) CreateState(addr string, init *big.Int) (*state.Account, error) {
+	return createState(sdb, sdb.cfg.Genesis.BlockGasLimit, addr, init)
+}
+
 // AddActionHandlers adds action handlers to the state factory
 func (sdb *stateDB) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
 	sdb.mutex.Lock()
@@ -123,10 +130,12 @@ func (sdb *stateDB) AddActionHandlers(actionHandlers ...protocol.ActionHandler) 
 func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
+
 	account, err := sdb.accountState(addr)
 	if err != nil {
 		return nil, err
 	}
+
 	return account.Balance, nil
 }
 
@@ -134,10 +143,12 @@ func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
 func (sdb *stateDB) Nonce(addr string) (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
+
 	account, err := sdb.accountState(addr)
 	if err != nil {
 		return 0, err
 	}
+
 	return account.Nonce, nil
 }
 

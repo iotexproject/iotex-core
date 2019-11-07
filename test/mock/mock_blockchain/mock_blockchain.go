@@ -12,9 +12,9 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
 	reflect "reflect"
 	time "time"
 )
@@ -68,51 +68,6 @@ func (m *MockBlockchain) Stop(arg0 context.Context) error {
 func (mr *MockBlockchainMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop), arg0)
-}
-
-// Balance mocks base method
-func (m *MockBlockchain) Balance(addr string) (*big.Int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Balance", addr)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Balance indicates an expected call of Balance
-func (mr *MockBlockchainMockRecorder) Balance(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockBlockchain)(nil).Balance), addr)
-}
-
-// Nonce mocks base method
-func (m *MockBlockchain) Nonce(addr string) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Nonce", addr)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockBlockchainMockRecorder) Nonce(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockBlockchain)(nil).Nonce), addr)
-}
-
-// CreateState mocks base method
-func (m *MockBlockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateState", addr, init)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateState indicates an expected call of CreateState
-func (mr *MockBlockchainMockRecorder) CreateState(addr, init interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockBlockchain)(nil).CreateState), addr, init)
 }
 
 // CandidatesByHeight mocks base method
@@ -266,18 +221,32 @@ func (mr *MockBlockchainMockRecorder) BlockFooterByHash(h interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHash), h)
 }
 
-// GetFactory mocks base method
-func (m *MockBlockchain) GetFactory() factory.Factory {
+// Factory mocks base method
+func (m *MockBlockchain) Factory() factory.Factory {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFactory")
+	ret := m.ctrl.Call(m, "Factory")
 	ret0, _ := ret[0].(factory.Factory)
 	return ret0
 }
 
-// GetFactory indicates an expected call of GetFactory
-func (mr *MockBlockchainMockRecorder) GetFactory() *gomock.Call {
+// Factory indicates an expected call of Factory
+func (mr *MockBlockchainMockRecorder) Factory() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFactory", reflect.TypeOf((*MockBlockchain)(nil).GetFactory))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Factory", reflect.TypeOf((*MockBlockchain)(nil).Factory))
+}
+
+// BlockDAO mocks base method
+func (m *MockBlockchain) BlockDAO() blockdao.BlockDAO {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BlockDAO")
+	ret0, _ := ret[0].(blockdao.BlockDAO)
+	return ret0
+}
+
+// BlockDAO indicates an expected call of BlockDAO
+func (mr *MockBlockchainMockRecorder) BlockDAO() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDAO", reflect.TypeOf((*MockBlockchain)(nil).BlockDAO))
 }
 
 // ChainID mocks base method
@@ -334,21 +303,6 @@ func (m *MockBlockchain) TipHeight() uint64 {
 func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockchain)(nil).TipHeight))
-}
-
-// StateByAddr mocks base method
-func (m *MockBlockchain) StateByAddr(address string) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateByAddr", address)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateByAddr indicates an expected call of StateByAddr
-func (mr *MockBlockchainMockRecorder) StateByAddr(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockBlockchain)(nil).StateByAddr), address)
 }
 
 // RecoverChainAndState mocks base method

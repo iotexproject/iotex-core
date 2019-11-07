@@ -44,7 +44,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
