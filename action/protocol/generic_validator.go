@@ -15,16 +15,20 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 )
 
-// GenericValidator is the validator for generic action verification
-type GenericValidator struct {
-	mu sync.RWMutex
-	cm ChainManager
-}
+type (
+	// Nonce defines a function to return the nonce of a given address
+	Nonce func(string) (uint64, error)
+	// GenericValidator is the validator for generic action verification
+	GenericValidator struct {
+		mu    sync.RWMutex
+		nonce Nonce
+	}
+)
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(cm ChainManager) *GenericValidator {
+func NewGenericValidator(nonce Nonce) *GenericValidator {
 	return &GenericValidator{
-		cm: cm,
+		nonce: nonce,
 	}
 }
 
@@ -41,7 +45,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedNonce, err := v.cm.Nonce(vaCtx.Caller.String())
+	confirmedNonce, err := v.nonce(vaCtx.Caller.String())
 	if err != nil {
 		return errors.Wrapf(err, "invalid nonce value of account %s", vaCtx.Caller.String())
 	}

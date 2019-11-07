@@ -230,11 +230,11 @@ func New(
 	// Add action validators
 	actPool.
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain),
+			protocol.NewGenericValidator(chain.Factory().Nonce),
 		)
 	chain.Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain),
+			protocol.NewGenericValidator(chain.Factory().Nonce),
 		)
 	if !ops.isSubchain {
 		chain.Validator().
@@ -391,7 +391,8 @@ func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 	if err := cs.registry.Register(id, p); err != nil {
 		return err
 	}
-	cs.chain.GetFactory().AddActionHandlers(p)
+
+	cs.chain.Factory().AddActionHandlers(p)
 	cs.actpool.AddActionValidators(p)
 	cs.chain.Validator().AddActionValidators(p)
 	return nil

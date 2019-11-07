@@ -32,6 +32,7 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
+	cfg                config.Config
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
@@ -75,6 +76,7 @@ func InMemStateDBOption() StateDBOption {
 // NewStateDB creates a new state db
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
+		cfg:                cfg,
 		currentChainHeight: 0,
 	}
 
@@ -107,6 +109,11 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	return sdb.dao.Stop(ctx)
+}
+
+// CreateState adds a new account with initial balance to the factory
+func (sdb *stateDB) CreateState(addr string, init *big.Int) (*state.Account, error) {
+	return createState(sdb, sdb.cfg.Genesis.BlockGasLimit, addr, init)
 }
 
 // AddActionHandlers adds action handlers to the state factory

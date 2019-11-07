@@ -178,7 +178,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -237,7 +237,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
 	chain1.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -259,7 +259,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry2),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
 	chain2.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -331,7 +331,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
 	chain1.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -352,7 +352,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
 	chain2.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)

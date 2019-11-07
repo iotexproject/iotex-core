@@ -261,7 +261,7 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	confirmedNonce, err := ap.bc.Nonce(addr)
+	confirmedNonce, err := ap.bc.Factory().Nonce(addr)
 	pendingNonce := confirmedNonce + 1
 	return pendingNonce, err
 }
@@ -329,7 +329,7 @@ func (ap *actPool) GetGasCapacity() uint64 {
 // private functions
 //======================================
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-	confirmedNonce, err := ap.bc.Nonce(sender)
+	confirmedNonce, err := ap.bc.Factory().Nonce(sender)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
@@ -344,7 +344,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
 		// Initialize balance for new account
-		balance, err := ap.bc.Balance(sender)
+		balance, err := ap.bc.Factory().Balance(sender)
 		if err != nil {
 			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
@@ -414,7 +414,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		confirmedNonce, err := ap.bc.Nonce(from)
+		confirmedNonce, err := ap.bc.Factory().Nonce(from)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
@@ -478,7 +478,7 @@ func (ap *actPool) reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		balance, err := ap.bc.Balance(from)
+		balance, err := ap.bc.Factory().Balance(from)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
@@ -486,7 +486,7 @@ func (ap *actPool) reset() {
 		queue.SetPendingBalance(balance)
 
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce, err := ap.bc.Nonce(from)
+		confirmedNonce, err := ap.bc.Factory().Nonce(from)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return

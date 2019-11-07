@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -134,7 +135,9 @@ func TestActQueuePendingActs(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 	bc := mock_blockchain.NewMockBlockchain(ctrl)
-	bc.EXPECT().Nonce(gomock.Any()).Return(uint64(1), nil).Times(1)
+	sf := mock_factory.NewMockFactory(ctrl)
+	sf.EXPECT().Nonce(gomock.Any()).Return(uint64(1), nil).Times(1)
+	bc.EXPECT().Factory().Return(sf).Times(1)
 	ap, err := NewActPool(bc, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), "").(*actQueue)

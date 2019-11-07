@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -50,6 +51,8 @@ type (
 		// Accounts
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
+		// CreateState adds a new account with initial balance to the factory
+		CreateState(addr string, init *big.Int) (*state.Account, error)
 		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
@@ -67,6 +70,7 @@ type (
 	factory struct {
 		lifecycle          lifecycle.Lifecycle
 		mutex              sync.RWMutex
+		cfg                config.Config
 		currentChainHeight uint64
 		accountTrie        trie.Trie                // global state trie
 		dao                db.KVStore               // the underlying DB for account/contract storage
@@ -113,6 +117,7 @@ func InMemTrieOption() Option {
 // NewFactory creates a new state factory
 func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
+		cfg:                cfg,
 		currentChainHeight: 0,
 	}
 
@@ -171,6 +176,50 @@ func (sf *factory) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
 	defer sf.mutex.Unlock()
 
 	sf.actionHandlers = append(sf.actionHandlers, actionHandlers...)
+}
+
+func createState(f Factory, gasLimit uint64, addr string, init *big.Int) (*state.Account, error) {
+	if f == nil {
+		return nil, errors.New("empty state factory")
+	}
+
+	ws, err := f.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
+	}
+
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
+	}
+
+	callerAddr, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			// Registry:   bc.registry,
+		})
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
+	}
+
+	if err = f.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
+	}
+
+	return account, nil
+}
+
+// CreateState adds a new account with initial balance to the factory
+func (sf *factory) CreateState(addr string, init *big.Int) (*state.Account, error) {
+	return createState(sf, sf.cfg.Genesis.BlockGasLimit, addr, init)
 }
 
 //======================================

@@ -54,10 +54,6 @@ type ChainManager interface {
 	ChainID() uint32
 	// GetHashByHeight returns Block's hash by height
 	GetHashByHeight(height uint64) (hash.Hash256, error)
-	// StateByAddr returns account of a given address
-	StateByAddr(address string) (*state.Account, error)
-	// Nonce returns the nonce if the account exists
-	Nonce(addr string) (uint64, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
