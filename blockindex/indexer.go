@@ -47,7 +47,7 @@ type (
 		Stop(context.Context) error
 		Commit() error
 		PutBlock(*block.Block) error
-		DeleteBlock(*block.Block) error
+		DeleteTipBlock(*block.Block) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -162,7 +162,7 @@ func (x *blockIndexer) PutBlock(blk *block.Block) error {
 }
 
 // DeleteBlock deletes a block's index
-func (x *blockIndexer) DeleteBlock(blk *block.Block) error {
+func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
