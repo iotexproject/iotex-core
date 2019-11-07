@@ -11,9 +11,9 @@ import (
 
 // stakeRenewCmd represents the stake renew command
 var stakeRenewCmd = &cobra.Command{
-	Use: "restake BUCKET_INDEX STAKE_DURATION [DATA] [--auto-restake] [-c ALIAS|CONTRACT_ADDRESS]" +
+	Use: "renew BUCKET_INDEX STAKE_DURATION [DATA] [--auto-restake] [-c ALIAS|CONTRACT_ADDRESS]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Restake bucket on IoTeX blockchain",
+	Short: "Renew bucket on IoTeX blockchain",
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
