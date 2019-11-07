@@ -1,6 +1,5 @@
 #!/bin/bash
 
-rm -rf ./test/mock
 mkdir -p ./test/mock
 
 mkdir -p ./test/mock/mock_dispatcher
@@ -19,6 +18,7 @@ mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
 mkdir -p ./test/mock/mock_blocksync
 mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -source=./blocksync/blocksync.go \
+        -self_package=github.com/iotexproject/iotex-core/blocksync \
         -package=mock_blocksync \
         BlockSync
 
