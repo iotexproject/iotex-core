@@ -5,6 +5,7 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 	"strings"
 
@@ -77,4 +78,29 @@ func parseStakeDuration(stakeDurationString string) (*big.Int, error) {
 	}
 
 	return stakeDuration, nil
+}
+
+func bucketAction(function string, args []string) error {
+	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
+	if !ok {
+		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
+	}
+
+	data := []byte{}
+	if len(args) == 2 {
+		data = make([]byte, 2*len([]byte(args[1])))
+		hex.Encode(data, []byte(args[1]))
+	}
+
+	contract, err := stakingContract()
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+
+	bytecode, err := stakeABI.Pack("function", bucketIndex, data)
+	if err != nil {
+		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
+	}
+
+	return Execute(contract.String(), big.NewInt(0), bytecode)
 }
