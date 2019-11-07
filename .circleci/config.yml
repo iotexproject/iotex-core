@@ -15,14 +15,15 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
       - run: go test -run=XXX -bench=. $(go list ./crypto)
       - run: make minicluster
-                            
+
   build_test_docker:
     docker:
-      - image: iotex/iotex-core-ci:latest
+      - image: circleci/golang:1.13.4
     working_directory: ~/apps/iotex-core
     resource_class: large
     steps:
       - checkout
+      - run: go get -u golang.org/x/lint/golint
       - run: golint -set_exit_status $(go list ./... | grep -v /vendor/ | grep -v /explorer/idl/ | grep -v /api/idl/)
       - run: ./go.test.sh
 #       - run: go test -v -p 4 ./... |grep -v vendor 
@@ -39,10 +40,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.12.5
+          name: install golang 1.13.4
           command: |
-            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
+            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -72,11 +73,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.12.5
+          name: clean go 1.9 update golang 1.13.4
           command: |
-            wget https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.12.5.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.13.4.linux-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -92,7 +93,7 @@ jobs:
             ./go.test.sh
             bash <(curl -s https://codecov.io/bash)
             go test -run=XXX -bench=. $(go list ./crypto)
-            make minicluster          
+            make minicluster
 ######################################################################
   nightly_build_docker:
     docker:
@@ -116,7 +117,7 @@ jobs:
       - run: cd ioctl/ && ./buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run: 
-          name: build bin put s3 (unstable) or github (release)        
+          name: build bin put s3 (unstable) or github (release)
           command: |
             if [ "${VERSION}" ]; then
                 echo "Put bin to github release ${VERSION}"
@@ -141,14 +142,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.12.5
+          name: install golang 1.13.4
           command: |
-            curl -o go1.12.5.darwin-amd64.tar.gz https://dl.google.com/go/go1.12.5.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.12.5.darwin-amd64.tar.gz
-            rm go1.12.5.darwin-amd64.tar.gz
+            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
+            rm go1.13.4.darwin-amd64.tar.gz
       - restore_cache:
           keys:
-            - go-mod-v1-{{ checksum "go.sum" }} 
+            - go-mod-v1-{{ checksum "go.sum" }}
       - run: 
           name: go mod
           command: |

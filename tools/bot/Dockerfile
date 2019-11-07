@@ -1,4 +1,4 @@
-FROM golang:1.12.5-stretch
+FROM golang:1.13.4-stretch
 
 WORKDIR apps/iotex-bot
 
