@@ -136,9 +136,9 @@ type Blockchain interface {
 	SetValidator(val Validator)
 
 	// For smart contract operations
-	// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+	// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 	// cause any state change
-	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
+	SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 
 	// AddSubscriber make you listen to every single produced block
 	AddSubscriber(BlockCreationSubscriber) error
@@ -627,15 +627,15 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 // internal functions
 //=====================================
 
-// ExecuteContractRead runs a read-only smart contract operation, this is done off the network since it does not
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
-func (bc *blockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
 	h := bc.TipHeight()
 	header, err := bc.BlockHeaderByHeight(h)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get block in ExecuteContractRead")
+		return nil, nil, errors.Wrap(err, "failed to get block in SimulateExecution")
 	}
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {

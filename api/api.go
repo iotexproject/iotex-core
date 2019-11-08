@@ -420,7 +420,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	retval, receipt, err := api.bc.ExecuteContractRead(callerAddr, sc)
+	retval, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1298,7 +1298,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		sc.Data(),
 	)
 
-	_, receipt, err := api.bc.ExecuteContractRead(callerAddr, sc)
+	_, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

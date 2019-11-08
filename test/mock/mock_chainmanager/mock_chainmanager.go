@@ -313,20 +313,20 @@ func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
 }
 
-// ExecuteContractRead mocks base method
-func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+// SimulateExecution mocks base method
+func (m *MockChainManager) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteContractRead", caller, ex)
+	ret := m.ctrl.Call(m, "SimulateExecution", caller, ex)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ExecuteContractRead indicates an expected call of ExecuteContractRead
-func (mr *MockChainManagerMockRecorder) ExecuteContractRead(caller, ex interface{}) *gomock.Call {
+// SimulateExecution indicates an expected call of SimulateExecution
+func (mr *MockChainManagerMockRecorder) SimulateExecution(caller, ex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockChainManager)(nil).ExecuteContractRead), caller, ex)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockChainManager)(nil).SimulateExecution), caller, ex)
 }
 
 // MockStateManager is a mock of StateManager interface

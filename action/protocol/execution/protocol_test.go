@@ -231,7 +231,7 @@ func runExecution(
 		if err != nil {
 			return nil, nil, err
 		}
-		return bc.ExecuteContractRead(addr, exec)
+		return bc.SimulateExecution(addr, exec)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
