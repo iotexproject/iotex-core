@@ -62,8 +62,8 @@ type ChainManager interface {
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
-	// ExecuteContractRead runs a read-only smart contract operation
-	ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
+	// SimulateExecution simulates a running of smart contract operation
+	SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
@@ -117,7 +117,7 @@ func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[str
 	return 0, nil, nil
 }
 
-// ExecuteContractRead runs a read-only smart contract operation
-func (m *MockChainManager) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+// SimulateExecution simulates a running of smart contract operation
+func (m *MockChainManager) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	return nil, nil, nil
 }

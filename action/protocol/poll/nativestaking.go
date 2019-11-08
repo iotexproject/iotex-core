@@ -127,7 +127,7 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket,
 	if err != nil {
 		return nil, err
 	}
-	data, _, err = ns.cm.ExecuteContractRead(dummyCaller, ex)
+	data, _, err = ns.cm.SimulateExecution(dummyCaller, ex)
 	if err != nil {
 		return nil, err
 	}

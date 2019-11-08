@@ -35,7 +35,6 @@ func (m *MockActionIterator) EXPECT() *MockActionIteratorMockRecorder {
 
 // Next mocks base method
 func (m *MockActionIterator) Next() (action.SealedEnvelope, bool) {
-	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
 	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(bool)
@@ -44,18 +43,15 @@ func (m *MockActionIterator) Next() (action.SealedEnvelope, bool) {
 
 // Next indicates an expected call of Next
 func (mr *MockActionIteratorMockRecorder) Next() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Next", reflect.TypeOf((*MockActionIterator)(nil).Next))
 }
 
 // PopAccount mocks base method
 func (m *MockActionIterator) PopAccount() {
-	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "PopAccount")
 }
 
 // PopAccount indicates an expected call of PopAccount
 func (mr *MockActionIteratorMockRecorder) PopAccount() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PopAccount", reflect.TypeOf((*MockActionIterator)(nil).PopAccount))
 }
