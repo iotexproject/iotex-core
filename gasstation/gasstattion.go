@@ -54,7 +54,7 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	}
 
 	for height := tip; height > endBlockHeight; height-- {
-		blk, err := gs.bc.GetBlockByHeight(height)
+		blk, err := gs.bc.BlockDAO().GetBlockByHeight(height)
 		if err != nil {
 			return gs.cfg.GasStation.DefaultGas, err
 		}

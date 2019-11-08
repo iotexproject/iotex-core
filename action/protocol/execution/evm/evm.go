@@ -111,7 +111,7 @@ func NewParams(
 // GetHashFn returns a GetHashFunc which retrieves hashes by number
 func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
 	return func(n uint64) common.Hash {
-		hash, err := stateDB.cm.GetHashByHeight(stateDB.blockHeight - n)
+		hash, err := stateDB.getBlockHash(stateDB.blockHeight - n)
 		if err != nil {
 			return common.BytesToHash(hash[:])
 		}
@@ -143,11 +143,11 @@ func ExecuteContract(
 	ctx context.Context,
 	sm protocol.StateManager,
 	execution *action.Execution,
-	cm protocol.ChainManager,
+	getBlockHash GetBlockHash,
 	hu config.HeightUpgrade,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(cm, sm, hu, raCtx.BlockHeight, execution.Hash())
+	stateDB := NewStateDBAdapter(getBlockHash, sm, hu, raCtx.BlockHeight, execution.Hash())
 	ps, err := NewParams(raCtx, execution, stateDB, hu)
 	if err != nil {
 		return nil, nil, err

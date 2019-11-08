@@ -237,21 +237,6 @@ func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockChainManager)(nil).ChainID))
 }
 
-// GetHashByHeight mocks base method
-func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHashByHeight indicates an expected call of GetHashByHeight
-func (mr *MockChainManagerMockRecorder) GetHashByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHashByHeight", reflect.TypeOf((*MockChainManager)(nil).GetHashByHeight), height)
-}
-
 // CandidatesByHeight mocks base method
 func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	m.ctrl.T.Helper()

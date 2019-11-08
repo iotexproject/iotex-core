@@ -714,7 +714,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.bc.GetBlockByHeight(test.blkNumber)
+			blk, err := svr.bc.BlockDAO().GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -1688,7 +1688,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}()
 
 	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
-	evm := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
+	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg))
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1726,7 +1726,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	}
 
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(execution.NewProtocol(bc, config.NewHeightUpgrade(config.Default)))
+	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(config.Default)))
 
 	return ap, nil
 }

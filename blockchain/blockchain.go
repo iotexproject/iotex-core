@@ -76,14 +76,6 @@ type Blockchain interface {
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
-	// GetHeightByHash returns Block's height by hash
-	GetHeightByHash(h hash.Hash256) (uint64, error)
-	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (hash.Hash256, error)
-	// GetBlockByHeight returns Block by height
-	GetBlockByHeight(height uint64) (*block.Block, error)
-	// GetBlockByHash returns Block by hash
-	GetBlockByHash(h hash.Hash256) (*block.Block, error)
 	// BlockHeaderByHeight return block header by height
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
 	// BlockHeaderByHash return block header by hash
@@ -94,6 +86,8 @@ type Blockchain interface {
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetFactory returns the state factory
 	Factory() factory.Factory
+	// BlockDAO returns the block dao
+	BlockDAO() blockdao.BlockDAO
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -298,6 +292,10 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blo
 	return chain
 }
 
+func (bc *blockchain) BlockDAO() blockdao.BlockDAO {
+	return bc.dao
+}
+
 func (bc *blockchain) ChainID() uint32 {
 	return atomic.LoadUint32(&bc.config.Chain.ID)
 }
@@ -403,26 +401,6 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 		produce[blk.ProducerAddress()]++
 	}
 	return numBlks, produce, nil
-}
-
-// GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
-	return bc.dao.GetBlockHeight(h)
-}
-
-// GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	return bc.dao.GetBlockHash(height)
-}
-
-// GetBlockByHeight returns block from the blockchain hash by height
-func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
-	return bc.getBlockByHeight(height)
-}
-
-// GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
-	return bc.dao.GetBlock(h)
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
@@ -625,7 +603,7 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 		ctx,
 		ws,
 		ex,
-		bc,
+		bc.dao.GetBlockHash,
 		config.NewHeightUpgrade(bc.config),
 	)
 }
@@ -697,10 +675,6 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 	}
 }
 
-func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
-	return bc.dao.GetBlockByHeight(height)
-}
-
 func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
 	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
@@ -751,7 +725,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 	}
 
 	for i := stateHeight + 1; i <= bc.tipHeight; i++ {
-		blk, err := bc.getBlockByHeight(i)
+		blk, err := bc.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
@@ -1243,7 +1217,7 @@ func (bc *blockchain) createNativeStakingContract(ctx context.Context, ws factor
 	if err != nil {
 		return err
 	}
-	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc, hu)
+	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc.dao.GetBlockHash, hu)
 	if err != nil {
 		return err
 	}

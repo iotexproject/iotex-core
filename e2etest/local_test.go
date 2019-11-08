@@ -385,19 +385,19 @@ func TestLocalSync(t *testing.T) {
 	require.NotNil(svr.P2PAgent())
 	require.Nil(addTestingTsfBlocks(bc))
 
-	blk, err := bc.GetBlockByHeight(1)
+	blk, err := bc.BlockDAO().GetBlockByHeight(1)
 	require.Nil(err)
 	hash1 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(2)
+	blk, err = bc.BlockDAO().GetBlockByHeight(2)
 	require.Nil(err)
 	hash2 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(3)
+	blk, err = bc.BlockDAO().GetBlockByHeight(3)
 	require.Nil(err)
 	hash3 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(4)
+	blk, err = bc.BlockDAO().GetBlockByHeight(4)
 	require.Nil(err)
 	hash4 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(5)
+	blk, err = bc.BlockDAO().GetBlockByHeight(5)
 	require.Nil(err)
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
@@ -441,23 +441,23 @@ func TestLocalSync(t *testing.T) {
 	)
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
+		blk1, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
+		blk2, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
+		blk3, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
+		blk4, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
+		blk5, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
@@ -471,19 +471,19 @@ func TestLocalSync(t *testing.T) {
 	require.Nil(err)
 
 	// verify 4 received blocks
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
 	require.Nil(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
 	require.Nil(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
 	require.Nil(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
 	require.Nil(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")

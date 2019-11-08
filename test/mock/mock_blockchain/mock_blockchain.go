@@ -101,51 +101,6 @@ func (mr *MockBlockchainMockRecorder) ProductivityByEpoch(epochNum interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockBlockchain)(nil).ProductivityByEpoch), epochNum)
 }
 
-// GetHeightByHash mocks base method
-func (m *MockBlockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHeightByHash", h)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHeightByHash indicates an expected call of GetHeightByHash
-func (mr *MockBlockchainMockRecorder) GetHeightByHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHeightByHash", reflect.TypeOf((*MockBlockchain)(nil).GetHeightByHash), h)
-}
-
-// GetHashByHeight mocks base method
-func (m *MockBlockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHashByHeight indicates an expected call of GetHashByHeight
-func (mr *MockBlockchainMockRecorder) GetHashByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHashByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetHashByHeight), height)
-}
-
-// GetBlockByHeight mocks base method
-func (m *MockBlockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlockByHeight", height)
-	ret0, _ := ret[0].(*block.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockByHeight indicates an expected call of GetBlockByHeight
-func (mr *MockBlockchainMockRecorder) GetBlockByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHeight", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHeight), height)
-}
-
 // GetBlockByHash mocks base method
 func (m *MockBlockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
 	m.ctrl.T.Helper()

@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -30,7 +31,6 @@ func TestExecuteContractFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cm := mock_chainmanager.NewMockChainManager(ctrl)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	store := db.NewMemKVStore()
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
@@ -56,7 +56,9 @@ func TestExecuteContractFailure(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 
-	retval, receipt, err := ExecuteContract(ctx, sm, e, cm, config.NewHeightUpgrade(config.Default))
+	retval, receipt, err := ExecuteContract(ctx, sm, e, func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	}, config.NewHeightUpgrade(config.Default))
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -67,7 +69,6 @@ func TestConstantinople(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	cm := mock_chainmanager.NewMockChainManager(ctrl)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	store := db.NewMemKVStore()
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
@@ -126,7 +127,9 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 		raCtx.BlockHeight = e.height
-		stateDB := NewStateDBAdapter(cm, sm, hu, e.height, ex.Hash())
+		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		}, sm, hu, e.height, ex.Hash())
 		ps, err := NewParams(raCtx, ex, stateDB, hu)
 		require.NoError(err)
 

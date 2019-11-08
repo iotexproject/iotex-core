@@ -15,6 +15,13 @@ mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
         -package=mock_blockchain \
         Blockchain
 
+mkdir -p ./test/mock/mock_blockdao
+mockgen -destination=./test/mock/mock_blockdao/mock_blockdao.go  \
+        -source=./blockchain/blockdao/blockdao.go \
+        -imports =github.com/iotexproject/iotex-core/blockchain/blockdao \
+        -package=mock_blockdao \
+        BlockDAO
+
 mkdir -p ./test/mock/mock_blocksync
 mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
         -source=./blocksync/blocksync.go \

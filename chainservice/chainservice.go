@@ -445,7 +445,7 @@ func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) 
 			return
 		}
 	}
-	executionProtocol := execution.NewProtocol(cs.chain, hu)
+	executionProtocol := execution.NewProtocol(cs.chain.BlockDAO().GetBlockHash, hu)
 	if err = cs.registerProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}

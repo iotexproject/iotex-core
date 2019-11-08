@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -62,7 +63,9 @@ func TestNewBlockSyncer(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	mBc.EXPECT().BlockDAO().Return(dao).AnyTimes()
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -117,7 +120,9 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	mBc.EXPECT().BlockDAO().Return(dao).AnyTimes()
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -144,9 +149,11 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require.Nil(err)
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
+	chain.EXPECT().BlockDAO().Return(dao).Times(1)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
-	chain.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)

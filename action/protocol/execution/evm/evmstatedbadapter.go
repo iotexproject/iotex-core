@@ -40,9 +40,12 @@ type (
 	// preimageMap records the preimage of hash reported by VM
 	preimageMap map[common.Hash][]byte
 
+	// GetBlockHash gets block hash by height
+	GetBlockHash func(uint64) (hash.Hash256, error)
+
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		cm               protocol.ChainManager
+		getBlockHash     GetBlockHash
 		sm               protocol.StateManager
 		logs             []*action.Log
 		err              error
@@ -63,14 +66,14 @@ type (
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
-	cm protocol.ChainManager,
+	getBlockHash GetBlockHash,
 	sm protocol.StateManager,
 	hu config.HeightUpgrade,
 	blockHeight uint64,
 	executionHash hash.Hash256,
 ) *StateDBAdapter {
 	return &StateDBAdapter{
-		cm:               cm,
+		getBlockHash:     getBlockHash,
 		sm:               sm,
 		logs:             []*action.Log{},
 		err:              nil,

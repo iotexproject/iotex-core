@@ -429,7 +429,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	exec := execution.NewProtocol(bc, hu)
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.Factory().AddActionHandlers(acc, exec)
@@ -462,7 +462,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	exec := execution.NewProtocol(bc, hu)
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.Factory().AddActionHandlers(acc, exec)
@@ -528,7 +528,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	exec := execution.NewProtocol(bc, hu)
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
 	bc.Factory().AddActionHandlers(acc, exec)
@@ -629,7 +629,7 @@ func TestConstantinople(t *testing.T) {
 			RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		exec := execution.NewProtocol(bc, hc)
+		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hc)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
 		bc.Validator().AddActionValidators(acc, exec)
 		sf.AddActionHandlers(exec)
@@ -701,13 +701,13 @@ func TestConstantinople(t *testing.T) {
 
 			actIndex, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
-			blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
+			blkHash, err := bc.BlockDAO().GetBlockHash(actIndex.BlockHeight())
 			require.NoError(err)
 			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
 
 			if hashTopic[i].topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
-				blk, err := bc.GetBlockByHeight(1 + uint64(i))
+				blk, err := bc.BlockDAO().GetBlockByHeight(1 + uint64(i))
 				require.NoError(err)
 				f := blk.Header.LogsBloomfilter()
 				require.NotNil(f)
@@ -790,7 +790,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			RegistryOption(&registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		exec := execution.NewProtocol(bc, hu)
+		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
 		bc.Validator().AddActionValidators(acc, exec)
 		sf.AddActionHandlers(exec)
@@ -834,9 +834,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// verify block header hash
 		for i := uint64(1); i <= 5; i++ {
-			hash, err := bc.GetHashByHeight(i)
+			hash, err := bc.BlockDAO().GetBlockHash(i)
 			require.NoError(err)
-			height, err = bc.GetHeightByHash(hash)
+			height, err = bc.BlockDAO().GetBlockHeight(hash)
 			require.NoError(err)
 			require.Equal(i, height)
 			header, err := bc.BlockHeaderByHash(hash)
@@ -850,7 +850,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.Equal(height >= cfg.Genesis.AleutianBlockHeight, header.LogsBloomfilter() != nil)
 		}
 
-		empblk, err := bc.GetBlockByHash(hash.ZeroHash256)
+		empblk, err := bc.BlockDAO().GetBlock(hash.ZeroHash256)
 		require.Nil(empblk)
 		require.NotNil(err.Error())
 
@@ -896,7 +896,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add existing block again will have no effect
-		blk, err := bc.GetBlockByHeight(3)
+		blk, err := bc.BlockDAO().GetBlockByHeight(3)
 		require.NotNil(blk)
 		require.NoError(err)
 		require.NoError(bc.(*blockchain).commitBlock(blk))
@@ -926,7 +926,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			// 2 topics in block 3 calling set()
 			funcSig := hash.Hash256b([]byte("Set(uint256)"))
-			blk, err := bc.GetBlockByHeight(3)
+			blk, err := bc.BlockDAO().GetBlockByHeight(3)
 			require.NoError(err)
 			f := blk.Header.LogsBloomfilter()
 			require.NotNil(f)
@@ -935,7 +935,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			// 3 topics in block 4 calling get()
 			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
-			blk, err = bc.GetBlockByHeight(4)
+			blk, err = bc.BlockDAO().GetBlockByHeight(4)
 			require.NoError(err)
 			f = blk.Header.LogsBloomfilter()
 			require.NotNil(f)
@@ -952,7 +952,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			for h := uint64(1); h <= 5; h++ {
 				// verify getting number of actions
-				blk, err = bc.GetBlockByHeight(h)
+				blk, err = bc.BlockDAO().GetBlockByHeight(h)
 				require.NoError(err)
 				blkIndex, err := indexer.GetBlockIndex(h)
 				require.NoError(err)
