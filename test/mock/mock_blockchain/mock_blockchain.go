@@ -448,20 +448,20 @@ func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
 }
 
-// ExecuteContractRead mocks base method
-func (m *MockBlockchain) ExecuteContractRead(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+// SimulateExecution mocks base method
+func (m *MockBlockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteContractRead", caller, ex)
+	ret := m.ctrl.Call(m, "SimulateExecution", caller, ex)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(*action.Receipt)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// ExecuteContractRead indicates an expected call of ExecuteContractRead
-func (mr *MockBlockchainMockRecorder) ExecuteContractRead(caller, ex interface{}) *gomock.Call {
+// SimulateExecution indicates an expected call of SimulateExecution
+func (mr *MockBlockchainMockRecorder) SimulateExecution(caller, ex interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteContractRead", reflect.TypeOf((*MockBlockchain)(nil).ExecuteContractRead), caller, ex)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockBlockchain)(nil).SimulateExecution), caller, ex)
 }
 
 // AddSubscriber mocks base method
