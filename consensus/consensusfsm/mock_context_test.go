@@ -37,16 +37,19 @@ func (m *MockContext) EXPECT() *MockContextMockRecorder {
 
 // Activate mocks base method
 func (m *MockContext) Activate(arg0 bool) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Activate", arg0)
 }
 
 // Activate indicates an expected call of Activate
 func (mr *MockContextMockRecorder) Activate(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockContext)(nil).Activate), arg0)
 }
 
 // Active mocks base method
 func (m *MockContext) Active() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Active")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -54,11 +57,13 @@ func (m *MockContext) Active() bool {
 
 // Active indicates an expected call of Active
 func (mr *MockContextMockRecorder) Active() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Active", reflect.TypeOf((*MockContext)(nil).Active))
 }
 
 // IsStaleEvent mocks base method
 func (m *MockContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -66,11 +71,13 @@ func (m *MockContext) IsStaleEvent(arg0 *ConsensusEvent) bool {
 
 // IsStaleEvent indicates an expected call of IsStaleEvent
 func (mr *MockContextMockRecorder) IsStaleEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStaleEvent", reflect.TypeOf((*MockContext)(nil).IsStaleEvent), arg0)
 }
 
 // IsFutureEvent mocks base method
 func (m *MockContext) IsFutureEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsFutureEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -78,11 +85,13 @@ func (m *MockContext) IsFutureEvent(arg0 *ConsensusEvent) bool {
 
 // IsFutureEvent indicates an expected call of IsFutureEvent
 func (mr *MockContextMockRecorder) IsFutureEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsFutureEvent", reflect.TypeOf((*MockContext)(nil).IsFutureEvent), arg0)
 }
 
 // IsStaleUnmatchedEvent mocks base method
 func (m *MockContext) IsStaleUnmatchedEvent(arg0 *ConsensusEvent) bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsStaleUnmatchedEvent", arg0)
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -90,11 +99,13 @@ func (m *MockContext) IsStaleUnmatchedEvent(arg0 *ConsensusEvent) bool {
 
 // IsStaleUnmatchedEvent indicates an expected call of IsStaleUnmatchedEvent
 func (mr *MockContextMockRecorder) IsStaleUnmatchedEvent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsStaleUnmatchedEvent", reflect.TypeOf((*MockContext)(nil).IsStaleUnmatchedEvent), arg0)
 }
 
 // Logger mocks base method
 func (m *MockContext) Logger() *zap.Logger {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Logger")
 	ret0, _ := ret[0].(*zap.Logger)
 	return ret0
@@ -102,11 +113,13 @@ func (m *MockContext) Logger() *zap.Logger {
 
 // Logger indicates an expected call of Logger
 func (mr *MockContextMockRecorder) Logger() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Logger", reflect.TypeOf((*MockContext)(nil).Logger))
 }
 
 // Height mocks base method
 func (m *MockContext) Height() uint64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Height")
 	ret0, _ := ret[0].(uint64)
 	return ret0
@@ -114,11 +127,13 @@ func (m *MockContext) Height() uint64 {
 
 // Height indicates an expected call of Height
 func (mr *MockContextMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockContext)(nil).Height))
 }
 
 // NewConsensusEvent mocks base method
 func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)
 	ret0, _ := ret[0].(*ConsensusEvent)
 	return ret0
@@ -126,11 +141,13 @@ func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{})
 
 // NewConsensusEvent indicates an expected call of NewConsensusEvent
 func (mr *MockContextMockRecorder) NewConsensusEvent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewConsensusEvent", reflect.TypeOf((*MockContext)(nil).NewConsensusEvent), arg0, arg1)
 }
 
 // NewBackdoorEvt mocks base method
 func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBackdoorEvt", arg0)
 	ret0, _ := ret[0].(*ConsensusEvent)
 	return ret0
@@ -138,21 +155,25 @@ func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
 
 // NewBackdoorEvt indicates an expected call of NewBackdoorEvt
 func (mr *MockContextMockRecorder) NewBackdoorEvt(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBackdoorEvt", reflect.TypeOf((*MockContext)(nil).NewBackdoorEvt), arg0)
 }
 
 // Broadcast mocks base method
 func (m *MockContext) Broadcast(arg0 interface{}) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Broadcast", arg0)
 }
 
 // Broadcast indicates an expected call of Broadcast
 func (mr *MockContextMockRecorder) Broadcast(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockContext)(nil).Broadcast), arg0)
 }
 
 // Prepare mocks base method
 func (m *MockContext) Prepare() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Prepare")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -160,11 +181,13 @@ func (m *MockContext) Prepare() error {
 
 // Prepare indicates an expected call of Prepare
 func (mr *MockContextMockRecorder) Prepare() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockContext)(nil).Prepare))
 }
 
 // IsDelegate mocks base method
 func (m *MockContext) IsDelegate() bool {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IsDelegate")
 	ret0, _ := ret[0].(bool)
 	return ret0
@@ -172,11 +195,13 @@ func (m *MockContext) IsDelegate() bool {
 
 // IsDelegate indicates an expected call of IsDelegate
 func (mr *MockContextMockRecorder) IsDelegate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsDelegate", reflect.TypeOf((*MockContext)(nil).IsDelegate))
 }
 
 // Proposal mocks base method
 func (m *MockContext) Proposal() (interface{}, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Proposal")
 	ret0, _ := ret[0].(interface{})
 	ret1, _ := ret[1].(error)
@@ -185,11 +210,13 @@ func (m *MockContext) Proposal() (interface{}, error) {
 
 // Proposal indicates an expected call of Proposal
 func (mr *MockContextMockRecorder) Proposal() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Proposal", reflect.TypeOf((*MockContext)(nil).Proposal))
 }
 
 // WaitUntilRoundStart mocks base method
 func (m *MockContext) WaitUntilRoundStart() time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WaitUntilRoundStart")
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -197,11 +224,13 @@ func (m *MockContext) WaitUntilRoundStart() time.Duration {
 
 // WaitUntilRoundStart indicates an expected call of WaitUntilRoundStart
 func (mr *MockContextMockRecorder) WaitUntilRoundStart() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WaitUntilRoundStart", reflect.TypeOf((*MockContext)(nil).WaitUntilRoundStart))
 }
 
 // PreCommitEndorsement mocks base method
 func (m *MockContext) PreCommitEndorsement() interface{} {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreCommitEndorsement")
 	ret0, _ := ret[0].(interface{})
 	return ret0
@@ -209,11 +238,13 @@ func (m *MockContext) PreCommitEndorsement() interface{} {
 
 // PreCommitEndorsement indicates an expected call of PreCommitEndorsement
 func (mr *MockContextMockRecorder) PreCommitEndorsement() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreCommitEndorsement", reflect.TypeOf((*MockContext)(nil).PreCommitEndorsement))
 }
 
 // NewProposalEndorsement mocks base method
 func (m *MockContext) NewProposalEndorsement(arg0 interface{}) (interface{}, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewProposalEndorsement", arg0)
 	ret0, _ := ret[0].(interface{})
 	ret1, _ := ret[1].(error)
@@ -222,11 +253,13 @@ func (m *MockContext) NewProposalEndorsement(arg0 interface{}) (interface{}, err
 
 // NewProposalEndorsement indicates an expected call of NewProposalEndorsement
 func (mr *MockContextMockRecorder) NewProposalEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProposalEndorsement", reflect.TypeOf((*MockContext)(nil).NewProposalEndorsement), arg0)
 }
 
 // NewLockEndorsement mocks base method
 func (m *MockContext) NewLockEndorsement(arg0 interface{}) (interface{}, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewLockEndorsement", arg0)
 	ret0, _ := ret[0].(interface{})
 	ret1, _ := ret[1].(error)
@@ -235,11 +268,13 @@ func (m *MockContext) NewLockEndorsement(arg0 interface{}) (interface{}, error) 
 
 // NewLockEndorsement indicates an expected call of NewLockEndorsement
 func (mr *MockContextMockRecorder) NewLockEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewLockEndorsement", reflect.TypeOf((*MockContext)(nil).NewLockEndorsement), arg0)
 }
 
 // NewPreCommitEndorsement mocks base method
 func (m *MockContext) NewPreCommitEndorsement(arg0 interface{}) (interface{}, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewPreCommitEndorsement", arg0)
 	ret0, _ := ret[0].(interface{})
 	ret1, _ := ret[1].(error)
@@ -248,11 +283,13 @@ func (m *MockContext) NewPreCommitEndorsement(arg0 interface{}) (interface{}, er
 
 // NewPreCommitEndorsement indicates an expected call of NewPreCommitEndorsement
 func (mr *MockContextMockRecorder) NewPreCommitEndorsement(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewPreCommitEndorsement", reflect.TypeOf((*MockContext)(nil).NewPreCommitEndorsement), arg0)
 }
 
 // Commit mocks base method
 func (m *MockContext) Commit(arg0 interface{}) (bool, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
@@ -261,11 +298,13 @@ func (m *MockContext) Commit(arg0 interface{}) (bool, error) {
 
 // Commit indicates an expected call of Commit
 func (mr *MockContextMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockContext)(nil).Commit), arg0)
 }
 
 // EventChanSize mocks base method
 func (m *MockContext) EventChanSize() uint {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EventChanSize")
 	ret0, _ := ret[0].(uint)
 	return ret0
@@ -273,11 +312,13 @@ func (m *MockContext) EventChanSize() uint {
 
 // EventChanSize indicates an expected call of EventChanSize
 func (mr *MockContextMockRecorder) EventChanSize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EventChanSize", reflect.TypeOf((*MockContext)(nil).EventChanSize))
 }
 
 // UnmatchedEventTTL mocks base method
 func (m *MockContext) UnmatchedEventTTL(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnmatchedEventTTL", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -285,11 +326,13 @@ func (m *MockContext) UnmatchedEventTTL(arg0 uint64) time.Duration {
 
 // UnmatchedEventTTL indicates an expected call of UnmatchedEventTTL
 func (mr *MockContextMockRecorder) UnmatchedEventTTL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnmatchedEventTTL", reflect.TypeOf((*MockContext)(nil).UnmatchedEventTTL), arg0)
 }
 
 // UnmatchedEventInterval mocks base method
 func (m *MockContext) UnmatchedEventInterval(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnmatchedEventInterval", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -297,11 +340,13 @@ func (m *MockContext) UnmatchedEventInterval(arg0 uint64) time.Duration {
 
 // UnmatchedEventInterval indicates an expected call of UnmatchedEventInterval
 func (mr *MockContextMockRecorder) UnmatchedEventInterval(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnmatchedEventInterval", reflect.TypeOf((*MockContext)(nil).UnmatchedEventInterval), arg0)
 }
 
 // AcceptBlockTTL mocks base method
 func (m *MockContext) AcceptBlockTTL(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptBlockTTL", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -309,11 +354,13 @@ func (m *MockContext) AcceptBlockTTL(arg0 uint64) time.Duration {
 
 // AcceptBlockTTL indicates an expected call of AcceptBlockTTL
 func (mr *MockContextMockRecorder) AcceptBlockTTL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptBlockTTL", reflect.TypeOf((*MockContext)(nil).AcceptBlockTTL), arg0)
 }
 
 // AcceptProposalEndorsementTTL mocks base method
 func (m *MockContext) AcceptProposalEndorsementTTL(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptProposalEndorsementTTL", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -321,11 +368,13 @@ func (m *MockContext) AcceptProposalEndorsementTTL(arg0 uint64) time.Duration {
 
 // AcceptProposalEndorsementTTL indicates an expected call of AcceptProposalEndorsementTTL
 func (mr *MockContextMockRecorder) AcceptProposalEndorsementTTL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptProposalEndorsementTTL", reflect.TypeOf((*MockContext)(nil).AcceptProposalEndorsementTTL), arg0)
 }
 
 // AcceptLockEndorsementTTL mocks base method
 func (m *MockContext) AcceptLockEndorsementTTL(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AcceptLockEndorsementTTL", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -333,11 +382,13 @@ func (m *MockContext) AcceptLockEndorsementTTL(arg0 uint64) time.Duration {
 
 // AcceptLockEndorsementTTL indicates an expected call of AcceptLockEndorsementTTL
 func (mr *MockContextMockRecorder) AcceptLockEndorsementTTL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AcceptLockEndorsementTTL", reflect.TypeOf((*MockContext)(nil).AcceptLockEndorsementTTL), arg0)
 }
 
 // CommitTTL mocks base method
 func (m *MockContext) CommitTTL(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitTTL", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -345,11 +396,13 @@ func (m *MockContext) CommitTTL(arg0 uint64) time.Duration {
 
 // CommitTTL indicates an expected call of CommitTTL
 func (mr *MockContextMockRecorder) CommitTTL(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitTTL", reflect.TypeOf((*MockContext)(nil).CommitTTL), arg0)
 }
 
 // BlockInterval mocks base method
 func (m *MockContext) BlockInterval(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockInterval", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -357,11 +410,13 @@ func (m *MockContext) BlockInterval(arg0 uint64) time.Duration {
 
 // BlockInterval indicates an expected call of BlockInterval
 func (mr *MockContextMockRecorder) BlockInterval(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockInterval", reflect.TypeOf((*MockContext)(nil).BlockInterval), arg0)
 }
 
 // Delay mocks base method
 func (m *MockContext) Delay(arg0 uint64) time.Duration {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delay", arg0)
 	ret0, _ := ret[0].(time.Duration)
 	return ret0
@@ -369,5 +424,6 @@ func (m *MockContext) Delay(arg0 uint64) time.Duration {
 
 // Delay indicates an expected call of Delay
 func (mr *MockContextMockRecorder) Delay(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delay", reflect.TypeOf((*MockContext)(nil).Delay), arg0)
 }
