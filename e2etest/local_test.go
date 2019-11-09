@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -428,18 +429,19 @@ func TestLocalSync(t *testing.T) {
 		require.Nil(cli.Stop(ctx))
 		require.Nil(svr.Stop(ctx))
 	}()
-
+	fmt.Println("431///////////////////////////")
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
 		peers, err := svr.P2PAgent().Neighbors(context.Background())
 		return len(peers) >= 1, err
 	})
 	require.Nil(err)
-
+	fmt.Println("438///////////////////////////")
 	err = svr.P2PAgent().BroadcastOutbound(
 		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
 		blk.ConvertToBlockPb(),
 	)
 	require.NoError(err)
+	fmt.Println("444///////////////////////////")
 	check := testutil.CheckCondition(func() (bool, error) {
 		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
 		if err != nil {
@@ -469,7 +471,7 @@ func TestLocalSync(t *testing.T) {
 	})
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, check)
 	require.Nil(err)
-
+	fmt.Println("474///////////////////////////")
 	// verify 4 received blocks
 	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
 	require.Nil(err)
