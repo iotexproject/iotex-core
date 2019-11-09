@@ -8,7 +8,6 @@ package evm
 
 import (
 	"context"
-	"encoding/hex"
 	"math"
 	"math/big"
 
