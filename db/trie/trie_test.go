@@ -135,7 +135,6 @@ func Test2Roots(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	require := require.New(t)
-
 	trieDB, err := db.NewKVStoreForTrie("test", "prune", db.NewMemKVStore())
 	require.NoError(err)
 	tr, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
