@@ -42,6 +42,8 @@ const (
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
+	// ContractKVNameSpace for cycle import of evm error
+	ContractKVNameSpace = "Contract"
 )
 
 type (

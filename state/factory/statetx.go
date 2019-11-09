@@ -10,8 +10,6 @@ import (
 	"context"
 	"encoding/binary"
 
-	
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -23,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -273,13 +270,13 @@ func (stx *stateTX) deleteHistoryForTrie(hei uint64) error {
 	for i := deleteStartHeight; i >= deleteEndHeight; i-- {
 		heightBytes := make([]byte, 8)
 		binary.BigEndian.PutUint64(heightBytes, i)
-		allKeys, err := stx.dao.GetKeyByPrefix([]byte(evm.PruneKVNameSpace), heightBytes)
+		allKeys, err := stx.dao.GetKeyByPrefix([]byte(PruneKVNameSpace), heightBytes)
 		if err != nil {
 			continue
 		}
 		for _, key := range allKeys {
-			triedbCache.Delete(string(evm.PruneKVNameSpace), key, "failed to delete key %x", key)
-			triedbCache.Delete(evm.ContractKVNameSpace, key[len(heightBytes):], "failed to delete key %x", key[len(heightBytes):])
+			triedbCache.Delete(string(PruneKVNameSpace), key, "failed to delete key %x", key)
+			triedbCache.Delete(ContractKVNameSpace, key[len(heightBytes):], "failed to delete key %x", key[len(heightBytes):])
 		}
 	}
 	// delete trie node
