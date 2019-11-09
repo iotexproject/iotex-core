@@ -49,7 +49,7 @@ func TestAddBalance(t *testing.T) {
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
@@ -76,7 +76,7 @@ func TestRefundAPIs(t *testing.T) {
 	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -100,7 +100,7 @@ func TestEmptyAndCode(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -127,7 +127,7 @@ func TestForEachStorage(t *testing.T) {
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -172,7 +172,7 @@ func TestNonce(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -196,7 +196,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		require.NoError(err)
 		mcm := mock_chainmanager.NewMockChainManager(ctrl)
 		mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
-		stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 
 		tests := []stateDBTest{
 			{
@@ -410,7 +410,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 
 		ws, err = sf.NewWorkingSet(false)
 		require.NoError(err)
-		stateDB = NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		stateDB = NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 
 		// state factory should have snapshot 0's state
 		snapshot0 := reverts[len(reverts)-1]
@@ -472,7 +472,7 @@ func TestGetCommittedState(t *testing.T) {
 		}()
 		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
-		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -520,7 +520,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(mcm, sm, config.NewHeightUpgrade(config.Default), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(mcm, sm, config.NewHeightUpgrade(config.Default), 1, hash.ZeroHash256, false)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -543,7 +543,7 @@ func TestPreimage(t *testing.T) {
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
-	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256, false)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))

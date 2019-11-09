@@ -91,7 +91,7 @@ func TestCreateContract(t *testing.T) {
 	contract1, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
-	stateDB = NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256, 0)
+	stateDB = NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256, false)
 	// contract already exist
 	h = stateDB.GetCodeHash(evmContract)
 	require.Equal(codeHash, h)
