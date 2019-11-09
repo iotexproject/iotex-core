@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
@@ -32,6 +31,11 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+)
+
+const (
+	// for ci import cycle error
+	executionID = "smart_contract"
 )
 
 // blockchainHistory implements the Blockchain interface
@@ -148,7 +152,7 @@ func (bc *blockchainHistory) Start(ctx context.Context) (err error) {
 			return errors.New("can not find account protocol")
 		}
 		bc.sfHistory.AddActionHandlers(p)
-		p, ok = bc.registry.Find(execution.ProtocolID)
+		p, ok = bc.registry.Find(executionID)
 		if !ok {
 			return errors.New("can not find execution protocol")
 		}
@@ -308,7 +312,7 @@ func (bc *blockchainHistory) refreshStateDB() error {
 		return errors.New("can not find account protocol")
 	}
 	bc.sfHistory.AddActionHandlers(p)
-	p, ok = bc.registry.Find(execution.ProtocolID)
+	p, ok = bc.registry.Find(executionID)
 	if !ok {
 		return errors.New("can not find execution protocol")
 	}
