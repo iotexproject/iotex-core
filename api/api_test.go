@@ -558,6 +558,69 @@ var (
 		},
 	}
 
+	readRollDPoSMetaTests = []struct {
+		// Arguments
+		protocolID string
+		methodName string
+		// Expected Values
+		result uint64
+	}{
+		{
+			protocolID: "rolldpos",
+			methodName: "NumCandidateDelegates",
+			result:     36,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "NumDelegates",
+			result:     24,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "NumSubEpochs",
+			result:     2,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "NumSubEpochsDardanelles",
+			result:     30,
+		},
+	}
+
+	readEpochCtxTests = []struct {
+		// Arguments
+		protocolID string
+		methodName string
+		argument   uint64
+		// Expected Values
+		result uint64
+	}{
+		{
+			protocolID: "rolldpos",
+			methodName: "EpochNumber",
+			argument:   100,
+			result:     3,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "EpochHeight",
+			argument:   5,
+			result:     193,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "EpochLastHeight",
+			argument:   1000,
+			result:     48000,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "SubEpochNumber",
+			argument:   121,
+			result:     1,
+		},
+	}
+
 	getEpochMetaTests = []struct {
 		// Arguments
 		EpochNumber      uint64
@@ -1316,6 +1379,39 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	}
 }
 
+func TestServer_ReadRollDPoSMeta(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	for _, test := range readRollDPoSMetaTests {
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(test.protocolID),
+			MethodName: []byte(test.methodName),
+		})
+		require.NoError(err)
+		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+	}
+}
+
+func TestServer_ReadEpochCtx(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig()
+
+	for _, test := range readEpochCtxTests {
+		svr, err := createServer(cfg, false)
+		require.NoError(err)
+		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
+			ProtocolID: []byte(test.protocolID),
+			MethodName: []byte(test.methodName),
+			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.argument)},
+		})
+		require.NoError(err)
+		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+	}
+}
+
 func TestServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
@@ -1694,6 +1790,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
 	r := rewarding.NewProtocol(bc, rolldposProtocol)
 
