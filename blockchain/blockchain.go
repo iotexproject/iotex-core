@@ -637,7 +637,7 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get block in SimulateExecution")
 	}
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(false)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
