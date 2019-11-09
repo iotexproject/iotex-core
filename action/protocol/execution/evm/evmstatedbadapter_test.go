@@ -44,7 +44,7 @@ func TestAddBalance(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
@@ -73,7 +73,7 @@ func TestRefundAPIs(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	stateDB := NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
@@ -96,7 +96,7 @@ func TestEmptyAndCode(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
@@ -122,7 +122,7 @@ func TestForEachStorage(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 
@@ -168,7 +168,7 @@ func TestNonce(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
@@ -192,7 +192,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			sf, _ = factory.NewFactory(cfg, factory.DefaultTrieOption())
 		}
 		require.NoError(sf.Start(ctx))
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
 		mcm := mock_chainmanager.NewMockChainManager(ctrl)
 		mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))
@@ -408,7 +408,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			require.NoError(sf.Stop(ctx))
 		}()
 
-		ws, err = sf.NewWorkingSet()
+		ws, err = sf.NewWorkingSet(false)
 		require.NoError(err)
 		stateDB = NewStateDBAdapter(mcm, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
@@ -470,7 +470,7 @@ func TestGetCommittedState(t *testing.T) {
 		defer func() {
 			require.NoError(sf.Stop(ctx))
 		}()
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
 		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
@@ -539,7 +539,7 @@ func TestPreimage(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	mcm := mock_chainmanager.NewMockChainManager(ctrl)
 	mcm.EXPECT().ChainID().AnyTimes().Return(uint32(1))

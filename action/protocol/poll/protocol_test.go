@@ -49,7 +49,7 @@ func initConstruct(t *testing.T) (Protocol, context.Context, factory.WorkingSet,
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	committee := mock_committee.NewMockCommittee(ctrl)
 	r := types.NewElectionResultForTest(time.Now())

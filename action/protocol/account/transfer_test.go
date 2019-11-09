@@ -41,7 +41,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 
 	p := NewProtocol(config.NewHeightUpgrade(cfg))

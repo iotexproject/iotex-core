@@ -40,7 +40,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	addr := identityset.Address(28)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.Nil(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
@@ -86,7 +86,7 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
-	ws, err = sf.NewWorkingSet()
+	ws, err = sf.NewWorkingSet(false)
 	require.Nil(err)
 	contract1, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
@@ -112,7 +112,7 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 		require.NoError(sf.Start(context.Background()))
 
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
 		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, ws.GetDB(), ws.GetCachedBatch())
 		require.NoError(err)

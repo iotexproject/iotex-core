@@ -98,7 +98,7 @@ func prepareBlockchain(
 	r.NotNil(sf)
 	sf.AddActionHandlers(execution.NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	r.NoError(err)
 	balance, ok := new(big.Int).SetString("1000000000000000000000000000", 10)
 	r.True(ok)
