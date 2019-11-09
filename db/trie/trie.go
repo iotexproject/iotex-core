@@ -13,6 +13,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotexproject/iotex-core/db"
 )
 
 var (

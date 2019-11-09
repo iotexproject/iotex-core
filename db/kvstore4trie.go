@@ -8,7 +8,10 @@ package db
 
 import (
 	"context"
+	"encoding/hex"
 
+	"github.com/iotexproject/iotex-core/pkg/log"
+	"go.uber.org/zap"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
@@ -34,6 +37,7 @@ func init() {
 type KVStoreForTrie struct {
 	lc     lifecycle.Lifecycle
 	bucket string
+	prune  string // bucket for entries to be pruned
 	dao    KVStore
 	cb     CachedBatch
 }
@@ -50,8 +54,12 @@ func CachedBatchOption(cb CachedBatch) Option {
 }
 
 // NewKVStoreForTrie creates a new KVStoreForTrie
-func NewKVStoreForTrie(bucket string, dao KVStore, options ...Option) (*KVStoreForTrie, error) {
-	s := &KVStoreForTrie{bucket: bucket, dao: dao}
+func NewKVStoreForTrie(bucket, prune string, dao KVStore, options ...Option) (*KVStoreForTrie, error) {
+	s := &KVStoreForTrie{
+		bucket: bucket,
+		prune:  prune,
+		dao:    dao,
+	}
 	for _, opt := range options {
 		if err := opt(s); err != nil {
 			return nil, err
@@ -80,6 +88,21 @@ func (s *KVStoreForTrie) Delete(key []byte) error {
 	trieKeystoreMtc.WithLabelValues("delete").Inc()
 	s.cb.Delete(s.bucket, key, "failed to delete key %x", key)
 	// TODO: bug, need to mark key as deleted
+	return nil
+}
+
+// Purge marks a key for future deletion when the trie is to be pruned
+func (s *KVStoreForTrie) Purge(tag, key []byte) error {
+	trieKeystoreMtc.WithLabelValues("purge").Inc()
+	// tag will be used as a criterion to determine if the key should be deleted
+	// it is simply prepended in front of the key and stored into the Prune namespace
+	// it is up to the caller to define the exact format of tag and how to use it
+	k := make([]byte, 0)
+	k = append(k, tag...)
+	k = append(k, key...)
+
+	log.L().Info("Purge(tag, key []byte) error {", zap.String("k", hex.EncodeToString(k)))
+	s.cb.Put(s.prune, k, []byte{}, "failed to put tag-key %x", k)
 	return nil
 }
 

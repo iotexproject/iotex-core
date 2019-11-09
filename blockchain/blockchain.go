@@ -398,7 +398,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 		BlockHeight: bc.tipHeight,
 		Registry:    bc.registry,
 	})
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(false)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -499,7 +499,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(false)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -669,7 +669,7 @@ func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, e
 	if bc.sf == nil {
 		return nil, errors.New("empty state factory")
 	}
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(false)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
@@ -789,7 +789,7 @@ func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) 
 func (bc *blockchain) startEmptyBlockchain() error {
 	var ws factory.WorkingSet
 	var err error
-	if ws, err = bc.sf.NewWorkingSet(); err != nil {
+	if ws, err = bc.sf.NewWorkingSet(false); err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	if !bc.config.Chain.EmptyGenesis {
@@ -825,7 +825,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 
-		ws, err := bc.sf.NewWorkingSet()
+		ws, err := bc.sf.NewWorkingSet(false)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
@@ -861,7 +861,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
 	}
 	// run actions and update state factory
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(false)
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -950,6 +950,7 @@ func (bc *blockchain) runActions(
 			Producer:       producer,
 			GasLimit:       gasLimit,
 			Registry:       bc.registry,
+			History:        ws.History(),
 		})
 
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {

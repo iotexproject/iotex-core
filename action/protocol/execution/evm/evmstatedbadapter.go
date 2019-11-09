@@ -58,6 +58,7 @@ type (
 		dao              db.KVStore
 		cb               db.CachedBatch
 		hu               config.HeightUpgrade
+		saveHistory      bool
 	}
 )
 
@@ -68,6 +69,7 @@ func NewStateDBAdapter(
 	hu config.HeightUpgrade,
 	blockHeight uint64,
 	executionHash hash.Hash256,
+	saveHistory bool,
 ) *StateDBAdapter {
 	return &StateDBAdapter{
 		cm:               cm,
@@ -85,6 +87,7 @@ func NewStateDBAdapter(
 		dao:              sm.GetDB(),
 		cb:               sm.GetCachedBatch(),
 		hu:               hu,
+		saveHistory:      saveHistory,
 	}
 }
 
