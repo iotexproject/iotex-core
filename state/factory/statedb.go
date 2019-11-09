@@ -8,7 +8,6 @@ package factory
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"strconv"
