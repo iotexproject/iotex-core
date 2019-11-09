@@ -99,7 +99,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			BlockHeight: 0,
 		},
 	)
-	ws, err := stateDB.NewWorkingSet()
+	ws, err := stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	if withExempt {
 		require.NoError(
@@ -147,7 +147,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	blockReward, err := p.BlockReward(ctx, ws)
 	require.NoError(t, err)
@@ -176,7 +176,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 	assert.Equal(t, big.NewInt(0), availableBalance)
 
 	// Create a test account with 1000 token
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(28).String(), big.NewInt(1000))
 	require.NoError(t, err)
@@ -220,7 +220,7 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ws, err := stateDB.NewWorkingSet()
+	ws, err := stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	require.NoError(t, p.Initialize(
 		ctx,
@@ -248,14 +248,14 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Create a test account with 1000000 token
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(1000000))
 	require.NoError(t, err)
 	require.NoError(t, stateDB.Commit(ws))
 
 	// Deposit
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
@@ -275,7 +275,7 @@ func TestProtocol_Handle(t *testing.T) {
 	assert.Equal(t, big.NewInt(2000000), balance)
 
 	// Grant
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	gb := action.GrantRewardBuilder{}
 	grant := gb.SetRewardType(action.BlockReward).Build()

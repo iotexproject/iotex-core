@@ -156,18 +156,18 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // NewWorkingSet mocks base method
-func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
+func (m *MockFactory) NewWorkingSet(arg0 bool) (factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewWorkingSet")
+	ret := m.ctrl.Call(m, "NewWorkingSet", arg0)
 	ret0, _ := ret[0].(factory.WorkingSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewWorkingSet indicates an expected call of NewWorkingSet
-func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewWorkingSet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet), arg0)
 }
 
 // Commit mocks base method

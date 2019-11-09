@@ -36,11 +36,14 @@ const (
 
 	// CandidateKVNameSpace is the bucket name for candidate data storage
 	CandidateKVNameSpace = "Candidate"
-
+	// PruneKVNameSpace is the bucket name for entries to be pruned
+	PruneKVNameSpace = "ap"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
+	// ContractKVNameSpace for cycle import of evm error
+	ContractKVNameSpace = "Contract"
 )
 
 type (
@@ -54,7 +57,7 @@ type (
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
-		NewWorkingSet() (WorkingSet, error)
+		NewWorkingSet(bool) (WorkingSet, error)
 		Commit(WorkingSet) error
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
@@ -102,6 +105,19 @@ func DefaultTrieOption() Option {
 	}
 }
 
+// DefaultHistoryTrieOption creates trie from config for history state factory
+func DefaultHistoryTrieOption() Option {
+	return func(sf *factory, cfg config.Config) (err error) {
+		dbPath := cfg.Chain.HistoryDBPath
+		if len(dbPath) == 0 {
+			return errors.New("Invalid empty trie db path")
+		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sf.dao = db.NewBoltDB(cfg.DB)
+		return nil
+	}
+}
+
 // InMemTrieOption creates in memory trie for state factory
 func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
@@ -122,7 +138,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, sf.dao)
+	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, PruneKVNameSpace, sf.dao)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create db for trie")
 	}
@@ -238,10 +254,10 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sf *factory) NewWorkingSet() (WorkingSet, error) {
+func (sf *factory) NewWorkingSet(saveHistory bool) (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
+	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers, saveHistory)
 }
 
 // Commit persists all changes in RunActions() into the DB

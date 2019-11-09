@@ -40,12 +40,12 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(sf.Start(context.Background()))
 
 	addr := identityset.Address(28)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.Nil(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	hu := config.NewHeightUpgrade(cfg)
-	stateDB := NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256, false)
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
@@ -86,12 +86,12 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(err)
 	require.Nil(sf.Start(context.Background()))
 	// reload same contract
-	ws, err = sf.NewWorkingSet()
+	ws, err = sf.NewWorkingSet(false)
 	require.Nil(err)
 	contract1, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
-	stateDB = NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256)
+	stateDB = NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256, false)
 	// contract already exist
 	h = stateDB.GetCodeHash(evmContract)
 	require.Equal(codeHash, h)
@@ -112,9 +112,9 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 		require.NoError(sf.Start(context.Background()))
 
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, ws.GetDB(), ws.GetCachedBatch())
+		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, ws.GetDB(), ws.GetCachedBatch(), false, 0)
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -250,6 +250,8 @@ func TestSnapshot(t *testing.T) {
 		s,
 		db.NewMemKVStore(),
 		db.NewCachedBatch(),
+		false,
+		0,
 	)
 	require.NoError(err)
 	require.NoError(c1.SetState(k2b, v2[:]))

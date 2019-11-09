@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/db"
 )
 
 var (
@@ -54,7 +55,8 @@ func Test2Roots(t *testing.T) {
 	require := require.New(t)
 
 	// first trie
-	trieDB := newInMemKVStore()
+	trieDB, err := db.NewKVStoreForTrie("test", "prune", db.NewMemKVStore())
+	require.NoError(err)
 	tr, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.Nil(err)
 	require.Nil(tr.Start(context.Background()))
@@ -132,8 +134,9 @@ func Test2Roots(t *testing.T) {
 
 func TestInsert(t *testing.T) {
 	require := require.New(t)
-
-	tr, err := NewTrie(KVStoreOption(newInMemKVStore()), KeyLengthOption(8))
+	trieDB, err := db.NewKVStoreForTrie("test", "prune", db.NewMemKVStore())
+	require.NoError(err)
+	tr, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.NotNil(tr)
 	require.NoError(err)
 	require.Nil(tr.Start(context.Background()))

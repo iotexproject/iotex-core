@@ -24,6 +24,9 @@ const (
 	// ContractKVNameSpace is the bucket name for contract data storage
 	ContractKVNameSpace = "Contract"
 
+	// PruneKVNameSpace is the bucket name for entries to be pruned
+	PruneKVNameSpace = "cp"
+
 	// PreimageKVNameSpace is the bucket name for preimage data storage
 	PreimageKVNameSpace = "Preimage"
 )
@@ -158,8 +161,8 @@ func (c *contract) Snapshot() Contract {
 }
 
 // NewContract returns a Contract instance
-func newContract(addr hash.Hash160, state *state.Account, dao db.KVStore, batch db.CachedBatch) (Contract, error) {
-	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao, db.CachedBatchOption(batch))
+func newContract(addr hash.Hash160, state *state.Account, dao db.KVStore, batch db.CachedBatch, saveHistory bool, height uint64) (Contract, error) {
+	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, PruneKVNameSpace, dao, db.CachedBatchOption(batch))
 	if err != nil {
 		return nil, err
 	}
@@ -169,6 +172,9 @@ func newContract(addr hash.Hash160, state *state.Account, dao db.KVStore, batch 
 		trie.HashFuncOption(func(data []byte) []byte {
 			return trie.DefaultHashFunc(append(addr[:], data...))
 		}),
+	}
+	if saveHistory {
+		options = append(options, trie.SaveHistoryOption(height))
 	}
 	if state.Root != hash.ZeroHash256 {
 		options = append(options, trie.RootHashOption(state.Root[:]))

@@ -1348,7 +1348,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().GetFactory().Return(msf).Times(2)
-			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
+			msf.EXPECT().NewWorkingSet(false).Return(nil, nil).Times(2)
 
 			candidates := []*state.Candidate{
 				{
@@ -1473,7 +1473,7 @@ func TestServer_GetLogs(t *testing.T) {
 }
 
 func addProducerToFactory(sf factory.Factory) error {
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	if err != nil {
 		return err
 	}

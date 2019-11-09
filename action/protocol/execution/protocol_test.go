@@ -310,7 +310,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NotNil(sf)
 	sf.AddActionHandlers(NewProtocol(bc, hu), reward)
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	r.NoError(err)
 	for _, expectedBalance := range sct.InitBalances {
 		_, err = accountutil.LoadOrCreateAccount(ws, expectedBalance.Account, expectedBalance.Balance())
@@ -357,9 +357,9 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.GetFactory().NewWorkingSet()
+		ws, err := bc.GetFactory().NewWorkingSet(false)
 		r.NoError(err)
-		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256, false)
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
@@ -498,7 +498,7 @@ func TestProtocol_Handle(t *testing.T) {
 			err := bc.Stop(ctx)
 			require.NoError(err)
 		}()
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
@@ -540,10 +540,10 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
-		ws, err = sf.NewWorkingSet()
+		ws, err = sf.NewWorkingSet(false)
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256, false)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
@@ -592,9 +592,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		ws, err = sf.NewWorkingSet()
+		ws, err = sf.NewWorkingSet(false)
 		require.NoError(err)
-		stateDB = evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB = evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256, false)
 		var emptyEVMHash common.Hash
 		v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 		require.Equal(byte(15), v[31])

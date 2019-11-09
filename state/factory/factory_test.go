@@ -66,7 +66,7 @@ func TestSnapshot(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testRevert(ws, t)
@@ -82,7 +82,7 @@ func TestSDBSnapshot(t *testing.T) {
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 	require.NoError(sdb.Start(context.Background()))
-	ws, err := sdb.NewWorkingSet()
+	ws, err := sdb.NewWorkingSet(false)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testSDBRevert(ws, t)
@@ -213,7 +213,7 @@ func TestSDBCandidates(t *testing.T) {
 }
 
 func testCandidates(sf Factory, t *testing.T) {
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(0).String()))
 	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(0).String(), big.NewInt(0)))
@@ -261,7 +261,7 @@ func testState(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
@@ -327,7 +327,7 @@ func testNonce(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
@@ -423,7 +423,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	dao := ws.GetDB()
 	require.NoError(dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
@@ -447,7 +447,7 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 		require.NoError(t, sf.Stop(ctx))
 	}()
 
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	_, err = ws.RunActions(context.Background(), 1, nil)
 	require.NoError(t, err)
@@ -472,7 +472,7 @@ func TestRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	testRunActions(ws, t)
 }
@@ -491,7 +491,7 @@ func TestSTXRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(context.Background()))
 	}()
-	ws, err := sdb.NewWorkingSet()
+	ws, err := sdb.NewWorkingSet(false)
 	require.NoError(err)
 	testSTXRunActions(ws, t)
 }
@@ -612,13 +612,13 @@ func testSTXRunActions(ws WorkingSet, t *testing.T) {
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	testCachedBatch(ws, t, false)
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))}, config.Default.DB, false)
 	testCachedBatch(ws, t, true)
 }
 
@@ -662,13 +662,13 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 func TestGetDB(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 	testGetDB(ws, t)
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))}, config.Default.DB, false)
 	testGetDB(ws, t)
 }
 
@@ -694,12 +694,12 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), nil)
+		ws := newStateTX(0, db.NewMemKVStore(), nil, config.Default.DB, false)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }
@@ -791,7 +791,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		}()
 	}()
 
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -807,7 +807,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	gasLimit := testutil.TestGasLimit * 100000
 
 	for n := 0; n < b.N; n++ {
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		if err != nil {
 			b.Fatal(err)
 		}

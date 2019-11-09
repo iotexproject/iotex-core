@@ -93,7 +93,7 @@ func TestBlockReward(t *testing.T) {
 	rp, ok := p.(*rewarding.Protocol)
 	require.True(t, ok)
 	sf := svr.ChainService(1).Blockchain().GetFactory()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(t, err)
 
 	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
@@ -238,7 +238,7 @@ func TestBlockEpochReward(t *testing.T) {
 		rps[i] = rp
 
 		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().GetFactory()
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(false)
 		require.NoError(t, err)
 		wss[i] = ws
 

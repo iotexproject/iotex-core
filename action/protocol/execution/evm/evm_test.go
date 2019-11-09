@@ -126,7 +126,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 		raCtx.BlockHeight = e.height
-		stateDB := NewStateDBAdapter(cm, sm, hu, e.height, ex.Hash())
+		stateDB := NewStateDBAdapter(cm, sm, hu, e.height, ex.Hash(), false)
 		ps, err := NewParams(raCtx, ex, stateDB, hu)
 		require.NoError(err)
 

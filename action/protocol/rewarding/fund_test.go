@@ -26,12 +26,12 @@ func TestProtocol_Fund(t *testing.T) {
 		require.True(t, ok)
 
 		// Deposit 5 token
-		ws, err := stateDB.NewWorkingSet()
+		ws, err := stateDB.NewWorkingSet(false)
 		require.NoError(t, err)
 		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(5)))
 		require.NoError(t, stateDB.Commit(ws))
 
-		ws, err = stateDB.NewWorkingSet()
+		ws, err = stateDB.NewWorkingSet(false)
 		require.NoError(t, err)
 		totalBalance, err := p.TotalBalance(ctx, ws)
 		require.NoError(t, err)
@@ -44,7 +44,7 @@ func TestProtocol_Fund(t *testing.T) {
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
 		// Deposit another 6 token will fail because
-		ws, err = stateDB.NewWorkingSet()
+		ws, err = stateDB.NewWorkingSet(false)
 		require.NoError(t, err)
 		require.Error(t, p.Deposit(ctx, ws, big.NewInt(996)))
 	}, false)
@@ -57,7 +57,7 @@ func TestDepositNegativeGasFee(t *testing.T) {
 		r := protocol.Registry{}
 		r.Register(ProtocolID, p)
 
-		ws, err := stateDB.NewWorkingSet()
+		ws, err := stateDB.NewWorkingSet(false)
 		require.NoError(t, err)
 		require.Error(t, DepositGas(ctx, ws, big.NewInt(-1), &r))
 	}, false)

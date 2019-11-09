@@ -123,7 +123,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 
 	require.Nil(val.Validate(&blk, 2, blkhash))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),

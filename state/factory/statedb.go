@@ -35,6 +35,7 @@ type stateDB struct {
 	dao                db.KVStore               // the underlying DB for account/contract storage
 	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
 	timerFactory       *prometheustimer.TimerFactory
+	cfg                config.DB // for history state
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -59,6 +60,21 @@ func DefaultStateDBOption() StateDBOption {
 			return errors.New("Invalid empty trie db path")
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sdb.cfg = cfg.DB
+		sdb.dao = db.NewBoltDB(cfg.DB)
+		return nil
+	}
+}
+
+// DefaultHistoryDBOption creates default history state db from config
+func DefaultHistoryDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		dbPath := cfg.Chain.HistoryDBPath
+		if len(dbPath) == 0 {
+			return errors.New("Invalid empty trie db path")
+		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sdb.cfg = cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
 		return nil
 	}
@@ -167,10 +183,10 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
+func (sdb *stateDB) NewWorkingSet(saveHistory bool) (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers, sdb.cfg, saveHistory), nil
 }
 
 // Commit persists all changes in RunActions() into the DB

@@ -33,7 +33,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewMemKVStore()))
 	require.NoError(err)
 	require.NoError(sf.Start(context.Background()))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(false)
 	require.NoError(err)
 	addrv1 := identityset.Address(27)
 	s, err := accountutil.LoadAccount(ws, hash.BytesToHash160(addrv1.Bytes()))
@@ -72,7 +72,7 @@ func TestProtocol_Initialize(t *testing.T) {
 
 	p := NewProtocol(config.NewHeightUpgrade(cfg))
 
-	ws, err := stateDB.NewWorkingSet()
+	ws, err := stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	require.NoError(
 		t,
@@ -93,7 +93,7 @@ func TestProtocol_Initialize(t *testing.T) {
 	)
 	require.NoError(t, stateDB.Commit(ws))
 
-	ws, err = stateDB.NewWorkingSet()
+	ws, err = stateDB.NewWorkingSet(false)
 	require.NoError(t, err)
 	acc0, err := accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(0))
 	require.NoError(t, err)

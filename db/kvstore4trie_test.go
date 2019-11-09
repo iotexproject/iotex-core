@@ -15,7 +15,7 @@ import (
 )
 
 func TestKVStoreForTrie_ErrNotExist(t *testing.T) {
-	store, err := NewKVStoreForTrie("test", NewMemKVStore())
+	store, err := NewKVStoreForTrie("test", "prune", NewMemKVStore())
 	require.NoError(t, err)
 	require.NoError(t, store.Put([]byte("key"), []byte("value1")))
 	require.NoError(t, store.Flush())
