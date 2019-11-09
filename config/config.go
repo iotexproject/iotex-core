@@ -116,7 +116,7 @@ var (
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
-			EnableHistoryStateDB:          true,
+			EnableHistoryStateDB:          false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -177,8 +177,8 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
-			SplitDBSizeMB: 0,
-			SplitDBHeight: 900000,
+			SplitDBSizeMB:         0,
+			SplitDBHeight:         900000,
 			HistoryStateRetention: 2000,
 		},
 		Genesis: genesis.Default,
