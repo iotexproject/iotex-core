@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -26,8 +27,12 @@ func TestActionProto(t *testing.T) {
 	require.NoError(err)
 	ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", caller}
 	c := WithValidateActionsCtx(context.Background(), ctx)
-	cm := &MockChainManager{}
-	valid := NewGenericValidator(cm)
+	valid := NewGenericValidator(func(addr string) (uint64, error) {
+		if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
+			return 0, errors.New("MockChainManager nonce error")
+		}
+		return 2, nil
+	})
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	// Case I: Normal

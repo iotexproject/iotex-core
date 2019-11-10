@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -46,9 +47,11 @@ func TestClient(t *testing.T) {
 	require.NoError(err)
 
 	bc := mock_blockchain.NewMockBlockchain(mockCtrl)
+	sf := mock_factory.NewMockFactory(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 
-	bc.EXPECT().StateByAddr(gomock.Any()).Return(&state, nil).AnyTimes()
+	sf.EXPECT().AccountState(gomock.Any()).Return(&state, nil).AnyTimes()
+	bc.EXPECT().Factory().Return(sf).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()

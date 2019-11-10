@@ -52,12 +52,6 @@ type ActionHandler interface {
 type ChainManager interface {
 	// ChainID returns the chain ID
 	ChainID() uint32
-	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (hash.Hash256, error)
-	// StateByAddr returns account of a given address
-	StateByAddr(address string) (*state.Account, error)
-	// Nonce returns the nonce if the account exists
-	Nonce(addr string) (uint64, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
@@ -95,16 +89,6 @@ func (m *MockChainManager) Nonce(addr string) (uint64, error) {
 // ChainID return chain ID
 func (m *MockChainManager) ChainID() uint32 {
 	return 0
-}
-
-// GetHashByHeight returns Block's hash by height
-func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
-}
-
-// StateByAddr returns account of a given address
-func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
-	return nil, nil
 }
 
 // CandidatesByHeight returns the candidate list by a given height

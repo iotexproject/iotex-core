@@ -237,51 +237,6 @@ func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockChainManager)(nil).ChainID))
 }
 
-// GetHashByHeight mocks base method
-func (m *MockChainManager) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetHashByHeight", height)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetHashByHeight indicates an expected call of GetHashByHeight
-func (mr *MockChainManagerMockRecorder) GetHashByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHashByHeight", reflect.TypeOf((*MockChainManager)(nil).GetHashByHeight), height)
-}
-
-// StateByAddr mocks base method
-func (m *MockChainManager) StateByAddr(address string) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateByAddr", address)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// StateByAddr indicates an expected call of StateByAddr
-func (mr *MockChainManagerMockRecorder) StateByAddr(address interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateByAddr", reflect.TypeOf((*MockChainManager)(nil).StateByAddr), address)
-}
-
-// Nonce mocks base method
-func (m *MockChainManager) Nonce(addr string) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Nonce", addr)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockChainManagerMockRecorder) Nonce(addr interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockChainManager)(nil).Nonce), addr)
-}
-
 // CandidatesByHeight mocks base method
 func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	m.ctrl.T.Helper()

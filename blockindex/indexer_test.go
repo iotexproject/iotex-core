@@ -277,6 +277,7 @@ func TestIndexer(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
+
 			require.NoError(indexer.DeleteTipBlock(blks[3-i]))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)

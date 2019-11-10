@@ -174,7 +174,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		)
 	}
 	for i := sync.Start; i <= end; i++ {
-		blk, err := bs.bc.GetBlockByHeight(i)
+		blk, err := bs.bc.BlockDAO().GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}

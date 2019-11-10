@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blocksync"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -62,7 +63,9 @@ func TestNewBlockSyncer(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	mBc.EXPECT().BlockDAO().Return(dao).AnyTimes()
 
 	cfg, err := newTestConfig()
 	require.Nil(err)
@@ -117,7 +120,9 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	mBc.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	mBc.EXPECT().BlockDAO().Return(dao).AnyTimes()
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -144,9 +149,11 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	require.Nil(err)
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
+	dao := mock_blockdao.NewMockBlockDAO(ctrl)
+	dao.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
+	chain.EXPECT().BlockDAO().Return(dao).Times(1)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
-	chain.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
@@ -178,7 +185,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -237,7 +244,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
 	chain1.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -259,7 +266,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(&registry2),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
 	chain2.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -331,7 +338,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
 	chain1.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -352,7 +359,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(&registry2),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
 	chain2.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)

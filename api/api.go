@@ -157,7 +157,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	state, err := api.bc.StateByAddr(in.Address)
+	state, err := api.bc.Factory().AccountState(in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -401,7 +401,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	caller, err := api.bc.StateByAddr(in.CallerAddress)
+	caller, err := api.bc.Factory().AccountState(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -758,7 +758,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		BlockHeight: api.bc.TipHeight(),
 		Registry:    api.registry,
 	})
-	ws, err := api.bc.GetFactory().NewWorkingSet()
+	ws, err := api.bc.Factory().NewWorkingSet()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1285,7 +1285,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	caller, err := api.bc.StateByAddr(sender)
+	caller, err := api.bc.Factory().AccountState(sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

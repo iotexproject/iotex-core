@@ -714,7 +714,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.bc.GetBlockByHeight(test.blkNumber)
+			blk, err := svr.bc.BlockDAO().GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -1347,7 +1347,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-			mbc.EXPECT().GetFactory().Return(msf).Times(2)
+			mbc.EXPECT().Factory().Return(msf).Times(2)
 			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
 
 			candidates := []*state.Candidate{
@@ -1688,7 +1688,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}()
 
 	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
-	evm := execution.NewProtocol(bc, config.NewHeightUpgrade(cfg))
+	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg))
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1713,7 +1713,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, err
 	}
 	sf.AddActionHandlers(acc, evm, r)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, evm, r)
 
 	return bc, dao, indexer, &registry, nil
@@ -1724,8 +1724,9 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	if err != nil {
 		return nil, err
 	}
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	ap.AddActionValidators(execution.NewProtocol(bc, config.NewHeightUpgrade(config.Default)))
+
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(config.Default)))
 
 	return ap, nil
 }
@@ -1748,6 +1749,7 @@ func newConfig() config.Config {
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.API.RangeQueryLimit = 100
+
 	return cfg
 }
 
@@ -1765,7 +1767,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	// Create state for producer
-	if err := addProducerToFactory(bc.GetFactory()); err != nil {
+	if err := addProducerToFactory(bc.Factory()); err != nil {
 		return nil, err
 	}
 

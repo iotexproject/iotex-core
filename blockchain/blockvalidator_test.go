@@ -105,7 +105,7 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(addCreatorToFactory(sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	val.AddActionValidators(account.NewProtocol(hu))
 
 	// correct nonce
@@ -240,16 +240,16 @@ func TestWrongAddress(t *testing.T) {
 	cfg := config.Default
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	val := &validator{sf: bc.GetFactory(), validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	val := &validator{sf: bc.Factory(), validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -310,7 +310,7 @@ func TestBlackListAddress(t *testing.T) {
 	cfg.ActPool.BlackList = []string{addr.String()}
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
 	hu := config.NewHeightUpgrade(cfg)
-	bc.GetFactory().AddActionHandlers(account.NewProtocol(hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -321,9 +321,9 @@ func TestBlackListAddress(t *testing.T) {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
-	val := &validator{sf: bc.GetFactory(), validatorAddr: "", senderBlackList: senderBlackList}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc, hu))
+	val := &validator{sf: bc.Factory(), validatorAddr: "", senderBlackList: senderBlackList}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}

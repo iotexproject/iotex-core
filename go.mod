@@ -1,6 +1,6 @@
 module github.com/iotexproject/iotex-core
 
-go 1.12
+go 1.13
 
 require (
 	github.com/cenkalti/backoff v2.1.1+incompatible
@@ -13,6 +13,7 @@ require (
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
+	github.com/iotexproject/go-ethereum v1.7.3 // indirect
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.10
 	github.com/iotexproject/go-pkgs v0.1.1

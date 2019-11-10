@@ -336,7 +336,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderBalance, _ := bc.Balance(senderAddr)
+			newSenderBalance, _ := bc.Factory().Balance(senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -346,7 +346,7 @@ func TestLocalTransfer(t *testing.T) {
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
 			require.Equal(expectedSenderBalance.String(), newSenderBalance.String(), tsfTest.message)
 
-			newRecvBalance, err := bc.Balance(recvAddr)
+			newRecvBalance, err := bc.Factory().Balance(recvAddr)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -369,7 +369,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderBalance, _ := bc.Balance(senderAddr)
+				newSenderBalance, _ := bc.Factory().Balance(senderAddr)
 				require.Equal(tsfTest.senderBalance.String(), newSenderBalance.String())
 			}
 
@@ -426,7 +426,7 @@ func initStateKeyAddr(
 			return nil, "", err
 		}
 		retAddr = addr.String()
-		existBalance, err := bc.Balance(retAddr)
+		existBalance, err := bc.Factory().Balance(retAddr)
 		if err != nil {
 			return nil, "", err
 		}
@@ -463,7 +463,7 @@ func initExistingAccounts(
 		sk := getLocalKey(i)
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		require.NoError(t, err)
-		_, err = bc.CreateState(addr.String(), initBalance)
+		_, err = bc.Factory().CreateState(addr.String(), initBalance)
 		require.NoError(t, err)
 	}
 
@@ -486,7 +486,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			_, err = bc.CreateState(addr.String(), tsfTest.senderBalance)
+			_, err = bc.Factory().CreateState(addr.String(), tsfTest.senderBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
@@ -495,7 +495,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			_, err = bc.CreateState(addr.String(), tsfTest.recvBalance)
+			_, err = bc.Factory().CreateState(addr.String(), tsfTest.recvBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].recvPriKey = sk
 		}

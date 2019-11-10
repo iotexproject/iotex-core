@@ -88,48 +88,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := bc.StateByAddr(identityset.Address(28).String())
+	s, err := bc.Factory().AccountState(identityset.Address(28).String())
 	require.Nil(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.StateByAddr(identityset.Address(29).String())
+	s, err = bc.Factory().AccountState(identityset.Address(29).String())
 	require.Nil(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(identityset.Address(30).String())
+	s, err = bc.Factory().AccountState(identityset.Address(30).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.StateByAddr(identityset.Address(31).String())
+	s, err = bc.Factory().AccountState(identityset.Address(31).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.StateByAddr(identityset.Address(32).String())
+	s, err = bc.Factory().AccountState(identityset.Address(32).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.StateByAddr(identityset.Address(33).String())
+	s, err = bc.Factory().AccountState(identityset.Address(33).String())
 	require.Nil(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = bc.StateByAddr(identityset.Address(27).String())
+	s, err = bc.Factory().AccountState(identityset.Address(27).String())
 	require.Nil(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -177,9 +177,9 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
 	registry.Register(account.ProtocolID, acc)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.GetFactory().AddActionHandlers(acc, rewardingProtocol)
+	chain.Factory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -189,7 +189,7 @@ func TestLocalCommit(t *testing.T) {
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
-	s, _ = bc.StateByAddr(identityset.Address(30).String())
+	s, _ = bc.Factory().AccountState(identityset.Address(30).String())
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -213,7 +213,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.StateByAddr(identityset.Address(33).String())
+	s, _ = bc.Factory().AccountState(identityset.Address(33).String())
 	tsf2, err := testutil.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -238,7 +238,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.StateByAddr(identityset.Address(29).String())
+	s, _ = bc.Factory().AccountState(identityset.Address(29).String())
 	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -263,7 +263,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.StateByAddr(identityset.Address(27).String())
+	s, _ = bc.Factory().AccountState(identityset.Address(27).String())
 	tsf4, err := testutil.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -304,48 +304,48 @@ func TestLocalCommit(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// check balance
-	s, err = bc.StateByAddr(identityset.Address(28).String())
+	s, err = bc.Factory().AccountState(identityset.Address(28).String())
 	require.Nil(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.StateByAddr(identityset.Address(29).String())
+	s, err = bc.Factory().AccountState(identityset.Address(29).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.StateByAddr(identityset.Address(30).String())
+	s, err = bc.Factory().AccountState(identityset.Address(30).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.StateByAddr(identityset.Address(31).String())
+	s, err = bc.Factory().AccountState(identityset.Address(31).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.StateByAddr(identityset.Address(32).String())
+	s, err = bc.Factory().AccountState(identityset.Address(32).String())
 	require.Nil(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.StateByAddr(identityset.Address(33).String())
+	s, err = bc.Factory().AccountState(identityset.Address(33).String())
 	require.Nil(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = bc.StateByAddr(identityset.Address(27).String())
+	s, err = bc.Factory().AccountState(identityset.Address(27).String())
 	require.Nil(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
@@ -385,19 +385,19 @@ func TestLocalSync(t *testing.T) {
 	require.NotNil(svr.P2PAgent())
 	require.Nil(addTestingTsfBlocks(bc))
 
-	blk, err := bc.GetBlockByHeight(1)
+	blk, err := bc.BlockDAO().GetBlockByHeight(1)
 	require.Nil(err)
 	hash1 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(2)
+	blk, err = bc.BlockDAO().GetBlockByHeight(2)
 	require.Nil(err)
 	hash2 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(3)
+	blk, err = bc.BlockDAO().GetBlockByHeight(3)
 	require.Nil(err)
 	hash3 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(4)
+	blk, err = bc.BlockDAO().GetBlockByHeight(4)
 	require.Nil(err)
 	hash4 := blk.HashBlock()
-	blk, err = bc.GetBlockByHeight(5)
+	blk, err = bc.BlockDAO().GetBlockByHeight(5)
 	require.Nil(err)
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
@@ -441,23 +441,23 @@ func TestLocalSync(t *testing.T) {
 	)
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
+		blk1, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
+		blk2, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
+		blk3, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
+		blk4, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
+		blk5, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
@@ -471,19 +471,19 @@ func TestLocalSync(t *testing.T) {
 	require.Nil(err)
 
 	// verify 4 received blocks
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(1)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
 	require.Nil(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(2)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
 	require.Nil(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(3)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
 	require.Nil(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(4)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
 	require.Nil(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().GetBlockByHeight(5)
+	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
 	require.Nil(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
@@ -533,7 +533,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to tip
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ := bc.GetFactory().Height()
+	height, _ := bc.Factory().Height()
 	require.Equal(bc.TipHeight(), height)
 
 	// Recover to height 3 from empty state DB
@@ -545,7 +545,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 3
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.GetFactory().Height()
+	height, _ = bc.Factory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
 
@@ -557,7 +557,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 2
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.GetFactory().Height()
+	height, _ = bc.Factory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
 }

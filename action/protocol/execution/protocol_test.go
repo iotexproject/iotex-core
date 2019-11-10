@@ -44,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -211,7 +210,7 @@ func runExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	nonce, err := bc.Nonce(ecfg.Executor().String())
+	nonce, err := bc.Factory().Nonce(ecfg.Executor().String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -304,11 +303,11 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-	bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu), reward)
-	sf := bc.GetFactory()
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
+	sf := bc.Factory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc, hu), reward)
+	sf.AddActionHandlers(NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -357,9 +356,9 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.GetFactory().NewWorkingSet()
+		ws, err := bc.Factory().NewWorkingSet()
 		r.NoError(err)
-		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
@@ -424,7 +423,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			balance, err := bc.Balance(account)
+			balance, err := bc.Factory().Balance(account)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -486,11 +485,11 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.RegistryOption(&registry),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc))
-		bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc, hu))
-		sf := bc.GetFactory()
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+		bc.Validator().AddActionValidators(account.NewProtocol(hu), NewProtocol(bc.BlockDAO().GetBlockHash, hu))
+		sf := bc.Factory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc, hu))
+		sf.AddActionHandlers(NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -543,7 +542,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
@@ -563,7 +562,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash[:], exes[0])
 
 		actIndex, err := indexer.GetActionIndex(eHash[:])
-		blkHash, err := bc.GetHashByHeight(actIndex.BlockHeight())
+		blkHash, err := bc.BlockDAO().GetBlockHash(actIndex.BlockHeight())
 		require.Nil(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
@@ -594,7 +593,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
-		stateDB = evm.NewStateDBAdapter(bc, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB = evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
 		var emptyEVMHash common.Hash
 		v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 		require.Equal(byte(15), v[31])
@@ -789,8 +788,9 @@ func TestProtocol_Validate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
-	protocol := NewProtocol(mbc, config.NewHeightUpgrade(config.Default))
+	protocol := NewProtocol(func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	}, config.NewHeightUpgrade(config.Default))
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

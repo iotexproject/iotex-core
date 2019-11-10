@@ -96,6 +96,21 @@ func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
 }
 
+// CreateState mocks base method
+func (m *MockFactory) CreateState(addr string, init *big.Int) (*state.Account, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateState", addr, init)
+	ret0, _ := ret[0].(*state.Account)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateState indicates an expected call of CreateState
+func (mr *MockFactoryMockRecorder) CreateState(addr, init interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockFactory)(nil).CreateState), addr, init)
+}
+
 // AccountState mocks base method
 func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
 	m.ctrl.T.Helper()

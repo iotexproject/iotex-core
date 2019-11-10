@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -72,25 +71,11 @@ func init() {
 type Blockchain interface {
 	lifecycle.StartStopper
 
-	// Balance returns balance of an account
-	Balance(addr string) (*big.Int, error)
-	// Nonce returns the nonce if the account exists
-	Nonce(addr string) (uint64, error)
-	// CreateState adds a new account with initial balance to the factory
-	CreateState(addr string, init *big.Int) (*state.Account, error)
 	// CandidatesByHeight returns the candidate list by a given height
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
-	// GetHeightByHash returns Block's height by hash
-	GetHeightByHash(h hash.Hash256) (uint64, error)
-	// GetHashByHeight returns Block's hash by height
-	GetHashByHeight(height uint64) (hash.Hash256, error)
-	// GetBlockByHeight returns Block by height
-	GetBlockByHeight(height uint64) (*block.Block, error)
-	// GetBlockByHash returns Block by hash
-	GetBlockByHash(h hash.Hash256) (*block.Block, error)
 	// BlockHeaderByHeight return block header by height
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
 	// BlockHeaderByHash return block header by hash
@@ -100,7 +85,9 @@ type Blockchain interface {
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// GetFactory returns the state factory
-	GetFactory() factory.Factory
+	Factory() factory.Factory
+	// BlockDAO returns the block dao
+	BlockDAO() blockdao.BlockDAO
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -109,8 +96,6 @@ type Blockchain interface {
 	TipHash() hash.Hash256
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// StateByAddr returns account of a given address
-	StateByAddr(address string) (*state.Account, error)
 	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 	RecoverChainAndState(targetHeight uint64) error
 	// GenesisTimestamp returns the timestamp of genesis
@@ -307,6 +292,10 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blo
 	return chain
 }
 
+func (bc *blockchain) BlockDAO() blockdao.BlockDAO {
+	return bc.dao
+}
+
 func (bc *blockchain) ChainID() uint32 {
 	return atomic.LoadUint32(&bc.config.Chain.ID)
 }
@@ -342,16 +331,6 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 	defer bc.mu.Unlock()
 
 	return bc.lifecycle.OnStop(ctx)
-}
-
-// Balance returns balance of address
-func (bc *blockchain) Balance(addr string) (*big.Int, error) {
-	return bc.sf.Balance(addr)
-}
-
-// Nonce returns the nonce if the account exists
-func (bc *blockchain) Nonce(addr string) (uint64, error) {
-	return bc.sf.Nonce(addr)
 }
 
 // CandidatesByHeight returns the candidate list by a given height
@@ -424,26 +403,6 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	return numBlks, produce, nil
 }
 
-// GetHeightByHash returns block's height by hash
-func (bc *blockchain) GetHeightByHash(h hash.Hash256) (uint64, error) {
-	return bc.dao.GetBlockHeight(h)
-}
-
-// GetHashByHeight returns block's hash by height
-func (bc *blockchain) GetHashByHeight(height uint64) (hash.Hash256, error) {
-	return bc.dao.GetBlockHash(height)
-}
-
-// GetBlockByHeight returns block from the blockchain hash by height
-func (bc *blockchain) GetBlockByHeight(height uint64) (*block.Block, error) {
-	return bc.getBlockByHeight(height)
-}
-
-// GetBlockByHash returns block from the blockchain hash by hash
-func (bc *blockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
-	return bc.dao.GetBlock(h)
-}
-
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
 	return bc.blockHeaderByHeight(height)
 }
@@ -461,7 +420,7 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 }
 
 // GetFactory returns the state factory
-func (bc *blockchain) GetFactory() factory.Factory {
+func (bc *blockchain) Factory() factory.Factory {
 	return bc.sf
 }
 
@@ -569,19 +528,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	return bc.commitBlock(blk)
 }
 
-// StateByAddr returns the account of an address
-func (bc *blockchain) StateByAddr(address string) (*state.Account, error) {
-	if bc.sf != nil {
-		s, err := bc.sf.AccountState(address)
-		if err != nil {
-			log.L().Warn("Failed to get account.", zap.String("address", address), zap.Error(err))
-			return nil, err
-		}
-		return s, nil
-	}
-	return nil, errors.New("state factory is nil")
-}
-
 // SetValidator sets the current validator object
 func (bc *blockchain) SetValidator(val Validator) {
 	bc.mu.Lock()
@@ -657,44 +603,9 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 		ctx,
 		ws,
 		ex,
-		bc,
+		bc.dao.GetBlockHash,
 		config.NewHeightUpgrade(bc.config),
 	)
-}
-
-// CreateState adds a new account with initial balance to the factory
-func (bc *blockchain) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	if bc.sf == nil {
-		return nil, errors.New("empty state factory")
-	}
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create clean working set")
-	}
-	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
-	}
-	gasLimit := bc.config.Genesis.BlockGasLimit
-	callerAddr, err := address.FromString(addr)
-	if err != nil {
-		return nil, err
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			GasLimit:   gasLimit,
-			Caller:     callerAddr,
-			ActionHash: hash.ZeroHash256,
-			Nonce:      0,
-			Registry:   bc.registry,
-		})
-	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
-		return nil, errors.Wrap(err, "failed to run the account creation")
-	}
-	if err = bc.sf.Commit(ws); err != nil {
-		return nil, errors.Wrap(err, "failed to commit the account creation")
-	}
-	return account, nil
 }
 
 // RecoverChainAndState recovers the chain to target height and refresh state db if necessary
@@ -764,10 +675,6 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 	}
 }
 
-func (bc *blockchain) getBlockByHeight(height uint64) (*block.Block, error) {
-	return bc.dao.GetBlockByHeight(height)
-}
-
 func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
 	hash, err := bc.dao.GetBlockHash(height)
 	if err != nil {
@@ -818,7 +725,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 	}
 
 	for i := stateHeight + 1; i <= bc.tipHeight; i++ {
-		blk, err := bc.getBlockByHeight(i)
+		blk, err := bc.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}
@@ -1310,7 +1217,7 @@ func (bc *blockchain) createNativeStakingContract(ctx context.Context, ws factor
 	if err != nil {
 		return err
 	}
-	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc, hu)
+	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc.dao.GetBlockHash, hu)
 	if err != nil {
 		return err
 	}

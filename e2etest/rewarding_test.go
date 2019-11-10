@@ -92,7 +92,7 @@ func TestBlockReward(t *testing.T) {
 	require.True(t, ok)
 	rp, ok := p.(*rewarding.Protocol)
 	require.True(t, ok)
-	sf := svr.ChainService(1).Blockchain().GetFactory()
+	sf := svr.ChainService(1).Blockchain().Factory()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 
@@ -108,7 +108,7 @@ func TestBlockReward(t *testing.T) {
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
 	for i := 1; i <= 5; i++ {
-		blk, err := svr.ChainService(1).Blockchain().GetBlockByHeight(uint64(i))
+		blk, err := svr.ChainService(1).Blockchain().BlockDAO().GetBlockByHeight(uint64(i))
 		require.NoError(t, err)
 		ok := false
 		var gr *action.GrantReward
@@ -237,7 +237,7 @@ func TestBlockEpochReward(t *testing.T) {
 		require.True(t, ok)
 		rps[i] = rp
 
-		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().GetFactory()
+		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().Factory()
 		ws, err := sf.NewWorkingSet()
 		require.NoError(t, err)
 		wss[i] = ws
@@ -247,11 +247,11 @@ func TestBlockEpochReward(t *testing.T) {
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initBalances[rewardAddrStr], err = chains[i].Balance(rewardAddrStr)
+		initBalances[rewardAddrStr], err = chains[i].Factory().Balance(rewardAddrStr)
 		require.NoError(t, err)
 
 		operatorAddrStr := identityset.Address(i).String()
-		initBalances[operatorAddrStr], err = chains[i].Balance(operatorAddrStr)
+		initBalances[operatorAddrStr], err = chains[i].Factory().Balance(operatorAddrStr)
 		require.NoError(t, err)
 
 		claimedAmount[rewardAddrStr] = big.NewInt(0)
@@ -436,7 +436,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endBalance, err := chains[0].Balance(rewardAddrStr)
+		endBalance, err := chains[0].Factory().Balance(rewardAddrStr)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endBalance.String())
 		require.NoError(t, err)
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -445,7 +445,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
-		operatorBalance, err := chains[i].Balance(operatorAddrStr)
+		operatorBalance, err := chains[i].Factory().Balance(operatorAddrStr)
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorBalance)
 	}
