@@ -25,7 +25,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/cache"
@@ -81,48 +80,59 @@ var (
 	ErrNotOpened = errors.New("DB is not opened")
 )
 
-// BlockDAO represents the block data access object
-type BlockDAO interface {
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
-	Commit() error
-	GetBlockHash(uint64) (hash.Hash256, error)
-	GetBlockHeight(hash.Hash256) (uint64, error)
-	GetBlock(hash.Hash256) (*block.Block, error)
-	GetBlockByHeight(uint64) (*block.Block, error)
-	GetTipHeight() (uint64, error)
-	GetTipHash() (hash.Hash256, error)
-	Header(hash.Hash256) (*block.Header, error)
-	Body(hash.Hash256) (*block.Body, error)
-	Footer(hash.Hash256) (*block.Footer, error)
-	GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
-	GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
-	GetReceipts(uint64) ([]*action.Receipt, error)
-	PutBlock(*block.Block) error
-	DeleteTipBlock() error
-	IndexFile(uint64, []byte) error
-	GetFileIndex(uint64) ([]byte, error)
-	KVStore() db.KVStore
-}
+type (
+	// BlockDAO represents the block data access object
+	BlockDAO interface {
+		Start(ctx context.Context) error
+		Stop(ctx context.Context) error
+		GetBlockHash(uint64) (hash.Hash256, error)
+		GetBlockHeight(hash.Hash256) (uint64, error)
+		GetBlock(hash.Hash256) (*block.Block, error)
+		GetBlockByHeight(uint64) (*block.Block, error)
+		GetTipHeight() (uint64, error)
+		GetTipHash() (hash.Hash256, error)
+		Header(hash.Hash256) (*block.Header, error)
+		Body(hash.Hash256) (*block.Body, error)
+		Footer(hash.Hash256) (*block.Footer, error)
+		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
+		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
+		GetReceipts(uint64) ([]*action.Receipt, error)
+		PutBlock(*block.Block) error
+		Commit() error
+		DeleteTipBlock() error
+		IndexFile(uint64, []byte) error
+		GetFileIndex(uint64) ([]byte, error)
+		KVStore() db.KVStore
+	}
 
-type blockDAO struct {
-	compressBlock bool
-	kvstore       db.KVStore
-	indexer       blockindex.Indexer
-	htf           db.RangeIndex
-	kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
-	topIndex      atomic.Value
-	timerFactory  *prometheustimer.TimerFactory
-	lifecycle     lifecycle.Lifecycle
-	headerCache   *cache.ThreadSafeLruCache
-	bodyCache     *cache.ThreadSafeLruCache
-	footerCache   *cache.ThreadSafeLruCache
-	cfg           config.DB
-	mutex         sync.RWMutex // for create new db file
-}
+	// BlockIndexer defines an interface to accept block to build index
+	BlockIndexer interface {
+		Start(ctx context.Context) error
+		Stop(ctx context.Context) error
+		PutBlock(blk *block.Block) error
+		DeleteTipBlock(blk *block.Block) error
+		Commit() error
+	}
+
+	blockDAO struct {
+		compressBlock bool
+		kvstore       db.KVStore
+		indexer       BlockIndexer
+		htf           db.RangeIndex
+		kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
+		topIndex      atomic.Value
+		timerFactory  *prometheustimer.TimerFactory
+		lifecycle     lifecycle.Lifecycle
+		headerCache   *cache.ThreadSafeLruCache
+		bodyCache     *cache.ThreadSafeLruCache
+		footerCache   *cache.ThreadSafeLruCache
+		cfg           config.DB
+		mutex         sync.RWMutex // for create new db file
+	}
+)
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvstore db.KVStore, indexer blockindex.Indexer, compressBlock bool, cfg config.DB) BlockDAO {
+func NewBlockDAO(kvstore db.KVStore, indexer BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
 		compressBlock: compressBlock,
 		kvstore:       kvstore,
@@ -293,15 +303,25 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 }
 
 func (dao *blockDAO) DeleteTipBlock() error {
-	blk, err := dao.deleteTipBlock()
+	dao.mutex.Lock()
+	defer dao.mutex.Unlock()
+	// Obtain tip block hash
+	hash, err := dao.getTipHash()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get tip block hash")
+	}
+	blk, err := dao.getBlock(hash)
+	if err != nil {
+		return errors.Wrap(err, "failed to get tip block")
 	}
 	// delete block index if there's indexer
-	if dao.indexer == nil {
-		return nil
+	if dao.indexer != nil {
+		if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+			return err
+		}
 	}
-	return dao.indexer.DeleteBlock(blk)
+
+	return dao.deleteTipBlock()
 }
 
 func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
@@ -620,25 +640,20 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 }
 
 // deleteTipBlock deletes the tip block
-func (dao *blockDAO) deleteTipBlock() (*block.Block, error) {
+func (dao *blockDAO) deleteTipBlock() error {
 	// First obtain tip height from db
 	height, err := dao.getTipHeight()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get tip height")
+		return errors.Wrap(err, "failed to get tip height")
 	}
 	if height == 0 {
 		// should not delete genesis block
-		return nil, errors.New("cannot delete genesis block")
+		return errors.New("cannot delete genesis block")
 	}
 	// Obtain tip block hash
 	hash, err := dao.getTipHash()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get tip block hash")
-	}
-
-	blk, err := dao.getBlock(hash)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get tip block")
+		return errors.Wrap(err, "failed to get tip block hash")
 	}
 
 	batchForBlock := db.NewBatch()
@@ -660,25 +675,25 @@ func (dao *blockDAO) deleteTipBlock() (*block.Block, error) {
 
 	whichDB, _, err := dao.getDBFromHeight(height)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if err := whichDB.Commit(batchForBlock); err != nil {
-		return nil, err
+		return err
 	}
 
 	// Update tip height
 	if err := dao.kvstore.Put(blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1)); err != nil {
-		return nil, errors.Wrap(err, "failed to update top height")
+		return errors.Wrap(err, "failed to update top height")
 	}
 	// Update tip hash
 	hash, err = dao.getBlockHash(height - 1)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get tip block hash")
+		return errors.Wrap(err, "failed to get tip block hash")
 	}
 	if err := dao.kvstore.Put(blockNS, topHashKey, hash[:]); err != nil {
-		return nil, errors.Wrap(err, "failed to get tip block hash")
+		return errors.Wrap(err, "failed to get tip block hash")
 	}
-	return blk, nil
+	return nil
 }
 
 // getDBFromHash returns db of this block stored

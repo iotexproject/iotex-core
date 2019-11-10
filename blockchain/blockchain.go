@@ -40,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -151,7 +150,6 @@ type Blockchain interface {
 type blockchain struct {
 	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao           blockdao.BlockDAO
-	indexer       blockindex.Indexer
 	config        config.Config
 	tipHeight     uint64
 	tipHash       hash.Hash256
@@ -222,7 +220,7 @@ func BoltDBDaoOption() Option {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewBoltDB(cfg.DB),
-			bc.indexer,
+			nil,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -238,7 +236,7 @@ func InMemDaoOption() Option {
 		}
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewMemKVStore(),
-			bc.indexer,
+			nil,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
