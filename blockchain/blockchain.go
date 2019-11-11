@@ -573,6 +573,8 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
+// If getting account/contract state depends on a specific block height, we need to change the block height in running context in order
+// to make sure that the state returned is always the newest one
 func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
 	// use latest block as carrier to run the offline execution
 	// the block itself is not used
