@@ -1276,6 +1276,7 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 	return logs, nil
 }
 
+// TODO: Since GasConsumed on the receipt may not be enough for the gas limit, we use binary search for the gas estimate. Need a better way to address it later.
 func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
@@ -1354,7 +1355,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	_, receipt, err := api.bc.ExecuteContractRead(callerAddr, sc)
+	_, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
 	if err != nil {
 		return false, err
 	}
