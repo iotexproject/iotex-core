@@ -216,8 +216,8 @@ func (dao *blockDAO) correct() (err error) {
 	if err != nil {
 		return dao.rewrite(tipHeight)
 	}
-	hash := blk.HashBlock()
-	if !bytes.Equal(tipHash[:], hash[:]) {
+	blkHash := blk.HashBlock()
+	if !bytes.Equal(tipHash[:], blkHash[:]) {
 		return dao.rewrite(tipHeight)
 	}
 	return nil
