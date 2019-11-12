@@ -45,11 +45,7 @@ func TestCreateContract(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(

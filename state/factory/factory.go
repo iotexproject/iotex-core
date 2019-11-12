@@ -402,7 +402,7 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 	return &account, nil
 }
 
-//Initialize initializes the state factory
+// Initialize initializes the state factory
 func (sf *factory) Initialize(cfg config.Config, registry *protocol.Registry) error {
 	var ws WorkingSet
 	var err error

@@ -40,11 +40,7 @@ func TestAddBalance(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -92,11 +88,7 @@ func TestRefundAPIs(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -139,11 +131,7 @@ func TestEmptyAndCode(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -188,11 +176,7 @@ func TestForEachStorage(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -256,11 +240,7 @@ func TestNonce(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -538,11 +518,7 @@ func TestGetCommittedState(t *testing.T) {
 				if val, ok = testDB[addrHash]; !ok {
 					return state.ErrStateNotExist
 				}
-				err := state.Deserialize(account, val)
-				if err != nil {
-					return err
-				}
-				return nil
+				return state.Deserialize(account, val)
 			}).AnyTimes()
 
 		sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -624,11 +600,7 @@ func TestPreimage(t *testing.T) {
 			if val, ok = testDB[addrHash]; !ok {
 				return state.ErrStateNotExist
 			}
-			err := state.Deserialize(account, val)
-			if err != nil {
-				return err
-			}
-			return nil
+			return state.Deserialize(account, val)
 		}).AnyTimes()
 
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(

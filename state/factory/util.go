@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"go.uber.org/zap"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
@@ -28,8 +28,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-//CreateGenesisStates initialize the states
-func CreateGenesisStates(cfg config.Config, registry *protocol.Registry, ws WorkingSet) error {
+// CreateGenesisStates initialize the states
+func CreateGenesisStates(cfg config.Config, registry *protocol.Registry, sm protocol.StateManager) error {
 	if registry == nil {
 		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
 		return nil
@@ -44,23 +44,23 @@ func CreateGenesisStates(cfg config.Config, registry *protocol.Registry, ws Work
 		Nonce:          0,
 		Registry:       registry,
 	})
-	if err := createAccountGenesisStates(ctx, ws, registry, cfg); err != nil {
+	if err := createAccountGenesisStates(ctx, sm, registry, cfg); err != nil {
 		return err
 	}
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
-		if err := createPollGenesisStates(ctx, ws, registry, cfg); err != nil {
+		if err := createPollGenesisStates(ctx, sm, registry, cfg); err != nil {
 			return err
 		}
 	}
 	if cfg.Genesis.NativeStakingContractCode != "" {
-		if err := createNativeStakingContract(ctx, ws, registry, cfg); err != nil {
+		if err := createNativeStakingContract(ctx, sm, registry, cfg); err != nil {
 			return err
 		}
 	}
-	return createRewardingGenesisStates(ctx, ws, registry, cfg)
+	return createRewardingGenesisStates(ctx, sm, registry, cfg)
 }
 
-func createAccountGenesisStates(ctx context.Context, ws WorkingSet, registry *protocol.Registry, cfg config.Config) error {
+func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
 	p, ok := registry.Find(account.ProtocolID)
 	if !ok {
 		return nil
@@ -70,10 +70,10 @@ func createAccountGenesisStates(ctx context.Context, ws WorkingSet, registry *pr
 		return errors.Errorf("error when casting protocol")
 	}
 	addrs, balances := cfg.Genesis.InitBalances()
-	return ap.Initialize(ctx, ws, addrs, balances)
+	return ap.Initialize(ctx, sm, addrs, balances)
 }
 
-func createRewardingGenesisStates(ctx context.Context, ws WorkingSet, registry *protocol.Registry, cfg config.Config) error {
+func createRewardingGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
 	p, ok := registry.Find(rewarding.ProtocolID)
 	if !ok {
 		return nil
@@ -84,7 +84,7 @@ func createRewardingGenesisStates(ctx context.Context, ws WorkingSet, registry *
 	}
 	return rp.Initialize(
 		ctx,
-		ws,
+		sm,
 		cfg.Genesis.InitBalance(),
 		cfg.Genesis.BlockReward(),
 		cfg.Genesis.EpochReward(),
@@ -97,7 +97,7 @@ func createRewardingGenesisStates(ctx context.Context, ws WorkingSet, registry *
 	)
 }
 
-func createPollGenesisStates(ctx context.Context, ws WorkingSet, registry *protocol.Registry, cfg config.Config) error {
+func createPollGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
 	if cfg.Genesis.EnableGravityChainVoting {
 		p, ok := registry.Find(poll.ProtocolID)
 		if !ok {
@@ -107,12 +107,12 @@ func createPollGenesisStates(ctx context.Context, ws WorkingSet, registry *proto
 		if !ok {
 			return errors.Errorf("error when casting poll protocol")
 		}
-		return pp.Initialize(ctx, ws)
+		return pp.Initialize(ctx, sm)
 	}
 	return nil
 }
 
-func createNativeStakingContract(ctx context.Context, ws WorkingSet, registry *protocol.Registry, cfg config.Config) error {
+func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
 	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
@@ -135,7 +135,7 @@ func createNativeStakingContract(ctx context.Context, ws WorkingSet, registry *p
 	}
 	_, receipt, err := evm.ExecuteContract(
 		protocol.WithRunActionsCtx(ctx, raCtx),
-		ws,
+		sm,
 		execution,
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil

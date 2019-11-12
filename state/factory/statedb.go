@@ -283,7 +283,7 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 	return &account, nil
 }
 
-//Initialize initializes the state db
+// Initialize initializes the state db
 func (sdb *stateDB) Initialize(cfg config.Config, registry *protocol.Registry) error {
 	var ws WorkingSet
 	var err error
