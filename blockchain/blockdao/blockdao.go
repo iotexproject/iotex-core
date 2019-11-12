@@ -7,6 +7,7 @@
 package blockdao
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -174,9 +175,70 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
 	}
-	return dao.initStores()
+	err = dao.initStores()
+	if err != nil {
+		return err
+	}
+	return dao.correct()
 }
+func (dao *blockDAO) correct() (err error) {
+	// have any error will rewrite block
+	tipHeight, err := dao.getTipHeight()
+	if err != nil {
+		return dao.rewrite(tipHeight)
+	}
+	if tipHeight == 0 {
+		return nil
+	}
+	tipHash, err := dao.getTipHash()
+	if err != nil {
+		return dao.rewrite(tipHeight)
+	}
 
+	tipHashFromkv, err := dao.getBlockHash(tipHeight)
+	if err != nil {
+		return dao.rewrite(tipHeight)
+	}
+	// check height->block hash
+	if !bytes.Equal(tipHash[:], tipHashFromkv[:]) {
+		return dao.rewrite(tipHeight)
+	}
+	height, err := dao.getBlockHeight(tipHash)
+	if err != nil {
+		return dao.rewrite(tipHeight)
+	}
+	// check block hash->height
+	if height != tipHeight {
+		return dao.rewrite(tipHeight)
+	}
+	// check block in chainxxx.db
+	blk, err := dao.getBlock(tipHash)
+	if err != nil {
+		return dao.rewrite(tipHeight)
+	}
+	hash := blk.HashBlock()
+	if !bytes.Equal(tipHash[:], hash[:]) {
+		return dao.rewrite(tipHeight)
+	}
+	return nil
+}
+func (dao *blockDAO) rewrite(tipHeight uint64) (err error) {
+	// rewrite chain.db according chainxxx.db,only check 10 blocks before tipHeight
+	var endHeight uint64
+	if tipHeight <= 10 {
+		endHeight = 1
+	} else {
+		endHeight = tipHeight - 10
+	}
+	for i := tipHeight; i >= endHeight; i-- {
+		blk, err := dao.GetBlockByHeight(i)
+		if err != nil {
+			continue
+		}
+		return dao.putBlock(blk)
+	}
+	return errors.New("can not fix db")
+}
 func (dao *blockDAO) initStores() error {
 	cfg := dao.cfg
 	model, dir := getFileNameAndDir(cfg.DbPath)
@@ -564,7 +626,11 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if h != hash.ZeroHash256 && err == nil {
 		return errors.Errorf("block %d already exist", blkHeight)
 	}
-
+	// need check write index first
+	kv, _, err := dao.getTopDB(blkHeight)
+	if err != nil {
+		return err
+	}
 	serHeader, err := blk.Header.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to serialize block header")
@@ -602,10 +668,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	kv, _, err := dao.getTopDB(blkHeight)
-	if err != nil {
-		return err
-	}
+
 	// write receipts
 	if blk.Receipts != nil {
 		receipts := iotextypes.Receipts{}
