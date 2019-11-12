@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -24,23 +25,40 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.Factory, *Protocol), withExempt bool) {
+func testProtocol(t *testing.T, test func(*testing.T, context.Context, *mock_chainmanager.MockStateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := config.Default
-	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Start(context.Background()))
-	defer func() {
-		require.NoError(t, stateDB.Stop(context.Background()))
-	}()
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	testDB := make(map[[20]byte]([]byte))
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			var val []byte
+			var ok bool
+			if val, ok = testDB[addrHash]; !ok {
+				return state.ErrStateNotExist
+			}
+			err := state.Deserialize(account, val)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).AnyTimes()
+
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			testDB[addrHash] = ss
+			return nil
+		}).AnyTimes()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
@@ -99,14 +117,12 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			BlockHeight: 0,
 		},
 	)
-	ws, err := stateDB.NewWorkingSet()
-	require.NoError(t, err)
 	if withExempt {
 		require.NoError(
 			t,
 			p.Initialize(
 				ctx,
-				ws,
+				sm,
 				big.NewInt(0),
 				big.NewInt(10),
 				big.NewInt(100),
@@ -124,7 +140,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			t,
 			p.Initialize(
 				ctx,
-				ws,
+				sm,
 				big.NewInt(0),
 				big.NewInt(10),
 				big.NewInt(100),
@@ -137,8 +153,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			))
 	}
 
-	require.NoError(t, stateDB.Commit(ws))
-
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
@@ -147,42 +161,38 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, factory.F
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	blockReward, err := p.BlockReward(ctx, ws)
+
+	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(10), blockReward)
-	epochReward, err := p.EpochReward(ctx, ws)
+	epochReward, err := p.EpochReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(100), epochReward)
-	fb, err := p.FoundationBonus(ctx, ws)
+	fb, err := p.FoundationBonus(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(5), fb)
-	ndffb, err := p.NumDelegatesForFoundationBonus(ctx, ws)
+	ndffb, err := p.NumDelegatesForFoundationBonus(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(5), ndffb)
-	fble, err := p.FoundationBonusLastEpoch(ctx, ws)
+	fble, err := p.FoundationBonusLastEpoch(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(365), fble)
-	pt, err := p.ProductivityThreshold(ctx, ws)
+	pt, err := p.ProductivityThreshold(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(50), pt)
 
-	totalBalance, err := p.TotalBalance(ctx, ws)
+	totalBalance, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), totalBalance)
-	availableBalance, err := p.AvailableBalance(ctx, ws)
+	availableBalance, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), availableBalance)
 
 	// Create a test account with 1000 token
-	ws, err = stateDB.NewWorkingSet()
+	_, err = accountutil.LoadOrCreateAccount(sm, identityset.Address(28).String(), big.NewInt(1000))
 	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(28).String(), big.NewInt(1000))
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Commit(ws))
 
-	test(t, ctx, stateDB, p)
+	test(t, ctx, sm, p)
 }
 
 func TestProtocol_Handle(t *testing.T) {
@@ -190,12 +200,35 @@ func TestProtocol_Handle(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Start(context.Background()))
-	defer func() {
-		require.NoError(t, stateDB.Stop(context.Background()))
-	}()
+
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	testDB := make(map[[20]byte]([]byte))
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			var val []byte
+			var ok bool
+			if val, ok = testDB[addrHash]; !ok {
+				return state.ErrStateNotExist
+			}
+			err := state.Deserialize(account, val)
+			if err != nil {
+				return err
+			}
+			return nil
+		}).AnyTimes()
+
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			testDB[addrHash] = ss
+			return nil
+		}).AnyTimes()
+	sm.EXPECT().Snapshot().Return(1).AnyTimes()
+	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
+
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(
 		[]*state.Candidate{
@@ -220,11 +253,9 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ws, err := stateDB.NewWorkingSet()
-	require.NoError(t, err)
 	require.NoError(t, p.Initialize(
 		ctx,
-		ws,
+		sm,
 		big.NewInt(1000000),
 		big.NewInt(10),
 		big.NewInt(100),
@@ -235,7 +266,6 @@ func TestProtocol_Handle(t *testing.T) {
 		0,
 		50,
 	))
-	require.NoError(t, stateDB.Commit(ws))
 
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
@@ -248,15 +278,10 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Create a test account with 1000000 token
-	ws, err = stateDB.NewWorkingSet()
+	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000000))
 	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(1000000))
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Commit(ws))
 
 	// Deposit
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
 	eb1 := action.EnvelopeBuilder{}
@@ -268,15 +293,13 @@ func TestProtocol_Handle(t *testing.T) {
 	se1, err := action.Sign(e1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err := p.Handle(ctx, se1.Action(), ws)
+	receipt, err := p.Handle(ctx, se1.Action(), sm)
 	require.NoError(t, err)
-	balance, err := p.TotalBalance(ctx, ws)
+	balance, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(2000000), balance)
 
 	// Grant
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
 	gb := action.GrantRewardBuilder{}
 	grant := gb.SetRewardType(action.BlockReward).Build()
 	eb2 := action.EnvelopeBuilder{}
@@ -288,12 +311,12 @@ func TestProtocol_Handle(t *testing.T) {
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se2.Action(), ws)
+	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs))
 	// Grant the block reward again should fail
-	receipt, err = p.Handle(ctx, se2.Action(), ws)
+	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
 }
