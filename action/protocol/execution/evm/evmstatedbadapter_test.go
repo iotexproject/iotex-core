@@ -286,7 +286,6 @@ func TestNonce(t *testing.T) {
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
 }
 
-
 func TestSnapshotRevertAndCommit(t *testing.T) {
 	testSnapshotAndRevert := func(cfg config.Config, t *testing.T) {
 		require := require.New(t)
@@ -294,21 +293,15 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		sm := mock_chainmanager.NewMockStateManager(ctrl)
-		snapshotDB := make(map[int](map[[20]byte]([]byte)))
-		testDB := make(map[[20]byte]([]byte))
+		cb := db.NewCachedBatch()
 
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(addrHash hash.Hash160, account interface{}) error {
-				var val []byte
-				var ok bool
-				if val, ok = testDB[addrHash]; !ok {
+				val, err := cb.Get("state", addrHash[:])
+				if err != nil {
 					return state.ErrStateNotExist
 				}
-				err := state.Deserialize(account, val)
-				if err != nil {
-					return err
-				}
-				return nil
+				return state.Deserialize(account, val)
 			}).AnyTimes()
 		store := db.NewMemKVStore()
 		sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -317,34 +310,21 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				testDB[addrHash] = ss
+				cb.Put("state", addrHash[:], ss, "failed to put")
 				return nil
 			}).AnyTimes()
 
 		sm.EXPECT().GetDB().Return(store).AnyTimes()
-		cb := db.NewCachedBatch()
 		sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-		index := -1
 		sm.EXPECT().Snapshot().DoAndReturn(
 			func() int {
-				index++
-				copyDB := make(map[[20]byte]([]byte))
-				for k, v := range testDB {
-					copyDB[k] = v
-				}
-				snapshotDB[index] = copyDB
-				return index
+				return cb.Snapshot()
 			}).AnyTimes()
 		sm.EXPECT().Revert(gomock.Any()).DoAndReturn(
 			func(snapshot int) error {
-				prevDB, ok := snapshotDB[snapshot]
-				if !ok {
-					return state.ErrStateNotExist
-				}
-				testDB = prevDB
-				return nil
+				return cb.Revert(snapshot)
 			}).AnyTimes()
-		
+
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)

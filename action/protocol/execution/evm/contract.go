@@ -8,7 +8,6 @@ package evm
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -139,13 +138,11 @@ func (c *contract) RootHash() hash.Hash256 {
 
 // LoadRoot loads storage trie's root
 func (c *contract) LoadRoot() error {
-	fmt.Println(c.Account.Root[:])
 	return c.trie.SetRootHash(c.Account.Root[:])
 }
 
 // Snapshot takes a snapshot of the contract object
 func (c *contract) Snapshot() Contract {
-	fmt.Println(c.Account.Root[:])
 	return &contract{
 		Account:    c.Account.Clone(),
 		dirtyCode:  c.dirtyCode,
