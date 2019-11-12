@@ -16,8 +16,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
+)
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
+const (
+	dardanellesOn           = true
+	dardanellesHeight       = uint64(1816201)
+	numDelegates            = uint64(24)
+	numSubEpochs            = uint64(15)
+	numSubEpochsDardanelles = uint64(30)
 )
 
 var (
@@ -74,10 +80,7 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 }
 
 func (b BalanceChange) handle(tx *sql.Tx, blockHeight uint64) error {
-	epochNumber := uint64(0)
-	if blockHeight != 0 {
-		epochNumber = (blockHeight-1)/genesis.Default.NumDelegates/genesis.Default.NumSubEpochs + 1
-	}
+	epochNumber := getEpochNumber(blockHeight)
 	actionType := "execution"
 	insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, action_type, `from`, `to`, amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		BalanceHistoryTableName)
@@ -135,4 +138,28 @@ func rowExists(db *sql.DB, query string, args ...interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to query the row")
 	}
 	return exists, nil
+}
+
+func getEpochNumber(height uint64) uint64 {
+	if height == 0 {
+		return 0
+	}
+	if !dardanellesOn || height <= dardanellesHeight {
+		return (height-1)/numDelegates/numSubEpochs + 1
+	}
+	dardanellesEpoch := getEpochNumber(dardanellesHeight)
+	dardanellesEpochHeight := getEpochHeight(dardanellesEpoch)
+	return dardanellesEpoch + (height-dardanellesEpochHeight)/numDelegates/numSubEpochsDardanelles
+}
+
+func getEpochHeight(epochNum uint64) uint64 {
+	if epochNum == 0 {
+		return 0
+	}
+	dardanellesEpoch := getEpochNumber(dardanellesHeight)
+	if !dardanellesOn || epochNum <= dardanellesEpoch {
+		return (epochNum-1)*numDelegates*numSubEpochs + 1
+	}
+	dardanellesEpochHeight := getEpochHeight(dardanellesEpoch)
+	return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*numDelegates*numSubEpochsDardanelles
 }
