@@ -562,6 +562,7 @@ var (
 		// Arguments
 		protocolID string
 		methodName string
+		height     uint64
 		// Expected Values
 		result uint64
 	}{
@@ -575,16 +576,6 @@ var (
 			methodName: "NumDelegates",
 			result:     24,
 		},
-		{
-			protocolID: "rolldpos",
-			methodName: "NumSubEpochs",
-			result:     2,
-		},
-		{
-			protocolID: "rolldpos",
-			methodName: "NumSubEpochsDardanelles",
-			result:     30,
-		},
 	}
 
 	readEpochCtxTests = []struct {
@@ -595,6 +586,18 @@ var (
 		// Expected Values
 		result uint64
 	}{
+		{
+			protocolID: "rolldpos",
+			methodName: "NumSubEpochs",
+			argument:   1,
+			result:     2,
+		},
+		{
+			protocolID: "rolldpos",
+			methodName: "NumSubEpochs",
+			argument:   1816201,
+			result:     30,
+		},
 		{
 			protocolID: "rolldpos",
 			methodName: "EpochNumber",

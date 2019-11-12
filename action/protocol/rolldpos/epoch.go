@@ -74,9 +74,11 @@ func (p *Protocol) ReadState(ctx context.Context, sm protocol.StateManager, meth
 	case "NumDelegates":
 		return byteutil.Uint64ToBytes(p.numDelegates), nil
 	case "NumSubEpochs":
-		return byteutil.Uint64ToBytes(p.numSubEpochs), nil
-	case "NumSubEpochsDardanelles":
-		return byteutil.Uint64ToBytes(p.numSubEpochsDardanelles), nil
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		numSubEpochs := p.NumSubEpochs(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(numSubEpochs), nil
 	case "EpochNumber":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
@@ -119,6 +121,14 @@ func (p *Protocol) NumCandidateDelegates() uint64 {
 // NumDelegates returns the number of delegates in an epoch
 func (p *Protocol) NumDelegates() uint64 {
 	return p.numDelegates
+}
+
+// NumSubEpochs returns the number of subEpochs given a block height
+func (p *Protocol) NumSubEpochs(height uint64) uint64 {
+	if !p.dardanellesOn || height < p.dardanellesHeight {
+		return p.numSubEpochs
+	}
+	return p.numSubEpochsDardanelles
 }
 
 // GetEpochNum returns the number of the epoch for a given height
