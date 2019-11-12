@@ -126,7 +126,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 4:en's address is not proposer of the corresponding round
 	require.Error(rctx.CheckBlockProposer(21, bp, en))
 
-	// case 5:endorsor is not proposer of the correpsonding round
+	// case 5:endorsor is not proposer of the corresponding round
 	en = endorsement.NewEndorsement(time.Unix(1562382492, 0), identityset.PrivateKey(22).PublicKey(), nil)
 	require.Error(rctx.CheckBlockProposer(21, bp, en))
 

@@ -113,7 +113,7 @@ func newRollDPoSCtx(
 		return nil, errors.New("chain cannot be nil")
 	}
 	if rp == nil {
-		return nil, errors.New("roll dpos protocal cannot be nil")
+		return nil, errors.New("roll dpos protocol cannot be nil")
 	}
 	if clock == nil {
 		return nil, errors.New("clock cannot be nil")
