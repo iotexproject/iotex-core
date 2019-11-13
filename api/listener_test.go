@@ -35,7 +35,6 @@ func Test_chainListener_Start(t *testing.T) {
 			t.Errorf("chainListener.Start() error = %v, wantErr %v", err, test.wantErr)
 		}
 	})
-
 }
 
 func Test_chainListener_Stop(t *testing.T) {
