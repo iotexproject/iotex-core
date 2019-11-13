@@ -102,7 +102,17 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	return sdb.dao.Start(ctx)
+	if err := sdb.dao.Start(ctx); err != nil {
+		return err
+	}
+	// check factory height
+	_, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		if err := sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+	}
+	return nil
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {

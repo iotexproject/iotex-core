@@ -160,6 +160,13 @@ func (sf *factory) Start(ctx context.Context) error {
 	if err := sf.dao.Start(ctx); err != nil {
 		return err
 	}
+	// check factory height
+	_, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	if err != nil && errors.Cause(err) == db.ErrNotExist {
+		if err := sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init factory's height")
+		}
+	}
 	return sf.lifecycle.OnStart(ctx)
 }
 

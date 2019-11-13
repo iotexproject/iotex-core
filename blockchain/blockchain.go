@@ -303,19 +303,28 @@ func (bc *blockchain) ChainAddress() string {
 }
 
 // Start starts the blockchain
-func (bc *blockchain) Start(ctx context.Context) (err error) {
+func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	if err = bc.lifecycle.OnStart(ctx); err != nil {
+	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
+	}
+	// init state factory if needed
+	sfHeight, err := bc.sf.Height()
+	if err != nil {
+		return err
+	}
+	if sfHeight == 0 {
+		if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
+			return err
+		}
 	}
 	// get blockchain tip height
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
-	//start empty blockchain
 	if bc.tipHeight == 0 {
-		return bc.sf.Initialize(bc.config, bc.registry)
+		return nil
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.GetTipHash(); err != nil {
@@ -614,6 +623,9 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 	var buildStateFromScratch bool
 	stateHeight, err := bc.sf.Height()
 	if err != nil {
+		return err
+	}
+	if stateHeight == 0 {
 		buildStateFromScratch = true
 	}
 	if targetHeight > 0 {
