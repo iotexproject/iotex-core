@@ -22,8 +22,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -33,22 +33,33 @@ import (
 func TestProtocol_HandleTransfer(t *testing.T) {
 	require := require.New(t)
 
-	cfg := config.Default
-	ctx := context.Background()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-
-	p := NewProtocol(config.NewHeightUpgrade(cfg))
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+
+	cfg := config.Default
+	ctx := context.Background()
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cm := mock_chainmanager.NewMockChainManager(ctrl)
+	cb := db.NewCachedBatch()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
+				return state.ErrStateNotExist
+			}
+			return state.Deserialize(account, val)
+		}).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			cb.Put("state", addrHash[:], ss, "failed to put state")
+			return nil
+		}).AnyTimes()
+
+	p := NewProtocol(config.NewHeightUpgrade(cfg))
 	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
@@ -62,7 +73,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 					GasLimit:    testutil.TestGasLimit,
 					Registry:    &registry,
 				}),
-			ws,
+			sm,
 			big.NewInt(0),
 			big.NewInt(0),
 			big.NewInt(0),
@@ -84,9 +95,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	pubKeyBravo := hash.BytesToHash160(identityset.Address(29).Bytes())
 	pubKeyCharlie := hash.BytesToHash160(identityset.Address(30).Bytes())
 
-	require.NoError(ws.PutState(pubKeyAlfa, &accountAlfa))
-	require.NoError(ws.PutState(pubKeyBravo, &accountBravo))
-	require.NoError(ws.PutState(pubKeyCharlie, &accountCharlie))
+	require.NoError(sm.PutState(pubKeyAlfa, &accountAlfa))
+	require.NoError(sm.PutState(pubKeyBravo, &accountBravo))
+	require.NoError(sm.PutState(pubKeyCharlie, &accountCharlie))
 
 	transfer, err := action.NewTransfer(
 		uint64(1),
@@ -108,23 +119,22 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			IntrinsicGas: gas,
 			Registry:     &registry,
 		})
-	receipt, err := p.Handle(ctx, transfer, ws)
+	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
-	require.NoError(sf.Commit(ws))
 
 	var acct state.Account
-	require.NoError(sf.State(pubKeyAlfa, &acct))
+	require.NoError(sm.State(pubKeyAlfa, &acct))
 	require.Equal("40003", acct.Balance.String())
 	require.Equal(uint64(1), acct.Nonce)
-	require.NoError(sf.State(pubKeyBravo, &acct))
+	require.NoError(sm.State(pubKeyBravo, &acct))
 	require.Equal("2", acct.Balance.String())
 
 	contractAcct := state.Account{
 		CodeHash: []byte("codeHash"),
 	}
 	contractAddr := hash.BytesToHash160(identityset.Address(32).Bytes())
-	require.NoError(ws.PutState(contractAddr, &contractAcct))
+	require.NoError(sm.PutState(contractAddr, &contractAcct))
 	transfer, err = action.NewTransfer(
 		uint64(2),
 		big.NewInt(3),
@@ -135,11 +145,10 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	)
 	require.NoError(err)
 	// Assume that the gas of this transfer is the same as previous one
-	receipt, err = p.Handle(ctx, transfer, ws)
+	receipt, err = p.Handle(ctx, transfer, sm)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
-	require.NoError(sf.Commit(ws))
-	require.NoError(sf.State(pubKeyAlfa, &acct))
+	require.NoError(sm.State(pubKeyAlfa, &acct))
 	require.Equal(uint64(2), acct.Nonce)
 	require.Equal("20003", acct.Balance.String())
 }
