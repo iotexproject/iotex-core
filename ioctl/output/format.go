@@ -65,7 +65,7 @@ const (
 	Confirmation
 	// Query represents request for answer of certain question
 	Query
-	// Error represents error occured when running a command
+	// Error represents error occurred when running a command
 	Error
 )
 
