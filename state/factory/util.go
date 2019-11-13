@@ -28,29 +28,11 @@ import (
 	"github.com/pkg/errors"
 )
 
-// initializeFactory initializes the factory
-func initializeFactory(sf Factory, cfg config.Config, registry *protocol.Registry) error {
-	var ws WorkingSet
-	var err error
-	if ws, err = sf.NewWorkingSet(); err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	if !cfg.Chain.EmptyGenesis {
-		// Initialize the states before any actions happen on the blockchain
-		if err := createGenesisStates(cfg, registry, ws); err != nil {
-			return err
-		}
-		_ = ws.UpdateBlockLevelInfo(0)
-	}
-	// add Genesis states
-	if err := sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
-}
-
 // createGenesisStates initialize the genesis states
-func createGenesisStates(cfg config.Config, registry *protocol.Registry, sm protocol.StateManager) error {
+func createGenesisStates(cfg config.Config, registry *protocol.Registry, ws WorkingSet) error {
+	if cfg.Chain.EmptyGenesis {
+		return nil
+	}
 	if registry == nil {
 		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
 		return nil
@@ -65,20 +47,24 @@ func createGenesisStates(cfg config.Config, registry *protocol.Registry, sm prot
 		Nonce:          0,
 		Registry:       registry,
 	})
-	if err := createAccountGenesisStates(ctx, sm, registry, cfg); err != nil {
+	if err := createAccountGenesisStates(ctx, ws, registry, cfg); err != nil {
 		return err
 	}
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
-		if err := createPollGenesisStates(ctx, sm, registry, cfg); err != nil {
+		if err := createPollGenesisStates(ctx, ws, registry, cfg); err != nil {
 			return err
 		}
 	}
 	if cfg.Genesis.NativeStakingContractCode != "" {
-		if err := createNativeStakingContract(ctx, sm, registry, cfg); err != nil {
+		if err := createNativeStakingContract(ctx, ws, registry, cfg); err != nil {
 			return err
 		}
 	}
-	return createRewardingGenesisStates(ctx, sm, registry, cfg)
+	if err := createRewardingGenesisStates(ctx, ws, registry, cfg); err != nil {
+		return err
+	}
+	_ = ws.UpdateBlockLevelInfo(0)
+	return nil
 }
 
 func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {

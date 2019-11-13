@@ -312,8 +312,9 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
+	//start empty blockchain
 	if bc.tipHeight == 0 {
-		return bc.startEmptyBlockchain()
+		return bc.sf.Initialize(bc.config, bc.registry)
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.GetTipHash(); err != nil {
@@ -688,10 +689,6 @@ func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) 
 		return nil, err
 	}
 	return bc.dao.Footer(hash)
-}
-
-func (bc *blockchain) startEmptyBlockchain() error {
-	return bc.sf.Initialize(bc.config, bc.registry)
 }
 
 func (bc *blockchain) startExistingBlockchain() error {
@@ -1071,8 +1068,8 @@ func (bc *blockchain) refreshStateDB() error {
 	if err := bc.sf.Start(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
 	}
-	if err := bc.startEmptyBlockchain(); err != nil {
-		return err
+	if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
+		return errors.Wrap(err, "failed to initialize state factory")
 	}
 	if err := bc.sf.Stop(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop state factory")

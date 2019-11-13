@@ -297,31 +297,9 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	timer := sf.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sf.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sf.currentChainHeight,
-			ws.Version(),
-		)
-	}
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height and root
-	sf.currentChainHeight = ws.Height()
-	h := ws.RootHash()
-	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	return nil
+	return sf.commit(ws)
 }
 
 //======================================
@@ -402,7 +380,47 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 	return &account, nil
 }
 
+func (sf *factory) commit(ws WorkingSet) error {
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	timer := sf.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if sf.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sf.currentChainHeight,
+			ws.Version(),
+		)
+	}
+	if err := ws.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	// Update chain height and root
+	sf.currentChainHeight = ws.Height()
+	h := ws.RootHash()
+	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	return nil
+}
+
 // Initialize initializes the state factory
 func (sf *factory) Initialize(cfg config.Config, registry *protocol.Registry) error {
-	return initializeFactory(sf, cfg, registry)
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	var ws WorkingSet
+	var err error
+	if ws, err = NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers); err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	if err := createGenesisStates(cfg, registry, ws); err != nil {
+		return err
+	}
+	// add Genesis states
+	if err := sf.commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
+	}
+	return nil
 }

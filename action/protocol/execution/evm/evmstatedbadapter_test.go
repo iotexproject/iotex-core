@@ -25,10 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
-func initMockStateManager(t *testing.T) protocol.StateManager {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
+func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -67,7 +64,7 @@ func TestAddBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(t)
+	sm := initMockStateManager(ctrl)
 	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
@@ -88,7 +85,7 @@ func TestRefundAPIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(t)
+	sm := initMockStateManager(ctrl)
 
 	cfg := config.Default
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
@@ -105,7 +102,7 @@ func TestEmptyAndCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(t)
+	sm := initMockStateManager(ctrl)
 
 	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
@@ -125,7 +122,7 @@ func TestForEachStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(t)
+	sm := initMockStateManager(ctrl)
 
 	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
@@ -164,8 +161,8 @@ func TestNonce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(t)
-	
+	sm := initMockStateManager(ctrl)
+
 	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
@@ -182,7 +179,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := initMockStateManager(t)
+		sm := initMockStateManager(ctrl)
 
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -389,7 +386,7 @@ func TestGetCommittedState(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := initMockStateManager(t)
+		sm := initMockStateManager(ctrl)
 		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
@@ -446,7 +443,7 @@ func TestPreimage(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-	sm := initMockStateManager(t)
+	sm := initMockStateManager(ctrl)
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)

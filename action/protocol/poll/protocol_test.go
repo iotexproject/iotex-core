@@ -30,10 +30,7 @@ import (
 	"github.com/iotexproject/iotex-election/types"
 )
 
-func initConstruct(t *testing.T) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
@@ -78,13 +75,15 @@ func initConstruct(t *testing.T) (Protocol, context.Context, protocol.StateManag
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
 	)
-	require.NoError(err)
-	return p, ctx, sm, r
+	return p, ctx, sm, r, err
 }
 
 func TestInitialize(t *testing.T) {
 	require := require.New(t)
-	p, ctx, sm, r := initConstruct(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, sm, r, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p.Initialize(ctx, sm))
 	var sc state.CandidateList
 	require.NoError(sm.State(candidatesutil.ConstructKey(1), &sc))
@@ -106,7 +105,8 @@ func TestHandle(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	p, ctx, sm, _ := initConstruct(t)
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p.Initialize(ctx, sm))
 
 	// wrong action
@@ -126,7 +126,8 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.Nil(receipt)
 	// Case 2: all right
-	p2, ctx2, sm2, _ := initConstruct(t)
+	p2, ctx2, sm2, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p2.Initialize(ctx2, sm2))
 	var sc2 state.CandidateList
 	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
@@ -147,7 +148,8 @@ func TestProtocol_Validate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	p, ctx, sm, _ := initConstruct(t)
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p.Initialize(ctx, sm))
 
 	// wrong action
@@ -165,7 +167,8 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 1: wrong action type
 	require.NoError(p.Validate(ctx, selp.Action()))
 	// Case 2: Only producer could create this protocol
-	p2, ctx2, sm2, _ := initConstruct(t)
+	p2, ctx2, sm2, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p2.Initialize(ctx2, sm2))
 	var sc2 state.CandidateList
 	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
@@ -189,7 +192,8 @@ func TestProtocol_Validate(t *testing.T) {
 	err = p.Validate(ctx2, selp2.Action())
 	require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
 	// Case 3: duplicate candidate
-	p3, ctx3, sm3, _ := initConstruct(t)
+	p3, ctx3, sm3, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p3.Initialize(ctx3, sm3))
 	var sc3 state.CandidateList
 	require.NoError(sm3.State(candidatesutil.ConstructKey(1), &sc3))
@@ -214,7 +218,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.True(strings.Contains(err.Error(), "duplicate candidate"))
 
 	// Case 4: delegate's length is not equal
-	p4, ctx4, sm4, _ := initConstruct(t)
+	p4, ctx4, sm4, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p4.Initialize(ctx4, sm4))
 	var sc4 state.CandidateList
 	require.NoError(sm4.State(candidatesutil.ConstructKey(1), &sc4))
@@ -238,7 +243,8 @@ func TestProtocol_Validate(t *testing.T) {
 	err = p4.Validate(ctx4, selp4.Action())
 	require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
 	// Case 5: candidate's vote is not equal
-	p5, ctx5, sm5, _ := initConstruct(t)
+	p5, ctx5, sm5, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p5.Initialize(ctx5, sm5))
 	var sc5 state.CandidateList
 	require.NoError(sm5.State(candidatesutil.ConstructKey(1), &sc5))
@@ -262,7 +268,8 @@ func TestProtocol_Validate(t *testing.T) {
 	err = p5.Validate(ctx5, selp5.Action())
 	require.True(strings.Contains(err.Error(), "delegates are not as expected"))
 	// Case 6: all good
-	p6, ctx6, sm6, _ := initConstruct(t)
+	p6, ctx6, sm6, _, err := initConstruct(ctrl)
+	require.NoError(err)
 	require.NoError(p6.Initialize(ctx6, sm6))
 	var sc6 state.CandidateList
 	require.NoError(sm6.State(candidatesutil.ConstructKey(1), &sc6))
