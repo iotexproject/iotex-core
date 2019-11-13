@@ -181,7 +181,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	}
 	return dao.correct()
 }
-func (dao *blockDAO) correct() (err error) {
+func (dao *blockDAO) correct() error {
 	// have any error will rewrite block
 	tipHeight, err := dao.getTipHeight()
 	if err != nil {
