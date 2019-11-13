@@ -30,7 +30,7 @@ import (
 	"github.com/iotexproject/iotex-election/types"
 )
 
-func initConstruct(t *testing.T) (Protocol, context.Context, *mock_chainmanager.MockStateManager, *types.ElectionResult) {
+func initConstruct(t *testing.T) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -44,27 +44,24 @@ func initConstruct(t *testing.T) (Protocol, context.Context, *mock_chainmanager.
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
-	cb := db.NewCachedBatch()
 	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())

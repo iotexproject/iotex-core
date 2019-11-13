@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -30,29 +31,27 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
-func testProtocol(t *testing.T, test func(*testing.T, context.Context, *mock_chainmanager.MockStateManager, *Protocol), withExempt bool) {
+func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 
@@ -198,24 +197,22 @@ func TestProtocol_Handle(t *testing.T) {
 	cfg := config.Default
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()

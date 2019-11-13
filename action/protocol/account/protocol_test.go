@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -31,24 +32,22 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 
@@ -71,24 +70,22 @@ func TestProtocol_Initialize(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 

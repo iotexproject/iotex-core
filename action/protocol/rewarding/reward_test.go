@@ -23,6 +23,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -30,7 +31,7 @@ import (
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
@@ -68,7 +69,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
@@ -175,7 +176,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.Error(t, err)
 	}, false)
 
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
 
 		// Grant epoch reward
@@ -194,7 +195,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 }
 
 func TestProtocol_ClaimReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// Deposit 20 token into the rewarding fund
 		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(20)))
 
@@ -270,24 +271,22 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 

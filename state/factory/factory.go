@@ -404,21 +404,5 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 
 // Initialize initializes the state factory
 func (sf *factory) Initialize(cfg config.Config, registry *protocol.Registry) error {
-	var ws WorkingSet
-	var err error
-	if ws, err = sf.NewWorkingSet(); err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	if !cfg.Chain.EmptyGenesis {
-		// Initialize the states before any actions happen on the blockchain
-		if err := CreateGenesisStates(cfg, registry, ws); err != nil {
-			return err
-		}
-		_ = ws.UpdateBlockLevelInfo(0)
-	}
-	// add Genesis states
-	if err := sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
+	return initializeFactory(sf, cfg, registry)
 }

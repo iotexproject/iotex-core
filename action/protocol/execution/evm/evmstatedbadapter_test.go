@@ -18,46 +18,57 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
-func TestAddBalance(t *testing.T) {
-	require := require.New(t)
+func initMockStateManager(t *testing.T) protocol.StateManager {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := config.Default
-
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
-
+	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	store := db.NewMemKVStore()
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	sm.EXPECT().Snapshot().DoAndReturn(
+		func() int {
+			return cb.Snapshot()
+		}).AnyTimes()
+	sm.EXPECT().Revert(gomock.Any()).DoAndReturn(
+		func(snapshot int) error {
+			return cb.Revert(snapshot)
+		}).AnyTimes()
+	return sm
+}
 
+func TestAddBalance(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sm := initMockStateManager(t)
+	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
@@ -77,35 +88,9 @@ func TestRefundAPIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sm := initMockStateManager(t)
+
 	cfg := config.Default
-
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
-				return state.ErrStateNotExist
-			}
-			return state.Deserialize(account, val)
-		}).AnyTimes()
-
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return err
-			}
-			testDB[addrHash] = ss
-			return nil
-		}).AnyTimes()
-
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
@@ -120,35 +105,9 @@ func TestEmptyAndCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sm := initMockStateManager(t)
+
 	cfg := config.Default
-
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
-				return state.ErrStateNotExist
-			}
-			return state.Deserialize(account, val)
-		}).AnyTimes()
-
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return err
-			}
-			testDB[addrHash] = ss
-			return nil
-		}).AnyTimes()
-
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
@@ -166,34 +125,9 @@ func TestForEachStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sm := initMockStateManager(t)
+
 	cfg := config.Default
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
-				return state.ErrStateNotExist
-			}
-			return state.Deserialize(account, val)
-		}).AnyTimes()
-
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return err
-			}
-			testDB[addrHash] = ss
-			return nil
-		}).AnyTimes()
-
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
@@ -230,33 +164,9 @@ func TestNonce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sm := initMockStateManager(t)
+	
 	cfg := config.Default
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
-				return state.ErrStateNotExist
-			}
-			return state.Deserialize(account, val)
-		}).AnyTimes()
-
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return err
-			}
-			testDB[addrHash] = ss
-			return nil
-		}).AnyTimes()
-
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
@@ -272,38 +182,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := mock_chainmanager.NewMockStateManager(ctrl)
-		cb := db.NewCachedBatch()
-
-		sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(addrHash hash.Hash160, account interface{}) error {
-				val, err := cb.Get("state", addrHash[:])
-				if err != nil {
-					return state.ErrStateNotExist
-				}
-				return state.Deserialize(account, val)
-			}).AnyTimes()
-		store := db.NewMemKVStore()
-		sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(addrHash hash.Hash160, account interface{}) error {
-				ss, err := state.Serialize(account)
-				if err != nil {
-					return err
-				}
-				cb.Put("state", addrHash[:], ss, "failed to put")
-				return nil
-			}).AnyTimes()
-
-		sm.EXPECT().GetDB().Return(store).AnyTimes()
-		sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-		sm.EXPECT().Snapshot().DoAndReturn(
-			func() int {
-				return cb.Snapshot()
-			}).AnyTimes()
-		sm.EXPECT().Revert(gomock.Any()).DoAndReturn(
-			func(snapshot int) error {
-				return cb.Revert(snapshot)
-			}).AnyTimes()
+		sm := initMockStateManager(t)
 
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
@@ -495,6 +374,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/sucide/exist is same)
 	}
 
 	t.Run("contract snapshot/revert/commit with in memery DB", func(t *testing.T) {
@@ -509,32 +389,7 @@ func TestGetCommittedState(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := mock_chainmanager.NewMockStateManager(ctrl)
-		testDB := make(map[[20]byte]([]byte))
-		sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(addrHash hash.Hash160, account interface{}) error {
-				var val []byte
-				var ok bool
-				if val, ok = testDB[addrHash]; !ok {
-					return state.ErrStateNotExist
-				}
-				return state.Deserialize(account, val)
-			}).AnyTimes()
-
-		sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(addrHash hash.Hash160, account interface{}) error {
-				ss, err := state.Serialize(account)
-				if err != nil {
-					return err
-				}
-				testDB[addrHash] = ss
-				return nil
-			}).AnyTimes()
-
-		store := db.NewMemKVStore()
-		sm.EXPECT().GetDB().Return(store).AnyTimes()
-		cb := db.NewCachedBatch()
-		sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+		sm := initMockStateManager(t)
 		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
@@ -591,32 +446,7 @@ func TestPreimage(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
-				return state.ErrStateNotExist
-			}
-			return state.Deserialize(account, val)
-		}).AnyTimes()
-
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return err
-			}
-			testDB[addrHash] = ss
-			return nil
-		}).AnyTimes()
-
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	sm := initMockStateManager(t)
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)

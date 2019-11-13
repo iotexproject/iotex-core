@@ -285,21 +285,5 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 
 // Initialize initializes the state db
 func (sdb *stateDB) Initialize(cfg config.Config, registry *protocol.Registry) error {
-	var ws WorkingSet
-	var err error
-	if ws, err = sdb.NewWorkingSet(); err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	if !cfg.Chain.EmptyGenesis {
-		// Initialize the states before any actions happen on the blockchain
-		if err := CreateGenesisStates(cfg, registry, ws); err != nil {
-			return err
-		}
-		_ = ws.UpdateBlockLevelInfo(0)
-	}
-	// add Genesis states
-	if err := sdb.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
+	return initializeFactory(sdb, cfg, registry)
 }

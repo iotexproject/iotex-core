@@ -37,30 +37,27 @@ func TestCreateContract(t *testing.T) {
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 
 	store := db.NewMemKVStore()
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
 	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	addr := identityset.Address(28)
 	_, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))

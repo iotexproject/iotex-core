@@ -14,11 +14,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 func TestProtocol_SetEpochReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		amount, err := p.EpochReward(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(100), amount)

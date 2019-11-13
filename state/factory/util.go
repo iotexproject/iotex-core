@@ -28,8 +28,29 @@ import (
 	"github.com/pkg/errors"
 )
 
-// CreateGenesisStates initialize the states
-func CreateGenesisStates(cfg config.Config, registry *protocol.Registry, sm protocol.StateManager) error {
+// initializeFactory initializes the factory
+func initializeFactory(sf Factory, cfg config.Config, registry *protocol.Registry) error {
+	var ws WorkingSet
+	var err error
+	if ws, err = sf.NewWorkingSet(); err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	if !cfg.Chain.EmptyGenesis {
+		// Initialize the states before any actions happen on the blockchain
+		if err := createGenesisStates(cfg, registry, ws); err != nil {
+			return err
+		}
+		_ = ws.UpdateBlockLevelInfo(0)
+	}
+	// add Genesis states
+	if err := sf.Commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
+	}
+	return nil
+}
+
+// createGenesisStates initialize the genesis states
+func createGenesisStates(cfg config.Config, registry *protocol.Registry, sm protocol.StateManager) error {
 	if registry == nil {
 		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
 		return nil

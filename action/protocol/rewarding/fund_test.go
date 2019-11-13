@@ -17,11 +17,10 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func TestProtocol_Fund(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
@@ -45,7 +44,7 @@ func TestProtocol_Fund(t *testing.T) {
 }
 
 func TestDepositNegativeGasFee(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, sm *mock_chainmanager.MockStateManager, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := protocol.Registry{}
 		r.Register(ProtocolID, p)
 

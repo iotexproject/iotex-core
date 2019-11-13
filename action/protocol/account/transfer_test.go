@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -39,29 +40,26 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	ctx := context.Background()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cm := mock_chainmanager.NewMockChainManager(ctrl)
-	testDB := make(map[[20]byte]([]byte))
+	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
-			var val []byte
-			var ok bool
-			if val, ok = testDB[addrHash]; !ok {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
 				return state.ErrStateNotExist
 			}
 			return state.Deserialize(account, val)
 		}).AnyTimes()
-
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			ss, err := state.Serialize(account)
 			if err != nil {
 				return err
 			}
-			testDB[addrHash] = ss
+			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
 
 	p := NewProtocol(config.NewHeightUpgrade(cfg))
-
 	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
