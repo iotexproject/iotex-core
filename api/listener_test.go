@@ -6,7 +6,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
-var MOCK_ChainListener Listener
+var MOCKChainListener Listener
 
 // Mock ChainListener
 func TestNewChainListener(t *testing.T) {
@@ -17,9 +17,8 @@ func TestNewChainListener(t *testing.T) {
 	}
 
 	t.Run(test.name, func(t *testing.T) {
-		MOCK_ChainListener = NewChainListener()
+		MOCKChainListener = NewChainListener()
 	})
-
 }
 
 func Test_chainListener_Start(t *testing.T) {
@@ -32,7 +31,7 @@ func Test_chainListener_Start(t *testing.T) {
 	}
 
 	t.Run(test.name, func(t *testing.T) {
-		if err := MOCK_ChainListener.Start(); (err != nil) != test.wantErr {
+		if err := MOCKChainListener.Start(); (err != nil) != test.wantErr {
 			t.Errorf("chainListener.Start() error = %v, wantErr %v", err, test.wantErr)
 		}
 	})
@@ -50,11 +49,10 @@ func Test_chainListener_Stop(t *testing.T) {
 	}
 
 	t.Run(test.name, func(t *testing.T) {
-		if err := MOCK_ChainListener.Stop(); (err != nil) != test.wantErr {
+		if err := MOCKChainListener.Stop(); (err != nil) != test.wantErr {
 			t.Errorf("chainListener.Stop() error = %v, wantErr %v", err, test.wantErr)
 		}
 	})
-
 }
 
 func Test_chainListener_HandleBlock(t *testing.T) {
@@ -74,11 +72,10 @@ func Test_chainListener_HandleBlock(t *testing.T) {
 	}
 
 	t.Run(test.name, func(t *testing.T) {
-		if err := MOCK_ChainListener.HandleBlock(test.args.blk); (err != nil) != test.wantErr {
+		if err := MOCKChainListener.HandleBlock(test.args.blk); (err != nil) != test.wantErr {
 			t.Errorf("chainListener.HandleBlock() error = %v, wantErr %v", err, test.wantErr)
 		}
 	})
-
 }
 
 type ChainResponder struct{}
@@ -89,7 +86,7 @@ func (cr ChainResponder) Respond(*block.Block) error {
 func (cr ChainResponder) Exit() {
 }
 
-var MOCK_ChainResponder ChainResponder
+var MOCKChainResponder ChainResponder
 
 func Test_chainListener_AddResponder(t *testing.T) {
 	type args struct {
@@ -102,12 +99,12 @@ func Test_chainListener_AddResponder(t *testing.T) {
 	}{
 		name: "Test AddResponder",
 		args: args{
-			r: MOCK_ChainResponder,
+			r: MOCKChainResponder,
 		},
 		wantErr: false,
 	}
 	t.Run(test.name, func(t *testing.T) {
-		if err := MOCK_ChainListener.AddResponder(test.args.r); (err != nil) != test.wantErr {
+		if err := MOCKChainListener.AddResponder(test.args.r); (err != nil) != test.wantErr {
 			t.Errorf("chainListener.AddResponder() error = %v, wantErr %v", err, test.wantErr)
 		}
 	})
