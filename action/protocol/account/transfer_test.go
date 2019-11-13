@@ -148,7 +148,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	receipt, err = p.Handle(ctx, transfer, sm)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
-	//require.NoError(sf.Commit(ws))
 	require.NoError(sm.State(pubKeyAlfa, &acct))
 	require.Equal(uint64(2), acct.Nonce)
 	require.Equal("20003", acct.Balance.String())
