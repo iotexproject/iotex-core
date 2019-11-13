@@ -111,7 +111,7 @@ func (h *HeartbeatHandler) Log() {
 			numPendingEvts = rolldpos.NumPendingEvts()
 			state = rolldpos.CurrentState()
 
-			// RollDpos Concensus Metrics
+			// RollDpos Consensus Metrics
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
 				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
