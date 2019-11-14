@@ -111,13 +111,7 @@ func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 
 // RunnableActions abstructs RunnableActions from a Block.
 func (b *Block) RunnableActions() RunnableActions {
-	return RunnableActions{
-		blockHeight:         b.Header.height,
-		blockTimeStamp:      b.Header.timestamp,
-		blockProducerPubKey: b.Header.pubkey,
-		actions:             b.Actions,
-		txHash:              b.txRoot,
-	}
+	return RunnableActions{actions: b.Actions, txHash: b.txRoot}
 }
 
 // Finalize creates a footer for the block

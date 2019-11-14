@@ -81,12 +81,14 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	}
 	p, ok := registry.Find(ProtocolID)
 	if !ok {
-		log.S().Panic("rolldpos protocol is not registered")
+		log.S().Panic("poll protocol is not registered")
 	}
+
 	pp, ok := p.(Protocol)
 	if !ok {
-		log.S().Panic("fail to cast to poll protocol")
+		log.S().Panic("fail to cast poll protocol")
 	}
+
 	return pp
 }
 

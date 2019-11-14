@@ -17,12 +17,11 @@ import (
 )
 
 func TestBuilder(t *testing.T) {
-	ra := NewRunnableActionsBuilder().
-		SetHeight(1).
-		SetTimeStamp(testutil.TimestampNow()).
-		Build(identityset.PrivateKey(29).PublicKey())
+	ra := NewRunnableActionsBuilder().Build()
 
 	nblk, err := NewBuilder(ra).
+		SetHeight(1).
+		SetTimestamp(testutil.TimestampNow()).
 		SetPrevBlockHash(hash.ZeroHash256).
 		SignAndBuild(identityset.PrivateKey(29))
 	require.NoError(t, err)
