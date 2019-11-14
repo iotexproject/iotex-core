@@ -7,8 +7,6 @@ package mock_chainmanager
 import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	address "github.com/iotexproject/iotex-address/address"
-	action "github.com/iotexproject/iotex-core/action"
 	db "github.com/iotexproject/iotex-core/db"
 	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
@@ -80,22 +78,6 @@ func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[str
 func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
-}
-
-// SimulateExecution mocks base method
-func (m *MockChainManager) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SimulateExecution", caller, ex)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(*action.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// SimulateExecution indicates an expected call of SimulateExecution
-func (mr *MockChainManagerMockRecorder) SimulateExecution(caller, ex interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockChainManager)(nil).SimulateExecution), caller, ex)
 }
 
 // MockStateManager is a mock of StateManager interface

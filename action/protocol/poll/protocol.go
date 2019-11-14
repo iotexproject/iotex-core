@@ -47,11 +47,11 @@ var ErrProposedDelegatesLength = errors.New("the proposed delegate list length")
 // ErrDelegatesNotAsExpected is an error that the delegates are not as expected
 var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 
+// CandidatesByHeight returns the candidates of a given height
+type CandidatesByHeight func(uint64) ([]*state.Candidate, error)
+
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
-
-// GetTipBlockTime defines a function to get tip block creation time
-type GetTipBlockTime func() (time.Time, error)
 
 // GetEpochHeight defines a function to get the corresponding epoch height given an epoch number
 type GetEpochHeight func(uint64) uint64
@@ -68,8 +68,7 @@ type Protocol interface {
 	// Validate validates a vote
 	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
-	// TODO: replace config.HeightUpgrade with context.Context
-	DelegatesByHeight(config.HeightUpgrade, uint64) (state.CandidateList, error)
+	DelegatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
 	// SetContract sets the native staking contract address
@@ -84,10 +83,10 @@ type lifeLongDelegatesProtocol struct {
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
 	cfg config.Config,
-	cm protocol.ChainManager,
+	readContract ReadContract,
+	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
-	getBlockTipHeightFunc GetTipBlockTime,
 	rp *rolldpos.Protocol) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
@@ -96,7 +95,7 @@ func NewProtocol(
 		if genesisConfig.GravityChainStartHeight != 0 && electionCommittee != nil {
 			var governance Protocol
 			if governance, err = NewGovernanceChainCommitteeProtocol(
-				cm,
+				candidatesByHeight,
 				electionCommittee,
 				genesisConfig.GravityChainStartHeight,
 				getBlockTimeFunc,
@@ -115,8 +114,7 @@ func NewProtocol(
 			if pollProtocol, err = NewStakingCommittee(
 				electionCommittee,
 				governance,
-				cm,
-				getBlockTipHeightFunc,
+				readContract,
 				rp.GetEpochHeight,
 				rp.GetEpochNum,
 				cfg.Genesis.NativeStakingContractAddress,
@@ -177,7 +175,7 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 	return validate(ctx, p, act)
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -213,7 +211,7 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 }
 
 type governanceChainCommitteeProtocol struct {
-	cm                        protocol.ChainManager
+	candidatesByHeight        CandidatesByHeight
 	getBlockTime              GetBlockTime
 	getEpochHeight            GetEpochHeight
 	getEpochNum               GetEpochNum
@@ -227,7 +225,7 @@ type governanceChainCommitteeProtocol struct {
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
-	cm protocol.ChainManager,
+	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
@@ -257,7 +255,7 @@ func NewGovernanceChainCommitteeProtocol(
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
 	}
 	return &governanceChainCommitteeProtocol{
-		cm:                        cm,
+		candidatesByHeight:        candidatesByHeight,
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
 		getBlockTime:              getBlockTime,
@@ -342,7 +340,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 	return l, nil
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	gravityHeight, err := p.getGravityHeight(height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")
@@ -409,7 +407,7 @@ func (p *governanceChainCommitteeProtocol) SetNativeStakingContract(contract str
 
 func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {
 	epochHeight := p.getEpochHeight(epochNum)
-	return p.cm.CandidatesByHeight(epochHeight)
+	return p.candidatesByHeight(epochHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
@@ -521,7 +519,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	if err := validateDelegates(proposedDelegates); err != nil {
 		return err
 	}
-	ds, err := p.DelegatesByHeight(config.NewHeightUpgrade(&vaCtx.Genesis), vaCtx.BlockHeight)
+	ds, err := p.DelegatesByHeight(ctx, vaCtx.BlockHeight)
 	if err != nil {
 		return err
 	}
