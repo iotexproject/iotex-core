@@ -86,6 +86,81 @@ func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
 }
 
+// MockGenesisStateCreator is a mock of GenesisStateCreator interface
+type MockGenesisStateCreator struct {
+	ctrl     *gomock.Controller
+	recorder *MockGenesisStateCreatorMockRecorder
+}
+
+// MockGenesisStateCreatorMockRecorder is the mock recorder for MockGenesisStateCreator
+type MockGenesisStateCreatorMockRecorder struct {
+	mock *MockGenesisStateCreator
+}
+
+// NewMockGenesisStateCreator creates a new mock instance
+func NewMockGenesisStateCreator(ctrl *gomock.Controller) *MockGenesisStateCreator {
+	mock := &MockGenesisStateCreator{ctrl: ctrl}
+	mock.recorder = &MockGenesisStateCreatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockGenesisStateCreator) EXPECT() *MockGenesisStateCreatorMockRecorder {
+	return m.recorder
+}
+
+// CreateGenesisStates mocks base method
+func (m *MockGenesisStateCreator) CreateGenesisStates(arg0 context.Context, arg1 protocol.StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateGenesisStates", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateGenesisStates indicates an expected call of CreateGenesisStates
+func (mr *MockGenesisStateCreatorMockRecorder) CreateGenesisStates(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateGenesisStates", reflect.TypeOf((*MockGenesisStateCreator)(nil).CreateGenesisStates), arg0, arg1)
+}
+
+// MockPreProcessor is a mock of PreProcessor interface
+type MockPreProcessor struct {
+	ctrl     *gomock.Controller
+	recorder *MockPreProcessorMockRecorder
+}
+
+// MockPreProcessorMockRecorder is the mock recorder for MockPreProcessor
+type MockPreProcessorMockRecorder struct {
+	mock *MockPreProcessor
+}
+
+// NewMockPreProcessor creates a new mock instance
+func NewMockPreProcessor(ctrl *gomock.Controller) *MockPreProcessor {
+	mock := &MockPreProcessor{ctrl: ctrl}
+	mock.recorder = &MockPreProcessorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPreProcessor) EXPECT() *MockPreProcessorMockRecorder {
+	return m.recorder
+}
+
+// Prepare mocks base method
+func (m *MockPreProcessor) Prepare(arg0 context.Context, arg1 protocol.StateManager) ([]action.Envelope, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Prepare", arg0, arg1)
+	ret0, _ := ret[0].([]action.Envelope)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Prepare indicates an expected call of Prepare
+func (mr *MockPreProcessorMockRecorder) Prepare(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockPreProcessor)(nil).Prepare), arg0, arg1)
+}
+
 // MockActionValidator is a mock of ActionValidator interface
 type MockActionValidator struct {
 	ctrl     *gomock.Controller

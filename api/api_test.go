@@ -1776,12 +1776,12 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		blockchain.PrecreatedStateFactoryOption(sf),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	if bc == nil {
 		return nil, nil, nil, nil, errors.New("failed to create blockchain")
@@ -1822,7 +1822,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, evm, r)
 
-	return bc, dao, indexer, &registry, nil
+	return bc, dao, indexer, registry, nil
 }
 
 func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool, error) {

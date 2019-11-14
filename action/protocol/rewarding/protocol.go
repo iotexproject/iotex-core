@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -65,6 +66,41 @@ func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol)
 		addr:                addr,
 		rp:                  rp,
 	}
+}
+
+// Prepare updates state manager
+func (p *Protocol) Prepare(ctx context.Context, sm protocol.StateManager) ([]action.Envelope, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	if hu.AleutianBlockHeight() == raCtx.BlockHeight {
+		if err := p.SetReward(ctx, sm, raCtx.Genesis.AleutianEpochReward(), false); err != nil {
+			return nil, err
+		}
+	}
+	if hu.AleutianBlockHeight() == raCtx.BlockHeight {
+		if err := p.SetReward(ctx, sm, raCtx.Genesis.DardanellesBlockReward(), true); err != nil {
+			return nil, err
+		}
+	}
+	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)}
+	rp := rolldpos.FindProtocol(raCtx.Registry)
+	if rp != nil && raCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(raCtx.BlockHeight)) {
+		grants = append(grants, createGrantRewardAction(action.EpochReward, raCtx.BlockHeight))
+	}
+
+	return grants, nil
+}
+
+func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
+	builder := action.EnvelopeBuilder{}
+	gb := action.GrantRewardBuilder{}
+	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
+
+	return builder.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(grant.GasLimit()).
+		SetAction(&grant).
+		Build()
 }
 
 // Handle handles the actions on the rewarding protocol

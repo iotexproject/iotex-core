@@ -15,8 +15,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -31,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -57,7 +54,6 @@ var (
 		},
 		[]string{"type"},
 	)
-	errDelegatesNotExist = errors.New("delegates cannot be found")
 )
 
 func init() {
@@ -365,15 +361,14 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	defer bc.mu.Unlock()
 
 	// pass registry to be used by state factory's initialization
-	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
-		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
-		Registry:       bc.registry,
-	})
+	ctx, err := bc.context(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0))
+	if err != nil {
+		return err
+	}
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
 	// get blockchain tip height
-	var err error
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
@@ -445,17 +440,17 @@ func (bc *blockchain) Context() (context.Context, error) {
 		return nil, err
 	}
 
-	return bc.context(bc.config.ProducerAddress(), header.Height(), header.Timestamp())
+	return bc.context(context.Background(), bc.config.ProducerAddress(), header.Height(), header.Timestamp())
 }
 
-func (bc *blockchain) context(producer address.Address, height uint64, timestamp time.Time) (context.Context, error) {
+func (bc *blockchain) context(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) (context.Context, error) {
 	candidates, err := bc.candidatesByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
 	return protocol.WithRunActionsCtx(
-		context.Background(),
+		ctx,
 		protocol.RunActionsCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
@@ -486,21 +481,9 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	ctx, err := bc.context(bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx, err := bc.context(context.Background(), bc.config.ProducerAddress(), newblockHeight, timestamp)
 	if err != nil {
 		return nil, err
-	}
-	// TODO: move the height judgment into protocols
-	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
-		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
-			return nil, err
-		}
-	}
-
-	if newblockHeight == bc.config.Genesis.DardanellesBlockHeight {
-		if err := bc.updateDardanellesBlockRewardAmount(ctx, ws); err != nil {
-			return nil, err
-		}
 	}
 
 	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
@@ -693,7 +676,6 @@ func (bc *blockchain) startExistingBlockchain() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
-	bc.loadingNativeStakingContract()
 	log.L().Info("Restarting blockchain.",
 		zap.Uint64("chainHeight",
 			bc.tipHeight),
@@ -799,20 +781,20 @@ func (bc *blockchain) runActions(
 		return nil, err
 	}
 
-	ctx, err := bc.context(producer, acts.BlockHeight(), acts.BlockTimeStamp())
+	ctx, err := bc.context(context.Background(), producer, acts.BlockHeight(), acts.BlockTimeStamp())
 	if err != nil {
 		return nil, err
 	}
 
-	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
-		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
-			return nil, err
-		}
-	}
-
-	if acts.BlockHeight() == bc.config.Genesis.DardanellesBlockHeight {
-		if err := bc.updateDardanellesBlockRewardAmount(ctx, ws); err != nil {
-			return nil, err
+	registry := protocol.MustGetRunActionsCtx(ctx).Registry
+	if registry != nil {
+		for _, p := range registry.All() {
+			if pp, ok := p.(protocol.PreProcessor); ok {
+				// TODO: check the actions have been appended to acts
+				if _, err := pp.Prepare(ctx, ws); err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 
@@ -826,9 +808,22 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	}
 
 	receipts := make([]*action.Receipt, 0)
+	postActions := make([]action.Envelope, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	registry := raCtx.Registry
+	if registry != nil {
+		for _, p := range registry.All() {
+			if pp, ok := p.(protocol.PreProcessor); ok {
+				acts, err := pp.Prepare(ctx, ws)
+				if err != nil {
+					return hash.ZeroHash256, nil, nil, err
+				}
+				postActions = append(postActions, acts...)
+			}
+		}
+	}
 
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
@@ -861,129 +856,27 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 	}
-	var lastBlkHeight uint64
-	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
-		rp := rolldpos.MustGetProtocol(bc.registry)
-		epochNum := rp.GetEpochNum(raCtx.BlockHeight)
-		lastBlkHeight = rp.GetEpochLastBlockHeight(epochNum)
-		// generate delegates for next round
-		skip, putPollResult, err := bc.createPutPollResultAction(raCtx.BlockHeight)
-		switch errors.Cause(err) {
-		case nil:
-			if !skip {
-				receipt, err := ws.RunAction(raCtx, putPollResult)
-				if err != nil {
-					return hash.ZeroHash256, nil, nil, err
-				}
-				if receipt != nil {
-					receipts = append(receipts, receipt)
-				}
-				executedActions = append(executedActions, putPollResult)
-			}
-		case errDelegatesNotExist:
-			if raCtx.BlockHeight == lastBlkHeight {
-				// TODO (zhi): if some bp by pass this condition, we need to reject block in validation step
-				return hash.ZeroHash256, nil, nil, errors.Wrapf(
-					err,
-					"failed to prepare delegates for next epoch %d",
-					epochNum+1,
-				)
-			}
-		default:
-			return hash.ZeroHash256, nil, nil, err
-		}
-	}
-	// Process grant block reward action
-	grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
-	if err != nil {
-		return hash.ZeroHash256, nil, nil, err
-	}
-	receipt, err := ws.RunAction(raCtx, grant)
-	if err != nil {
-		return hash.ZeroHash256, nil, nil, err
-	}
-	if receipt != nil {
-		receipts = append(receipts, receipt)
-	}
-	executedActions = append(executedActions, grant)
 
-	// Process grant epoch reward action if the block is the last one in an epoch
-	if raCtx.BlockHeight == lastBlkHeight {
-		grant, err := bc.createGrantRewardAction(action.EpochReward, raCtx.BlockHeight)
+	sk := bc.config.ProducerPrivateKey()
+	for _, postAction := range postActions {
+		se, err := action.Sign(postAction, sk)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
-		receipt, err := ws.RunAction(raCtx, grant)
+
+		receipt, err := ws.RunAction(raCtx, se)
 		if err != nil {
 			return hash.ZeroHash256, nil, nil, err
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
-		executedActions = append(executedActions, grant)
+		executedActions = append(executedActions, se)
 	}
 
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
-}
-
-func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se action.SealedEnvelope, err error) {
-	skip = true
-	if !bc.config.Genesis.EnableGravityChainVoting {
-		return
-	}
-	rp := rolldpos.MustGetProtocol(bc.registry)
-	epochNum := rp.GetEpochNum(height)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
-	if height < epochHeight+(nextEpochHeight-epochHeight)/2 {
-		return
-	}
-	log.L().Debug(
-		"createPutPollResultAction",
-		zap.Uint64("height", height),
-		zap.Uint64("epochNum", epochNum),
-		zap.Uint64("epochHeight", epochHeight),
-		zap.Uint64("nextEpochHeight", nextEpochHeight),
-	)
-	_, err = bc.candidatesByHeight(nextEpochHeight)
-	switch errors.Cause(err) {
-	case nil:
-		return
-	case state.ErrStateNotExist:
-		skip = false
-	default:
-		return
-	}
-	l, err := poll.MustGetProtocol(bc.registry).DelegatesByHeight(config.NewHeightUpgrade(&bc.config.Genesis), epochHeight)
-	switch errors.Cause(err) {
-	case nil:
-		if len(l) == 0 {
-			err = errors.Wrapf(
-				errDelegatesNotExist,
-				"failed to fetch delegates by epoch height %d, empty list",
-				epochHeight,
-			)
-			return
-		}
-	case db.ErrNotExist:
-		err = errors.Wrapf(
-			errDelegatesNotExist,
-			"failed to fetch delegates by epoch height %d, original error %v",
-			epochHeight,
-			err,
-		)
-		return
-	default:
-		return
-	}
-	sk := bc.config.ProducerPrivateKey()
-	nonce := uint64(0)
-	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
-	builder := action.EnvelopeBuilder{}
-	se, err = action.Sign(builder.SetNonce(nonce).SetAction(pollAction).Build(), sk)
-	return skip, se, err
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
@@ -1027,6 +920,7 @@ func (bc *blockchain) refreshStateDB() error {
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		Registry:       bc.registry,
+		Genesis:        bc.config.Genesis,
 	})
 	if err := bc.sf.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
@@ -1035,59 +929,6 @@ func (bc *blockchain) refreshStateDB() error {
 		return errors.Wrap(err, "failed to stop state factory")
 	}
 	return nil
-}
-
-func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (action.SealedEnvelope, error) {
-	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
-	eb := action.EnvelopeBuilder{}
-	envelope := eb.SetNonce(0).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
-		SetAction(&grant).
-		Build()
-	sk := bc.config.ProducerPrivateKey()
-	return action.Sign(envelope, sk)
-}
-
-func (bc *blockchain) loadingNativeStakingContract() {
-	if bc.config.Genesis.NativeStakingContractAddress == "" && bc.config.Genesis.NativeStakingContractCode != "" {
-		p, ok := bc.registry.Find(poll.ProtocolID)
-		if ok {
-			pp, ok := p.(poll.Protocol)
-			if ok {
-				caller, _ := address.FromString(address.ZeroAddress)
-				ethAddr := ecrypto.CreateAddress(common.BytesToAddress(caller.Bytes()), 0)
-				iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
-				pp.SetNativeStakingContract(iotxAddr.String())
-				log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
-			}
-		}
-	}
-}
-
-func (bc *blockchain) updateAleutianEpochRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(rewarding.ProtocolID)
-	if !ok {
-		return nil
-	}
-	rp, ok := p.(*rewarding.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	return rp.SetReward(ctx, ws, bc.config.Genesis.AleutianEpochReward(), false)
-}
-
-func (bc *blockchain) updateDardanellesBlockRewardAmount(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(rewarding.ProtocolID)
-	if !ok {
-		return nil
-	}
-	rp, ok := p.(*rewarding.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	return rp.SetReward(ctx, ws, bc.config.Genesis.DardanellesBlockReward(), true)
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

@@ -168,7 +168,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
 		// init the state factory
-		if err = sf.initialize(ctx); err != nil {
+		if err = sf.createGenesisStates(ctx); err != nil {
 			return err
 		}
 	default:
@@ -421,17 +421,12 @@ func (sf *factory) commit(ws WorkingSet) error {
 }
 
 // Initialize initializes the state factory
-func (sf *factory) initialize(ctx context.Context) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok || raCtx.Registry == nil {
-		// not RunActionsCtx or no valid registry
-		return nil
-	}
+func (sf *factory) createGenesisStates(ctx context.Context) error {
 	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	if err := createGenesisStates(ctx, sf.cfg, ws); err != nil {
+	if err := createGenesisStates(ctx, ws); err != nil {
 		return err
 	}
 	// add Genesis states

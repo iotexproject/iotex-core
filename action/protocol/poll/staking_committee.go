@@ -12,11 +12,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -26,6 +32,9 @@ import (
 	"github.com/iotexproject/iotex-election/util"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
+
+var nativeStakingContractCreator = address.ZeroAddress
+var nativeStakingContractNonce = uint64(0)
 
 type stakingCommittee struct {
 	candidatesByHeight   CandidatesByHeight
@@ -87,8 +96,67 @@ func NewStakingCommittee(
 	}, nil
 }
 
-func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateManager) error {
-	return sc.governanceStaking.Initialize(ctx, sm)
+func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	}
+	if err := sc.governanceStaking.CreateGenesisStates(ctx, sm); err != nil {
+		return err
+	}
+	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
+	raCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
+	raCtx.GasLimit = raCtx.Genesis.BlockGasLimit
+	bytes, err := hexutil.Decode(raCtx.Genesis.NativeStakingContractCode)
+	if err != nil {
+		return err
+	}
+	execution, err := action.NewExecution(
+		"",
+		nativeStakingContractNonce,
+		big.NewInt(0),
+		raCtx.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		bytes,
+	)
+	if err != nil {
+		return err
+	}
+	_, receipt, err := evm.ExecuteContract(
+		protocol.WithRunActionsCtx(ctx, raCtx),
+		sm,
+		execution,
+		func(height uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
+	}
+	sc.SetNativeStakingContract(receipt.ContractAddress)
+	log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
+
+	return nil
+}
+
+func (sc *stakingCommittee) Start(ctx context.Context) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.Genesis.NativeStakingContractAddress == "" && raCtx.Genesis.NativeStakingContractCode != "" {
+		caller, _ := address.FromString(nativeStakingContractCreator)
+		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
+		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
+		sc.SetNativeStakingContract(iotxAddr.String())
+		log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
+	}
+
+	return nil
+}
+
+func (sc *stakingCommittee) Prepare(ctx context.Context, sm protocol.StateManager) ([]action.Envelope, error) {
+	return sc.governanceStaking.Prepare(ctx, sm)
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

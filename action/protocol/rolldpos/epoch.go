@@ -30,6 +30,22 @@ type Protocol struct {
 	dardanellesOn           bool
 }
 
+// FindProtocol return a registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast rolldpos protocol")
+	}
+	return rp
+}
+
 // MustGetProtocol return a registered protocol from registry
 func MustGetProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {

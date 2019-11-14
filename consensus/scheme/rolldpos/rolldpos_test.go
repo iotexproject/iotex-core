@@ -436,7 +436,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
-			registry := protocol.Registry{}
+			registry := protocol.NewRegistry()
 			acc := account.NewProtocol()
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -446,7 +446,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				nil,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
-				blockchain.RegistryOption(&registry),
+				blockchain.RegistryOption(registry),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 			chain.Validator().AddActionValidators(account.NewProtocol())

@@ -47,6 +47,9 @@ var ErrProposedDelegatesLength = errors.New("the proposed delegate list length")
 // ErrDelegatesNotAsExpected is an error that the delegates are not as expected
 var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 
+// ErrDelegatesNotExist is an error that the delegates cannot be prepared
+var ErrDelegatesNotExist = errors.New("delegates cannot be found")
+
 // CandidatesByHeight returns the candidates of a given height
 type CandidatesByHeight func(uint64) ([]*state.Candidate, error)
 
@@ -61,19 +64,14 @@ type GetEpochNum func(uint64) uint64
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
-	protocol.ActionHandler
-	protocol.ActionValidator
-	// Initialize fetches the poll result for genesis block
-	Initialize(context.Context, protocol.StateManager) error
+	protocol.Protocol
+	protocol.PreProcessor
+	protocol.GenesisStateCreator
 	// DelegatesByHeight returns the delegates by chain height
 	// TODO: replace config.HeightUpgrade with context.Context
 	DelegatesByHeight(config.HeightUpgrade, uint64) (state.CandidateList, error)
-	// DelegatesByEpoch returns the delegates by epoch number
+	// DelegatesByEpoch returns the delegates by epoch
 	DelegatesByEpoch(context.Context, uint64) (state.CandidateList, error)
-	// ReadState read the state on blockchain via protocol
-	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
-	// SetContract sets the native staking contract address
-	SetNativeStakingContract(string)
 	// CandidatesByHeight returns a list of delegate candidates
 	CandidatesByHeight(uint64) (state.CandidateList, error)
 }
@@ -182,12 +180,20 @@ func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 	return &lifeLongDelegatesProtocol{delegates: l, addr: addr}
 }
 
-func (p *lifeLongDelegatesProtocol) Initialize(
+func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	log.L().Info("Initialize lifelong delegates protocol")
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	}
+	log.L().Info("Creating genesis states for lifelong delegates protocol")
 	return setCandidates(sm, p.delegates, uint64(1))
+}
+
+func (p *lifeLongDelegatesProtocol) Prepare(ctx context.Context, sm protocol.StateManager) ([]action.Envelope, error) {
+	return nil, nil
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -231,10 +237,6 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
-}
-
-func (p *lifeLongDelegatesProtocol) SetNativeStakingContract(contract string) {
-	zap.S().Panic("Not implemented")
 }
 
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
@@ -299,10 +301,14 @@ func NewGovernanceChainCommitteeProtocol(
 	}, nil
 }
 
-func (p *governanceChainCommitteeProtocol) Initialize(
+func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	}
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
 
@@ -324,6 +330,47 @@ func (p *governanceChainCommitteeProtocol) Initialize(
 	}
 
 	return setCandidates(sm, ds, uint64(1))
+}
+
+func (p *governanceChainCommitteeProtocol) Prepare(ctx context.Context, sm protocol.StateManager) ([]action.Envelope, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	rp := rolldpos.MustGetProtocol(raCtx.Registry)
+	epochNum := rp.GetEpochNum(raCtx.BlockHeight)
+	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
+	epochHeight := rp.GetEpochHeight(epochNum)
+	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
+	if raCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
+		return nil, nil
+	}
+	log.L().Debug(
+		"createPutPollResultAction",
+		zap.Uint64("height", raCtx.BlockHeight),
+		zap.Uint64("epochNum", epochNum),
+		zap.Uint64("epochHeight", epochHeight),
+		zap.Uint64("nextEpochHeight", nextEpochHeight),
+	)
+	l, err := p.DelegatesByHeight(config.NewHeightUpgrade(&raCtx.Genesis), epochHeight)
+	if err == nil && len(l) == 0 {
+		err = errors.Wrapf(
+			ErrDelegatesNotExist,
+			"failed to fetch delegates by epoch height %d, empty list",
+			epochHeight,
+		)
+	}
+
+	if err != nil && raCtx.BlockHeight == lastBlkHeight {
+		return nil, errors.Wrapf(
+			err,
+			"failed to prepare delegates for next epoch %d",
+			epochNum+1,
+		)
+	}
+
+	nonce := uint64(0)
+	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
+	builder := action.EnvelopeBuilder{}
+
+	return []action.Envelope{builder.SetNonce(nonce).SetAction(pollAction).Build()}, nil
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -438,10 +485,6 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		return nil, errors.New("corresponding method isn't found")
 
 	}
-}
-
-func (p *governanceChainCommitteeProtocol) SetNativeStakingContract(contract string) {
-	zap.S().Panic("Not implemented")
 }
 
 func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {
