@@ -56,7 +56,23 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		}).AnyTimes()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
+		uint64(19),
+		map[string]uint64{
+			identityset.Address(27).String(): 3,
+			identityset.Address(28).String(): 7,
+			identityset.Address(29).String(): 1,
+			identityset.Address(30).String(): 6,
+			identityset.Address(31).String(): 2,
+		},
+		nil,
+	).AnyTimes()
+	p := NewProtocol(chain, rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	))
+	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
 			Votes:         unit.ConvertIotxToRau(4000000),
@@ -87,29 +103,13 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Votes:         unit.ConvertIotxToRau(500000),
 			RewardAddress: identityset.Address(32).String(),
 		},
-	}, nil).AnyTimes()
-	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
-		uint64(19),
-		map[string]uint64{
-			identityset.Address(27).String(): 3,
-			identityset.Address(28).String(): 7,
-			identityset.Address(29).String(): 1,
-			identityset.Address(30).String(): 6,
-			identityset.Address(31).String(): 2,
-		},
-		nil,
-	).AnyTimes()
-	p := NewProtocol(chain, rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-	))
-
+	}
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight: 0,
+			Candidates:  candidates,
 		},
 	)
 	if withExempt {
@@ -153,6 +153,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		protocol.RunActionsCtx{
 			Producer:    identityset.Address(27),
 			Caller:      identityset.Address(28),
+			Candidates:  candidates,
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
@@ -219,16 +220,6 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(
-		[]*state.Candidate{
-			{
-				Address:       identityset.Address(0).String(),
-				Votes:         unit.ConvertIotxToRau(4000000),
-				RewardAddress: identityset.Address(0).String(),
-			},
-		},
-		nil,
-	).Times(1)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -263,6 +254,13 @@ func TestProtocol_Handle(t *testing.T) {
 			Caller:      identityset.Address(0),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 			GasPrice:    big.NewInt(0),
+			Candidates: []*state.Candidate{
+				{
+					Address:       identityset.Address(0).String(),
+					Votes:         unit.ConvertIotxToRau(4000000),
+					RewardAddress: identityset.Address(0).String(),
+				},
+			},
 		},
 	)
 

@@ -69,8 +69,6 @@ func init() {
 type Blockchain interface {
 	lifecycle.StartStopper
 
-	// CandidatesByHeight returns the candidate list by a given height
-	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
@@ -98,6 +96,7 @@ type Blockchain interface {
 	RecoverChainAndState(targetHeight uint64) error
 	// Genesis returns the genesis
 	Genesis() genesis.Genesis
+	// RunActionsContext returns run actions context
 	RunActionsContext() (*protocol.RunActionsCtx, error)
 
 	// For block operations
@@ -128,16 +127,16 @@ type Blockchain interface {
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
 func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	ws, err := bc.Factory().NewWorkingSet()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-
 	raCtx, err := bc.RunActionsContext()
 	if err != nil {
 		return nil, nil, err
 	}
 	raCtx.Caller = caller
+
+	ws, err := bc.Factory().NewWorkingSet()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
 
 	return evm.ExecuteContract(
 		protocol.WithRunActionsCtx(context.Background(), *raCtx),
@@ -356,11 +355,6 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 	return bc.lifecycle.OnStop(ctx)
 }
 
-// CandidatesByHeight returns the candidate list by a given height
-func (bc *blockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	return bc.candidatesByHeight(height)
-}
-
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
 func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
 	p, ok := bc.registry.Find(rolldpos.ProtocolID)
@@ -485,9 +479,15 @@ func (bc *blockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
 }
 
 func (bc *blockchain) runActionsContext(producer address.Address, height uint64, timestamp time.Time) (*protocol.RunActionsCtx, error) {
+	candidates, err := bc.candidatesByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+
 	return &protocol.RunActionsCtx{
 		BlockHeight:    height,
 		BlockTimeStamp: timestamp,
+		Candidates:     candidates,
 		Producer:       producer,
 		GasLimit:       bc.config.Genesis.BlockGasLimit,
 		GasPrice:       big.NewInt(0),
@@ -674,20 +674,15 @@ func (bc *blockchain) mustGetRollDPoSProtocol() *rolldpos.Protocol {
 }
 
 func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
-	if bc.config.Genesis.EnableGravityChainVoting {
-		rp := bc.mustGetRollDPoSProtocol()
-		return bc.sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+	p, ok := bc.protocol(poll.ProtocolID)
+	if !ok {
+		return nil, nil
 	}
-	for {
-		candidates, err := bc.sf.CandidatesByHeight(height)
-		if err == nil {
-			return candidates, nil
-		}
-		if height == 0 {
-			return nil, err
-		}
-		height--
+	pp, ok := p.(poll.Protocol)
+	if !ok {
+		log.L().Panic("failed to cast to rolldpos protocol")
 	}
+	return pp.CandidatesByHeight(height)
 }
 
 func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {

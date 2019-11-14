@@ -51,6 +51,7 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
+
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()

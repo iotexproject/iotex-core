@@ -11,7 +11,6 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
-	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
 )
 
@@ -234,21 +233,6 @@ func (m *MockChainManager) ChainID() uint32 {
 func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockChainManager)(nil).ChainID))
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockChainManagerMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockChainManager)(nil).CandidatesByHeight), height)
 }
 
 // ProductivityByEpoch mocks base method

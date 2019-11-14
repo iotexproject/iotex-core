@@ -61,12 +61,10 @@ type GetEpochNum func(uint64) uint64
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
+	protocol.ActionHandler
+	protocol.ActionValidator
 	// Initialize fetches the poll result for genesis block
 	Initialize(context.Context, protocol.StateManager) error
-	// Handle handles a vote
-	Handle(context.Context, action.Action, protocol.StateManager) (*action.Receipt, error)
-	// Validate validates a vote
-	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
 	// TODO: replace config.HeightUpgrade with context.Context
 	DelegatesByHeight(config.HeightUpgrade, uint64) (state.CandidateList, error)
@@ -74,6 +72,8 @@ type Protocol interface {
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
 	// SetContract sets the native staking contract address
 	SetNativeStakingContract(string)
+	// CandidatesByHeight returns a list of delegate candidates
+	CandidatesByHeight(uint64) (state.CandidateList, error)
 }
 
 type lifeLongDelegatesProtocol struct {
@@ -116,6 +116,7 @@ func NewProtocol(
 				electionCommittee,
 				governance,
 				readContract,
+				candidatesByHeight,
 				getBlockTimeFunc,
 				rp.GetEpochHeight,
 				rp.GetEpochNum,
@@ -178,6 +179,10 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 }
 
 func (p *lifeLongDelegatesProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
+	return p.delegates, nil
+}
+
+func (p *lifeLongDelegatesProtocol) CandidatesByHeight(height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -352,6 +357,10 @@ func (p *governanceChainCommitteeProtocol) DelegatesByHeight(hu config.HeightUpg
 		zap.Uint64("gravityChainHeight", gravityHeight),
 	)
 	return p.delegatesByGravityChainHeight(gravityHeight)
+}
+
+func (p *governanceChainCommitteeProtocol) CandidatesByHeight(height uint64) (state.CandidateList, error) {
+	return p.candidatesByHeight(p.getEpochHeight(p.getEpochNum(height)))
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(

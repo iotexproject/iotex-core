@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -51,8 +50,6 @@ type ActionHandler interface {
 type ChainManager interface {
 	// ChainID returns the chain ID
 	ChainID() uint32
-	// CandidatesByHeight returns the candidate list by a given height
-	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 }
@@ -86,11 +83,6 @@ func (m *MockChainManager) Nonce(addr string) (uint64, error) {
 // ChainID return chain ID
 func (m *MockChainManager) ChainID() uint32 {
 	return 0
-}
-
-// CandidatesByHeight returns the candidate list by a given height
-func (m *MockChainManager) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	return nil, nil
 }
 
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch

@@ -131,6 +131,7 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int, height uint64, ts
 	if len(pygg.CanNames) == 0 {
 		return nil, ErrEndOfData
 	}
+
 	buckets := make([]*types.Bucket, len(pygg.CanNames))
 	for i := range pygg.CanNames {
 		buckets[i], err = types.NewBucket(

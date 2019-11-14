@@ -25,14 +25,14 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
-	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, true, roll, bc.CandidatesByHeight, 0}
+	rc := makeRoundCalculator(t)
 	ra, err := rc.NewRound(1, time.Second, time.Unix(1562382392, 0), nil)
 	require.NoError(err)
 
@@ -56,8 +56,7 @@ func TestUpdateRound(t *testing.T) {
 
 func TestNewRound(t *testing.T) {
 	require := require.New(t)
-	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, true, roll, bc.CandidatesByHeight, 0}
+	rc := makeRoundCalculator(t)
 	_, err := rc.calculateProposer(5, 1, []string{"1", "2", "3", "4", "5"})
 	require.Error(err)
 	var validDelegates [24]string
@@ -90,14 +89,13 @@ func TestNewRound(t *testing.T) {
 
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
-	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, true, roll, bc.CandidatesByHeight, 0}
+	rc := makeRoundCalculator(t)
 	_, err := rc.Delegates(361)
 	require.Error(err)
 
 	dels, err := rc.Delegates(4)
 	require.NoError(err)
-	require.Equal(roll.NumDelegates(), uint64(len(dels)))
+	require.Equal(rc.rp.NumDelegates(), uint64(len(dels)))
 
 	require.False(rc.IsDelegate(identityset.Address(25).String(), 2))
 	require.True(rc.IsDelegate(identityset.Address(5).String(), 2))
@@ -105,8 +103,7 @@ func TestDelegates(t *testing.T) {
 
 func TestRoundInfo(t *testing.T) {
 	require := require.New(t)
-	bc, roll := makeChain(t)
-	rc := &roundCalculator{bc, true, roll, bc.CandidatesByHeight, 0}
+	rc := makeRoundCalculator(t)
 	require.NotNil(rc)
 
 	// error for lastBlockTime.Before(now)
@@ -211,4 +208,11 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
 	return chain, rolldposProtocol
+}
+
+func makeRoundCalculator(t *testing.T) *roundCalculator {
+	bc, rp := makeChain(t)
+	return &roundCalculator{bc, true, rp, func(height uint64) (state.CandidateList, error) {
+		return bc.Factory().CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+	}, 0}
 }

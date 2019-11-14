@@ -59,7 +59,7 @@ type (
 		Height() (uint64, error)
 		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
-		// Candidate pool
+		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
 		State(hash.Hash160, interface{}) error
@@ -319,7 +319,7 @@ func (sf *factory) Commit(ws WorkingSet) error {
 //======================================
 // Candidate functions
 //======================================
-// CandidatesByHeight returns array of Candidates in candidate pool of a given height
+
 func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()

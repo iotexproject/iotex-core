@@ -145,6 +145,7 @@ func (sdb *stateDB) AddActionHandlers(actionHandlers ...protocol.ActionHandler) 
 //======================================
 // account functions
 //======================================
+
 // Balance returns balance
 func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
 	sdb.mutex.RLock()

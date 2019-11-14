@@ -49,7 +49,6 @@ type ChainService struct {
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
 	electionCommittee committee.Committee
-	rDPoSProtocol     *rolldpos.Protocol
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
 	indexBuilder *blockdao.IndexBuilder
@@ -186,11 +185,50 @@ func New(
 		cfg.Genesis.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
+	pollProtocol, err := poll.NewProtocol(
+		cfg,
+		func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+			ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+			if err != nil {
+				return nil, err
+			}
+
+			addr, err := address.FromString(address.ZeroAddress)
+			if err != nil {
+				return nil, err
+			}
+
+			data, _, err := blockchain.SimulateExecution(
+				chain,
+				addr,
+				ex,
+			)
+
+			return data, err
+		},
+		chain.Factory().CandidatesByHeight,
+		electionCommittee,
+		func(height uint64) (time.Time, error) {
+			header, err := chain.BlockHeaderByHeight(height)
+			if err != nil {
+				return time.Now(), errors.Wrapf(
+					err, "error when getting the block at height: %d",
+					height,
+				)
+			}
+			return header.Timestamp(), nil
+		},
+		rDPoSProtocol,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to generate poll protocol")
+	}
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
 		consensus.WithRollDPoSProtocol(rDPoSProtocol),
+		consensus.WithPollProtocol(pollProtocol),
 	}
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
@@ -244,20 +282,21 @@ func New(
 				actPool,
 			)
 	}
-
+	accountProtocol := account.NewProtocol()
+	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
+	rewardingProtocol := rewarding.NewProtocol(chain, rDPoSProtocol)
 	cs := &ChainService{
 		actpool:           actPool,
 		chain:             chain,
 		blocksync:         bs,
 		consensus:         consensus,
-		rDPoSProtocol:     rDPoSProtocol,
 		electionCommittee: electionCommittee,
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          &registry,
 	}
 	// Install protocols
-	if err := cs.registerDefaultProtocols(cfg); err != nil {
+	if err := cs.registerDefaultProtocols(accountProtocol, rDPoSProtocol, pollProtocol, executionProtocol, rewardingProtocol); err != nil {
 		return nil, err
 	}
 	return cs, nil
@@ -397,6 +436,7 @@ func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 	cs.chain.Factory().AddActionHandlers(p)
 	cs.actpool.AddActionValidators(p)
 	cs.chain.Validator().AddActionValidators(p)
+
 	return nil
 }
 
@@ -404,46 +444,11 @@ func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // registerDefaultProtocols registers default protocol into chainservice's registry
-func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) {
-	accountProtocol := account.NewProtocol()
+func (cs *ChainService) registerDefaultProtocols(accountProtocol *account.Protocol, rDPoSProtocol *rolldpos.Protocol, pollProtocol poll.Protocol, executionProtocol *execution.Protocol, rewardingProtocol *rewarding.Protocol) (err error) {
 	if err = cs.registerProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
 	}
-	if err = cs.registerProtocol(rolldpos.ProtocolID, cs.rDPoSProtocol); err != nil {
-		return
-	}
-	pollProtocol, err := poll.NewProtocol(
-		cfg,
-		func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
-
-			addr, err := address.FromString(address.ZeroAddress)
-			if err != nil {
-				return nil, err
-			}
-
-			data, _, err := blockchain.SimulateExecution(cs.chain, addr, ex)
-
-			return data, err
-		},
-		cs.chain.CandidatesByHeight,
-		cs.electionCommittee,
-		func(height uint64) (time.Time, error) {
-			header, err := cs.chain.BlockHeaderByHeight(height)
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
-		cs.rDPoSProtocol,
-	)
-	if err != nil {
+	if err = cs.registerProtocol(rolldpos.ProtocolID, rDPoSProtocol); err != nil {
 		return
 	}
 	if pollProtocol != nil {
@@ -451,10 +456,9 @@ func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) 
 			return
 		}
 	}
-	executionProtocol := execution.NewProtocol(cs.chain.BlockDAO().GetBlockHash)
 	if err = cs.registerProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}
-	rewardingProtocol := rewarding.NewProtocol(cs.chain, cs.rDPoSProtocol)
+
 	return cs.registerProtocol(rewarding.ProtocolID, rewardingProtocol)
 }

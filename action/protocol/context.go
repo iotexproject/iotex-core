@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type runActionsCtxKey struct{}
@@ -43,6 +44,8 @@ type RunActionsCtx struct {
 	IntrinsicGas uint64
 	// Nonce is the nonce of the action
 	Nonce uint64
+	// Candidates is a list of candidates of current round
+	Candidates []*state.Candidate
 	// Registry is the pointer protocol registry
 	Registry *Registry
 }

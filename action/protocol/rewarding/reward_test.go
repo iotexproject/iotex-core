@@ -291,18 +291,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-		{
-			Address:       identityset.Address(0).String(),
-			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: "",
-		},
-		{
-			Address:       identityset.Address(1).String(),
-			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: identityset.Address(1).String(),
-		},
-	}, nil).AnyTimes()
 	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
 		uint64(19),
 		map[string]uint64{
@@ -350,6 +338,18 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Producer:    identityset.Address(0),
 			Caller:      identityset.Address(0),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			Candidates: []*state.Candidate{
+				{
+					Address:       identityset.Address(0).String(),
+					Votes:         unit.ConvertIotxToRau(1000000),
+					RewardAddress: "",
+				},
+				{
+					Address:       identityset.Address(1).String(),
+					Votes:         unit.ConvertIotxToRau(1000000),
+					RewardAddress: identityset.Address(1).String(),
+				},
+			},
 		},
 	)
 	require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))

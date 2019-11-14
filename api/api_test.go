@@ -702,7 +702,7 @@ var (
 			topics:    []*iotexapi.Topics{},
 			fromBlock: 1,
 			count:     100,
-			numLogs:   0,
+			numLogs:   4,
 		},
 	}
 )
@@ -1427,7 +1427,40 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			msf := mock_factory.NewMockFactory(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
-				mbc.CandidatesByHeight,
+				func(uint64) ([]*state.Candidate, error) {
+					return []*state.Candidate{
+						{
+							Address:       "address1",
+							Votes:         big.NewInt(6),
+							RewardAddress: "rewardAddress",
+						},
+						{
+							Address:       "address2",
+							Votes:         big.NewInt(5),
+							RewardAddress: "rewardAddress",
+						},
+						{
+							Address:       "address3",
+							Votes:         big.NewInt(4),
+							RewardAddress: "rewardAddress",
+						},
+						{
+							Address:       "address4",
+							Votes:         big.NewInt(3),
+							RewardAddress: "rewardAddress",
+						},
+						{
+							Address:       "address5",
+							Votes:         big.NewInt(2),
+							RewardAddress: "rewardAddress",
+						},
+						{
+							Address:       "address6",
+							Votes:         big.NewInt(1),
+							RewardAddress: "rewardAddress",
+						},
+					}, nil
+				},
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1440,38 +1473,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			candidates := []*state.Candidate{
-				{
-					Address:       "address1",
-					Votes:         big.NewInt(6),
-					RewardAddress: "rewardAddress",
-				},
-				{
-					Address:       "address2",
-					Votes:         big.NewInt(5),
-					RewardAddress: "rewardAddress",
-				},
-				{
-					Address:       "address3",
-					Votes:         big.NewInt(4),
-					RewardAddress: "rewardAddress",
-				},
-				{
-					Address:       "address4",
-					Votes:         big.NewInt(3),
-					RewardAddress: "rewardAddress",
-				},
-				{
-					Address:       "address5",
-					Votes:         big.NewInt(2),
-					RewardAddress: "rewardAddress",
-				},
-				{
-					Address:       "address6",
-					Votes:         big.NewInt(1),
-					RewardAddress: "rewardAddress",
-				},
-			}
 			blksPerDelegate := map[string]uint64{
 				"address1": uint64(1),
 				"address2": uint64(1),
@@ -1482,8 +1483,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			mbc.EXPECT().Factory().Return(msf).Times(2)
 			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
 			mbc.EXPECT().ProductivityByEpoch(test.EpochNumber).Return(uint64(4), blksPerDelegate, nil).Times(1)
-			mbc.EXPECT().CandidatesByHeight(uint64(1)).
-				Return(candidates, nil).Times(1)
 			svr.bc = mbc
 		}
 		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})

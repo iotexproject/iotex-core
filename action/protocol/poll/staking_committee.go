@@ -28,6 +28,7 @@ import (
 )
 
 type stakingCommittee struct {
+	candidatesByHeight   CandidatesByHeight
 	getBlockTime         GetBlockTime
 	getEpochHeight       GetEpochHeight
 	getEpochNum          GetEpochNum
@@ -44,6 +45,7 @@ func NewStakingCommittee(
 	ec committee.Committee,
 	gs Protocol,
 	readContract ReadContract,
+	candidatesByHeight CandidatesByHeight,
 	getBlockTime GetBlockTime,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
@@ -73,14 +75,15 @@ func NewStakingCommittee(
 		}
 	}
 	return &stakingCommittee{
-		electionCommittee: ec,
-		governanceStaking: gs,
-		nativeStaking:     ns,
-		getBlockTime:      getBlockTime,
-		getEpochHeight:    getEpochHeight,
-		getEpochNum:       getEpochNum,
-		rp:                rp,
-		scoreThreshold:    scoreThreshold,
+		candidatesByHeight: candidatesByHeight,
+		electionCommittee:  ec,
+		governanceStaking:  gs,
+		nativeStaking:      ns,
+		getBlockTime:       getBlockTime,
+		getEpochHeight:     getEpochHeight,
+		getEpochNum:        getEpochNum,
+		rp:                 rp,
+		scoreThreshold:     scoreThreshold,
 	}, nil
 }
 
@@ -129,6 +132,10 @@ func (sc *stakingCommittee) DelegatesByHeight(hu config.HeightUpgrade, height ui
 	}
 	sc.currentNativeBuckets = nativeVotes.Buckets
 	return sc.mergeDelegates(cand, nativeVotes, ts), nil
+}
+
+func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateList, error) {
+	return sc.candidatesByHeight(sc.getEpochHeight(sc.getEpochNum(height)))
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {

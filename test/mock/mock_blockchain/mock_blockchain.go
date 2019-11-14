@@ -14,7 +14,6 @@ import (
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
-	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 	time "time"
@@ -69,21 +68,6 @@ func (m *MockBlockchain) Stop(arg0 context.Context) error {
 func (mr *MockBlockchainMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop), arg0)
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockBlockchain)(nil).CandidatesByHeight), height)
 }
 
 // ProductivityByEpoch mocks base method
