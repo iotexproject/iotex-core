@@ -69,7 +69,7 @@ func TestAddBalance(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
@@ -90,7 +90,7 @@ func TestRefundAPIs(t *testing.T) {
 	cfg := config.Default
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -108,7 +108,7 @@ func TestEmptyAndCode(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -128,7 +128,7 @@ func TestForEachStorage(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -167,7 +167,7 @@ func TestNonce(t *testing.T) {
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -183,7 +183,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
-		}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 
 		tests := []stateDBTest{
 			{
@@ -387,7 +387,7 @@ func TestGetCommittedState(t *testing.T) {
 		defer ctrl.Finish()
 
 		sm := initMockStateManager(ctrl)
-		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -431,7 +431,7 @@ func TestGetBalanceOnError(t *testing.T) {
 		addr := common.HexToAddress("test address")
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
-		}, sm, config.NewHeightUpgrade(config.Default), 1, hash.ZeroHash256)
+		}, sm, config.NewHeightUpgrade(config.Default.Genesis), 1, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -446,7 +446,7 @@ func TestPreimage(t *testing.T) {
 	sm := initMockStateManager(ctrl)
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))

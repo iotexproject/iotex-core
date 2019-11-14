@@ -59,7 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(config.NewHeightUpgrade(cfg))
+	p := NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
 	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
@@ -155,7 +155,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol(config.NewHeightUpgrade(config.Default))
+	protocol := NewProtocol(config.NewHeightUpgrade(config.Default.Genesis))
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

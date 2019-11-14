@@ -256,7 +256,7 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis)))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -322,7 +322,7 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis)))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -467,7 +467,7 @@ func TestRunActions(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis)))
 	require.NoError(sf.Start(context.Background()))
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
@@ -486,7 +486,7 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
-	sdb.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+	sdb.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis)))
 	require.NoError(sdb.Start(context.Background()))
 	defer func() {
 		require.NoError(sdb.Stop(context.Background()))
@@ -618,7 +618,7 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis))})
 	testCachedBatch(ws, t, true)
 }
 
@@ -668,7 +668,7 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis))})
 	testGetDB(ws, t)
 }
 
@@ -778,7 +778,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis)))
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}

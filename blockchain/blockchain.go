@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -95,8 +96,8 @@ type Blockchain interface {
 	TipHeight() uint64
 	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 	RecoverChainAndState(targetHeight uint64) error
-	// GenesisTimestamp returns the timestamp of genesis
-	GenesisTimestamp() int64
+	// Genesis returns the genesis
+	Genesis() genesis.Genesis
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -604,7 +605,7 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 		ws,
 		ex,
 		bc.dao.GetBlockHash,
-		config.NewHeightUpgrade(bc.config),
+		config.NewHeightUpgrade(bc.config.Genesis),
 	)
 }
 
@@ -630,8 +631,8 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 	return nil
 }
 
-func (bc *blockchain) GenesisTimestamp() int64 {
-	return bc.config.Genesis.Timestamp
+func (bc *blockchain) Genesis() genesis.Genesis {
+	return bc.config.Genesis
 }
 
 //======================================

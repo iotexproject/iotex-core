@@ -1687,8 +1687,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
-	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
-	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg))
+	acc := account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
+	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg.Genesis))
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1726,7 +1726,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	}
 
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(config.Default)))
+	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(config.Default.Genesis)))
 
 	return ap, nil
 }
