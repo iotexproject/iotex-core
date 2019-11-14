@@ -368,6 +368,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		Registry:       bc.registry,
+		Genesis:        bc.config.Genesis,
 	})
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
@@ -1027,6 +1028,7 @@ func (bc *blockchain) refreshStateDB() error {
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		Registry:       bc.registry,
+		Genesis:        bc.config.Genesis,
 	})
 	if err := bc.sf.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start state factory")

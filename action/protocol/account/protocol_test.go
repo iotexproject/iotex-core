@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
@@ -87,22 +86,19 @@ func TestProtocol_Initialize(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
+	ge := config.Default.Genesis
+	ge.Account.InitBalanceMap = map[string]string{
+		identityset.Address(0).String(): big.NewInt(100).String(),
+		identityset.Address(1).String(): big.NewInt(200).String(),
+	}
 	p := NewProtocol()
 	require.NoError(
-		p.Initialize(
+		p.CreateGenesisStates(
 			protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 				BlockHeight: 0,
-				Genesis:     config.Default.Genesis,
+				Genesis:     ge,
 			}),
 			sm,
-			[]address.Address{
-				identityset.Address(0),
-				identityset.Address(1),
-			},
-			[]*big.Int{
-				big.NewInt(100),
-				big.NewInt(200),
-			},
 		),
 	)
 	acc0, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(0))

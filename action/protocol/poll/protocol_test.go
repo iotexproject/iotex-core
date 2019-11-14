@@ -35,7 +35,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
-			BlockHeight: 123456,
+			BlockHeight: 0,
 		},
 	)
 
@@ -78,13 +78,13 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	return p, ctx, sm, r, err
 }
 
-func TestInitialize(t *testing.T) {
+func TestCreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p.Initialize(ctx, sm))
+	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var sc state.CandidateList
 	require.NoError(sm.State(candidatesutil.ConstructKey(1), &sc))
 	candidates, err := state.CandidatesToMap(sc)
@@ -107,7 +107,7 @@ func TestHandle(t *testing.T) {
 
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p.Initialize(ctx, sm))
+	require.NoError(p.CreateGenesisStates(ctx, sm))
 
 	// wrong action
 	recipientAddr := identityset.Address(28)
@@ -128,7 +128,7 @@ func TestHandle(t *testing.T) {
 	// Case 2: all right
 	p2, ctx2, sm2, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p2.Initialize(ctx2, sm2))
+	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
 	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
 	act2 := action.NewPutPollResult(1, 1, sc2)
@@ -150,7 +150,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p.Initialize(ctx, sm))
+	require.NoError(p.CreateGenesisStates(ctx, sm))
 
 	// wrong action
 	recipientAddr := identityset.Address(28)
@@ -169,7 +169,7 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 2: Only producer could create this protocol
 	p2, ctx2, sm2, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p2.Initialize(ctx2, sm2))
+	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
 	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
 	act2 := action.NewPutPollResult(1, 1, sc2)
@@ -194,7 +194,7 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 3: duplicate candidate
 	p3, ctx3, sm3, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p3.Initialize(ctx3, sm3))
+	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 	var sc3 state.CandidateList
 	require.NoError(sm3.State(candidatesutil.ConstructKey(1), &sc3))
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
@@ -220,7 +220,7 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 4: delegate's length is not equal
 	p4, ctx4, sm4, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p4.Initialize(ctx4, sm4))
+	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 	var sc4 state.CandidateList
 	require.NoError(sm4.State(candidatesutil.ConstructKey(1), &sc4))
 	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
@@ -245,7 +245,7 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 5: candidate's vote is not equal
 	p5, ctx5, sm5, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p5.Initialize(ctx5, sm5))
+	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 	var sc5 state.CandidateList
 	require.NoError(sm5.State(candidatesutil.ConstructKey(1), &sc5))
 	sc5[0].Votes = big.NewInt(10)
@@ -270,7 +270,7 @@ func TestProtocol_Validate(t *testing.T) {
 	// Case 6: all good
 	p6, ctx6, sm6, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	require.NoError(p6.Initialize(ctx6, sm6))
+	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
 	var sc6 state.CandidateList
 	require.NoError(sm6.State(candidatesutil.ConstructKey(1), &sc6))
 	act6 := action.NewPutPollResult(1, 1, sc6)

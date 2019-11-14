@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/config"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -303,28 +304,26 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	))
 
+	ge := config.Default.Genesis
+	ge.Rewarding.InitBalanceStr = "0"
+	ge.Rewarding.BlockRewardStr = "10"
+	ge.Rewarding.EpochRewardStr = "100"
+	ge.Rewarding.NumDelegatesForEpochReward = 10
+	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	ge.Rewarding.FoundationBonusStr = "5"
+	ge.Rewarding.NumDelegatesForFoundationBonus = 5
+	ge.Rewarding.FoundationBonusLastEpoch = 365
+	ge.Rewarding.ProductivityThreshold = 50
+
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight: 0,
+			Genesis:     ge,
 		},
 	)
-	require.NoError(
-		t,
-		p.Initialize(
-			ctx,
-			sm,
-			big.NewInt(0),
-			big.NewInt(10),
-			big.NewInt(100),
-			10,
-			nil,
-			big.NewInt(5),
-			5,
-			365,
-			50,
-		))
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	// Create a test account with 1000 token
 	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))

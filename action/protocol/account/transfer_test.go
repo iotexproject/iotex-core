@@ -62,8 +62,17 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
+	cfg.Genesis.Rewarding.InitBalanceStr = "0"
+	cfg.Genesis.Rewarding.BlockRewardStr = "0"
+	cfg.Genesis.Rewarding.EpochRewardStr = "0"
+	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 1
+	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	cfg.Genesis.Rewarding.FoundationBonusStr = "0"
+	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
+	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
+	cfg.Genesis.Rewarding.ProductivityThreshold = 0
 	require.NoError(
-		reward.Initialize(
+		reward.CreateGenesisStates(
 			protocol.WithRunActionsCtx(context.Background(),
 				protocol.RunActionsCtx{
 					BlockHeight: 0,
@@ -74,15 +83,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 					Genesis:     cfg.Genesis,
 				}),
 			sm,
-			big.NewInt(0),
-			big.NewInt(0),
-			big.NewInt(0),
-			1,
-			nil,
-			big.NewInt(0),
-			0,
-			0,
-			0,
 		),
 	)
 

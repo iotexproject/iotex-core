@@ -430,8 +430,10 @@ func TestCreateBlockchain(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
+	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
+	bc.Validator().AddActionValidators(acc, exec, rewardingProtocol)
+	bc.Factory().AddActionHandlers(acc, exec, rewardingProtocol)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -462,8 +464,10 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
+	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	require.NoError(t, registry.Register(rewarding.ProtocolID, rewardingProtocol))
+	bc.Validator().AddActionValidators(acc, exec, rewardingProtocol)
+	bc.Factory().AddActionHandlers(acc, exec, rewardingProtocol)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -506,7 +510,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(blk.Actions))
-	require.Equal(t, 1, len(blk.Receipts))
+	require.Equal(t, 2, len(blk.Receipts))
 	var gasConsumed uint64
 	for _, receipt := range blk.Receipts {
 		gasConsumed += receipt.GasConsumed
@@ -527,8 +531,10 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
+	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	require.NoError(t, registry.Register(rewarding.ProtocolID, rewardingProtocol))
+	bc.Validator().AddActionValidators(acc, exec, rewardingProtocol)
+	bc.Factory().AddActionHandlers(acc, exec, rewardingProtocol)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -627,8 +633,10 @@ func TestConstantinople(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
-		bc.Validator().AddActionValidators(acc, exec)
-		sf.AddActionHandlers(exec)
+		rewardingProtocol := rewarding.NewProtocol(nil, rp)
+		require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
+		bc.Validator().AddActionValidators(acc, exec, rewardingProtocol)
+		bc.Factory().AddActionHandlers(acc, exec, rewardingProtocol)
 		require.NoError(bc.Start(ctx))
 		require.NoError(addCreatorToFactory(cfg, sf))
 		defer func() {
@@ -637,6 +645,7 @@ func TestConstantinople(t *testing.T) {
 
 		require.NoError(addTestingConstantinopleBlocks(bc, dao))
 
+		// TODO: don't use hard coded hash
 		hashTopic := []struct {
 			h       hash.Hash256
 			blkHash string
@@ -644,37 +653,37 @@ func TestConstantinople(t *testing.T) {
 		}{
 			{
 				deployHash,
-				"d1ff0e7fe2a54600a171d3bcc9e222c656d584b3a0e7b33373e634de3f8cd010",
+				"1501b2f63a089bfebc16274aa25dca766b03ba1a071edf7693f49f50c4ce27a9",
 				nil,
 			},
 			{
 				setHash,
-				"24667a8d9ca9f4d8c1bc651b9be205cc8422aca36dba8895aa39c50a8937be09",
+				"affd1fec448754acbc63d5c508ee2c2f6830ec0d994d0e8b65c44862e0d5c683",
 				setTopic,
 			},
 			{
 				shrHash,
-				"fd8ef98e94689d4a69fc828693dc931c48767b53dec717329bbac043c21fa78c",
+				"c1238323914511d5233e737301095c4bff066b15e5e7ee6b77808cfd53035df0",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"77d0861e5e7164691c71fe5031087dda5ea20039bd096feaae9d8166bdf6a6a9",
+				"18b0ad12d68d1bfd1b4ae9e7ed4296be21b88196109b683cca22a9b4760202c4",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"7946fa90bd7c25f84bf83f727cc4589abc690d488ec8fa4f4af2ec9d19c71e74",
+				"4b456aabe63d9856fb6b9c9d27612df0a57326e0056d668b84edbc05297ec68e",
 				sarTopic,
 			},
 			{
 				extHash,
-				"0d35e9623375411f39c701ddf78f743abf3615f732977c01966a2fe359ae46f9",
+				"884675d1d24fba2f0df41893124a358940838ab7fe61b9415fe8752dad1d826e",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"63f147cfecd0a58a9d6211886b53533cfe3ae57a539a2fecab05b27beab04e69",
+				"2c07ebbcaceef4529b9319454e0b079f318e19d8f379ffe41004e513f5277a30",
 				crt2Topic,
 			},
 		}
