@@ -68,7 +68,8 @@ type Protocol interface {
 	// Validate validates a vote
 	Validate(context.Context, action.Action) error
 	// DelegatesByHeight returns the delegates by chain height
-	DelegatesByHeight(uint64) (state.CandidateList, error)
+	// TODO: replace config.HeightUpgrade with context.Context
+	DelegatesByHeight(config.HeightUpgrade, uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
 	// SetContract sets the native staking contract address
@@ -112,7 +113,6 @@ func NewProtocol(
 				return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
 			}
 			if pollProtocol, err = NewStakingCommittee(
-				config.NewHeightUpgrade(cfg.Genesis),
 				electionCommittee,
 				governance,
 				cm,
@@ -177,7 +177,7 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 	return validate(ctx, p, act)
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -342,7 +342,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 	return l, nil
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesByHeight(height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
 	gravityHeight, err := p.getGravityHeight(height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")
@@ -521,7 +521,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	if err := validateDelegates(proposedDelegates); err != nil {
 		return err
 	}
-	ds, err := p.DelegatesByHeight(vaCtx.BlockHeight)
+	ds, err := p.DelegatesByHeight(config.NewHeightUpgrade(&vaCtx.Genesis), vaCtx.BlockHeight)
 	if err != nil {
 		return err
 	}

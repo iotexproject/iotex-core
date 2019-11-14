@@ -76,8 +76,7 @@ func prepareBlockchain(
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg.Genesis)
-	acc := account.NewProtocol(hu)
+	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -93,10 +92,10 @@ func prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	sf := bc.Factory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
+	sf.AddActionHandlers(execution.NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	r.NoError(bc.Start(ctx))
 	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
@@ -109,12 +108,14 @@ func prepareBlockchain(
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
+			Genesis:  cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
 	return bc
 }
+
 func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
@@ -126,6 +127,7 @@ func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Bl
 		Build()
 	return prepare(bc, elp, r)
 }
+
 func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
 	r.NoError(err)
@@ -137,6 +139,7 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 		Build()
 	return prepare(bc, elp, r)
 }
+
 func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
 	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	r.NoError(err)

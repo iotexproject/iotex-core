@@ -36,13 +36,13 @@ type (
 )
 
 // NewHeightUpgrade creates a height upgrade config
-func NewHeightUpgrade(g genesis.Genesis) HeightUpgrade {
+func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 	return HeightUpgrade{
-		g.PacificBlockHeight,
-		g.AleutianBlockHeight,
-		g.BeringBlockHeight,
-		g.CookBlockHeight,
-		g.DardanellesBlockHeight,
+		cfg.PacificBlockHeight,
+		cfg.AleutianBlockHeight,
+		cfg.BeringBlockHeight,
+		cfg.CookBlockHeight,
+		cfg.DardanellesBlockHeight,
 	}
 }
 

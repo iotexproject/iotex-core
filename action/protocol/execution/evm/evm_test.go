@@ -54,11 +54,12 @@ func TestExecuteContractFailure(t *testing.T) {
 		Caller:   identityset.Address(27),
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
+		Genesis:  config.Default.Genesis,
 	})
 
 	retval, receipt, err := ExecuteContract(ctx, sm, e, func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, config.NewHeightUpgrade(config.Default.Genesis))
+	})
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -79,9 +80,9 @@ func TestConstantinople(t *testing.T) {
 		Caller:   identityset.Address(27),
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
+		Genesis:  config.Default.Genesis,
 	})
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	hu := config.NewHeightUpgrade(config.Default.Genesis)
 
 	execHeights := []struct {
 		contract string
@@ -127,10 +128,11 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 		raCtx.BlockHeight = e.height
-		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
+		hu := config.NewHeightUpgrade(&raCtx.Genesis)
+		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), ex.Hash())
+		ps, err := NewParams(raCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
-		}, sm, hu, e.height, ex.Hash())
-		ps, err := NewParams(raCtx, ex, stateDB, hu)
+		})
 		require.NoError(err)
 
 		var config vm.Config

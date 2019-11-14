@@ -32,6 +32,10 @@ import (
 
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: config.Default.Genesis},
+	)
 	val := validator{sf: nil, validatorAddr: ""}
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -49,13 +53,17 @@ func TestWrongRootHash(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 0, blkhash))
+	require.NoError(val.Validate(ctx, &blk, 0, blkhash))
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-	require.NotNil(val.Validate(&blk, 0, blkhash))
+	require.Error(val.Validate(ctx, &blk, 0, blkhash))
 }
 
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: config.Default.Genesis},
+	)
 	val := validator{sf: nil, validatorAddr: ""}
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -73,12 +81,15 @@ func TestSignBlock(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 2, blkhash))
+	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
 }
 
 func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
-
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
@@ -92,8 +103,7 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	hu := config.NewHeightUpgrade(cfg.Genesis)
-	sf.AddActionHandlers(account.NewProtocol(hu))
+	sf.AddActionHandlers(account.NewProtocol())
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -102,11 +112,11 @@ func TestWrongNonce(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	require.NoError(addCreatorToFactory(sf))
+	require.NoError(addCreatorToFactory(cfg, sf))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol(hu))
+	val.AddActionValidators(account.NewProtocol())
 
 	// correct nonce
 
@@ -122,15 +132,18 @@ func TestWrongNonce(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.Nil(val.Validate(&blk, 2, blkhash))
+	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
+	ctx = protocol.WithRunActionsCtx(
+		ctx,
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
-		})
+			Genesis:  config.Default.Genesis,
+		},
+	)
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
 	require.NoError(err)
 	require.Nil(sf.Commit(ws))
@@ -147,7 +160,7 @@ func TestWrongNonce(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	tsf3, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
@@ -161,7 +174,7 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf3).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -179,7 +192,7 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf4, tsf5).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -196,7 +209,7 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf6, tsf7).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -213,7 +226,7 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf8, tsf9).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -230,17 +243,19 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf10, tsf11).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(&blk, 2, blkhash)
+	err = val.Validate(ctx, &blk, 2, blkhash)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }
 
 func TestWrongAddress(t *testing.T) {
-	ctx := context.Background()
 	cfg := config.Default
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+	)
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	hu := config.NewHeightUpgrade(cfg.Genesis)
-	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol())
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -249,7 +264,7 @@ func TestWrongAddress(t *testing.T) {
 	}()
 	val := &validator{sf: bc.Factory(), validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
+	val.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -267,11 +282,7 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	err = val.validateActionsOnly(
-		blk1.Actions,
-		blk1.PublicKey(),
-		blk1.Height(),
-	)
+	err = val.validateActionsOnly(ctx, &blk1)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating recipient's address"))
 
@@ -291,26 +302,24 @@ func TestWrongAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	err = val.validateActionsOnly(
-		blk3.Actions,
-		blk3.PublicKey(),
-		blk3.Height(),
-	)
+	err = val.validateActionsOnly(ctx, &blk3)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "error when validating contract's address"))
 }
 
 func TestBlackListAddress(t *testing.T) {
-	ctx := context.Background()
 	cfg := config.Default
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+	)
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	hu := config.NewHeightUpgrade(cfg.Genesis)
-	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
+	bc.Factory().AddActionHandlers(account.NewProtocol())
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -323,7 +332,7 @@ func TestBlackListAddress(t *testing.T) {
 	}
 	val := &validator{sf: bc.Factory(), validatorAddr: "", senderBlackList: senderBlackList}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
+	val.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
@@ -339,11 +348,7 @@ func TestBlackListAddress(t *testing.T) {
 		AddActions(selp).
 		SignAndBuild(senderKey)
 	require.NoError(t, err)
-	err = val.validateActionsOnly(
-		blk1.Actions,
-		blk1.PublicKey(),
-		blk1.Height(),
-	)
+	err = val.validateActionsOnly(ctx, &blk1)
 	require.Error(t, err)
 	require.True(t, strings.Contains(err.Error(), "action source address is blacklisted"))
 }
