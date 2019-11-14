@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type runActionsCtxKey struct{}
@@ -48,6 +49,9 @@ type RunActionsCtx struct {
 	// History indicates whether to save account/contract history or not
 	History bool
 	// Registry is the pointer of protocol registry
+	// Candidates is a list of candidates of current round
+	Candidates []*state.Candidate
+	// Registry is the pointer protocol registry
 	Registry *Registry
 }
 

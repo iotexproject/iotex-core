@@ -88,7 +88,7 @@ mkdir -p ./test/mock/mock_chainmanager
 mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
         -source=./action/protocol/managers.go \
         -package=mock_chainmanager \
-        ChainManager
+        StateManager
 
 mkdir -p ./test/mock/mock_apiserviceclient
 mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \

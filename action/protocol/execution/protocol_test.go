@@ -281,7 +281,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -296,9 +296,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg,
 		dao,
 		blockchain.InMemStateFactoryOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
-	reward := rewarding.NewProtocol(bc, rp)
+	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	r.NotNil(bc)
@@ -319,7 +319,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 			Genesis:  cfg.Genesis,
-			Registry: &registry,
+			Registry: registry,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
@@ -465,7 +465,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
-		registry := protocol.Registry{}
+		registry := protocol.NewRegistry()
 		acc := account.NewProtocol()
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -482,7 +482,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			dao,
 			blockchain.DefaultStateFactoryOption(),
-			blockchain.RegistryOption(&registry),
+			blockchain.RegistryOption(registry),
 		)
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(ProtocolID, exeProtocol))
@@ -506,7 +506,7 @@ func TestProtocol_Handle(t *testing.T) {
 				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
 				Genesis:  cfg.Genesis,
-				Registry: &registry,
+				Registry: registry,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)

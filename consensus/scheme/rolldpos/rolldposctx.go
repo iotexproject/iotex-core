@@ -73,7 +73,7 @@ func init() {
 }
 
 // CandidatesByHeightFunc defines a function to overwrite candidates
-type CandidatesByHeightFunc func(uint64) ([]*state.Candidate, error)
+type CandidatesByHeightFunc func(uint64) (state.CandidateList, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
 
@@ -119,7 +119,7 @@ func newRollDPoSCtx(
 		return nil, errors.New("clock cannot be nil")
 	}
 	if candidatesByHeightFunc == nil {
-		candidatesByHeightFunc = chain.CandidatesByHeight
+		return nil, errors.New("canidates by height function cannot be nil")
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(

@@ -100,7 +100,7 @@ func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
 
 	require := require.New(t)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
@@ -123,7 +123,7 @@ func TestWrongNonce(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	require.NoError(addCreatorToFactory(cfg, sf, &registry))
+	require.NoError(addCreatorToFactory(cfg, sf, registry))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
@@ -149,7 +149,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	require.NoError(val.Validate(ctx, &blk))
@@ -162,7 +162,7 @@ func TestWrongNonce(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
@@ -188,7 +188,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -213,7 +213,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -242,7 +242,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -270,7 +270,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -298,7 +298,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -326,7 +326,7 @@ func TestWrongNonce(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-			Registry: &registry,
+			Registry: registry,
 		},
 	)
 	err = val.Validate(ctx, &blk)
@@ -338,20 +338,20 @@ func TestWrongAddress(t *testing.T) {
 	cfg := config.Default
 
 	ctx := context.Background()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
+	registry := protocol.NewRegistry()
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	registry := protocol.Registry{}
 	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
 	ctx = protocol.WithValidateActionsCtx(
 		ctx,
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
 	val := &validator{sf: bc.Factory(), validatorAddr: ""}
@@ -407,7 +407,8 @@ func TestBlackListAddress(t *testing.T) {
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
+	registry := protocol.NewRegistry()
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -415,13 +416,12 @@ func TestBlackListAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	registry := protocol.Registry{}
 	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
 	ctx = protocol.WithValidateActionsCtx(
 		ctx,
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
 	senderBlackList := make(map[string]bool)

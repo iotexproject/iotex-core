@@ -66,17 +66,13 @@ func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...
 	return nil, protocol.ErrUnimplemented
 }
 
-// Initialize initializes the protocol by setting the initial balances to some addresses
-func (p *Protocol) Initialize(
-	ctx context.Context,
-	sm protocol.StateManager,
-	addrs []address.Address,
-	amounts []*big.Int,
-) error {
+// CreateGenesisStates initializes the protocol by setting the initial balances to some addresses
+func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
 		return err
 	}
+	addrs, amounts := raCtx.Genesis.InitBalances()
 	if err := p.assertEqualLength(addrs, amounts); err != nil {
 		return err
 	}
