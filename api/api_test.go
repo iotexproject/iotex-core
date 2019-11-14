@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
@@ -656,7 +657,7 @@ var (
 			},
 			4,
 			6,
-			4,
+			6,
 		},
 	}
 
@@ -1416,9 +1417,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
 	for _, test := range getEpochMetaTests {
-		svr, err := createServer(cfg, false)
-		require.NoError(err)
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
@@ -1430,32 +1431,32 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				func(uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
 						{
-							Address:       "address1",
+							Address:       identityset.Address(1).String(),
 							Votes:         big.NewInt(6),
 							RewardAddress: "rewardAddress",
 						},
 						{
-							Address:       "address2",
+							Address:       identityset.Address(2).String(),
 							Votes:         big.NewInt(5),
 							RewardAddress: "rewardAddress",
 						},
 						{
-							Address:       "address3",
+							Address:       identityset.Address(3).String(),
 							Votes:         big.NewInt(4),
 							RewardAddress: "rewardAddress",
 						},
 						{
-							Address:       "address4",
+							Address:       identityset.Address(4).String(),
 							Votes:         big.NewInt(3),
 							RewardAddress: "rewardAddress",
 						},
 						{
-							Address:       "address5",
+							Address:       identityset.Address(5).String(),
 							Votes:         big.NewInt(2),
 							RewardAddress: "rewardAddress",
 						},
 						{
-							Address:       "address6",
+							Address:       identityset.Address(6).String(),
 							Votes:         big.NewInt(1),
 							RewardAddress: "rewardAddress",
 						},
@@ -1473,16 +1474,26 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			blksPerDelegate := map[string]uint64{
-				"address1": uint64(1),
-				"address2": uint64(1),
-				"address3": uint64(1),
-				"address4": uint64(1),
-			}
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().Factory().Return(msf).Times(2)
 			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
-			mbc.EXPECT().ProductivityByEpoch(test.EpochNumber).Return(uint64(4), blksPerDelegate, nil).Times(1)
+			mbc.EXPECT().Context().Return(protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+				Registry:    svr.registry,
+				BlockHeight: uint64(4),
+			}), nil).Times(1)
+			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
+				if height > 0 && height <= 4 {
+					pk := identityset.PrivateKey(int(height))
+					blk, err := block.NewBuilder(
+						block.NewRunnableActionsBuilder().SetHeight(height).Build(pk.PublicKey()),
+					).SignAndBuild(pk)
+					if err != nil {
+						return &block.Header{}, err
+					}
+					return &blk.Header, nil
+				}
+				return &block.Header{}, errors.Errorf("invalid block height %d", height)
+			}).AnyTimes()
 			svr.bc = mbc
 		}
 		res, err := svr.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: test.EpochNumber})
@@ -1788,7 +1799,9 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(bc, rolldposProtocol)
+	r := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return 0, nil, nil
+	}, rolldposProtocol)
 
 	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
 		return nil, nil, nil, nil, err

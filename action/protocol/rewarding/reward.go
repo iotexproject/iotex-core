@@ -413,7 +413,7 @@ func (p *Protocol) unqualifiedDelegates(
 	productivityThreshold uint64,
 ) (map[string]interface{}, error) {
 	unqualifiedDelegates := make(map[string]interface{}, 0)
-	numBlks, produce, err := p.cm.ProductivityByEpoch(epochNum)
+	numBlks, produce, err := p.productivityByEpoch(epochNum)
 	if err != nil {
 		return nil, err
 	}

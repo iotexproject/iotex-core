@@ -39,7 +39,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cm := mock_chainmanager.NewMockChainManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
@@ -60,7 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		}).AnyTimes()
 
 	p := NewProtocol()
-	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
+	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
 	require.NoError(

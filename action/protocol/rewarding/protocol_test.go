@@ -55,19 +55,17 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			return nil
 		}).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
-		uint64(19),
-		map[string]uint64{
-			identityset.Address(27).String(): 3,
-			identityset.Address(28).String(): 7,
-			identityset.Address(29).String(): 1,
-			identityset.Address(30).String(): 6,
-			identityset.Address(31).String(): 2,
-		},
-		nil,
-	).AnyTimes()
-	p := NewProtocol(chain, rolldpos.NewProtocol(
+	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return uint64(19),
+			map[string]uint64{
+				identityset.Address(27).String(): 3,
+				identityset.Address(28).String(): 7,
+				identityset.Address(29).String(): 1,
+				identityset.Address(30).String(): 6,
+				identityset.Address(31).String(): 2,
+			},
+			nil
+	}, rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
@@ -219,13 +217,14 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	p := NewProtocol(chain, rp)
+	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return 0, nil, nil
+	}, rp)
 
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),

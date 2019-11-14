@@ -186,7 +186,9 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	)
 
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(chain, epochNum)
+	}, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)

@@ -818,7 +818,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			genesis.Default.NumSubEpochs,
 		)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-		rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
+		rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
 		require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(accountProtocol)
@@ -1066,7 +1066,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	require.NoError(bc.Start(context.Background()))

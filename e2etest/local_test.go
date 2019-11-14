@@ -173,7 +173,7 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)

@@ -137,6 +137,7 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.Nil(t, r)
 	})
 }
+
 func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndorse bool, height int) *block.Block {
 	unixTime := 1500000000
 	blkTime := int64(-1)

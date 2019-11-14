@@ -68,12 +68,32 @@ type Protocol interface {
 	// DelegatesByHeight returns the delegates by chain height
 	// TODO: replace config.HeightUpgrade with context.Context
 	DelegatesByHeight(config.HeightUpgrade, uint64) (state.CandidateList, error)
+	// DelegatesByEpoch returns the delegates by epoch number
+	DelegatesByEpoch(context.Context, uint64) (state.CandidateList, error)
 	// ReadState read the state on blockchain via protocol
 	ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error)
 	// SetContract sets the native staking contract address
 	SetNativeStakingContract(string)
 	// CandidatesByHeight returns a list of delegate candidates
 	CandidatesByHeight(uint64) (state.CandidateList, error)
+}
+
+// MustGetProtocol return a registered protocol from registry
+func MustGetProtocol(registry *protocol.Registry) Protocol {
+	if registry == nil {
+		log.S().Panic("registry cannot be nil")
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		log.S().Panic("poll protocol is not registered")
+	}
+
+	pp, ok := p.(Protocol)
+	if !ok {
+		log.S().Panic("fail to cast poll protocol")
+	}
+
+	return pp
 }
 
 type lifeLongDelegatesProtocol struct {
@@ -179,6 +199,10 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 }
 
 func (p *lifeLongDelegatesProtocol) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
+	return p.delegates, nil
+}
+
+func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -357,6 +381,10 @@ func (p *governanceChainCommitteeProtocol) DelegatesByHeight(hu config.HeightUpg
 		zap.Uint64("gravityChainHeight", gravityHeight),
 	)
 	return p.delegatesByGravityChainHeight(gravityHeight)
+}
+
+func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	return p.readActiveBlockProducersByEpoch(epochNum)
 }
 
 func (p *governanceChainCommitteeProtocol) CandidatesByHeight(height uint64) (state.CandidateList, error) {

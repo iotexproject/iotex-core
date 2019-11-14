@@ -198,11 +198,7 @@ func New(
 				return nil, err
 			}
 
-			data, _, err := blockchain.SimulateExecution(
-				chain,
-				addr,
-				ex,
-			)
+			data, _, err := blockchain.SimulateExecution(chain, addr, ex)
 
 			return data, err
 		},
@@ -284,7 +280,9 @@ func New(
 	}
 	accountProtocol := account.NewProtocol()
 	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
-	rewardingProtocol := rewarding.NewProtocol(chain, rDPoSProtocol)
+	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(chain, epochNum)
+	}, rDPoSProtocol)
 	cs := &ChainService{
 		actpool:           actPool,
 		chain:             chain,

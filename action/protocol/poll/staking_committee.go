@@ -134,6 +134,10 @@ func (sc *stakingCommittee) DelegatesByHeight(hu config.HeightUpgrade, height ui
 	return sc.mergeDelegates(cand, nativeVotes, ts), nil
 }
 
+func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum)
+}
+
 func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateList, error) {
 	return sc.candidatesByHeight(sc.getEpochHeight(sc.getEpochNum(height)))
 }

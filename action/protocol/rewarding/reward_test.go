@@ -290,16 +290,14 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
-		uint64(19),
-		map[string]uint64{
-			identityset.Address(0).String(): 9,
-			identityset.Address(1).String(): 10,
-		},
-		nil,
-	).AnyTimes()
-	p := NewProtocol(chain, rolldpos.NewProtocol(
+	p := NewProtocol(func(uint64) (uint64, map[string]uint64, error) {
+		return uint64(19),
+			map[string]uint64{
+				identityset.Address(0).String(): 9,
+				identityset.Address(1).String(): 10,
+			},
+			nil
+	}, rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,

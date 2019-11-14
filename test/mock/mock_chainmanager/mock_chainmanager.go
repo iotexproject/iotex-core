@@ -198,59 +198,6 @@ func (mr *MockActionHandlerMockRecorder) Handle(arg0, arg1, arg2 interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockActionHandler)(nil).Handle), arg0, arg1, arg2)
 }
 
-// MockChainManager is a mock of ChainManager interface
-type MockChainManager struct {
-	ctrl     *gomock.Controller
-	recorder *MockChainManagerMockRecorder
-}
-
-// MockChainManagerMockRecorder is the mock recorder for MockChainManager
-type MockChainManagerMockRecorder struct {
-	mock *MockChainManager
-}
-
-// NewMockChainManager creates a new mock instance
-func NewMockChainManager(ctrl *gomock.Controller) *MockChainManager {
-	mock := &MockChainManager{ctrl: ctrl}
-	mock.recorder = &MockChainManagerMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockChainManager) EXPECT() *MockChainManagerMockRecorder {
-	return m.recorder
-}
-
-// ChainID mocks base method
-func (m *MockChainManager) ChainID() uint32 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ChainID")
-	ret0, _ := ret[0].(uint32)
-	return ret0
-}
-
-// ChainID indicates an expected call of ChainID
-func (mr *MockChainManagerMockRecorder) ChainID() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainID", reflect.TypeOf((*MockChainManager)(nil).ChainID))
-}
-
-// ProductivityByEpoch mocks base method
-func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(map[string]uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ProductivityByEpoch indicates an expected call of ProductivityByEpoch
-func (mr *MockChainManagerMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockChainManager)(nil).ProductivityByEpoch), epochNum)
-}
-
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller

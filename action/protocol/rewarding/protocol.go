@@ -39,28 +39,31 @@ var (
 	exemptKey                   = []byte("xpt")
 )
 
+// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+type ProductivityByEpoch func(uint64) (uint64, map[string]uint64, error)
+
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
-	cm        protocol.ChainManager
-	keyPrefix []byte
-	addr      address.Address
-	rp        *rolldpos.Protocol
+	productivityByEpoch ProductivityByEpoch
+	keyPrefix           []byte
+	addr                address.Address
+	rp                  *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
+func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		cm:        cm,
-		keyPrefix: h[:],
-		addr:      addr,
-		rp:        rp,
+		productivityByEpoch: productivityByEpoch,
+		keyPrefix:           h[:],
+		addr:                addr,
+		rp:                  rp,
 	}
 }
 

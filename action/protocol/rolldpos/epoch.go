@@ -30,6 +30,22 @@ type Protocol struct {
 	dardanellesOn           bool
 }
 
+// MustGetProtocol return a registered protocol from registry
+func MustGetProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		log.S().Panic("registry cannot be nil")
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		log.S().Panic("rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast rolldpos protocol")
+	}
+	return rp
+}
+
 // Option is optional setting for epoch protocol
 type Option func(*Protocol) error
 

@@ -43,7 +43,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -69,9 +68,8 @@ func init() {
 type Blockchain interface {
 	lifecycle.StartStopper
 
-	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
 	// For exposing blockchain states
+
 	// BlockHeaderByHeight return block header by height
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
 	// BlockHeaderByHash return block header by hash
@@ -96,8 +94,8 @@ type Blockchain interface {
 	RecoverChainAndState(targetHeight uint64) error
 	// Genesis returns the genesis
 	Genesis() genesis.Genesis
-	// RunActionsContext returns run actions context
-	RunActionsContext() (*protocol.RunActionsCtx, error)
+	// Context returns current context
+	Context() (context.Context, error)
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -127,10 +125,11 @@ type Blockchain interface {
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
 func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	raCtx, err := bc.RunActionsContext()
+	ctx, err := bc.Context()
 	if err != nil {
 		return nil, nil, err
 	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	raCtx.Caller = caller
 
 	ws, err := bc.Factory().NewWorkingSet()
@@ -139,11 +138,52 @@ func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Executi
 	}
 
 	return evm.ExecuteContract(
-		protocol.WithRunActionsCtx(context.Background(), *raCtx),
+		protocol.WithRunActionsCtx(ctx, raCtx),
 		ws,
 		ex,
 		bc.BlockDAO().GetBlockHash,
 	)
+}
+
+// ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
+func ProductivityByEpoch(bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
+	ctx, err := bc.Context()
+	if err != nil {
+		return 0, nil, err
+	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	rp := rolldpos.MustGetProtocol(raCtx.Registry)
+
+	var epochEndHeight uint64
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	currentEpochNum := rp.GetEpochNum(raCtx.BlockHeight)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.New("epoch number is larger than current epoch number")
+	}
+	if epochNum == currentEpochNum {
+		epochEndHeight = raCtx.BlockHeight
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	activeConsensusBlockProducers, err := poll.MustGetProtocol(raCtx.Registry).DelegatesByEpoch(ctx, epochNum)
+	if err != nil {
+		return 0, nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	produce := make(map[string]uint64)
+	for _, bp := range activeConsensusBlockProducers {
+		produce[bp.Address] = 0
+	}
+	for i := uint64(0); i < numBlks; i++ {
+		header, err := bc.BlockHeaderByHeight(epochStartHeight + i)
+		if err != nil {
+			return 0, nil, err
+		}
+		produce[header.ProducerAddress()]++
+	}
+	return numBlks, produce, nil
 }
 
 // blockchain implements the Blockchain interface
@@ -355,76 +395,6 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 	return bc.lifecycle.OnStop(ctx)
 }
 
-// ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
-func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	p, ok := bc.registry.Find(rolldpos.ProtocolID)
-	if !ok {
-		return 0, nil, errors.New("rolldpos protocol is not registered")
-	}
-	rp, ok := p.(*rolldpos.Protocol)
-	if !ok {
-		return 0, nil, errors.New("fail to cast rolldpos protocol")
-	}
-
-	var isCurrentEpoch bool
-	currentEpochNum := rp.GetEpochNum(bc.tipHeight)
-	if epochNum > currentEpochNum {
-		return 0, nil, errors.New("epoch number is larger than current epoch number")
-	}
-	if epochNum == currentEpochNum {
-		isCurrentEpoch = true
-	}
-
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	var epochEndHeight uint64
-	if isCurrentEpoch {
-		epochEndHeight = bc.tipHeight
-	} else {
-		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
-	}
-	numBlks := epochEndHeight - epochStartHeight + 1
-
-	p, ok = bc.registry.Find(poll.ProtocolID)
-	if !ok {
-		return 0, nil, errors.New("poll protocol is not registered")
-	}
-
-	// TODO: move the function out of blockchain
-	// This is a weird call, which shows that the function should not be an API of blockchain
-	raCtx, err := bc.RunActionsContext()
-	if err != nil {
-		return 0, nil, err
-	}
-
-	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return 0, nil, err
-	}
-	s, err := p.ReadState(ctx, ws, []byte("ActiveBlockProducersByEpoch"),
-		byteutil.Uint64ToBytes(epochNum))
-	if err != nil {
-		return 0, nil, status.Error(codes.NotFound, err.Error())
-	}
-	var activeConsensusBlockProducers state.CandidateList
-	if err := activeConsensusBlockProducers.Deserialize(s); err != nil {
-		return 0, nil, err
-	}
-
-	produce := make(map[string]uint64)
-	for _, bp := range activeConsensusBlockProducers {
-		produce[bp.Address] = 0
-	}
-	for i := uint64(0); i < numBlks; i++ {
-		blk, err := bc.blockHeaderByHeight(epochStartHeight + i)
-		if err != nil {
-			return 0, nil, err
-		}
-		produce[blk.ProducerAddress()]++
-	}
-	return numBlks, produce, nil
-}
-
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
 	return bc.blockHeaderByHeight(height)
 }
@@ -467,7 +437,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	return bc.validateBlock(blk)
 }
 
-func (bc *blockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
+func (bc *blockchain) Context() (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	header, err := bc.blockHeaderByHeight(bc.tipHeight)
@@ -475,26 +445,29 @@ func (bc *blockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
 		return nil, err
 	}
 
-	return bc.runActionsContext(bc.config.ProducerAddress(), header.Height(), header.Timestamp())
+	return bc.context(bc.config.ProducerAddress(), header.Height(), header.Timestamp())
 }
 
-func (bc *blockchain) runActionsContext(producer address.Address, height uint64, timestamp time.Time) (*protocol.RunActionsCtx, error) {
+func (bc *blockchain) context(producer address.Address, height uint64, timestamp time.Time) (context.Context, error) {
 	candidates, err := bc.candidatesByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	return &protocol.RunActionsCtx{
-		BlockHeight:    height,
-		BlockTimeStamp: timestamp,
-		Candidates:     candidates,
-		Producer:       producer,
-		GasLimit:       bc.config.Genesis.BlockGasLimit,
-		GasPrice:       big.NewInt(0),
-		IntrinsicGas:   0,
-		Registry:       bc.registry,
-		Genesis:        bc.config.Genesis,
-	}, nil
+	return protocol.WithRunActionsCtx(
+		context.Background(),
+		protocol.RunActionsCtx{
+			BlockHeight:    height,
+			BlockTimeStamp: timestamp,
+			Candidates:     candidates,
+			Producer:       producer,
+			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			GasPrice:       big.NewInt(0),
+			IntrinsicGas:   0,
+			Registry:       bc.registry,
+			Genesis:        bc.config.Genesis,
+		},
+	), nil
 }
 
 func (bc *blockchain) MintNewBlock(
@@ -513,12 +486,10 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	raCtx, err := bc.runActionsContext(bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx, err := bc.context(bc.config.ProducerAddress(), newblockHeight, timestamp)
 	if err != nil {
 		return nil, err
 	}
-
-	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
 	// TODO: move the height judgment into protocols
 	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
 		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
@@ -653,35 +624,21 @@ func (bc *blockchain) Genesis() genesis.Genesis {
 // private functions
 //=====================================
 
-func (bc *blockchain) protocol(id string) (protocol.Protocol, bool) {
-	if bc.registry == nil {
-		return nil, false
-	}
-	return bc.registry.Find(id)
-}
-
-func (bc *blockchain) mustGetRollDPoSProtocol() *rolldpos.Protocol {
-	p, ok := bc.protocol(rolldpos.ProtocolID)
-	if !ok {
-		log.L().Panic("protocol rolldpos has not been registered")
-	}
-	rp, ok := p.(*rolldpos.Protocol)
-	if !ok {
-		log.L().Panic("failed to cast to rolldpos protocol")
-	}
-
-	return rp
-}
-
 func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
-	p, ok := bc.protocol(poll.ProtocolID)
+	if bc.registry == nil {
+		return nil, nil
+	}
+
+	p, ok := bc.registry.Find(poll.ProtocolID)
 	if !ok {
 		return nil, nil
 	}
+
 	pp, ok := p.(poll.Protocol)
 	if !ok {
-		log.L().Panic("failed to cast to rolldpos protocol")
+		log.L().Panic("failed to cast to poll protocol")
 	}
+
 	return pp.CandidatesByHeight(height)
 }
 
@@ -841,12 +798,12 @@ func (bc *blockchain) runActions(
 	if err != nil {
 		return nil, err
 	}
-	raCtx, err := bc.runActionsContext(producer, acts.BlockHeight(), acts.BlockTimeStamp())
+
+	ctx, err := bc.context(producer, acts.BlockHeight(), acts.BlockTimeStamp())
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
 		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
 			return nil, err
@@ -906,7 +863,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	}
 	var lastBlkHeight uint64
 	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
-		rp := bc.mustGetRollDPoSProtocol()
+		rp := rolldpos.MustGetProtocol(bc.registry)
 		epochNum := rp.GetEpochNum(raCtx.BlockHeight)
 		lastBlkHeight = rp.GetEpochLastBlockHeight(epochNum)
 		// generate delegates for next round
@@ -976,15 +933,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	if !bc.config.Genesis.EnableGravityChainVoting {
 		return
 	}
-	pl, ok := bc.protocol(poll.ProtocolID)
-	if !ok {
-		log.L().Panic("protocol poll has not been registered")
-	}
-	pp, ok := pl.(poll.Protocol)
-	if !ok {
-		log.L().Panic("Failed to cast to poll.Protocol")
-	}
-	rp := bc.mustGetRollDPoSProtocol()
+	rp := rolldpos.MustGetProtocol(bc.registry)
 	epochNum := rp.GetEpochNum(height)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
@@ -1007,7 +956,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	default:
 		return
 	}
-	l, err := pp.DelegatesByHeight(config.NewHeightUpgrade(&bc.config.Genesis), epochHeight)
+	l, err := poll.MustGetProtocol(bc.registry).DelegatesByHeight(config.NewHeightUpgrade(&bc.config.Genesis), epochHeight)
 	switch errors.Cause(err) {
 	case nil:
 		if len(l) == 0 {

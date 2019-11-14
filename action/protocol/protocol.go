@@ -8,7 +8,6 @@ package protocol
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -46,14 +45,6 @@ type ActionHandler interface {
 	Handle(context.Context, action.Action, StateManager) (*action.Receipt, error)
 }
 
-// ChainManager defines the blockchain interface
-type ChainManager interface {
-	// ChainID returns the chain ID
-	ChainID() uint32
-	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
-}
-
 // StateManager defines the state DB interface atop IoTeX blockchain
 type StateManager interface {
 	// Accounts
@@ -66,26 +57,4 @@ type StateManager interface {
 	DelState(pkHash hash.Hash160) error
 	GetDB() db.KVStore
 	GetCachedBatch() db.CachedBatch
-}
-
-// MockChainManager mocks ChainManager interface
-type MockChainManager struct {
-}
-
-// Nonce mocks base method
-func (m *MockChainManager) Nonce(addr string) (uint64, error) {
-	if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
-		return 0, errors.New("MockChainManager nonce error")
-	}
-	return 2, nil
-}
-
-// ChainID return chain ID
-func (m *MockChainManager) ChainID() uint32 {
-	return 0
-}
-
-// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-func (m *MockChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	return 0, nil, nil
 }

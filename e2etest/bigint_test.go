@@ -89,7 +89,7 @@ func prepareBlockchain(
 		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
-	reward := rewarding.NewProtocol(bc, rp)
+	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
