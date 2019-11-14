@@ -403,7 +403,7 @@ func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // registerDefaultProtocols registers default protocol into chainservice's registry
 func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) {
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	accountProtocol := account.NewProtocol(hu)
 	if err = cs.registerProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return

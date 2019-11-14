@@ -128,7 +128,7 @@ func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, 
 	if err != nil {
 		return err
 	}
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	execution, err := action.NewExecution(
 		"",
 		0,

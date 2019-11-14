@@ -66,7 +66,7 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 
 func TestProtocol_Initialize(t *testing.T) {
 	cfg := config.Default
-	p := NewProtocol(config.NewHeightUpgrade(cfg))
+	p := NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
 
 	ctrl := gomock.NewController(t)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)

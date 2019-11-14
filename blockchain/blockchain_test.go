@@ -422,7 +422,7 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	acc := account.NewProtocol(hu)
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -455,7 +455,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	acc := account.NewProtocol(hu)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -521,7 +521,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	acc := account.NewProtocol(hu)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
@@ -607,7 +607,7 @@ func TestConstantinople(t *testing.T) {
 		// Create a blockchain from scratch
 		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		require.NoError(err)
-		hc := config.NewHeightUpgrade(cfg)
+		hc := config.NewHeightUpgrade(cfg.Genesis)
 		acc := account.NewProtocol(hc)
 		sf.AddActionHandlers(acc)
 		registry := protocol.Registry{}
@@ -765,7 +765,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		// Create a blockchain from scratch
 		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		require.NoError(err)
-		hu := config.NewHeightUpgrade(cfg)
+		hu := config.NewHeightUpgrade(cfg.Genesis)
 		acc := account.NewProtocol(hu)
 		sf.AddActionHandlers(acc)
 		registry := protocol.Registry{}
@@ -1054,7 +1054,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	accountProtocol := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	accountProtocol := account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
 	sf.AddActionHandlers(accountProtocol)
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
@@ -1214,7 +1214,7 @@ func TestActions(t *testing.T) {
 	require.NoError(sf.Commit(ws))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+	bc.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis)))
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))

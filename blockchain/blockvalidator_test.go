@@ -92,7 +92,7 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	sf.AddActionHandlers(account.NewProtocol(hu))
 
 	// Create a blockchain from scratch
@@ -239,7 +239,7 @@ func TestWrongAddress(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
@@ -309,7 +309,7 @@ func TestBlackListAddress(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	bc.Factory().AddActionHandlers(account.NewProtocol(hu))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)

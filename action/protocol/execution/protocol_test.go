@@ -282,7 +282,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg)
+	hu := config.NewHeightUpgrade(cfg.Genesis)
 	acc := account.NewProtocol(hu)
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -358,7 +358,7 @@ func (sct *SmartContractTest) deployContracts(
 
 		ws, err := bc.Factory().NewWorkingSet()
 		r.NoError(err)
-		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(config.Default), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(config.Default.Genesis), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		addr, _ := address.FromString(receipt.ContractAddress)
 		copy(evmContractAddrHash[:], addr.Bytes())
@@ -466,7 +466,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
 		registry := protocol.Registry{}
-		hu := config.NewHeightUpgrade(cfg)
+		hu := config.NewHeightUpgrade(cfg.Genesis)
 		acc := account.NewProtocol(hu)
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -542,7 +542,7 @@ func TestProtocol_Handle(t *testing.T) {
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
-		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB := evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg.Genesis), uint64(0), hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
@@ -593,7 +593,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
-		stateDB = evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg), uint64(0), hash.ZeroHash256)
+		stateDB = evm.NewStateDBAdapter(bc.BlockDAO().GetBlockHash, ws, config.NewHeightUpgrade(cfg.Genesis), uint64(0), hash.ZeroHash256)
 		var emptyEVMHash common.Hash
 		v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 		require.Equal(byte(15), v[31])
@@ -790,7 +790,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	protocol := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, config.NewHeightUpgrade(config.Default))
+	}, config.NewHeightUpgrade(config.Default.Genesis))
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

@@ -90,7 +90,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.Factory().AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	bc.Factory().AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default.Genesis)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
 	require.NoError(err)
@@ -169,7 +169,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -341,7 +341,7 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		hu := config.NewHeightUpgrade(config.Default)
+		hu := config.NewHeightUpgrade(config.Default.Genesis)
 		ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -414,7 +414,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
@@ -474,7 +474,7 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
@@ -867,7 +867,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -918,7 +918,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -964,7 +964,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	ap.AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
@@ -1053,7 +1053,7 @@ func TestActPool_GetSize(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	bc.Factory().AddActionHandlers(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu))
 	require.NoError(bc.Start(context.Background()))
 	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
