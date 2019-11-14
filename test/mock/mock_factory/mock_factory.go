@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
+	config "github.com/iotexproject/iotex-core/config"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -242,4 +243,18 @@ func (m *MockFactory) AddActionHandlers(arg0 ...protocol.ActionHandler) {
 func (mr *MockFactoryMockRecorder) AddActionHandlers(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionHandlers", reflect.TypeOf((*MockFactory)(nil).AddActionHandlers), arg0...)
+}
+
+// Initialize mocks base method
+func (m *MockFactory) Initialize(arg0 config.Config, arg1 *protocol.Registry) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Initialize", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Initialize indicates an expected call of Initialize
+func (mr *MockFactoryMockRecorder) Initialize(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockFactory)(nil).Initialize), arg0, arg1)
 }

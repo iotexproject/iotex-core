@@ -186,27 +186,9 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sdb *stateDB) Commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	timer := sdb.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sdb.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sdb.currentChainHeight,
-			ws.Version(),
-		)
-	}
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height
-	sdb.currentChainHeight = ws.Height()
-	return nil
+	return sdb.commit(ws)
 }
 
 //======================================
@@ -281,4 +263,41 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
 	return &account, nil
+}
+
+func (sdb *stateDB) commit(ws WorkingSet) error {
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	timer := sdb.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if sdb.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sdb.currentChainHeight,
+			ws.Version(),
+		)
+	}
+	if err := ws.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	// Update chain height
+	sdb.currentChainHeight = ws.Height()
+	return nil
+}
+
+// Initialize initializes the state db
+func (sdb *stateDB) Initialize(cfg config.Config, registry *protocol.Registry) error {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
+	if err := createGenesisStates(cfg, registry, ws); err != nil {
+		return err
+	}
+	// add Genesis states
+	if err := sdb.commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
+	}
+	return nil
 }

@@ -8,10 +8,7 @@ package evm
 
 import (
 	"bytes"
-	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,32 +22,54 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-core/testutil"
 )
+
+func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	cb := db.NewCachedBatch()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
+				return state.ErrStateNotExist
+			}
+			return state.Deserialize(account, val)
+		}).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			cb.Put("state", addrHash[:], ss, "failed to put state")
+			return nil
+		}).AnyTimes()
+	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	store := db.NewMemKVStore()
+	sm.EXPECT().GetDB().Return(store).AnyTimes()
+	sm.EXPECT().Snapshot().DoAndReturn(
+		func() int {
+			return cb.Snapshot()
+		}).AnyTimes()
+	sm.EXPECT().Revert(gomock.Any()).DoAndReturn(
+		func(snapshot int) error {
+			return cb.Revert(snapshot)
+		}).AnyTimes()
+	return sm
+}
 
 func TestAddBalance(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
+	sm := initMockStateManager(ctrl)
 	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
@@ -66,19 +85,12 @@ func TestRefundAPIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
+	sm := initMockStateManager(ctrl)
+
 	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -90,20 +102,13 @@ func TestEmptyAndCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
+	sm := initMockStateManager(ctrl)
+
 	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -117,21 +122,13 @@ func TestForEachStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
-	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
+	sm := initMockStateManager(ctrl)
 
+	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -164,20 +161,13 @@ func TestNonce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
+	sm := initMockStateManager(ctrl)
+
 	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -189,19 +179,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		ctx := context.Background()
-		var sf factory.Factory
-		if cfg.Chain.EnableTrielessStateDB {
-			sf, _ = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
-		} else {
-			sf, _ = factory.NewFactory(cfg, factory.DefaultTrieOption())
-		}
-		require.NoError(sf.Start(ctx))
-		ws, err := sf.NewWorkingSet()
-		require.NoError(err)
+		sm := initMockStateManager(ctrl)
+
 		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
-		}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 		tests := []stateDBTest{
 			{
@@ -389,73 +371,11 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
-		gasLimit := testutil.TestGasLimit
-		ctx = protocol.WithRunActionsCtx(ctx,
-			protocol.RunActionsCtx{
-				Producer: identityset.Address(27),
-				GasLimit: gasLimit,
-			})
-		_, err = ws.RunActions(ctx, 0, nil)
-		require.NoError(err)
-		require.NoError(sf.Commit(ws))
-		require.NoError(sf.Stop(ctx))
-
-		// re-open the StateFactory
-		cfg.DB.DbPath = cfg.Chain.TrieDBPath
-		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(db.NewBoltDB(cfg.DB)))
-		} else {
-			sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
-		}
-		require.NoError(err)
-		require.NoError(sf.Start(ctx))
-		defer func() {
-			require.NoError(sf.Stop(ctx))
-		}()
-
-		ws, err = sf.NewWorkingSet()
-		require.NoError(err)
-		stateDB = NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
-
-		// state factory should have snapshot 0's state
-		snapshot0 := reverts[len(reverts)-1]
-		// test balance
-		for _, e := range snapshot0.balance {
-			amount := stateDB.GetBalance(e.addr)
-			require.Equal(e.v, amount)
-		}
-		// test states
-		for _, e := range snapshot0.states {
-			require.Equal(e.v, stateDB.GetState(e.addr, e.k))
-		}
-		// test suicide/exist
-		for _, e := range snapshot0.suicide {
-			require.Equal(e.suicide, stateDB.HasSuicided(e.addr))
-			require.Equal(e.exist, stateDB.Exist(e.addr))
-		}
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/sucide/exist is same)
 	}
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-	}()
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	t.Run("contract snapshot/revert/commit with stateDB", func(t *testing.T) {
-		testSnapshotAndRevert(cfg, t)
-	})
-
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath2 := testTrieFile.Name()
-	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-	}()
-	cfg.Chain.EnableTrielessStateDB = false
-	cfg.Chain.TrieDBPath = testTriePath2
-	t.Run("contract snapshot/revert/commit with trie", func(t *testing.T) {
+	t.Run("contract snapshot/revert/commit with in memery DB", func(t *testing.T) {
+		cfg := config.Default
 		testSnapshotAndRevert(cfg, t)
 	})
 }
@@ -466,20 +386,8 @@ func TestGetCommittedState(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		ctx := context.Background()
-		var sf factory.Factory
-		if cfg.Chain.EnableTrielessStateDB {
-			sf, _ = factory.NewStateDB(cfg, factory.InMemStateDBOption())
-		} else {
-			sf, _ = factory.NewFactory(cfg, factory.InMemTrieOption())
-		}
-		require.NoError(sf.Start(ctx))
-		defer func() {
-			require.NoError(sf.Stop(ctx))
-		}()
-		ws, err := sf.NewWorkingSet()
-		require.NoError(err)
-		stateDB := NewStateDBAdapter(nil, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+		sm := initMockStateManager(ctrl)
+		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -500,12 +408,7 @@ func TestGetCommittedState(t *testing.T) {
 	}
 
 	cfg := config.Default
-	t.Run("committed state with stateDB", func(t *testing.T) {
-		testCommittedState(cfg, t)
-	})
-
-	cfg.Chain.EnableTrielessStateDB = false
-	t.Run("committed state with trie", func(t *testing.T) {
+	t.Run("committed state with in mem DB", func(t *testing.T) {
 		testCommittedState(cfg, t)
 	})
 }
@@ -515,9 +418,10 @@ func TestGetBalanceOnError(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().GetDB().Return(nil).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(nil).AnyTimes()
-
+	store := db.NewMemKVStore()
+	sm.EXPECT().GetDB().Return(store).AnyTimes()
+	cb := db.NewCachedBatch()
+	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	errs := []error{
 		state.ErrStateNotExist,
 		errors.New("other error"),
@@ -538,19 +442,11 @@ func TestPreimage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	ctx := context.Background()
 	cfg := config.Default
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	require.NoError(sf.Start(ctx))
-	defer func() {
-		require.NoError(sf.Stop(ctx))
-	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
+	sm := initMockStateManager(ctrl)
 	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, ws, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
+	}, sm, config.NewHeightUpgrade(cfg), 1, hash.ZeroHash256)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))

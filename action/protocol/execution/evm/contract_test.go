@@ -7,45 +7,63 @@
 package evm
 
 import (
-	"context"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestCreateContract(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
-	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	cb := db.NewCachedBatch()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
+				return state.ErrStateNotExist
+			}
+			return state.Deserialize(account, val)
+		}).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			cb.Put("state", addrHash[:], ss, "failed to put state")
+			return nil
+		}).AnyTimes()
 
+	store := db.NewMemKVStore()
+	sm.EXPECT().GetDB().Return(store).AnyTimes()
+	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	addr := identityset.Address(28)
-	ws, err := sf.NewWorkingSet()
-	require.Nil(err)
-	_, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	_, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	hu := config.NewHeightUpgrade(cfg)
-	stateDB := NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(nil, sm, hu, 0, hash.ZeroHash256)
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
@@ -65,56 +83,18 @@ func TestCreateContract(t *testing.T) {
 	require.Nil(stateDB.GetCode(evmAddr1))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
-	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
-		})
-	_, err = ws.RunActions(ctx, 0, nil)
-	require.Nil(err)
-
 	// reload same contract
-	contract1, err := accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
+	contract1, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
 	require.Nil(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
-	require.Nil(sf.Commit(ws))
-	require.Nil(sf.Stop(context.Background()))
-
-	cfg.DB.DbPath = testTriePath
-	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
-	require.Nil(err)
-	require.Nil(sf.Start(context.Background()))
-	// reload same contract
-	ws, err = sf.NewWorkingSet()
-	require.Nil(err)
-	contract1, err = accountutil.LoadOrCreateAccount(ws, addr.String(), big.NewInt(0))
-	require.Nil(err)
-	require.Equal(codeHash[:], contract1.CodeHash)
-	stateDB = NewStateDBAdapter(nil, ws, hu, 0, hash.ZeroHash256)
-	// contract already exist
-	h = stateDB.GetCodeHash(evmContract)
-	require.Equal(codeHash, h)
-	v = stateDB.GetCode(evmContract)
-	require.Equal(bytecode, v)
-	require.Nil(sf.Stop(context.Background()))
 }
 
 func TestLoadStoreCommit(t *testing.T) {
 	testLoadStoreCommit := func(cfg config.Config, t *testing.T) {
 		require := require.New(t)
-
-		var sf factory.Factory
-		if cfg.Chain.EnableTrielessStateDB {
-			sf, _ = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
-		} else {
-			sf, _ = factory.NewFactory(cfg, factory.DefaultTrieOption())
-		}
-		require.NoError(sf.Start(context.Background()))
-
-		ws, err := sf.NewWorkingSet()
-		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, ws.GetDB(), ws.GetCachedBatch())
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, db.NewMemKVStore(), db.NewCachedBatch())
 		require.NoError(err)
 
 		tests := []cntrTest{

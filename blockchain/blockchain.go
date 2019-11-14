@@ -16,13 +16,11 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -31,7 +29,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -315,8 +312,9 @@ func (bc *blockchain) Start(ctx context.Context) (err error) {
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
+	//start empty blockchain
 	if bc.tipHeight == 0 {
-		return bc.startEmptyBlockchain()
+		return bc.sf.Initialize(bc.config, bc.registry)
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.GetTipHash(); err != nil {
@@ -691,26 +689,6 @@ func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) 
 		return nil, err
 	}
 	return bc.dao.Footer(hash)
-}
-
-func (bc *blockchain) startEmptyBlockchain() error {
-	var ws factory.WorkingSet
-	var err error
-	if ws, err = bc.sf.NewWorkingSet(); err != nil {
-		return errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	if !bc.config.Chain.EmptyGenesis {
-		// Initialize the states before any actions happen on the blockchain
-		if err := bc.createGenesisStates(ws); err != nil {
-			return err
-		}
-		_ = ws.UpdateBlockLevelInfo(0)
-	}
-	// add Genesis states
-	if err := bc.sf.Commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
 }
 
 func (bc *blockchain) startExistingBlockchain() error {
@@ -1090,8 +1068,8 @@ func (bc *blockchain) refreshStateDB() error {
 	if err := bc.sf.Start(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
 	}
-	if err := bc.startEmptyBlockchain(); err != nil {
-		return err
+	if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
+		return errors.Wrap(err, "failed to initialize state factory")
 	}
 	if err := bc.sf.Stop(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop state factory")
@@ -1111,132 +1089,6 @@ func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (ac
 	sk := bc.config.ProducerPrivateKey()
 	return action.Sign(envelope, sk)
 }
-
-func (bc *blockchain) createGenesisStates(ws factory.WorkingSet) error {
-	if bc.registry == nil {
-		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
-		return nil
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    0,
-		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
-		GasLimit:       0,
-		Producer:       nil,
-		Caller:         nil,
-		ActionHash:     hash.ZeroHash256,
-		Nonce:          0,
-		Registry:       bc.registry,
-	})
-	if err := bc.createAccountGenesisStates(ctx, ws); err != nil {
-		return err
-	}
-	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
-		if err := bc.createPollGenesisStates(ctx, ws); err != nil {
-			return err
-		}
-	}
-	if bc.config.Genesis.NativeStakingContractCode != "" {
-		if err := bc.createNativeStakingContract(ctx, ws); err != nil {
-			return err
-		}
-	}
-	return bc.createRewardingGenesisStates(ctx, ws)
-}
-
-func (bc *blockchain) createAccountGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(account.ProtocolID)
-	if !ok {
-		return nil
-	}
-	ap, ok := p.(*account.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	addrs, balances := bc.config.Genesis.InitBalances()
-	return ap.Initialize(ctx, ws, addrs, balances)
-}
-
-func (bc *blockchain) createRewardingGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	p, ok := bc.registry.Find(rewarding.ProtocolID)
-	if !ok {
-		return nil
-	}
-	rp, ok := p.(*rewarding.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	return rp.Initialize(
-		ctx,
-		ws,
-		bc.config.Genesis.InitBalance(),
-		bc.config.Genesis.BlockReward(),
-		bc.config.Genesis.EpochReward(),
-		bc.config.Genesis.NumDelegatesForEpochReward,
-		bc.config.Genesis.ExemptAddrsFromEpochReward(),
-		bc.config.Genesis.FoundationBonus(),
-		bc.config.Genesis.NumDelegatesForFoundationBonus,
-		bc.config.Genesis.FoundationBonusLastEpoch,
-		bc.config.Genesis.ProductivityThreshold,
-	)
-}
-
-func (bc *blockchain) createPollGenesisStates(ctx context.Context, ws factory.WorkingSet) error {
-	if bc.config.Genesis.EnableGravityChainVoting {
-		p, ok := bc.protocol(poll.ProtocolID)
-		if !ok {
-			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
-		}
-		pp, ok := p.(poll.Protocol)
-		if !ok {
-			return errors.Errorf("error when casting poll protocol")
-		}
-		return pp.Initialize(
-			ctx,
-			ws,
-		)
-	}
-	return nil
-}
-
-func (bc *blockchain) createNativeStakingContract(ctx context.Context, ws factory.WorkingSet) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
-	raCtx.GasLimit = bc.config.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(bc.config.Genesis.NativeStakingContractCode)
-	if err != nil {
-		return err
-	}
-	hu := config.NewHeightUpgrade(bc.config)
-	execution, err := action.NewExecution(
-		"",
-		0,
-		big.NewInt(0),
-		bc.config.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
-	}
-	_, receipt, err := evm.ExecuteContract(protocol.WithRunActionsCtx(ctx, raCtx), ws, execution, bc.dao.GetBlockHash, hu)
-	if err != nil {
-		return err
-	}
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
-	}
-	p, ok := bc.registry.Find(poll.ProtocolID)
-	if ok {
-		pp, ok := p.(poll.Protocol)
-		if ok {
-			pp.SetNativeStakingContract(receipt.ContractAddress)
-			log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
-		}
-	}
-	return nil
-}
-
 func (bc *blockchain) loadingNativeStakingContract() {
 	if bc.config.Genesis.NativeStakingContractAddress == "" && bc.config.Genesis.NativeStakingContractCode != "" {
 		p, ok := bc.registry.Find(poll.ProtocolID)
