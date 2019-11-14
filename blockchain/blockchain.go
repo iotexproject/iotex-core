@@ -306,20 +306,17 @@ func (bc *blockchain) ChainAddress() string {
 func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
+
+	// pass registry to be used by state factory's initialization
+	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+		Registry:       bc.registry,
+	})
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
-	// init state factory if needed
-	sfHeight, err := bc.sf.Height()
-	if err != nil {
-		return err
-	}
-	if sfHeight == 0 {
-		if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
-			return err
-		}
-	}
 	// get blockchain tip height
+	var err error
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
@@ -1078,11 +1075,12 @@ func (bc *blockchain) refreshStateDB() error {
 		bc.sf.AddActionHandlers(p)
 	}
 
-	if err := bc.sf.Start(context.Background()); err != nil {
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+		Registry:       bc.registry,
+	})
+	if err := bc.sf.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
-	}
-	if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
-		return errors.Wrap(err, "failed to initialize state factory")
 	}
 	if err := bc.sf.Stop(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop state factory")

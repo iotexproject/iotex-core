@@ -9,13 +9,12 @@ package factory
 import (
 	"context"
 	"math/big"
-	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -29,46 +28,33 @@ import (
 )
 
 // createGenesisStates initialize the genesis states
-func createGenesisStates(cfg config.Config, registry *protocol.Registry, ws WorkingSet) error {
+func createGenesisStates(ctx context.Context, cfg config.Config, ws WorkingSet) error {
 	if cfg.Chain.EmptyGenesis {
 		return nil
 	}
-	if registry == nil {
-		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
-		return nil
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    0,
-		BlockTimeStamp: time.Unix(cfg.Genesis.Timestamp, 0),
-		GasLimit:       0,
-		Producer:       nil,
-		Caller:         nil,
-		ActionHash:     hash.ZeroHash256,
-		Nonce:          0,
-		Registry:       registry,
-	})
-	if err := createAccountGenesisStates(ctx, ws, registry, cfg); err != nil {
+	if err := createAccountGenesisStates(ctx, ws, cfg); err != nil {
 		return err
 	}
-	if cfg.Consensus.Scheme == config.RollDPoSScheme {
-		if err := createPollGenesisStates(ctx, ws, registry, cfg); err != nil {
+	if cfg.Consensus.Scheme == config.RollDPoSScheme && cfg.Genesis.EnableGravityChainVoting {
+		if err := createPollGenesisStates(ctx, ws); err != nil {
 			return err
 		}
 	}
 	if cfg.Genesis.NativeStakingContractCode != "" {
-		if err := createNativeStakingContract(ctx, ws, registry, cfg); err != nil {
+		if err := createNativeStakingContract(ctx, ws, cfg); err != nil {
 			return err
 		}
 	}
-	if err := createRewardingGenesisStates(ctx, ws, registry, cfg); err != nil {
+	if err := createRewardingGenesisStates(ctx, ws, cfg); err != nil {
 		return err
 	}
 	_ = ws.UpdateBlockLevelInfo(0)
 	return nil
 }
 
-func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	p, ok := registry.Find(account.ProtocolID)
+func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, cfg config.Config) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	p, ok := raCtx.Registry.Find(account.ProtocolID)
 	if !ok {
 		return nil
 	}
@@ -80,8 +66,9 @@ func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, r
 	return ap.Initialize(ctx, sm, addrs, balances)
 }
 
-func createRewardingGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	p, ok := registry.Find(rewarding.ProtocolID)
+func createRewardingGenesisStates(ctx context.Context, sm protocol.StateManager, cfg config.Config) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	p, ok := raCtx.Registry.Find(rewarding.ProtocolID)
 	if !ok {
 		return nil
 	}
@@ -104,23 +91,26 @@ func createRewardingGenesisStates(ctx context.Context, sm protocol.StateManager,
 	)
 }
 
-func createPollGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	if cfg.Genesis.EnableGravityChainVoting {
-		p, ok := registry.Find(poll.ProtocolID)
-		if !ok {
-			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
-		}
-		pp, ok := p.(poll.Protocol)
-		if !ok {
-			return errors.Errorf("error when casting poll protocol")
-		}
-		return pp.Initialize(ctx, sm)
+func createPollGenesisStates(ctx context.Context, sm protocol.StateManager) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	p, ok := raCtx.Registry.Find(poll.ProtocolID)
+	if !ok {
+		return errors.Errorf("protocol %s is not found", poll.ProtocolID)
 	}
-	return nil
+	pp, ok := p.(poll.Protocol)
+	if !ok {
+		return errors.Errorf("error when casting poll protocol")
+	}
+	return pp.Initialize(ctx, sm)
 }
 
-func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
+func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, cfg config.Config) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	p, ok := raCtx.Registry.Find(poll.ProtocolID)
+	if !ok {
+		return nil
+	}
+
 	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
 	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
 	raCtx.GasLimit = cfg.Genesis.BlockGasLimit
@@ -155,13 +145,10 @@ func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, 
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
 	}
-	p, ok := registry.Find(poll.ProtocolID)
+	pp, ok := p.(poll.Protocol)
 	if ok {
-		pp, ok := p.(poll.Protocol)
-		if ok {
-			pp.SetNativeStakingContract(receipt.ContractAddress)
-			log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
-		}
+		pp.SetNativeStakingContract(receipt.ContractAddress)
+		log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
 	}
 	return nil
 }
