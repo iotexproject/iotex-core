@@ -98,6 +98,7 @@ type Blockchain interface {
 	RecoverChainAndState(targetHeight uint64) error
 	// Genesis returns the genesis
 	Genesis() genesis.Genesis
+	RunActionsContext() (*protocol.RunActionsCtx, error)
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -117,16 +118,33 @@ type Blockchain interface {
 	// SetValidator sets the current validator object
 	SetValidator(val Validator)
 
-	// For smart contract operations
-	// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-	// cause any state change
-	SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
-
 	// AddSubscriber make you listen to every single produced block
 	AddSubscriber(BlockCreationSubscriber) error
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
+	ws, err := bc.Factory().NewWorkingSet()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	raCtx, err := bc.RunActionsContext()
+	if err != nil {
+		return nil, nil, err
+	}
+	raCtx.Caller = caller
+
+	return evm.ExecuteContract(
+		protocol.WithRunActionsCtx(context.Background(), *raCtx),
+		ws,
+		ex,
+		bc.BlockDAO().GetBlockHash,
+	)
 }
 
 // blockchain implements the Blockchain interface
@@ -376,11 +394,15 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	if !ok {
 		return 0, nil, errors.New("poll protocol is not registered")
 	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight: bc.tipHeight,
-		Registry:    bc.registry,
-		Genesis:     bc.config.Genesis,
-	})
+
+	// TODO: move the function out of blockchain
+	// This is a weird call, which shows that the function should not be an API of blockchain
+	raCtx, err := bc.RunActionsContext()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return 0, nil, err
@@ -451,6 +473,30 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	return bc.validateBlock(blk)
 }
 
+func (bc *blockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
+	bc.mu.RLock()
+	defer bc.mu.RUnlock()
+	header, err := bc.blockHeaderByHeight(bc.tipHeight)
+	if err != nil {
+		return nil, err
+	}
+
+	return bc.runActionsContext(bc.config.ProducerAddress(), header.Height(), header.Timestamp())
+}
+
+func (bc *blockchain) runActionsContext(producer address.Address, height uint64, timestamp time.Time) (*protocol.RunActionsCtx, error) {
+	return &protocol.RunActionsCtx{
+		BlockHeight:    height,
+		BlockTimeStamp: timestamp,
+		Producer:       producer,
+		GasLimit:       bc.config.Genesis.BlockGasLimit,
+		GasPrice:       big.NewInt(0),
+		IntrinsicGas:   0,
+		Registry:       bc.registry,
+		Genesis:        bc.config.Genesis,
+	}, nil
+}
+
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
 	timestamp time.Time,
@@ -467,17 +513,13 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	gasLimitForContext := bc.config.Genesis.BlockGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight:    newblockHeight,
-			BlockTimeStamp: timestamp,
-			Producer:       bc.config.ProducerAddress(),
-			GasLimit:       gasLimitForContext,
-			Registry:       bc.registry,
-			Genesis:        bc.config.Genesis,
-		})
+	raCtx, err := bc.runActionsContext(bc.config.ProducerAddress(), newblockHeight, timestamp)
+	if err != nil {
+		return nil, err
+	}
 
+	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
+	// TODO: move the height judgment into protocols
 	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
 		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
 			return nil, err
@@ -577,41 +619,6 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 //======================================
 // internal functions
 //=====================================
-
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-// If getting account/contract state depends on a specific block height, we need to change the block height in running context in order
-// to make sure that the state returned is always the newest one
-func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	// use latest block as carrier to run the offline execution
-	// the block itself is not used
-	h := bc.TipHeight()
-	header, err := bc.BlockHeaderByHeight(h)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get block in SimulateExecution")
-	}
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-	producer, err := address.FromString(header.ProducerAddress())
-	if err != nil {
-		return nil, nil, err
-	}
-	gasLimit := bc.config.Genesis.BlockGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    header.Height(),
-		BlockTimeStamp: header.Timestamp(),
-		Producer:       producer,
-		Caller:         caller,
-		GasLimit:       gasLimit,
-		GasPrice:       big.NewInt(0),
-		IntrinsicGas:   0,
-		Genesis:        bc.config.Genesis,
-	})
-
-	return evm.ExecuteContract(ctx, ws, ex, bc.dao.GetBlockHash)
-}
 
 // RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
@@ -834,23 +841,17 @@ func (bc *blockchain) runActions(
 	if bc.sf == nil {
 		return nil, errors.New("statefactory cannot be nil")
 	}
-	gasLimit := bc.config.Genesis.BlockGasLimit
-	// update state factory
+
 	producer, err := address.FromBytes(acts.BlockProducerPubKey().Hash())
 	if err != nil {
 		return nil, err
 	}
+	raCtx, err := bc.runActionsContext(producer, acts.BlockHeight(), acts.BlockTimeStamp())
+	if err != nil {
+		return nil, err
+	}
 
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight:    acts.BlockHeight(),
-			BlockTimeStamp: acts.BlockTimeStamp(),
-			Producer:       producer,
-			GasLimit:       gasLimit,
-			Registry:       bc.registry,
-			Genesis:        bc.config.Genesis,
-		})
-
+	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
 		if err := bc.updateAleutianEpochRewardAmount(ctx, ws); err != nil {
 			return nil, err
@@ -1104,6 +1105,7 @@ func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (ac
 	sk := bc.config.ProducerPrivateKey()
 	return action.Sign(envelope, sk)
 }
+
 func (bc *blockchain) loadingNativeStakingContract() {
 	if bc.config.Genesis.NativeStakingContractAddress == "" && bc.config.Genesis.NativeStakingContractCode != "" {
 		p, ok := bc.registry.Find(poll.ProtocolID)

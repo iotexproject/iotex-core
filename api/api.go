@@ -401,14 +401,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	caller, err := api.bc.Factory().AccountState(in.CallerAddress)
+	nonce, err := api.bc.Factory().Nonce(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sc, _ = action.NewExecution(
 		sc.Contract(),
-		caller.Nonce+1,
+		nonce+1,
 		sc.Amount(),
 		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
@@ -420,7 +420,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	retval, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
+	retval, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1282,24 +1282,27 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	nonce, err := api.bc.Factory().Nonce(sender)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	nonce = nonce + 1
+
 	callerAddr, err := address.FromString(sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	caller, err := api.bc.Factory().AccountState(sender)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
+
 	sc, _ = action.NewExecution(
 		sc.Contract(),
-		caller.Nonce+1,
+		nonce,
 		sc.Amount(),
 		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
 		sc.Data(),
 	)
 
-	_, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
+	_, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1307,8 +1310,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, "execution simulation gets failure status")
 	}
 	estimatedGas := receipt.GasConsumed
-	nonce := caller.Nonce + 1
-	enough, err := api.isGasLimitEnough(sc, nonce, estimatedGas, callerAddr)
+	enough, err := api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1317,7 +1319,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, err = api.isGasLimitEnough(sc, nonce, mid, callerAddr)
+			enough, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
@@ -1342,10 +1344,10 @@ func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.
 }
 
 func (api *Server) isGasLimitEnough(
+	caller address.Address,
 	sc *action.Execution,
 	nonce uint64,
 	gasLimit uint64,
-	callerAddr address.Address,
 ) (bool, error) {
 	sc, _ = action.NewExecution(
 		sc.Contract(),
@@ -1355,7 +1357,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	_, receipt, err := api.bc.SimulateExecution(callerAddr, sc)
+	_, receipt, err := blockchain.SimulateExecution(api.bc, caller, sc)
 	if err != nil {
 		return false, err
 	}

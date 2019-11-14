@@ -205,7 +205,6 @@ func NewSmartContractTest(t *testing.T, file string) {
 
 func runExecution(
 	bc blockchain.Blockchain,
-	dao blockdao.BlockDAO,
 	ecfg *ExecutionConfig,
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
@@ -230,7 +229,8 @@ func runExecution(
 		if err != nil {
 			return nil, nil, err
 		}
-		return bc.SimulateExecution(addr, exec)
+
+		return blockchain.SimulateExecution(bc, addr, exec)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -262,7 +262,7 @@ func runExecution(
 	t2 := time.Now()
 	fmt.Println("exec time:", t1.Sub(t))
 	fmt.Println("commit time:", t2.Sub(t1))
-	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blk.Height())
+	receipt, err := bc.BlockDAO().GetReceiptByActionHash(exec.Hash(), blk.Height())
 
 	return nil, receipt, err
 }
@@ -270,7 +270,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, blockdao.BlockDAO) {
+) blockchain.Blockchain {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -323,19 +323,18 @@ func (sct *SmartContractTest) prepareBlockchain(
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-	return bc, dao
+	return bc
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
-	dao blockdao.BlockDAO,
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		_, receipt, err := runExecution(bc, dao, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.InitGenesis.IsBering {
@@ -376,13 +375,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, dao := sct.prepareBlockchain(ctx, r)
+	bc := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, dao, r)
+	contractAddresses := sct.deployContracts(bc, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -393,7 +392,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
 		}
-		retval, receipt, err := runExecution(bc, dao, &exec, contractAddr)
+		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 

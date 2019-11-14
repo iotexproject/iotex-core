@@ -28,7 +28,7 @@ import (
 )
 
 type stakingCommittee struct {
-	getTipBlockTime      GetTipBlockTime
+	getBlockTime         GetBlockTime
 	getEpochHeight       GetEpochHeight
 	getEpochNum          GetEpochNum
 	electionCommittee    committee.Committee
@@ -43,8 +43,8 @@ type stakingCommittee struct {
 func NewStakingCommittee(
 	ec committee.Committee,
 	gs Protocol,
-	cm protocol.ChainManager,
-	getTipBlockTime GetTipBlockTime,
+	readContract ReadContract,
+	getBlockTime GetBlockTime,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
 	nativeStakingContractAddress string,
@@ -60,8 +60,12 @@ func NewStakingCommittee(
 	}
 	var ns *NativeStaking
 	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
+		if getBlockTime == nil {
+			return nil, errors.New("failed to create native staking: empty getBlockTime")
+		}
+
 		var err error
-		if ns, err = NewNativeStaking(cm, getTipBlockTime); err != nil {
+		if ns, err = NewNativeStaking(readContract); err != nil {
 			return nil, errors.New("failed to create native staking")
 		}
 		if nativeStakingContractAddress != "" {
@@ -72,7 +76,7 @@ func NewStakingCommittee(
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
-		getTipBlockTime:   getTipBlockTime,
+		getBlockTime:      getBlockTime,
 		getEpochHeight:    getEpochHeight,
 		getEpochNum:       getEpochNum,
 		rp:                rp,
@@ -110,7 +114,12 @@ func (sc *stakingCommittee) DelegatesByHeight(hu config.HeightUpgrade, height ui
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
-	nativeVotes, ts, err := sc.nativeStaking.Votes()
+
+	ts, err := sc.getBlockTime(height)
+	if err != nil {
+		return nil, err
+	}
+	nativeVotes, ts, err := sc.nativeStaking.Votes(height, ts)
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil
@@ -182,7 +191,7 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 		return nil
 	}
 	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
-	ts, err := sc.getTipBlockTime()
+	ts, err := sc.getBlockTime(raCtx.BlockHeight)
 	if err != nil {
 		return err
 	}

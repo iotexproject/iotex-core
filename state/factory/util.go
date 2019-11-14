@@ -49,6 +49,7 @@ func createGenesisStates(ctx context.Context, cfg config.Config, ws WorkingSet) 
 		return err
 	}
 	_ = ws.UpdateBlockLevelInfo(0)
+
 	return nil
 }
 
