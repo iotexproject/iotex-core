@@ -102,7 +102,26 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	return sdb.dao.Start(ctx)
+	if err := sdb.dao.Start(ctx); err != nil {
+		return err
+	}
+	// check factory height
+	_, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	switch errors.Cause(err) {
+	case nil:
+		break
+	case db.ErrNotExist:
+		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+		// init the state factory
+		if err = sdb.initialize(ctx); err != nil {
+			return err
+		}
+	default:
+		return err
+	}
+	return nil
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
@@ -288,11 +307,14 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 // Initialize initializes the state db
-func (sdb *stateDB) Initialize(cfg config.Config, registry *protocol.Registry) error {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
+func (sdb *stateDB) initialize(ctx context.Context) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok || raCtx.Registry == nil {
+		// not RunActionsCtx or no valid registry
+		return nil
+	}
 	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
-	if err := createGenesisStates(cfg, registry, ws); err != nil {
+	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}
 	// add Genesis states
