@@ -381,7 +381,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 		Registry:    bc.registry,
 		Genesis:     bc.config.Genesis,
 	})
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -462,7 +462,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -590,7 +590,7 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get block in SimulateExecution")
 	}
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -718,7 +718,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 
-		ws, err := bc.sf.NewWorkingSet()
+		ws, err := bc.sf.NewWorkingSet(bc.registry)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
@@ -759,7 +759,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
 	}
 	// run actions and update state factory
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -1073,10 +1073,6 @@ func (bc *blockchain) refreshStateDB() error {
 	}
 	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
 		return errors.Wrap(err, "failed to reinitialize state DB")
-	}
-
-	for _, p := range bc.registry.All() {
-		bc.sf.AddActionHandlers(p)
 	}
 
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{

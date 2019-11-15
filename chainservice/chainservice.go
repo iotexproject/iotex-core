@@ -392,7 +392,6 @@ func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 		return err
 	}
 
-	cs.chain.Factory().AddActionHandlers(p)
 	cs.actpool.AddActionValidators(p)
 	cs.chain.Validator().AddActionValidators(p)
 	return nil
