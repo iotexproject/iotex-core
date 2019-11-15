@@ -6,14 +6,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
-var MOCKChainListener Listener
-
-// Mock ChainListener
-func TestNewChainListener(t *testing.T) {
-	t.Run("New Chain listener.", func(t *testing.T) {
-		MOCKChainListener = NewChainListener()
-	})
-}
+var MOCKChainListener = NewChainListener()
 
 func Test_chainListener_Start(t *testing.T) {
 	t.Run("Test start Chain listener.", func(t *testing.T) {
