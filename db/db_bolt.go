@@ -7,7 +7,9 @@
 package db
 
 import (
+	"bytes"
 	"context"
+
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
@@ -93,6 +95,44 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 		return nil, err
 	}
 	return nil, errors.Wrap(ErrIO, err.Error())
+}
+
+// GetBucketByPrefix retrieves all bucket those with const namespace prefix
+func (b *boltDB) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
+	allKey := make([][]byte, 0)
+	err := b.db.View(func(tx *bolt.Tx) error {
+		if err := tx.ForEach(func(name []byte, b *bolt.Bucket) error {
+			if bytes.HasPrefix(name, namespace) && !bytes.Equal(name, namespace) {
+				temp := make([]byte, len(name))
+				copy(temp, name)
+				allKey = append(allKey, temp)
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+	return allKey, err
+}
+
+// GetKeyByPrefix retrieves all keys those with const prefix
+func (b *boltDB) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
+	allKey := make([][]byte, 0)
+	err := b.db.View(func(tx *bolt.Tx) error {
+		buck := tx.Bucket(namespace)
+		if buck == nil {
+			return ErrNotExist
+		}
+		c := buck.Cursor()
+		for k, _ := c.Seek(prefix); bytes.HasPrefix(k, prefix); k, _ = c.Next() {
+			temp := make([]byte, len(k))
+			copy(temp, k)
+			allKey = append(allKey, temp)
+		}
+		return nil
+	})
+	return allKey, err
 }
 
 // Delete deletes a record,if key is nil,this will delete the whole bucket

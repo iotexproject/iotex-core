@@ -43,6 +43,8 @@ type RunActionsCtx struct {
 	IntrinsicGas uint64
 	// Nonce is the nonce of the action
 	Nonce uint64
+	// History indicates whether to save account/contract history or not
+	History bool
 	// Registry is the pointer protocol registry
 	Registry *Registry
 }

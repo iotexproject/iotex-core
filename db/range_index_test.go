@@ -68,11 +68,11 @@ func TestRangeIndex(t *testing.T) {
 		gap := e.k - rangeTests[i-1].k
 		for j := 0; j < 5; j++ {
 			k := rangeTests[i-1].k + uint64(rand.Intn(int(gap)))
-			v, err := index.Get(k)
+			v, err = index.Get(k)
 			require.NoError(err)
 			require.Equal(rangeTests[i-1].v, v)
 		}
-		v, err := index.Get(e.k - 1)
+		v, err = index.Get(e.k - 1)
 		require.NoError(err)
 		require.Equal(rangeTests[i-1].v, v)
 		v, err = index.Get(e.k)
@@ -82,7 +82,7 @@ func TestRangeIndex(t *testing.T) {
 		// test 5 random keys beyond new insertion
 		for j := 0; j < 5; j++ {
 			k := e.k + uint64(rand.Int())
-			v, err := index.Get(k)
+			v, err = index.Get(k)
 			require.NoError(err)
 			require.Equal(e.v, v)
 		}
@@ -193,7 +193,7 @@ func TestRangeIndex2(t *testing.T) {
 	for i := uint64(1); i < 6; i++ {
 		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		require.NoError(err)
-		v, err := index.Get(i)
+		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
@@ -201,7 +201,7 @@ func TestRangeIndex2(t *testing.T) {
 	for i := uint64(7); i < 10; i++ {
 		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		require.NoError(err)
-		v, err := index.Get(i)
+		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7"), v)
 	}
@@ -212,7 +212,7 @@ func TestRangeIndex2(t *testing.T) {
 	require.NoError(err)
 	for i := uint64(7); i < 10; i++ {
 		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		v, err := index.Get(i)
+		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7777"), v)
 	}
@@ -238,7 +238,7 @@ func TestRangeIndex2(t *testing.T) {
 	for i := uint64(1); i < 66; i++ {
 		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		require.NoError(err)
-		v, err := index.Get(i)
+		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
@@ -263,7 +263,7 @@ func TestRangeIndex2(t *testing.T) {
 	for i := uint64(1); i < 80; i++ {
 		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		require.NoError(err)
-		v, err := index.Get(i)
+		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
