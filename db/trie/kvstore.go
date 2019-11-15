@@ -18,6 +18,8 @@ type KVStore interface {
 	Stop(context.Context) error
 	// Put puts key, value pair into KVStore
 	Put([]byte, []byte) error
+	// Purge marks a key for future deletion
+	Purge([]byte, []byte) error
 	// Delete deletes record from KVStore by key
 	Delete([]byte) error
 	// Get gets the value from KVStore by key
@@ -70,5 +72,9 @@ func (s *inMemKVStore) Delete(k []byte) error {
 	dbKey := castKeyType(k)
 	delete(s.kvpairs, dbKey)
 
+	return nil
+}
+
+func (s *inMemKVStore) Purge(tag, k []byte) error {
 	return nil
 }

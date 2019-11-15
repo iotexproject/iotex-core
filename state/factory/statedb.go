@@ -32,6 +32,7 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
+	saveHistory        bool
 	cfg                config.Config
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
@@ -60,6 +61,7 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+		sdb.saveHistory = cfg.Chain.EnableHistoryStateDB
 		return nil
 	}
 }
@@ -187,7 +189,7 @@ func (sdb *stateDB) Height() (uint64, error) {
 func (sdb *stateDB) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, registry), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, registry, sdb.saveHistory), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -300,7 +302,7 @@ func (sdb *stateDB) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry)
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry, sdb.saveHistory)
 	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}
