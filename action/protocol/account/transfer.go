@@ -54,7 +54,8 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	if p.hu.IsPre(config.Pacific, raCtx.BlockHeight) {
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	if hu.IsPre(config.Pacific, raCtx.BlockHeight) {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
@@ -76,7 +77,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if p.hu.IsPost(config.Pacific, raCtx.BlockHeight) {
+		if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
 			if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 				return nil, err
 			}
@@ -114,7 +115,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if p.hu.IsPost(config.Pacific, raCtx.BlockHeight) {
+	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
 		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
 			return nil, err
 		}

@@ -59,7 +59,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
+	p := NewProtocol()
 	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
@@ -72,6 +72,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 					Caller:      identityset.Address(28),
 					GasLimit:    testutil.TestGasLimit,
 					Registry:    &registry,
+					Genesis:     cfg.Genesis,
 				}),
 			sm,
 			big.NewInt(0),
@@ -155,7 +156,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol(config.NewHeightUpgrade(config.Default.Genesis))
+	protocol := NewProtocol()
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]
