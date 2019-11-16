@@ -14,25 +14,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 func TestProtocol_SetEpochReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		amount, err := p.EpochReward(ctx, ws)
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		amount, err := p.EpochReward(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(100), amount)
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.SetReward(ctx, ws, big.NewInt(200), false))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.SetReward(ctx, sm, big.NewInt(200), false))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		amount, err = p.EpochReward(ctx, ws)
+		amount, err = p.EpochReward(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(200), amount)
 

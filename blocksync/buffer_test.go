@@ -45,7 +45,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
-	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+	chain.Validator().AddActionValidators(account.NewProtocol(config.NewHeightUpgrade(cfg.Genesis)))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

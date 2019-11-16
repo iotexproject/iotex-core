@@ -13,11 +13,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
@@ -158,6 +158,22 @@ func (sf *factory) Start(ctx context.Context) error {
 	if err := sf.dao.Start(ctx); err != nil {
 		return err
 	}
+	// check factory height
+	_, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	switch errors.Cause(err) {
+	case nil:
+		break
+	case db.ErrNotExist:
+		if err = sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init factory's height")
+		}
+		// init the state factory
+		if err = sf.initialize(ctx); err != nil {
+			return err
+		}
+	default:
+		return err
+	}
 	return sf.lifecycle.OnStart(ctx)
 }
 
@@ -295,31 +311,9 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	timer := sf.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sf.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sf.currentChainHeight,
-			ws.Version(),
-		)
-	}
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height and root
-	sf.currentChainHeight = ws.Height()
-	h := ws.RootHash()
-	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	return nil
+	return sf.commit(ws)
 }
 
 //======================================
@@ -398,4 +392,51 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
 	return &account, nil
+}
+
+func (sf *factory) commit(ws WorkingSet) error {
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	timer := sf.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if sf.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sf.currentChainHeight,
+			ws.Version(),
+		)
+	}
+	if err := ws.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	// Update chain height and root
+	sf.currentChainHeight = ws.Height()
+	h := ws.RootHash()
+	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	return nil
+}
+
+// Initialize initializes the state factory
+func (sf *factory) initialize(ctx context.Context) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok || raCtx.Registry == nil {
+		// not RunActionsCtx or no valid registry
+		return nil
+	}
+	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	if err := createGenesisStates(ctx, sf.cfg, ws); err != nil {
+		return err
+	}
+	// add Genesis states
+	if err := sf.commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
+	}
+	return nil
 }

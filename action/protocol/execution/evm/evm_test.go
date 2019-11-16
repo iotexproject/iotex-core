@@ -58,7 +58,7 @@ func TestExecuteContractFailure(t *testing.T) {
 
 	retval, receipt, err := ExecuteContract(ctx, sm, e, func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	}, config.NewHeightUpgrade(config.Default))
+	}, config.NewHeightUpgrade(config.Default.Genesis))
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)
@@ -81,7 +81,7 @@ func TestConstantinople(t *testing.T) {
 		GasLimit: testutil.TestGasLimit,
 	})
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	hu := config.NewHeightUpgrade(config.Default)
+	hu := config.NewHeightUpgrade(config.Default.Genesis)
 
 	execHeights := []struct {
 		contract string

@@ -54,6 +54,6 @@ type ServiceClient interface {
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get filtered logs in stream
 	StreamLogs(ctx context.Context, in *iotexapi.StreamLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamLogsClient, error)
-	// get native elction buckets
+	// get native election buckets
 	GetElectionBuckets(ctx context.Context, in *iotexapi.GetElectionBucketsRequest, opts ...grpc.CallOption) (*iotexapi.GetElectionBucketsResponse, error)
 }

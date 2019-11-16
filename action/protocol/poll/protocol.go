@@ -112,7 +112,7 @@ func NewProtocol(
 				return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
 			}
 			if pollProtocol, err = NewStakingCommittee(
-				config.NewHeightUpgrade(cfg),
+				config.NewHeightUpgrade(cfg.Genesis),
 				electionCommittee,
 				governance,
 				cm,

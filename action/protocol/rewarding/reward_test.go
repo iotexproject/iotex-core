@@ -23,111 +23,90 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
 		// Grant block reward will fail because of no available balance
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		_, err = p.GrantBlockReward(ctx, ws)
+		_, err := p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
 
 		// Grant block reward
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		rewardLog, err := p.GrantBlockReward(ctx, ws)
+		rewardLog, err := p.GrantBlockReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, p.addr.String(), rewardLog.Address)
 		var rl rewardingpb.RewardLog
 		require.NoError(t, proto.Unmarshal(rewardLog.Data, &rl))
 		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
 		require.Equal(t, "10", rl.Amount)
-		require.NoError(t, stateDB.Commit(ws))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		availableBalance, err := p.AvailableBalance(ctx, ws)
+		availableBalance, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(190), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, raCtx.Producer)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, raCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
 		// Grant the same block reward again will fail
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		_, err = p.GrantBlockReward(ctx, ws)
+		_, err = p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
 	}, false)
 }
 
 func TestProtocol_GrantEpochReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
 
 		// Grant epoch reward
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		rewardLogs, err := p.GrantEpochReward(ctx, ws)
+		rewardLogs, err := p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, 8, len(rewardLogs))
-		require.NoError(t, stateDB.Commit(ws))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		availableBalance, err := p.AvailableBalance(ctx, ws)
+		availableBalance, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(90+5), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(27))
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(27))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(40+5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(28))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(28))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(30+5), unclaimedBalance)
 		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(29))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(29))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(30))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(30))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10+5), unclaimedBalance)
 		// The 5-th candidate can't get the reward because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(31))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		// The 6-th candidate can't get the foundation bonus because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(32))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
@@ -188,64 +167,46 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		}
 
 		// Grant the same epoch reward again will fail
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		_, err = p.GrantEpochReward(ctx, ws)
+		_, err = p.GrantEpochReward(ctx, sm)
 		require.Error(t, err)
 
 		// Grant the epoch reward on a block that is not the last one in an epoch will fail
 		raCtx.BlockHeight++
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		_, err = p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), ws)
+		_, err = p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), sm)
 		require.Error(t, err)
 	}, false)
 
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
-		require.NoError(t, stateDB.Commit(ws))
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
+		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
 
 		// Grant epoch reward
-		ws, err = stateDB.NewWorkingSet()
+		_, err := p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
-		_, err = p.GrantEpochReward(ctx, ws)
-		require.NoError(t, err)
-		require.NoError(t, stateDB.Commit(ws))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
 		// The 5-th candidate can't get the reward because exempting from the epoch reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(31))
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// The 6-th candidate can get the foundation bonus because it's still within the rage after excluding 5-th one
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(32))
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
 	}, true)
 }
 
 func TestProtocol_ClaimReward(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// Deposit 20 token into the rewarding fund
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(20)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(20)))
 
 		// Grant block reward
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		rewardLog, err := p.GrantBlockReward(ctx, ws)
+		rewardLog, err := p.GrantBlockReward(ctx, sm)
 		require.NoError(t, err)
 		require.Equal(t, p.addr.String(), rewardLog.Address)
 		var rl rewardingpb.RewardLog
 		require.NoError(t, proto.Unmarshal(rewardLog.Data, &rl))
 		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
 		require.Equal(t, "10", rl.Amount)
-		require.NoError(t, stateDB.Commit(ws))
 
 		// Claim 5 token
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
@@ -254,75 +215,54 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimRaCtx.Caller = identityset.Address(0)
 		claimCtx := protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Claim(claimCtx, ws, big.NewInt(5)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		totalBalance, err := p.TotalBalance(ctx, ws)
+		totalBalance, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
 		// Claim negative amount of token will fail
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(-5)))
+		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(-5)))
 
 		// Claim 0 amount won't fail, but also will not get the token
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Claim(claimCtx, ws, big.NewInt(0)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(0)))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		totalBalance, err = p.TotalBalance(ctx, ws)
+		totalBalance, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
 		// Claim another 5 token
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Claim(claimCtx, ws, big.NewInt(5)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		totalBalance, err = p.TotalBalance(ctx, ws)
+		totalBalance, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, claimRaCtx.Caller)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(ws, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(5)))
+		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
 		// Operator should have nothing to claim
 		claimRaCtx.Caller = raCtx.Producer
 		claimCtx = protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.Error(t, p.Claim(claimCtx, ws, big.NewInt(1)))
+		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(1)))
 	}, false)
 }
 
@@ -330,13 +270,25 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := config.Default
-	stateDB, err := factory.NewStateDB(cfg, factory.InMemStateDBOption())
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Start(context.Background()))
-	defer func() {
-		require.NoError(t, stateDB.Stop(context.Background()))
-	}()
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	cb := db.NewCachedBatch()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			val, err := cb.Get("state", addrHash[:])
+			if err != nil {
+				return state.ErrStateNotExist
+			}
+			return state.Deserialize(account, val)
+		}).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(addrHash hash.Hash160, account interface{}) error {
+			ss, err := state.Serialize(account)
+			if err != nil {
+				return err
+			}
+			cb.Put("state", addrHash[:], ss, "failed to put state")
+			return nil
+		}).AnyTimes()
 
 	chain := mock_chainmanager.NewMockChainManager(ctrl)
 	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
@@ -372,13 +324,11 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ws, err := stateDB.NewWorkingSet()
-	require.NoError(t, err)
 	require.NoError(
 		t,
 		p.Initialize(
 			ctx,
-			ws,
+			sm,
 			big.NewInt(0),
 			big.NewInt(10),
 			big.NewInt(100),
@@ -389,14 +339,10 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			365,
 			50,
 		))
-	require.NoError(t, stateDB.Commit(ws))
 
 	// Create a test account with 1000 token
-	ws, err = stateDB.NewWorkingSet()
+	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
 	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(0).String(), big.NewInt(1000))
-	require.NoError(t, err)
-	require.NoError(t, stateDB.Commit(ws))
 
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
@@ -406,46 +352,33 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	require.NoError(t, p.Deposit(ctx, ws, big.NewInt(200)))
-	require.NoError(t, stateDB.Commit(ws))
+	require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
 
 	// Grant block reward
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	rewardLog, err := p.GrantBlockReward(ctx, ws)
+	rewardLog, err := p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)
 	require.Nil(t, rewardLog)
-	require.NoError(t, stateDB.Commit(ws))
 
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	availableBalance, err := p.AvailableBalance(ctx, ws)
+	availableBalance, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(200), availableBalance)
-	unclaimedBalance, err := p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+	unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
 	// Grant epoch reward
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	rewardLogs, err := p.GrantEpochReward(ctx, ws)
+	rewardLogs, err := p.GrantEpochReward(ctx, sm)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(rewardLogs))
-	require.NoError(t, stateDB.Commit(ws))
 
-	ws, err = stateDB.NewWorkingSet()
-	require.NoError(t, err)
-	availableBalance, err = p.AvailableBalance(ctx, ws)
+	availableBalance, err = p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(145), availableBalance)
-	unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(0))
+	unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), unclaimedBalance)
 	// It doesn't affect others to get reward
-	unclaimedBalance, err = p.UnclaimedBalance(ctx, ws, identityset.Address(1))
+	unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(1))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(55), unclaimedBalance)
 	require.Equal(t, p.addr.String(), rewardLogs[0].Address)

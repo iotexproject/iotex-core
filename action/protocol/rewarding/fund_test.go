@@ -17,48 +17,37 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 func TestProtocol_Fund(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		raCtx, ok := protocol.GetRunActionsCtx(ctx)
 		require.True(t, ok)
 
 		// Deposit 5 token
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.NoError(t, p.Deposit(ctx, ws, big.NewInt(5)))
-		require.NoError(t, stateDB.Commit(ws))
+		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(5)))
 
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		totalBalance, err := p.TotalBalance(ctx, ws)
+		totalBalance, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), totalBalance)
-		availableBalance, err := p.AvailableBalance(ctx, ws)
+		availableBalance, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := accountutil.LoadAccount(ws, hash.BytesToHash160(raCtx.Caller.Bytes()))
+		acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(raCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
 		// Deposit another 6 token will fail because
-		ws, err = stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.Error(t, p.Deposit(ctx, ws, big.NewInt(996)))
+		require.Error(t, p.Deposit(ctx, sm, big.NewInt(996)))
 	}, false)
 
 }
 
 func TestDepositNegativeGasFee(t *testing.T) {
-	testProtocol(t, func(t *testing.T, ctx context.Context, stateDB factory.Factory, p *Protocol) {
-
+	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		r := protocol.Registry{}
 		r.Register(ProtocolID, p)
 
-		ws, err := stateDB.NewWorkingSet()
-		require.NoError(t, err)
-		require.Error(t, DepositGas(ctx, ws, big.NewInt(-1), &r))
+		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1), &r))
 	}, false)
 }

@@ -102,7 +102,26 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	return sdb.dao.Start(ctx)
+	if err := sdb.dao.Start(ctx); err != nil {
+		return err
+	}
+	// check factory height
+	_, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	switch errors.Cause(err) {
+	case nil:
+		break
+	case db.ErrNotExist:
+		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+		// init the state factory
+		if err = sdb.initialize(ctx); err != nil {
+			return err
+		}
+	default:
+		return err
+	}
+	return nil
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
@@ -186,27 +205,9 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 
 // Commit persists all changes in RunActions() into the DB
 func (sdb *stateDB) Commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	timer := sdb.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sdb.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sdb.currentChainHeight,
-			ws.Version(),
-		)
-	}
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height
-	sdb.currentChainHeight = ws.Height()
-	return nil
+	return sdb.commit(ws)
 }
 
 //======================================
@@ -281,4 +282,44 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
 	return &account, nil
+}
+
+func (sdb *stateDB) commit(ws WorkingSet) error {
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	timer := sdb.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if sdb.currentChainHeight != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d doesn't match working set version %d",
+			sdb.currentChainHeight,
+			ws.Version(),
+		)
+	}
+	if err := ws.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit working set")
+	}
+	// Update chain height
+	sdb.currentChainHeight = ws.Height()
+	return nil
+}
+
+// Initialize initializes the state db
+func (sdb *stateDB) initialize(ctx context.Context) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok || raCtx.Registry == nil {
+		// not RunActionsCtx or no valid registry
+		return nil
+	}
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
+	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
+		return err
+	}
+	// add Genesis states
+	if err := sdb.commit(ws); err != nil {
+		return errors.Wrap(err, "failed to commit Genesis states")
+	}
+	return nil
 }

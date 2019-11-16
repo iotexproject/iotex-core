@@ -39,7 +39,7 @@ type (
 func NewConsensusConfig(cfg config.Config) ConsensusConfig {
 	return &consensusCfg{
 		cfg.Consensus.RollDPoS.FSM,
-		config.NewHeightUpgrade(cfg),
+		config.NewHeightUpgrade(cfg.Genesis),
 		cfg.Genesis.Blockchain.BlockInterval,
 		cfg.Consensus.RollDPoS.Delay,
 	}
