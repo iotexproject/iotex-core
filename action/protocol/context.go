@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -28,6 +29,8 @@ type RunActionsCtx struct {
 	BlockTimeStamp time.Time
 	// gas Limit for perform those actions
 	GasLimit uint64
+	// Genesis is a copy of current genesis
+	Genesis genesis.Genesis
 	// Producer is the address of whom composes the block containing this action
 	Producer address.Address
 	// Caller is the address of whom issues this action
@@ -52,6 +55,8 @@ type ValidateActionsCtx struct {
 	ProducerAddr string
 	// Caller is the address of whom issues the action
 	Caller address.Address
+	// Genesis is a copy of current genesis
+	Genesis genesis.Genesis
 }
 
 // WithRunActionsCtx add RunActionsCtx into context.

@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -45,49 +44,46 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		getBlockHash     GetBlockHash
-		sm               protocol.StateManager
-		logs             []*action.Log
-		err              error
-		blockHeight      uint64
-		executionHash    hash.Hash256
-		refund           uint64
-		cachedContract   contractMap
-		contractSnapshot map[int]contractMap   // snapshots of contracts
-		suicided         deleteAccount         // account/contract calling Suicide
-		suicideSnapshot  map[int]deleteAccount // snapshots of suicide accounts
-		preimages        preimageMap
-		preimageSnapshot map[int]preimageMap
-		dao              db.KVStore
-		cb               db.CachedBatch
-		hu               config.HeightUpgrade
+		sm                 protocol.StateManager
+		logs               []*action.Log
+		err                error
+		blockHeight        uint64
+		executionHash      hash.Hash256
+		refund             uint64
+		cachedContract     contractMap
+		contractSnapshot   map[int]contractMap   // snapshots of contracts
+		suicided           deleteAccount         // account/contract calling Suicide
+		suicideSnapshot    map[int]deleteAccount // snapshots of suicide accounts
+		preimages          preimageMap
+		preimageSnapshot   map[int]preimageMap
+		dao                db.KVStore
+		cb                 db.CachedBatch
+		notFixTopicCopyBug bool
 	}
 )
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
-	getBlockHash GetBlockHash,
 	sm protocol.StateManager,
-	hu config.HeightUpgrade,
 	blockHeight uint64,
+	notFixTopicCopyBug bool,
 	executionHash hash.Hash256,
 ) *StateDBAdapter {
 	return &StateDBAdapter{
-		getBlockHash:     getBlockHash,
-		sm:               sm,
-		logs:             []*action.Log{},
-		err:              nil,
-		blockHeight:      blockHeight,
-		executionHash:    executionHash,
-		cachedContract:   make(contractMap),
-		contractSnapshot: make(map[int]contractMap),
-		suicided:         make(deleteAccount),
-		suicideSnapshot:  make(map[int]deleteAccount),
-		preimages:        make(preimageMap),
-		preimageSnapshot: make(map[int]preimageMap),
-		dao:              sm.GetDB(),
-		cb:               sm.GetCachedBatch(),
-		hu:               hu,
+		sm:                 sm,
+		logs:               []*action.Log{},
+		err:                nil,
+		blockHeight:        blockHeight,
+		executionHash:      executionHash,
+		cachedContract:     make(contractMap),
+		contractSnapshot:   make(map[int]contractMap),
+		suicided:           make(deleteAccount),
+		suicideSnapshot:    make(map[int]deleteAccount),
+		preimages:          make(preimageMap),
+		preimageSnapshot:   make(map[int]preimageMap),
+		dao:                sm.GetDB(),
+		cb:                 sm.GetCachedBatch(),
+		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
 }
 
@@ -416,12 +412,12 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		topics = append(topics, topic)
 	}
 	log := &action.Log{
-		Address:     addr.String(),
-		Topics:      topics,
-		Data:        evmLog.Data,
-		BlockHeight: stateDB.blockHeight,
-		ActionHash:  stateDB.executionHash,
-		PreAleutian: stateDB.hu.IsPre(config.Aleutian, stateDB.blockHeight),
+		Address:            addr.String(),
+		Topics:             topics,
+		Data:               evmLog.Data,
+		BlockHeight:        stateDB.blockHeight,
+		ActionHash:         stateDB.executionHash,
+		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }

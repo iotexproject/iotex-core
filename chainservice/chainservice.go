@@ -403,8 +403,7 @@ func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // registerDefaultProtocols registers default protocol into chainservice's registry
 func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) {
-	hu := config.NewHeightUpgrade(cfg.Genesis)
-	accountProtocol := account.NewProtocol(hu)
+	accountProtocol := account.NewProtocol()
 	if err = cs.registerProtocol(account.ProtocolID, accountProtocol); err != nil {
 		return
 	}
@@ -445,7 +444,7 @@ func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) 
 			return
 		}
 	}
-	executionProtocol := execution.NewProtocol(cs.chain.BlockDAO().GetBlockHash, hu)
+	executionProtocol := execution.NewProtocol(cs.chain.BlockDAO().GetBlockHash)
 	if err = cs.registerProtocol(execution.ProtocolID, executionProtocol); err != nil {
 		return
 	}

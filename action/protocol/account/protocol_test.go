@@ -65,10 +65,9 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 }
 
 func TestProtocol_Initialize(t *testing.T) {
-	cfg := config.Default
-	p := NewProtocol(config.NewHeightUpgrade(cfg.Genesis))
-
+	p := NewProtocol()
 	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -94,6 +93,7 @@ func TestProtocol_Initialize(t *testing.T) {
 		p.Initialize(
 			protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 				BlockHeight: 0,
+				Genesis:     config.Default.Genesis,
 			}),
 			sm,
 			[]address.Address{

@@ -38,7 +38,7 @@ func TestConvert(t *testing.T) {
 	require.NotEqual(log, receipt2.Logs[0])
 	h := receipt.Hash()
 
-	log.PreAleutian = false
+	log.NotFixTopicCopyBug = false
 	typeReipt = receipt.ConvertToReceiptPb()
 	require.NotNil(typeReipt)
 	receipt2 = &Receipt{}
@@ -87,7 +87,7 @@ func TestConvertLog(t *testing.T) {
 	require.Equal(topics[2], log2.Topics[1])
 	require.Equal(topics[2], log2.Topics[2])
 
-	log.PreAleutian = false
+	log.NotFixTopicCopyBug = false
 	typeLog = log.ConvertToLogPb()
 	require.NotNil(typeLog)
 	log2 = &Log{}
@@ -118,7 +118,7 @@ func TestSerDerLog(t *testing.T) {
 	require.Equal(topics[2], log2.Topics[1])
 	require.Equal(topics[2], log2.Topics[2])
 
-	log.PreAleutian = false
+	log.NotFixTopicCopyBug = false
 	typeLog, err = log.Serialize()
 	require.NoError(err)
 	log2 = &Log{}

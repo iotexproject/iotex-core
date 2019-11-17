@@ -379,6 +379,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight: bc.tipHeight,
 		Registry:    bc.registry,
+		Genesis:     bc.config.Genesis,
 	})
 	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
@@ -474,6 +475,7 @@ func (bc *blockchain) MintNewBlock(
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
 			Registry:       bc.registry,
+			Genesis:        bc.config.Genesis,
 		})
 
 	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
@@ -605,14 +607,10 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 		GasLimit:       gasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
+		Genesis:        bc.config.Genesis,
 	})
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		bc.dao.GetBlockHash,
-		config.NewHeightUpgrade(bc.config.Genesis),
-	)
+
+	return evm.ExecuteContract(ctx, ws, ex, bc.dao.GetBlockHash)
 }
 
 // RecoverChainAndState recovers the chain to target height and refresh state db if necessary
@@ -750,7 +748,12 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	if blk.Height() == 1 {
 		prevBlkHash = bc.config.Genesis.Hash()
 	}
-	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis},
+	)
+
+	err := bc.validator.Validate(ctx, blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
 	if err != nil {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
@@ -845,6 +848,7 @@ func (bc *blockchain) runActions(
 			Producer:       producer,
 			GasLimit:       gasLimit,
 			Registry:       bc.registry,
+			Genesis:        bc.config.Genesis,
 		})
 
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
@@ -1007,7 +1011,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	default:
 		return
 	}
-	l, err := pp.DelegatesByHeight(epochHeight)
+	l, err := pp.DelegatesByHeight(config.NewHeightUpgrade(&bc.config.Genesis), epochHeight)
 	switch errors.Cause(err) {
 	case nil:
 		if len(l) == 0 {

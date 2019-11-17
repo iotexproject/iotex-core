@@ -65,12 +65,8 @@ func TestAddBalance(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := initMockStateManager(ctrl)
-	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
-
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	addAmount := big.NewInt(40000)
 	stateDB.AddBalance(addr, addAmount)
 	amount := stateDB.GetBalance(addr)
@@ -87,10 +83,7 @@ func TestRefundAPIs(t *testing.T) {
 
 	sm := initMockStateManager(ctrl)
 
-	cfg := config.Default
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
 	stateDB.AddRefund(refund)
@@ -104,11 +97,8 @@ func TestEmptyAndCode(t *testing.T) {
 
 	sm := initMockStateManager(ctrl)
 
-	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
 	stateDB.CreateAccount(addr)
 	require.True(stateDB.Empty(addr))
@@ -124,11 +114,8 @@ func TestForEachStorage(t *testing.T) {
 
 	sm := initMockStateManager(ctrl)
 
-	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
 	kvs := map[common.Hash]common.Hash{
 		common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"): common.HexToHash("0123456701234567012345670123456701234567012345670123456701234560"),
@@ -163,11 +150,8 @@ func TestNonce(t *testing.T) {
 
 	sm := initMockStateManager(ctrl)
 
-	cfg := config.Default
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
 	stateDB.SetNonce(addr, 1)
 	require.Equal(uint64(1), stateDB.GetNonce(addr))
@@ -180,11 +164,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		defer ctrl.Finish()
 
 		sm := initMockStateManager(ctrl)
-
-		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
-
+		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 		tests := []stateDBTest{
 			{
 				[]bal{
@@ -381,13 +361,13 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 }
 
 func TestGetCommittedState(t *testing.T) {
-	testCommittedState := func(cfg config.Config, t *testing.T) {
+	t.Run("committed state with in mem DB", func(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
 		sm := initMockStateManager(ctrl)
-		stateDB := NewStateDBAdapter(nil, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
 		// k2 does not exist
@@ -405,11 +385,6 @@ func TestGetCommittedState(t *testing.T) {
 		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
 		require.Equal(v2, stateDB.GetState(c1, k1))
 		require.Equal(common.BytesToHash(v1[:]), stateDB.GetCommittedState(c1, common.BytesToHash(k1[:])))
-	}
-
-	cfg := config.Default
-	t.Run("committed state with in mem DB", func(t *testing.T) {
-		testCommittedState(cfg, t)
 	})
 }
 
@@ -429,9 +404,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	for _, err := range errs {
 		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
 		addr := common.HexToAddress("test address")
-		stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		}, sm, config.NewHeightUpgrade(config.Default.Genesis), 1, hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
 		assert.Equal(t, big.NewInt(0), amount)
 	}
@@ -442,11 +415,8 @@ func TestPreimage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	cfg := config.Default
 	sm := initMockStateManager(ctrl)
-	stateDB := NewStateDBAdapter(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, sm, config.NewHeightUpgrade(cfg.Genesis), 1, hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
 	stateDB.AddPreimage(common.BytesToHash(v2[:]), []byte("dog"))
