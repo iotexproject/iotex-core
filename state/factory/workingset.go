@@ -93,8 +93,10 @@ func NewWorkingSet(
 		cb:        db.NewCachedBatch(),
 		dao:       kv,
 	}
-	for _, p := range registry.All() {
-		ws.addActionHandlers(p)
+	if registry != nil {
+		for _, p := range registry.All() {
+			ws.addActionHandlers(p)
+		}
 	}
 	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
 	if err != nil {

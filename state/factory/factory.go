@@ -371,7 +371,7 @@ func (sf *factory) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
+	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), raCtx.Registry)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}

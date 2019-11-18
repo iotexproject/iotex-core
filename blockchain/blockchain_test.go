@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -427,11 +428,15 @@ func TestCreateBlockchain(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+<<<<<<< HEAD
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+=======
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
+>>>>>>> change test files
 	require.NoError(registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -459,11 +464,15 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+<<<<<<< HEAD
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+=======
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
+>>>>>>> change test files
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -524,11 +533,10 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -605,7 +613,6 @@ func TestConstantinople(t *testing.T) {
 		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		require.NoError(err)
 		acc := account.NewProtocol()
-		sf.AddActionHandlers(acc)
 		registry := protocol.Registry{}
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -627,10 +634,10 @@ func TestConstantinople(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(acc, exec)
-		sf.AddActionHandlers(exec)
 		require.NoError(bc.Start(ctx))
-		require.NoError(addCreatorToFactory(cfg, sf))
+		require.NoError(addCreatorToFactory(cfg, sf, &registry))
 		defer func() {
 			require.NoError(bc.Stop(ctx))
 		}()
@@ -762,7 +769,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 		require.NoError(err)
 		acc := account.NewProtocol()
-		sf.AddActionHandlers(acc)
 		registry := protocol.Registry{}
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -787,10 +793,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(acc, exec)
-		sf.AddActionHandlers(exec)
 		require.NoError(bc.Start(ctx))
-		require.NoError(addCreatorToFactory(cfg, sf))
+		require.NoError(addCreatorToFactory(cfg, sf, &registry))
 
 		ms := &MockSubscriber{counter: 0}
 		require.NoError(bc.AddSubscriber(ms))
@@ -1050,7 +1056,6 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 	accountProtocol := account.NewProtocol()
-	sf.AddActionHandlers(accountProtocol)
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
 	bc := NewBlockchain(
@@ -1069,6 +1074,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 	require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
+
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1088,7 +1094,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	bc := NewBlockchain(cfg, nil, InMemDaoOption(), InMemStateFactoryOption())
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	_, err := bc.Factory().CreateState(identityset.Address(0).String(), big.NewInt(100))
+	_, err := createState(bc.Factory(), cfg, nil, identityset.Address(0).String(), big.NewInt(100))
 	require.NoError(err)
 	s, err := bc.Factory().AccountState(identityset.Address(0).String())
 	require.NoError(err)
@@ -1124,12 +1130,12 @@ func TestBlocks(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	require.NoError(addCreatorToFactory(cfg, sf))
+	require.NoError(addCreatorToFactory(cfg, sf, nil))
 
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	c := identityset.Address(29).String()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
@@ -1192,11 +1198,11 @@ func TestActions(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	require.NoError(addCreatorToFactory(cfg, sf))
+	require.NoError(addCreatorToFactory(cfg, sf, nil))
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	c := identityset.Address(29).String()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
@@ -1234,8 +1240,9 @@ func TestActions(t *testing.T) {
 	require.Nil(val.Validate(ctx, blk, 0, blk.PrevHash()))
 }
 
-func addCreatorToFactory(cfg config.Config, sf factory.Factory) error {
-	ws, err := sf.NewWorkingSet()
+
+func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protocol.Registry) error {
+	ws, err := sf.NewWorkingSet(registry)
 	if err != nil {
 		return err
 	}
@@ -1257,4 +1264,45 @@ func addCreatorToFactory(cfg config.Config, sf factory.Factory) error {
 		return err
 	}
 	return sf.Commit(ws)
+}
+
+// createState adds a new account with initial balance to the factory
+func createState(sf factory.Factory, cfg config.Config, registry *protocol.Registry, addr string, init *big.Int) (*state.Account, error) {
+	gasLimit := cfg.Genesis.BlockGasLimit
+	if sf == nil {
+		return nil, errors.New("empty state factory")
+	}
+
+	ws, err := sf.NewWorkingSet(registry)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
+	}
+
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
+	}
+
+	callerAddr, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			Registry:   registry,
+		})
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
+	}
+
+	if err = sf.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
+	}
+
+	return account, nil
 }

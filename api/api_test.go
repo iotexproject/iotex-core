@@ -1447,7 +1447,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().Factory().Return(msf).Times(2)
-			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
+			msf.EXPECT().NewWorkingSet(svr.registry).Return(nil, nil).Times(2)
 
 			candidates := []*state.Candidate{
 				{
@@ -1571,8 +1571,8 @@ func TestServer_GetLogs(t *testing.T) {
 	}
 }
 
-func addProducerToFactory(sf factory.Factory) error {
-	ws, err := sf.NewWorkingSet()
+func addProducerToFactory(sf factory.Factory, registry *protocol.Registry) error {
+	ws, err := sf.NewWorkingSet(registry)
 	if err != nil {
 		return err
 	}
@@ -1812,7 +1812,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err := registry.Register(poll.ProtocolID, p); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	sf.AddActionHandlers(acc, evm, r)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, evm, r)
 
@@ -1867,7 +1866,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	// Create state for producer
-	if err := addProducerToFactory(bc.Factory()); err != nil {
+	if err := addProducerToFactory(bc.Factory(), registry); err != nil {
 		return nil, err
 	}
 

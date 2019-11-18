@@ -300,7 +300,7 @@ func (sdb *stateDB) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry)
 	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}
