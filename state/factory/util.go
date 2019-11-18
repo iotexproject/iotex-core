@@ -114,11 +114,11 @@ func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, 
 	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
 	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
 	raCtx.GasLimit = cfg.Genesis.BlockGasLimit
+	raCtx.Genesis = cfg.Genesis
 	bytes, err := hexutil.Decode(cfg.Genesis.NativeStakingContractCode)
 	if err != nil {
 		return err
 	}
-	hu := config.NewHeightUpgrade(cfg.Genesis)
 	execution, err := action.NewExecution(
 		"",
 		0,
@@ -137,7 +137,6 @@ func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, 
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		hu,
 	)
 	if err != nil {
 		return err

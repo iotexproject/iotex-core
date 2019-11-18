@@ -420,14 +420,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 					protocol.RunActionsCtx{
 						Producer: identityset.Address(27),
 						GasLimit: gasLimit,
+						Genesis:  cfg.Genesis,
 					})
 				_, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.Registry{}
-			hu := config.NewHeightUpgrade(cfg.Genesis)
-			acc := account.NewProtocol(hu)
+			acc := account.NewProtocol()
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -439,7 +439,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.RegistryOption(&registry),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
-			chain.Validator().AddActionValidators(account.NewProtocol(hu))
+			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
