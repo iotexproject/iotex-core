@@ -171,13 +171,13 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 		}
 	}
 
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		blockchain.DefaultStateFactoryOption(),
 		blockchain.BoltDBDaoOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,

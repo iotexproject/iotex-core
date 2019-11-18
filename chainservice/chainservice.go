@@ -104,8 +104,8 @@ func New(
 			blockchain.DefaultStateFactoryOption(),
 		}
 	}
-	registry := protocol.Registry{}
-	chainOpts = append(chainOpts, blockchain.RegistryOption(&registry))
+	registry := protocol.NewRegistry()
+	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
@@ -253,7 +253,7 @@ func New(
 		dao,
 		indexer,
 		actPool,
-		&registry,
+		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
 			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 			return p2pAgent.BroadcastOutbound(ctx, msg)
@@ -291,7 +291,7 @@ func New(
 		electionCommittee: electionCommittee,
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
-		registry:          &registry,
+		registry:          registry,
 	}
 	// Install protocols
 	if err := cs.registerDefaultProtocols(accountProtocol, rDPoSProtocol, pollProtocol, executionProtocol, rewardingProtocol); err != nil {

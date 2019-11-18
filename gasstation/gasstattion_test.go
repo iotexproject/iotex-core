@@ -40,14 +40,14 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	blkState := blockchain.InMemStateFactoryOption()
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(&registry)
+	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
@@ -114,14 +114,14 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	blkState := blockchain.InMemStateFactoryOption()
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(&registry)
+	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)

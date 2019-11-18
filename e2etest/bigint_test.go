@@ -76,7 +76,7 @@ func prepareBlockchain(
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -86,7 +86,7 @@ func prepareBlockchain(
 		nil,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(nil, rp)

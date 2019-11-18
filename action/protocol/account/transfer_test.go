@@ -60,7 +60,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	p := NewProtocol()
 	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
 	require.NoError(
 		reward.Initialize(
@@ -70,7 +70,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 					Producer:    identityset.Address(27),
 					Caller:      identityset.Address(28),
 					GasLimit:    testutil.TestGasLimit,
-					Registry:    &registry,
+					Registry:    registry,
 					Genesis:     cfg.Genesis,
 				}),
 			sm,
@@ -117,7 +117,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			Caller:       identityset.Address(28),
 			GasLimit:     testutil.TestGasLimit,
 			IntrinsicGas: gas,
-			Registry:     &registry,
+			Registry:     registry,
 		})
 	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)

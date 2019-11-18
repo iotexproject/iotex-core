@@ -281,7 +281,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -296,7 +296,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg,
 		dao,
 		blockchain.InMemStateFactoryOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
@@ -464,7 +464,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
-		registry := protocol.Registry{}
+		registry := protocol.NewRegistry()
 		acc := account.NewProtocol()
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -481,7 +481,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			dao,
 			blockchain.DefaultStateFactoryOption(),
-			blockchain.RegistryOption(&registry),
+			blockchain.RegistryOption(registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc.BlockDAO().GetBlockHash))

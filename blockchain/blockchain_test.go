@@ -421,12 +421,12 @@ func TestCreateBlockchain(t *testing.T) {
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
@@ -453,12 +453,12 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
@@ -518,10 +518,10 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
+	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
@@ -606,7 +606,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		acc := account.NewProtocol()
 		sf.AddActionHandlers(acc)
-		registry := protocol.Registry{}
+		registry := protocol.NewRegistry()
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -622,7 +622,7 @@ func TestConstantinople(t *testing.T) {
 			cfg,
 			dao,
 			PrecreatedStateFactoryOption(sf),
-			RegistryOption(&registry),
+			RegistryOption(registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
@@ -763,7 +763,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(err)
 		acc := account.NewProtocol()
 		sf.AddActionHandlers(acc)
-		registry := protocol.Registry{}
+		registry := protocol.NewRegistry()
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -782,7 +782,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			cfg,
 			dao,
 			PrecreatedStateFactoryOption(sf),
-			RegistryOption(&registry),
+			RegistryOption(registry),
 		)
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
@@ -804,13 +804,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// Load a blockchain from DB
 		accountProtocol := account.NewProtocol()
-		registry = protocol.Registry{}
+		registry = protocol.NewRegistry()
 		require.NoError(registry.Register(account.ProtocolID, accountProtocol))
 		bc = NewBlockchain(
 			cfg,
 			dao,
 			PrecreatedStateFactoryOption(sf),
-			RegistryOption(&registry),
+			RegistryOption(registry),
 		)
 		rolldposProtocol := rolldpos.NewProtocol(
 			genesis.Default.NumCandidateDelegates,
@@ -1051,14 +1051,14 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	require.NoError(err)
 	accountProtocol := account.NewProtocol()
 	sf.AddActionHandlers(accountProtocol)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(account.ProtocolID, accountProtocol))
 	bc := NewBlockchain(
 		cfg,
 		nil,
 		PrecreatedStateFactoryOption(sf),
 		BoltDBDaoOption(),
-		RegistryOption(&registry),
+		RegistryOption(registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
