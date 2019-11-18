@@ -40,11 +40,10 @@ func newStateTX(
 		cb:  db.NewCachedBatch(),
 		dao: kv,
 	}
-	if registry == nil {
-		return st
-	}
-	for _, p := range registry.All() {
-		st.addActionHandlers(p)
+	if registry != nil {
+		for _, p := range registry.All() {
+			st.addActionHandlers(p)
+		}
 	}
 	return st
 }

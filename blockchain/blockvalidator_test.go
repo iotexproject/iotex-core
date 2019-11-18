@@ -114,7 +114,7 @@ func TestWrongNonce(t *testing.T) {
 	}()
 
 	require.NoError(addCreatorToFactory(cfg, sf, &registry))
-	
+
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	val.AddActionValidators(account.NewProtocol())
@@ -132,7 +132,7 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(val.Validate(&blk, 2, blkhash))
+	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
 	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit

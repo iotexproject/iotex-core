@@ -428,12 +428,7 @@ func TestCreateBlockchain(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
-<<<<<<< HEAD
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
-=======
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
->>>>>>> change test files
 	require.NoError(registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, exec)
@@ -464,12 +459,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
-<<<<<<< HEAD
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
-=======
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu)
->>>>>>> change test files
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	bc.Validator().AddActionValidators(acc, exec)
@@ -1239,7 +1230,6 @@ func TestActions(t *testing.T) {
 	val := &validator{sf: sf, validatorAddr: ""}
 	require.Nil(val.Validate(ctx, blk, 0, blk.PrevHash()))
 }
-
 
 func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protocol.Registry) error {
 	ws, err := sf.NewWorkingSet(registry)

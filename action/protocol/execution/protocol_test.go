@@ -486,7 +486,7 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.RegistryOption(&registry),
 		)
-		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash, hu)
+		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(ProtocolID, exeProtocol))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(account.NewProtocol(), exeProtocol)
@@ -498,7 +498,7 @@ func TestProtocol_Handle(t *testing.T) {
 			err := bc.Stop(ctx)
 			require.NoError(err)
 		}()
-		
+
 		ws, err := sf.NewWorkingSet(&registry)
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))

@@ -481,7 +481,6 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	re := &protocol.Registry{}
 	re.Register(account.ProtocolID, account.NewProtocol())
 	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
@@ -1063,7 +1062,6 @@ func TestActPool_GetSize(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 
-	hu := config.NewHeightUpgrade(config.Default.Genesis)
 	re := &protocol.Registry{}
 	re.Register(account.ProtocolID, account.NewProtocol())
 	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
