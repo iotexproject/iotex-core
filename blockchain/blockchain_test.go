@@ -625,7 +625,6 @@ func TestConstantinople(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		bc.Validator().AddActionValidators(acc, exec)
 		require.NoError(bc.Start(ctx))
 		require.NoError(addCreatorToFactory(cfg, sf, &registry))
@@ -781,7 +780,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			PrecreatedStateFactoryOption(sf),
 			RegistryOption(&registry),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
