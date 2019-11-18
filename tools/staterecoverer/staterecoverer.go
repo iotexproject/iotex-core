@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/server/itx"
+	recoverutil "github.com/iotexproject/iotex-core/tools/util"
 )
 
 // recoveryHeight is the blockchain height being recovered to
@@ -68,8 +69,8 @@ func main() {
 			log.L().Fatal("Failed to stop blockchain")
 		}
 	}()
-
-	if err := bc.RecoverChainAndState(uint64(recoveryHeight)); err != nil {
+	registry := svr.ChainService(cfg.Chain.ID).Registry()
+	if err := recoverutil.RecoverChainAndState(bc, registry, cfg, uint64(recoveryHeight)); err != nil {
 		log.L().Fatal("Failed to recover chain and state.", zap.Error(err))
 	}
 }

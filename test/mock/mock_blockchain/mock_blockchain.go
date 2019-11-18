@@ -246,20 +246,6 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockchain)(nil).TipHeight))
 }
 
-// RecoverChainAndState mocks base method
-func (m *MockBlockchain) RecoverChainAndState(targetHeight uint64) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecoverChainAndState", targetHeight)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RecoverChainAndState indicates an expected call of RecoverChainAndState
-func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
-}
-
 // Genesis mocks base method
 func (m *MockBlockchain) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
