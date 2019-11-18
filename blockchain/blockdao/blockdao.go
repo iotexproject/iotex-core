@@ -60,6 +60,7 @@ const (
 
 var (
 	topHeightKey       = []byte("th")
+	tipHeightKey       = []byte("tih")
 	startHeightKey     = []byte("sh")
 	topHashKey         = []byte("ts")
 	hashPrefix         = []byte("ha.")
@@ -183,31 +184,33 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	}
 	return dao.adjust()
 }
+
 func (dao *blockDAO) adjust() error {
-	topHeight, err := dao.getTipHeight()
+	tipHeight, err := dao.getTipHeight()
 	if err != nil {
 		return err
 	}
-	topDB, index, err := dao.getTopDB(topHeight)
+	topDB, index, err := dao.getTopDB(tipHeight)
 	if err != nil {
 		return err
 	}
 	if index == 0 {
 		return nil
 	}
-	value, err := topDB.Get(blockNS, topHeightKey)
+	value, err := topDB.Get(blockNS, tipHeightKey)
 	if err != nil {
 		return err
 	}
 	topHeightOfBlockDB := enc.MachineEndian.Uint64(value)
-	if topHeight == topHeightOfBlockDB {
+	if tipHeight == topHeightOfBlockDB {
 		return nil
-	} else if topHeight > topHeightOfBlockDB {
+	} else if tipHeight > topHeightOfBlockDB {
 		return ErrMissingBlock
 	}
-	return dao.rebuild(topHeight+1, topHeightOfBlockDB, topDB)
+	return dao.revert(tipHeight+1, topHeightOfBlockDB, topDB)
 }
-func (dao *blockDAO) rebuild(from, to uint64, store db.KVStore) (err error) {
+
+func (dao *blockDAO) revert(from, to uint64, store db.KVStore) (err error) {
 	batch := db.NewBatch()
 	for i := from; i <= to; i++ {
 		heightValue := byteutil.Uint64ToBytes(i)
@@ -224,6 +227,7 @@ func (dao *blockDAO) rebuild(from, to uint64, store db.KVStore) (err error) {
 	}
 	return dao.kvstore.Commit(batch)
 }
+
 func (dao *blockDAO) initStores() error {
 	cfg := dao.cfg
 	model, dir := getFileNameAndDir(cfg.DbPath)
@@ -683,7 +687,7 @@ func (dao *blockDAO) putBlockForBlockdb(blk *block.Block) error {
 		tipHeight = enc.MachineEndian.Uint64(tipHeightValue)
 	}
 	if blkHeight > tipHeight {
-		batchForBlock.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
+		batchForBlock.Put(blockNS, tipHeightKey, heightValue, "failed to put top height")
 		batchForBlock.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
 	return kv.Commit(batchForBlock)
@@ -865,10 +869,10 @@ func (dao *blockDAO) getBlockValue(blockNS string, h hash.Hash256) ([]byte, erro
 	}
 	value, err := whichDB.Get(blockNS, h[:])
 	if errors.Cause(err) == db.ErrNotExist {
-		idx := index - 1
-		if idx < 0 {
-			idx = 0
+		if index < 1 {
+			return nil, err
 		}
+		idx := index - 1
 		db, _, err := dao.getDBFromIndex(idx)
 		if err != nil {
 			return nil, err

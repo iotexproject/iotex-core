@@ -133,6 +133,9 @@ func (ib *IndexBuilder) init() error {
 	if err != nil {
 		return err
 	}
+	if tipHeight == 0 {
+		return nil
+	}
 	if startHeight == tipHeight {
 		// indexer height consistent with dao height
 		zap.L().Info("Consistent DB", zap.Uint64("height", startHeight))
