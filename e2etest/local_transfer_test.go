@@ -18,21 +18,17 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -472,7 +468,7 @@ func initExistingAccounts(
 		sk := getLocalKey(i)
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		require.NoError(t, err)
-		_, err = createState(bc.Factory(), cfg, registry, addr.String(), initBalance)
+		_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), initBalance)
 		require.NoError(t, err)
 	}
 
@@ -497,7 +493,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			_, err = createState(bc.Factory(), cfg, registry, addr.String(), tsfTest.senderBalance)
+			_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.senderBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
@@ -506,7 +502,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			createState(bc.Factory(), cfg, registry, addr.String(), tsfTest.recvBalance)
+			factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.recvBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].recvPriKey = sk
 		}
@@ -544,45 +540,4 @@ func lenPendingActionMap(acts map[string][]action.SealedEnvelope) int {
 		l += len(part)
 	}
 	return l
-}
-
-// createState adds a new account with initial balance to the factory
-func createState(sf factory.Factory, cfg config.Config, registry *protocol.Registry, addr string, init *big.Int) (*state.Account, error) {
-	gasLimit := cfg.Genesis.BlockGasLimit
-	if sf == nil {
-		return nil, errors.New("empty state factory")
-	}
-
-	ws, err := sf.NewWorkingSet(registry)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create clean working set")
-	}
-
-	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
-	}
-
-	callerAddr, err := address.FromString(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			GasLimit:   gasLimit,
-			Caller:     callerAddr,
-			ActionHash: hash.ZeroHash256,
-			Nonce:      0,
-			Registry:   registry,
-		})
-	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
-		return nil, errors.Wrap(err, "failed to run the account creation")
-	}
-
-	if err = sf.Commit(ws); err != nil {
-		return nil, errors.Wrap(err, "failed to commit the account creation")
-	}
-
-	return account, nil
 }
