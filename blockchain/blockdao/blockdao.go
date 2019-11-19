@@ -123,7 +123,7 @@ type (
 		kvstore       db.KVStore
 		indexer       BlockIndexer
 		htf           db.RangeIndex
-		kvstores      sync.Map //store like map[index]db.KVStore,index from 0 1...N
+		kvstores      sync.Map // store like map[index]db.KVStore,index from 0 1...N
 		topIndex      atomic.Value
 		timerFactory  *prometheustimer.TimerFactory
 		lifecycle     lifecycle.Lifecycle
@@ -219,11 +219,11 @@ func (dao *blockDAO) revert(from, to uint64, store db.KVStore) (err error) {
 		if err != nil {
 			return err
 		}
-		hashKey := append(hashPrefix, hash[:]...)
+		hashKey := append(hashPrefix, hash...)
 		batch.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
-		batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
+		batch.Put(blockHashHeightMappingNS, heightKey, hash, "failed to put height -> hash mapping")
 		batch.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
-		batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
+		batch.Put(blockNS, topHashKey, hash, "failed to put top hash")
 	}
 	return dao.kvstore.Commit(batch)
 }
