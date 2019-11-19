@@ -94,6 +94,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	re := &protocol.Registry{}
 	re.Register(account.ProtocolID, account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
+	// TODO: move the account creation to config.Genesis.InitialBalances, and delete function factory.CreateTestAccount
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
 	apConfig := getActPoolCfg()
