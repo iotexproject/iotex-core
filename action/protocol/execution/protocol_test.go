@@ -270,7 +270,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, blockdao.BlockDAO) {
+) (blockchain.Blockchain, blockdao.BlockDAO, *protocol.Registry) {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -306,9 +306,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	sf := bc.Factory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(NewProtocol(bc.BlockDAO().GetBlockHash), reward)
+	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
+	r.NoError(registry.Register(ProtocolID, execution))
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	r.NoError(err)
 	for _, expectedBalance := range sct.InitBalances {
 		_, err = accountutil.LoadOrCreateAccount(ws, expectedBalance.Account, expectedBalance.Balance())
@@ -323,13 +324,14 @@ func (sct *SmartContractTest) prepareBlockchain(
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-	return bc, dao
+	return bc, dao, &registry
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
 	dao blockdao.BlockDAO,
 	r *require.Assertions,
+	registry *protocol.Registry,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
@@ -356,7 +358,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.Factory().NewWorkingSet()
+		ws, err := bc.Factory().NewWorkingSet(registry)
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -376,13 +378,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, dao := sct.prepareBlockchain(ctx, r)
+	bc, dao, registry := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, dao, r)
+	contractAddresses := sct.deployContracts(bc, dao, r, registry)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -484,19 +486,20 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.DefaultStateFactoryOption(),
 			blockchain.RegistryOption(&registry),
 		)
+		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
+		require.NoError(registry.Register(ProtocolID, exeProtocol))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc.BlockDAO().GetBlockHash))
+		bc.Validator().AddActionValidators(account.NewProtocol(), exeProtocol)
 		sf := bc.Factory()
 		require.NotNil(sf)
-		sf.AddActionHandlers(NewProtocol(bc.BlockDAO().GetBlockHash))
-
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {
 			err := bc.Stop(ctx)
 			require.NoError(err)
 		}()
-		ws, err := sf.NewWorkingSet()
+
+		ws, err := sf.NewWorkingSet(&registry)
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
@@ -539,7 +542,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
-		ws, err = sf.NewWorkingSet()
+		ws, err = sf.NewWorkingSet(&registry)
 		require.NoError(err)
 
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
@@ -591,7 +594,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		ws, err = sf.NewWorkingSet()
+		ws, err = sf.NewWorkingSet(&registry)
 		require.NoError(err)
 		stateDB = evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var emptyEVMHash common.Hash

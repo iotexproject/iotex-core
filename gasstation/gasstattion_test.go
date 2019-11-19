@@ -53,7 +53,6 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -127,7 +126,6 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))

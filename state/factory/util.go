@@ -18,11 +18,13 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 )
@@ -150,4 +152,45 @@ func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, 
 		log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
 	}
 	return nil
+}
+
+// CreateTestAccount adds a new account with initial balance to the factory for test usage
+func CreateTestAccount(sf Factory, cfg config.Config, registry *protocol.Registry, addr string, init *big.Int) (*state.Account, error) {
+	gasLimit := cfg.Genesis.BlockGasLimit
+	if sf == nil {
+		return nil, errors.New("empty state factory")
+	}
+
+	ws, err := sf.NewWorkingSet(registry)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
+	}
+
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
+	}
+
+	callerAddr, err := address.FromString(addr)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			Registry:   registry,
+		})
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
+	}
+
+	if err = sf.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
+	}
+
+	return account, nil
 }

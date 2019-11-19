@@ -66,7 +66,7 @@ func TestSnapshot(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testRevert(ws, t)
@@ -82,7 +82,7 @@ func TestSDBSnapshot(t *testing.T) {
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 	require.NoError(sdb.Start(context.Background()))
-	ws, err := sdb.NewWorkingSet()
+	ws, err := sdb.NewWorkingSet(nil)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testSDBRevert(ws, t)
@@ -213,7 +213,7 @@ func TestSDBCandidates(t *testing.T) {
 }
 
 func testCandidates(sf Factory, t *testing.T) {
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(t, err)
 	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(0).String()))
 	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(0).String(), big.NewInt(0)))
@@ -256,12 +256,14 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
-	sf.AddActionHandlers(account.NewProtocol())
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
@@ -323,12 +325,14 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
-	sf.AddActionHandlers(account.NewProtocol())
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(t, err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
@@ -425,7 +429,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(err)
 	dao := ws.GetDB()
 	require.NoError(dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
@@ -449,7 +453,7 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 		require.NoError(t, sf.Stop(ctx))
 	}()
 
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(t, err)
 	_, err = ws.RunActions(context.Background(), 1, nil)
 	require.NoError(t, err)
@@ -469,12 +473,15 @@ func TestRunActions(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sf.Start(context.Background()))
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(err)
 	testRunActions(ws, t)
 }
@@ -488,12 +495,15 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
-	sdb.AddActionHandlers(account.NewProtocol())
+
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sdb.Start(context.Background()))
 	defer func() {
 		require.NoError(sdb.Stop(context.Background()))
 	}()
-	ws, err := sdb.NewWorkingSet()
+	ws, err := sdb.NewWorkingSet(&registry)
 	require.NoError(err)
 	testSTXRunActions(ws, t)
 }
@@ -616,13 +626,17 @@ func testSTXRunActions(ws WorkingSet, t *testing.T) {
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(t, err)
 	testCachedBatch(ws, t, false)
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(t, err)
+	re := protocol.Registry{}
+	require.NoError(t, re.Register(account.ProtocolID, account.NewProtocol()))
+	ws, _ := sdb.NewWorkingSet(&re)
 	testCachedBatch(ws, t, true)
 }
 
@@ -666,13 +680,17 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 func TestGetDB(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(nil)
 	require.NoError(t, err)
 	testGetDB(ws, t)
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol()})
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(t, err)
+	re := protocol.Registry{}
+	require.NoError(t, re.Register(account.ProtocolID, account.NewProtocol()))
+	ws, _ := sdb.NewWorkingSet(&re)
 	testGetDB(ws, t)
 }
 
@@ -698,7 +716,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(nil)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
@@ -782,7 +800,11 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	sf.AddActionHandlers(account.NewProtocol())
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	if err := registry.Register(account.ProtocolID, acc); err != nil {
+		b.Fatal(err)
+	}
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}
@@ -795,7 +817,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 		}()
 	}()
 
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -811,7 +833,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	gasLimit := testutil.TestGasLimit * 100000
 
 	for n := 0; n < b.N; n++ {
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet(&registry)
 		if err != nil {
 			b.Fatal(err)
 		}

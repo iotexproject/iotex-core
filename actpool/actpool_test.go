@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -83,16 +84,18 @@ func TestActPool_NewActPool(t *testing.T) {
 
 func TestActPool_validateGenericAction(t *testing.T) {
 	require := require.New(t)
-
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.Factory().AddActionHandlers(account.NewProtocol())
+
+	re := &protocol.Registry{}
+	re.Register(account.ProtocolID, account.NewProtocol())
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	// TODO: move the account creation to config.Genesis.InitialBalances, and delete function factory.CreateTestAccount
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(bc, apConfig, EnableExperimentalActions())
@@ -125,7 +128,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(re)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
@@ -159,9 +162,9 @@ func TestActPool_AddActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr2, big.NewInt(10))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr2, big.NewInt(10))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -331,9 +334,9 @@ func TestActPool_PickActs(t *testing.T) {
 			blockchain.InMemDaoOption(),
 		)
 		require.NoError(bc.Start(context.Background()))
-		_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+		_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 		require.NoError(err)
-		_, err = bc.Factory().CreateState(addr2, big.NewInt(10))
+		_, err = factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr2, big.NewInt(10))
 		require.NoError(err)
 		// Create actpool
 		Ap, err := NewActPool(bc, cfg, EnableExperimentalActions())
@@ -413,9 +416,11 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.Factory().AddActionHandlers(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := &protocol.Registry{}
+	re.Register(account.ProtocolID, account.NewProtocol())
+	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -448,7 +453,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(ap.accountActs[addr1])
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(re)
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -473,13 +478,15 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.Factory().AddActionHandlers(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := &protocol.Registry{}
+	re.Register(account.ProtocolID, account.NewProtocol())
+	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr2, big.NewInt(200))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, re, addr2, big.NewInt(200))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr3, big.NewInt(300))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, re, addr3, big.NewInt(300))
 	require.NoError(err)
 
 	apConfig := getActPoolCfg()
@@ -602,7 +609,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(re)
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -714,7 +721,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap2 be BP's actpool
 	pickedActs = ap2.PendingActionMap()
 	// ap2 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet()
+	ws, err = sf.NewWorkingSet(re)
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
@@ -763,9 +770,9 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(280).Uint64(), ap2PBalance3.Uint64())
 
 	// Add two more players
-	_, err = bc.Factory().CreateState(addr4, big.NewInt(10))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, re, addr4, big.NewInt(10))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr5, big.NewInt(20))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, re, addr5, big.NewInt(20))
 	require.NoError(err)
 	tsf21, err := testutil.SignedTransfer(addr5, priKey4, uint64(1), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -822,7 +829,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet()
+	ws, err = sf.NewWorkingSet(re)
 	require.NoError(err)
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
@@ -859,7 +866,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -907,9 +914,9 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -952,9 +959,9 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -998,9 +1005,9 @@ func TestActPool_GetActionByHash(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr1, big.NewInt(100))
 	require.NoError(err)
-	_, err = bc.Factory().CreateState(addr2, big.NewInt(100))
+	_, err = factory.CreateTestAccount(bc.Factory(), config.Default, nil, addr2, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1051,9 +1058,12 @@ func TestActPool_GetSize(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	bc.Factory().AddActionHandlers(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+
+	re := &protocol.Registry{}
+	re.Register(account.ProtocolID, account.NewProtocol())
+	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	require.NoError(bc.Start(context.Background()))
-	_, err := bc.Factory().CreateState(addr1, big.NewInt(100))
+	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1082,7 +1092,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Equal(uint64(40000), ap.GetGasSize())
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(re)
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 

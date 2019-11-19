@@ -179,7 +179,6 @@ func TestLocalCommit(t *testing.T) {
 	registry.Register(account.ProtocolID, acc)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.Factory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {

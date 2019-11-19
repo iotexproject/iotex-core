@@ -103,7 +103,8 @@ func TestWrongNonce(t *testing.T) {
 	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol())
+	registry := protocol.Registry{}
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -112,7 +113,7 @@ func TestWrongNonce(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	require.NoError(addCreatorToFactory(cfg, sf))
+	require.NoError(addCreatorToFactory(cfg, sf, &registry))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
@@ -131,9 +132,8 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-
 	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(
@@ -255,7 +255,6 @@ func TestWrongAddress(t *testing.T) {
 		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
 	)
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	bc.Factory().AddActionHandlers(account.NewProtocol())
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -319,7 +318,6 @@ func TestBlackListAddress(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
-	bc.Factory().AddActionHandlers(account.NewProtocol())
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {

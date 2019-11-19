@@ -43,10 +43,8 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
 	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
@@ -61,17 +59,14 @@ func TestAction_Negative(t *testing.T) {
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
-	r.Equal(-1, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
 
-func prepareBlockchain(
-	ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
+func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
@@ -95,9 +90,11 @@ func prepareBlockchain(
 	bc.Validator().AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	sf := bc.Factory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	r.NoError(registry.Register(execution.ProtocolID, exec))
+	r.NoError(bc.Start(ctx))
+	ws, err := sf.NewWorkingSet(&registry)
 	r.NoError(err)
 	balance, ok := new(big.Int).SetString("1000000000000000000000000000", 10)
 	r.True(ok)
@@ -152,5 +149,8 @@ func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertion
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
+	// when validate/commit a blk, the workingset and receipts of blk should be nil
+	blk.WorkingSet = nil
+	blk.Receipts = nil
 	return blk, nil
 }

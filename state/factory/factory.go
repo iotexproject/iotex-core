@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -51,19 +50,16 @@ type (
 		// Accounts
 		Balance(string) (*big.Int, error)
 		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		// CreateState adds a new account with initial balance to the factory
-		CreateState(addr string, init *big.Int) (*state.Account, error)
 		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
-		NewWorkingSet() (WorkingSet, error)
+		NewWorkingSet(*protocol.Registry) (WorkingSet, error)
 		Commit(WorkingSet) error
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
 		State(hash.Hash160, interface{}) error
-		AddActionHandlers(...protocol.ActionHandler)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -72,9 +68,8 @@ type (
 		mutex              sync.RWMutex
 		cfg                config.Config
 		currentChainHeight uint64
-		accountTrie        trie.Trie                // global state trie
-		dao                db.KVStore               // the underlying DB for account/contract storage
-		actionHandlers     []protocol.ActionHandler // the handlers to handle actions
+		accountTrie        trie.Trie  // global state trie
+		dao                db.KVStore // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 	}
 )
@@ -186,58 +181,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 	return sf.lifecycle.OnStop(ctx)
 }
 
-// AddActionHandlers adds action handlers to the state factory
-func (sf *factory) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
-
-	sf.actionHandlers = append(sf.actionHandlers, actionHandlers...)
-}
-
-func createState(f Factory, gasLimit uint64, addr string, init *big.Int) (*state.Account, error) {
-	if f == nil {
-		return nil, errors.New("empty state factory")
-	}
-
-	ws, err := f.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create clean working set")
-	}
-
-	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
-	}
-
-	callerAddr, err := address.FromString(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			GasLimit:   gasLimit,
-			Caller:     callerAddr,
-			ActionHash: hash.ZeroHash256,
-			Nonce:      0,
-			// Registry:   bc.registry,
-		})
-	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
-		return nil, errors.Wrap(err, "failed to run the account creation")
-	}
-
-	if err = f.Commit(ws); err != nil {
-		return nil, errors.Wrap(err, "failed to commit the account creation")
-	}
-
-	return account, nil
-}
-
-// CreateState adds a new account with initial balance to the factory
-func (sf *factory) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	return createState(sf, sf.cfg.Genesis.BlockGasLimit, addr, init)
-}
-
 //======================================
 // account functions
 //======================================
@@ -303,10 +246,11 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sf *factory) NewWorkingSet() (WorkingSet, error) {
+// NewWorkingSet returns new working set
+func (sf *factory) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
+	return NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), registry)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -427,7 +371,7 @@ func (sf *factory) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.actionHandlers)
+	ws, err := NewWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), raCtx.Registry)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}

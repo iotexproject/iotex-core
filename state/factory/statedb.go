@@ -33,8 +33,7 @@ type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
 	cfg                config.Config
-	dao                db.KVStore               // the underlying DB for account/contract storage
-	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
+	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
 }
 
@@ -130,18 +129,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	return sdb.dao.Stop(ctx)
 }
 
-// CreateState adds a new account with initial balance to the factory
-func (sdb *stateDB) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	return createState(sdb, sdb.cfg.Genesis.BlockGasLimit, addr, init)
-}
-
-// AddActionHandlers adds action handlers to the state factory
-func (sdb *stateDB) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-	sdb.actionHandlers = append(sdb.actionHandlers, actionHandlers...)
-}
-
 //======================================
 // account functions
 //======================================
@@ -197,10 +184,10 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
+func (sdb *stateDB) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, registry), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -313,7 +300,7 @@ func (sdb *stateDB) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry)
 	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}
