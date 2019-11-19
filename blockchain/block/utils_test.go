@@ -6,14 +6,13 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBody_CalculateTxRoot(t *testing.T) {
-
+	require := require.New(t)
 	var sevlps []action.SealedEnvelope
 	h := make([]hash.Hash256, 0, 10)
 
@@ -35,18 +34,21 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 			SetNonce(tsf.Nonce()).
 			SetVersion(1).
 			Build()
-		sevlp, _ := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		require.NoError(err)
 		h = append(h, sevlp.Hash())
 		sevlps = append(sevlps, sevlp)
 	}
 
 	c := calculateTxRoot(sevlps)
-	c2 := crypto.NewMerkleTree(h).HashTree()
-	require.Equal(t, c, c2)
+
+	c2 := []byte{30, 126, 187, 157, 243, 246, 95, 217, 142, 15, 248, 153, 223, 82, 169, 202, 94, 102, 14, 126, 34, 232, 30, 47, 67, 118, 154, 16, 226, 232, 133, 197}
+	c3 := hash.BytesToHash256(c2)
+	require.Equal(c, c3)
 }
 
 func TestBody_CalculateTransferAmount(t *testing.T) {
-
+	require := require.New(t)
 	var sevlps []action.SealedEnvelope
 	transferAmount := big.NewInt(0)
 
@@ -67,12 +69,12 @@ func TestBody_CalculateTransferAmount(t *testing.T) {
 			SetNonce(tsf.Nonce()).
 			SetVersion(1).
 			Build()
-		sevlp, _ := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
-		transfer, _ := sevlp.Action().(*action.Transfer)
-		transferAmount.Add(transferAmount, transfer.Amount())
+		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
+		require.NoError(err)
+		transferAmount.Add(transferAmount, tsf.Amount())
 		sevlps = append(sevlps, sevlp)
 	}
 
 	amount := calculateTransferAmount(sevlps)
-	require.Equal(t, amount, transferAmount)
+	require.Equal(amount, transferAmount)
 }
