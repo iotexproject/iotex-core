@@ -175,8 +175,7 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
-			SplitDBSizeMB: 0,
-			SplitDBHeight: 900000,
+			SplitDBSizeMB: 300,
 		},
 		Genesis: genesis.Default,
 	}
@@ -337,8 +336,6 @@ type (
 		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
 		// SplitDBSize is the config for DB's split file size
 		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
-		// SplitDBHeight is the config for DB's split start height
-		SplitDBHeight uint64 `yaml:"splitDBHeight"`
 	}
 
 	// RDS is the cloud rds config
