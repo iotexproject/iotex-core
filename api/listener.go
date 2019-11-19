@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -49,7 +48,6 @@ func (cl *chainListener) Start() error {
 			case <-cl.cancelChan:
 				// notify all responders to exit
 				cl.streamMap.Range(func(key, _ interface{}) bool {
-					fmt.Print(key)
 					r, ok := key.(Responder)
 					if !ok {
 						log.S().Panic("streamMap stores a key which is not a Responder")
