@@ -43,13 +43,11 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
-	r.Equal(-1, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
@@ -61,13 +59,11 @@ func TestAction_Negative(t *testing.T) {
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
-	r.Equal(-1, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
 
 func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
@@ -153,5 +149,8 @@ func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertion
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
+	// when validate/commit a blk, the workingset and receipts of blk should be nil
+	blk.WorkingSet = nil
+	blk.Receipts = nil
 	return blk, nil
 }
