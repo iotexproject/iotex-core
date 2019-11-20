@@ -12,13 +12,11 @@ import (
 )
 
 func TestBody_CalculateTxRoot(t *testing.T) {
-	
-	require := require.New(t)
+
+	requireT := require.New(t)
 	var sevlps []action.SealedEnvelope
-	h := make([]hash.Hash256, 0, 10)
 
 	for i := 1; i <= 10; i++ {
-		//i := rand.Int()
 		tsf, _ := action.NewTransfer(
 			uint64(i),
 			unit.ConvertIotxToRau(1000+int64(i)),
@@ -36,16 +34,16 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 			SetVersion(1).
 			Build()
 		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
-		require.NoError(err)
-		h = append(h, sevlp.Hash())
+		requireT.NoError(err)
 		sevlps = append(sevlps, sevlp)
 	}
 
 	c := calculateTxRoot(sevlps)
 
-	c2 := []byte{30, 126, 187, 157, 243, 246, 95, 217, 142, 15, 248, 153, 223, 82, 169, 202, 94, 102, 14, 126, 34, 232, 30, 47, 67, 118, 154, 16, 226, 232, 133, 197}
+	c2 := []byte{30, 126, 187, 157, 243, 246, 95, 217, 142, 15, 248, 153, 223, 82, 169, 202, 94, 102, 14, 126,
+		34, 232, 30, 47, 67, 118, 154, 16, 226, 232, 133, 197}
 	c3 := hash.BytesToHash256(c2)
-	require.Equal(c, c3)
+	requireT.Equal(c, c3)
 }
 
 func TestBody_CalculateTransferAmount(t *testing.T) {
