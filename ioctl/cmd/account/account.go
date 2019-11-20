@@ -31,6 +31,14 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support for ioctl, index 0 represents en(English).
+var (
+	accountCmdShorts = []string{
+		"Manage accounts of IoTeX blockchain",
+		"管理IoTeX区块链上的账号",
+	}
+)
+
 // Errors
 var (
 	ErrPasswdNotMatch = errors.New("password doesn't match")
@@ -39,7 +47,7 @@ var (
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   "account",
-	Short: "Manage accounts of IoTeX blockchain",
+	Short: accountCmdShorts[config.Language],
 }
 
 func init() {

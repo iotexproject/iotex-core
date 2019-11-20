@@ -22,11 +22,23 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support for ioctl, index 0 represents en(English).
+var (
+	rootCmdShorts = []string{
+		"Command-line interface for IoTeX blockchain",
+		"IoTeX区块链命令行工具",
+	}
+	rootCmdLongs = []string{
+		`ioctl is a command-line interface for interacting with IoTeX blockchain.`,
+		`ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
+	}
+)
+
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "ioctl",
-	Short: "Command-line interface for IoTeX blockchain",
-	Long:  `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
+	Short: rootCmdShorts[config.Language],
+	Long:  rootCmdLongs[config.Language],
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

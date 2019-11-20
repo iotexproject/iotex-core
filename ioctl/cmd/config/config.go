@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -52,6 +53,7 @@ type Config struct {
 	Aliases        map[string]string `json:"aliases" yaml:"aliases"`
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
+	Language       string            `json:"language" yaml:"language"`
 }
 
 var (
@@ -59,6 +61,8 @@ var (
 	ReadConfig Config
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
+	// Language represents the index of language of ioctl user interface, default is 0 representing English
+	Language = 0
 )
 
 func init() {
@@ -69,6 +73,7 @@ func init() {
 	}
 	// Path to config file
 	DefaultConfigFile = ConfigDir + "/config.default"
+	// Load or reset config
 	var err error
 	ReadConfig, err = LoadConfig()
 	if err != nil || len(ReadConfig.Wallet) == 0 {
@@ -87,6 +92,12 @@ func init() {
 		if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
 			log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
 		}
+	}
+	// Set language of ioctl
+	Language = isSupportedLanguage(ReadConfig.Language)
+	if Language == -1 {
+		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead."))
+		fmt.Println(message.Warn())
 	}
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)

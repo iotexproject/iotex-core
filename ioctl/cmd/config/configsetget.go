@@ -29,11 +29,11 @@ const (
 )
 
 var (
-	validArgs       = []string{"endpoint", "wallet", "explorer", "defaultacc"}
-	validGetArgs    = []string{"endpoint", "wallet", "explorer", "defaultacc", "all"}
-	validExpl       = []string{"iotexscan", "iotxplorer"}
-	urlCompile      = regexp.MustCompile(urlPattern)
-	endpointCompile = regexp.MustCompile("^" + endpointPattern + "$")
+	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language"}
+	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "all"}
+	validExpl         = []string{"iotexscan", "iotxplorer"}
+	supportedLanguage = []string{"en", "zh"}
+	endpointCompile   = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
 // configGetCmd represents the config get command
@@ -145,6 +145,9 @@ func Get(arg string) error {
 	case "explorer":
 		output.PrintResult(ReadConfig.Explorer)
 		return nil
+	case "language":
+		output.PrintResult(ReadConfig.Language)
+		return nil
 	case "all":
 		fmt.Println(ReadConfig.String())
 		return nil
@@ -184,6 +187,16 @@ func isValidExplorer(arg string) bool {
 		}
 	}
 	return false
+}
+
+// isSupportedLanguage checks if the language is a supported option and returns index when supported
+func isSupportedLanguage(arg string) int {
+	for i, lan := range supportedLanguage {
+		if arg == lan {
+			return i
+		}
+	}
+	return -1
 }
 
 // writeConfig writes to config file
@@ -242,6 +255,14 @@ func set(args []string) error {
 			return output.NewError(output.ValidationError, "failed to validate alias or address", nil)
 		}
 		ReadConfig.DefaultAccount.AddressOrAlias = args[1]
+	case "language":
+		lowArg := strings.ToLower(args[1])
+		if isSupportedLanguage(lowArg) == -1 {
+			return output.NewError(output.ConfigError,
+				fmt.Sprintf("Language %s is not supported\nSupported Explorers: %s",
+					args[1], supportedLanguage), nil)
+		}
+		ReadConfig.Language = lowArg
 	}
 	err := writeConfig()
 	if err != nil {
@@ -258,14 +279,13 @@ func reset() error {
 	ReadConfig.SecureConnect = true
 	ReadConfig.DefaultAccount = *new(Context)
 	ReadConfig.Explorer = "iotexscan"
-	out, err := yaml.Marshal(&ReadConfig)
+	ReadConfig.Language = "en"
+
+	err := writeConfig()
 	if err != nil {
-		return output.NewError(output.SerializationError, "failed to marshal config", err)
+		return err
 	}
-	if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-		return output.NewError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", DefaultConfigFile), err)
-	}
+
 	output.PrintResult("Config reset to default values")
 	return nil
 }
