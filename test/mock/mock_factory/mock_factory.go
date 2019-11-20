@@ -9,7 +9,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	config "github.com/iotexproject/iotex-core/config"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -97,21 +96,6 @@ func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
 }
 
-// CreateState mocks base method
-func (m *MockFactory) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateState", addr, init)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CreateState indicates an expected call of CreateState
-func (mr *MockFactoryMockRecorder) CreateState(addr, init interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateState", reflect.TypeOf((*MockFactory)(nil).CreateState), addr, init)
-}
-
 // AccountState mocks base method
 func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
 	m.ctrl.T.Helper()
@@ -172,18 +156,18 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // NewWorkingSet mocks base method
-func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
+func (m *MockFactory) NewWorkingSet(arg0 *protocol.Registry) (factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewWorkingSet")
+	ret := m.ctrl.Call(m, "NewWorkingSet", arg0)
 	ret0, _ := ret[0].(factory.WorkingSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewWorkingSet indicates an expected call of NewWorkingSet
-func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewWorkingSet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet), arg0)
 }
 
 // Commit mocks base method
@@ -227,34 +211,4 @@ func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}) error {
 func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
-}
-
-// AddActionHandlers mocks base method
-func (m *MockFactory) AddActionHandlers(arg0 ...protocol.ActionHandler) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "AddActionHandlers", varargs...)
-}
-
-// AddActionHandlers indicates an expected call of AddActionHandlers
-func (mr *MockFactoryMockRecorder) AddActionHandlers(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionHandlers", reflect.TypeOf((*MockFactory)(nil).AddActionHandlers), arg0...)
-}
-
-// Initialize mocks base method
-func (m *MockFactory) Initialize(arg0 config.Config, arg1 *protocol.Registry) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Initialize", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Initialize indicates an expected call of Initialize
-func (mr *MockFactoryMockRecorder) Initialize(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockFactory)(nil).Initialize), arg0, arg1)
 }

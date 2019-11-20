@@ -126,7 +126,7 @@ func (c *roundCalculator) roundInfo(
 	now time.Time,
 	toleratedOvertime time.Duration,
 ) (roundNum uint32, roundStartTime time.Time, err error) {
-	lastBlockTime := time.Unix(c.chain.GenesisTimestamp(), 0)
+	lastBlockTime := time.Unix(c.chain.Genesis().Timestamp, 0)
 	if height > 1 {
 		if height >= c.beringHeight {
 			var lastBlock *block.Header

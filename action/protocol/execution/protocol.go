@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -33,17 +32,16 @@ const (
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
 	addr         address.Address
-	hu           config.HeightUpgrade
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash, hu config.HeightUpgrade) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{getBlockHash: getBlockHash, addr: addr, hu: hu}
+	return &Protocol{getBlockHash: getBlockHash, addr: addr}
 }
 
 // Handle handles an execution
@@ -52,7 +50,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.hu)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

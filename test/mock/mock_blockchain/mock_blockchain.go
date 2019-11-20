@@ -13,6 +13,7 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
+	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
@@ -99,21 +100,6 @@ func (m *MockBlockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[strin
 func (mr *MockBlockchainMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockBlockchain)(nil).ProductivityByEpoch), epochNum)
-}
-
-// GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlockByHash", h)
-	ret0, _ := ret[0].(*block.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockByHash indicates an expected call of GetBlockByHash
-func (mr *MockBlockchainMockRecorder) GetBlockByHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), h)
 }
 
 // BlockHeaderByHeight mocks base method
@@ -274,18 +260,18 @@ func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
 }
 
-// GenesisTimestamp mocks base method
-func (m *MockBlockchain) GenesisTimestamp() int64 {
+// Genesis mocks base method
+func (m *MockBlockchain) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenesisTimestamp")
-	ret0, _ := ret[0].(int64)
+	ret := m.ctrl.Call(m, "Genesis")
+	ret0, _ := ret[0].(genesis.Genesis)
 	return ret0
 }
 
-// GenesisTimestamp indicates an expected call of GenesisTimestamp
-func (mr *MockBlockchainMockRecorder) GenesisTimestamp() *gomock.Call {
+// Genesis indicates an expected call of Genesis
+func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenesisTimestamp", reflect.TypeOf((*MockBlockchain)(nil).GenesisTimestamp))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*MockBlockchain)(nil).Genesis))
 }
 
 // MintNewBlock mocks base method

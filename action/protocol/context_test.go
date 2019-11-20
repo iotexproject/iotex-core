@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/config"
 
 	"github.com/iotexproject/iotex-address/address"
 
@@ -22,25 +23,27 @@ func TestWithRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1, time.Now(), 1, config.Default.Genesis, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	require.NotNil(WithRunActionsCtx(context.Background(), actionCtx))
 }
+
 func TestGetRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1111, time.Now(), 1, config.Default.Genesis, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	ctx := WithRunActionsCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	ret, ok := GetRunActionsCtx(ctx)
 	require.True(ok)
 	require.Equal(uint64(1111), ret.BlockHeight)
 }
+
 func TestMustGetRunActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	actionCtx := RunActionsCtx{1111, time.Now(), 1, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
+	actionCtx := RunActionsCtx{1111, time.Now(), 1, config.Default.Genesis, addr, addr, hash.ZeroHash256, nil, 0, 0, nil}
 	ctx := WithRunActionsCtx(context.Background(), actionCtx)
 	require.NotNil(ctx)
 	// Case I: Normal
@@ -54,14 +57,14 @@ func TestWithValidateActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	validateCtx := ValidateActionsCtx{1, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr}
+	validateCtx := ValidateActionsCtx{1, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr, config.Default.Genesis}
 	require.NotNil(WithValidateActionsCtx(context.Background(), validateCtx))
 }
 func TestGetValidateActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	validateCtx := ValidateActionsCtx{1111, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr}
+	validateCtx := ValidateActionsCtx{1111, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr, config.Default.Genesis}
 	ctx := WithValidateActionsCtx(context.Background(), validateCtx)
 	require.NotNil(ctx)
 	ret, ok := GetValidateActionsCtx(ctx)
@@ -72,7 +75,7 @@ func TestMustGetValidateActionsCtx(t *testing.T) {
 	require := require.New(t)
 	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	validateCtx := ValidateActionsCtx{1111, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr}
+	validateCtx := ValidateActionsCtx{1111, "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms", addr, config.Default.Genesis}
 	ctx := WithValidateActionsCtx(context.Background(), validateCtx)
 	require.NotNil(ctx)
 	// Case I: Normal

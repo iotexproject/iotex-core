@@ -33,8 +33,7 @@ type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
 	cfg                config.Config
-	dao                db.KVStore               // the underlying DB for account/contract storage
-	actionHandlers     []protocol.ActionHandler // the handlers to handle actions
+	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
 }
 
@@ -102,25 +101,32 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 func (sdb *stateDB) Start(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	return sdb.dao.Start(ctx)
+	if err := sdb.dao.Start(ctx); err != nil {
+		return err
+	}
+	// check factory height
+	_, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	switch errors.Cause(err) {
+	case nil:
+		break
+	case db.ErrNotExist:
+		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+		// init the state factory
+		if err = sdb.initialize(ctx); err != nil {
+			return err
+		}
+	default:
+		return err
+	}
+	return nil
 }
 
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	return sdb.dao.Stop(ctx)
-}
-
-// CreateState adds a new account with initial balance to the factory
-func (sdb *stateDB) CreateState(addr string, init *big.Int) (*state.Account, error) {
-	return createState(sdb, sdb.cfg.Genesis.BlockGasLimit, addr, init)
-}
-
-// AddActionHandlers adds action handlers to the state factory
-func (sdb *stateDB) AddActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-	sdb.actionHandlers = append(sdb.actionHandlers, actionHandlers...)
 }
 
 //======================================
@@ -178,10 +184,10 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
+func (sdb *stateDB) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, registry), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -288,11 +294,14 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 // Initialize initializes the state db
-func (sdb *stateDB) Initialize(cfg config.Config, registry *protocol.Registry) error {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.actionHandlers)
-	if err := createGenesisStates(cfg, registry, ws); err != nil {
+func (sdb *stateDB) initialize(ctx context.Context) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok || raCtx.Registry == nil {
+		// not RunActionsCtx or no valid registry
+		return nil
+	}
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry)
+	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}
 	// add Genesis states

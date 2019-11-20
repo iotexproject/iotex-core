@@ -191,12 +191,11 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
 	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.Factory().AddActionHandlers(acc, rewardingProtocol)
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
