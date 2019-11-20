@@ -363,7 +363,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 	if height == 0 {
 		return h, nil
 	}
-	key := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+	key := heightKey(height)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
 		return h, errors.Wrap(err, "failed to get block hash")
@@ -377,7 +377,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 
 // getBlockHeight returns the block height by hash
 func (dao *blockDAO) getBlockHeight(hash hash.Hash256) (uint64, error) {
-	key := append(hashPrefix, hash[:]...)
+	key := hashKey(hash)
 	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
@@ -624,9 +624,9 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 
 	batch := db.NewBatch()
 	heightValue := byteutil.Uint64ToBytes(blkHeight)
-	hashKey := append(hashPrefix, hash[:]...)
+	hashKey := hashKey(hash)
 	batch.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
-	heightKey := append(heightPrefix, heightValue...)
+	heightKey := heightKey(blkHeight)
 	batch.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
 	tipHeight, err := dao.kvstore.Get(blockNS, topHeightKey)
 	if err != nil {
@@ -682,11 +682,11 @@ func (dao *blockDAO) deleteTipBlock() error {
 		return err
 	}
 	// Delete hash -> height mapping
-	hashKey := append(hashPrefix, hash[:]...)
+	hashKey := hashKey(hash)
 	batch.Delete(blockHashHeightMappingNS, hashKey, "failed to delete hash -> height mapping")
 
 	// Delete height -> hash mapping
-	heightKey := append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+	heightKey := heightKey(height)
 	batch.Delete(blockHashHeightMappingNS, heightKey, "failed to delete height -> hash mapping")
 
 	// Update tip height
@@ -842,4 +842,12 @@ func getFileNameAndDir(p string) (fileName, dir string) {
 	fileName = strings.TrimSuffix(withSuffix, suffix)
 	dir = path.Dir(p)
 	return
+}
+
+func hashKey(h hash.Hash256) []byte {
+	return append(hashPrefix, h[:]...)
+}
+
+func heightKey(height uint64) []byte {
+	return append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 }

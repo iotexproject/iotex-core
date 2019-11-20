@@ -259,6 +259,10 @@ func TestBlockDAO(t *testing.T) {
 			h1, err := dao.GetTipHash()
 			require.NoError(err)
 			require.Equal(h, h1)
+			_, err = dao.GetBlockHash(uint64(4-i))
+			require.Error(err)
+			_, err = dao.GetBlockHeight(blks[3-i].HashBlock())
+			require.Error(err)
 			if i <= 2 {
 				require.Equal(blks[2-i].HashBlock(), h)
 			} else {
