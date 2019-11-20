@@ -393,7 +393,6 @@ func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
 	}
 
 	cs.actpool.AddActionValidators(p)
-	cs.chain.Validator().AddActionValidators(p)
 	return nil
 }
 

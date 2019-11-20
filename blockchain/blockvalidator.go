@@ -27,8 +27,7 @@ import (
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(ctx context.Context, block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// AddActionValidators add validators
-	AddActionValidators(...protocol.ActionValidator)
+	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
 	// SetActPool set ActPoolManager
@@ -57,6 +56,25 @@ var (
 	ErrBalance = errors.New("invalid balance")
 )
 
+// Start registers validators
+func (v *validator) Start(ctx context.Context) error {
+	raCtx, ok := protocol.GetRunActionsCtx(ctx)
+	if !ok || raCtx.Registry == nil {
+		// not RunActionsCtx or no valid registry
+		return nil
+	}
+
+	for _, p := range raCtx.Registry.All() {
+		v.addActionValidator(p)
+	}
+	return nil
+}
+
+// Stop does nothing
+func (v *validator) Stop(ctx context.Context) error {
+	return nil
+}
+
 // Validate validates the given block's content
 func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
 	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
@@ -73,11 +91,6 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight ui
 	return v.validateActionsOnly(ctx, blk)
 }
 
-// AddActionValidators add validators
-func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) {
-	v.actionValidators = append(v.actionValidators, validators...)
-}
-
 // AddActionEnvelopeValidators add action envelope validators
 func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnvelopeValidator) {
 	v.actionEnvelopeValidators = append(v.actionEnvelopeValidators, validators...)
@@ -86,6 +99,11 @@ func (v *validator) AddActionEnvelopeValidators(validators ...protocol.ActionEnv
 // SetActPool set ActPool
 func (v *validator) SetActPool(actPool ActPoolManager) {
 	v.actPool = actPool
+}
+
+// addActionValidator add validators
+func (v *validator) addActionValidator(validators ...protocol.ActionValidator) {
+	v.actionValidators = append(v.actionValidators, validators...)
 }
 
 func (v *validator) validateActionsOnly(
