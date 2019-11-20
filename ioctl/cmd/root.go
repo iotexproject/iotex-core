@@ -65,4 +65,5 @@ func init() {
 
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		flagOutputFormatUsages[config.Language])
+	RootCmd.HelpFunc()
 }

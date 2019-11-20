@@ -86,11 +86,11 @@ func init() {
 	}
 	// Check completeness of config file
 	completeness := true
-	if len(ReadConfig.Wallet) == 0 {
+	if ReadConfig.Wallet == "" {
 		ReadConfig.Wallet = ConfigDir
 		completeness = false
 	}
-	if len(ReadConfig.Language) == 0 {
+	if ReadConfig.Language == "" {
 		ReadConfig.Language = supportedLanguage[0]
 		completeness = false
 	}
