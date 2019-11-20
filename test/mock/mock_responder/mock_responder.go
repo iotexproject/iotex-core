@@ -5,10 +5,9 @@
 package mock_responder
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	api "github.com/iotexproject/iotex-core/api"
-	block "github.com/iotexproject/iotex-core/blockchain/block"
-	reflect "reflect"
+	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"reflect"
 )
 
 // MockResponder is a mock of Responder interface
@@ -123,18 +122,4 @@ func (m *MockListener) HandleBlock(arg0 *block.Block) error {
 func (mr *MockListenerMockRecorder) HandleBlock(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockListener)(nil).HandleBlock), arg0)
-}
-
-// AddResponder mocks base method
-func (m *MockListener) AddResponder(arg0 api.Responder) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddResponder", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddResponder indicates an expected call of AddResponder
-func (mr *MockListenerMockRecorder) AddResponder(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddResponder", reflect.TypeOf((*MockListener)(nil).AddResponder), arg0)
 }

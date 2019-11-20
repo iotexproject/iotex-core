@@ -91,3 +91,9 @@ mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go 
         -package=mock_apiserviceclient \
         APIServiceClient
 
+mkdir -p ./test/mock/mock_responder
+mockgen -destination=./test/mock/mock_responder/mock_responder.go \
+        -source=./api/listener.go \
+        -package=mock_responder \
+        Responder
+

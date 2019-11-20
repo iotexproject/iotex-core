@@ -1,8 +1,8 @@
 package api
 
 import (
-	"errors"
-	"github.com/golang/mock/gomock"
+	"fmt"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -11,37 +11,25 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_responder"
-	"github.com/stretchr/testify/require"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
-func TestServer_Start(t *testing.T) {
-	require := require.New(t)
-
-	ctrl := gomock.NewController(t)
-	responder := mock_responder.NewMockResponder(ctrl)
-	listener := NewChainListener()
-	require.NoError(listener.Start())
-	for _, i := range []int{1} {
-		blockT, err := makeBlock(i)
-		if i == 1 {
-			responder.EXPECT().Respond(blockT).Return(nil).Times(1)
-		} else if i == 10 {
-			responder.EXPECT().Respond(blockT).Return(nil)
-		} else if i == 100 {
-			responder.EXPECT().Respond(blockT).Return(errors.New("testing error"))
-		} else if i == 1000 {
-			responder.EXPECT().Respond(blockT).Return(errors.New("testing error"))
-		}
-		listener.AddResponder(responder)
-		listener.HandleBlock(blockT)
-		require.NoError(err)
+func TestBlockListener_Respond(t *testing.T) {
+	steam := &iotexapi.APIService_StreamBlocksServer
+	errChan := make(chan error)
+	bl := NewBlockListener(steam, errChan)
+	for i := 0; i < 10; i++ {
+		block1, _ := makeBlock2(i)
+		err := bl.Respond(block1)
+		fmt.Print(err)
 	}
 }
 
-func makeBlock(n int) (*block.Block, error) {
+func makeBlock2(n int) (*block.Block, error) {
+	rand.Seed(time.Now().Unix())
 	sevlps := make([]action.SealedEnvelope, 0)
-	for i := 1; i <= n; i++ {
+	for j := 1; j <= n; j++ {
+		i := rand.Int()
 		tsf, _ := action.NewTransfer(
 			uint64(i),
 			unit.ConvertIotxToRau(1000+int64(i)),
