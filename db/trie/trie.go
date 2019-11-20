@@ -9,9 +9,8 @@ package trie
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -101,6 +100,20 @@ func RootHashOption(h []byte) Option {
 		case *branchRootTrie:
 			t.rootHash = make([]byte, len(h))
 			copy(t.rootHash, h)
+		default:
+			return errors.New("invalid trie type")
+		}
+		return nil
+	}
+}
+
+// HistoryRetentionOption sets the save history option for the trie
+func HistoryRetentionOption(height uint64) Option {
+	return func(tr Trie) error {
+		switch t := tr.(type) {
+		case *branchRootTrie:
+			t.saveNode = true
+			t.height = height
 		default:
 			return errors.New("invalid trie type")
 		}
