@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
@@ -95,8 +96,8 @@ type Blockchain interface {
 	TipHeight() uint64
 	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
 	RecoverChainAndState(targetHeight uint64) error
-	// GenesisTimestamp returns the timestamp of genesis
-	GenesisTimestamp() int64
+	// Genesis returns the genesis
+	Genesis() genesis.Genesis
 
 	// For block operations
 	// MintNewBlock creates a new block with given actions
@@ -302,19 +303,25 @@ func (bc *blockchain) ChainAddress() string {
 }
 
 // Start starts the blockchain
-func (bc *blockchain) Start(ctx context.Context) (err error) {
+func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	if err = bc.lifecycle.OnStart(ctx); err != nil {
+
+	// pass registry to be used by state factory's initialization
+	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+		Registry:       bc.registry,
+	})
+	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
 	// get blockchain tip height
+	var err error
 	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
 		return err
 	}
-	//start empty blockchain
 	if bc.tipHeight == 0 {
-		return bc.sf.Initialize(bc.config, bc.registry)
+		return nil
 	}
 	// get blockchain tip hash
 	if bc.tipHash, err = bc.dao.GetTipHash(); err != nil {
@@ -372,8 +379,9 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
 		BlockHeight: bc.tipHeight,
 		Registry:    bc.registry,
+		Genesis:     bc.config.Genesis,
 	})
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -454,7 +462,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -467,6 +475,7 @@ func (bc *blockchain) MintNewBlock(
 			Producer:       bc.config.ProducerAddress(),
 			GasLimit:       gasLimitForContext,
 			Registry:       bc.registry,
+			Genesis:        bc.config.Genesis,
 		})
 
 	if newblockHeight == bc.config.Genesis.AleutianBlockHeight {
@@ -581,7 +590,7 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to get block in SimulateExecution")
 	}
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -598,14 +607,10 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 		GasLimit:       gasLimit,
 		GasPrice:       big.NewInt(0),
 		IntrinsicGas:   0,
+		Genesis:        bc.config.Genesis,
 	})
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		bc.dao.GetBlockHash,
-		config.NewHeightUpgrade(bc.config),
-	)
+
+	return evm.ExecuteContract(ctx, ws, ex, bc.dao.GetBlockHash)
 }
 
 // RecoverChainAndState recovers the chain to target height and refresh state db if necessary
@@ -613,6 +618,9 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 	var buildStateFromScratch bool
 	stateHeight, err := bc.sf.Height()
 	if err != nil {
+		return err
+	}
+	if stateHeight == 0 {
 		buildStateFromScratch = true
 	}
 	if targetHeight > 0 {
@@ -630,8 +638,8 @@ func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
 	return nil
 }
 
-func (bc *blockchain) GenesisTimestamp() int64 {
-	return bc.config.Genesis.Timestamp
+func (bc *blockchain) Genesis() genesis.Genesis {
+	return bc.config.Genesis
 }
 
 //======================================
@@ -710,7 +718,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 
-		ws, err := bc.sf.NewWorkingSet()
+		ws, err := bc.sf.NewWorkingSet(bc.registry)
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
@@ -740,13 +748,18 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	if blk.Height() == 1 {
 		prevBlkHash = bc.config.Genesis.Hash()
 	}
-	err := bc.validator.Validate(blk, bc.tipHeight, prevBlkHash)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis},
+	)
+
+	err := bc.validator.Validate(ctx, blk, bc.tipHeight, prevBlkHash)
 	validateTimer.End()
 	if err != nil {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
 	}
 	// run actions and update state factory
-	ws, err := bc.sf.NewWorkingSet()
+	ws, err := bc.sf.NewWorkingSet(bc.registry)
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -835,6 +848,7 @@ func (bc *blockchain) runActions(
 			Producer:       producer,
 			GasLimit:       gasLimit,
 			Registry:       bc.registry,
+			Genesis:        bc.config.Genesis,
 		})
 
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {
@@ -997,7 +1011,7 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	default:
 		return
 	}
-	l, err := pp.DelegatesByHeight(epochHeight)
+	l, err := pp.DelegatesByHeight(config.NewHeightUpgrade(&bc.config.Genesis), epochHeight)
 	switch errors.Cause(err) {
 	case nil:
 		if len(l) == 0 {
@@ -1061,15 +1075,12 @@ func (bc *blockchain) refreshStateDB() error {
 		return errors.Wrap(err, "failed to reinitialize state DB")
 	}
 
-	for _, p := range bc.registry.All() {
-		bc.sf.AddActionHandlers(p)
-	}
-
-	if err := bc.sf.Start(context.Background()); err != nil {
+	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
+		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
+		Registry:       bc.registry,
+	})
+	if err := bc.sf.Start(ctx); err != nil {
 		return errors.Wrap(err, "failed to start state factory")
-	}
-	if err := bc.sf.Initialize(bc.config, bc.registry); err != nil {
-		return errors.Wrap(err, "failed to initialize state factory")
 	}
 	if err := bc.sf.Stop(context.Background()); err != nil {
 		return errors.Wrap(err, "failed to stop state factory")

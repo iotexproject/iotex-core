@@ -191,7 +191,6 @@ func TestValidateBlockFooter(t *testing.T) {
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
-	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(5)
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
@@ -206,6 +205,8 @@ func TestValidateBlockFooter(t *testing.T) {
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
+	cfg.Genesis.Timestamp = int64(1500000000)
+	blockchain.EXPECT().Genesis().Return(cfg.Genesis).Times(5)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -268,7 +269,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
-	blockchain.EXPECT().GenesisTimestamp().Return(int64(1500000000)).Times(2)
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
 	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
 		{Address: candidates[0]},
@@ -283,6 +283,8 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
+	cfg.Genesis.Timestamp = int64(1500000000)
+	blockchain.EXPECT().Genesis().Return(cfg.Genesis).Times(2)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -409,7 +411,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
 			for j := 0; j < numNodes; j++ {
-				ws, err := sf.NewWorkingSet()
+				ws, err := sf.NewWorkingSet(nil)
 				require.NoError(t, err)
 				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)
@@ -418,14 +420,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 					protocol.RunActionsCtx{
 						Producer: identityset.Address(27),
 						GasLimit: gasLimit,
+						Genesis:  cfg.Genesis,
 					})
 				_, err = ws.RunActions(wsctx, 0, nil)
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.Registry{}
-			hu := config.NewHeightUpgrade(cfg)
-			acc := account.NewProtocol(hu)
+			acc := account.NewProtocol()
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -437,7 +439,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.RegistryOption(&registry),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
-			chain.Validator().AddActionValidators(account.NewProtocol(hu))
+			chain.Validator().AddActionValidators(account.NewProtocol())
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

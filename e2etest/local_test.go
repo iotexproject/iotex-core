@@ -175,11 +175,10 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	chain.Validator().AddActionValidators(acc, rewardingProtocol)
-	chain.Factory().AddActionHandlers(acc, rewardingProtocol)
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -524,7 +523,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
-	require.Error(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
+	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
 	// Refresh state DB
 	require.NoError(bc.RecoverChainAndState(0))
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))

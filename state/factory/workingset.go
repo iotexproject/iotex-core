@@ -85,14 +85,18 @@ func NewWorkingSet(
 	version uint64,
 	kv db.KVStore,
 	root hash.Hash256,
-	actionHandlers []protocol.ActionHandler,
+	registry *protocol.Registry,
 ) (WorkingSet, error) {
 	ws := &workingSet{
-		ver:            version,
-		trieRoots:      make(map[int]hash.Hash256),
-		cb:             db.NewCachedBatch(),
-		dao:            kv,
-		actionHandlers: actionHandlers,
+		ver:       version,
+		trieRoots: make(map[int]hash.Hash256),
+		cb:        db.NewCachedBatch(),
+		dao:       kv,
+	}
+	if registry != nil {
+		for _, p := range registry.All() {
+			ws.addActionHandlers(p)
+		}
 	}
 	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
 	if err != nil {
@@ -283,4 +287,9 @@ func (ws *workingSet) DelState(pkHash hash.Hash160) error {
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
 	ws.trieRoots = make(map[int]hash.Hash256)
+}
+
+// addActionHandlers adds action handlers to the state factory
+func (ws *workingSet) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
+	ws.actionHandlers = append(ws.actionHandlers, actionHandlers...)
 }

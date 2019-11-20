@@ -43,10 +43,8 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
 	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
@@ -61,23 +59,19 @@ func TestAction_Negative(t *testing.T) {
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	err = bc.ValidateBlock(blk)
-	r.Error(err)
-	err = bc.CommitBlock(blk)
-	r.NoError(err)
+	r.Error(bc.ValidateBlock(blk))
+	r.Panics(func() { bc.CommitBlock(blk) })
 	balance, err := bc.Factory().Balance(executor)
 	r.NoError(err)
-	r.Equal(-1, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
 
-func prepareBlockchain(
-	ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
+func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	hu := config.NewHeightUpgrade(cfg)
-	acc := account.NewProtocol(hu)
+	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -93,12 +87,14 @@ func prepareBlockchain(
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(account.NewProtocol(hu), execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
+	bc.Validator().AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	sf := bc.Factory()
 	r.NotNil(sf)
-	sf.AddActionHandlers(execution.NewProtocol(bc.BlockDAO().GetBlockHash, hu), reward)
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	r.NoError(registry.Register(execution.ProtocolID, exec))
+	r.NoError(bc.Start(ctx))
+	ws, err := sf.NewWorkingSet(&registry)
 	r.NoError(err)
 	balance, ok := new(big.Int).SetString("1000000000000000000000000000", 10)
 	r.True(ok)
@@ -109,12 +105,14 @@ func prepareBlockchain(
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
+			Genesis:  cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
 	return bc
 }
+
 func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
@@ -126,6 +124,7 @@ func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Bl
 		Build()
 	return prepare(bc, elp, r)
 }
+
 func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
 	r.NoError(err)
@@ -137,6 +136,7 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 		Build()
 	return prepare(bc, elp, r)
 }
+
 func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
 	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	r.NoError(err)
@@ -149,5 +149,8 @@ func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertion
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
+	// when validate/commit a blk, the workingset and receipts of blk should be nil
+	blk.WorkingSet = nil
+	blk.Receipts = nil
 	return blk, nil
 }

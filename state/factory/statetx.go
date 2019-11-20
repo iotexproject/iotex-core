@@ -33,14 +33,19 @@ type stateTX struct {
 func newStateTX(
 	version uint64,
 	kv db.KVStore,
-	actionHandlers []protocol.ActionHandler,
+	registry *protocol.Registry,
 ) *stateTX {
-	return &stateTX{
-		ver:            version,
-		cb:             db.NewCachedBatch(),
-		dao:            kv,
-		actionHandlers: actionHandlers,
+	st := &stateTX{
+		ver: version,
+		cb:  db.NewCachedBatch(),
+		dao: kv,
 	}
+	if registry != nil {
+		for _, p := range registry.All() {
+			st.addActionHandlers(p)
+		}
+	}
+	return st
 }
 
 // RootHash returns the hash of the root node of the accountTrie
@@ -185,4 +190,9 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
+}
+
+// addActionHandlers adds action handlers to the state factory
+func (stx *stateTX) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
+	stx.actionHandlers = append(stx.actionHandlers, actionHandlers...)
 }

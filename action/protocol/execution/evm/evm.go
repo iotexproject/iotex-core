@@ -65,7 +65,7 @@ func NewParams(
 	raCtx protocol.RunActionsCtx,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
-	hu config.HeightUpgrade,
+	getBlockHash GetBlockHash,
 ) (*Params, error) {
 	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
@@ -79,6 +79,7 @@ func NewParams(
 	}
 
 	gasLimit := execution.GasLimit()
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
 	if raCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, raCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
@@ -87,7 +88,14 @@ func NewParams(
 	context := vm.Context{
 		CanTransfer: CanTransfer,
 		Transfer:    MakeTransfer,
-		GetHash:     GetHashFn(stateDB),
+		GetHash: func(n uint64) common.Hash {
+			hash, err := getBlockHash(stateDB.blockHeight - n)
+			if err != nil {
+				return common.BytesToHash(hash[:])
+			}
+
+			return common.Hash{}
+		},
 		Origin:      executorAddr,
 		Coinbase:    common.BytesToAddress(raCtx.Producer.Bytes()),
 		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
@@ -106,18 +114,6 @@ func NewParams(
 		gasLimit,
 		execution.Data(),
 	}, nil
-}
-
-// GetHashFn returns a GetHashFunc which retrieves hashes by number
-func GetHashFn(stateDB *StateDBAdapter) func(n uint64) common.Hash {
-	return func(n uint64) common.Hash {
-		hash, err := stateDB.getBlockHash(stateDB.blockHeight - n)
-		if err != nil {
-			return common.BytesToHash(hash[:])
-		}
-
-		return common.Hash{}
-	}
 }
 
 func securityDeposit(ps *Params, stateDB vm.StateDB, gasLimit uint64) error {
@@ -144,15 +140,20 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	getBlockHash GetBlockHash,
-	hu config.HeightUpgrade,
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	stateDB := NewStateDBAdapter(getBlockHash, sm, hu, raCtx.BlockHeight, execution.Hash())
-	ps, err := NewParams(raCtx, execution, stateDB, hu)
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	stateDB := NewStateDBAdapter(
+		sm,
+		raCtx.BlockHeight,
+		hu.IsPre(config.Aleutian, raCtx.BlockHeight),
+		execution.Hash(),
+	)
+	ps, err := NewParams(raCtx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, raCtx.GasLimit, raCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, hu, raCtx.GasLimit, raCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -199,15 +200,15 @@ func getChainConfig(beringHeight uint64) *params.ChainConfig {
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
-	isBering := stateDB.hu.IsPost(config.Bering, blockHeight)
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, hu config.HeightUpgrade, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+	isBering := hu.IsPost(config.Bering, blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig(stateDB.hu.BeringBlockHeight())
+	chainConfig := getChainConfig(hu.BeringBlockHeight())
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {

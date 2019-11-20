@@ -26,13 +26,13 @@ type Receipt struct {
 
 // Log stores an evm contract event
 type Log struct {
-	Address     string
-	Topics      []hash.Hash256
-	Data        []byte
-	BlockHeight uint64
-	ActionHash  hash.Hash256
-	Index       uint
-	PreAleutian bool
+	Address            string
+	Topics             []hash.Hash256
+	Data               []byte
+	BlockHeight        uint64
+	ActionHash         hash.Hash256
+	Index              uint
+	NotFixTopicCopyBug bool
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
@@ -95,7 +95,7 @@ func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l.ContractAddress = log.Address
 	l.Topics = [][]byte{}
 	for _, topic := range log.Topics {
-		if log.PreAleutian {
+		if log.NotFixTopicCopyBug {
 			l.Topics = append(l.Topics, topic[:])
 		} else {
 			data := make([]byte, len(topic))

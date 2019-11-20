@@ -41,7 +41,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -50,10 +50,9 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg))
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -115,7 +114,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	registry := protocol.Registry{}
-	acc := account.NewProtocol(config.NewHeightUpgrade(cfg))
+	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
@@ -124,10 +123,9 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(&registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash, config.NewHeightUpgrade(cfg))
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionValidators(acc, exec)
-	bc.Factory().AddActionHandlers(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))

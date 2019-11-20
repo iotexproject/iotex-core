@@ -28,7 +28,6 @@ import (
 )
 
 type stakingCommittee struct {
-	hu                   config.HeightUpgrade
 	getTipBlockTime      GetTipBlockTime
 	getEpochHeight       GetEpochHeight
 	getEpochNum          GetEpochNum
@@ -42,7 +41,6 @@ type stakingCommittee struct {
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
 func NewStakingCommittee(
-	hu config.HeightUpgrade,
 	ec committee.Committee,
 	gs Protocol,
 	cm protocol.ChainManager,
@@ -71,7 +69,6 @@ func NewStakingCommittee(
 		}
 	}
 	return &stakingCommittee{
-		hu:                hu,
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
@@ -99,14 +96,14 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 	return validate(ctx, sc, act)
 }
 
-func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateList, error) {
-	cand, err := sc.governanceStaking.DelegatesByHeight(height)
+func (sc *stakingCommittee) DelegatesByHeight(hu config.HeightUpgrade, height uint64) (state.CandidateList, error) {
+	cand, err := sc.governanceStaking.DelegatesByHeight(hu, height)
 	if err != nil {
 		return nil, err
 	}
 	// convert to epoch start height
 	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
-	if sc.hu.IsPre(config.Cook, epochHeight) {
+	if hu.IsPre(config.Cook, epochHeight) {
 		return sc.filterDelegates(cand), nil
 	}
 	// native staking starts from Cook
@@ -174,7 +171,8 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	epochHeight := sc.getEpochHeight(sc.getEpochNum(raCtx.BlockHeight))
-	if sc.hu.IsPre(config.Cook, epochHeight) {
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	if hu.IsPre(config.Cook, epochHeight) {
 		return nil
 	}
 	if err != nil {

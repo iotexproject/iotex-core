@@ -8,6 +8,8 @@ package config
 
 import (
 	"log"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 // Codename for height upgrades
@@ -34,13 +36,13 @@ type (
 )
 
 // NewHeightUpgrade creates a height upgrade config
-func NewHeightUpgrade(cfg Config) HeightUpgrade {
+func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 	return HeightUpgrade{
-		cfg.Genesis.PacificBlockHeight,
-		cfg.Genesis.AleutianBlockHeight,
-		cfg.Genesis.BeringBlockHeight,
-		cfg.Genesis.CookBlockHeight,
-		cfg.Genesis.DardanellesBlockHeight,
+		cfg.PacificBlockHeight,
+		cfg.AleutianBlockHeight,
+		cfg.BeringBlockHeight,
+		cfg.CookBlockHeight,
+		cfg.DardanellesBlockHeight,
 	}
 }
 
