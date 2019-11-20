@@ -96,6 +96,7 @@ func init() {
 	// Set language of ioctl
 	Language = isSupportedLanguage(ReadConfig.Language)
 	if Language == -1 {
+		Language = 0
 		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead."))
 		fmt.Println(message.Warn())
 	}
