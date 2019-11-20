@@ -144,8 +144,8 @@ var (
 		},
 		BlockSync: BlockSync{
 			Interval:        10 * time.Second,
-			BufferSize:      100,
-			IntervalSize:    10,
+			BufferSize:      200,
+			IntervalSize:    20,
 			MaxRepeat:       3,
 			RepeatDecayStep: 1,
 		},
