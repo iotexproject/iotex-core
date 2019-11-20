@@ -1,12 +1,11 @@
 package block
 
 import (
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
