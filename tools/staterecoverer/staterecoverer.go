@@ -15,13 +15,15 @@ import (
 	glog "log"
 	"os"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/server/itx"
-	recoverutil "github.com/iotexproject/iotex-core/tools/util"
 )
 
 // recoveryHeight is the blockchain height being recovered to
@@ -69,8 +71,30 @@ func main() {
 			log.L().Fatal("Failed to stop blockchain")
 		}
 	}()
-	registry := svr.ChainService(cfg.Chain.ID).Registry()
-	if err := recoverutil.RecoverChainAndState(bc, registry, cfg, uint64(recoveryHeight)); err != nil {
+	if err := recoverChainAndState(bc, cfg, uint64(recoveryHeight)); err != nil {
 		log.L().Fatal("Failed to recover chain and state.", zap.Error(err))
+	} else {
+		log.S().Infof("Success to recover chain and state to target height %d", recoveryHeight)
 	}
+}
+
+// recoverChainAndState recovers the chain to target height and refresh state db if necessary
+func recoverChainAndState(bc blockchain.Blockchain, cfg config.Config, targetHeight uint64) error {
+	stateHeight, err := bc.Factory().Height()
+	if err != nil {
+		return err
+	}
+	if targetHeight > 0 {
+		// recover the blockchain to target height
+		if err := bc.BlockDAO().DeleteBlockToTarget(targetHeight); err != nil {
+			return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
+		}
+	}
+	if stateHeight == 0 || (targetHeight > 0 && stateHeight > targetHeight) {
+		// delete existing state DB (build from scratch)
+		if fileutil.FileExists(cfg.Chain.TrieDBPath) && os.Remove(cfg.Chain.TrieDBPath) != nil {
+			return errors.New("failed to delete existing state DB")
+		}
+	}
+	return nil
 }

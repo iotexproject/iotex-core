@@ -251,7 +251,7 @@ func TestBlockDAO(t *testing.T) {
 			require.NoError(err)
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
-			require.NoError(dao.DeleteTipBlock())
+			require.NoError(dao.DeleteBlockToTarget(uint64(3 - i)))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
@@ -293,8 +293,7 @@ func TestBlockDAO(t *testing.T) {
 				}
 			}
 		}
-		// cannot delete genesis block
-		require.Error(dao.DeleteTipBlock())
+		require.NoError(dao.DeleteBlockToTarget(0))
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
