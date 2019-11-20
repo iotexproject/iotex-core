@@ -139,7 +139,7 @@ func (m StringMessage) Query() string {
 // Warn prints warn message
 func (m StringMessage) Warn() string {
 	if Format == "" {
-		return "Warn: " + string(m)
+		return fmt.Sprint("Warn: %s\n", string(m))
 	}
 	return FormatString(Warn, m)
 }

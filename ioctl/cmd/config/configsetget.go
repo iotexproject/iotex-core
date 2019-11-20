@@ -286,6 +286,6 @@ func reset() error {
 		return err
 	}
 
-	output.PrintResult("Config reset to default values")
+	output.PrintResult("Config set to default values")
 	return nil
 }

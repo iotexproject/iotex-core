@@ -73,33 +73,42 @@ func init() {
 	}
 	// Path to config file
 	DefaultConfigFile = ConfigDir + "/config.default"
-	// Load or reset config
+	// Load or reset config file
 	var err error
 	ReadConfig, err = LoadConfig()
-	if err != nil || len(ReadConfig.Wallet) == 0 {
-		if err != nil && !os.IsNotExist(err) {
-			log.L().Panic(err.Error()) // Config file exists but error occurs
-		}
-		ReadConfig.Wallet = ConfigDir
+	if err != nil {
 		if os.IsNotExist(err) {
-			ReadConfig.SecureConnect = true
+			err = reset() // Config file doesn't exist
 		}
-		out, err := yaml.Marshal(&ReadConfig)
 		if err != nil {
 			log.L().Panic(err.Error())
 		}
-		// If default config not exist, create new default config
-		if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-			log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
+	}
+	// Check completeness of config file
+	completeness := true
+	if len(ReadConfig.Wallet) == 0 {
+		ReadConfig.Wallet = ConfigDir
+		completeness = false
+	}
+	if len(ReadConfig.Language) == 0 {
+		ReadConfig.Language = supportedLanguage[0]
+		completeness = false
+	}
+	if !completeness {
+		err := writeConfig()
+		if err != nil {
+			log.L().Panic(err.Error())
 		}
 	}
-	// Set language of ioctl
+	// Set language for ioctl
 	Language = isSupportedLanguage(ReadConfig.Language)
 	if Language == -1 {
 		Language = 0
-		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead."))
+		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead.",
+			ReadConfig.Language))
 		fmt.Println(message.Warn())
 	}
+	// Init subcommands
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)
 	ConfigCmd.AddCommand(configResetCmd)
