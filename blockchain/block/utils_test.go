@@ -47,7 +47,7 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 }
 
 func TestBody_CalculateTransferAmount(t *testing.T) {
-	require := require.New(t)
+	requireT := require.New(t)
 	var sevlps []action.SealedEnvelope
 	transferAmount := big.NewInt(0)
 
@@ -69,11 +69,11 @@ func TestBody_CalculateTransferAmount(t *testing.T) {
 			SetVersion(1).
 			Build()
 		sevlp, err := action.Sign(evlp, identityset.PrivateKey((i+1)%identityset.Size()))
-		require.NoError(err)
+		requireT.NoError(err)
 		transferAmount.Add(transferAmount, tsf.Amount())
 		sevlps = append(sevlps, sevlp)
 	}
 
 	amount := calculateTransferAmount(sevlps)
-	require.Equal(amount, transferAmount)
+	requireT.Equal(amount, transferAmount)
 }
