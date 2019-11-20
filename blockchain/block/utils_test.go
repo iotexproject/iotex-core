@@ -12,6 +12,7 @@ import (
 )
 
 func TestBody_CalculateTxRoot(t *testing.T) {
+	
 	require := require.New(t)
 	var sevlps []action.SealedEnvelope
 	h := make([]hash.Hash256, 0, 10)
