@@ -293,7 +293,6 @@ func TestBlockDAO(t *testing.T) {
 				}
 			}
 		}
-		require.NoError(dao.DeleteBlockToTarget(0))
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {

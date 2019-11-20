@@ -80,17 +80,15 @@ func main() {
 
 // recoverChainAndState recovers the chain to target height and refresh state db if necessary
 func recoverChainAndState(bc blockchain.Blockchain, cfg config.Config, targetHeight uint64) error {
+	// recover the blockchain to target height(blockDAO)
+	if err := bc.BlockDAO().DeleteBlockToTarget(targetHeight); err != nil {
+		return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
+	}
 	stateHeight, err := bc.Factory().Height()
 	if err != nil {
 		return err
 	}
-	if targetHeight > 0 {
-		// recover the blockchain to target height
-		if err := bc.BlockDAO().DeleteBlockToTarget(targetHeight); err != nil {
-			return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
-		}
-	}
-	if stateHeight == 0 || (targetHeight > 0 && stateHeight > targetHeight) {
+	if targetHeight < stateHeight {
 		// delete existing state DB (build from scratch)
 		if fileutil.FileExists(cfg.Chain.TrieDBPath) && os.Remove(cfg.Chain.TrieDBPath) != nil {
 			return errors.New("failed to delete existing state DB")
