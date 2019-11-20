@@ -179,6 +179,20 @@ func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockWorkingSet)(nil).Height))
 }
 
+// History mocks base method
+func (m *MockWorkingSet) History() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "History")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// History indicates an expected call of History
+func (mr *MockWorkingSetMockRecorder) History() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorkingSet)(nil).History))
+}
+
 // State mocks base method
 func (m *MockWorkingSet) State(arg0 hash.Hash160, arg1 interface{}) error {
 	m.ctrl.T.Helper()

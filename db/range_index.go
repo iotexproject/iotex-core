@@ -18,6 +18,8 @@ import (
 var (
 	// MaxKey is the special key such that bytes.Compare(MaxUint64, MaxKey) = -1
 	MaxKey = []byte{255, 255, 255, 255, 255, 255, 255, 255, 0}
+	// NotExist is the empty byte slice to indicate a key does not exist (as a result of calling Purge())
+	NotExist = []byte{}
 )
 
 type (
@@ -44,6 +46,8 @@ type (
 		Get(uint64) ([]byte, error)
 		// Delete deletes an existing key
 		Delete(uint64) error
+		// Purge deletes an existing key and all keys before it
+		Purge(uint64) error
 		// Close makes the index not usable
 		Close()
 	}
@@ -68,6 +72,7 @@ func NewRangeIndex(db *bolt.DB, retry uint8, name []byte) (RangeIndex, error) {
 
 	bucket := make([]byte, len(name))
 	copy(bucket, name)
+
 	return &rangeIndex{
 		db:         db,
 		numRetries: retry,
@@ -88,17 +93,22 @@ func (r *rangeIndex) Insert(key uint64, value []byte) error {
 			if bucket == nil {
 				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
 			}
-			// read current value
-			curr := bucket.Get(MaxKey)
-			if curr == nil {
-				return errors.Wrap(ErrIO, "cannot read current value")
+			cur := bucket.Cursor()
+			ak := byteutil.Uint64ToBytesBigEndian(key - 1)
+			k, v := cur.Seek(ak)
+			if !bytes.Equal(k, ak) {
+				// insert new key
+				if err := bucket.Put(ak, v); err != nil {
+					return err
+				}
+			} else {
+				// update an existing key
+				k, _ = cur.Next()
 			}
-			// keys up to key-1 should have current value
-			if err := bucket.Put(byteutil.Uint64ToBytesBigEndian(key-1), curr); err != nil {
-				return err
+			if k != nil {
+				return bucket.Put(k, value)
 			}
-			// write new value
-			return bucket.Put(MaxKey, value)
+			return nil
 		}); err == nil {
 			break
 		}
@@ -150,10 +160,48 @@ func (r *rangeIndex) Delete(key uint64) error {
 				// return nil if the key does not exist
 				return nil
 			}
-			bucket.Delete(ak)
-			// need to move the corresponding value to next key
-			k, _ = cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
-			return bucket.Put(k, v)
+			if err := bucket.Delete(ak); err != nil {
+				return err
+			}
+			// write the corresponding value to next key
+			k, _ = cur.Next()
+			if k != nil {
+				return bucket.Put(k, v)
+			}
+			return nil
+		}); err == nil {
+			break
+		}
+	}
+	return err
+}
+
+// Purge deletes an existing key and all keys before it
+func (r *rangeIndex) Purge(key uint64) error {
+	// cannot delete key 0, which holds initial value
+	if key == 0 {
+		return errors.Wrap(ErrInvalid, "cannot delete key 0")
+	}
+	var err error
+	for i := uint8(0); i < r.numRetries; i++ {
+		if err = r.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket(r.bucket)
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
+			}
+			cur := bucket.Cursor()
+			nk, _ := cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
+			// delete all keys before this key
+			for k, _ := cur.Prev(); k != nil; k, _ = cur.Prev() {
+				if err := bucket.Delete(k); err != nil {
+					return err
+				}
+			}
+			// write not exist value to next key
+			if nk != nil {
+				return bucket.Put(nk, NotExist)
+			}
+			return nil
 		}); err == nil {
 			break
 		}

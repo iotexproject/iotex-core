@@ -48,6 +48,7 @@ type (
 		logs               []*action.Log
 		err                error
 		blockHeight        uint64
+		saveHistory        bool
 		executionHash      hash.Hash256
 		refund             uint64
 		cachedContract     contractMap
@@ -62,14 +63,26 @@ type (
 	}
 )
 
+// StateDBOption set StateDBAdapter construction param
+type StateDBOption func(*StateDBAdapter) error
+
+// SaveHistoryOption creates StateDBAdapter with history
+func SaveHistoryOption() StateDBOption {
+	return func(s *StateDBAdapter) error {
+		s.saveHistory = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
 	sm protocol.StateManager,
 	blockHeight uint64,
 	notFixTopicCopyBug bool,
 	executionHash hash.Hash256,
+	opts ...StateDBOption,
 ) *StateDBAdapter {
-	return &StateDBAdapter{
+	s := &StateDBAdapter{
 		sm:                 sm,
 		logs:               []*action.Log{},
 		err:                nil,
@@ -85,6 +98,12 @@ func NewStateDBAdapter(
 		cb:                 sm.GetCachedBatch(),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			log.L().Panic("failed to execute stateDB creation option")
+		}
+	}
+	return s
 }
 
 func (stateDB *StateDBAdapter) logError(err error) {
@@ -690,7 +709,12 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.dao, stateDB.cb)
+	var contract Contract
+	if stateDB.saveHistory {
+		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb, HistoryRetentionOption(stateDB.blockHeight))
+	} else {
+		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

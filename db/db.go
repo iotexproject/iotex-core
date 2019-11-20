@@ -47,6 +47,10 @@ type KVStore interface {
 	CreateCountingIndexNX([]byte) (CountingIndex, error)
 	// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
 	CreateRangeIndexNX([]byte, []byte) (RangeIndex, error)
+	// GetBucketByPrefix retrieves all bucket those with const namespace prefix
+	GetBucketByPrefix([]byte) ([][]byte, error)
+	// GetKeyByPrefix retrieves all keys those with const prefix
+	GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error)
 }
 
 const (
@@ -161,4 +165,14 @@ func (m *memKVStore) CreateCountingIndexNX(name []byte) (CountingIndex, error) {
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
 func (m *memKVStore) CreateRangeIndexNX(name, init []byte) (RangeIndex, error) {
 	return nil, ErrInvalid
+}
+
+// GetBucketByPrefix retrieves all bucket those with const namespace prefix
+func (m *memKVStore) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
+	return nil, nil
+}
+
+// GetKeyByPrefix retrieves all keys those with const prefix
+func (m *memKVStore) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
+	return nil, nil
 }

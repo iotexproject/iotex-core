@@ -115,6 +115,7 @@ var (
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
+			EnableHistoryStateDB:          false,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -175,8 +176,9 @@ var (
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
-			SplitDBSizeMB: 0,
-			SplitDBHeight: 900000,
+			SplitDBSizeMB:         0,
+			SplitDBHeight:         900000,
+			HistoryStateRetention: 2000,
 		},
 		Genesis: genesis.Default,
 	}
@@ -225,6 +227,7 @@ type (
 		Committee       committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
+		EnableHistoryStateDB  bool `yaml:"enableHistoryStateDB"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// CompressBlock enables gzip compression on block data
@@ -339,6 +342,8 @@ type (
 		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
 		// SplitDBHeight is the config for DB's split start height
 		SplitDBHeight uint64 `yaml:"splitDBHeight"`
+		// HistoryStateRetention is the number of blocks account/contract state will be retained
+		HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	}
 
 	// RDS is the cloud rds config
