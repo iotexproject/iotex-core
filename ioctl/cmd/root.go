@@ -32,6 +32,10 @@ var (
 		`ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 		`ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
+	flagOutputFormatUsages = []string{
+		"output format",
+		"指定输出格式",
+	}
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -60,5 +64,5 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		"output format")
+		flagOutputFormatUsages[config.Language])
 }
