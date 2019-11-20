@@ -62,7 +62,7 @@ var (
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
 	// Language represents the index of language of ioctl user interface, default is 0 representing English
-	Language = 0
+	Language int
 )
 
 func init() {

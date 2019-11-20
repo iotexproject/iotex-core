@@ -245,7 +245,7 @@ func set(args []string) error {
 			}
 		default:
 			return output.NewError(output.ConfigError,
-				fmt.Sprintf("Explorer %s is not valid\nValid Explorers: %s",
+				fmt.Sprintf("Explorer %s is not valid\nValid explorers: %s",
 					args[1], append(validExpl, "custom")), nil)
 		}
 	case "defaultacc":
@@ -259,7 +259,7 @@ func set(args []string) error {
 		lowArg := strings.ToLower(args[1])
 		if isSupportedLanguage(lowArg) == -1 {
 			return output.NewError(output.ConfigError,
-				fmt.Sprintf("Language %s is not supported\nSupported Explorers: %s",
+				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
 					args[1], supportedLanguage), nil)
 		}
 		ReadConfig.Language = lowArg
