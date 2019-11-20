@@ -1,16 +1,17 @@
 package block
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
-
+	
+	"github.com/stretchr/testify/require"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/stretchr/testify/require"
+	
 )
-
 func TestBody_CalculateTxRoot(t *testing.T) {
 
 	requireT := require.New(t)
@@ -40,9 +41,11 @@ func TestBody_CalculateTxRoot(t *testing.T) {
 
 	c := calculateTxRoot(sevlps)
 
-	c2 := []byte{158, 73, 244, 188, 155, 10, 251, 87, 98, 163, 234, 194, 38, 174, 215,
-		255, 8, 148, 44, 204, 10, 56, 102, 180, 99, 188, 79, 146, 66, 219, 41, 30}
+	c2 := []byte{158, 73, 244, 188, 155, 10, 251, 87, 98, 163, 234, 194, 38, 174,
+		     215, 255, 8, 148, 44, 204, 10, 56, 102, 180, 99, 188, 79, 146, 66, 219, 41, 30}
 	c3 := hash.BytesToHash256(c2)
+	fmt.Println(c)
+	fmt.Println(c2)
 	requireT.Equal(c, c3)
 }
 
