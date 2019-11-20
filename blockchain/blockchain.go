@@ -143,8 +143,7 @@ type blockchain struct {
 	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
-	sf factory.Factory
-
+	sf       factory.Factory
 	registry *protocol.Registry
 }
 
@@ -160,6 +159,9 @@ type Option func(*blockchain, config.Config) error
 // DefaultStateFactoryOption sets blockchain's sf from config
 func DefaultStateFactoryOption() Option {
 	return func(bc *blockchain, cfg config.Config) (err error) {
+		if bc.sf != nil {
+			return nil
+		}
 		if cfg.Chain.EnableTrielessStateDB {
 			bc.sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
 		} else {
@@ -175,8 +177,10 @@ func DefaultStateFactoryOption() Option {
 // PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
 func PrecreatedStateFactoryOption(sf factory.Factory) Option {
 	return func(bc *blockchain, conf config.Config) error {
+		if bc.sf != nil {
+			return nil
+		}
 		bc.sf = sf
-
 		return nil
 	}
 }
@@ -184,6 +188,9 @@ func PrecreatedStateFactoryOption(sf factory.Factory) Option {
 // InMemStateFactoryOption sets blockchain's factory.Factory as in memory sf
 func InMemStateFactoryOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
+		if bc.sf != nil {
+			return nil
+		}
 		sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 		if err != nil {
 			return errors.Wrapf(err, "Failed to create state factory")
@@ -849,6 +856,7 @@ func (bc *blockchain) runActions(
 			GasLimit:       gasLimit,
 			Registry:       bc.registry,
 			Genesis:        bc.config.Genesis,
+			History:        ws.History(),
 		})
 
 	if acts.BlockHeight() == bc.config.Genesis.AleutianBlockHeight {

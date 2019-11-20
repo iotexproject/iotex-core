@@ -721,7 +721,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), nil)
+		ws := newStateTX(0, db.NewMemKVStore(), nil, false)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }
