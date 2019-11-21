@@ -24,11 +24,11 @@ import (
 func TestNewCountingIndex(t *testing.T) {
 	require := require.New(t)
 
-	_, err := CreateCountingIndexNX(nil, []byte{1})
+	_, err := NewCountingIndexNX(nil, []byte{1})
 	require.Equal(ErrInvalid, errors.Cause(err))
-	_, err = CreateCountingIndexNX(NewMemKVStore(), nil)
+	_, err = NewCountingIndexNX(NewMemKVStore(), nil)
 	require.Equal(ErrInvalid, errors.Cause(err))
-	_, err = CreateCountingIndexNX(NewMemKVStore(), []byte{})
+	_, err = NewCountingIndexNX(NewMemKVStore(), []byte{})
 	require.Equal(ErrInvalid, errors.Cause(err))
 }
 
@@ -45,7 +45,7 @@ func TestCountingIndex(t *testing.T) {
 		_, err := GetCountingIndex(kv, bucket)
 		require.Equal(ErrNotExist, errors.Cause(err))
 
-		index, err := CreateCountingIndexNX(kv, bucket)
+		index, err := NewCountingIndexNX(kv, bucket)
 		require.NoError(err)
 		require.Equal(uint64(0), index.Size())
 
@@ -169,7 +169,7 @@ func TestBulk(t *testing.T) {
 		// create 10000 tenants
 		for i := 0; i < Tenants; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			tenant, err := CreateCountingIndexNX(kv, h[:])
+			tenant, err := NewCountingIndexNX(kv, h[:])
 			require.NoError(err)
 
 			for i := 0; i < Keys; i++ {

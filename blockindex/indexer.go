@@ -92,7 +92,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 	}
 	// create the total block and action index
 	var err error
-	if x.tbk, err = db.CreateCountingIndexNX(x.kvstore, totalBlocksBucket); err != nil {
+	if x.tbk, err = db.NewCountingIndexNX(x.kvstore, totalBlocksBucket); err != nil {
 		return err
 	}
 	if x.tbk.Size() == 0 {
@@ -104,7 +104,7 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	x.tac, err = db.CreateCountingIndexNX(x.kvstore, totalActionsBucket)
+	x.tac, err = db.NewCountingIndexNX(x.kvstore, totalActionsBucket)
 	return err
 }
 
@@ -291,14 +291,14 @@ func (x *blockIndexer) GetActionCountByAddress(addrBytes hash.Hash160) (uint64, 
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	address, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
+	addr, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
 			return 0, nil
 		}
 		return 0, err
 	}
-	return address.Size(), nil
+	return addr.Size(), nil
 }
 
 // GetActionsByAddress return hash of an address's actions[start, start+count)
@@ -306,18 +306,18 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	address, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
+	addr, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
 	if err != nil {
 		return nil, err
 	}
-	total := address.Size()
+	total := addr.Size()
 	if start >= total {
 		return nil, errors.Wrapf(db.ErrInvalid, "start = %d >= total = %d", start, total)
 	}
 	if start+count > total {
 		count = total - start
 	}
-	return address.Range(start, count)
+	return addr.Range(start, count)
 }
 
 // commit() writes the changes
@@ -348,14 +348,14 @@ func (x *blockIndexer) commit() error {
 // if batch is true, the indexer will be placed into a dirty map, to be committed later
 func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIndex, error) {
 	if !batch {
-		return db.CreateCountingIndexNX(x.kvstore, addr)
+		return db.NewCountingIndexNX(x.kvstore, addr)
 	}
 	address := hash.BytesToHash160(addr)
 	indexer, ok := x.dirtyAddr[address]
 	if !ok {
 		// create indexer for addr if not exist
 		var err error
-		indexer, err = db.CreateCountingIndexNX(x.kvstore, addr)
+		indexer, err = db.NewCountingIndexNX(x.kvstore, addr)
 		if err != nil {
 			return nil, err
 		}

@@ -27,7 +27,11 @@ type boltDB struct {
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
 func NewBoltDB(cfg config.DB) KVStore {
-	return &boltDB{db: nil, path: cfg.DbPath, config: cfg}
+	return &boltDB{
+		db:     nil,
+		path:   cfg.DbPath,
+		config: cfg,
+	}
 }
 
 // Start opens the BoltDB (creates new file if not existing yet)
@@ -52,8 +56,7 @@ func (b *boltDB) Stop(_ context.Context) error {
 
 // Put inserts a <key, value> record
 func (b *boltDB) Put(namespace string, key, value []byte) (err error) {
-	numRetries := b.config.NumRetries
-	for c := uint8(0); c < numRetries; c++ {
+	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 			if err != nil {
@@ -212,8 +215,7 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 
 	}()
 
-	numRetries := b.config.NumRetries
-	for c := uint8(0); c < numRetries; c++ {
+	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
 			for i := 0; i < batch.Size(); i++ {
 				write, err := batch.Entry(i)
@@ -225,60 +227,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 					if err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}
-					if err := bucket.Put(write.key, write.value); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				} else if write.writeType == Delete {
-					bucket := tx.Bucket([]byte(write.namespace))
-					if bucket == nil {
-						continue
-					}
-					if err := bucket.Delete(write.key); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-				}
-			}
-			return nil
-		}); err == nil {
-			break
-		}
-	}
-
-	if err != nil {
-		succeed = false
-		err = errors.Wrap(ErrIO, err.Error())
-	}
-	return err
-}
-
-// CommitWithFillPercent commits a batch with specified bucket fill percent
-func (b *boltDB) CommitWithFillPercent(batch KVStoreBatch, percent float64) (err error) {
-	succeed := true
-	batch.Lock()
-	defer func() {
-		if succeed {
-			// clear the batch if commit succeeds
-			batch.ClearAndUnlock()
-		} else {
-			batch.Unlock()
-		}
-
-	}()
-
-	numRetries := b.config.NumRetries
-	for c := uint8(0); c < numRetries; c++ {
-		if err = b.db.Update(func(tx *bolt.Tx) error {
-			for i := 0; i < batch.Size(); i++ {
-				write, err := batch.Entry(i)
-				if err != nil {
-					return err
-				}
-				if write.writeType == Put {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-					}
-					bucket.FillPercent = percent
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
 					}

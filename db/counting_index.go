@@ -44,15 +44,15 @@ type (
 
 	// countingIndex is CountingIndex implementation based on KVStore
 	countingIndex struct {
-		kvStore KVStore
+		kvStore KVStoreWithBucketFillPercent
 		bucket  string
 		size    uint64 // total number of keys
 		batch   KVStoreBatch
 	}
 )
 
-// CreateCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
-func CreateCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
+// NewCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
+func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 	if kv == nil {
 		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
 	}
@@ -69,8 +69,14 @@ func CreateCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		}
 		total = ZeroIndex
 	}
+	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
+	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+		// set an aggressive fill percent
+		// b/c counting index only appends, further inserts to the bucket would never split the page
+		return nil, err
+	}
 	return &countingIndex{
-		kvStore: kv,
+		kvStore: kvFillPercent,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
@@ -84,8 +90,14 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 	if errors.Cause(err) == ErrNotExist || total == nil {
 		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
 	}
+	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
+	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+		// set an aggressive fill percent
+		// b/c counting index only appends, further inserts to the bucket would never split the page
+		return nil, err
+	}
 	return &countingIndex{
-		kvStore: kv,
+		kvStore: kvFillPercent,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
@@ -107,7 +119,7 @@ func (c *countingIndex) Add(value []byte, batch bool) error {
 	b := NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
-	if err := c.kvStore.CommitWithFillPercent(b, 1.0); err != nil {
+	if err := c.kvStore.Commit(b); err != nil {
 		return err
 	}
 	c.size++
@@ -174,7 +186,7 @@ func (c *countingIndex) Commit() error {
 		return nil
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
-	if err := c.kvStore.CommitWithFillPercent(c.batch, 1.0); err != nil {
+	if err := c.kvStore.Commit(c.batch); err != nil {
 		return err
 	}
 	c.batch = nil

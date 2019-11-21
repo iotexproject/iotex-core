@@ -43,8 +43,6 @@ type KVStore interface {
 	Delete(string, []byte) error
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
-	// CommitWithFillPercent commits a batch with specified bucket fill percent
-	CommitWithFillPercent(KVStoreBatch, float64) error
 	// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
 	CreateRangeIndexNX([]byte, []byte) (RangeIndex, error)
 	// GetBucketByPrefix retrieves all bucket those with const namespace prefix
@@ -153,11 +151,6 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	}
 
 	return e
-}
-
-// CommitWithFillPercent commits a batch with specified bucket fill percent
-func (m *memKVStore) CommitWithFillPercent(b KVStoreBatch, percent float64) error {
-	return m.Commit(b)
 }
 
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
