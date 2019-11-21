@@ -311,11 +311,11 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	}
 	for tipHeight > targetHeight {
 		// Obtain tip block hash
-		hash, err := dao.getTipHash()
+		h, err := dao.getTipHash()
 		if err != nil {
 			return errors.Wrap(err, "failed to get tip block hash")
 		}
-		blk, err := dao.getBlock(hash)
+		blk, err := dao.getBlock(h)
 		if err != nil {
 			return errors.Wrap(err, "failed to get tip block")
 		}

@@ -110,7 +110,7 @@ var (
 				GravityChainAPIs: []string{},
 			},
 			EnableTrielessStateDB:         true,
-			EnableAsyncIndexWrite:         false,
+			EnableAsyncIndexWrite:         true,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,

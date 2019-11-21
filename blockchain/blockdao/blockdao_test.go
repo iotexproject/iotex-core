@@ -251,7 +251,7 @@ func TestBlockDAO(t *testing.T) {
 			require.NoError(err)
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
-			require.NoError(dao.DeleteBlockToTarget(uint64(3 - i)))
+			require.NoError(dao.DeleteBlockToTarget(uint64(prevTipHeight - 1)))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
