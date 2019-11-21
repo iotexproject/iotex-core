@@ -84,3 +84,100 @@ func TestMustGetValidateActionsCtx(t *testing.T) {
 	// Case II: Panic
 	require.Panics(func() { MustGetValidateActionsCtx(context.Background()) }, "Miss run actions context")
 }
+
+func TestWithBlockchainCtx(t *testing.T) {
+	require := require.New(t)
+	bcCtx := BlockchainCtx{config.Default.Genesis, false, nil}
+	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
+}
+
+func TestGetBlockchainCtx(t *testing.T) {
+	require := require.New(t)
+	bcCtx := BlockchainCtx{config.Default.Genesis, false, nil}
+	ctx := WithBlockchainCtx(context.Background(), bcCtx)
+	require.NotNil(ctx)
+	ret, ok := GetBlockchainCtx(ctx)
+	require.True(ok)
+	require.Equal(false, ret.History)
+}
+
+func TestMustGetBlockchainCtx(t *testing.T) {
+	require := require.New(t)
+	bcCtx := BlockchainCtx{config.Default.Genesis, false, nil}
+	ctx := WithBlockchainCtx(context.Background(), bcCtx)
+	require.NotNil(ctx)
+	// Case I: Normal
+	ret := MustGetBlockchainCtx(ctx)
+	require.Equal(false, ret.History)
+	// Case II: Panic
+	require.Panics(func() { MustGetBlockchainCtx(context.Background()) }, "Miss run actions context")
+}
+
+func TestWithBlockCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	blkCtx := BlockCtx{1111, time.Now(), 1, addr}
+	require.NotNil(WithBlockCtx(context.Background(), blkCtx))
+}
+
+func TestGetBlockCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	blkCtx := BlockCtx{1111, time.Now(), 1, addr}
+	ctx := WithBlockCtx(context.Background(), blkCtx)
+	require.NotNil(ctx)
+	ret, ok := GetBlockCtx(ctx)
+	require.True(ok)
+	require.Equal(uint64(1111), ret.BlockHeight)
+}
+
+func TestMustGetBlockCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	blkCtx := BlockCtx{1111, time.Now(), 1, addr}
+	ctx := WithBlockCtx(context.Background(), blkCtx)
+	require.NotNil(ctx)
+	// Case I: Normal
+	ret := MustGetBlockCtx(ctx)
+	require.Equal(uint64(1111), ret.BlockHeight)
+	// Case II: Panic
+	require.Panics(func() { MustGetBlockCtx(context.Background()) }, "Miss run actions context")
+}
+
+
+func TestWithActionCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	actionCtx := ActionCtx{addr, hash.ZeroHash256, nil, 0, 0}
+	require.NotNil(WithActionCtx(context.Background(), actionCtx))
+}
+
+func TestGetActionCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	actionCtx := ActionCtx{addr, hash.ZeroHash256, nil, 0, 0}
+	ctx := WithActionCtx(context.Background(), actionCtx)
+	require.NotNil(ctx)
+	ret, ok := GetActionCtx(ctx)
+	require.True(ok)
+	require.Equal(hash.ZeroHash256, ret.ActionHash)
+}
+
+func TestMustGetActionCtx(t *testing.T) {
+	require := require.New(t)
+	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
+	require.NoError(err)
+	actionCtx := ActionCtx{addr, hash.ZeroHash256, nil, 0, 0}
+	ctx := WithActionCtx(context.Background(), actionCtx)
+	require.NotNil(ctx)
+	// Case I: Normal
+	ret := MustGetActionCtx(ctx)
+	require.Equal(hash.ZeroHash256, ret.ActionHash)
+	// Case II: Panic
+	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss run actions context")
+}
