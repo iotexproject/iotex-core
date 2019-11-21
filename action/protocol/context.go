@@ -105,11 +105,11 @@ func MustGetValidateActionsCtx(ctx context.Context) ValidateActionsCtx {
 
 // TODO: replace RunActionsCtx and ValidateActionsCtx with below classified independent contexts
 
-type blockchainCtxKey struct{}
+type blockchainContextKey struct{}
 
-type blockCtxKey struct{}
+type blockContextKey struct{}
 
-type actionCtxKey struct{}
+type actionContextKey struct{}
 
 // BlockchainCtx provides blockchain auxiliary information.
 type BlockchainCtx struct {
@@ -150,19 +150,19 @@ type ActionCtx struct {
 
 // WithBlockchainCtx add BlockchainCtx into context.
 func WithBlockchainCtx(ctx context.Context, bc BlockchainCtx) context.Context {
-	return context.WithValue(ctx, blockchainCtxKey{}, bc)
+	return context.WithValue(ctx, blockchainContextKey{}, bc)
 }
 
 // GetBlockchainCtx gets BlockchainCtx
 func GetBlockchainCtx(ctx context.Context) (BlockchainCtx, bool) {
-	bc, ok := ctx.Value(blockchainCtxKey{}).(BlockchainCtx)
+	bc, ok := ctx.Value(blockchainContextKey{}).(BlockchainCtx)
 	return bc, ok
 }
 
 // MustGetBlockchainCtx must get BlockchainCtx.
 // If context doesn't exist, this function panic.
 func MustGetBlockchainCtx(ctx context.Context) BlockchainCtx {
-	bc, ok := ctx.Value(blockchainCtxKey{}).(BlockchainCtx)
+	bc, ok := ctx.Value(blockchainContextKey{}).(BlockchainCtx)
 	if !ok {
 		log.S().Panic("Miss blockchain context")
 	}
@@ -171,19 +171,19 @@ func MustGetBlockchainCtx(ctx context.Context) BlockchainCtx {
 
 // WithBlockCtx add BlockCtx into context.
 func WithBlockCtx(ctx context.Context, blk BlockCtx) context.Context {
-	return context.WithValue(ctx, blockCtxKey{}, blk)
+	return context.WithValue(ctx, blockContextKey{}, blk)
 }
 
 // GetBlockCtx gets BlockCtx
 func GetBlockCtx(ctx context.Context) (BlockCtx, bool) {
-	blk, ok := ctx.Value(blockCtxKey{}).(BlockCtx)
+	blk, ok := ctx.Value(blockContextKey{}).(BlockCtx)
 	return blk, ok
 }
 
 // MustGetBlockCtx must get BlockCtx .
 // If context doesn't exist, this function panic.
 func MustGetBlockCtx(ctx context.Context) BlockCtx {
-	blk, ok := ctx.Value(blockCtxKey{}).(BlockCtx)
+	blk, ok := ctx.Value(blockContextKey{}).(BlockCtx)
 	if !ok {
 		log.S().Panic("Miss block context")
 	}
@@ -192,19 +192,19 @@ func MustGetBlockCtx(ctx context.Context) BlockCtx {
 
 // WithActionCtx add ActionCtx into context.
 func WithActionCtx(ctx context.Context, ac ActionCtx) context.Context {
-	return context.WithValue(ctx, actionCtxKey{}, ac)
+	return context.WithValue(ctx, actionContextKey{}, ac)
 }
 
 // GetActionCtx gets ActionCtx
 func GetActionCtx(ctx context.Context) (ActionCtx, bool) {
-	ac, ok := ctx.Value(actionCtxKey{}).(ActionCtx)
+	ac, ok := ctx.Value(actionContextKey{}).(ActionCtx)
 	return ac, ok
 }
 
 // MustGetActionCtx must get ActionCtx .
 // If context doesn't exist, this function panic.
 func MustGetActionCtx(ctx context.Context) ActionCtx {
-	ac, ok := ctx.Value(actionCtxKey{}).(ActionCtx)
+	ac, ok := ctx.Value(actionContextKey{}).(ActionCtx)
 	if !ok {
 		log.S().Panic("Miss action context")
 	}
