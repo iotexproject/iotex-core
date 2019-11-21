@@ -156,6 +156,7 @@ clean:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(ECHO_V)rm -rf *index*.db
 	$(ECHO_V)rm -rf $(COV_REPORT) $(COV_HTML) $(LINT_LOG)
 	$(ECHO_V)find . -name $(COV_OUT) -delete
 	$(ECHO_V)find . -name $(TESTBED_COV_OUT) -delete
@@ -165,6 +166,7 @@ clean:
 reboot:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(ECHO_V)rm -rf *index*.db
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
 	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
@@ -183,6 +185,7 @@ docker:
 minicluster:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(ECHO_V)rm -rf *index*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	./bin/$(BUILD_TARGET_MINICLUSTER)
 
@@ -190,6 +193,7 @@ minicluster:
 nightlybuild:
 	$(ECHO_V)rm -rf *chain*.db
 	$(ECHO_V)rm -rf *trie*.db
+	$(ECHO_V)rm -rf *index*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_MINICLUSTER) -v ./tools/minicluster
 	./bin/$(BUILD_TARGET_MINICLUSTER) -timeout=14400 -fp-token=true
 
