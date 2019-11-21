@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -31,6 +32,15 @@ var (
 	ErrConfigNotMatch = fmt.Errorf("No matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
 	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
+)
+
+// Language type used to enumerate supported language of ioctl
+type Language int
+
+// Multi-language support
+const (
+	English Language = iota
+	Chinese
 )
 
 // ConfigCmd represents the config command
@@ -52,6 +62,7 @@ type Config struct {
 	Aliases        map[string]string `json:"aliases" yaml:"aliases"`
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
+	Language       string            `json:"language" yaml:"language"`
 }
 
 var (
@@ -59,6 +70,8 @@ var (
 	ReadConfig Config
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
+	// UILanguage represents the language of ioctl user interface, default is 0 representing English
+	UILanguage Language
 )
 
 func init() {
@@ -69,25 +82,42 @@ func init() {
 	}
 	// Path to config file
 	DefaultConfigFile = ConfigDir + "/config.default"
+	// Load or reset config file
 	var err error
 	ReadConfig, err = LoadConfig()
-	if err != nil || len(ReadConfig.Wallet) == 0 {
-		if err != nil && !os.IsNotExist(err) {
-			log.L().Panic(err.Error()) // Config file exists but error occurs
-		}
-		ReadConfig.Wallet = ConfigDir
+	if err != nil {
 		if os.IsNotExist(err) {
-			ReadConfig.SecureConnect = true
+			err = reset() // Config file doesn't exist
 		}
-		out, err := yaml.Marshal(&ReadConfig)
 		if err != nil {
 			log.L().Panic(err.Error())
 		}
-		// If default config not exist, create new default config
-		if err := ioutil.WriteFile(DefaultConfigFile, out, 0600); err != nil {
-			log.L().Panic(fmt.Sprintf("Failed to write to config file %s.", DefaultConfigFile))
+	}
+	// Check completeness of config file
+	completeness := true
+	if ReadConfig.Wallet == "" {
+		ReadConfig.Wallet = ConfigDir
+		completeness = false
+	}
+	if ReadConfig.Language == "" {
+		ReadConfig.Language = supportedLanguage[0]
+		completeness = false
+	}
+	if !completeness {
+		err := writeConfig()
+		if err != nil {
+			log.L().Panic(err.Error())
 		}
 	}
+	// Set language for ioctl
+	UILanguage = isSupportedLanguage(ReadConfig.Language)
+	if UILanguage == -1 {
+		UILanguage = 0
+		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead.",
+			ReadConfig.Language))
+		fmt.Println(message.Warn())
+	}
+	// Init subcommands
 	ConfigCmd.AddCommand(configGetCmd)
 	ConfigCmd.AddCommand(configSetCmd)
 	ConfigCmd.AddCommand(configResetCmd)
@@ -105,4 +135,14 @@ func LoadConfig() (Config, error) {
 		}
 	}
 	return ReadConfig, err
+}
+
+// TranslateInLang returns translation in selected language
+func TranslateInLang(translations map[Language]string, lang Language) string {
+	if tsl, ok := translations[lang]; ok {
+		return tsl
+	}
+
+	// Assumption: English should always be provided
+	return translations[English]
 }
