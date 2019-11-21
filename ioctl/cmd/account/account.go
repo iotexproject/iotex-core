@@ -31,11 +31,11 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-// Multi-language support for ioctl, index 0 represents en(English).
+// Multi-language support
 var (
-	accountCmdShorts = []string{
-		"Manage accounts of IoTeX blockchain",
-		"管理IoTeX区块链上的账号",
+	accountCmdShorts = map[config.Language]string{
+		config.English: "Manage accounts of IoTeX blockchain",
+		config.Chinese: "管理IoTeX区块链上的账号",
 	}
 )
 
@@ -47,7 +47,7 @@ var (
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   "account",
-	Short: accountCmdShorts[config.Language],
+	Short: accountCmdShorts[config.UILanguage],
 }
 
 func init() {

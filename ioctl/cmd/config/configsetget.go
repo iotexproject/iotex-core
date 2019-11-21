@@ -29,10 +29,10 @@ const (
 )
 
 var (
+	supportedLanguage = []string{"English", "Chinese"}
 	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language"}
 	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "all"}
 	validExpl         = []string{"iotexscan", "iotxplorer"}
-	supportedLanguage = []string{"en", "zh"}
 	endpointCompile   = regexp.MustCompile("^" + endpointPattern + "$")
 )
 
@@ -190,13 +190,13 @@ func isValidExplorer(arg string) bool {
 }
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
-func isSupportedLanguage(arg string) int {
-	for i, lan := range supportedLanguage {
-		if arg == lan {
-			return i
+func isSupportedLanguage(arg string) Language {
+	for i, lang := range supportedLanguage {
+		if strings.ToLower(arg) == strings.ToLower(lang) {
+			return Language(i)
 		}
 	}
-	return -1
+	return Language(-1)
 }
 
 // writeConfig writes to config file
@@ -256,13 +256,13 @@ func set(args []string) error {
 		}
 		ReadConfig.DefaultAccount.AddressOrAlias = args[1]
 	case "language":
-		lowArg := strings.ToLower(args[1])
-		if isSupportedLanguage(lowArg) == -1 {
+		language := isSupportedLanguage(args[1])
+		if language == -1 {
 			return output.NewError(output.ConfigError,
 				fmt.Sprintf("Language %s is not supported\nSupported languages: %s",
 					args[1], supportedLanguage), nil)
 		}
-		ReadConfig.Language = lowArg
+		ReadConfig.Language = supportedLanguage[language]
 	}
 	err := writeConfig()
 	if err != nil {

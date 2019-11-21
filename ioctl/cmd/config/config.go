@@ -34,6 +34,12 @@ var (
 	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
 )
 
+// Multi-language support
+const (
+	English Language = iota
+	Chinese
+)
+
 // ConfigCmd represents the config command
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
@@ -61,8 +67,8 @@ var (
 	ReadConfig Config
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
-	// Language represents the index of language of ioctl user interface, default is 0 representing English
-	Language int
+	// UILanguage represents the index of language of ioctl user interface, default is 0 representing English
+	UILanguage Language
 )
 
 func init() {
@@ -101,9 +107,9 @@ func init() {
 		}
 	}
 	// Set language for ioctl
-	Language = isSupportedLanguage(ReadConfig.Language)
-	if Language == -1 {
-		Language = 0
+	UILanguage = isSupportedLanguage(ReadConfig.Language)
+	if UILanguage == -1 {
+		UILanguage = 0
 		message := output.StringMessage(fmt.Sprintf("Language %s is not supported, English instead.",
 			ReadConfig.Language))
 		fmt.Println(message.Warn())
@@ -126,4 +132,15 @@ func LoadConfig() (Config, error) {
 		}
 	}
 	return ReadConfig, err
+}
+
+type Language int
+
+func SelectByLang(translations map[Language]string, lang Language) string {
+	if tsl, ok := translations[lang]; ok {
+		return tsl
+	}
+
+	// Assumption: English should always be provided
+	return translations[English]
 }

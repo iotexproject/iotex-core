@@ -22,27 +22,27 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
-// Multi-language support for ioctl, index 0 represents en(English).
+// Multi-language support
 var (
-	rootCmdShorts = []string{
-		"Command-line interface for IoTeX blockchain",
-		"IoTeX区块链命令行工具",
+	rootCmdShorts = map[config.Language]string{
+		config.English: "Command-line interface for IoTeX blockchain",
+		config.Chinese: "IoTeX区块链命令行工具",
 	}
-	rootCmdLongs = []string{
-		`ioctl is a command-line interface for interacting with IoTeX blockchain.`,
-		`ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
+	rootCmdLongs = map[config.Language]string{
+		config.English: `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
+		config.Chinese: `ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
-	flagOutputFormatUsages = []string{
-		"output format",
-		"指定输出格式",
+	flagOutputFormatUsages = map[config.Language]string{
+		config.English: "output format",
+		config.Chinese: "指定输出格式",
 	}
 )
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "ioctl",
-	Short: rootCmdShorts[config.Language],
-	Long:  rootCmdLongs[config.Language],
+	Short: rootCmdShorts[config.UILanguage],
+	Long:  rootCmdLongs[config.UILanguage],
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -64,6 +64,6 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		flagOutputFormatUsages[config.Language])
+		flagOutputFormatUsages[config.UILanguage])
 	RootCmd.HelpFunc()
 }

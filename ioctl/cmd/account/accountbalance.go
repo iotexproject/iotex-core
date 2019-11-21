@@ -17,22 +17,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
-// Multi-language support for ioctl, index 0 represents en(English).
+// Multi-language support
 var (
-	balanceCmdUses = []string{
-		"balance [ALIAS|ADDRESS]",
-		"balance [别名|地址]",
+	balanceCmdUses = map[config.Language]string{
+		config.English: "balance [ALIAS|ADDRESS]",
+		config.Chinese: "balance [别名|地址]",
 	}
-	balanceCmdShorts = []string{
-		"Get balance of an account",
-		"查询账号余额",
+	balanceCmdShorts = map[config.Language]string{
+		config.English: "Get balance of an account",
+		config.Chinese: "查询账号余额",
 	}
 )
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   balanceCmdUses[config.Language],
-	Short: balanceCmdShorts[config.Language],
+	Use:   balanceCmdUses[config.UILanguage],
+	Short: balanceCmdShorts[config.UILanguage],
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
