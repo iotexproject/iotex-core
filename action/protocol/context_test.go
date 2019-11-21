@@ -82,7 +82,7 @@ func TestMustGetValidateActionsCtx(t *testing.T) {
 	ret := MustGetValidateActionsCtx(ctx)
 	require.Equal(uint64(1111), ret.BlockHeight)
 	// Case II: Panic
-	require.Panics(func() { MustGetValidateActionsCtx(context.Background()) }, "Miss run actions context")
+	require.Panics(func() { MustGetValidateActionsCtx(context.Background()) }, "Miss validate action context")
 }
 
 func TestWithBlockchainCtx(t *testing.T) {
@@ -110,7 +110,7 @@ func TestMustGetBlockchainCtx(t *testing.T) {
 	ret := MustGetBlockchainCtx(ctx)
 	require.Equal(false, ret.History)
 	// Case II: Panic
-	require.Panics(func() { MustGetBlockchainCtx(context.Background()) }, "Miss run actions context")
+	require.Panics(func() { MustGetBlockchainCtx(context.Background()) }, "Miss blockchain context")
 }
 
 func TestWithBlockCtx(t *testing.T) {
@@ -144,7 +144,7 @@ func TestMustGetBlockCtx(t *testing.T) {
 	ret := MustGetBlockCtx(ctx)
 	require.Equal(uint64(1111), ret.BlockHeight)
 	// Case II: Panic
-	require.Panics(func() { MustGetBlockCtx(context.Background()) }, "Miss run actions context")
+	require.Panics(func() { MustGetBlockCtx(context.Background()) }, "Miss block context")
 }
 
 
@@ -179,5 +179,5 @@ func TestMustGetActionCtx(t *testing.T) {
 	ret := MustGetActionCtx(ctx)
 	require.Equal(hash.ZeroHash256, ret.ActionHash)
 	// Case II: Panic
-	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss run actions context")
+	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
 }

@@ -98,7 +98,7 @@ func GetValidateActionsCtx(ctx context.Context) (ValidateActionsCtx, bool) {
 func MustGetValidateActionsCtx(ctx context.Context) ValidateActionsCtx {
 	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
 	if !ok {
-		log.S().Panic("Miss run actions context")
+		log.S().Panic("Miss validate actions context")
 	}
 	return va
 }
@@ -164,7 +164,7 @@ func GetBlockchainCtx(ctx context.Context) (BlockchainCtx, bool) {
 func MustGetBlockchainCtx(ctx context.Context) BlockchainCtx {
 	bc, ok := ctx.Value(blockchainCtxKey{}).(BlockchainCtx)
 	if !ok {
-		log.S().Panic("Miss run actions context")
+		log.S().Panic("Miss blockchain context")
 	}
 	return bc
 }
@@ -185,7 +185,7 @@ func GetBlockCtx(ctx context.Context) (BlockCtx, bool) {
 func MustGetBlockCtx(ctx context.Context) BlockCtx {
 	blk, ok := ctx.Value(blockCtxKey{}).(BlockCtx)
 	if !ok {
-		log.S().Panic("Miss run actions context")
+		log.S().Panic("Miss block context")
 	}
 	return blk
 }
@@ -206,7 +206,7 @@ func GetActionCtx(ctx context.Context) (ActionCtx, bool) {
 func MustGetActionCtx(ctx context.Context) ActionCtx {
 	ac, ok := ctx.Value(actionCtxKey{}).(ActionCtx)
 	if !ok {
-		log.S().Panic("Miss run actions context")
+		log.S().Panic("Miss action context")
 	}
 	return ac
 }
