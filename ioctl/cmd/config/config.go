@@ -34,6 +34,8 @@ var (
 	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
 )
 
+type Language int
+
 // Multi-language support
 const (
 	English Language = iota
@@ -67,7 +69,7 @@ var (
 	ReadConfig Config
 	// Insecure represents the insecure connect option of grpc dial, default is false
 	Insecure = false
-	// UILanguage represents the index of language of ioctl user interface, default is 0 representing English
+	// UILanguage represents the language of ioctl user interface, default is 0 representing English
 	UILanguage Language
 )
 
@@ -132,15 +134,4 @@ func LoadConfig() (Config, error) {
 		}
 	}
 	return ReadConfig, err
-}
-
-type Language int
-
-func SelectByLang(translations map[Language]string, lang Language) string {
-	if tsl, ok := translations[lang]; ok {
-		return tsl
-	}
-
-	// Assumption: English should always be provided
-	return translations[English]
 }
