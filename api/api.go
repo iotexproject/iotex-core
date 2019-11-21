@@ -878,7 +878,7 @@ func (api *Server) getActionsByAddress(addrStr string, start uint64, count uint6
 		return nil, err
 	}
 	actions, err := api.indexer.GetActionsByAddress(hash.BytesToHash160(addr.Bytes()), start, count)
-	if err != nil && errors.Cause(err) == db.ErrBucketNotExist {
+	if err != nil && (errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist) {
 		// no actions associated with address, return nil
 		return &iotexapi.GetActionsResponse{}, nil
 	}

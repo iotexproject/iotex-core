@@ -14,7 +14,6 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const fileMode = 0600
@@ -77,7 +76,7 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
 		if bucket == nil {
-			return errors.Wrapf(ErrNotExist, "bucket = %s doesn't exist", namespace)
+			return errors.Wrapf(ErrNotExist, "bucket = %x doesn't exist", []byte(namespace))
 		}
 		v := bucket.Get(key)
 		if v == nil {
@@ -86,6 +85,40 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 		value = make([]byte, len(v))
 		// TODO: this is not an efficient way of passing the data
 		copy(value, v)
+		return nil
+	})
+	if err == nil {
+		return value, nil
+	}
+	if errors.Cause(err) == ErrNotExist {
+		return nil, err
+	}
+	return nil, errors.Wrap(ErrIO, err.Error())
+}
+
+// Range retrieves values for a range of keys
+func (b *boltDB) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
+	value := make([][]byte, count)
+	err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(namespace))
+		if bucket == nil {
+			return errors.Wrapf(ErrNotExist, "bucket = %s doesn't exist", namespace)
+		}
+		// seek to start
+		cur := bucket.Cursor()
+		k, v := cur.Seek(key)
+		if k == nil {
+			return errors.Wrapf(ErrNotExist, "entry for key 0x%x doesn't exist", key)
+		}
+		// retrieve 'count' items
+		for i := uint64(0); i < count; i++ {
+			if k == nil {
+				return errors.Wrapf(ErrNotExist, "entry for key 0x%x doesn't exist", k)
+			}
+			value[i] = make([]byte, len(v))
+			copy(value[i], v)
+			k, v = cur.Next()
+		}
 		return nil
 	})
 	if err == nil {
@@ -218,46 +251,58 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 	return err
 }
 
-// CountingIndex returns the index, and nil if not exist
-func (b *boltDB) CountingIndex(name []byte) (CountingIndex, error) {
-	var total []byte
-	if err := b.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(name)
-		if bucket == nil {
-			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+// CommitWithFillPercent commits a batch with specified bucket fill percent
+func (b *boltDB) CommitWithFillPercent(batch KVStoreBatch, percent float64) (err error) {
+	succeed := true
+	batch.Lock()
+	defer func() {
+		if succeed {
+			// clear the batch if commit succeeds
+			batch.ClearAndUnlock()
+		} else {
+			batch.Unlock()
 		}
-		// get the number of keys
-		total = bucket.Get(ZeroIndex)
-		if total == nil {
-			return errors.Wrap(ErrNotExist, "total count doesn't exist")
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return NewCountingIndex(b.db, b.config.NumRetries, name, byteutil.BytesToUint64BigEndian(total))
-}
 
-// CreateCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
-func (b *boltDB) CreateCountingIndexNX(name []byte) (CountingIndex, error) {
-	var size uint64
-	if err := b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(name)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create bucket %x", name)
+	}()
+
+	numRetries := b.config.NumRetries
+	for c := uint8(0); c < numRetries; c++ {
+		if err = b.db.Update(func(tx *bolt.Tx) error {
+			for i := 0; i < batch.Size(); i++ {
+				write, err := batch.Entry(i)
+				if err != nil {
+					return err
+				}
+				if write.writeType == Put {
+					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
+					if err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+					bucket.FillPercent = percent
+					if err := bucket.Put(write.key, write.value); err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+				} else if write.writeType == Delete {
+					bucket := tx.Bucket([]byte(write.namespace))
+					if bucket == nil {
+						continue
+					}
+					if err := bucket.Delete(write.key); err != nil {
+						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+				}
+			}
+			return nil
+		}); err == nil {
+			break
 		}
-		// check the number of keys
-		total := bucket.Get(ZeroIndex)
-		if total == nil {
-			// put 0 as total number of keys
-			return bucket.Put(ZeroIndex, ZeroIndex)
-		}
-		size = byteutil.BytesToUint64BigEndian(total)
-		return nil
-	}); err != nil {
-		return nil, err
 	}
-	return NewCountingIndex(b.db, b.config.NumRetries, name, size)
+
+	if err != nil {
+		succeed = false
+		err = errors.Wrap(ErrIO, err.Error())
+	}
+	return err
 }
 
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
