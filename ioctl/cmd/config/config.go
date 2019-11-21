@@ -34,6 +34,7 @@ var (
 	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
 )
 
+// Language type used to enumerate supported language of ioctl
 type Language int
 
 // Multi-language support

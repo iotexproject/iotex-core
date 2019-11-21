@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -29,7 +30,7 @@ const (
 )
 
 var (
-	supportedLanguage = []string{"English", "Chinese"}
+	supportedLanguage = []string{"English", "中文"}
 	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language"}
 	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "all"}
 	validExpl         = []string{"iotexscan", "iotxplorer"}
@@ -191,6 +192,9 @@ func isValidExplorer(arg string) bool {
 
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
 func isSupportedLanguage(arg string) Language {
+	if index, err := strconv.Atoi(arg); err == nil && index >= 0 && index < len(supportedLanguage) {
+		return Language(index)
+	}
 	for i, lang := range supportedLanguage {
 		if strings.EqualFold(arg, lang) {
 			return Language(i)
