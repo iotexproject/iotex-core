@@ -192,7 +192,7 @@ func isValidExplorer(arg string) bool {
 // isSupportedLanguage checks if the language is a supported option and returns index when supported
 func isSupportedLanguage(arg string) Language {
 	for i, lang := range supportedLanguage {
-		if strings.ToLower(arg) == strings.ToLower(lang) {
+		if strings.EqualFold(arg, lang) {
 			return Language(i)
 		}
 	}
