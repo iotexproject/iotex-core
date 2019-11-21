@@ -64,6 +64,6 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		flagOutputFormatUsages[config.UILanguage])
+		config.TranslateByLang(flagOutputFormatUsages, config.UILanguage))
 	RootCmd.HelpFunc()
 }
