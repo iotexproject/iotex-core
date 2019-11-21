@@ -136,8 +136,8 @@ func LoadConfig() (Config, error) {
 	return ReadConfig, err
 }
 
-// TranslateByLang returns translation in selected language
-func TranslateByLang(translations map[Language]string, lang Language) string {
+// TranslateInLang returns translation in selected language
+func TranslateInLang(translations map[Language]string, lang Language) string {
 	if tsl, ok := translations[lang]; ok {
 		return tsl
 	}

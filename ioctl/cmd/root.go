@@ -41,8 +41,8 @@ var (
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "ioctl",
-	Short: config.TranslateByLang(rootCmdShorts, config.UILanguage),
-	Long:  config.TranslateByLang(rootCmdLongs, config.UILanguage),
+	Short: config.TranslateInLang(rootCmdShorts, config.UILanguage),
+	Long:  config.TranslateInLang(rootCmdLongs, config.UILanguage),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -64,6 +64,6 @@ func init() {
 	RootCmd.AddCommand(update.UpdateCmd)
 
 	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
-		config.TranslateByLang(flagOutputFormatUsages, config.UILanguage))
+		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
 	RootCmd.HelpFunc()
 }

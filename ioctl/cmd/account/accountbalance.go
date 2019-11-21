@@ -31,8 +31,8 @@ var (
 
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   config.TranslateByLang(balanceCmdUses, config.UILanguage),
-	Short: config.TranslateByLang(balanceCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(balanceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(balanceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
