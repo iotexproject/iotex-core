@@ -47,7 +47,7 @@ var (
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   "account",
-	Short: accountCmdShorts[config.UILanguage],
+	Short: config.TranslateByLang(accountCmdShorts, config.UILanguage),
 }
 
 func init() {

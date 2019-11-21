@@ -135,3 +135,13 @@ func LoadConfig() (Config, error) {
 	}
 	return ReadConfig, err
 }
+
+// TranslateByLang returns translation in selected language
+func TranslateByLang(translations map[Language]string, lang Language) string {
+	if tsl, ok := translations[lang]; ok {
+		return tsl
+	}
+
+	// Assumption: English should always be provided
+	return translations[English]
+}
