@@ -12,14 +12,27 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	balanceCmdUses = map[config.Language]string{
+		config.English: "balance [ALIAS|ADDRESS]",
+		config.Chinese: "balance [别名|地址]",
+	}
+	balanceCmdShorts = map[config.Language]string{
+		config.English: "Get balance of an account",
+		config.Chinese: "查询账号余额",
+	}
+)
+
 // accountBalanceCmd represents the account balance command
 var accountBalanceCmd = &cobra.Command{
-	Use:   "balance [ALIAS|ADDRESS]",
-	Short: "Get balance of an account",
+	Use:   config.TranslateInLang(balanceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(balanceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

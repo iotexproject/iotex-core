@@ -99,7 +99,7 @@ type (
 		GetReceipts(uint64) ([]*action.Receipt, error)
 		PutBlock(*block.Block) error
 		Commit() error
-		DeleteTipBlock() error
+		DeleteBlockToTarget(uint64) error
 		IndexFile(uint64, []byte) error
 		GetFileIndex(uint64) ([]byte, error)
 		KVStore() db.KVStore
@@ -302,26 +302,35 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 	return dao.indexer.Commit()
 }
 
-func (dao *blockDAO) DeleteTipBlock() error {
+func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	dao.mutex.Lock()
 	defer dao.mutex.Unlock()
-	// Obtain tip block hash
-	hash, err := dao.getTipHash()
+	tipHeight, err := dao.getTipHeight()
 	if err != nil {
-		return errors.Wrap(err, "failed to get tip block hash")
+		return err
 	}
-	blk, err := dao.getBlock(hash)
-	if err != nil {
-		return errors.Wrap(err, "failed to get tip block")
-	}
-	// delete block index if there's indexer
-	if dao.indexer != nil {
-		if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+	for tipHeight > targetHeight {
+		// Obtain tip block hash
+		h, err := dao.getTipHash()
+		if err != nil {
+			return errors.Wrap(err, "failed to get tip block hash")
+		}
+		blk, err := dao.getBlock(h)
+		if err != nil {
+			return errors.Wrap(err, "failed to get tip block")
+		}
+		// delete block index if there's indexer
+		if dao.indexer != nil {
+			if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+				return err
+			}
+		}
+		if err := dao.deleteTipBlock(); err != nil {
 			return err
 		}
+		tipHeight--
 	}
-
-	return dao.deleteTipBlock()
+	return nil
 }
 
 func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
