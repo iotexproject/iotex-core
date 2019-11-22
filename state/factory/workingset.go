@@ -72,14 +72,13 @@ type (
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
-		ver            uint64
-		blkHeight      uint64
-		saveHistory    bool
-		accountTrie    trie.Trie            // global account state trie
-		trieRoots      map[int]hash.Hash256 // root of trie at time of snapshot
-		cb             db.CachedBatch       // cached batch for pending writes
-		dao            db.KVStore           // the underlying DB for account/contract storage
-		actionHandlers []protocol.ActionHandler
+		ver         uint64
+		blkHeight   uint64
+		saveHistory bool
+		accountTrie trie.Trie            // global account state trie
+		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
+		cb          db.CachedBatch       // cached batch for pending writes
+		dao         db.KVStore           // the underlying DB for account/contract storage
 	}
 )
 
@@ -88,7 +87,6 @@ func newWorkingSet(
 	version uint64,
 	kv db.KVStore,
 	root hash.Hash256,
-	registry *protocol.Registry,
 	saveHistory bool,
 ) (WorkingSet, error) {
 	ws := &workingSet{
@@ -97,11 +95,6 @@ func newWorkingSet(
 		trieRoots:   make(map[int]hash.Hash256),
 		cb:          db.NewCachedBatch(),
 		dao:         kv,
-	}
-	if registry != nil {
-		for _, p := range registry.All() {
-			ws.addActionHandlers(p)
-		}
 	}
 	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
 	if err != nil {
@@ -188,7 +181,10 @@ func (ws *workingSet) RunAction(
 	raCtx.Nonce = elp.Nonce()
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 
-	for _, actionHandler := range ws.actionHandlers {
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
+	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
@@ -303,9 +299,4 @@ func (ws *workingSet) DelState(pkHash hash.Hash160) error {
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
 	ws.trieRoots = make(map[int]hash.Hash256)
-}
-
-// addActionHandlers adds action handlers to the state factory
-func (ws *workingSet) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	ws.actionHandlers = append(ws.actionHandlers, actionHandlers...)
 }

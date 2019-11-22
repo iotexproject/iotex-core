@@ -162,7 +162,7 @@ func CreateTestAccount(sf Factory, cfg config.Config, registry *protocol.Registr
 		return nil, errors.New("empty state factory")
 	}
 
-	ws, err := sf.NewWorkingSet(registry)
+	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}

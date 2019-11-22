@@ -270,7 +270,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, *protocol.Registry) {
+) blockchain.Blockchain {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -308,7 +308,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(ProtocolID, execution))
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet(&registry)
+	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
 	for _, expectedBalance := range sct.InitBalances {
 		_, err = accountutil.LoadOrCreateAccount(ws, expectedBalance.Account, expectedBalance.Balance())
@@ -319,18 +319,17 @@ func (sct *SmartContractTest) prepareBlockchain(
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 			Genesis:  cfg.Genesis,
+			Registry: &registry,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-
-	return bc, &registry
+	return bc
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
 	r *require.Assertions,
-	registry *protocol.Registry,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
@@ -357,7 +356,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.Factory().NewWorkingSet(registry)
+		ws, err := bc.Factory().NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -377,13 +376,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, registry := sct.prepareBlockchain(ctx, r)
+	bc := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, r, registry)
+	contractAddresses := sct.deployContracts(bc, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -497,7 +496,7 @@ func TestProtocol_Handle(t *testing.T) {
 			require.NoError(err)
 		}()
 
-		ws, err := sf.NewWorkingSet(&registry)
+		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
@@ -507,6 +506,7 @@ func TestProtocol_Handle(t *testing.T) {
 				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
 				Genesis:  cfg.Genesis,
+				Registry: &registry,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -540,7 +540,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
-		ws, err = sf.NewWorkingSet(&registry)
+		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
@@ -592,7 +592,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		ws, err = sf.NewWorkingSet(&registry)
+		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 		stateDB = evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var emptyEVMHash common.Hash
