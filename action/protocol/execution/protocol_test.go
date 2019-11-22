@@ -303,7 +303,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(account.NewProtocol(), NewProtocol(bc.BlockDAO().GetBlockHash), reward)
 	sf := bc.Factory()
 	r.NotNil(sf)
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
@@ -489,7 +488,6 @@ func TestProtocol_Handle(t *testing.T) {
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(ProtocolID, exeProtocol))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		bc.Validator().AddActionValidators(account.NewProtocol(), exeProtocol)
 		sf := bc.Factory()
 		require.NotNil(sf)
 		require.NoError(bc.Start(ctx))

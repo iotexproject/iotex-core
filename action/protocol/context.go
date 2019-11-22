@@ -45,7 +45,7 @@ type RunActionsCtx struct {
 	Nonce uint64
 	// History indicates whether to save account/contract history or not
 	History bool
-	// Registry is the pointer protocol registry
+	// Registry is the pointer of protocol registry
 	Registry *Registry
 }
 
@@ -59,6 +59,8 @@ type ValidateActionsCtx struct {
 	Caller address.Address
 	// Genesis is a copy of current genesis
 	Genesis genesis.Genesis
+	// Registry is the pointer of protocol registry
+	Registry *Registry
 }
 
 // WithRunActionsCtx add RunActionsCtx into context.

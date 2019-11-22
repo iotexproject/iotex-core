@@ -86,9 +86,14 @@ func TestSignBlock(t *testing.T) {
 
 func TestWrongNonce(t *testing.T) {
 	cfg := config.Default
+
+	require := require.New(t)
+	registry := protocol.Registry{}
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
 	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -100,11 +105,8 @@ func TestWrongNonce(t *testing.T) {
 	testIndexPath := testIndexFile.Name()
 	cfg.Chain.IndexDBPath = testIndexPath
 
-	require := require.New(t)
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
-	registry := protocol.Registry{}
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
@@ -117,7 +119,6 @@ func TestWrongNonce(t *testing.T) {
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol())
 
 	// correct nonce
 
@@ -250,10 +251,8 @@ func TestWrongNonce(t *testing.T) {
 
 func TestWrongAddress(t *testing.T) {
 	cfg := config.Default
-	ctx := protocol.WithValidateActionsCtx(
-		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
-	)
+
+	ctx := context.Background()
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption())
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
@@ -261,9 +260,17 @@ func TestWrongAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
+	registry := protocol.Registry{}
+	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
+	)
+
 	val := &validator{sf: bc.Factory(), validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -308,10 +315,8 @@ func TestWrongAddress(t *testing.T) {
 
 func TestBlackListAddress(t *testing.T) {
 	cfg := config.Default
-	ctx := protocol.WithValidateActionsCtx(
-		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
-	)
+
+	ctx := context.Background()
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 	addr, err := address.FromBytes(senderKey.PublicKey().Hash())
@@ -324,13 +329,22 @@ func TestBlackListAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
+
+	registry := protocol.Registry{}
+	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
+	)
+
 	senderBlackList := make(map[string]bool)
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
 	val := &validator{sf: bc.Factory(), validatorAddr: "", senderBlackList: senderBlackList}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	val.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}

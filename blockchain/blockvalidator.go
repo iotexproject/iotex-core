@@ -27,8 +27,7 @@ import (
 type Validator interface {
 	// Validate validates the given block's content
 	Validate(ctx context.Context, block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// AddActionValidators add validators
-	AddActionValidators(...protocol.ActionValidator)
+	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
 	// SetActPool set ActPoolManager
@@ -39,7 +38,6 @@ type validator struct {
 	sf                       factory.Factory
 	validatorAddr            string
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
-	actionValidators         []protocol.ActionValidator
 	senderBlackList          map[string]bool
 	actPool                  ActPoolManager
 }
@@ -71,11 +69,6 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight ui
 	}
 
 	return v.validateActionsOnly(ctx, blk)
-}
-
-// AddActionValidators add validators
-func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) {
-	v.actionValidators = append(v.actionValidators, validators...)
 }
 
 // AddActionEnvelopeValidators add action envelope validators
@@ -188,7 +181,7 @@ func (v *validator) validateActions(
 			}(validator, selp)
 		}
 
-		for _, validator := range v.actionValidators {
+		for _, validator := range vaCtx.Registry.All() {
 			wg.Add(1)
 			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()

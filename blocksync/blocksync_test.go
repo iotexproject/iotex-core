@@ -176,6 +176,8 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.Nil(err)
 	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := bc.NewBlockchain(
@@ -186,7 +188,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
-	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -234,6 +235,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.Nil(err)
 	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain1 := bc.NewBlockchain(
@@ -245,7 +248,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	)
 	require.NotNil(chain1)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
-	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -257,6 +259,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	registry2 := protocol.Registry{}
+	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
 	chain2 := bc.NewBlockchain(
 		cfg,
@@ -267,7 +270,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	)
 	require.NotNil(chain2)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
-	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -325,6 +327,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.Nil(err)
 	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
@@ -339,7 +343,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.RegistryOption(&registry),
 	)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
-	chain1.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -351,6 +354,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
 	registry2 := protocol.Registry{}
+	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain2 := bc.NewBlockchain(
 		cfg,
@@ -360,7 +364,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.RegistryOption(&registry2),
 	)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
-	chain2.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())

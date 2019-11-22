@@ -430,7 +430,6 @@ func TestCreateBlockchain(t *testing.T) {
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(acc, exec)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -462,7 +461,6 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -526,7 +524,6 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(acc, exec)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -624,7 +621,6 @@ func TestConstantinople(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
-		bc.Validator().AddActionValidators(acc, exec)
 		require.NoError(bc.Start(ctx))
 		require.NoError(addCreatorToFactory(cfg, sf, &registry))
 		defer func() {
@@ -782,7 +778,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(execution.ProtocolID, exec))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		bc.Validator().AddActionValidators(acc, exec)
 		require.NoError(bc.Start(ctx))
 		require.NoError(addCreatorToFactory(cfg, sf, &registry))
 
@@ -815,7 +810,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		rewardingProtocol := rewarding.NewProtocol(bc, rolldposProtocol)
 		require.NoError(registry.Register(rewarding.ProtocolID, rewardingProtocol))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		bc.Validator().AddActionValidators(accountProtocol)
 		require.NoError(bc.Start(ctx))
 		defer func() {
 			require.NoError(bc.Stop(ctx))
@@ -1162,9 +1156,14 @@ func TestActions(t *testing.T) {
 	t.Skip()
 	require := require.New(t)
 	cfg := config.Default
+
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
+
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
 	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -1180,7 +1179,7 @@ func TestActions(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), RegistryOption(&registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1209,7 +1208,6 @@ func TestActions(t *testing.T) {
 	require.NoError(sf.Commit(ws))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	bc.Validator().AddActionValidators(account.NewProtocol())
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
