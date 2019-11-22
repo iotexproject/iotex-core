@@ -5,6 +5,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+
 	"github.com/stretchr/testify/require"
 )
 
