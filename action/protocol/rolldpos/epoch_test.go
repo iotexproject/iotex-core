@@ -1,23 +1,13 @@
 package rolldpos
 
 import (
-	//"github.com/iotexproject/go-pkgs/hash"
-	//"github.com/iotexproject/iotex-core/db"
 
 	"context"
-
 	"github.com/stretchr/testify/require"
-
-	//"google.golang.org/appengine/aetest"
 	"testing"
-	//_"google.golang.org/appengine/aetest"
+
 )
 
-//
-//EnableDardanellesSubEpoch：原构造函数NewProtocal传入参数不变，新增数据成员总有：
-//numSubEpochsDardanelles = numSubEpochs
-//dardanellesHeight = height
-//dardanellesOn = ture
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
 	require := require.New(t)
