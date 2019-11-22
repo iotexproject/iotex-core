@@ -283,8 +283,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blo
 		validatorAddr:   cfg.ProducerAddress().String(),
 		senderBlackList: senderBlackList,
 	}
-	chain.lifecycle.Add(chain.validator)
-
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
@@ -311,7 +309,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 
-	// pass registry to be used by validator and state factory's initialization
+	// pass registry to be used by state factory's initialization
 	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
 		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		Registry:       bc.registry,
@@ -729,7 +727,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	}
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis},
+		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis, Registry: bc.registry},
 	)
 
 	err := bc.validator.Validate(ctx, blk, bc.tipHeight, prevBlkHash)

@@ -1156,9 +1156,14 @@ func TestActions(t *testing.T) {
 	t.Skip()
 	require := require.New(t)
 	cfg := config.Default
+
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
+
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis},
+		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
 	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -1174,9 +1179,6 @@ func TestActions(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
 	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), RegistryOption(&registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
