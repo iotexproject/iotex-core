@@ -4,11 +4,11 @@ import (
 	"errors"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // Envelope defines an envelope wrapped on action with some envelope metadata.
