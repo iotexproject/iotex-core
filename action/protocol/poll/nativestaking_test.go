@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/types"
@@ -37,11 +36,11 @@ var (
 func TestStaking(t *testing.T) {
 	require := require.New(t)
 
-	mcm := &protocol.DummyChainManager{}
-	getTime := func() (time.Time, error) { return time.Now(), nil }
-	ns, err := NewNativeStaking(mcm, nil)
+	ns, err := NewNativeStaking(nil)
 	require.Error(err)
-	ns, err = NewNativeStaking(mcm, getTime)
+	ns, err = NewNativeStaking(func(string, uint64, time.Time, []byte) ([]byte, error) {
+		return nil, nil
+	})
 	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
 	require.NoError(err)
 

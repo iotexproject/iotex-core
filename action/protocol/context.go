@@ -31,6 +31,8 @@ type RunActionsCtx struct {
 	GasLimit uint64
 	// Genesis is a copy of current genesis
 	Genesis genesis.Genesis
+	// Tip is the information of tip block
+	Tip TipInfo
 	// Producer is the address of whom composes the block containing this action
 	Producer address.Address
 	// Caller is the address of whom issues this action
@@ -49,12 +51,21 @@ type RunActionsCtx struct {
 	Registry *Registry
 }
 
+// TipInfo contains the tip block information
+type TipInfo struct {
+	Height    uint64
+	Hash      hash.Hash256
+	Timestamp time.Time
+}
+
 // ValidateActionsCtx provides action validators with auxiliary information.
 type ValidateActionsCtx struct {
 	// height of block containing those actions
 	BlockHeight uint64
 	// public key of producer who compose those actions
 	ProducerAddr string
+	// information of the tip block
+	Tip TipInfo
 	// Caller is the address of whom issues the action
 	Caller address.Address
 	// Genesis is a copy of current genesis

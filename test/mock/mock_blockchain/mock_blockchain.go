@@ -8,8 +8,8 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -260,6 +260,21 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*MockBlockchain)(nil).Genesis))
 }
 
+// RunActionsContext mocks base method
+func (m *MockBlockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunActionsContext")
+	ret0, _ := ret[0].(*protocol.RunActionsCtx)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RunActionsContext indicates an expected call of RunActionsContext
+func (mr *MockBlockchainMockRecorder) RunActionsContext() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActionsContext", reflect.TypeOf((*MockBlockchain)(nil).RunActionsContext))
+}
+
 // MintNewBlock mocks base method
 func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
 	m.ctrl.T.Helper()
@@ -327,22 +342,6 @@ func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
 func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
-}
-
-// SimulateExecution mocks base method
-func (m *MockBlockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SimulateExecution", caller, ex)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(*action.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// SimulateExecution indicates an expected call of SimulateExecution
-func (mr *MockBlockchainMockRecorder) SimulateExecution(caller, ex interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockBlockchain)(nil).SimulateExecution), caller, ex)
 }
 
 // AddSubscriber mocks base method
