@@ -1,9 +1,10 @@
 package api
 
 import (
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -41,6 +42,7 @@ func (bl *blockListener) Respond(blk *block.Block) error {
 			zap.Error(err),
 		)
 		bl.errChan <- err
+		return err
 	}
 	return nil
 }
