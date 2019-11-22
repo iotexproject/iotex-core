@@ -427,12 +427,14 @@ func TestRollDPoSConsensus(t *testing.T) {
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithRunActionsCtx(ctx,
 					protocol.RunActionsCtx{
-						Producer: identityset.Address(27),
-						GasLimit: gasLimit,
-						Genesis:  cfg.Genesis,
+						BlockHeight: 0,
+						Producer:    identityset.Address(27),
+						GasLimit:    gasLimit,
+						Genesis:     cfg.Genesis,
 					})
-				_, err = ws.RunActions(wsctx, 0, nil)
+				_, err = ws.RunActions(wsctx, nil)
 				require.NoError(t, err)
+				require.NoError(t, ws.Finalize())
 				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.NewRegistry()

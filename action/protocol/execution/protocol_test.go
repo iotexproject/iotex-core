@@ -32,7 +32,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -281,6 +280,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
+	for _, expectedBalance := range sct.InitBalances {
+		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
+	}
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
@@ -308,22 +310,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(ProtocolID, execution))
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet()
-	r.NoError(err)
-	for _, expectedBalance := range sct.InitBalances {
-		_, err = accountutil.LoadOrCreateAccount(ws, expectedBalance.Account, expectedBalance.Balance())
-		r.NoError(err)
-	}
-	ctx = protocol.WithRunActionsCtx(ctx,
-		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: uint64(10000000),
-			Genesis:  cfg.Genesis,
-			Registry: registry,
-		})
-	_, err = ws.RunActions(ctx, 0, nil)
-	r.NoError(err)
-	r.NoError(sf.Commit(ws))
+
 	return bc
 }
 
@@ -465,6 +452,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
+		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol()
 		require.NoError(registry.Register(account.ProtocolID, acc))
@@ -496,22 +484,6 @@ func TestProtocol_Handle(t *testing.T) {
 			require.NoError(err)
 		}()
 
-		ws, err := sf.NewWorkingSet()
-		require.NoError(err)
-		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
-		require.NoError(err)
-		gasLimit := testutil.TestGasLimit
-		ctx = protocol.WithRunActionsCtx(ctx,
-			protocol.RunActionsCtx{
-				Producer: identityset.Address(27),
-				GasLimit: gasLimit,
-				Genesis:  cfg.Genesis,
-				Registry: registry,
-			})
-		_, err = ws.RunActions(ctx, 0, nil)
-		require.NoError(err)
-		require.NoError(sf.Commit(ws))
-
 		data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
 		execution, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
 		require.NoError(err)
@@ -531,7 +503,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
-		require.Nil(bc.CommitBlock(blk))
+		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		eHash := execution.Hash()
@@ -540,31 +512,31 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
-		ws, err = sf.NewWorkingSet()
+		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
 
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(data[31:], code)
 
 		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(eHash, exe.Hash())
 
 		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
 		total, err := indexer.GetActionCountByAddress(addr27)
 		require.NoError(err)
 		exes, err := indexer.GetActionsByAddress(addr27, 0, total)
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(1, len(exes))
 		require.Equal(eHash[:], exes[0])
 
 		actIndex, err := indexer.GetActionIndex(eHash[:])
 		blkHash, err := bc.BlockDAO().GetBlockHash(actIndex.BlockHeight())
-		require.Nil(err)
+		require.NoError(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
 		// store to key 0
@@ -589,7 +561,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
-		require.Nil(bc.CommitBlock(blk))
+		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		ws, err = sf.NewWorkingSet()
@@ -624,7 +596,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
-		require.Nil(bc.CommitBlock(blk))
+		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
 		eHash = execution.Hash()
@@ -650,7 +622,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		require.NoError(err)
 		require.NoError(bc.ValidateBlock(blk))
-		require.Nil(bc.CommitBlock(blk))
+		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 	}
 

@@ -50,15 +50,14 @@ type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
 		// states and actions
-		//RunActions(context.Context, uint64, []action.SealedEnvelope) (map[hash.Hash32B]*action.Receipt, error)
-		RunAction(protocol.RunActionsCtx, action.SealedEnvelope) (*action.Receipt, error)
-		UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256
-		RunActions(context.Context, uint64, []action.SealedEnvelope) ([]*action.Receipt, error)
+		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
+		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, error)
+		Finalize() error
 		Snapshot() int
 		Revert(int) error
 		Commit() error
-		RootHash() hash.Hash256
-		Digest() hash.Hash256
+		RootHash() (hash.Hash256, error)
+		Digest() (hash.Hash256, error)
 		Version() uint64
 		Height() uint64
 		History() bool
@@ -72,8 +71,8 @@ type (
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
-		ver         uint64
-		blkHeight   uint64
+		finalized   bool
+		blockHeight uint64
 		saveHistory bool
 		accountTrie trie.Trie            // global account state trie
 		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
@@ -84,13 +83,14 @@ type (
 
 // newWorkingSet creates a new working set
 func newWorkingSet(
-	version uint64,
+	height uint64,
 	kv db.KVStore,
 	root hash.Hash256,
 	saveHistory bool,
 ) (WorkingSet, error) {
 	ws := &workingSet{
-		ver:         version,
+		finalized:   false,
+		blockHeight: height,
 		saveHistory: saveHistory,
 		trieRoots:   make(map[int]hash.Hash256),
 		cb:          db.NewCachedBatch(),
@@ -112,21 +112,26 @@ func newWorkingSet(
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (ws *workingSet) RootHash() hash.Hash256 {
-	return hash.BytesToHash256(ws.accountTrie.RootHash())
+func (ws *workingSet) RootHash() (hash.Hash256, error) {
+	if !ws.finalized {
+		return hash.ZeroHash256, errors.Errorf("working set has not been finalized")
+	}
+	return hash.BytesToHash256(ws.accountTrie.RootHash()), nil
 }
 
 // Digest returns the delta state digest
-func (ws *workingSet) Digest() hash.Hash256 { return hash.ZeroHash256 }
+func (ws *workingSet) Digest() (hash.Hash256, error) {
+	return hash.ZeroHash256, nil
+}
 
 // Version returns the Version of this working set
 func (ws *workingSet) Version() uint64 {
-	return ws.ver
+	return ws.blockHeight
 }
 
 // Height returns the Height of the block being worked on
 func (ws *workingSet) Height() uint64 {
-	return ws.blkHeight
+	return ws.blockHeight
 }
 
 func (ws *workingSet) History() bool {
@@ -136,34 +141,49 @@ func (ws *workingSet) History() bool {
 // RunActions runs actions in the block and track pending changes in working set
 func (ws *workingSet) RunActions(
 	ctx context.Context,
-	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
-	var raCtx protocol.RunActionsCtx
-	if len(elps) > 0 {
-		raCtx = protocol.MustGetRunActionsCtx(ctx)
-	}
 	for _, elp := range elps {
-		receipt, err := ws.RunAction(raCtx, elp)
+		receipt, err := ws.runAction(ctx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
 		if receipt != nil {
-			raCtx.GasLimit -= receipt.GasConsumed
 			receipts = append(receipts, receipt)
 		}
 	}
-	ws.UpdateBlockLevelInfo(blockHeight)
+
 	return receipts, nil
 }
 
-// RunAction runs action in the block and track pending changes in working set
 func (ws *workingSet) RunAction(
-	raCtx protocol.RunActionsCtx,
+	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
+	return ws.runAction(ctx, elp)
+}
+
+func (ws *workingSet) runAction(
+	ctx context.Context,
+	elp action.SealedEnvelope,
+) (*action.Receipt, error) {
+	if ws.finalized {
+		return nil, errors.Errorf("cannot run action on a finalized working set")
+	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != ws.blockHeight {
+		return nil, errors.Errorf(
+			"invalid block height %d, %d expected",
+			raCtx.BlockHeight,
+			ws.blockHeight,
+		)
+	}
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
+
 	// Handle action
 	// Add caller address into the run action context
 	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
@@ -179,11 +199,7 @@ func (ws *workingSet) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
-	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
-
-	if raCtx.Registry == nil {
-		return nil, nil
-	}
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
@@ -202,23 +218,26 @@ func (ws *workingSet) RunAction(
 	return nil, nil
 }
 
-// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
-func (ws *workingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
-	ws.blkHeight = blockHeight
+// Finalize runs action in the block and track pending changes in working set
+func (ws *workingSet) Finalize() error {
+	if ws.finalized {
+		return errors.New("Cannot finalize a working set twice")
+	}
+	ws.finalized = true
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
 	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
-	h := byteutil.Uint64ToBytes(blockHeight)
+	h := byteutil.Uint64ToBytes(ws.blockHeight)
 	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
 	// Persist the historical accountTrie's root hash
 	ws.cb.Put(
 		AccountKVNameSpace,
-		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)),
+		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, ws.blockHeight)),
 		rootHash,
 		"failed to store accountTrie's root hash",
 	)
-	return ws.RootHash()
+	return nil
 }
 
 func (ws *workingSet) Snapshot() int {

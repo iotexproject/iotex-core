@@ -499,7 +499,7 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 
-	_, rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
+	rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
 	}
@@ -517,11 +517,15 @@ func (bc *blockchain) MintNewBlock(
 	if newblockHeight == 1 {
 		prevBlkHash = bc.config.Genesis.Hash()
 	}
+	digest, err := ws.Digest()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get digest")
+	}
 	blk, err := block.NewBuilder(ra).
 		SetHeight(newblockHeight).
 		SetTimestamp(timestamp).
 		SetPrevBlockHash(prevBlkHash).
-		SetDeltaStateDigest(ws.Digest()).
+		SetDeltaStateDigest(digest).
 		SetReceipts(rc).
 		SetReceiptRoot(calculateReceiptRoot(rc)).
 		SetLogsBloom(calculateLogsBloom(bc.config, newblockHeight, rc)).
@@ -723,8 +727,11 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
 	}
-
-	if err = blk.VerifyDeltaStateDigest(ws.Digest()); err != nil {
+	digest, err := ws.Digest()
+	if err != nil {
+		return err
+	}
+	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
 		return err
 	}
 
@@ -812,13 +819,18 @@ func (bc *blockchain) runActions(
 	}
 	// TODO: verify whether the post system actions are appended tail
 
-	return ws.RunActions(ctx, blk.Height(), blk.RunnableActions().Actions())
+	receipts, err := ws.RunActions(ctx, blk.RunnableActions().Actions())
+	if err != nil {
+		return nil, err
+	}
+
+	return receipts, ws.Finalize()
 }
 
 func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,
-	ws factory.WorkingSet) (hash.Hash256, []*action.Receipt, []action.SealedEnvelope, error) {
+	ws factory.WorkingSet) ([]*action.Receipt, []action.SealedEnvelope, error) {
 	if bc.sf == nil {
-		return hash.ZeroHash256, nil, nil, errors.New("statefactory cannot be nil")
+		return nil, nil, errors.New("statefactory cannot be nil")
 	}
 
 	receipts := make([]*action.Receipt, 0)
@@ -829,7 +841,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return hash.ZeroHash256, nil, nil, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -842,7 +854,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 
-		receipt, err := ws.RunAction(raCtx, nextAction)
+		receipt, err := ws.RunAction(ctx, nextAction)
 		if err != nil {
 			if errors.Cause(err) == action.ErrHitGasLimit {
 				// hit block gas limit, we should not process actions belong to this user anymore since we
@@ -851,10 +863,11 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 				actionIterator.PopAccount()
 				continue
 			}
-			return hash.ZeroHash256, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
 			raCtx.GasLimit -= receipt.GasConsumed
+			ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)
@@ -871,17 +884,17 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
 			elps, err := psac.CreatePostSystemActions(ctx)
 			if err != nil {
-				return hash.ZeroHash256, nil, nil, err
+				return nil, nil, err
 			}
 			for _, elp := range elps {
 				se, err := action.Sign(elp, sk)
 				if err != nil {
-					return hash.ZeroHash256, nil, nil, err
+					return nil, nil, err
 				}
 
-				receipt, err := ws.RunAction(raCtx, se)
+				receipt, err := ws.RunAction(ctx, se)
 				if err != nil {
-					return hash.ZeroHash256, nil, nil, err
+					return nil, nil, err
 				}
 				if receipt != nil {
 					receipts = append(receipts, receipt)
@@ -893,7 +906,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
-	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
+	return receipts, executedActions, ws.Finalize()
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
