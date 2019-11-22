@@ -341,6 +341,6 @@ func TestIndexer(t *testing.T) {
 	t.Run("Bolt DB delete", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		defer testutil.CleanupPath(t, testPath)
-		testIndexer(db.NewBoltDB(cfg), t)
+		testDelete(db.NewBoltDB(cfg), t)
 	})
 }
