@@ -186,10 +186,10 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
+func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, registry, sdb.saveHistory), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -302,7 +302,7 @@ func (sdb *stateDB) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry, sdb.saveHistory)
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory)
 	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
 		return err
 	}

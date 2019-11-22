@@ -411,7 +411,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
 			for j := 0; j < numNodes; j++ {
-				ws, err := sf.NewWorkingSet(nil)
+				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
 				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
 				require.NoError(t, err)

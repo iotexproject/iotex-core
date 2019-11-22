@@ -758,7 +758,7 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		BlockHeight: api.bc.TipHeight(),
 		Registry:    api.registry,
 	})
-	ws, err := api.bc.Factory().NewWorkingSet(api.registry)
+	ws, err := api.bc.Factory().NewWorkingSet()
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

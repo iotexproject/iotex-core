@@ -51,7 +51,7 @@ type (
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
-		NewWorkingSet(*protocol.Registry) (WorkingSet, error)
+		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
 		// Candidate pool
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
@@ -246,10 +246,10 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 // NewWorkingSet returns new working set
-func (sf *factory) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
+func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), registry, sf.saveHistory)
+	return newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -370,7 +370,7 @@ func (sf *factory) initialize(ctx context.Context) error {
 		// not RunActionsCtx or no valid registry
 		return nil
 	}
-	ws, err := newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), raCtx.Registry, sf.saveHistory)
+	ws, err := newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
