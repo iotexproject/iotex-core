@@ -141,7 +141,6 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
 		protocol.ValidateActionsCtx{
@@ -154,7 +153,7 @@ func TestWrongNonce(t *testing.T) {
 		},
 	)
 	require.NoError(val.Validate(ctx, &blk))
-	ws, err := sf.NewWorkingSet(&registry)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(

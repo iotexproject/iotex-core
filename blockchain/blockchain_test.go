@@ -1117,7 +1117,7 @@ func TestBlocks(t *testing.T) {
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	c := identityset.Address(29).String()
-	ws, err := sf.NewWorkingSet(nil)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
@@ -1189,7 +1189,7 @@ func TestActions(t *testing.T) {
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	c := identityset.Address(29).String()
-	ws, err := sf.NewWorkingSet(nil)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100000))
 	require.NoError(err)
@@ -1237,7 +1237,7 @@ func TestActions(t *testing.T) {
 }
 
 func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protocol.Registry) error {
-	ws, err := sf.NewWorkingSet(registry)
+	ws, err := sf.NewWorkingSet()
 	if err != nil {
 		return err
 	}
@@ -1254,6 +1254,7 @@ func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protoc
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  cfg.Genesis,
+			Registry: registry,
 		})
 	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
 		return err

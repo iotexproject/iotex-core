@@ -130,7 +130,7 @@ func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Executi
 	}
 
 	raCtx.Caller = caller
-	ws, err := bc.Factory().NewWorkingSet(raCtx.Registry)
+	ws, err := bc.Factory().NewWorkingSet()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -396,7 +396,6 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	if !ok {
 		return 0, nil, errors.New("poll protocol is not registered")
 	}
-
 	// TODO: move the function out of blockchain
 	// This is a weird call, which shows that the function should not be an API of blockchain
 	raCtx, err := bc.RunActionsContext()
@@ -405,7 +404,7 @@ func (bc *blockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]u
 	}
 
 	ctx := protocol.WithRunActionsCtx(context.Background(), *raCtx)
-	ws, err := bc.sf.NewWorkingSet(bc.registry)
+	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return 0, nil, err
 	}
@@ -516,7 +515,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet(bc.registry)
+	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -708,7 +707,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 			return err
 		}
 
-		ws, err := bc.sf.NewWorkingSet(bc.registry)
+		ws, err := bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
@@ -774,7 +773,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrapf(err, "error when validating block %d", blk.Height())
 	}
 	// run actions and update state factory
-	ws, err := bc.sf.NewWorkingSet(bc.registry)
+	ws, err := bc.sf.NewWorkingSet()
 	if err != nil {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}

@@ -93,7 +93,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(execution.ProtocolID, exec))
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet(&registry)
+	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
 	balance, ok := new(big.Int).SetString("1000000000000000000000000000", 10)
 	r.True(ok)
@@ -105,6 +105,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 			Genesis:  cfg.Genesis,
+			Registry: &registry,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
