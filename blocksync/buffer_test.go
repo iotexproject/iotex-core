@@ -34,6 +34,8 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.Nil(err)
 
 	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	chain := blockchain.NewBlockchain(
@@ -44,7 +46,6 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.RegistryOption(&registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
-	chain.Validator().AddActionValidators(account.NewProtocol())
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

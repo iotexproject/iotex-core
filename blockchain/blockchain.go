@@ -9,7 +9,6 @@ package blockchain
 import (
 	"context"
 	"math/big"
-	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -44,7 +43,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -82,7 +80,7 @@ type Blockchain interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// GetFactory returns the state factory
+	// Factory returns the state factory
 	Factory() factory.Factory
 	// BlockDAO returns the block dao
 	BlockDAO() blockdao.BlockDAO
@@ -94,8 +92,6 @@ type Blockchain interface {
 	TipHash() hash.Hash256
 	// TipHeight returns tip block's height
 	TipHeight() uint64
-	// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
-	RecoverChainAndState(targetHeight uint64) error
 	// Genesis returns the genesis
 	Genesis() genesis.Genesis
 
@@ -287,7 +283,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blo
 		validatorAddr:   cfg.ProducerAddress().String(),
 		senderBlackList: senderBlackList,
 	}
-
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
@@ -620,31 +615,6 @@ func (bc *blockchain) SimulateExecution(caller address.Address, ex *action.Execu
 	return evm.ExecuteContract(ctx, ws, ex, bc.dao.GetBlockHash)
 }
 
-// RecoverChainAndState recovers the chain to target height and refresh state db if necessary
-func (bc *blockchain) RecoverChainAndState(targetHeight uint64) error {
-	var buildStateFromScratch bool
-	stateHeight, err := bc.sf.Height()
-	if err != nil {
-		return err
-	}
-	if stateHeight == 0 {
-		buildStateFromScratch = true
-	}
-	if targetHeight > 0 {
-		if err := bc.recoverToHeight(targetHeight); err != nil {
-			return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
-		}
-		if stateHeight > bc.tipHeight {
-			buildStateFromScratch = true
-		}
-	}
-
-	if buildStateFromScratch {
-		return bc.refreshStateDB()
-	}
-	return nil
-}
-
 func (bc *blockchain) Genesis() genesis.Genesis {
 	return bc.config.Genesis
 }
@@ -757,7 +727,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	}
 	ctx := protocol.WithValidateActionsCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis},
+		protocol.ValidateActionsCtx{Genesis: bc.config.Genesis, Registry: bc.registry},
 	)
 
 	err := bc.validator.Validate(ctx, blk, bc.tipHeight, prevBlkHash)
@@ -1060,40 +1030,6 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 			}
 		}(s, blk)
 	}
-}
-
-// RecoverToHeight recovers the blockchain to target height
-func (bc *blockchain) recoverToHeight(targetHeight uint64) error {
-	for bc.tipHeight > targetHeight {
-		if err := bc.dao.DeleteTipBlock(); err != nil {
-			return err
-		}
-		bc.tipHeight--
-	}
-	return nil
-}
-
-// RefreshStateDB deletes the existing state DB and creates a new one with state changes from genesis block
-func (bc *blockchain) refreshStateDB() error {
-	// Delete existing state DB and reinitialize it
-	if fileutil.FileExists(bc.config.Chain.TrieDBPath) && os.Remove(bc.config.Chain.TrieDBPath) != nil {
-		return errors.New("failed to delete existing state DB")
-	}
-	if err := DefaultStateFactoryOption()(bc, bc.config); err != nil {
-		return errors.Wrap(err, "failed to reinitialize state DB")
-	}
-
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockTimeStamp: time.Unix(bc.config.Genesis.Timestamp, 0),
-		Registry:       bc.registry,
-	})
-	if err := bc.sf.Start(ctx); err != nil {
-		return errors.Wrap(err, "failed to start state factory")
-	}
-	if err := bc.sf.Stop(context.Background()); err != nil {
-		return errors.Wrap(err, "failed to stop state factory")
-	}
-	return nil
 }
 
 func (bc *blockchain) createGrantRewardAction(rewardType int, height uint64) (action.SealedEnvelope, error) {

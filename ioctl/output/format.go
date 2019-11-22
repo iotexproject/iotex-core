@@ -67,6 +67,8 @@ const (
 	Query
 	// Error represents error occurred when running a command
 	Error
+	// Warn represents non-fatal mistake occurred when running a command
+	Warn
 )
 
 // Output is used for format output
@@ -132,6 +134,14 @@ func (m StringMessage) Query() string {
 		return string(m)
 	}
 	return FormatString(Query, m)
+}
+
+// Warn prints warn message
+func (m StringMessage) Warn() string {
+	if Format == "" {
+		return fmt.Sprintf("Warn: %s\n", string(m))
+	}
+	return FormatString(Warn, m)
 }
 
 // FormatString returns Output as string in certain format
