@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Envelope defines an envelope wrapped on action with some envelope metadata.
 type Envelope struct {
 	version  uint32
 	nonce    uint64

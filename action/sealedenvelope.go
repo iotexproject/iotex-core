@@ -11,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 )
 
+// Envelope defines an envelope wrapped on action with some envelope metadata.
 type SealedEnvelope struct {
 	Envelope
 
