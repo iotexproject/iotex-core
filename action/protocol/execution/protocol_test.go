@@ -272,6 +272,12 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r *require.Assertions,
 ) (blockchain.Blockchain, blockdao.BlockDAO, *protocol.Registry) {
 	cfg := config.Default
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	cfg.Chain.ChainDBPath = testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	cfg.Chain.IndexDBPath = testIndexFile.Name()
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -287,15 +293,17 @@ func (sct *SmartContractTest) prepareBlockchain(
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
 	// create indexer
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+	cfg.DB.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 	r.NoError(err)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	cfg.DB.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		blockchain.InMemStateFactoryOption(),
+		blockchain.DefaultStateFactoryOption(),
 		blockchain.RegistryOption(&registry),
 	)
 	reward := rewarding.NewProtocol(bc, rp)

@@ -24,11 +24,16 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
-	bc "github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockdao"
@@ -175,19 +180,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain := bc.NewBlockchain(
-		cfg,
-		nil,
-		bc.InMemStateFactoryOption(),
-		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
-	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+	chain := newBlockchain(cfg, t)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -234,20 +227,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain1 := bc.NewBlockchain(
-		cfg,
-		nil,
-		bc.InMemStateFactoryOption(),
-		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
-	)
-	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
+	chain1 := newBlockchain(cfg, t)
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -258,26 +238,17 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	registry2 := protocol.Registry{}
-	require.NoError(registry2.Register(account.ProtocolID, acc))
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
-	chain2 := bc.NewBlockchain(
-		cfg,
-		nil,
-		bc.InMemStateFactoryOption(),
-		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry2),
-	)
-	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
+	cfg2, err := newTestConfig()
+	require.NoError(err)
+	chain2 := newBlockchain(cfg2, t)
 	require.NoError(chain2.Start(ctx))
-	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap2, err := actpool.NewActPool(chain2, cfg2.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
 	require.Nil(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
+	bs2, err := NewBlockSyncer(cfg2, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -326,23 +297,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	rolldposProtocol := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
-	)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	chain1 := bc.NewBlockchain(
-		cfg,
-		nil,
-		bc.InMemStateFactoryOption(),
-		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
-	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
+	chain1 := newBlockchain(cfg, t)
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -353,26 +308,18 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	registry2 := protocol.Registry{}
-	require.NoError(registry2.Register(account.ProtocolID, acc))
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
-	chain2 := bc.NewBlockchain(
-		cfg,
-		nil,
-		bc.InMemStateFactoryOption(),
-		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry2),
-	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
+	cfg2, err := newTestConfig()
+	require.NoError(err)
+	chain2 := newBlockchain(cfg2, t)
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
-	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap2, err := actpool.NewActPool(chain2, cfg2.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
 	require.Nil(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
+	bs2, err := NewBlockSyncer(cfg2, chain2, ap2, cs2, opts...)
 	require.Nil(err)
 
 	defer func() {
@@ -420,12 +367,9 @@ func TestBlockSyncerSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
-	require.NoError(chain.Start(ctx))
+	chain := newBlockchain(cfg, t)
 	require.NotNil(chain)
+	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
@@ -474,15 +418,51 @@ func newTestConfig() (config.Config, error) {
 		return config.Config{}, err
 	}
 	testDBPath := testDBFile.Name()
-
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	if err != nil {
+		return config.Config{}, err
+	}
+	testIndexPath := testIndexFile.Name()
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.BlockSync.Interval = 100 * time.Millisecond
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Host = "127.0.0.1"
 	cfg.Network.Port = 10000
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Chain.EnableAsyncIndexWrite = false
 	return cfg, nil
+}
+
+func newBlockchain(cfg config.Config, t *testing.T) blockchain.Blockchain {
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+	dbConfig := cfg.DB
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(t, err)
+	// create indexer
+	dbConfig.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(dbConfig), cfg.Genesis.Hash())
+	require.NoError(t, err)
+	// create BlockDAO
+	dbConfig.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(dbConfig), indexer, cfg.Chain.CompressBlock, dbConfig)
+	require.NotNil(t, dao)
+	bc := blockchain.NewBlockchain(
+		cfg,
+		dao,
+		blockchain.PrecreatedStateFactoryOption(sf),
+		blockchain.RegistryOption(&registry),
+	)
+	require.NotNil(t, bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	return bc
 }

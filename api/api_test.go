@@ -1216,7 +1216,6 @@ func TestServer_AvailableBalance(t *testing.T) {
 
 func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1237,6 +1236,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
 
 	for _, test := range readDelegatesByEpochTests {
+		cfg := newConfig()
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
@@ -1272,7 +1272,6 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 
 func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1293,6 +1292,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readBlockProducersByEpochTests {
+		cfg := newConfig()
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
@@ -1328,7 +1328,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 
 func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1349,6 +1348,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readActiveBlockProducersByEpochTests {
+		cfg := newConfig()
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
@@ -1384,9 +1384,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 
 func TestServer_ReadRollDPoSMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	for _, test := range readRollDPoSMetaTests {
+		cfg := newConfig()
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1400,9 +1400,9 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 
 func TestServer_ReadEpochCtx(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	for _, test := range readEpochCtxTests {
+		cfg := newConfig()
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1417,12 +1417,12 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 
 func TestServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
 	for _, test := range getEpochMetaTests {
+		cfg := newConfig()
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if test.pollProtocolType == lld {
@@ -1756,18 +1756,21 @@ func addActsToActPool(ap actpool.ActPool) error {
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, error) {
+	dbConfig := cfg.DB
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
 	// create indexer
-	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
+	dbConfig.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(dbConfig), cfg.Genesis.Hash())
 	if err != nil {
 		return nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	dbConfig.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(dbConfig), indexer, cfg.Chain.CompressBlock, dbConfig)
 	if dao == nil {
 		return nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}

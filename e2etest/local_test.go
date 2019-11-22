@@ -25,19 +25,24 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
-	dBPath    = "db.test"
-	dBPath2   = "db.test2"
-	triePath  = "trie.test"
-	triePath2 = "trie.test2"
+	dBPath     = "db"
+	dBPath2    = "db2"
+	triePath   = "trie"
+	triePath2  = "trie2"
+	indexPath  = "index"
+	indexPath2 = "index2"
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -49,7 +54,7 @@ func TestLocalCommit(t *testing.T) {
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testDBPath := testDBFile.Name()
-	indexDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBFile, _ := ioutil.TempFile(os.TempDir(), indexPath)
 	indexDBPath := indexDBFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
@@ -70,6 +75,13 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.Nil(err)
+	testTrieFile0, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testDBFile0, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBFile0, _ := ioutil.TempFile(os.TempDir(), indexPath)
+	cfg.Chain.TrieDBPath = testTrieFile0.Name()
+	cfg.Chain.ChainDBPath = testDBFile0.Name()
+	cfg.Chain.IndexDBPath = indexDBFile0.Name()
+
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
 		cfg,
@@ -151,7 +163,7 @@ func TestLocalCommit(t *testing.T) {
 	testTriePath2 := testTrieFile2.Name()
 	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
 	testDBPath2 := testDBFile2.Name()
-	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), indexPath2)
 	indexDBPath2 := indexDBFile2.Name()
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
@@ -159,12 +171,20 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
+	require.NoError(copyDB(testDBPath+"-00000000.db", testDBPath2+"-00000000.db"))
+	dbConfig := cfg.DB
+	sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	require.NoError(err)
+	// create BlockDAO
+	dbConfig.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(dbConfig), nil, cfg.Chain.CompressBlock, dbConfig)
+	require.NotNil(dao)
+
 	registry := protocol.Registry{}
 	chain := blockchain.NewBlockchain(
 		cfg,
-		nil,
-		blockchain.DefaultStateFactoryOption(),
-		blockchain.BoltDBDaoOption(),
+		dao,
+		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.RegistryOption(&registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -497,13 +517,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	testIndexFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
 	testIndexPath := testIndexFile.Name()
 	// Disable block reward to make bookkeeping easier
-	cfg := config.Default
+	cfg, err := newTestConfig()
+	require.NoError(err)
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Consensus.Scheme = config.NOOPScheme
-	cfg.Network.Port = testutil.RandomPort()
 
 	svr, err := itx.NewServer(cfg)
 	require.Nil(err)
@@ -513,7 +531,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NotNil(bc)
 
 	defer func() {
-		require.NoError(svr.Stop(ctx))
+		svr.Stop(ctx)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc))
@@ -522,7 +540,10 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
+	svr, err = itx.NewServer(cfg)
+	require.NoError(err)
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
+	bc=svr.ChainService(cfg.Chain.ID).Blockchain()
 	height, _ := bc.Factory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(5), height)
@@ -567,6 +588,7 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.Port = testutil.RandomPort()
 	cfg.API.Port = testutil.RandomPort()
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Chain.EnableAsyncIndexWrite = false
 	sk, err := crypto.GenerateKey()
 
 	if err != nil {

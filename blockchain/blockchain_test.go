@@ -415,21 +415,8 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 func TestCreateBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-
-	cfg := config.Default
-	// disable account-based testing
-	cfg.Chain.TrieDBPath = ""
-	cfg.Genesis.EnableGravityChainVoting = false
-	// create chain
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
-	require.NoError(registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	cfg := newConfig()
+	bc := newBlockchain(cfg, t)
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
 	height := bc.TipHeight()
@@ -441,7 +428,7 @@ func TestCreateBlockchain(t *testing.T) {
 	}()
 
 	// add 4 sample blocks
-	require.NoError(addTestingTsfBlocks(bc, nil))
+	require.NoError(addTestingTsfBlocks(bc, bc.BlockDAO()))
 	height = bc.TipHeight()
 	require.Equal(5, int(height))
 }
@@ -513,17 +500,8 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 
 func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	ctx := context.Background()
-	cfg := config.Default
-	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
-	acc := account.NewProtocol()
-	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(&registry))
-	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
-	require.NoError(t, registry.Register(execution.ProtocolID, exec))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	cfg := newConfig()
+	bc := newBlockchain(cfg, t)
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -534,7 +512,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	addr1 := identityset.Address(28).String()
 	addr3 := identityset.Address(30).String()
 	priKey3 := identityset.PrivateKey(30)
-	require.NoError(t, addTestingTsfBlocks(bc, nil))
+	require.NoError(t, addTestingTsfBlocks(bc, bc.BlockDAO()))
 
 	// test third block
 	bytes := []byte{}
@@ -716,24 +694,7 @@ func TestConstantinople(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
-	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
-
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
+	cfg := newConfig()
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
@@ -761,13 +722,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		var indexer blockindex.Indexer
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
-			cfg.DB.DbPath = cfg.Chain.IndexDBPath
-			indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
+			dbcfg := cfg.DB
+			dbcfg.DbPath = cfg.Chain.IndexDBPath
+			indexer, err = blockindex.NewIndexer(db.NewBoltDB(dbcfg), cfg.Genesis.Hash())
 			require.NoError(err)
 		}
 		// create BlockDAO
-		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dbcfg := cfg.DB
+		dbcfg.DbPath = cfg.Chain.ChainDBPath
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(dbcfg), indexer, cfg.Chain.CompressBlock, dbcfg)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -795,6 +758,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		accountProtocol := account.NewProtocol()
 		registry = protocol.Registry{}
 		require.NoError(registry.Register(account.ProtocolID, accountProtocol))
+		dao = blockdao.NewBlockDAO(db.NewBoltDB(dbcfg), indexer, cfg.Chain.CompressBlock, dbcfg)
+		sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		require.NoError(err)
 		bc = NewBlockchain(
 			cfg,
 			dao,
@@ -952,49 +918,11 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		}
 	}
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
-	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-		testutil.CleanupPath(t, testDBPath)
-		testutil.CleanupPath(t, testIndexPath)
-	}()
-
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	cfg.Chain.ChainDBPath = testDBPath
-	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Genesis.EnableGravityChainVoting = false
-
+	cfg := newConfig()
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
-
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath2 := testTrieFile.Name()
-	testDBFile, _ = ioutil.TempFile(os.TempDir(), "db")
-	testDBPath2 := testDBFile.Name()
-	testIndexFile2, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath2 := testIndexFile2.Name()
-	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-		testutil.CleanupPath(t, testDBPath2)
-		testutil.CleanupPath(t, testIndexPath2)
-		// clear the gateway
-		delete(cfg.Plugins, config.GatewayPlugin)
-	}()
-
-	cfg.Plugins[config.GatewayPlugin] = true
-	cfg.Chain.TrieDBPath = testTriePath2
-	cfg.Chain.ChainDBPath = testDBPath2
-	cfg.Chain.IndexDBPath = testIndexPath2
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.AleutianBlockHeight = 3
-
+	cfg = newConfig()
 	t.Run("load blockchain from DB", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
@@ -1249,4 +1177,56 @@ func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protoc
 		return err
 	}
 	return sf.Commit(ws)
+}
+
+func newConfig() config.Config {
+	cfg := config.Default
+
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath := testTrieFile.Name()
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath := testDBFile.Name()
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath := testIndexFile.Name()
+
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.API.RangeQueryLimit = 100
+	cfg.Genesis.AleutianBlockHeight = 3
+	return cfg
+}
+
+func newBlockchain(cfg config.Config, t *testing.T) Blockchain {
+	registry := protocol.Registry{}
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+	dbConfig := cfg.DB
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(t, err)
+	// create indexer
+	dbConfig.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(dbConfig), cfg.Genesis.Hash())
+	require.NoError(t, err)
+	// create BlockDAO
+	dbConfig.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(dbConfig), indexer, cfg.Chain.CompressBlock, dbConfig)
+	require.NotNil(t, dao)
+	bc := NewBlockchain(
+		cfg,
+		dao,
+		PrecreatedStateFactoryOption(sf),
+		RegistryOption(&registry),
+	)
+	require.NotNil(t, bc)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	return bc
 }

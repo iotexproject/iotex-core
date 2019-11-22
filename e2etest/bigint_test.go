@@ -8,7 +8,9 @@ package e2etest
 
 import (
 	"context"
+	"io/ioutil"
 	"math/big"
+	"os"
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -19,11 +21,15 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -38,7 +44,7 @@ func TestTransfer_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
 	bc := prepareBlockchain(ctx, executor, r)
-	defer r.NoError(bc.Stop(ctx))
+	defer bc.Stop(ctx)
 	balanceBeforeTransfer, err := bc.Factory().Balance(executor)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
@@ -53,7 +59,7 @@ func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
 	bc := prepareBlockchain(ctx, executor, r)
-	defer r.NoError(bc.Stop(ctx))
+	defer bc.Stop(ctx)
 	balanceBeforeTransfer, err := bc.Factory().Balance(executor)
 	r.NoError(err)
 	blk, err := prepareAction(bc, r)
@@ -67,29 +73,42 @@ func TestAction_Negative(t *testing.T) {
 }
 
 func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
-	cfg := config.Default
-	cfg.Chain.EnableAsyncIndexWrite = false
-	cfg.Genesis.EnableGravityChainVoting = false
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+
+	cfg := newConfig(testDBFile.Name(), testTrieFile.Name(), testIndexFile.Name(), identityset.PrivateKey(27),
+		4689, 14014, uint64(24))
 	registry := protocol.Registry{}
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
+
+	dbConfig := cfg.DB
+	sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	r.NoError(err)
+	// create indexer
+	dbConfig.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(dbConfig), cfg.Genesis.Hash())
+	r.NoError(err)
+	// create BlockDAO
+	dbConfig.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(dbConfig), indexer, cfg.Chain.CompressBlock, dbConfig)
+	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
-		blockchain.InMemDaoOption(),
-		blockchain.InMemStateFactoryOption(),
+		dao,
+		blockchain.PrecreatedStateFactoryOption(sf),
 		blockchain.RegistryOption(&registry),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(bc, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
+	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	r.NoError(registry.Register(poll.ProtocolID, p))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	sf := bc.Factory()
-	r.NotNil(sf)
-	r.NoError(bc.Start(ctx))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(execution.ProtocolID, exec))
 	r.NoError(bc.Start(ctx))
