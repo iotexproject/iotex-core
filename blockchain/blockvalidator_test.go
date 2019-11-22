@@ -32,10 +32,6 @@ import (
 
 func TestWrongRootHash(t *testing.T) {
 	require := require.New(t)
-	ctx := protocol.WithValidateActionsCtx(
-		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: config.Default.Genesis},
-	)
 	val := validator{sf: nil, validatorAddr: ""}
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -52,18 +48,24 @@ func TestWrongRootHash(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{
+			Genesis: config.Default.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 0,
+				Hash:   blkhash,
+			},
+		},
+	)
 
-	require.NoError(val.Validate(ctx, &blk, 0, blkhash))
+	require.NoError(val.Validate(ctx, &blk))
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-	require.Error(val.Validate(ctx, &blk, 0, blkhash))
+	require.Error(val.Validate(ctx, &blk))
 }
 
 func TestSignBlock(t *testing.T) {
 	require := require.New(t)
-	ctx := protocol.WithValidateActionsCtx(
-		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: config.Default.Genesis},
-	)
 	val := validator{sf: nil, validatorAddr: ""}
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
@@ -80,8 +82,18 @@ func TestSignBlock(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{
+			Genesis: config.Default.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+		},
+	)
 
-	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
+	require.NoError(val.Validate(ctx, &blk))
 }
 
 func TestWrongNonce(t *testing.T) {
@@ -91,10 +103,6 @@ func TestWrongNonce(t *testing.T) {
 	registry := protocol.Registry{}
 	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
 
-	ctx := protocol.WithValidateActionsCtx(
-		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: &registry},
-	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
 	cfg.Chain.TrieDBPath = testTriePath
@@ -133,7 +141,19 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(val.Validate(ctx, &blk, 2, blkhash))
+
+	ctx := protocol.WithValidateActionsCtx(
+		context.Background(),
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	require.NoError(val.Validate(ctx, &blk))
 	ws, err := sf.NewWorkingSet(&registry)
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
@@ -143,6 +163,7 @@ func TestWrongNonce(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: &registry,
 		},
 	)
 	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
@@ -160,8 +181,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	tsf3, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
@@ -175,7 +206,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf3).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -193,7 +235,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf4, tsf5).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -210,7 +263,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf6, tsf7).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -227,7 +291,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf8, tsf9).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -244,7 +319,18 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf10, tsf11).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	err = val.Validate(ctx, &blk, 2, blkhash)
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 2,
+				Hash:   blkhash,
+			},
+			Registry: &registry,
+		},
+	)
+	err = val.Validate(ctx, &blk)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }

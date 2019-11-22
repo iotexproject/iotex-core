@@ -1223,7 +1223,17 @@ func TestActions(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	val := &validator{sf: sf, validatorAddr: ""}
-	require.Nil(val.Validate(ctx, blk, 0, blk.PrevHash()))
+	ctx = protocol.WithValidateActionsCtx(
+		ctx,
+		protocol.ValidateActionsCtx{
+			Genesis: cfg.Genesis,
+			Tip: protocol.TipInfo{
+				Height: 0,
+				Hash:   blk.PrevHash(),
+			},
+		},
+	)
+	require.NoError(val.Validate(ctx, blk))
 }
 
 func addCreatorToFactory(cfg config.Config, sf factory.Factory, registry *protocol.Registry) error {

@@ -8,9 +8,11 @@ package chainservice
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -410,7 +412,22 @@ func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) 
 	}
 	pollProtocol, err := poll.NewProtocol(
 		cfg,
-		cs.chain,
+		func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+			ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+			if err != nil {
+				return nil, err
+			}
+
+			addr, err := address.FromString(address.ZeroAddress)
+			if err != nil {
+				return nil, err
+			}
+
+			data, _, err := blockchain.SimulateExecution(cs.chain, addr, ex)
+
+			return data, err
+		},
+		cs.chain.CandidatesByHeight,
 		cs.electionCommittee,
 		func(height uint64) (time.Time, error) {
 			header, err := cs.chain.BlockHeaderByHeight(height)
@@ -418,16 +435,6 @@ func (cs *ChainService) registerDefaultProtocols(cfg config.Config) (err error) 
 				return time.Now(), errors.Wrapf(
 					err, "error when getting the block at height: %d",
 					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
-		func() (time.Time, error) {
-			header, err := cs.chain.BlockHeaderByHeight(cs.chain.TipHeight())
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					cs.chain.TipHeight(),
 				)
 			}
 			return header.Timestamp(), nil

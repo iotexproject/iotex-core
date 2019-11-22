@@ -1220,7 +1220,6 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1234,7 +1233,6 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 			RewardAddress: "rewardAddress",
 		},
 	}
-	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(1)
 
 	for _, test := range readDelegatesByEpochTests {
 		var pol poll.Protocol
@@ -1243,7 +1241,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				mbc,
+				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1276,7 +1274,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1290,7 +1287,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			RewardAddress: "rewardAddress",
 		},
 	}
-	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readBlockProducersByEpochTests {
 		var pol poll.Protocol
@@ -1299,7 +1295,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				mbc,
+				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1332,7 +1328,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mbc := mock_blockchain.NewMockBlockchain(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
 	candidates := []*state.Candidate{
 		{
@@ -1346,7 +1341,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			RewardAddress: "rewardAddress",
 		},
 	}
-	mbc.EXPECT().CandidatesByHeight(gomock.Any()).Return(candidates, nil).Times(2)
 
 	for _, test := range readActiveBlockProducersByEpochTests {
 		var pol poll.Protocol
@@ -1355,7 +1349,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				mbc,
+				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1430,10 +1424,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
-			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			msf := mock_factory.NewMockFactory(ctrl)
+			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
-				mbc,
+				mbc.CandidatesByHeight,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },

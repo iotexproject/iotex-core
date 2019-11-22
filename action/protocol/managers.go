@@ -6,8 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -20,8 +18,6 @@ type ChainManager interface {
 	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
 	// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 	ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error)
-	// SimulateExecution simulates a running of smart contract operation
-	SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error)
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
@@ -63,9 +59,4 @@ func (m *DummyChainManager) CandidatesByHeight(height uint64) ([]*state.Candidat
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 func (m *DummyChainManager) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
 	return 0, nil, nil
-}
-
-// SimulateExecution simulates a running of smart contract operation
-func (m *DummyChainManager) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	return nil, nil, nil
 }

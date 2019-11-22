@@ -17,15 +17,12 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/types"
 )
 
 var (
-	dummyCaller, _ = address.FromString(address.ZeroAddress)
 	// ErrNoData is an error that there's no data in the contract
 	ErrNoData = errors.New("no data")
 	// ErrEndOfData is an error that reaching end of data in the contract
@@ -33,12 +30,13 @@ var (
 )
 
 type (
+	// ReadContract defines a callback function to read contract
+	ReadContract func(string, uint64, time.Time, []byte) ([]byte, error)
 	// NativeStaking represents native staking struct
 	NativeStaking struct {
-		cm              protocol.ChainManager
-		getTipBlockTime GetTipBlockTime
-		contract        string
-		abi             abi.ABI
+		readContract ReadContract
+		contract     string
+		abi          abi.ABI
 	}
 
 	pygg struct {
@@ -60,34 +58,28 @@ type (
 )
 
 // NewNativeStaking creates a NativeStaking instance
-func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime) (*NativeStaking, error) {
+func NewNativeStaking(readContract ReadContract) (*NativeStaking, error) {
 	abi, err := abi.JSON(strings.NewReader(NsAbi))
 	if err != nil {
 		return nil, err
 	}
-	if cm == nil {
-		return nil, errors.New("failed to create native staking: empty chain manager")
+
+	if readContract == nil {
+		return nil, errors.New("failed to create native staking: empty read contract callback")
 	}
-	if getTipBlockTime == nil {
-		return nil, errors.New("failed to create native staking: empty getBlockTime")
-	}
+
 	return &NativeStaking{
-		cm:              cm,
-		getTipBlockTime: getTipBlockTime,
-		abi:             abi,
+		abi:          abi,
+		readContract: readContract,
 	}, nil
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes() (*VoteTally, time.Time, error) {
+func (ns *NativeStaking) Votes(height uint64, ts time.Time) (*VoteTally, error) {
 	if ns.contract == "" {
-		return nil, time.Time{}, ErrNoData
+		return nil, ErrNoData
 	}
 
-	now, err := ns.getTipBlockTime()
-	if err != nil {
-		return nil, time.Time{}, errors.Wrap(err, "failed to get current block time")
-	}
 	// read voter list from staking contract
 	votes := VoteTally{
 		Candidates: make(map[[12]byte]*state.Candidate),
@@ -97,37 +89,32 @@ func (ns *NativeStaking) Votes() (*VoteTally, time.Time, error) {
 	limit := big.NewInt(256)
 
 	for {
-		vote, err := ns.readBuckets(prevIndex, limit)
+		vote, err := ns.readBuckets(prevIndex, limit, height, ts)
 		log.L().Debug("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
 			break
 		}
 		if err != nil {
-			return nil, now, err
+			return nil, err
 		}
-		votes.tally(vote, now)
+		votes.tally(vote, ts)
 		if len(vote) < int(limit.Int64()) {
 			// all data been read
 			break
 		}
 		prevIndex.Add(prevIndex, limit)
 	}
-	return &votes, now, nil
+	return &votes, nil
 }
 
-func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int) ([]*types.Bucket, error) {
+func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int, height uint64, ts time.Time) ([]*types.Bucket, error) {
 	data, err := ns.abi.Pack("getActivePyggs", prevIndx, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	// read the staking contract
-	ex, err := action.NewExecution(ns.contract, 1, big.NewInt(0), 1000000, big.NewInt(0), data)
-	if err != nil {
-		return nil, err
-	}
-	data, _, err = ns.cm.SimulateExecution(dummyCaller, ex)
+	data, err = ns.readContract(ns.contract, height, ts, data)
 	if err != nil {
 		return nil, err
 	}
