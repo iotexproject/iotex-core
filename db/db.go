@@ -37,14 +37,12 @@ type KVStore interface {
 	Put(string, []byte, []byte) error
 	// Get gets a record by (namespace, key)
 	Get(string, []byte) ([]byte, error)
+	// Range gets a range of records by (namespace, key, count)
+	Range(string, []byte, uint64) ([][]byte, error)
 	// Delete deletes a record by (namespace, key)
 	Delete(string, []byte) error
 	// Commit commits a batch
 	Commit(KVStoreBatch) error
-	// CountingIndex returns the index, and nil if not exist
-	CountingIndex([]byte) (CountingIndex, error)
-	// CreateCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
-	CreateCountingIndexNX([]byte) (CountingIndex, error)
 	// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
 	CreateRangeIndexNX([]byte, []byte) (RangeIndex, error)
 	// GetBucketByPrefix retrieves all bucket those with const namespace prefix
@@ -85,13 +83,32 @@ func (m *memKVStore) Put(namespace string, key, value []byte) error {
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 	if _, ok := m.bucket.Load(namespace); !ok {
-		return nil, errors.Wrapf(ErrNotExist, "namespace = %s doesn't exist", namespace)
+		return nil, errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", []byte(namespace))
 	}
 	value, _ := m.data.Load(namespace + keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
 	}
 	return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
+}
+
+// Get retrieves a record
+func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
+	if _, ok := m.bucket.Load(namespace); !ok {
+		return nil, errors.Wrapf(ErrNotExist, "namespace = %s doesn't exist", namespace)
+	}
+	value := make([][]byte, count)
+	start := byteutil.BytesToUint64BigEndian(key)
+	for i := uint64(0); i < count; i++ {
+		key = byteutil.Uint64ToBytesBigEndian(start + i)
+		v, _ := m.data.Load(namespace + keyDelimiter + string(key))
+		if v == nil {
+			return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
+		}
+		value[i] = make([]byte, len(v.([]byte)))
+		copy(value[i], v.([]byte))
+	}
+	return value, nil
 }
 
 // Delete deletes a record
@@ -134,32 +151,6 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	}
 
 	return e
-}
-
-// CountingIndex returns the index, and nil if not exist
-func (m *memKVStore) CountingIndex(name []byte) (CountingIndex, error) {
-	if _, ok := m.bucket.Load(string(name)); !ok {
-		return nil, errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", name)
-	}
-	size, err := m.Get(string(name), ZeroIndex)
-	if err != nil {
-		return nil, err
-	}
-	return NewInMemCountingIndex(m, name, byteutil.BytesToUint64BigEndian(size))
-}
-
-// CreateCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
-func (m *memKVStore) CreateCountingIndexNX(name []byte) (CountingIndex, error) {
-	var size uint64
-	if total, _ := m.Get(string(name), ZeroIndex); total == nil {
-		// put 0 as total number of keys
-		if err := m.Put(string(name), ZeroIndex, ZeroIndex); err != nil {
-			return nil, err
-		}
-	} else {
-		size = byteutil.BytesToUint64BigEndian(total)
-	}
-	return NewInMemCountingIndex(m, name, size)
 }
 
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index

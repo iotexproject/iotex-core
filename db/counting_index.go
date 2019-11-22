@@ -8,12 +8,13 @@ package db
 
 import (
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
+	// CountKey is the special key to store the size of index, it satisfies bytes.Compare(CountKey, MinUint64) = -1
+	CountKey = []byte{0, 0, 0, 0, 0, 0, 0}
 	// ZeroIndex is 8-byte of 0
 	ZeroIndex = byteutil.Uint64ToBytesBigEndian(0)
 	// ErrInvalid indicates an invalid input
@@ -23,7 +24,7 @@ var (
 type (
 	// CountingIndex is a bucket of <k, v> where
 	// k consists of 8-byte whose value increments (0, 1, 2 ... n) upon each insertion
-	// position 0 (k = 0x0000000000000000) stores the total number of items in bucket so far
+	// the special key CountKey stores the total number of items in bucket so far
 	CountingIndex interface {
 		// Size returns the total number of keys so far
 		Size() uint64
@@ -41,41 +42,64 @@ type (
 		Commit() error
 	}
 
-	// countingIndex is CountingIndex implementation based on bolt DB
+	// countingIndex is CountingIndex implementation based on KVStore
 	countingIndex struct {
-		db         *bolt.DB
-		numRetries uint8
-		bucket     []byte
-		size       uint64 // total number of keys
-		batch      KVStoreBatch
-	}
-
-	// memCountingIndex is the in-memory implementation of CountingIndex
-	memCountingIndex struct {
-		kvstore *memKVStore
-		bucket  []byte
+		kvStore KVStoreWithBucketFillPercent
+		bucket  string
 		size    uint64 // total number of keys
 		batch   KVStoreBatch
 	}
 )
 
-// NewCountingIndex creates a new instance of countingIndex
-func NewCountingIndex(db *bolt.DB, retry uint8, name []byte, size uint64) (CountingIndex, error) {
-	if db == nil {
-		return nil, errors.Wrap(ErrInvalid, "db object is nil")
+// NewCountingIndexNX creates a new counting index if it does not exist, otherwise return existing index
+func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
+	if kv == nil {
+		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
 	}
-
 	if len(name) == 0 {
 		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
 	}
-
-	bucket := make([]byte, len(name))
-	copy(bucket, name)
+	bucket := string(name)
+	// check if the index exist or not
+	total, err := kv.Get(bucket, CountKey)
+	if errors.Cause(err) == ErrNotExist || total == nil {
+		// put 0 as total number of keys
+		if err := kv.Put(bucket, CountKey, ZeroIndex); err != nil {
+			return nil, errors.Wrapf(err, "failed to create counting index %x", name)
+		}
+		total = ZeroIndex
+	}
+	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
+	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+		// set an aggressive fill percent
+		// b/c counting index only appends, further inserts to the bucket would never split the page
+		return nil, err
+	}
 	return &countingIndex{
-		db:         db,
-		numRetries: retry,
-		bucket:     bucket,
-		size:       size,
+		kvStore: kvFillPercent,
+		bucket:  bucket,
+		size:    byteutil.BytesToUint64BigEndian(total),
+	}, nil
+}
+
+// GetCountingIndex return an existing counting index
+func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
+	bucket := string(name)
+	// check if the index exist or not
+	total, err := kv.Get(bucket, CountKey)
+	if errors.Cause(err) == ErrNotExist || total == nil {
+		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
+	}
+	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
+	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+		// set an aggressive fill percent
+		// b/c counting index only appends, further inserts to the bucket would never split the page
+		return nil, err
+	}
+	return &countingIndex{
+		kvStore: kvFillPercent,
+		bucket:  bucket,
+		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
 }
 
@@ -92,25 +116,11 @@ func (c *countingIndex) Add(value []byte, batch bool) error {
 	if c.batch != nil {
 		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
 	}
-	var err error
-	for i := uint8(0); i < c.numRetries; i++ {
-		if err = c.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket(c.bucket)
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", c.bucket)
-			}
-			last := byteutil.Uint64ToBytesBigEndian(c.size + 1)
-			if err := bucket.Put(last, value); err != nil {
-				return err
-			}
-			// update the total amount
-			return bucket.Put(ZeroIndex, last)
-		}); err == nil {
-			break
-		}
-	}
-	if err != nil {
-		err = errors.Wrap(ErrIO, err.Error())
+	b := NewBatch()
+	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
+	if err := c.kvStore.Commit(b); err != nil {
+		return err
 	}
 	c.size++
 	return nil
@@ -121,7 +131,7 @@ func (c *countingIndex) addBatch(value []byte) error {
 	if c.batch == nil {
 		c.batch = NewBatch()
 	}
-	c.batch.Put("", byteutil.Uint64ToBytesBigEndian(c.size+1), value, "failed to put")
+	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	c.size++
 	return nil
 }
@@ -131,27 +141,7 @@ func (c *countingIndex) Get(slot uint64) ([]byte, error) {
 	if slot >= c.size {
 		return nil, errors.Wrapf(ErrNotExist, "slot: %d", slot)
 	}
-
-	var value []byte
-	err := c.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(c.bucket)
-		if bucket == nil {
-			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", c.bucket)
-		}
-		// seek to start
-		cur := bucket.Cursor()
-		k, v := cur.Seek(byteutil.Uint64ToBytesBigEndian(slot + 1))
-		if k == nil {
-			return errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", slot)
-		}
-		value = make([]byte, len(v))
-		copy(value, v)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
+	return c.kvStore.Get(c.bucket, byteutil.Uint64ToBytesBigEndian(slot))
 }
 
 // Range return value of keys [start, start+count)
@@ -159,35 +149,7 @@ func (c *countingIndex) Range(start, count uint64) ([][]byte, error) {
 	if start+count > c.size || count == 0 {
 		return nil, errors.Wrapf(ErrInvalid, "start: %d, count: %d", start, count)
 	}
-
-	value := make([][]byte, count)
-	err := c.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(c.bucket)
-		if bucket == nil {
-			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", c.bucket)
-		}
-		// seek to start
-		cur := bucket.Cursor()
-		k, v := cur.Seek(byteutil.Uint64ToBytesBigEndian(start + 1))
-		if k == nil {
-			return errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", start)
-		}
-
-		// retrieve 'count' items
-		for i := uint64(0); i < count; k, v = cur.Next() {
-			if k == nil {
-				return errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", start+1+i)
-			}
-			value[i] = make([]byte, len(v))
-			copy(value[i], v)
-			i++
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
+	return c.kvStore.Range(c.bucket, byteutil.Uint64ToBytesBigEndian(start), count)
 }
 
 // Revert removes entries from end
@@ -198,234 +160,35 @@ func (c *countingIndex) Revert(count uint64) error {
 	if count == 0 || count > c.size {
 		return errors.Wrapf(ErrInvalid, "count: %d", count)
 	}
-
-	return c.db.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(c.bucket)
-		if bucket == nil {
-			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", c.bucket)
-		}
-
-		start := c.size - count
-		// seek to start
-		cur := bucket.Cursor()
-		k, _ := cur.Seek(byteutil.Uint64ToBytesBigEndian(start + 1))
-		if k == nil {
-			return errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", start)
-		}
-
-		// delete 'count' items
-		for i := uint64(0); i < count; k, _ = cur.Next() {
-			if k == nil {
-				return errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", start+i)
-			}
-			if err := bucket.Delete(k); err != nil {
-				return errors.Wrapf(ErrNotExist, "failed to delete entry at %d", start+i)
-			}
-			i++
-		}
-		// update the total amount
-		c.size = start
-		return bucket.Put(ZeroIndex, byteutil.Uint64ToBytesBigEndian(start))
-	})
+	b := NewBatch()
+	start := c.size - count
+	for i := uint64(0); i < count; i++ {
+		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
+	}
+	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
+	if err := c.kvStore.Commit(b); err != nil {
+		return err
+	}
+	c.size = start
+	return nil
 }
 
 // Close makes the index not usable
 func (c *countingIndex) Close() {
 	// frees reference to db, the db object itself will be closed/freed by its owner, not here
-	c.db = nil
+	c.kvStore = nil
 	c.batch = nil
-	c.bucket = nil
 }
 
 // Commit commits a batch
-func (c *countingIndex) Commit() (err error) {
+func (c *countingIndex) Commit() error {
 	if c.batch == nil {
 		return nil
 	}
-
-	succeed := true
-	c.batch.Lock()
-	defer func() {
-		if succeed {
-			// clear the batch if commit succeeds
-			c.batch.ClearAndUnlock()
-			c.batch = nil
-		} else {
-			c.batch.Unlock()
-		}
-	}()
-
-	numRetries := c.numRetries
-	for i := uint8(0); i < numRetries; i++ {
-		if err = c.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket(c.bucket)
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", c.bucket)
-			}
-			// set an aggressive fill percent
-			// b/c counting index only appends, further inserts to the bucket would never split the page
-			bucket.FillPercent = 1.0
-			for i := 0; i < c.batch.Size(); i++ {
-				write, err := c.batch.Entry(i)
-				if err != nil {
-					return err
-				}
-				if err := bucket.Put(write.key, write.value); err != nil {
-					return errors.Wrapf(err, write.errorFormat, write.errorArgs)
-				}
-			}
-			// update the total amount
-			return bucket.Put(ZeroIndex, byteutil.Uint64ToBytesBigEndian(c.size))
-		}); err == nil {
-			break
-		}
-	}
-
-	if err != nil {
-		succeed = false
-		err = errors.Wrap(ErrIO, err.Error())
-	}
-	return err
-}
-
-// NewInMemCountingIndex creates a new instance of memCountingIndex
-func NewInMemCountingIndex(mem *memKVStore, name []byte, size uint64) (CountingIndex, error) {
-	if mem == nil {
-		return nil, errors.Wrap(ErrInvalid, "memKVStore object is nil")
-	}
-	if len(name) == 0 {
-		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
-	}
-	bucket := make([]byte, len(name))
-	copy(bucket, name)
-	return &memCountingIndex{
-		kvstore: mem,
-		bucket:  bucket,
-		size:    size,
-	}, nil
-}
-
-// Size returns the total number of keys so far
-func (m *memCountingIndex) Size() uint64 {
-	return m.size
-}
-
-// Add inserts a value into the index
-func (m *memCountingIndex) Add(value []byte, batch bool) error {
-	if err := m.checkBucket(); err != nil {
+	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	if err := c.kvStore.Commit(c.batch); err != nil {
 		return err
 	}
-	if batch {
-		return m.addBatch(value)
-	}
-	if m.batch != nil {
-		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
-	}
-	last := byteutil.Uint64ToBytesBigEndian(m.size + 1)
-	if err := m.kvstore.Put(string(m.bucket), last, value); err != nil {
-		return err
-	}
-	// update the total amount
-	if err := m.kvstore.Put(string(m.bucket), ZeroIndex, last); err != nil {
-		return err
-	}
-	m.size++
-	return nil
-}
-
-// addBatch inserts a value into the index in batch mode
-func (m *memCountingIndex) addBatch(value []byte) error {
-	if m.batch == nil {
-		m.batch = NewBatch()
-	}
-	m.batch.Put(string(m.bucket), byteutil.Uint64ToBytesBigEndian(m.size+1), value, "failed to put")
-	m.size++
-	return nil
-}
-
-// Get return value of key[slot]
-func (m *memCountingIndex) Get(slot uint64) ([]byte, error) {
-	if err := m.checkBucket(); err != nil {
-		return nil, err
-	}
-	if slot >= m.size {
-		return nil, errors.Wrapf(ErrNotExist, "slot: %d", slot)
-	}
-	return m.kvstore.Get(string(m.bucket), byteutil.Uint64ToBytesBigEndian(slot+1))
-}
-
-// Range return value of keys [start, start+count)
-func (m *memCountingIndex) Range(start, count uint64) ([][]byte, error) {
-	if err := m.checkBucket(); err != nil {
-		return nil, err
-	}
-	if start+count > m.size || count == 0 {
-		return nil, errors.Wrapf(ErrInvalid, "start: %d, count: %d", start, count)
-	}
-
-	value := make([][]byte, count)
-	for i := uint64(0); i < count; i++ {
-		v, err := m.kvstore.Get(string(m.bucket), byteutil.Uint64ToBytesBigEndian(start+1+i))
-		if err != nil {
-			return nil, errors.Wrapf(ErrNotExist, "entry at %d doesn't exist", start+1+i)
-		}
-		value[i] = make([]byte, len(v))
-		copy(value[i], v)
-	}
-	return value, nil
-}
-
-// Revert removes entries from end
-func (m *memCountingIndex) Revert(count uint64) error {
-	if err := m.checkBucket(); err != nil {
-		return err
-	}
-	if m.batch != nil {
-		return errors.Wrap(ErrInvalid, "cannot call Revert in batch mode, call Commit() first to exit batch mode")
-	}
-	if count == 0 || count > m.size {
-		return errors.Wrapf(ErrInvalid, "count: %d", count)
-	}
-
-	start := m.size - count
-	for i := uint64(0); i < count; i++ {
-		if err := m.kvstore.Delete(string(m.bucket), byteutil.Uint64ToBytesBigEndian(start+1+i)); err != nil {
-			return err
-		}
-	}
-	// update the total amount
-	m.size = start
-	return m.kvstore.Put(string(m.bucket), ZeroIndex, byteutil.Uint64ToBytesBigEndian(start))
-}
-
-// Close makes the index not usable
-func (m *memCountingIndex) Close() {
-	// frees reference to KVStore, the KVStore object itself will be closed/freed by its owner, not here
-	m.kvstore = nil
-	m.batch = nil
-	m.bucket = nil
-}
-
-// Commit commits a batch
-func (m *memCountingIndex) Commit() error {
-	if err := m.checkBucket(); err != nil {
-		return err
-	}
-	if m.batch == nil {
-		return nil
-	}
-	// commit the batch
-	if err := m.kvstore.Commit(m.batch); err != nil {
-		return err
-	}
-	m.batch = nil
-	// update the total amount
-	return m.kvstore.Put(string(m.bucket), ZeroIndex, byteutil.Uint64ToBytesBigEndian(m.size))
-}
-
-func (m *memCountingIndex) checkBucket() error {
-	if _, ok := m.kvstore.bucket.Load(string(m.bucket)); !ok {
-		return errors.Wrapf(ErrBucketNotExist, "bucket = %s doesn't exist", m.bucket)
-	}
+	c.batch = nil
 	return nil
 }
