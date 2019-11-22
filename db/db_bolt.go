@@ -20,17 +20,19 @@ const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
-	db     *bolt.DB
-	path   string
-	config config.DB
+	db          *bolt.DB
+	path        string
+	config      config.DB
+	fillPercent map[string]float64 // specific fill percent for certain buckets (for example, 1.0 for append-only)
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
-func NewBoltDB(cfg config.DB) KVStore {
+func NewBoltDB(cfg config.DB) KVStoreWithBucketFillPercent {
 	return &boltDB{
-		db:     nil,
-		path:   cfg.DbPath,
-		config: cfg,
+		db:          nil,
+		path:        cfg.DbPath,
+		config:      cfg,
+		fillPercent: make(map[string]float64),
 	}
 }
 
@@ -61,6 +63,9 @@ func (b *boltDB) Put(namespace string, key, value []byte) (err error) {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 			if err != nil {
 				return err
+			}
+			if p, ok := b.fillPercent[namespace]; ok {
+				bucket.FillPercent = p
 			}
 			return bucket.Put(key, value)
 		}); err == nil {
@@ -212,7 +217,6 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 		} else {
 			batch.Unlock()
 		}
-
 	}()
 
 	for c := uint8(0); c < b.config.NumRetries; c++ {
@@ -226,6 +230,9 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
 					if err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					}
+					if p, ok := b.fillPercent[write.namespace]; ok {
+						bucket.FillPercent = p
 					}
 					if err := bucket.Put(write.key, write.value); err != nil {
 						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
@@ -251,6 +258,12 @@ func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
+}
+
+// SetBucketFillPercent sets specified fill percent for a bucket
+func (b *boltDB) SetBucketFillPercent(namespace string, percent float64) error {
+	b.fillPercent[namespace] = percent
+	return nil
 }
 
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
