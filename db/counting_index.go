@@ -44,7 +44,7 @@ type (
 
 	// countingIndex is CountingIndex implementation based on KVStore
 	countingIndex struct {
-		kvStore KVStoreWithBucketFillPercent
+		kvStore KVStore
 		bucket  string
 		size    uint64 // total number of keys
 		batch   KVStoreBatch
@@ -69,14 +69,15 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		}
 		total = ZeroIndex
 	}
-	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
-	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
-		// set an aggressive fill percent
-		// b/c counting index only appends, further inserts to the bucket would never split the page
-		return nil, err
+	if kvFillPercent, ok := kv.(KVStoreWithBucketFillPercent); ok {
+		if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+			// set an aggressive fill percent
+			// b/c counting index only appends, further inserts to the bucket would never split the page
+			return nil, err
+		}
 	}
 	return &countingIndex{
-		kvStore: kvFillPercent,
+		kvStore: kv,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
@@ -90,14 +91,15 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 	if errors.Cause(err) == ErrNotExist || total == nil {
 		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
 	}
-	kvFillPercent := NewKVStoreWithBucketFillPercent(kv)
-	if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
-		// set an aggressive fill percent
-		// b/c counting index only appends, further inserts to the bucket would never split the page
-		return nil, err
+	if kvFillPercent, ok := kv.(KVStoreWithBucketFillPercent); ok {
+		if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
+			// set an aggressive fill percent
+			// b/c counting index only appends, further inserts to the bucket would never split the page
+			return nil, err
+		}
 	}
 	return &countingIndex{
-		kvStore: kvFillPercent,
+		kvStore: kv,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
