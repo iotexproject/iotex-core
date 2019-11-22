@@ -19,99 +19,70 @@ import (
 )
 
 func TestCandidateEqual(t *testing.T) {
-	require := require.New(t)
-    testCases := []struct {
-        cands []*Candidate
-        flag bool
-    } {
-        {
-            []*Candidate{
-                &Candidate{
-                    Address: identityset.Address(29).String(),
-                    Votes:   big.NewInt(2),
-                },
-                &Candidate{
-                    Address: identityset.Address(29).String(),
-                    Votes:   big.NewInt(2),
-                },
-            },
-            true,
-        },
-        {
-            []*Candidate{
-                &Candidate{
-                    Address: identityset.Address(29).String(),
-                    Votes:   big.NewInt(2),
-                },
-                &Candidate{
-                    Address: identityset.Address(29).String(),
-                    Votes:   big.NewInt(1),
-                },
-            },
-            false,
-        },
-    }
-    for _, c := range testCases {
-        require.Equal(c.flag, c.cands[0].Equal(c.cands[1]));
-    }
+	r := require.New(t)
+	testCases := []struct {
+		cands []*Candidate
+		flag  bool
+	}{
+		{
+			[]*Candidate{
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+			},
+			true,
+		},
+		{
+			[]*Candidate{
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(1),
+				},
+			},
+			false,
+		},
+	}
+	for _, c := range testCases {
+		r.Equal(c.flag, c.cands[0].Equal(c.cands[1]))
+	}
 }
 
 func TestCandidateClone(t *testing.T) {
-	require := require.New(t)
-    cand1 := &Candidate{
-        Address: identityset.Address(29).String(),
-        Votes:   big.NewInt(2),
-    }
-    require.Equal(true, cand1.Equal(cand1.Clone()))
+	r := require.New(t)
+	cand1 := &Candidate{
+		Address: identityset.Address(29).String(),
+		Votes:   big.NewInt(2),
+	}
+	r.True(cand1.Equal(cand1.Clone()))
 }
 
-func TestCandidateListSerialize(t *testing.T) {
-    require := require.New(t)
-    testCases := []struct {
-        list CandidateList
-        res []byte
-    } {
-        {
-            CandidateList{
-                &Candidate{
-                    Address: identityset.Address(2).String(),
-                    Votes:   big.NewInt(2),
-                },
-            },
-            []byte{0xa, 0x2e, 0xa, 0x29, 0x69, 0x6f, 0x31, 0x68, 0x68, 0x39, 0x37, 0x66, 0x32, 0x37, 0x33, 0x6e, 0x68, 0x78, 0x63, 0x71, 0x38, 0x61, 0x6a, 0x7a, 0x63, 0x70, 0x75, 0x6a, 0x74, 0x74, 0x37, 0x70, 0x39, 0x70, 0x71, 0x79, 0x6e, 0x64, 0x66, 0x6d, 0x61, 0x76, 0x6e, 0x39, 0x72, 0x12, 0x1, 0x2},
-        },
-    }
-    for _, c := range testCases {
-        res, err := c.list.Serialize()
-        require.Equal(nil, err)
-        require.Equal(c.res, res)
-    }
-}
+func TestCandidateListSerializeAndDeserialize(t *testing.T) {
+	r := require.New(t)
+	list1 := CandidateList{
+		&Candidate{
+			Address: identityset.Address(2).String(),
+			Votes:   big.NewInt(2),
+		},
+	}
+	sbytes, err := list1.Serialize()
+	r.NoError(err)
 
-func TestCandidateListDeserialize(t *testing.T) {
-    require := require.New(t)
-    testCases := []struct {
-        list CandidateList
-        res []byte
-    } {
-        {
-            CandidateList{
-                &Candidate{
-                    Address: identityset.Address(2).String(),
-                    Votes:   big.NewInt(2),
-                },
-            },
-            []byte{0xa, 0x2e, 0xa, 0x29, 0x69, 0x6f, 0x31, 0x68, 0x68, 0x39, 0x37, 0x66, 0x32, 0x37, 0x33, 0x6e, 0x68, 0x78, 0x63, 0x71, 0x38, 0x61, 0x6a, 0x7a, 0x63, 0x70, 0x75, 0x6a, 0x74, 0x74, 0x37, 0x70, 0x39, 0x70, 0x71, 0x79, 0x6e, 0x64, 0x66, 0x6d, 0x61, 0x76, 0x6e, 0x39, 0x72, 0x12, 0x1, 0x2},
-        },
-    }
-    for _, c := range testCases {
-        var list CandidateList
-        err := list.Deserialize(c.res)
-        require.Equal(nil, err)
-        for i, cand := range list {
-            require.Equal(true, cand.Equal(c.list[i]))
-        }
-    }
+	list2 := CandidateList{}
+	err = list2.Deserialize(sbytes)
+	r.NoError(err)
+	r.Equal(list1.Len(), list2.Len())
+	for i, c := range list2 {
+		r.True(c.Equal(list1[i]))
+	}
 }
 
 func TestCandidate(t *testing.T) {
@@ -173,5 +144,3 @@ func TestCandidate(t *testing.T) {
 	require.Equal(uint64(2), candidateMap[cand2Hash].Votes.Uint64())
 	require.Equal(uint64(3), candidateMap[cand3Hash].Votes.Uint64())
 }
-
-
