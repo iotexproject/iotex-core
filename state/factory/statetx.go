@@ -23,19 +23,17 @@ import (
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
 type stateTX struct {
-	ver            uint64
-	blkHeight      uint64
-	cb             db.CachedBatch // cached batch for pending writes
-	dao            db.KVStore     // the underlying DB for account/contract storage
-	actionHandlers []protocol.ActionHandler
-	saveHistory    bool
+	ver         uint64
+	blkHeight   uint64
+	cb          db.CachedBatch // cached batch for pending writes
+	dao         db.KVStore     // the underlying DB for account/contract storage
+	saveHistory bool
 }
 
 // newStateTX creates a new state tx
 func newStateTX(
 	version uint64,
 	kv db.KVStore,
-	registry *protocol.Registry,
 	saveHistory bool,
 ) *stateTX {
 	st := &stateTX{
@@ -43,11 +41,6 @@ func newStateTX(
 		cb:          db.NewCachedBatch(),
 		dao:         kv,
 		saveHistory: saveHistory,
-	}
-	if registry != nil {
-		for _, p := range registry.All() {
-			st.addActionHandlers(p)
-		}
 	}
 	return st
 }
@@ -121,8 +114,11 @@ func (stx *stateTX) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
-	for _, actionHandler := range stx.actionHandlers {
+	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
 			return nil, errors.Wrapf(
@@ -216,11 +212,6 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
-}
-
-// addActionHandlers adds action handlers to the state factory
-func (stx *stateTX) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	stx.actionHandlers = append(stx.actionHandlers, actionHandlers...)
 }
 
 // putIndex insert height-state
