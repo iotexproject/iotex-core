@@ -130,7 +130,7 @@ func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Executi
 	}
 
 	raCtx.Caller = caller
-	ws, err := bc.Factory().NewWorkingSet(raCtx.Registry)
+	ws, err := bc.Factory().NewWorkingSet()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
