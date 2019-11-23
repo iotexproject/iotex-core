@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -45,6 +46,7 @@ type IotxConsensus struct {
 
 type optionParams struct {
 	broadcastHandler scheme.Broadcast
+	pp               poll.Protocol
 	rp               *rp.Protocol
 }
 
@@ -67,6 +69,14 @@ func WithRollDPoSProtocol(rp *rp.Protocol) Option {
 	}
 }
 
+// WithPollProtocol is an option to register poll protocol
+func WithPollProtocol(pp poll.Protocol) Option {
+	return func(ops *optionParams) error {
+		ops.pp = pp
+		return nil
+	}
+}
+
 // NewConsensus creates a IotxConsensus struct.
 func NewConsensus(
 	cfg config.Config,
@@ -83,37 +93,6 @@ func NewConsensus(
 
 	clock := clock.New()
 	cs := &IotxConsensus{cfg: cfg.Consensus}
-	mintBlockCB := func() (*block.Block, error) {
-		actionMap := ap.PendingActionMap()
-		log.Logger("consensus").Debug("Pick actions.", zap.Int("actions", len(actionMap)))
-		blk, err := bc.MintNewBlock(actionMap, clock.Now())
-		if err != nil {
-			log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
-			return nil, err
-		}
-		log.Logger("consensus").Info("Created a new block.",
-			zap.Uint64("height", blk.Height()),
-			zap.Int("length", len(blk.Actions)))
-		return blk, nil
-	}
-
-	commitBlockCB := func(blk *block.Block) error {
-		err := bc.CommitBlock(blk)
-		if err != nil {
-			log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
-		}
-		// Remove transfers in this block from ActPool and reset ActPool state
-		ap.Reset()
-		return err
-	}
-
-	broadcastBlockCB := func(blk *block.Block) error {
-		if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
-			return ops.broadcastHandler(blkPb)
-		}
-		return nil
-	}
-
 	var err error
 	switch cfg.Consensus.Scheme {
 	case config.RollDPoSScheme:
@@ -125,6 +104,7 @@ func NewConsensus(
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
+			SetCandidatesByHeightFunc(ops.pp.CandidatesByHeight).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
@@ -134,6 +114,34 @@ func NewConsensus(
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
+		mintBlockCB := func() (*block.Block, error) {
+			actionMap := ap.PendingActionMap()
+			log.Logger("consensus").Debug("Pick actions.", zap.Int("actions", len(actionMap)))
+			blk, err := bc.MintNewBlock(actionMap, clock.Now())
+			if err != nil {
+				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
+				return nil, err
+			}
+			log.Logger("consensus").Info("Created a new block.",
+				zap.Uint64("height", blk.Height()),
+				zap.Int("length", len(blk.Actions)))
+			return blk, nil
+		}
+		commitBlockCB := func(blk *block.Block) error {
+			err := bc.CommitBlock(blk)
+			if err != nil {
+				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+			}
+			// Remove transfers in this block from ActPool and reset ActPool state
+			ap.Reset()
+			return err
+		}
+		broadcastBlockCB := func(blk *block.Block) error {
+			if blkPb := blk.ConvertToBlockPb(); blkPb != nil {
+				return ops.broadcastHandler(blkPb)
+			}
+			return nil
+		}
 		cs.scheme = scheme.NewStandalone(
 			mintBlockCB,
 			commitBlockCB,

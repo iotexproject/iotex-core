@@ -102,30 +102,34 @@ func (e *exempt) Deserialize(data []byte) error {
 	return nil
 }
 
-// Initialize initializes the rewarding protocol by setting the original admin, block and epoch reward
-func (p *Protocol) Initialize(
+// CreateGenesisStates initializes the rewarding protocol by setting the original admin, block and epoch reward
+func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
-	initBalance *big.Int,
-	blockReward *big.Int,
-	epochReward *big.Int,
-	numDelegatesForEpochReward uint64,
-	exemptAddrs []address.Address,
-	foundationBonus *big.Int,
-	numDelegatesForFoundationBonus uint64,
-	foundationBonusLastEpoch uint64,
-	productivityThreshold uint64,
 ) error {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
 		return err
 	}
+
+	blockReward := raCtx.Genesis.BlockReward()
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
+
+	epochReward := raCtx.Genesis.EpochReward()
 	if err := p.assertAmount(epochReward); err != nil {
 		return err
 	}
+
+	initBalance := raCtx.Genesis.InitBalance()
+	numDelegatesForEpochReward := raCtx.Genesis.NumDelegatesForEpochReward
+	exemptAddrs := raCtx.Genesis.ExemptAddrsFromEpochReward()
+	foundationBonus := raCtx.Genesis.FoundationBonus()
+	numDelegatesForFoundationBonus := raCtx.Genesis.NumDelegatesForFoundationBonus
+	foundationBonusLastEpoch := raCtx.Genesis.FoundationBonusLastEpoch
+	productivityThreshold := raCtx.Genesis.ProductivityThreshold
+
 	if err := p.putState(
 		sm,
 		adminKey,

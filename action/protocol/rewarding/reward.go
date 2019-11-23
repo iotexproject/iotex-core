@@ -72,15 +72,9 @@ func (p *Protocol) GrantBlockReward(
 		return nil, err
 	}
 
-	// Get the reward address for the block producer
-	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
-	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
-	if err != nil {
-		return nil, err
-	}
 	producerAddrStr := raCtx.Producer.String()
 	rewardAddrStr := ""
-	for _, candidate := range candidates {
+	for _, candidate := range raCtx.Candidates {
 		if candidate.Address == producerAddrStr {
 			rewardAddrStr = candidate.RewardAddress
 			break
@@ -144,11 +138,6 @@ func (p *Protocol) GrantEpochReward(
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
 	}
-	// We need to consistently use the votes on of first block height in this epoch
-	candidates, err := p.cm.CandidatesByHeight(p.rp.GetEpochHeight(epochNum))
-	if err != nil {
-		return nil, err
-	}
 
 	// Get the delegate list who exempts epoch reward
 	e := exempt{}
@@ -166,6 +155,7 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 
+	candidates := raCtx.Candidates
 	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
@@ -423,7 +413,7 @@ func (p *Protocol) unqualifiedDelegates(
 	productivityThreshold uint64,
 ) (map[string]interface{}, error) {
 	unqualifiedDelegates := make(map[string]interface{}, 0)
-	numBlks, produce, err := p.cm.ProductivityByEpoch(epochNum)
+	numBlks, produce, err := p.productivityByEpoch(epochNum)
 	if err != nil {
 		return nil, err
 	}

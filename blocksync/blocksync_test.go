@@ -175,7 +175,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -185,7 +185,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
+		bc.RegistryOption(registry),
 	)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	require.NoError(chain.Start(ctx))
@@ -234,7 +234,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -244,7 +244,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
+		bc.RegistryOption(registry),
 	)
 	require.NotNil(chain1)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
@@ -258,7 +258,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	registry2 := protocol.Registry{}
+	registry2 := protocol.NewRegistry()
 	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
 	chain2 := bc.NewBlockchain(
@@ -266,7 +266,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry2),
+		bc.RegistryOption(registry2),
 	)
 	require.NotNil(chain2)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
@@ -326,7 +326,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -340,7 +340,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry),
+		bc.RegistryOption(registry),
 	)
 	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
 	require.NoError(chain1.Start(ctx))
@@ -353,7 +353,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.Nil(err)
-	registry2 := protocol.Registry{}
+	registry2 := protocol.NewRegistry()
 	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
 	chain2 := bc.NewBlockchain(
@@ -361,7 +361,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		nil,
 		bc.InMemStateFactoryOption(),
 		bc.InMemDaoOption(),
-		bc.RegistryOption(&registry2),
+		bc.RegistryOption(registry2),
 	)
 	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
 	require.NoError(chain2.Start(ctx))
@@ -420,10 +420,10 @@ func TestBlockSyncerSync(t *testing.T) {
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.Nil(err)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
-	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(&registry))
+	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())

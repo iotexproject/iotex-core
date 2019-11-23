@@ -120,6 +120,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			return nil, err
 		}
 	}
+
 	return &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		BlockHeight:     raCtx.BlockHeight,

@@ -63,6 +63,7 @@ func TestNewRollDPoS(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
+	candidatesByHeight := func(uint64) (state.CandidateList, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
@@ -74,6 +75,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			SetCandidatesByHeightFunc(candidatesByHeight).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -91,6 +93,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
+			SetCandidatesByHeightFunc(candidatesByHeight).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -111,6 +114,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
+			SetCandidatesByHeightFunc(candidatesByHeight).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -126,12 +130,14 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			SetCandidatesByHeightFunc(candidatesByHeight).
 			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
 		assert.Nil(t, r)
 	})
 }
+
 func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndorse bool, height int) *block.Block {
 	unixTime := 1500000000
 	blkTime := int64(-1)
@@ -192,13 +198,6 @@ func TestValidateBlockFooter(t *testing.T) {
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(5)
-	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-		{Address: candidates[0]},
-		{Address: candidates[1]},
-		{Address: candidates[2]},
-		{Address: candidates[3]},
-		{Address: candidates[4]},
-	}, nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
@@ -220,6 +219,15 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetActPool(mock_actpool.NewMockActPool(ctrl)).
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
+		}).
+		SetCandidatesByHeightFunc(func(uint64) (state.CandidateList, error) {
+			return []*state.Candidate{
+				{Address: candidates[0]},
+				{Address: candidates[1]},
+				{Address: candidates[2]},
+				{Address: candidates[3]},
+				{Address: candidates[4]},
+			}, nil
 		}).
 		SetClock(clock).
 		RegisterProtocol(rp).
@@ -270,13 +278,6 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
 	blockchain.EXPECT().TipHeight().Return(blockHeight).Times(1)
 	blockchain.EXPECT().BlockFooterByHeight(blockHeight).Return(footer, nil).Times(2)
-	blockchain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-		{Address: candidates[0]},
-		{Address: candidates[1]},
-		{Address: candidates[2]},
-		{Address: candidates[3]},
-		{Address: candidates[4]},
-	}, nil).AnyTimes()
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
@@ -300,6 +301,15 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
+		SetCandidatesByHeightFunc(func(uint64) (state.CandidateList, error) {
+			return []*state.Candidate{
+				{Address: candidates[0]},
+				{Address: candidates[1]},
+				{Address: candidates[2]},
+				{Address: candidates[3]},
+				{Address: candidates[4]},
+			}, nil
+		}).
 		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
@@ -393,7 +403,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		candidatesByHeightFunc := func(_ uint64) ([]*state.Candidate, error) {
+		candidatesByHeightFunc := func(_ uint64) (state.CandidateList, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})
@@ -426,7 +436,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, sf.Commit(ws))
 			}
-			registry := protocol.Registry{}
+			registry := protocol.NewRegistry()
 			acc := account.NewProtocol()
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -436,7 +446,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				nil,
 				blockchain.InMemDaoOption(),
 				blockchain.PrecreatedStateFactoryOption(sf),
-				blockchain.RegistryOption(&registry),
+				blockchain.RegistryOption(registry),
 			)
 			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 			chains = append(chains, chain)

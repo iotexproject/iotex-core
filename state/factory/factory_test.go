@@ -256,7 +256,7 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
@@ -279,7 +279,7 @@ func testState(sf Factory, t *testing.T) {
 		Producer: identityset.Address(27),
 		GasLimit: gasLimit,
 		Genesis:  config.Default.Genesis,
-		Registry: &registry,
+		Registry: registry,
 	}
 
 	_, err = ws.RunAction(raCtx, selp)
@@ -326,7 +326,7 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
@@ -349,7 +349,7 @@ func testNonce(sf Factory, t *testing.T) {
 		Producer: identityset.Address(27),
 		GasLimit: gasLimit,
 		Genesis:  config.Default.Genesis,
-		Registry: &registry,
+		Registry: registry,
 	}
 
 	_, err = ws.RunAction(raCtx, selp)
@@ -476,7 +476,7 @@ func TestRunActions(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
 
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sf.Start(context.Background()))
@@ -485,7 +485,7 @@ func TestRunActions(t *testing.T) {
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	testRunActions(ws, &registry, t)
+	testRunActions(ws, registry, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
@@ -498,7 +498,7 @@ func TestSTXRunActions(t *testing.T) {
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sdb.Start(context.Background()))
@@ -507,7 +507,7 @@ func TestSTXRunActions(t *testing.T) {
 	}()
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
-	testSTXRunActions(ws, &registry, t)
+	testSTXRunActions(ws, registry, t)
 }
 
 func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
@@ -800,7 +800,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	if err := registry.Register(account.ProtocolID, acc); err != nil {
 		b.Fatal(err)
@@ -869,7 +869,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
 				Genesis:  config.Default.Genesis,
-				Registry: &registry,
+				Registry: registry,
 			})
 		_, err = ws.RunActions(zctx, uint64(n), acts)
 		if err != nil {
