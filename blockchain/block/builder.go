@@ -7,7 +7,7 @@
 package block
 
 import (
-	"bytes"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -26,17 +26,26 @@ func NewBuilder(ra RunnableActions) *Builder {
 	return &Builder{
 		blk: Block{
 			Header: Header{
-				version:   version.ProtocolVersion,
-				height:    ra.blockHeight,
-				timestamp: ra.blockTimeStamp,
-				txRoot:    ra.txHash,
-				pubkey:    ra.blockProducerPubKey,
+				version: version.ProtocolVersion,
+				txRoot:  ra.txHash,
 			},
 			Body: Body{
 				Actions: ra.actions,
 			},
 		},
 	}
+}
+
+// SetTimestamp sets the block timestamp
+func (b *Builder) SetTimestamp(ts time.Time) *Builder {
+	b.blk.Header.timestamp = ts
+	return b
+}
+
+// SetHeight sets the block height
+func (b *Builder) SetHeight(h uint64) *Builder {
+	b.blk.Header.height = h
+	return b
 }
 
 // SetVersion sets the protocol version for block which is building.
@@ -77,10 +86,7 @@ func (b *Builder) SetLogsBloom(f bloom.BloomFilter) *Builder {
 
 // SignAndBuild signs and then builds a block.
 func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
-	if !bytes.Equal(b.blk.Header.pubkey.Bytes(), signerPrvKey.PublicKey().Bytes()) {
-		return Block{}, errors.New("public key from the signer doesn't match that from runnable actions")
-	}
-
+	b.blk.Header.pubkey = signerPrvKey.PublicKey()
 	h := b.blk.Header.HashHeaderCore()
 	sig, err := signerPrvKey.Sign(h[:])
 	if err != nil {

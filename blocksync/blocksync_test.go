@@ -257,7 +257,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
-	require.Nil(err)
+	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
@@ -325,7 +325,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
@@ -352,7 +352,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
-	require.Nil(err)
+	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(registry2.Register(account.ProtocolID, acc))
 	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))

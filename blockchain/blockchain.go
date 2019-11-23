@@ -508,10 +508,8 @@ func (bc *blockchain) MintNewBlock(
 
 	sk := bc.config.ProducerPrivateKey()
 	ra := block.NewRunnableActionsBuilder().
-		SetHeight(newblockHeight).
-		SetTimeStamp(timestamp).
 		AddActions(actions...).
-		Build(sk.PublicKey())
+		Build()
 
 	prevBlkHash := bc.tipHash
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
@@ -520,6 +518,8 @@ func (bc *blockchain) MintNewBlock(
 		prevBlkHash = bc.config.Genesis.Hash()
 	}
 	blk, err := block.NewBuilder(ra).
+		SetHeight(newblockHeight).
+		SetTimestamp(timestamp).
 		SetPrevBlockHash(prevBlkHash).
 		SetDeltaStateDigest(ws.Digest()).
 		SetReceipts(rc).
@@ -652,7 +652,7 @@ func (bc *blockchain) startExistingBlockchain() error {
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, err := bc.runActions(blk.RunnableActions(), ws); err != nil {
+		if _, err := bc.runActions(blk, ws); err != nil {
 			return err
 		}
 
@@ -718,7 +718,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	receipts, err := bc.runActions(blk.RunnableActions(), ws)
+	receipts, err := bc.runActions(blk, ws)
 	runTimer.End()
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
@@ -782,27 +782,27 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) runActions(
-	acts block.RunnableActions,
+	blk *block.Block,
 	ws factory.WorkingSet,
 ) ([]*action.Receipt, error) {
 	if bc.sf == nil {
 		return nil, errors.New("statefactory cannot be nil")
 	}
 
-	producer, err := address.FromBytes(acts.BlockProducerPubKey().Hash())
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, err := bc.context(context.Background(), producer, acts.BlockHeight(), acts.BlockTimeStamp())
+	ctx, err := bc.context(context.Background(), producer, blk.Height(), blk.Timestamp())
 	if err != nil {
 		return nil, err
 	}
 
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	raCtx.History = ws.History()
+	registry := raCtx.Registry
 	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-	registry := protocol.MustGetRunActionsCtx(ctx).Registry
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
@@ -812,7 +812,7 @@ func (bc *blockchain) runActions(
 	}
 	// TODO: verify whether the post system actions are appended tail
 
-	return ws.RunActions(ctx, acts.BlockHeight(), acts.Actions())
+	return ws.RunActions(ctx, blk.Height(), blk.RunnableActions().Actions())
 }
 
 func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,
