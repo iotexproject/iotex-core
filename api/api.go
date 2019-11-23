@@ -497,7 +497,7 @@ func (api *Server) GetEpochMeta(
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
 
-	numBlks, produce, err := api.bc.ProductivityByEpoch(in.EpochNumber)
+	numBlks, produce, err := blockchain.ProductivityByEpoch(api.bc, in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}

@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -40,18 +41,20 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	blkState := blockchain.InMemStateFactoryOption()
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(&registry)
+	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	require.NoError(t, registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -84,7 +87,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(blk.Actions))
-		require.Equal(t, 1, len(blk.Receipts))
+		require.Equal(t, 2, len(blk.Receipts))
 		var gasConsumed uint64
 		for _, receipt := range blk.Receipts {
 			gasConsumed += receipt.GasConsumed
@@ -112,18 +115,20 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.BlockGasLimit = uint64(100000)
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	blkState := blockchain.InMemStateFactoryOption()
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(&registry)
+	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, registry.Register(execution.ProtocolID, exec))
+	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	require.NoError(t, registry.Register(rewarding.ProtocolID, rewardingProtocol))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -138,7 +143,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 		)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(blk.Actions))
-		require.Equal(t, 0, len(blk.Receipts))
+		require.Equal(t, 1, len(blk.Receipts))
 		var gasConsumed uint64
 		for _, receipt := range blk.Receipts {
 			gasConsumed += receipt.GasConsumed

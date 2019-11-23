@@ -49,6 +49,7 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
 }
+
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
@@ -70,7 +71,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -80,10 +81,10 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 		nil,
 		blockchain.InMemDaoOption(),
 		blockchain.InMemStateFactoryOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	r.NotNil(bc)
-	reward := rewarding.NewProtocol(bc, rp)
+	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
@@ -105,7 +106,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 			Genesis:  cfg.Genesis,
-			Registry: &registry,
+			Registry: registry,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)

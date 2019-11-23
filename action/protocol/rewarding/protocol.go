@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -39,29 +40,74 @@ var (
 	exemptKey                   = []byte("xpt")
 )
 
+// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+type ProductivityByEpoch func(uint64) (uint64, map[string]uint64, error)
+
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
-	cm        protocol.ChainManager
-	keyPrefix []byte
-	addr      address.Address
-	rp        *rolldpos.Protocol
+	productivityByEpoch ProductivityByEpoch
+	keyPrefix           []byte
+	addr                address.Address
+	rp                  *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(cm protocol.ChainManager, rp *rolldpos.Protocol) *Protocol {
+func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		cm:        cm,
-		keyPrefix: h[:],
-		addr:      addr,
-		rp:        rp,
+		productivityByEpoch: productivityByEpoch,
+		keyPrefix:           h[:],
+		addr:                addr,
+		rp:                  rp,
 	}
+}
+
+// CreatePreStates updates state manager
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	switch raCtx.BlockHeight {
+	case hu.AleutianBlockHeight():
+		if err := p.SetReward(ctx, sm, raCtx.Genesis.AleutianEpochReward(), false); err != nil {
+			return err
+		}
+	case hu.DardanellesBlockHeight():
+		if err := p.SetReward(ctx, sm, raCtx.Genesis.DardanellesBlockReward(), true); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// CreatePostSystemActions creates a list of system actions to be appended to block actions
+func (p *Protocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)}
+	rp := rolldpos.FindProtocol(raCtx.Registry)
+	if rp != nil && raCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(raCtx.BlockHeight)) {
+		grants = append(grants, createGrantRewardAction(action.EpochReward, raCtx.BlockHeight))
+	}
+
+	return grants, nil
+}
+
+func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
+	builder := action.EnvelopeBuilder{}
+	gb := action.GrantRewardBuilder{}
+	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
+
+	return builder.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(grant.GasLimit()).
+		SetAction(&grant).
+		Build()
 }
 
 // Handle handles the actions on the rewarding protocol

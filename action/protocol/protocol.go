@@ -26,6 +26,21 @@ type Protocol interface {
 	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
 }
 
+// GenesisStateCreator creates some genesis states
+type GenesisStateCreator interface {
+	CreateGenesisStates(context.Context, StateManager) error
+}
+
+// PreStatesCreator creates state manager
+type PreStatesCreator interface {
+	CreatePreStates(context.Context, StateManager) error
+}
+
+// PostSystemActionsCreator creates a list of system actions to be appended to block actions
+type PostSystemActionsCreator interface {
+	CreatePostSystemActions(context.Context) ([]action.Envelope, error)
+}
+
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
 	Validate(context.Context, action.Action) error

@@ -9,12 +9,10 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
-	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 	time "time"
@@ -69,37 +67,6 @@ func (m *MockBlockchain) Stop(arg0 context.Context) error {
 func (mr *MockBlockchainMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop), arg0)
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockBlockchain)(nil).CandidatesByHeight), height)
-}
-
-// ProductivityByEpoch mocks base method
-func (m *MockBlockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(map[string]uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ProductivityByEpoch indicates an expected call of ProductivityByEpoch
-func (mr *MockBlockchainMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockBlockchain)(nil).ProductivityByEpoch), epochNum)
 }
 
 // BlockHeaderByHeight mocks base method
@@ -260,19 +227,19 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*MockBlockchain)(nil).Genesis))
 }
 
-// RunActionsContext mocks base method
-func (m *MockBlockchain) RunActionsContext() (*protocol.RunActionsCtx, error) {
+// Context mocks base method
+func (m *MockBlockchain) Context() (context.Context, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunActionsContext")
-	ret0, _ := ret[0].(*protocol.RunActionsCtx)
+	ret := m.ctrl.Call(m, "Context")
+	ret0, _ := ret[0].(context.Context)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// RunActionsContext indicates an expected call of RunActionsContext
-func (mr *MockBlockchainMockRecorder) RunActionsContext() *gomock.Call {
+// Context indicates an expected call of Context
+func (mr *MockBlockchainMockRecorder) Context() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActionsContext", reflect.TypeOf((*MockBlockchain)(nil).RunActionsContext))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context))
 }
 
 // MintNewBlock mocks base method

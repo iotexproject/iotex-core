@@ -159,13 +159,13 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testTriePath, testTriePath2))
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		blockchain.DefaultStateFactoryOption(),
 		blockchain.BoltDBDaoOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -173,7 +173,7 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
-	rewardingProtocol := rewarding.NewProtocol(chain, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
 	acc := account.NewProtocol()
 	registry.Register(account.ProtocolID, acc)

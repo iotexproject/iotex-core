@@ -91,8 +91,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(bc.Start(context.Background()))
 	// TODO: move the account creation to config.Genesis.InitialBalances, and delete function factory.CreateTestAccount
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
@@ -417,9 +417,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
@@ -480,9 +480,9 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
@@ -1057,16 +1057,17 @@ func TestActPool_GetCapacity(t *testing.T) {
 
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
+	re := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(re),
 	)
 
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
