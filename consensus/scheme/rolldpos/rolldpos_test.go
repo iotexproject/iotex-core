@@ -147,11 +147,10 @@ func makeBlock(t *testing.T, accountIndex, numOfEndosements int, makeInvalidEndo
 	}
 	timeT := time.Unix(blkTime, 0)
 	rap := block.RunnableActionsBuilder{}
-	ra := rap.
-		SetHeight(uint64(height)).
-		SetTimeStamp(timeT).
-		Build(identityset.PrivateKey(accountIndex).PublicKey())
+	ra := rap.Build()
 	blk, err := block.NewBuilder(ra).
+		SetHeight(uint64(height)).
+		SetTimestamp(timeT).
 		SetVersion(1).
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).

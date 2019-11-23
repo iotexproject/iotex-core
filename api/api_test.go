@@ -1485,8 +1485,11 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))
 					blk, err := block.NewBuilder(
-						block.NewRunnableActionsBuilder().SetHeight(height).Build(pk.PublicKey()),
-					).SignAndBuild(pk)
+						block.NewRunnableActionsBuilder().Build(),
+					).
+						SetHeight(height).
+						SetTimestamp(time.Time{}).
+						SignAndBuild(pk)
 					if err != nil {
 						return &block.Header{}, err
 					}
