@@ -1,0 +1,5 @@
+./chain.db
+./poll.db
+./trie.db
+./consensus.db
+./s.log
