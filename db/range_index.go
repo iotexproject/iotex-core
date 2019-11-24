@@ -215,3 +215,55 @@ func (r *rangeIndex) Close() {
 	r.db = nil
 	r.bucket = nil
 }
+
+// memRangeIndex is RangeIndex implementation based on memKVStore
+type memRangeIndex struct {
+	db     KVStore
+	bucket []byte
+}
+
+// NewRangeIndex creates a new instance of rangeIndex
+func NewMemRangeIndex(db KVStore, retry uint8, name []byte) (RangeIndex, error) {
+	if db == nil {
+		return nil, errors.Wrap(ErrInvalid, "db object is nil")
+	}
+
+	if len(name) == 0 {
+		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
+	}
+
+	bucket := make([]byte, len(name))
+	copy(bucket, name)
+
+	return &memRangeIndex{
+		db:     db,
+		bucket: bucket,
+	}, nil
+}
+
+// Insert inserts a value into the index
+func (r *memRangeIndex) Insert(key uint64, value []byte) error {
+	return r.db.Put(string(r.bucket), byteutil.Uint64ToBytesBigEndian(key), value)
+}
+
+// Get returns value by the key
+func (r *memRangeIndex) Get(key uint64) ([]byte, error) {
+	return r.db.Get(string(r.bucket), byteutil.Uint64ToBytesBigEndian(key))
+}
+
+// Delete deletes an existing key
+func (r *memRangeIndex) Delete(key uint64) error {
+	return r.db.Delete(string(r.bucket), byteutil.Uint64ToBytesBigEndian(key))
+}
+
+// Purge deletes an existing key and all keys before it
+func (r *memRangeIndex) Purge(key uint64) error {
+	for i := uint64(0); i < key; i++ {
+		r.Delete(i)
+	}
+	return nil
+}
+
+// Close makes the index not usable
+func (r *memRangeIndex) Close() {
+}

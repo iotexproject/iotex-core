@@ -164,7 +164,7 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 
 // CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
 func (m *memKVStore) CreateRangeIndexNX(name, init []byte) (RangeIndex, error) {
-	return nil, ErrInvalid
+	return NewMemRangeIndex(m, 1, name)
 }
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
