@@ -4,15 +4,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/iotexproject/iotex-antenna-go/v2/iotex"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 	glog "log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -29,7 +32,36 @@ func init() {
 }
 
 func main() {
+	go listenBlockSync()
 	startServer()
+}
+
+func listenBlockSync() {
+	// wait server started
+	time.Sleep(time.Minute * 5)
+	conn, err := iotex.NewDefaultGRPCConn("localhost:14014")
+	if err != nil {
+		glog.Fatal(err)
+	}
+	defer conn.Close()
+
+	c := iotex.NewReadOnlyClient(iotexapi.NewAPIServiceClient(conn))
+	meta, err := c.API().GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+	if err != nil {
+		glog.Fatal(err)
+	}
+	start := meta.ChainMeta.Height
+
+	for {
+		time.Sleep(time.Minute * 5)
+		meta, err = c.API().GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+		if err != nil {
+			glog.Fatal(err)
+		}
+		if start >= meta.ChainMeta.Height {
+			glog.Fatalf("blockchain stop sync at %d height", start)
+		}
+	}
 }
 
 func startServer() {
