@@ -10,10 +10,8 @@ import (
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
 	require := require.New(t)
-
 	height := 0
 	numSubEpochs := 1
-
 	options := EnableDardanellesSubEpoch(uint64(height), uint64(numSubEpochs))
 	p := NewProtocol(23, 4, 3)
 	require.Nil(options(p))
@@ -28,7 +26,6 @@ func TestNewProtocol(t *testing.T) {
 	height := 0
 	options := EnableDardanellesSubEpoch(uint64(height), numSubEpochs)
 	require.NotNil(NewProtocol(numCandidateDelegates, numDelegates, numSubEpochs, options))
-
 }
 
 func TestProtocol_Handle(t *testing.T) {
@@ -38,7 +35,6 @@ func TestProtocol_Handle(t *testing.T) {
 	receipt, error := p.Handle(ctx, nil, nil)
 	require.Nil(receipt)
 	require.NoError(error)
-
 }
 
 func TestProtocol_Validate(t *testing.T) {
@@ -63,7 +59,6 @@ func TestProtocol_NumDelegates(t *testing.T) {
 func TestProtocol_ReadState(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(23, 4, 3)
-
 	ctx := context.Background()
 	methods := [8]string{
 		"NumCandidateDelegates",
@@ -82,12 +77,9 @@ func TestProtocol_ReadState(t *testing.T) {
 	for i, method := range methods {
 
 		if i != 0 && i != 1 {
-
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1, arg2)
-
 			require.Nil(result)
 			require.Error(err)
-
 		}
 
 		switch method {
