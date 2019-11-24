@@ -54,29 +54,38 @@ type (
 
 	// rangeIndex is RangeIndex implementation based on bolt DB
 	rangeIndex struct {
-		db         *bolt.DB
-		numRetries uint8
-		bucket     []byte
+		*boltDB
+		bucket []byte
 	}
 )
 
 // NewRangeIndex creates a new instance of rangeIndex
-func NewRangeIndex(db *bolt.DB, retry uint8, name []byte) (RangeIndex, error) {
-	if db == nil {
-		return nil, errors.Wrap(ErrInvalid, "db object is nil")
+func NewRangeIndex(kv KVStore, name, init []byte) (RangeIndex, error) {
+	if kv == nil {
+		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
 	}
-
+	db, ok := kv.(*boltDB)
+	if !ok {
+		return nil, errors.Wrap(ErrInvalid, "range index can only be created from boltDB")
+	}
 	if len(name) == 0 {
 		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
+	}
+	// check whether init value exist or not
+	v, err := db.Get(string(name), MaxKey)
+	if errors.Cause(err) == ErrNotExist || v == nil {
+		// write the initial value
+		if err := db.Put(string(name), MaxKey, init); err != nil {
+			return nil, errors.Wrapf(err, "failed to create range index %x", name)
+		}
 	}
 
 	bucket := make([]byte, len(name))
 	copy(bucket, name)
 
 	return &rangeIndex{
-		db:         db,
-		numRetries: retry,
-		bucket:     bucket,
+		boltDB: db,
+		bucket: bucket,
 	}, nil
 }
 
@@ -87,7 +96,7 @@ func (r *rangeIndex) Insert(key uint64, value []byte) error {
 		return errors.Wrap(ErrInvalid, "cannot insert key 0")
 	}
 	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
+	for i := uint8(0); i < r.config.NumRetries; i++ {
 		if err = r.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket(r.bucket)
 			if bucket == nil {
@@ -147,7 +156,7 @@ func (r *rangeIndex) Delete(key uint64) error {
 		return errors.Wrap(ErrInvalid, "cannot delete key 0")
 	}
 	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
+	for i := uint8(0); i < r.config.NumRetries; i++ {
 		if err = r.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket(r.bucket)
 			if bucket == nil {
@@ -183,7 +192,7 @@ func (r *rangeIndex) Purge(key uint64) error {
 		return errors.Wrap(ErrInvalid, "cannot delete key 0")
 	}
 	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
+	for i := uint8(0); i < r.config.NumRetries; i++ {
 		if err = r.db.Update(func(tx *bolt.Tx) error {
 			bucket := tx.Bucket(r.bucket)
 			if bucket == nil {

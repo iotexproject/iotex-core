@@ -44,8 +44,6 @@ type (
 		Delete(string, []byte) error
 		// Commit commits a batch
 		Commit(KVStoreBatch) error
-		// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
-		CreateRangeIndexNX([]byte, []byte) (RangeIndex, error)
 		// GetBucketByPrefix retrieves all bucket those with const namespace prefix
 		GetBucketByPrefix([]byte) ([][]byte, error)
 		// GetKeyByPrefix retrieves all keys those with const prefix
@@ -160,11 +158,6 @@ func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
 	}
 
 	return e
-}
-
-// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
-func (m *memKVStore) CreateRangeIndexNX(name, init []byte) (RangeIndex, error) {
-	return nil, ErrInvalid
 }
 
 // GetBucketByPrefix retrieves all bucket those with const namespace prefix
