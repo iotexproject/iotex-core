@@ -222,7 +222,7 @@ type memRangeIndex struct {
 	bucket []byte
 }
 
-// NewRangeIndex creates a new instance of rangeIndex
+// NewMemRangeIndex creates a new instance of rangeIndex
 func NewMemRangeIndex(db KVStore, retry uint8, name []byte) (RangeIndex, error) {
 	if db == nil {
 		return nil, errors.Wrap(ErrInvalid, "db object is nil")
