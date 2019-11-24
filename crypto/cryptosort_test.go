@@ -37,3 +37,26 @@ func TestCryptoSort(t *testing.T) {
 	}
 	assert.False(t, same)
 }
+
+func TestCryptoSortCandidates(t *testing.T) {
+	var candidates []string
+	var candidatesCp []string
+	for i := 100000; i < 100100; i++ {
+		ii := make([]byte, 8)
+		enc.MachineEndian.PutUint64(ii, uint64(i))
+		h := hash.Hash256b(ii)
+		candidates = append(candidates, string(h[:]))
+		candidatesCp = append(candidatesCp, string(h[:]))
+	}
+
+	SortCandidates(candidates, 481, CryptoSeed)
+
+	same := true
+	for i, s := range candidates {
+		if s != candidatesCp[i] {
+			same = false
+			break
+		}
+	}
+	assert.False(t, same)
+}
