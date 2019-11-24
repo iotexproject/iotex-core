@@ -83,6 +83,118 @@ func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
 }
 
+// MockGenesisStateCreator is a mock of GenesisStateCreator interface
+type MockGenesisStateCreator struct {
+	ctrl     *gomock.Controller
+	recorder *MockGenesisStateCreatorMockRecorder
+}
+
+// MockGenesisStateCreatorMockRecorder is the mock recorder for MockGenesisStateCreator
+type MockGenesisStateCreatorMockRecorder struct {
+	mock *MockGenesisStateCreator
+}
+
+// NewMockGenesisStateCreator creates a new mock instance
+func NewMockGenesisStateCreator(ctrl *gomock.Controller) *MockGenesisStateCreator {
+	mock := &MockGenesisStateCreator{ctrl: ctrl}
+	mock.recorder = &MockGenesisStateCreatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockGenesisStateCreator) EXPECT() *MockGenesisStateCreatorMockRecorder {
+	return m.recorder
+}
+
+// CreateGenesisStates mocks base method
+func (m *MockGenesisStateCreator) CreateGenesisStates(arg0 context.Context, arg1 StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateGenesisStates", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreateGenesisStates indicates an expected call of CreateGenesisStates
+func (mr *MockGenesisStateCreatorMockRecorder) CreateGenesisStates(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateGenesisStates", reflect.TypeOf((*MockGenesisStateCreator)(nil).CreateGenesisStates), arg0, arg1)
+}
+
+// MockPreStatesCreator is a mock of PreStatesCreator interface
+type MockPreStatesCreator struct {
+	ctrl     *gomock.Controller
+	recorder *MockPreStatesCreatorMockRecorder
+}
+
+// MockPreStatesCreatorMockRecorder is the mock recorder for MockPreStatesCreator
+type MockPreStatesCreatorMockRecorder struct {
+	mock *MockPreStatesCreator
+}
+
+// NewMockPreStatesCreator creates a new mock instance
+func NewMockPreStatesCreator(ctrl *gomock.Controller) *MockPreStatesCreator {
+	mock := &MockPreStatesCreator{ctrl: ctrl}
+	mock.recorder = &MockPreStatesCreatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPreStatesCreator) EXPECT() *MockPreStatesCreatorMockRecorder {
+	return m.recorder
+}
+
+// CreatePreStates mocks base method
+func (m *MockPreStatesCreator) CreatePreStates(arg0 context.Context, arg1 StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePreStates", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CreatePreStates indicates an expected call of CreatePreStates
+func (mr *MockPreStatesCreatorMockRecorder) CreatePreStates(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePreStates", reflect.TypeOf((*MockPreStatesCreator)(nil).CreatePreStates), arg0, arg1)
+}
+
+// MockPostSystemActionsCreator is a mock of PostSystemActionsCreator interface
+type MockPostSystemActionsCreator struct {
+	ctrl     *gomock.Controller
+	recorder *MockPostSystemActionsCreatorMockRecorder
+}
+
+// MockPostSystemActionsCreatorMockRecorder is the mock recorder for MockPostSystemActionsCreator
+type MockPostSystemActionsCreatorMockRecorder struct {
+	mock *MockPostSystemActionsCreator
+}
+
+// NewMockPostSystemActionsCreator creates a new mock instance
+func NewMockPostSystemActionsCreator(ctrl *gomock.Controller) *MockPostSystemActionsCreator {
+	mock := &MockPostSystemActionsCreator{ctrl: ctrl}
+	mock.recorder = &MockPostSystemActionsCreatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPostSystemActionsCreator) EXPECT() *MockPostSystemActionsCreatorMockRecorder {
+	return m.recorder
+}
+
+// CreatePostSystemActions mocks base method
+func (m *MockPostSystemActionsCreator) CreatePostSystemActions(arg0 context.Context) ([]action.Envelope, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePostSystemActions", arg0)
+	ret0, _ := ret[0].([]action.Envelope)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePostSystemActions indicates an expected call of CreatePostSystemActions
+func (mr *MockPostSystemActionsCreatorMockRecorder) CreatePostSystemActions(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePostSystemActions", reflect.TypeOf((*MockPostSystemActionsCreator)(nil).CreatePostSystemActions), arg0)
+}
+
 // MockActionValidator is a mock of ActionValidator interface
 type MockActionValidator struct {
 	ctrl     *gomock.Controller

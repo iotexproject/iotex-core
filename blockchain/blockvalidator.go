@@ -26,7 +26,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(ctx context.Context, block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
+	Validate(ctx context.Context, block *block.Block) error
 	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
@@ -56,8 +56,9 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
-	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
+func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
+	if err := verifyHeightAndHash(blk, vaCtx.Tip.Height, vaCtx.Tip.Hash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
 	if err := verifySigAndRoot(blk); err != nil {

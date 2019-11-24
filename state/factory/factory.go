@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
@@ -51,9 +50,9 @@ type (
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
-		NewWorkingSet(*protocol.Registry) (WorkingSet, error)
+		NewWorkingSet() (WorkingSet, error)
 		Commit(WorkingSet) error
-		// Candidate pool
+		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
 		State(hash.Hash160, interface{}) error
@@ -158,12 +157,9 @@ func (sf *factory) Start(ctx context.Context) error {
 	case nil:
 		break
 	case db.ErrNotExist:
-		if err = sf.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init factory's height")
-		}
 		// init the state factory
-		if err = sf.initialize(ctx); err != nil {
-			return err
+		if err := sf.createGenesisStates(ctx); err != nil {
+			return errors.Wrap(err, "failed to create genesis states")
 		}
 	default:
 		return err
@@ -246,10 +242,10 @@ func (sf *factory) Height() (uint64, error) {
 }
 
 // NewWorkingSet returns new working set
-func (sf *factory) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
+func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), registry, sf.saveHistory)
+	return newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -262,7 +258,7 @@ func (sf *factory) Commit(ws WorkingSet) error {
 //======================================
 // Candidate functions
 //======================================
-// CandidatesByHeight returns array of Candidates in candidate pool of a given height
+
 func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
@@ -364,17 +360,12 @@ func (sf *factory) commit(ws WorkingSet) error {
 }
 
 // Initialize initializes the state factory
-func (sf *factory) initialize(ctx context.Context) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok || raCtx.Registry == nil {
-		// not RunActionsCtx or no valid registry
-		return nil
-	}
-	ws, err := newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), raCtx.Registry, sf.saveHistory)
+func (sf *factory) createGenesisStates(ctx context.Context) error {
+	ws, err := newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	if err := createGenesisStates(ctx, sf.cfg, ws); err != nil {
+	if err := createGenesisStates(ctx, ws); err != nil {
 		return err
 	}
 	// add Genesis states

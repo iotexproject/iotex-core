@@ -8,7 +8,6 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -156,18 +155,18 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // NewWorkingSet mocks base method
-func (m *MockFactory) NewWorkingSet(arg0 *protocol.Registry) (factory.WorkingSet, error) {
+func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewWorkingSet", arg0)
+	ret := m.ctrl.Call(m, "NewWorkingSet")
 	ret0, _ := ret[0].(factory.WorkingSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewWorkingSet indicates an expected call of NewWorkingSet
-func (mr *MockFactoryMockRecorder) NewWorkingSet(arg0 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
 }
 
 // Commit mocks base method

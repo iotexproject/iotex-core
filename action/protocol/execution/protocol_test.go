@@ -205,7 +205,6 @@ func NewSmartContractTest(t *testing.T, file string) {
 
 func runExecution(
 	bc blockchain.Blockchain,
-	dao blockdao.BlockDAO,
 	ecfg *ExecutionConfig,
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
@@ -230,7 +229,8 @@ func runExecution(
 		if err != nil {
 			return nil, nil, err
 		}
-		return bc.SimulateExecution(addr, exec)
+
+		return blockchain.SimulateExecution(bc, addr, exec)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -262,7 +262,7 @@ func runExecution(
 	t2 := time.Now()
 	fmt.Println("exec time:", t1.Sub(t))
 	fmt.Println("commit time:", t2.Sub(t1))
-	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blk.Height())
+	receipt, err := bc.BlockDAO().GetReceiptByActionHash(exec.Hash(), blk.Height())
 
 	return nil, receipt, err
 }
@@ -270,7 +270,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, blockdao.BlockDAO, *protocol.Registry) {
+) blockchain.Blockchain {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -281,7 +281,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
-	registry := protocol.Registry{}
+	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -296,9 +296,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg,
 		dao,
 		blockchain.InMemStateFactoryOption(),
-		blockchain.RegistryOption(&registry),
+		blockchain.RegistryOption(registry),
 	)
-	reward := rewarding.NewProtocol(bc, rp)
+	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(registry.Register(rewarding.ProtocolID, reward))
 
 	r.NotNil(bc)
@@ -308,7 +308,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(ProtocolID, execution))
 	r.NoError(bc.Start(ctx))
-	ws, err := sf.NewWorkingSet(&registry)
+	ws, err := sf.NewWorkingSet()
 	r.NoError(err)
 	for _, expectedBalance := range sct.InitBalances {
 		_, err = accountutil.LoadOrCreateAccount(ws, expectedBalance.Account, expectedBalance.Balance())
@@ -319,24 +319,23 @@ func (sct *SmartContractTest) prepareBlockchain(
 			Producer: identityset.Address(27),
 			GasLimit: uint64(10000000),
 			Genesis:  cfg.Genesis,
+			Registry: registry,
 		})
 	_, err = ws.RunActions(ctx, 0, nil)
 	r.NoError(err)
 	r.NoError(sf.Commit(ws))
-	return bc, dao, &registry
+	return bc
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
-	dao blockdao.BlockDAO,
 	r *require.Assertions,
-	registry *protocol.Registry,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		_, receipt, err := runExecution(bc, dao, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.InitGenesis.IsBering {
@@ -357,7 +356,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.Factory().NewWorkingSet(registry)
+		ws, err := bc.Factory().NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -377,13 +376,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, dao, registry := sct.prepareBlockchain(ctx, r)
+	bc := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, dao, r, registry)
+	contractAddresses := sct.deployContracts(bc, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -394,7 +393,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
 		}
-		retval, receipt, err := runExecution(bc, dao, &exec, contractAddr)
+		retval, receipt, err := runExecution(bc, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 
@@ -466,7 +465,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
-		registry := protocol.Registry{}
+		registry := protocol.NewRegistry()
 		acc := account.NewProtocol()
 		require.NoError(registry.Register(account.ProtocolID, acc))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -483,7 +482,7 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			dao,
 			blockchain.DefaultStateFactoryOption(),
-			blockchain.RegistryOption(&registry),
+			blockchain.RegistryOption(registry),
 		)
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(registry.Register(ProtocolID, exeProtocol))
@@ -497,7 +496,7 @@ func TestProtocol_Handle(t *testing.T) {
 			require.NoError(err)
 		}()
 
-		ws, err := sf.NewWorkingSet(&registry)
+		ws, err := sf.NewWorkingSet()
 		require.NoError(err)
 		_, err = accountutil.LoadOrCreateAccount(ws, identityset.Address(27).String(), unit.ConvertIotxToRau(1000000000))
 		require.NoError(err)
@@ -507,6 +506,7 @@ func TestProtocol_Handle(t *testing.T) {
 				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
 				Genesis:  cfg.Genesis,
+				Registry: registry,
 			})
 		_, err = ws.RunActions(ctx, 0, nil)
 		require.NoError(err)
@@ -540,7 +540,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
-		ws, err = sf.NewWorkingSet(&registry)
+		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
@@ -592,7 +592,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Nil(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		ws, err = sf.NewWorkingSet(&registry)
+		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
 		stateDB = evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var emptyEVMHash common.Hash
