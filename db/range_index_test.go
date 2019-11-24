@@ -178,105 +178,69 @@ func TestRangeIndex2(t *testing.T) {
 	index, err := NewRangeIndex(kv, testNS, NotExist)
 	require.NoError(err)
 	// special case: insert 1
-	err = index.Insert(1, []byte("1"))
-	require.NoError(err)
+	require.NoError(index.Insert(1, []byte("1")))
 	v, err := index.Get(5)
 	require.NoError(err)
 	require.Equal([]byte("1"), v)
-
-	err = index.Purge(1)
-	require.NoError(err)
-
-	err = index.Insert(7, []byte("7"))
-	require.NoError(err)
+	// remove 1
+	require.NoError(index.Purge(1))
+	// insert 7
+	require.NoError(index.Insert(7, []byte("7")))
 	// Case I: key before 7
 	for i := uint64(1); i < 6; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	// Case II: key is 7 and greater than 7
 	for i := uint64(7); i < 10; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7"), v)
 	}
 	// Case III: duplicate key
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	require.NoError(err)
-	err = index.Insert(7, []byte("7777"))
-	require.NoError(err)
+	require.NoError(index.Insert(7, []byte("7777")))
 	for i := uint64(7); i < 10; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7777"), v)
 	}
 	// Case IV: delete key less than 7
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	require.NoError(err)
-	err = index.Insert(66, []byte("66"))
-	require.NoError(err)
+	require.NoError(index.Insert(66, []byte("66")))
 	for i := uint64(1); i < 7; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
 		err = index.Delete(i)
 		require.NoError(err)
 	}
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	require.NoError(err)
 	v, err = index.Get(7)
 	require.NoError(err)
 	require.Equal([]byte("7777"), v)
 	// Case V: delete key 7
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	err = index.Purge(10)
-	require.NoError(err)
+	require.NoError(index.Purge(10))
 	for i := uint64(1); i < 66; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	for i := uint64(66); i < 70; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.Equal([]byte("66"), v)
 	}
 	// Case VI: delete key before 80,all keys deleted
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	err = index.Insert(70, []byte("70"))
-	require.NoError(err)
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	err = index.Insert(80, []byte("80"))
-	require.NoError(err)
-	err = index.Insert(91, []byte("91"))
-	require.NoError(err)
-	index, err = NewRangeIndex(kv, testNS, NotExist)
-	err = index.Purge(79)
-	require.NoError(err)
+	require.NoError(index.Insert(70, []byte("70")))
+	require.NoError(index.Insert(80, []byte("80")))
+	require.NoError(index.Insert(91, []byte("91")))
+	require.NoError(index.Purge(79))
 	for i := uint64(1); i < 80; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	for i := uint64(80); i < 91; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("80"), v)
 	}
 	for i := uint64(91); i < 100; i++ {
-		index, err = NewRangeIndex(kv, testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("91"), v)
