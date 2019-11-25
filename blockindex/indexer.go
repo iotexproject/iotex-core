@@ -63,7 +63,7 @@ type (
 	blockIndexer struct {
 		mutex       sync.RWMutex
 		genesisHash hash.Hash256
-		kvstore     db.KVStore
+		kvstore     db.KVStoreWithRange
 		batch       db.KVStoreBatch
 		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
@@ -76,8 +76,12 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvstore")
 	}
+	kvRange, ok := kv.(db.KVStoreWithRange)
+	if !ok {
+		return nil, errors.New("indexer can only be created from KVStoreWithRange")
+	}
 	x := blockIndexer{
-		kvstore:     kv,
+		kvstore:     kvRange,
 		batch:       db.NewBatch(),
 		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,

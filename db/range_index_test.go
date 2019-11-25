@@ -13,7 +13,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -60,10 +59,13 @@ func TestRangeIndex(t *testing.T) {
 	require.Equal(rangeTests[0].v, v)
 
 	for i, e := range rangeTests {
+		require.NoError(index.Insert(e.k, e.v))
 		if i == 0 {
+			v, err = index.Get(rangeTests[0].k)
+			require.NoError(err)
+			require.Equal(rangeTests[0].v, v)
 			continue
 		}
-		require.NoError(index.Insert(e.k, e.v))
 		// test 5 random keys between the new and previous insertion
 		gap := e.k - rangeTests[i-1].k
 		for j := 0; j < 5; j++ {
@@ -89,7 +91,7 @@ func TestRangeIndex(t *testing.T) {
 	}
 
 	// delete rangeTests[1].k
-	require.Equal(ErrInvalid, errors.Cause(index.Delete(0)))
+	require.NoError(index.Delete(rangeTests[0].k))
 	require.NoError(index.Delete(rangeTests[1].k))
 	v, err = index.Get(rangeTests[1].k)
 	require.NoError(err)
