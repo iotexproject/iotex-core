@@ -107,28 +107,29 @@ func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := p.assertZeroBlockHeight(raCtx.BlockHeight); err != nil {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if err := p.assertZeroBlockHeight(blkCtx.BlockHeight); err != nil {
 		return err
 	}
 
-	blockReward := raCtx.Genesis.BlockReward()
+	blockReward := bcCtx.Genesis.BlockReward()
 	if err := p.assertAmount(blockReward); err != nil {
 		return err
 	}
 
-	epochReward := raCtx.Genesis.EpochReward()
+	epochReward := bcCtx.Genesis.EpochReward()
 	if err := p.assertAmount(epochReward); err != nil {
 		return err
 	}
 
-	initBalance := raCtx.Genesis.InitBalance()
-	numDelegatesForEpochReward := raCtx.Genesis.NumDelegatesForEpochReward
-	exemptAddrs := raCtx.Genesis.ExemptAddrsFromEpochReward()
-	foundationBonus := raCtx.Genesis.FoundationBonus()
-	numDelegatesForFoundationBonus := raCtx.Genesis.NumDelegatesForFoundationBonus
-	foundationBonusLastEpoch := raCtx.Genesis.FoundationBonusLastEpoch
-	productivityThreshold := raCtx.Genesis.ProductivityThreshold
+	initBalance := bcCtx.Genesis.InitBalance()
+	numDelegatesForEpochReward := bcCtx.Genesis.NumDelegatesForEpochReward
+	exemptAddrs := bcCtx.Genesis.ExemptAddrsFromEpochReward()
+	foundationBonus := bcCtx.Genesis.FoundationBonus()
+	numDelegatesForFoundationBonus := bcCtx.Genesis.NumDelegatesForFoundationBonus
+	foundationBonusLastEpoch := bcCtx.Genesis.FoundationBonusLastEpoch
+	productivityThreshold := bcCtx.Genesis.ProductivityThreshold
 
 	if err := p.putState(
 		sm,

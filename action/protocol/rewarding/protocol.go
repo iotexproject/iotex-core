@@ -70,15 +70,16 @@ func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol)
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	hu := config.NewHeightUpgrade(&raCtx.Genesis)
-	switch raCtx.BlockHeight {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	switch blkCtx.BlockHeight {
 	case hu.AleutianBlockHeight():
-		if err := p.SetReward(ctx, sm, raCtx.Genesis.AleutianEpochReward(), false); err != nil {
+		if err := p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false); err != nil {
 			return err
 		}
 	case hu.DardanellesBlockHeight():
-		if err := p.SetReward(ctx, sm, raCtx.Genesis.DardanellesBlockReward(), true); err != nil {
+		if err := p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true); err != nil {
 			return err
 		}
 	}
@@ -88,11 +89,12 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
 func (p *Protocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)}
-	rp := rolldpos.FindProtocol(raCtx.Registry)
-	if rp != nil && raCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(raCtx.BlockHeight)) {
-		grants = append(grants, createGrantRewardAction(action.EpochReward, raCtx.BlockHeight))
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
+	rp := rolldpos.FindProtocol(bcCtx.Registry)
+	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
+		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 	}
 
 	return grants, nil
@@ -227,20 +229,22 @@ func (p *Protocol) settleAction(
 	si int,
 	logs ...*action.Log,
 ) (*action.Receipt, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if status == uint64(iotextypes.ReceiptStatus_Failure) {
 		if err := sm.Revert(si); err != nil {
 			return nil, err
 		}
 	}
-	gasFee := big.NewInt(0).Mul(raCtx.GasPrice, big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
-	if err := DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	if err := DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
 		return nil, err
 	}
-	if err := p.increaseNonce(sm, raCtx.Caller, raCtx.Nonce); err != nil {
+	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
 		return nil, err
 	}
-	return p.createReceipt(status, raCtx.BlockHeight, raCtx.ActionHash, raCtx.IntrinsicGas, logs...), nil
+	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs...), nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {

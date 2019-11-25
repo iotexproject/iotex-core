@@ -156,14 +156,19 @@ func TestWrongNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithRunActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.RunActionsCtx{
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		},
+	)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
 			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
+			Producer: identityset.Address(27),
+			GasLimit: gasLimit,
 		},
 	)
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})

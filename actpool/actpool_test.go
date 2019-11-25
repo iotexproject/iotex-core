@@ -130,14 +130,15 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    re,
-		})
+	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -463,14 +464,15 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
-		})
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -623,14 +625,17 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
-		})
+
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
+
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -737,14 +742,15 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 2,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
-		})
+	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 2,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -845,14 +851,16 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 
-	ctx = protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 3,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
-		})
+	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 3,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
+
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -1119,14 +1127,15 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: bc.TipHeight() + 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    re,
-		})
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: bc.TipHeight() + 1,
+		Producer: identityset.Address(27),
+		GasLimit: gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
 	require.NoError(ws.Finalize())

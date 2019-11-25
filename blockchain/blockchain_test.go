@@ -1134,11 +1134,14 @@ func TestBlocks(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
-			Genesis:  cfg.Genesis,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, nil)
 	require.NoError(err)
@@ -1206,12 +1209,14 @@ func TestActions(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithRunActionsCtx(
-		ctx,
-		protocol.RunActionsCtx{
+	ctx = protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
-			Genesis:  cfg.Genesis,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, nil)
 	require.NoError(err)

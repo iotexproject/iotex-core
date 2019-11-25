@@ -16,8 +16,8 @@ import (
 
 // createGenesisStates initialize the genesis states
 func createGenesisStates(ctx context.Context, ws WorkingSet) error {
-	if raCtx, ok := protocol.GetRunActionsCtx(ctx); ok {
-		for _, p := range raCtx.Registry.All() {
+	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
+		for _, p := range bcCtx.Registry.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
 				if err := gsc.CreateGenesisStates(ctx, ws); err != nil {
 					return errors.Wrap(err, "failed to create genesis states for protocol")

@@ -32,11 +32,21 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: config.Default.Genesis,
+		},
+	)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{},
 	)
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)

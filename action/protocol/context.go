@@ -18,42 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-type runActionsCtxKey struct{}
-
 type validateActionsCtxKey struct{}
-
-// RunActionsCtx provides the runactions with auxiliary information.
-type RunActionsCtx struct {
-	// height of block containing those actions
-	BlockHeight uint64
-	// timestamp of block containing those actions
-	BlockTimeStamp time.Time
-	// gas Limit for perform those actions
-	GasLimit uint64
-	// Genesis is a copy of current genesis
-	Genesis genesis.Genesis
-	// Tip is the information of tip block
-	Tip TipInfo
-	// Producer is the address of whom composes the block containing this action
-	Producer address.Address
-	// Caller is the address of whom issues this action
-	Caller address.Address
-	// ActionHash is the hash of the action with the sealed envelope
-	ActionHash hash.Hash256
-	// GasPrice is the action gas price
-	GasPrice *big.Int
-	// IntrinsicGas is the action intrinsic gas
-	IntrinsicGas uint64
-	// Nonce is the nonce of the action
-	Nonce uint64
-	// History indicates whether to save account/contract history or not
-	History bool
-	// Registry is the pointer of protocol registry
-	// Candidates is a list of candidates of current round
-	Candidates []*state.Candidate
-	// Registry is the pointer protocol registry
-	Registry *Registry
-}
 
 // TipInfo contains the tip block information
 type TipInfo struct {
@@ -78,27 +43,6 @@ type ValidateActionsCtx struct {
 	Registry *Registry
 }
 
-// WithRunActionsCtx add RunActionsCtx into context.
-func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
-	return context.WithValue(ctx, runActionsCtxKey{}, ra)
-}
-
-// GetRunActionsCtx gets runActions context
-func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
-	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
-	return ra, ok
-}
-
-// MustGetRunActionsCtx must get runActions context.
-// If context doesn't exist, this function panic.
-func MustGetRunActionsCtx(ctx context.Context) RunActionsCtx {
-	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
-	if !ok {
-		log.S().Panic("Miss run actions context")
-	}
-	return ra
-}
-
 // WithValidateActionsCtx add ValidateActionsCtx into context.
 func WithValidateActionsCtx(ctx context.Context, va ValidateActionsCtx) context.Context {
 	return context.WithValue(ctx, validateActionsCtxKey{}, va)
@@ -121,7 +65,6 @@ func MustGetValidateActionsCtx(ctx context.Context) ValidateActionsCtx {
 }
 
 // TODO: replace RunActionsCtx and ValidateActionsCtx with below classified independent contexts
-
 type blockchainContextKey struct{}
 
 type blockContextKey struct{}
@@ -148,6 +91,10 @@ type BlockCtx struct {
 	GasLimit uint64
 	// Producer is the address of whom composes the block containing this action
 	Producer address.Address
+	// Tip is the information of tip block
+	Tip TipInfo
+	// Candidates is a list of candidates of current round
+	Candidates []*state.Candidate
 }
 
 // ActionCtx provides action auxiliary information.
