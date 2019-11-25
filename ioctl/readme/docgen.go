@@ -50,7 +50,7 @@ specific release so install-cli.sh can download them.
 	}
 
 	filePrepender := func(s string) string {
-		if strings.Contains(s, "ioctl.md") {
+		if strings.Contains(s, "README.md") {
 			return preString
 		}
 		return ""
