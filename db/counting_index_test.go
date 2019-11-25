@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -25,11 +24,11 @@ import (
 func TestNewCountingIndex(t *testing.T) {
 	require := require.New(t)
 
-	_, err := NewCountingIndex(nil, 3, []byte{1}, 0)
+	_, err := NewCountingIndexNX(nil, []byte{1})
 	require.Equal(ErrInvalid, errors.Cause(err))
-	_, err = NewCountingIndex(&bolt.DB{}, 3, nil, 0)
+	_, err = NewCountingIndexNX(NewMemKVStore(), nil)
 	require.Equal(ErrInvalid, errors.Cause(err))
-	_, err = NewCountingIndex(&bolt.DB{}, 3, []byte{}, 0)
+	_, err = NewCountingIndexNX(NewMemKVStore(), []byte{})
 	require.Equal(ErrInvalid, errors.Cause(err))
 }
 
@@ -43,10 +42,10 @@ func TestCountingIndex(t *testing.T) {
 		}()
 
 		bucket := []byte("test")
-		_, err := kv.CountingIndex(bucket)
-		require.Equal(ErrBucketNotExist, errors.Cause(err))
+		_, err := GetCountingIndex(kv, bucket)
+		require.Equal(ErrNotExist, errors.Cause(err))
 
-		index, err := kv.CreateCountingIndexNX(bucket)
+		index, err := NewCountingIndexNX(kv, bucket)
 		require.NoError(err)
 		require.Equal(uint64(0), index.Size())
 
@@ -69,7 +68,7 @@ func TestCountingIndex(t *testing.T) {
 		index.Close()
 
 		// re-open the bucket
-		index, err = kv.CountingIndex(bucket)
+		index, err = GetCountingIndex(kv, bucket)
 		require.NoError(err)
 		// write another 100 entries
 		for i := 200; i < 300; i++ {
@@ -110,7 +109,7 @@ func TestCountingIndex(t *testing.T) {
 		index.Close()
 
 		// re-open the bucket, verify size = 300
-		index1, err := kv.CountingIndex(bucket)
+		index1, err := GetCountingIndex(kv, bucket)
 		require.NoError(err)
 		require.EqualValues(300, index1.Size())
 
@@ -170,7 +169,7 @@ func TestBulk(t *testing.T) {
 		// create 10000 tenants
 		for i := 0; i < Tenants; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			tenant, err := kv.CreateCountingIndexNX(h[:])
+			tenant, err := NewCountingIndexNX(kv, h[:])
 			require.NoError(err)
 
 			for i := 0; i < Keys; i++ {
@@ -206,7 +205,7 @@ func TestCheckBulk(t *testing.T) {
 		// verify 1000 tenants
 		for i := 0; i < Tenants; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
-			index, err := kv.CountingIndex(h[:])
+			index, err := GetCountingIndex(kv, h[:])
 			require.NoError(err)
 			require.EqualValues(Keys, index.Size())
 

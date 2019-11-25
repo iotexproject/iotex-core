@@ -143,12 +143,23 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	hu := config.NewHeightUpgrade(&raCtx.Genesis)
-	stateDB := NewStateDBAdapter(
-		sm,
-		raCtx.BlockHeight,
-		hu.IsPre(config.Aleutian, raCtx.BlockHeight),
-		execution.Hash(),
-	)
+	var stateDB *StateDBAdapter
+	if raCtx.History {
+		stateDB = NewStateDBAdapter(
+			sm,
+			raCtx.BlockHeight,
+			hu.IsPre(config.Aleutian, raCtx.BlockHeight),
+			execution.Hash(),
+			SaveHistoryOption(),
+		)
+	} else {
+		stateDB = NewStateDBAdapter(
+			sm,
+			raCtx.BlockHeight,
+			hu.IsPre(config.Aleutian, raCtx.BlockHeight),
+			execution.Hash(),
+		)
+	}
 	ps, err := NewParams(raCtx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err

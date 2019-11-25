@@ -7,9 +7,6 @@
 package block
 
 import (
-	"time"
-
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -17,26 +14,8 @@ import (
 
 // RunnableActions is abstructed from block which contains information to execute all actions in a block.
 type RunnableActions struct {
-	blockHeight         uint64
-	blockTimeStamp      time.Time
-	blockProducerPubKey crypto.PublicKey
-	txHash              hash.Hash256
-	actions             []action.SealedEnvelope
-}
-
-// BlockHeight returns block height.
-func (ra RunnableActions) BlockHeight() uint64 {
-	return ra.blockHeight
-}
-
-// BlockTimeStamp returns blockTimeStamp.
-func (ra RunnableActions) BlockTimeStamp() time.Time {
-	return ra.blockTimeStamp
-}
-
-// BlockProducerPubKey return BlockProducerPubKey.
-func (ra RunnableActions) BlockProducerPubKey() crypto.PublicKey {
-	return ra.blockProducerPubKey
+	txHash  hash.Hash256
+	actions []action.SealedEnvelope
 }
 
 // TxHash returns TxHash.
@@ -53,18 +32,6 @@ type RunnableActionsBuilder struct{ ra RunnableActions }
 // NewRunnableActionsBuilder creates a RunnableActionsBuilder.
 func NewRunnableActionsBuilder() *RunnableActionsBuilder { return &RunnableActionsBuilder{} }
 
-// SetHeight sets the block height for block which is building.
-func (b *RunnableActionsBuilder) SetHeight(h uint64) *RunnableActionsBuilder {
-	b.ra.blockHeight = h
-	return b
-}
-
-// SetTimeStamp sets the time stamp for block which is building.
-func (b *RunnableActionsBuilder) SetTimeStamp(ts time.Time) *RunnableActionsBuilder {
-	b.ra.blockTimeStamp = ts
-	return b
-}
-
 // AddActions adds actions for block which is building.
 func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *RunnableActionsBuilder {
 	if b.ra.actions == nil {
@@ -75,8 +42,7 @@ func (b *RunnableActionsBuilder) AddActions(acts ...action.SealedEnvelope) *Runn
 }
 
 // Build signs and then builds a block.
-func (b *RunnableActionsBuilder) Build(producerPubKey crypto.PublicKey) RunnableActions {
-	b.ra.blockProducerPubKey = producerPubKey
+func (b *RunnableActionsBuilder) Build() RunnableActions {
 	b.ra.txHash = calculateTxRoot(b.ra.actions)
 	return b.ra
 }

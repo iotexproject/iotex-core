@@ -9,12 +9,13 @@ package factory
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -22,28 +23,24 @@ import (
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
 type stateTX struct {
-	ver            uint64
-	blkHeight      uint64
-	cb             db.CachedBatch // cached batch for pending writes
-	dao            db.KVStore     // the underlying DB for account/contract storage
-	actionHandlers []protocol.ActionHandler
+	ver         uint64
+	blkHeight   uint64
+	cb          db.CachedBatch // cached batch for pending writes
+	dao         db.KVStore     // the underlying DB for account/contract storage
+	saveHistory bool
 }
 
 // newStateTX creates a new state tx
 func newStateTX(
 	version uint64,
 	kv db.KVStore,
-	registry *protocol.Registry,
+	saveHistory bool,
 ) *stateTX {
 	st := &stateTX{
-		ver: version,
-		cb:  db.NewCachedBatch(),
-		dao: kv,
-	}
-	if registry != nil {
-		for _, p := range registry.All() {
-			st.addActionHandlers(p)
-		}
+		ver:         version,
+		cb:          db.NewCachedBatch(),
+		dao:         kv,
+		saveHistory: saveHistory,
 	}
 	return st
 }
@@ -52,13 +49,25 @@ func newStateTX(
 func (stx *stateTX) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
 // Digest returns the delta state digest
-func (stx *stateTX) Digest() hash.Hash256 { return stx.GetCachedBatch().Digest() }
+func (stx *stateTX) Digest() hash.Hash256 {
+	var cb db.KVStoreBatch
+	if stx.saveHistory {
+		// exclude trie pruning entries before calculating digest
+		cb = stx.cb.ExcludeEntries(evm.PruneKVNameSpace, db.Put)
+	} else {
+		cb = stx.cb
+	}
+	return cb.Digest()
+}
 
 // Version returns the Version of this working set
 func (stx *stateTX) Version() uint64 { return stx.ver }
 
 // Height returns the Height of the block being worked on
 func (stx *stateTX) Height() uint64 { return stx.blkHeight }
+
+// History returns if the DB retains history
+func (stx *stateTX) History() bool { return stx.saveHistory }
 
 // RunActions runs actions in the block and track pending changes in working set
 func (stx *stateTX) RunActions(
@@ -105,8 +114,11 @@ func (stx *stateTX) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
-	for _, actionHandler := range stx.actionHandlers {
+	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
 			return nil, errors.Wrapf(
@@ -141,7 +153,14 @@ func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) 
 func (stx *stateTX) Commit() error {
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
-	if err := stx.dao.Commit(stx.cb); err != nil {
+	var cb db.KVStoreBatch
+	if stx.saveHistory {
+		// exclude trie deletion
+		cb = stx.cb.ExcludeEntries(evm.ContractKVNameSpace, db.Delete)
+	} else {
+		cb = stx.cb
+	}
+	if err := stx.dao.Commit(cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	return nil
@@ -183,6 +202,9 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
 	stx.cb.Put(AccountKVNameSpace, pkHash[:], ss, "error when putting k = %x", pkHash)
+	if stx.saveHistory {
+		return stx.putIndex(pkHash, ss)
+	}
 	return nil
 }
 
@@ -192,7 +214,13 @@ func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 	return nil
 }
 
-// addActionHandlers adds action handlers to the state factory
-func (stx *stateTX) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	stx.actionHandlers = append(stx.actionHandlers, actionHandlers...)
+// putIndex insert height-state
+func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
+	version := stx.ver + 1
+	ns := append([]byte(AccountKVNameSpace), pkHash[:]...)
+	ri, err := stx.dao.CreateRangeIndexNX(ns, db.NotExist)
+	if err != nil {
+		return err
+	}
+	return ri.Insert(version, ss)
 }

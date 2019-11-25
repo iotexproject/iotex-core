@@ -91,8 +91,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		blockchain.InMemDaoOption(),
 	)
 
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(bc.Start(context.Background()))
 	// TODO: move the account creation to config.Genesis.InitialBalances, and delete function factory.CreateTestAccount
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
@@ -128,7 +128,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet(re)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithRunActionsCtx(context.Background(),
@@ -136,6 +136,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
@@ -416,9 +417,9 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
@@ -453,7 +454,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NotNil(ap.accountActs[addr1])
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet(re)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -461,6 +462,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
@@ -478,9 +480,9 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
 	)
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	re := protocol.NewRegistry()
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
@@ -609,7 +611,7 @@ func TestActPool_Reset(t *testing.T) {
 	// ap1 commits update of accounts to trie
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet(re)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithRunActionsCtx(context.Background(),
@@ -617,6 +619,7 @@ func TestActPool_Reset(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -721,13 +724,14 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap2 be BP's actpool
 	pickedActs = ap2.PendingActionMap()
 	// ap2 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet(re)
+	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 	ctx = protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -829,7 +833,7 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet(re)
+	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 
 	ctx = protocol.WithRunActionsCtx(context.Background(),
@@ -837,6 +841,7 @@ func TestActPool_Reset(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -1052,16 +1057,17 @@ func TestActPool_GetCapacity(t *testing.T) {
 
 func TestActPool_GetSize(t *testing.T) {
 	require := require.New(t)
+	re := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		config.Default,
 		nil,
 		blockchain.InMemStateFactoryOption(),
 		blockchain.InMemDaoOption(),
+		blockchain.RegistryOption(re),
 	)
 
-	re := &protocol.Registry{}
-	re.Register(account.ProtocolID, account.NewProtocol())
-	re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	_, err := factory.CreateTestAccount(bc.Factory(), config.Default, re, addr1, big.NewInt(100))
 	require.NoError(err)
@@ -1092,7 +1098,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Equal(uint64(40000), ap.GetGasSize())
 	sf := bc.Factory()
 	require.NotNil(sf)
-	ws, err := sf.NewWorkingSet(re)
+	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 
@@ -1101,6 +1107,7 @@ func TestActPool_GetSize(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 			Genesis:  config.Default.Genesis,
+			Registry: re,
 		})
 	_, err = ws.RunActions(ctx, 0, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)

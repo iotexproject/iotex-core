@@ -39,6 +39,7 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big
 	addrHash := hash.BytesToHash160(addr.Bytes())
 	err = sm.State(addrHash, &account)
 	if err == nil {
+		// TODO: init value cannot be non-zero
 		return &account, nil
 	}
 	if errors.Cause(err) == state.ErrStateNotExist {

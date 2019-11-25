@@ -24,9 +24,15 @@ func Sort(hashes [][]byte, nonce uint64) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, nonce)
 
+	hashMap := make(map[string]hash.Hash256)
+	for _, h := range hashes {
+		hash256 := hash.Hash256b(append(append(h, CryptoSeed...), nb...))
+		hashMap[string(h)] = hash256
+	}
+
 	sort.Slice(hashes, func(i, j int) bool {
-		hi := hash.Hash256b(append(append(hashes[i], CryptoSeed...), nb...))
-		hj := hash.Hash256b(append(append(hashes[j], CryptoSeed...), nb...))
+		hi := hashMap[string(hashes[i])]
+		hj := hashMap[string(hashes[j])]
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }
@@ -36,9 +42,15 @@ func SortCandidates(candidates []string, epochNum uint64, cryptoSeed []byte) {
 	nb := make([]byte, 8)
 	enc.MachineEndian.PutUint64(nb, epochNum)
 
+	hashMap := make(map[string]hash.Hash256)
+	for _, cand := range candidates {
+		hash256 := hash.Hash256b(append(append([]byte(cand), cryptoSeed...), nb...))
+		hashMap[cand] = hash256
+	}
+
 	sort.Slice(candidates, func(i, j int) bool {
-		hi := hash.Hash256b(append(append([]byte(candidates[i]), cryptoSeed...), nb...))
-		hj := hash.Hash256b(append(append([]byte(candidates[j]), cryptoSeed...), nb...))
+		hi := hashMap[candidates[i]]
+		hj := hashMap[candidates[j]]
 		return bytes.Compare(hi[:], hj[:]) < 0
 	})
 }

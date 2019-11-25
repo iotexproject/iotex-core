@@ -26,9 +26,8 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(ctx context.Context, block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// AddActionValidators add validators
-	AddActionValidators(...protocol.ActionValidator)
+	Validate(ctx context.Context, block *block.Block) error
+	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
 	// SetActPool set ActPoolManager
@@ -39,7 +38,6 @@ type validator struct {
 	sf                       factory.Factory
 	validatorAddr            string
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
-	actionValidators         []protocol.ActionValidator
 	senderBlackList          map[string]bool
 	actPool                  ActPoolManager
 }
@@ -58,8 +56,9 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
-	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
+func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
+	if err := verifyHeightAndHash(blk, vaCtx.Tip.Height, vaCtx.Tip.Hash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
 	if err := verifySigAndRoot(blk); err != nil {
@@ -71,11 +70,6 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block, tipHeight ui
 	}
 
 	return v.validateActionsOnly(ctx, blk)
-}
-
-// AddActionValidators add validators
-func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) {
-	v.actionValidators = append(v.actionValidators, validators...)
 }
 
 // AddActionEnvelopeValidators add action envelope validators
@@ -188,7 +182,7 @@ func (v *validator) validateActions(
 			}(validator, selp)
 		}
 
-		for _, validator := range v.actionValidators {
+		for _, validator := range vaCtx.Registry.All() {
 			wg.Add(1)
 			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()

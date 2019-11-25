@@ -9,8 +9,6 @@ package db
 import (
 	"sync"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
-
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -42,6 +40,10 @@ type (
 		Size() int
 		// Entry returns the entry at the index
 		Entry(int) (*writeInfo, error)
+		// Digest of the batch
+		Digest() hash.Hash256
+		// ExcludeEntries returns copy of batch with certain entries excluded
+		ExcludeEntries(string, int32) KVStoreBatch
 		// Clear clears entries staged in batch
 		Clear()
 		// CloneBatch clones the batch
@@ -78,10 +80,6 @@ type (
 		Snapshot() int
 		// Revert sets the cached batch to the state at the given snapshot
 		Revert(int) error
-		// Digest of the cached batch
-		Digest() hash.Hash256
-		// clone clones the cached batch
-		clone() CachedBatch
 	}
 
 	// cachedBatch implements the CachedBatch interface
@@ -156,6 +154,37 @@ func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
 		return nil, errors.Wrap(ErrIO, "index out of range")
 	}
 	return &b.writeQueue[index], nil
+}
+
+func (b *baseKVStoreBatch) Digest() hash.Hash256 {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	// 1. This could be improved by being processed in parallel
+	// 2. Digest could be replaced by merkle root if we need proof
+	bytes := make([]byte, 0)
+	for i := range b.writeQueue {
+		wi := &b.writeQueue[i]
+		bytes = append(bytes, wi.serialize()...)
+	}
+	return hash.Hash256b(bytes)
+}
+
+// ExcludeEntries returns copy of batch with certain entries excluded
+func (b *baseKVStoreBatch) ExcludeEntries(ns string, writeType int32) KVStoreBatch {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	c := baseKVStoreBatch{
+		writeQueue: []writeInfo{},
+	}
+	// remove entries
+	for i := range b.writeQueue {
+		if b.writeQueue[i].namespace == ns && b.writeQueue[i].writeType == writeType {
+			continue
+		}
+		c.writeQueue = append(c.writeQueue, b.writeQueue[i])
+	}
+	return &c
 }
 
 // Clear clear write queue
@@ -302,35 +331,9 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	return nil
 }
 
-func (cb *cachedBatch) Digest() hash.Hash256 {
-	cb.lock.Lock()
-	defer cb.lock.Unlock()
-	// 1. This could be improved by being processed in parallel
-	// 2. Digest could be replaced by merkle root if we need proof
-	bytes := make([]byte, 0)
-	for i := 0; i < cb.Size(); i++ {
-		wi, err := cb.Entry(i)
-		if err != nil {
-			log.S().Panic("Batch entry %d doesn't exist", i)
-		}
-		bytes = append(bytes, wi.serialize()...)
-	}
-	return hash.Hash256b(bytes)
-}
-
 //======================================
 // private functions
 //======================================
 func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
 	return hash.Hash160b(append([]byte(namespace), key...))
-}
-
-// clone clones the batch
-func (cb *cachedBatch) clone() CachedBatch {
-	// note it only clones the current internal batch and cache, to be used by Revert() later
-	// it does not clone the entire cachedBatch struct itself
-	return &cachedBatch{
-		KVStoreBatch: cb.CloneBatch(),
-		KVStoreCache: cb.KVStoreCache.Clone(),
-	}
 }

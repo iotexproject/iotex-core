@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -55,8 +54,22 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			return nil
 		}).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
+	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return uint64(19),
+			map[string]uint64{
+				identityset.Address(27).String(): 3,
+				identityset.Address(28).String(): 7,
+				identityset.Address(29).String(): 1,
+				identityset.Address(30).String(): 6,
+				identityset.Address(31).String(): 2,
+			},
+			nil
+	}, rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	))
+	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
 			Votes:         unit.ConvertIotxToRau(4000000),
@@ -87,73 +100,42 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Votes:         unit.ConvertIotxToRau(500000),
 			RewardAddress: identityset.Address(32).String(),
 		},
-	}, nil).AnyTimes()
-	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
-		uint64(19),
-		map[string]uint64{
-			identityset.Address(27).String(): 3,
-			identityset.Address(28).String(): 7,
-			identityset.Address(29).String(): 1,
-			identityset.Address(30).String(): 6,
-			identityset.Address(31).String(): 2,
-		},
-		nil,
-	).AnyTimes()
-	p := NewProtocol(chain, rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-	))
-
+	}
+	ge := config.Default.Genesis
+	ge.Rewarding.InitBalanceStr = "0"
+	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	ge.Rewarding.BlockRewardStr = "10"
+	ge.Rewarding.EpochRewardStr = "100"
+	ge.Rewarding.NumDelegatesForEpochReward = 4
+	ge.Rewarding.FoundationBonusStr = "5"
+	ge.Rewarding.NumDelegatesForFoundationBonus = 5
+	ge.Rewarding.FoundationBonusLastEpoch = 365
+	ge.Rewarding.ProductivityThreshold = 50
 	// Initialize the protocol
+	if withExempt {
+		ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{
+			identityset.Address(31).String(),
+		}
+		ge.Rewarding.NumDelegatesForEpochReward = 10
+	}
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight: 0,
+			Candidates:  candidates,
+			Genesis:     ge,
 		},
 	)
-	if withExempt {
-		require.NoError(
-			t,
-			p.Initialize(
-				ctx,
-				sm,
-				big.NewInt(0),
-				big.NewInt(10),
-				big.NewInt(100),
-				10,
-				[]address.Address{
-					identityset.Address(31),
-				},
-				big.NewInt(5),
-				5,
-				365,
-				50,
-			))
-	} else {
-		require.NoError(
-			t,
-			p.Initialize(
-				ctx,
-				sm,
-				big.NewInt(0),
-				big.NewInt(10),
-				big.NewInt(100),
-				4,
-				nil,
-				big.NewInt(5),
-				5,
-				365,
-				50,
-			))
-	}
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			Producer:    identityset.Address(27),
 			Caller:      identityset.Address(28),
+			Candidates:  candidates,
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			Genesis:     ge,
 		},
 	)
 
@@ -218,43 +200,32 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return(
-		[]*state.Candidate{
-			{
-				Address:       identityset.Address(0).String(),
-				Votes:         unit.ConvertIotxToRau(4000000),
-				RewardAddress: identityset.Address(0).String(),
-			},
-		},
-		nil,
-	).Times(1)
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	p := NewProtocol(chain, rp)
+	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return 0, nil, nil
+	}, rp)
+	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
+	cfg.Genesis.Rewarding.BlockRewardStr = "10"
+	cfg.Genesis.Rewarding.EpochRewardStr = "100"
+	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 10
+	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	cfg.Genesis.Rewarding.FoundationBonusStr = "5"
+	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 5
+	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
+	cfg.Genesis.Rewarding.ProductivityThreshold = 50
 
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight: 0,
+			Genesis:     cfg.Genesis,
 		},
 	)
-	require.NoError(t, p.Initialize(
-		ctx,
-		sm,
-		big.NewInt(1000000),
-		big.NewInt(10),
-		big.NewInt(100),
-		10,
-		nil,
-		big.NewInt(5),
-		5,
-		0,
-		50,
-	))
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	ctx = protocol.WithRunActionsCtx(
 		context.Background(),
@@ -263,6 +234,13 @@ func TestProtocol_Handle(t *testing.T) {
 			Caller:      identityset.Address(0),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 			GasPrice:    big.NewInt(0),
+			Candidates: []*state.Candidate{
+				{
+					Address:       identityset.Address(0).String(),
+					Votes:         unit.ConvertIotxToRau(4000000),
+					RewardAddress: identityset.Address(0).String(),
+				},
+			},
 		},
 	)
 

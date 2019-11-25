@@ -10,13 +10,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -60,6 +61,7 @@ type (
 		Digest() hash.Hash256
 		Version() uint64
 		Height() uint64
+		History() bool
 		// General state
 		State(hash.Hash160, interface{}) error
 		PutState(hash.Hash160, interface{}) error
@@ -70,35 +72,31 @@ type (
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
-		ver            uint64
-		blkHeight      uint64
-		accountTrie    trie.Trie            // global account state trie
-		trieRoots      map[int]hash.Hash256 // root of trie at time of snapshot
-		cb             db.CachedBatch       // cached batch for pending writes
-		dao            db.KVStore           // the underlying DB for account/contract storage
-		actionHandlers []protocol.ActionHandler
+		ver         uint64
+		blkHeight   uint64
+		saveHistory bool
+		accountTrie trie.Trie            // global account state trie
+		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
+		cb          db.CachedBatch       // cached batch for pending writes
+		dao         db.KVStore           // the underlying DB for account/contract storage
 	}
 )
 
-// NewWorkingSet creates a new working set
-func NewWorkingSet(
+// newWorkingSet creates a new working set
+func newWorkingSet(
 	version uint64,
 	kv db.KVStore,
 	root hash.Hash256,
-	registry *protocol.Registry,
+	saveHistory bool,
 ) (WorkingSet, error) {
 	ws := &workingSet{
-		ver:       version,
-		trieRoots: make(map[int]hash.Hash256),
-		cb:        db.NewCachedBatch(),
-		dao:       kv,
+		ver:         version,
+		saveHistory: saveHistory,
+		trieRoots:   make(map[int]hash.Hash256),
+		cb:          db.NewCachedBatch(),
+		dao:         kv,
 	}
-	if registry != nil {
-		for _, p := range registry.All() {
-			ws.addActionHandlers(p)
-		}
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
+	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state tire db")
 	}
@@ -129,6 +127,10 @@ func (ws *workingSet) Version() uint64 {
 // Height returns the Height of the block being worked on
 func (ws *workingSet) Height() uint64 {
 	return ws.blkHeight
+}
+
+func (ws *workingSet) History() bool {
+	return ws.saveHistory
 }
 
 // RunActions runs actions in the block and track pending changes in working set
@@ -179,7 +181,10 @@ func (ws *workingSet) RunAction(
 	raCtx.Nonce = elp.Nonce()
 	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
 
-	for _, actionHandler := range ws.actionHandlers {
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
+	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
@@ -238,7 +243,14 @@ func (ws *workingSet) Revert(snapshot int) error {
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
-	if err := ws.dao.Commit(ws.cb); err != nil {
+	var cb db.KVStoreBatch
+	if ws.saveHistory {
+		// exclude trie deletion
+		cb = ws.cb.ExcludeEntries(evm.ContractKVNameSpace, db.Delete)
+	} else {
+		cb = ws.cb
+	}
+	if err := ws.dao.Commit(cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clear()
@@ -287,9 +299,4 @@ func (ws *workingSet) DelState(pkHash hash.Hash160) error {
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
 	ws.trieRoots = make(map[int]hash.Hash256)
-}
-
-// addActionHandlers adds action handlers to the state factory
-func (ws *workingSet) addActionHandlers(actionHandlers ...protocol.ActionHandler) {
-	ws.actionHandlers = append(ws.actionHandlers, actionHandlers...)
 }

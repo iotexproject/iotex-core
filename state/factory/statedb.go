@@ -18,7 +18,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -32,6 +31,7 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
+	saveHistory        bool
 	cfg                config.Config
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
@@ -60,6 +60,7 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+		sdb.saveHistory = cfg.Chain.EnableHistoryStateDB
 		return nil
 	}
 }
@@ -110,16 +111,14 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		break
 	case db.ErrNotExist:
-		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init statedb's height")
-		}
 		// init the state factory
-		if err = sdb.initialize(ctx); err != nil {
-			return err
+		if err = sdb.createGenesisStates(ctx); err != nil {
+			return errors.Wrap(err, "failed to create genesis states")
 		}
 	default:
 		return err
 	}
+
 	return nil
 }
 
@@ -132,6 +131,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
+
 // Balance returns balance
 func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
 	sdb.mutex.RLock()
@@ -184,10 +184,10 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet(registry *protocol.Registry) (WorkingSet, error) {
+func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, registry), nil
+	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -294,19 +294,11 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 // Initialize initializes the state db
-func (sdb *stateDB) initialize(ctx context.Context) error {
-	raCtx, ok := protocol.GetRunActionsCtx(ctx)
-	if !ok || raCtx.Registry == nil {
-		// not RunActionsCtx or no valid registry
-		return nil
-	}
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, raCtx.Registry)
-	if err := createGenesisStates(ctx, sdb.cfg, ws); err != nil {
+func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
+	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory)
+	if err := createGenesisStates(ctx, ws); err != nil {
 		return err
 	}
-	// add Genesis states
-	if err := sdb.commit(ws); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
+
+	return sdb.commit(ws)
 }

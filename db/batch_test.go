@@ -48,24 +48,12 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal([]byte(nil), w.value)
 	require.Equal(Delete, w.writeType)
 
-	// test clone
-	c := cb.clone()
-	_, err = c.Get(bucket1, testK1[0])
-	require.Equal(ErrAlreadyDeleted, errors.Cause(err))
-
-	w, err = c.Entry(0)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal(testV1[0], w.value)
-	require.Equal(Put, w.writeType)
-
-	w, err = c.Entry(2)
-	require.NoError(err)
-	require.Equal(bucket1, w.namespace)
-	require.Equal(testK1[0], w.key)
-	require.Equal([]byte(nil), w.value)
-	require.Equal(Delete, w.writeType)
+	// test ExcludeEntries
+	d := cb.Digest()
+	require.Equal(3, cb.Size())
+	r := cb.ExcludeEntries(bucket1, Delete)
+	require.Equal(1, r.Size())
+	require.NotEqual(d, r.Digest())
 }
 
 func TestSnapshot(t *testing.T) {
