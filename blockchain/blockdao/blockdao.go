@@ -203,6 +203,28 @@ func (dao *blockDAO) initStores() error {
 		maxN = 1
 	}
 	dao.topIndex.Store(maxN)
+	return dao.initCountingIndex()
+}
+
+func (dao *blockDAO) initCountingIndex() error {
+	kv, _, err := dao.getTopDB(1)
+	if err != nil {
+		return err
+	}
+	countingIndex, err := db.NewCountingIndexNX(kv, []byte(blockDataNS))
+	if err != nil {
+		return err
+	}
+	if countingIndex.Size() == 0 {
+		countingIndex.Add(make([]byte, 0), false)
+	}
+	countingIndex, err = db.NewCountingIndexNX(kv, []byte(receiptsNS))
+	if err != nil {
+		return err
+	}
+	if countingIndex.Size() == 0 {
+		countingIndex.Add(make([]byte, 0), false)
+	}
 	return nil
 }
 
@@ -502,11 +524,11 @@ func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	if err != nil {
 		return nil, err
 	}
-	heightReceipt, err := kvstore.CreateRangeIndexNX([]byte(receiptsNS), make([]byte, 8))
+	countingIndex, err := db.NewCountingIndexNX(kvstore, []byte(receiptsNS))
 	if err != nil {
 		return nil, err
 	}
-	value, err := heightReceipt.Get(blkHeight)
+	value, err := countingIndex.Get(blkHeight)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts of block %d", blkHeight)
 	}
@@ -549,11 +571,11 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	htf, err := kv.CreateRangeIndexNX([]byte(blockDataNS), make([]byte, 8))
+	countingIndex, err := db.NewCountingIndexNX(kv, []byte(blockDataNS))
 	if err != nil {
 		return err
 	}
-	err = htf.Insert(blkHeight, serBlk)
+	err = countingIndex.Add(serBlk, false)
 	if err != nil {
 		return err
 	}
@@ -565,11 +587,11 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 			receipts.Receipts = append(receipts.Receipts, r.ConvertToReceiptPb())
 		}
 		if receiptsBytes, err := proto.Marshal(&receipts); err == nil {
-			htf, err = kv.CreateRangeIndexNX([]byte(receiptsNS), make([]byte, 8))
+			countingIndex, err = db.NewCountingIndexNX(kv, []byte(receiptsNS))
 			if err != nil {
 				return err
 			}
-			err = htf.Insert(blkHeight, receiptsBytes)
+			err = countingIndex.Add(receiptsBytes, false)
 			if err != nil {
 				return err
 			}
@@ -618,22 +640,19 @@ func (dao *blockDAO) deleteTipBlock() error {
 	if err != nil {
 		return err
 	}
-	// delete block data
-	htf, err := whichDB.CreateRangeIndexNX([]byte(blockDataNS), make([]byte, 8))
+	countingIndex, err := db.NewCountingIndexNX(whichDB, []byte(blockDataNS))
 	if err != nil {
 		return err
 	}
-	err = htf.Delete(height)
+	err = countingIndex.Revert(1)
 	if err != nil {
 		return err
 	}
-
-	// delete receipts data
-	htf, err = whichDB.CreateRangeIndexNX([]byte(receiptsNS), make([]byte, 8))
+	countingIndex, err = db.NewCountingIndexNX(whichDB, []byte(receiptsNS))
 	if err != nil {
 		return err
 	}
-	err = htf.Delete(height)
+	err = countingIndex.Revert(1)
 	if err != nil {
 		return err
 	}
@@ -754,25 +773,25 @@ func (dao *blockDAO) getBlockValue(blockNS string, h hash.Hash256) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	heightBlock, err := whichDB.CreateRangeIndexNX([]byte(blockNS), nil)
+	countingIndex, err := db.NewCountingIndexNX(whichDB, []byte(blockDataNS))
 	if err != nil {
 		return nil, err
 	}
-	block, err := heightBlock.Get(height)
+	block, err := countingIndex.Get(height)
 	if errors.Cause(err) == db.ErrNotExist {
 		idx := index - 1
 		if index == 0 {
 			idx = 0
 		}
-		db, _, err := dao.getDBFromIndex(idx)
+		dbs, _, err := dao.getDBFromIndex(idx)
 		if err != nil {
 			return nil, err
 		}
-		heightBlock, err = db.CreateRangeIndexNX([]byte(blockNS), nil)
+		countingIndex, err := db.NewCountingIndexNX(dbs, []byte(blockDataNS))
 		if err != nil {
 			return nil, err
 		}
-		block, err = heightBlock.Get(height)
+		block, err = countingIndex.Get(height)
 	}
 	return block, err
 }
