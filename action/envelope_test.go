@@ -9,8 +9,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEnvelope_Destination(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	res, boolT := evlp.Destination()
+	req.Equal("io1jh0ekmccywfkmj7e8qsuzsupnlk3w5337hjjg2", res)
+	req.Equal(true, boolT)
+}
+func TestEnvelope_GasPrice(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	gasPrice := evlp.GasPrice() //11000000000000000000
+	req.Equal("11000000000000000000", gasPrice.String())
+}
 func TestEnvelope_LoadProto(t *testing.T) {
 	req := require.New(t)
+	evlp := createEnvelope()
+	proto := evlp.Proto()
+	err := evlp.LoadProto(proto)
+	req.Equal(nil, err)
+}
+func TestEnvelope_Serialize(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	s := evlp.Serialize()
+	pS := []byte{8, 1, 16, 10, 24, 170, 156, 1, 34, 20, 49, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 82, 67, 10, 22,
+		49, 48, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 18, 41, 105, 111, 49, 106, 104, 48, 101, 107,
+		109, 99, 99, 121, 119, 102, 107, 109, 106, 55, 101, 56, 113, 115, 117, 122, 115, 117, 112, 110, 108, 107, 51, 119, 53, 51, 51, 55,
+		104, 106, 106, 103, 50}
+	req.Equal(pS, s)
+}
+func createEnvelope() Envelope {
 	i := 10
 	tsf, _ := NewTransfer(
 		uint64(i),
@@ -28,8 +57,5 @@ func TestEnvelope_LoadProto(t *testing.T) {
 		SetNonce(tsf.Nonce()).
 		SetVersion(1).
 		Build()
-
-	proto := evlp.Proto()
-	err := evlp.LoadProto(proto)
-	req.Equal(nil, err)
+	return evlp
 }
