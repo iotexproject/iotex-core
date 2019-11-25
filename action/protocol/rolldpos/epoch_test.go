@@ -2,17 +2,17 @@ package rolldpos
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
 	require := require.New(t)
-	height := 0
 	numSubEpochs := 1
-	options := EnableDardanellesSubEpoch(uint64(height), uint64(numSubEpochs))
+	options := EnableDardanellesSubEpoch(uint64(0), uint64(numSubEpochs))
 	p := NewProtocol(23, 4, 3)
 	require.Nil(options(p))
 	require.NotNil(options)
@@ -152,7 +152,6 @@ func TestProtocol_NumSubEpochs(t *testing.T) {
 		require.Equal(expectedP[i], numSubEpochs)
 		numSubEpochs = p2.NumSubEpochs(height[i])
 		require.Equal(expectedP[i], numSubEpochs)
-
 	}
 
 }
@@ -192,7 +191,6 @@ func TestGetEpochNum(t *testing.T) {
 
 		epochNum = p3.GetEpochNum(height[i])
 		require.Equal(expectedP3[i], epochNum)
-
 	}
 
 }
