@@ -11,7 +11,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// Envelope defines an envelope wrapped on action with some envelope metadata.
+// SealedEnvelope is a signed action envelope.
 type SealedEnvelope struct {
 	Envelope
 
