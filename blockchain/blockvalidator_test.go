@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -102,7 +103,7 @@ func TestWrongNonce(t *testing.T) {
 
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -353,7 +354,7 @@ func TestWrongAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
 	ctx = protocol.WithBlockchainCtx(
@@ -423,7 +424,7 @@ func TestBlackListAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
 	ctx = protocol.WithBlockchainCtx(

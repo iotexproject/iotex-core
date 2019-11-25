@@ -72,7 +72,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.InitBalanceMap[executor] = "1000000000000000000000000000"
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	r.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(registry.Register(rolldpos.ProtocolID, rp))

@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -36,7 +35,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, nil
 	}
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String(), big.NewInt(0))
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
@@ -62,8 +61,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
-		if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
-			return nil, err
+		if p.depositGas != nil {
+			if err := p.depositGas(ctx, sm, gasFee); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -80,8 +81,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
-			if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
-				return nil, err
+			if p.depositGas != nil {
+				if err := p.depositGas(ctx, sm, gasFee); err != nil {
+					return nil, err
+				}
 			}
 		}
 		return &action.Receipt{
@@ -104,7 +107,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// check recipient
-	recipient, err := accountutil.LoadOrCreateAccount(sm, tsf.Recipient(), big.NewInt(0))
+	recipient, err := accountutil.LoadOrCreateAccount(sm, tsf.Recipient())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load or create the account of recipient %s", tsf.Recipient())
 	}
@@ -118,8 +121,10 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
-		if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
-			return nil, err
+		if p.depositGas != nil {
+			if err := p.depositGas(ctx, sm, gasFee); err != nil {
+				return nil, err
+			}
 		}
 	}
 
