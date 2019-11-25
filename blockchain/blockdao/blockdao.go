@@ -644,17 +644,22 @@ func (dao *blockDAO) deleteTipBlock() error {
 	if err != nil {
 		return err
 	}
-	err = countingIndex.Revert(1)
-	if err != nil {
-		return err
+	if countingIndex.Size() > 0 {
+		err = countingIndex.Revert(1)
+		if err != nil {
+			return err
+		}
 	}
+
 	countingIndex, err = db.NewCountingIndexNX(whichDB, []byte(receiptsNS))
 	if err != nil {
 		return err
 	}
-	err = countingIndex.Revert(1)
-	if err != nil {
-		return err
+	if countingIndex.Size() > 0 {
+		err = countingIndex.Revert(1)
+		if err != nil {
+			return err
+		}
 	}
 	// Delete hash -> height mapping
 	hashKey := hashKey(hash)
