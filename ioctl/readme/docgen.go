@@ -65,18 +65,18 @@ specific release so install-cli.sh can download them.
 
 // GenMarkdownTreeCustom is the the same as GenMarkdownTree, but
 // with custom filePrepender and linkHandler.
-func GenMarkdownTreeCustom(cmd *cobra.Command, dir string, filePrepender func(string) string,
+func GenMarkdownTreeCustom(c *cobra.Command, dir string, filePrepender func(string) string,
 	linkHandler func(*cobra.Command, string) string) error {
-	for _, c := range cmd.Commands() {
-		if !c.IsAvailableCommand() || c.IsAdditionalHelpTopicCommand() {
+	for _, child := range c.Commands() {
+		if !child.IsAvailableCommand() || child.IsAdditionalHelpTopicCommand() {
 			continue
 		}
-		if err := GenMarkdownTreeCustom(c, dir, filePrepender, linkHandler); err != nil {
+		if err := GenMarkdownTreeCustom(child, dir, filePrepender, linkHandler); err != nil {
 			return err
 		}
 	}
 
-	basename := strings.Replace(cmd.CommandPath(), " ", "_", -1) + ".md"
+	basename := strings.Replace(c.CommandPath(), " ", "_", -1) + ".md"
 	filename := filepath.Join(dir, basename)
 	if strings.Contains(filename, "ioctl.md") {
 		filename = filepath.Join(ioctlPath, "README.md")
@@ -91,7 +91,7 @@ func GenMarkdownTreeCustom(cmd *cobra.Command, dir string, filePrepender func(st
 	if _, err := io.WriteString(f, filePrepender(filename)); err != nil {
 		return err
 	}
-	if err := GenMarkdownCustom(cmd, f, linkHandler); err != nil {
+	if err := GenMarkdownCustom(c, f, linkHandler); err != nil {
 		return err
 	}
 	return nil
