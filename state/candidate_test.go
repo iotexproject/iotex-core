@@ -18,6 +18,73 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
+func TestCandidateEqual(t *testing.T) {
+	r := require.New(t)
+	testCases := []struct {
+		cands []*Candidate
+		flag  bool
+	}{
+		{
+			[]*Candidate{
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+			},
+			true,
+		},
+		{
+			[]*Candidate{
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(2),
+				},
+				&Candidate{
+					Address: identityset.Address(29).String(),
+					Votes:   big.NewInt(1),
+				},
+			},
+			false,
+		},
+	}
+	for _, c := range testCases {
+		r.Equal(c.flag, c.cands[0].Equal(c.cands[1]))
+	}
+}
+
+func TestCandidateClone(t *testing.T) {
+	r := require.New(t)
+	cand1 := &Candidate{
+		Address: identityset.Address(29).String(),
+		Votes:   big.NewInt(2),
+	}
+	r.True(cand1.Equal(cand1.Clone()))
+}
+
+func TestCandidateListSerializeAndDeserialize(t *testing.T) {
+	r := require.New(t)
+	list1 := CandidateList{
+		&Candidate{
+			Address: identityset.Address(2).String(),
+			Votes:   big.NewInt(2),
+		},
+	}
+	sbytes, err := list1.Serialize()
+	r.NoError(err)
+
+	list2 := CandidateList{}
+	err = list2.Deserialize(sbytes)
+	r.NoError(err)
+	r.Equal(list1.Len(), list2.Len())
+	for i, c := range list2 {
+		r.True(c.Equal(list1[i]))
+	}
+}
+
 func TestCandidate(t *testing.T) {
 	require := require.New(t)
 

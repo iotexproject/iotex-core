@@ -256,7 +256,9 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -276,6 +278,8 @@ func testState(sf Factory, t *testing.T) {
 	raCtx := protocol.RunActionsCtx{
 		Producer: identityset.Address(27),
 		GasLimit: gasLimit,
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
 	}
 
 	_, err = ws.RunAction(raCtx, selp)
@@ -322,7 +326,9 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol()
+	require.NoError(t, registry.Register(account.ProtocolID, acc))
 	require.NoError(t, sf.Start(context.Background()))
 	defer func() {
 		require.NoError(t, sf.Stop(context.Background()))
@@ -342,6 +348,8 @@ func testNonce(sf Factory, t *testing.T) {
 	raCtx := protocol.RunActionsCtx{
 		Producer: identityset.Address(27),
 		GasLimit: gasLimit,
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
 	}
 
 	_, err = ws.RunAction(raCtx, selp)
@@ -467,14 +475,17 @@ func TestRunActions(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sf.Start(context.Background()))
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
-	testRunActions(ws, t)
+	testRunActions(ws, registry, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
@@ -486,17 +497,20 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
-	sdb.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(cfg)))
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol()
+	require.NoError(registry.Register(account.ProtocolID, acc))
 	require.NoError(sdb.Start(context.Background()))
 	defer func() {
 		require.NoError(sdb.Stop(context.Background()))
 	}()
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
-	testSTXRunActions(ws, t)
+	testSTXRunActions(ws, registry, t)
 }
 
-func testRunActions(ws WorkingSet, t *testing.T) {
+func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
 	require.Equal(uint64(0), ws.Version())
 	a := identityset.Address(28).String()
@@ -527,6 +541,8 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
 		})
 	s0 := ws.Snapshot()
 	rootHash0 := ws.RootHash()
@@ -552,7 +568,7 @@ func testRunActions(ws WorkingSet, t *testing.T) {
 	require.Equal(uint64(1), h)
 	require.Equal(rootHash3, rootHash2)
 }
-func testSTXRunActions(ws WorkingSet, t *testing.T) {
+func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
 	require.Equal(uint64(0), ws.Version())
 	a := identityset.Address(28).String()
@@ -583,6 +599,8 @@ func testSTXRunActions(ws WorkingSet, t *testing.T) {
 		protocol.RunActionsCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
 		})
 
 	s0 := ws.Snapshot()
@@ -618,7 +636,9 @@ func TestCachedBatch(t *testing.T) {
 }
 
 func TestSTXCachedBatch(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(t, err)
+	ws, _ := sdb.NewWorkingSet()
 	testCachedBatch(ws, t, true)
 }
 
@@ -668,7 +688,9 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestSTXGetDB(t *testing.T) {
-	ws := newStateTX(0, db.NewMemKVStore(), []protocol.ActionHandler{account.NewProtocol(config.NewHeightUpgrade(config.Default))})
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(t, err)
+	ws, _ := sdb.NewWorkingSet()
 	testGetDB(ws, t)
 }
 
@@ -699,7 +721,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), nil)
+		ws := newStateTX(0, db.NewMemKVStore(), false)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }
@@ -778,7 +800,11 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 
-	sf.AddActionHandlers(account.NewProtocol(config.NewHeightUpgrade(config.Default)))
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol()
+	if err := registry.Register(account.ProtocolID, acc); err != nil {
+		b.Fatal(err)
+	}
 	if err := sf.Start(context.Background()); err != nil {
 		b.Fatal(err)
 	}
@@ -842,6 +868,8 @@ func benchRunAction(sf Factory, b *testing.B) {
 			protocol.RunActionsCtx{
 				Producer: identityset.Address(27),
 				GasLimit: gasLimit,
+				Genesis:  config.Default.Genesis,
+				Registry: registry,
 			})
 		_, err = ws.RunActions(zctx, uint64(n), acts)
 		if err != nil {

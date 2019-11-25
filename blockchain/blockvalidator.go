@@ -12,7 +12,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -27,9 +26,8 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(block *block.Block, tipHeight uint64, tipHash hash.Hash256) error
-	// AddActionValidators add validators
-	AddActionValidators(...protocol.ActionValidator)
+	Validate(ctx context.Context, block *block.Block) error
+	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
 	// SetActPool set ActPoolManager
@@ -40,7 +38,6 @@ type validator struct {
 	sf                       factory.Factory
 	validatorAddr            string
 	actionEnvelopeValidators []protocol.ActionEnvelopeValidator
-	actionValidators         []protocol.ActionValidator
 	senderBlackList          map[string]bool
 	actPool                  ActPoolManager
 }
@@ -59,28 +56,20 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(blk *block.Block, tipHeight uint64, tipHash hash.Hash256) error {
-	if err := verifyHeightAndHash(blk, tipHeight, tipHash); err != nil {
+func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
+	if err := verifyHeightAndHash(blk, vaCtx.Tip.Height, vaCtx.Tip.Hash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
 	if err := verifySigAndRoot(blk); err != nil {
 		return errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}
 
-	if v.sf != nil {
-		return v.validateActionsOnly(
-			blk.Actions,
-			blk.PublicKey(),
-			blk.Height(),
-		)
+	if v.sf == nil {
+		return nil
 	}
 
-	return nil
-}
-
-// AddActionValidators add validators
-func (v *validator) AddActionValidators(validators ...protocol.ActionValidator) {
-	v.actionValidators = append(v.actionValidators, validators...)
+	return v.validateActionsOnly(ctx, blk)
 }
 
 // AddActionEnvelopeValidators add action envelope validators
@@ -94,18 +83,23 @@ func (v *validator) SetActPool(actPool ActPoolManager) {
 }
 
 func (v *validator) validateActionsOnly(
-	actions []action.SealedEnvelope,
-	pk crypto.PublicKey,
-	height uint64,
+	ctx context.Context,
+	blk *block.Block,
 ) error {
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	actions := blk.Actions
 	// Verify transfers, votes, executions, witness, and secrets
 	errChan := make(chan error, len(actions))
 	accountNonceMap := make(map[string][]uint64)
 
 	if err := v.validateActions(
+		ctx,
+		blk.Height(),
+		producerAddr.String(),
 		actions,
-		pk,
-		height,
 		accountNonceMap,
 		errChan,
 	); err != nil {
@@ -119,10 +113,10 @@ func (v *validator) validateActionsOnly(
 	}
 
 	// Special handling for genesis block
-	if height == 0 {
+	if blk.Height() == 0 {
 		return nil
 	}
-	//Verify each account's Nonce
+	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
 		confirmedNonce, err := v.sf.Nonce(srcAddr)
 		if err != nil {
@@ -147,16 +141,16 @@ func (v *validator) validateActionsOnly(
 }
 
 func (v *validator) validateActions(
-	actions []action.SealedEnvelope,
-	pk crypto.PublicKey,
+	ctx context.Context,
 	height uint64,
+	producer string,
+	actions []action.SealedEnvelope,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
-	producerAddr, err := address.FromBytes(pk.Hash())
-	if err != nil {
-		return err
-	}
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
+	vaCtx.BlockHeight = height
+	vaCtx.ProducerAddr = producer
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
@@ -174,31 +168,25 @@ func (v *validator) validateActions(
 				continue
 			}
 		}
-		ctx := protocol.WithValidateActionsCtx(
-			context.Background(),
-			protocol.ValidateActionsCtx{
-				BlockHeight:  height,
-				ProducerAddr: producerAddr.String(),
-				Caller:       caller,
-			},
-		)
+		vaCtx.Caller = caller
+		aCtx := protocol.WithValidateActionsCtx(ctx, vaCtx)
 
 		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)
 			go func(validator protocol.ActionEnvelopeValidator, selp action.SealedEnvelope) {
 				defer wg.Done()
-				if err := validator.Validate(ctx, selp); err != nil {
+				if err := validator.Validate(aCtx, selp); err != nil {
 					errChan <- err
 					return
 				}
 			}(validator, selp)
 		}
 
-		for _, validator := range v.actionValidators {
+		for _, validator := range vaCtx.Registry.All() {
 			wg.Add(1)
 			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()
-				if err := validator.Validate(ctx, act); err != nil {
+				if err := validator.Validate(aCtx, act); err != nil {
 					errChan <- err
 					return
 				}

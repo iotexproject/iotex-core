@@ -9,159 +9,70 @@ package factory
 import (
 	"context"
 	"math/big"
-	"time"
 
-	"go.uber.org/zap"
+	"github.com/pkg/errors"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // createGenesisStates initialize the genesis states
-func createGenesisStates(cfg config.Config, registry *protocol.Registry, ws WorkingSet) error {
-	if cfg.Chain.EmptyGenesis {
-		return nil
-	}
-	if registry == nil {
-		// TODO: return nil to avoid test cases to blame on missing rewarding protocol
-		return nil
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		BlockHeight:    0,
-		BlockTimeStamp: time.Unix(cfg.Genesis.Timestamp, 0),
-		GasLimit:       0,
-		Producer:       nil,
-		Caller:         nil,
-		ActionHash:     hash.ZeroHash256,
-		Nonce:          0,
-		Registry:       registry,
-	})
-	if err := createAccountGenesisStates(ctx, ws, registry, cfg); err != nil {
-		return err
-	}
-	if cfg.Consensus.Scheme == config.RollDPoSScheme {
-		if err := createPollGenesisStates(ctx, ws, registry, cfg); err != nil {
-			return err
+func createGenesisStates(ctx context.Context, ws WorkingSet) error {
+	if raCtx, ok := protocol.GetRunActionsCtx(ctx); ok {
+		for _, p := range raCtx.Registry.All() {
+			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
+				if err := gsc.CreateGenesisStates(ctx, ws); err != nil {
+					return errors.Wrap(err, "failed to create genesis states for protocol")
+				}
+			}
 		}
-	}
-	if cfg.Genesis.NativeStakingContractCode != "" {
-		if err := createNativeStakingContract(ctx, ws, registry, cfg); err != nil {
-			return err
-		}
-	}
-	if err := createRewardingGenesisStates(ctx, ws, registry, cfg); err != nil {
-		return err
 	}
 	_ = ws.UpdateBlockLevelInfo(0)
+
 	return nil
 }
 
-func createAccountGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	p, ok := registry.Find(account.ProtocolID)
-	if !ok {
-		return nil
+// CreateTestAccount adds a new account with initial balance to the factory for test usage
+func CreateTestAccount(sf Factory, cfg config.Config, registry *protocol.Registry, addr string, init *big.Int) (*state.Account, error) {
+	gasLimit := cfg.Genesis.BlockGasLimit
+	if sf == nil {
+		return nil, errors.New("empty state factory")
 	}
-	ap, ok := p.(*account.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	addrs, balances := cfg.Genesis.InitBalances()
-	return ap.Initialize(ctx, sm, addrs, balances)
-}
 
-func createRewardingGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	p, ok := registry.Find(rewarding.ProtocolID)
-	if !ok {
-		return nil
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create clean working set")
 	}
-	rp, ok := p.(*rewarding.Protocol)
-	if !ok {
-		return errors.Errorf("error when casting protocol")
-	}
-	return rp.Initialize(
-		ctx,
-		sm,
-		cfg.Genesis.InitBalance(),
-		cfg.Genesis.BlockReward(),
-		cfg.Genesis.EpochReward(),
-		cfg.Genesis.NumDelegatesForEpochReward,
-		cfg.Genesis.ExemptAddrsFromEpochReward(),
-		cfg.Genesis.FoundationBonus(),
-		cfg.Genesis.NumDelegatesForFoundationBonus,
-		cfg.Genesis.FoundationBonusLastEpoch,
-		cfg.Genesis.ProductivityThreshold,
-	)
-}
 
-func createPollGenesisStates(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	if cfg.Genesis.EnableGravityChainVoting {
-		p, ok := registry.Find(poll.ProtocolID)
-		if !ok {
-			return errors.Errorf("protocol %s is not found", poll.ProtocolID)
-		}
-		pp, ok := p.(poll.Protocol)
-		if !ok {
-			return errors.Errorf("error when casting poll protocol")
-		}
-		return pp.Initialize(ctx, sm)
+	account, err := accountutil.LoadOrCreateAccount(ws, addr, init)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new account %s", addr)
 	}
-	return nil
-}
 
-func createNativeStakingContract(ctx context.Context, sm protocol.StateManager, registry *protocol.Registry, cfg config.Config) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	raCtx.Caller, _ = address.FromString(address.ZeroAddress)
-	raCtx.GasLimit = cfg.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(cfg.Genesis.NativeStakingContractCode)
+	callerAddr, err := address.FromString(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	hu := config.NewHeightUpgrade(cfg)
-	execution, err := action.NewExecution(
-		"",
-		0,
-		big.NewInt(0),
-		cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		bytes,
-	)
-	if err != nil {
-		return err
+
+	ctx := protocol.WithRunActionsCtx(context.Background(),
+		protocol.RunActionsCtx{
+			GasLimit:   gasLimit,
+			Caller:     callerAddr,
+			ActionHash: hash.ZeroHash256,
+			Nonce:      0,
+			Registry:   registry,
+		})
+	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to run the account creation")
 	}
-	_, receipt, err := evm.ExecuteContract(
-		protocol.WithRunActionsCtx(ctx, raCtx),
-		sm,
-		execution,
-		func(height uint64) (hash.Hash256, error) {
-			return hash.ZeroHash256, nil
-		},
-		hu,
-	)
-	if err != nil {
-		return err
+
+	if err = sf.Commit(ws); err != nil {
+		return nil, errors.Wrap(err, "failed to commit the account creation")
 	}
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
-	}
-	p, ok := registry.Find(poll.ProtocolID)
-	if ok {
-		pp, ok := p.(poll.Protocol)
-		if ok {
-			pp.SetNativeStakingContract(receipt.ContractAddress)
-			log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
-		}
-	}
-	return nil
+
+	return account, nil
 }

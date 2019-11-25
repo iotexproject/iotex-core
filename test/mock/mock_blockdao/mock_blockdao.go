@@ -273,18 +273,18 @@ func (mr *MockBlockDAOMockRecorder) Commit() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBlockDAO)(nil).Commit))
 }
 
-// DeleteTipBlock mocks base method
-func (m *MockBlockDAO) DeleteTipBlock() error {
+// DeleteBlockToTarget mocks base method
+func (m *MockBlockDAO) DeleteBlockToTarget(arg0 uint64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteTipBlock")
+	ret := m.ctrl.Call(m, "DeleteBlockToTarget", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteTipBlock indicates an expected call of DeleteTipBlock
-func (mr *MockBlockDAOMockRecorder) DeleteTipBlock() *gomock.Call {
+// DeleteBlockToTarget indicates an expected call of DeleteBlockToTarget
+func (mr *MockBlockDAOMockRecorder) DeleteBlockToTarget(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBlockDAO)(nil).DeleteTipBlock))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBlockToTarget", reflect.TypeOf((*MockBlockDAO)(nil).DeleteBlockToTarget), arg0)
 }
 
 // IndexFile mocks base method

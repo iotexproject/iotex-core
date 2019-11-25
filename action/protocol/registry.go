@@ -10,53 +10,76 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // Registry is the hub of all protocols deployed on the chain
 type Registry struct {
-	protocols sync.Map
+	mu        sync.RWMutex
+	ids       map[string]int
+	protocols []Protocol
+}
+
+// NewRegistry create a new Registry
+func NewRegistry() *Registry {
+	return &Registry{
+		ids:       make(map[string]int, 0),
+		protocols: make([]Protocol, 0),
+	}
+}
+
+func (r *Registry) register(id string, p Protocol, force bool) error {
+	idx, loaded := r.ids[id]
+	if loaded {
+		if !force {
+			return errors.Errorf("Protocol with ID %s is already registered", id)
+		}
+		r.protocols[idx] = p
+
+		return nil
+	}
+	r.ids[id] = len(r.ids)
+	r.protocols = append(r.protocols, p)
+
+	return nil
 }
 
 // Register registers the protocol with a unique ID
 func (r *Registry) Register(id string, p Protocol) error {
-	_, loaded := r.protocols.LoadOrStore(id, p)
-	if loaded {
-		return errors.Errorf("Protocol with ID %s is already registered", id)
-	}
-	return nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.register(id, p, false)
 }
 
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (r *Registry) ForceRegister(id string, p Protocol) error {
-	r.protocols.Store(id, p)
-	return nil
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.register(id, p, true)
 }
 
 // Find finds a protocol by ID
 func (r *Registry) Find(id string) (Protocol, bool) {
-	value, ok := r.protocols.Load(id)
-	if !ok {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	idx, loaded := r.ids[id]
+	if !loaded {
 		return nil, false
 	}
-	p, ok := value.(Protocol)
-	if !ok {
-		log.S().Panic("Registry stores the item which is not a protocol")
-	}
-	return p, true
+
+	return r.protocols[idx], true
 }
 
 // All returns all protocols
 func (r *Registry) All() []Protocol {
-	all := make([]Protocol, 0)
-	r.protocols.Range(func(_, value interface{}) bool {
-		p, ok := value.(Protocol)
-		if !ok {
-			log.S().Panic("Registry stores the item which is not a protocol")
-		}
-		all = append(all, p)
-		return true
-	})
+	if r == nil {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	all := make([]Protocol, len(r.protocols))
+	copy(all, r.protocols)
+
 	return all
 }

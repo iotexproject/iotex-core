@@ -12,12 +12,14 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -25,7 +27,11 @@ func TestActionProto(t *testing.T) {
 	require := require.New(t)
 	caller, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", caller}
+	ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", TipInfo{
+		Height:    0,
+		Hash:      config.Default.Genesis.Hash(),
+		Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
+	}, caller, config.Default.Genesis, nil}
 	c := WithValidateActionsCtx(context.Background(), ctx)
 	valid := NewGenericValidator(func(addr string) (uint64, error) {
 		if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
@@ -69,7 +75,11 @@ func TestActionProto(t *testing.T) {
 	{
 		caller, err := address.FromString("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6")
 		require.NoError(err)
-		ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", caller}
+		ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", TipInfo{
+			Height:    0,
+			Hash:      config.Default.Genesis.Hash(),
+			Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
+		}, caller, config.Default.Genesis, nil}
 		c := WithValidateActionsCtx(context.Background(), ctx)
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)

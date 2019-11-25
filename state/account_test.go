@@ -59,6 +59,9 @@ func TestBalance(t *testing.T) {
 	require.Nil(err)
 	// Balance should == 30 now
 	require.Equal(0, state.Balance.Cmp(big.NewInt(30)))
+	// Sub 40 to the balance
+	err = state.SubBalance(big.NewInt(40))
+	require.Equal(err, ErrNotEnoughBalance)
 }
 
 func TestClone(t *testing.T) {

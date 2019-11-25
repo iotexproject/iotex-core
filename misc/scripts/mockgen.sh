@@ -79,11 +79,16 @@ mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \
         -package=mock_actioniterator \
         ActionIterator
 
+mockgen -destination=./action/protocol/mock_protocol_test.go  \
+        -source=./action/protocol/protocol.go \
+        -package=protocol \
+        Protocol
+
 mkdir -p ./test/mock/mock_chainmanager
 mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
-        -source=./action/protocol/protocol.go \
+        -source=./action/protocol/managers.go \
         -package=mock_chainmanager \
-        ChainManager
+        StateManager
 
 mkdir -p ./test/mock/mock_apiserviceclient
 mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \

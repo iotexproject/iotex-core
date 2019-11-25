@@ -247,18 +247,26 @@ func TestBlockDAO(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			require.NoError(dao.DeleteTipBlock())
+			prevTipHeight, err := dao.GetTipHeight()
+			require.NoError(err)
+			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
+			require.NoError(err)
+			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
-			require.EqualValues(uint64(3-i), tipHeight)
+			require.EqualValues(prevTipHeight-1, tipHeight)
 			tipHeight, err = dao.GetTipHeight()
 			require.NoError(err)
-			require.EqualValues(uint64(3-i), tipHeight)
+			require.EqualValues(prevTipHeight-1, tipHeight)
 			h, err := indexer.GetBlockHash(tipHeight)
 			require.NoError(err)
 			h1, err := dao.GetTipHash()
 			require.NoError(err)
 			require.Equal(h, h1)
+			_, err = dao.GetBlockHash(prevTipHeight)
+			require.Error(err)
+			_, err = dao.GetBlockHeight(prevTipHash)
+			require.Error(err)
 			if i <= 2 {
 				require.Equal(blks[2-i].HashBlock(), h)
 			} else {
@@ -285,8 +293,6 @@ func TestBlockDAO(t *testing.T) {
 				}
 			}
 		}
-		// cannot delete genesis block
-		require.Error(dao.DeleteTipBlock())
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {

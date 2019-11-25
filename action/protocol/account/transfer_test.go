@@ -39,7 +39,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	cfg := config.Default
 	ctx := context.Background()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cm := mock_chainmanager.NewMockChainManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
@@ -59,30 +58,31 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(config.NewHeightUpgrade(cfg))
-	reward := rewarding.NewProtocol(cm, rolldpos.NewProtocol(1, 1, 1))
-	registry := protocol.Registry{}
+	p := NewProtocol()
+	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
+	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
+	cfg.Genesis.Rewarding.InitBalanceStr = "0"
+	cfg.Genesis.Rewarding.BlockRewardStr = "0"
+	cfg.Genesis.Rewarding.EpochRewardStr = "0"
+	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 1
+	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	cfg.Genesis.Rewarding.FoundationBonusStr = "0"
+	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
+	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
+	cfg.Genesis.Rewarding.ProductivityThreshold = 0
 	require.NoError(
-		reward.Initialize(
+		reward.CreateGenesisStates(
 			protocol.WithRunActionsCtx(context.Background(),
 				protocol.RunActionsCtx{
 					BlockHeight: 0,
 					Producer:    identityset.Address(27),
 					Caller:      identityset.Address(28),
 					GasLimit:    testutil.TestGasLimit,
-					Registry:    &registry,
+					Registry:    registry,
+					Genesis:     cfg.Genesis,
 				}),
 			sm,
-			big.NewInt(0),
-			big.NewInt(0),
-			big.NewInt(0),
-			1,
-			nil,
-			big.NewInt(0),
-			0,
-			0,
-			0,
 		),
 	)
 
@@ -117,7 +117,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			Caller:       identityset.Address(28),
 			GasLimit:     testutil.TestGasLimit,
 			IntrinsicGas: gas,
-			Registry:     &registry,
+			Registry:     registry,
 		})
 	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)
@@ -155,7 +155,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol(config.NewHeightUpgrade(config.Default))
+	protocol := NewProtocol()
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

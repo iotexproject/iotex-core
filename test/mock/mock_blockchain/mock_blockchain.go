@@ -8,12 +8,11 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
-	state "github.com/iotexproject/iotex-core/state"
+	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 	time "time"
@@ -68,52 +67,6 @@ func (m *MockBlockchain) Stop(arg0 context.Context) error {
 func (mr *MockBlockchainMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockchain)(nil).Stop), arg0)
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockBlockchain) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", height)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockBlockchainMockRecorder) CandidatesByHeight(height interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockBlockchain)(nil).CandidatesByHeight), height)
-}
-
-// ProductivityByEpoch mocks base method
-func (m *MockBlockchain) ProductivityByEpoch(epochNum uint64) (uint64, map[string]uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ProductivityByEpoch", epochNum)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(map[string]uint64)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ProductivityByEpoch indicates an expected call of ProductivityByEpoch
-func (mr *MockBlockchainMockRecorder) ProductivityByEpoch(epochNum interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProductivityByEpoch", reflect.TypeOf((*MockBlockchain)(nil).ProductivityByEpoch), epochNum)
-}
-
-// GetBlockByHash mocks base method
-func (m *MockBlockchain) GetBlockByHash(h hash.Hash256) (*block.Block, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetBlockByHash", h)
-	ret0, _ := ret[0].(*block.Block)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetBlockByHash indicates an expected call of GetBlockByHash
-func (mr *MockBlockchainMockRecorder) GetBlockByHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHash", reflect.TypeOf((*MockBlockchain)(nil).GetBlockByHash), h)
 }
 
 // BlockHeaderByHeight mocks base method
@@ -260,32 +213,33 @@ func (mr *MockBlockchainMockRecorder) TipHeight() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockchain)(nil).TipHeight))
 }
 
-// RecoverChainAndState mocks base method
-func (m *MockBlockchain) RecoverChainAndState(targetHeight uint64) error {
+// Genesis mocks base method
+func (m *MockBlockchain) Genesis() genesis.Genesis {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecoverChainAndState", targetHeight)
-	ret0, _ := ret[0].(error)
+	ret := m.ctrl.Call(m, "Genesis")
+	ret0, _ := ret[0].(genesis.Genesis)
 	return ret0
 }
 
-// RecoverChainAndState indicates an expected call of RecoverChainAndState
-func (mr *MockBlockchainMockRecorder) RecoverChainAndState(targetHeight interface{}) *gomock.Call {
+// Genesis indicates an expected call of Genesis
+func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverChainAndState", reflect.TypeOf((*MockBlockchain)(nil).RecoverChainAndState), targetHeight)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Genesis", reflect.TypeOf((*MockBlockchain)(nil).Genesis))
 }
 
-// GenesisTimestamp mocks base method
-func (m *MockBlockchain) GenesisTimestamp() int64 {
+// Context mocks base method
+func (m *MockBlockchain) Context() (context.Context, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GenesisTimestamp")
-	ret0, _ := ret[0].(int64)
-	return ret0
+	ret := m.ctrl.Call(m, "Context")
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// GenesisTimestamp indicates an expected call of GenesisTimestamp
-func (mr *MockBlockchainMockRecorder) GenesisTimestamp() *gomock.Call {
+// Context indicates an expected call of Context
+func (mr *MockBlockchainMockRecorder) Context() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenesisTimestamp", reflect.TypeOf((*MockBlockchain)(nil).GenesisTimestamp))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context))
 }
 
 // MintNewBlock mocks base method
@@ -355,22 +309,6 @@ func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
 func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
-}
-
-// SimulateExecution mocks base method
-func (m *MockBlockchain) SimulateExecution(caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SimulateExecution", caller, ex)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(*action.Receipt)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// SimulateExecution indicates an expected call of SimulateExecution
-func (mr *MockBlockchainMockRecorder) SimulateExecution(caller, ex interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockBlockchain)(nil).SimulateExecution), caller, ex)
 }
 
 // AddSubscriber mocks base method

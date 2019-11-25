@@ -17,22 +17,18 @@ import (
 
 // accountExportPublicCmd represents the account export public key command
 var accountExportPublicCmd = &cobra.Command{
-	Use:   "exportpublic [ALIAS|ADDRESS]",
+	Use:   "exportpublic (ALIAS|ADDRESS)",
 	Short: "Export IoTeX public key from wallet",
-	Args:  cobra.RangeArgs(0, 1),
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		arg := ""
-		if len(args) == 1 {
-			arg = args[0]
-		}
-		err := exportPublic(arg)
+		err := exportPublic(args[0])
 		return output.PrintError(err)
 	},
 }
 
 func exportPublic(arg string) error {
-	addr, err := util.GetAddress(arg)
+	addr, err := util.Address(arg)
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}

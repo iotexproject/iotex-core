@@ -21,12 +21,12 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -40,10 +40,8 @@ var (
 
 // ChainManager defines the blockchain interface
 type ChainManager interface {
-	// CandidatesByHeight returns the candidate list by a given height
-	CandidatesByHeight(height uint64) ([]*state.Candidate, error)
-	// GenesisTimestamp returns the timestamp of genesis
-	GenesisTimestamp() int64
+	// Genesis returns the genesis
+	Genesis() genesis.Genesis
 	// BlockHeaderByHeight return block header by height
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
 	// BlockFooterByHeight return block footer by height
@@ -202,7 +200,7 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
 	// Get all candidates
-	candidates, err := r.ctx.chain.CandidatesByHeight(height)
+	candidates, err := r.ctx.roundCalc.candidatesByHeightFunc(height)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when getting all candidates")
 	}

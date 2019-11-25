@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -45,50 +44,66 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		getBlockHash     GetBlockHash
-		sm               protocol.StateManager
-		logs             []*action.Log
-		err              error
-		blockHeight      uint64
-		executionHash    hash.Hash256
-		refund           uint64
-		cachedContract   contractMap
-		contractSnapshot map[int]contractMap   // snapshots of contracts
-		suicided         deleteAccount         // account/contract calling Suicide
-		suicideSnapshot  map[int]deleteAccount // snapshots of suicide accounts
-		preimages        preimageMap
-		preimageSnapshot map[int]preimageMap
-		dao              db.KVStore
-		cb               db.CachedBatch
-		hu               config.HeightUpgrade
+		sm                 protocol.StateManager
+		logs               []*action.Log
+		err                error
+		blockHeight        uint64
+		saveHistory        bool
+		executionHash      hash.Hash256
+		refund             uint64
+		cachedContract     contractMap
+		contractSnapshot   map[int]contractMap   // snapshots of contracts
+		suicided           deleteAccount         // account/contract calling Suicide
+		suicideSnapshot    map[int]deleteAccount // snapshots of suicide accounts
+		preimages          preimageMap
+		preimageSnapshot   map[int]preimageMap
+		dao                db.KVStore
+		cb                 db.CachedBatch
+		notFixTopicCopyBug bool
 	}
 )
 
+// StateDBOption set StateDBAdapter construction param
+type StateDBOption func(*StateDBAdapter) error
+
+// SaveHistoryOption creates StateDBAdapter with history
+func SaveHistoryOption() StateDBOption {
+	return func(s *StateDBAdapter) error {
+		s.saveHistory = true
+		return nil
+	}
+}
+
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
-	getBlockHash GetBlockHash,
 	sm protocol.StateManager,
-	hu config.HeightUpgrade,
 	blockHeight uint64,
+	notFixTopicCopyBug bool,
 	executionHash hash.Hash256,
+	opts ...StateDBOption,
 ) *StateDBAdapter {
-	return &StateDBAdapter{
-		getBlockHash:     getBlockHash,
-		sm:               sm,
-		logs:             []*action.Log{},
-		err:              nil,
-		blockHeight:      blockHeight,
-		executionHash:    executionHash,
-		cachedContract:   make(contractMap),
-		contractSnapshot: make(map[int]contractMap),
-		suicided:         make(deleteAccount),
-		suicideSnapshot:  make(map[int]deleteAccount),
-		preimages:        make(preimageMap),
-		preimageSnapshot: make(map[int]preimageMap),
-		dao:              sm.GetDB(),
-		cb:               sm.GetCachedBatch(),
-		hu:               hu,
+	s := &StateDBAdapter{
+		sm:                 sm,
+		logs:               []*action.Log{},
+		err:                nil,
+		blockHeight:        blockHeight,
+		executionHash:      executionHash,
+		cachedContract:     make(contractMap),
+		contractSnapshot:   make(map[int]contractMap),
+		suicided:           make(deleteAccount),
+		suicideSnapshot:    make(map[int]deleteAccount),
+		preimages:          make(preimageMap),
+		preimageSnapshot:   make(map[int]preimageMap),
+		dao:                sm.GetDB(),
+		cb:                 sm.GetCachedBatch(),
+		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			log.L().Panic("failed to execute stateDB creation option")
+		}
+	}
+	return s
 }
 
 func (stateDB *StateDBAdapter) logError(err error) {
@@ -416,12 +431,12 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		topics = append(topics, topic)
 	}
 	log := &action.Log{
-		Address:     addr.String(),
-		Topics:      topics,
-		Data:        evmLog.Data,
-		BlockHeight: stateDB.blockHeight,
-		ActionHash:  stateDB.executionHash,
-		PreAleutian: stateDB.hu.IsPre(config.Aleutian, stateDB.blockHeight),
+		Address:            addr.String(),
+		Topics:             topics,
+		Data:               evmLog.Data,
+		BlockHeight:        stateDB.blockHeight,
+		ActionHash:         stateDB.executionHash,
+		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }
@@ -694,7 +709,12 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.dao, stateDB.cb)
+	var contract Contract
+	if stateDB.saveHistory {
+		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb, HistoryRetentionOption(stateDB.blockHeight))
+	} else {
+		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

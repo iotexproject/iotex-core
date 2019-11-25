@@ -9,9 +9,12 @@ package rolldpos
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // ProtocolID is the identity of this protocol
@@ -25,6 +28,38 @@ type Protocol struct {
 	numSubEpochsDardanelles uint64
 	dardanellesHeight       uint64
 	dardanellesOn           bool
+}
+
+// FindProtocol return a registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast rolldpos protocol")
+	}
+	return rp
+}
+
+// MustGetProtocol return a registered protocol from registry
+func MustGetProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		log.S().Panic("registry cannot be nil")
+	}
+	p, ok := registry.Find(ProtocolID)
+	if !ok {
+		log.S().Panic("rolldpos protocol is not registered")
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast to rolldpos protocol")
+	}
+	return rp
 }
 
 // Option is optional setting for epoch protocol
@@ -64,8 +99,45 @@ func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager)
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
-	return nil, protocol.ErrUnimplemented
+func (p *Protocol) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
+	switch string(method) {
+	case "NumCandidateDelegates":
+		return byteutil.Uint64ToBytes(p.numCandidateDelegates), nil
+	case "NumDelegates":
+		return byteutil.Uint64ToBytes(p.numDelegates), nil
+	case "NumSubEpochs":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		numSubEpochs := p.NumSubEpochs(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(numSubEpochs), nil
+	case "EpochNumber":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		epochNumber := p.GetEpochNum(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(epochNumber), nil
+	case "EpochHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		epochHeight := p.GetEpochHeight(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(epochHeight), nil
+	case "EpochLastHeight":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		epochLastHeight := p.GetEpochLastBlockHeight(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(epochLastHeight), nil
+	case "SubEpochNumber":
+		if len(args) != 1 {
+			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		}
+		subEpochNumber := p.GetSubEpochNum(byteutil.BytesToUint64(args[0]))
+		return byteutil.Uint64ToBytes(subEpochNumber), nil
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
 }
 
 // Validate validates a modification
@@ -81,6 +153,14 @@ func (p *Protocol) NumCandidateDelegates() uint64 {
 // NumDelegates returns the number of delegates in an epoch
 func (p *Protocol) NumDelegates() uint64 {
 	return p.numDelegates
+}
+
+// NumSubEpochs returns the number of subEpochs given a block height
+func (p *Protocol) NumSubEpochs(height uint64) uint64 {
+	if !p.dardanellesOn || height < p.dardanellesHeight {
+		return p.numSubEpochs
+	}
+	return p.numSubEpochsDardanelles
 }
 
 // GetEpochNum returns the number of the epoch for a given height

@@ -199,12 +199,11 @@ func makeBlock(tb testing.TB, n int) *Block {
 		sevlps = append(sevlps, sevlp)
 	}
 	rap := RunnableActionsBuilder{}
-	ra := rap.
-		SetHeight(1).
-		SetTimeStamp(time.Now()).
-		AddActions(sevlps...).
-		Build(identityset.PrivateKey(0).PublicKey())
+	ra := rap.AddActions(sevlps...).
+		Build()
 	blk, err := NewBuilder(ra).
+		SetHeight(1).
+		SetTimestamp(time.Now()).
 		SetVersion(1).
 		SetReceiptRoot(hash.Hash256b([]byte("hello, world!"))).
 		SetDeltaStateDigest(hash.Hash256b([]byte("world, hello!"))).

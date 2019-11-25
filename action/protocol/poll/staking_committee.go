@@ -12,11 +12,17 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -27,9 +33,11 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+var nativeStakingContractCreator = address.ZeroAddress
+var nativeStakingContractNonce = uint64(0)
+
 type stakingCommittee struct {
-	hu                   config.HeightUpgrade
-	getTipBlockTime      GetTipBlockTime
+	candidatesByHeight   CandidatesByHeight
 	getEpochHeight       GetEpochHeight
 	getEpochNum          GetEpochNum
 	electionCommittee    committee.Committee
@@ -42,11 +50,10 @@ type stakingCommittee struct {
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
 func NewStakingCommittee(
-	hu config.HeightUpgrade,
 	ec committee.Committee,
 	gs Protocol,
-	cm protocol.ChainManager,
-	getTipBlockTime GetTipBlockTime,
+	readContract ReadContract,
+	candidatesByHeight CandidatesByHeight,
 	getEpochHeight GetEpochHeight,
 	getEpochNum GetEpochNum,
 	nativeStakingContractAddress string,
@@ -63,7 +70,7 @@ func NewStakingCommittee(
 	var ns *NativeStaking
 	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
 		var err error
-		if ns, err = NewNativeStaking(cm, getTipBlockTime); err != nil {
+		if ns, err = NewNativeStaking(readContract); err != nil {
 			return nil, errors.New("failed to create native staking")
 		}
 		if nativeStakingContractAddress != "" {
@@ -71,20 +78,92 @@ func NewStakingCommittee(
 		}
 	}
 	return &stakingCommittee{
-		hu:                hu,
-		electionCommittee: ec,
-		governanceStaking: gs,
-		nativeStaking:     ns,
-		getTipBlockTime:   getTipBlockTime,
-		getEpochHeight:    getEpochHeight,
-		getEpochNum:       getEpochNum,
-		rp:                rp,
-		scoreThreshold:    scoreThreshold,
+		candidatesByHeight: candidatesByHeight,
+		electionCommittee:  ec,
+		governanceStaking:  gs,
+		nativeStaking:      ns,
+		getEpochHeight:     getEpochHeight,
+		getEpochNum:        getEpochNum,
+		rp:                 rp,
+		scoreThreshold:     scoreThreshold,
 	}, nil
 }
 
-func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateManager) error {
-	return sc.governanceStaking.Initialize(ctx, sm)
+func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	}
+	if gsc, ok := sc.governanceStaking.(protocol.GenesisStateCreator); ok {
+		if err := gsc.CreateGenesisStates(ctx, sm); err != nil {
+			return err
+		}
+	}
+	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
+	raCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
+	raCtx.GasLimit = raCtx.Genesis.BlockGasLimit
+	bytes, err := hexutil.Decode(raCtx.Genesis.NativeStakingContractCode)
+	if err != nil {
+		return err
+	}
+	execution, err := action.NewExecution(
+		"",
+		nativeStakingContractNonce,
+		big.NewInt(0),
+		raCtx.Genesis.BlockGasLimit,
+		big.NewInt(0),
+		bytes,
+	)
+	if err != nil {
+		return err
+	}
+	_, receipt, err := evm.ExecuteContract(
+		protocol.WithRunActionsCtx(ctx, raCtx),
+		sm,
+		execution,
+		func(height uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
+	}
+	sc.SetNativeStakingContract(receipt.ContractAddress)
+	log.L().Info("Deployed native staking contract", zap.String("address", receipt.ContractAddress))
+
+	return nil
+}
+
+func (sc *stakingCommittee) Start(ctx context.Context) error {
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.Genesis.NativeStakingContractAddress == "" && raCtx.Genesis.NativeStakingContractCode != "" {
+		caller, _ := address.FromString(nativeStakingContractCreator)
+		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
+		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
+		sc.SetNativeStakingContract(iotxAddr.String())
+		log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
+	}
+
+	return nil
+}
+
+func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	if psc, ok := sc.governanceStaking.(protocol.PreStatesCreator); ok {
+		return psc.CreatePreStates(ctx, sm)
+	}
+
+	return nil
+}
+
+func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
+	if psac, ok := sc.governanceStaking.(protocol.PostSystemActionsCreator); ok {
+		return psac.CreatePostSystemActions(ctx)
+	}
+
+	return nil, nil
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -99,21 +178,23 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 	return validate(ctx, sc, act)
 }
 
-func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateList, error) {
-	cand, err := sc.governanceStaking.DelegatesByHeight(height)
+func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+	cand, err := sc.governanceStaking.DelegatesByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
+	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
+	hu := config.NewHeightUpgrade(&vaCtx.Genesis)
 	// convert to epoch start height
-	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
-	if sc.hu.IsPre(config.Cook, epochHeight) {
+	if hu.IsPre(config.Cook, sc.getEpochHeight(sc.getEpochNum(height))) {
 		return sc.filterDelegates(cand), nil
 	}
 	// native staking starts from Cook
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
-	nativeVotes, ts, err := sc.nativeStaking.Votes()
+
+	nativeVotes, err := sc.nativeStaking.Votes(vaCtx.Tip.Height, vaCtx.Tip.Timestamp)
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil
@@ -122,7 +203,16 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
 	sc.currentNativeBuckets = nativeVotes.Buckets
-	return sc.mergeDelegates(cand, nativeVotes, ts), nil
+
+	return sc.mergeDelegates(cand, nativeVotes, vaCtx.Tip.Timestamp), nil
+}
+
+func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum)
+}
+
+func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateList, error) {
+	return sc.candidatesByHeight(sc.getEpochHeight(sc.getEpochNum(height)))
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
@@ -174,7 +264,8 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 	epochHeight := sc.getEpochHeight(sc.getEpochNum(raCtx.BlockHeight))
-	if sc.hu.IsPre(config.Cook, epochHeight) {
+	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	if hu.IsPre(config.Cook, epochHeight) {
 		return nil
 	}
 	if err != nil {
@@ -184,13 +275,9 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 		return nil
 	}
 	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
-	ts, err := sc.getTipBlockTime()
-	if err != nil {
-		return err
-	}
 	if err := sc.electionCommittee.PutNativePollByEpoch(
 		sc.rp.GetEpochNum(raCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
-		ts,                                     // The timestamp of last block is used to represent the current buckets timestamp
+		raCtx.Tip.Timestamp,                    // The timestamp of last block is used to represent the current buckets timestamp
 		sc.currentNativeBuckets,
 	); err != nil {
 		return err

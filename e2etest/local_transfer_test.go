@@ -24,10 +24,12 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -300,8 +302,9 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
 	as := svr.ChainService(chainID).APIServer()
-	preProcessTestCases(t, bc)
-	initExistingAccounts(t, big.NewInt(30000), bc)
+	re := svr.ChainService(chainID).Registry()
+	preProcessTestCases(t, bc, cfg, re)
+	initExistingAccounts(t, big.NewInt(30000), bc, cfg, re)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc)
@@ -458,12 +461,14 @@ func initExistingAccounts(
 	t *testing.T,
 	initBalance *big.Int,
 	bc blockchain.Blockchain,
+	cfg config.Config,
+	registry *protocol.Registry,
 ) {
 	for i := 0; i < len(localKeys); i++ {
 		sk := getLocalKey(i)
 		addr, err := address.FromBytes(sk.PublicKey().Hash())
 		require.NoError(t, err)
-		_, err = bc.Factory().CreateState(addr.String(), initBalance)
+		_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), initBalance)
 		require.NoError(t, err)
 	}
 
@@ -479,6 +484,8 @@ func getLocalKey(i int) crypto.PrivateKey {
 func preProcessTestCases(
 	t *testing.T,
 	bc blockchain.Blockchain,
+	cfg config.Config,
+	registry *protocol.Registry,
 ) {
 	for i, tsfTest := range getSimpleTransferTests {
 		if tsfTest.senderAcntState == AcntCreate {
@@ -486,7 +493,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			_, err = bc.Factory().CreateState(addr.String(), tsfTest.senderBalance)
+			_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.senderBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].senderPriKey = sk
 		}
@@ -495,7 +502,7 @@ func preProcessTestCases(
 			require.NoError(t, err)
 			addr, err := address.FromBytes(sk.PublicKey().Hash())
 			require.NoError(t, err)
-			_, err = bc.Factory().CreateState(addr.String(), tsfTest.recvBalance)
+			factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.recvBalance)
 			require.NoError(t, err)
 			getSimpleTransferTests[i].recvPriKey = sk
 		}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/config"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -290,55 +291,39 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	chain := mock_chainmanager.NewMockChainManager(ctrl)
-	chain.EXPECT().CandidatesByHeight(gomock.Any()).Return([]*state.Candidate{
-		{
-			Address:       identityset.Address(0).String(),
-			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: "",
-		},
-		{
-			Address:       identityset.Address(1).String(),
-			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: identityset.Address(1).String(),
-		},
-	}, nil).AnyTimes()
-	chain.EXPECT().ProductivityByEpoch(gomock.Any()).Return(
-		uint64(19),
-		map[string]uint64{
-			identityset.Address(0).String(): 9,
-			identityset.Address(1).String(): 10,
-		},
-		nil,
-	).AnyTimes()
-	p := NewProtocol(chain, rolldpos.NewProtocol(
+	p := NewProtocol(func(uint64) (uint64, map[string]uint64, error) {
+		return uint64(19),
+			map[string]uint64{
+				identityset.Address(0).String(): 9,
+				identityset.Address(1).String(): 10,
+			},
+			nil
+	}, rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
 	))
+
+	ge := config.Default.Genesis
+	ge.Rewarding.InitBalanceStr = "0"
+	ge.Rewarding.BlockRewardStr = "10"
+	ge.Rewarding.EpochRewardStr = "100"
+	ge.Rewarding.NumDelegatesForEpochReward = 10
+	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
+	ge.Rewarding.FoundationBonusStr = "5"
+	ge.Rewarding.NumDelegatesForFoundationBonus = 5
+	ge.Rewarding.FoundationBonusLastEpoch = 365
+	ge.Rewarding.ProductivityThreshold = 50
 
 	// Initialize the protocol
 	ctx := protocol.WithRunActionsCtx(
 		context.Background(),
 		protocol.RunActionsCtx{
 			BlockHeight: 0,
+			Genesis:     ge,
 		},
 	)
-	require.NoError(
-		t,
-		p.Initialize(
-			ctx,
-			sm,
-			big.NewInt(0),
-			big.NewInt(10),
-			big.NewInt(100),
-			10,
-			nil,
-			big.NewInt(5),
-			5,
-			365,
-			50,
-		))
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
 	// Create a test account with 1000 token
 	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
@@ -350,6 +335,18 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Producer:    identityset.Address(0),
 			Caller:      identityset.Address(0),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+			Candidates: []*state.Candidate{
+				{
+					Address:       identityset.Address(0).String(),
+					Votes:         unit.ConvertIotxToRau(1000000),
+					RewardAddress: "",
+				},
+				{
+					Address:       identityset.Address(1).String(),
+					Votes:         unit.ConvertIotxToRau(1000000),
+					RewardAddress: identityset.Address(1).String(),
+				},
+			},
 		},
 	)
 	require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
