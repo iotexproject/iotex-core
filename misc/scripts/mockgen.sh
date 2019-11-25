@@ -95,3 +95,4 @@ mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go 
         -source=./api/apitestclient.go \
         -package=mock_apiserviceclient \
         APIServiceClient
+
