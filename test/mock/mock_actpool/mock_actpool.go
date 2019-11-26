@@ -5,6 +5,7 @@
 package mock_actpool
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
@@ -62,17 +63,17 @@ func (mr *MockActPoolMockRecorder) PendingActionMap() *gomock.Call {
 }
 
 // Add mocks base method
-func (m *MockActPool) Add(act action.SealedEnvelope) error {
+func (m *MockActPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", act)
+	ret := m.ctrl.Call(m, "Add", ctx, act)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Add indicates an expected call of Add
-func (mr *MockActPoolMockRecorder) Add(act interface{}) *gomock.Call {
+func (mr *MockActPoolMockRecorder) Add(ctx, act interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockActPool)(nil).Add), act)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockActPool)(nil).Add), ctx, act)
 }
 
 // GetPendingNonce mocks base method
@@ -173,22 +174,6 @@ func (m *MockActPool) GetGasCapacity() uint64 {
 func (mr *MockActPoolMockRecorder) GetGasCapacity() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasCapacity", reflect.TypeOf((*MockActPool)(nil).GetGasCapacity))
-}
-
-// AddActionValidators mocks base method
-func (m *MockActPool) AddActionValidators(arg0 ...protocol.ActionValidator) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	m.ctrl.Call(m, "AddActionValidators", varargs...)
-}
-
-// AddActionValidators indicates an expected call of AddActionValidators
-func (mr *MockActPoolMockRecorder) AddActionValidators(arg0 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionValidators", reflect.TypeOf((*MockActPool)(nil).AddActionValidators), arg0...)
 }
 
 // AddActionEnvelopeValidators mocks base method

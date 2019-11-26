@@ -8,13 +8,12 @@ package config
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"os"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
-
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
