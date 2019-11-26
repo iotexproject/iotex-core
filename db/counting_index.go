@@ -44,7 +44,7 @@ type (
 
 	// countingIndex is CountingIndex implementation based on KVStore
 	countingIndex struct {
-		kvStore KVStore
+		kvStore KVStoreWithRange
 		bucket  string
 		size    uint64 // total number of keys
 		batch   KVStoreBatch
@@ -55,6 +55,10 @@ type (
 func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 	if kv == nil {
 		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
+	}
+	kvRange, ok := kv.(KVStoreWithRange)
+	if !ok {
+		return nil, errors.New("counting index can only be created from KVStoreWithRange")
 	}
 	if len(name) == 0 {
 		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
@@ -77,7 +81,7 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		}
 	}
 	return &countingIndex{
-		kvStore: kv,
+		kvStore: kvRange,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
@@ -85,6 +89,10 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 
 // GetCountingIndex return an existing counting index
 func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
+	kvRange, ok := kv.(KVStoreWithRange)
+	if !ok {
+		return nil, errors.New("counting index can only be created from KVStoreWithRange")
+	}
 	bucket := string(name)
 	// check if the index exist or not
 	total, err := kv.Get(bucket, CountKey)
@@ -99,7 +107,7 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 		}
 	}
 	return &countingIndex{
-		kvStore: kv,
+		kvStore: kvRange,
 		bucket:  bucket,
 		size:    byteutil.BytesToUint64BigEndian(total),
 	}, nil
