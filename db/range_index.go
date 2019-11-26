@@ -8,6 +8,8 @@ package db
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
