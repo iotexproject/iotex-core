@@ -1600,10 +1600,10 @@ func addProducerToFactory(sf factory.Factory, registry *protocol.Registry) error
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{			
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 0,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: registry,

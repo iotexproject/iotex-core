@@ -132,8 +132,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 1,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
@@ -466,12 +466,12 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 1,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		Registry: re,
+		Registry: registry,
 	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
@@ -628,12 +628,12 @@ func TestActPool_Reset(t *testing.T) {
 
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 1,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		Registry: re,
+		Registry: registry,
 	})
 
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
@@ -744,12 +744,12 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 2,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		Registry: re,
+		Registry: registry,
 	})
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -853,12 +853,12 @@ func TestActPool_Reset(t *testing.T) {
 
 	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 3,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		Registry: re,
+		Registry: registry,
 	})
 
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
@@ -1129,8 +1129,8 @@ func TestActPool_GetSize(t *testing.T) {
 
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: bc.TipHeight() + 1,
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,

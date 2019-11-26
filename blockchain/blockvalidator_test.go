@@ -167,8 +167,8 @@ func TestWrongNonce(t *testing.T) {
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight: 1,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		},
 	)
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})

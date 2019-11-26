@@ -898,7 +898,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
-			raCtx.GasLimit -= receipt.GasConsumed
+			blkCtx.GasLimit -= receipt.GasConsumed
 			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
 		}
@@ -936,7 +936,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	}
 
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - blkCtx.GasLimit))
-	
+
 	return receipts, executedActions, ws.Finalize()
 }
 

@@ -253,8 +253,8 @@ func testState(sf Factory, t *testing.T) {
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
@@ -278,13 +278,12 @@ func testState(sf Factory, t *testing.T) {
 	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
-	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(
+	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight: 1,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		},
 	)
 	_, err = ws.RunAction(ctx, selp)
@@ -337,6 +336,18 @@ func testNonce(sf Factory, t *testing.T) {
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		})
+
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
@@ -351,17 +362,11 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(context.Background(),
+	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight: 0,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
-		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		})
 	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
@@ -552,8 +557,8 @@ func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 1,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
@@ -603,8 +608,8 @@ func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 1,
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
@@ -852,8 +857,8 @@ func benchRunAction(sf Factory, b *testing.B) {
 		zctx := protocol.WithBlockCtx(context.Background(),
 			protocol.BlockCtx{
 				BlockHeight: uint64(n),
-				Producer: identityset.Address(27),
-				GasLimit: gasLimit,
+				Producer:    identityset.Address(27),
+				GasLimit:    gasLimit,
 			})
 		zctx = protocol.WithBlockchainCtx(zctx,
 			protocol.BlockchainCtx{

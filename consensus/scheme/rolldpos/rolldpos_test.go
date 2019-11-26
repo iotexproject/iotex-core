@@ -429,8 +429,8 @@ func TestRollDPoSConsensus(t *testing.T) {
 					ctx,
 					protocol.BlockCtx{
 						BlockHeight: 0,
-						Producer: identityset.Address(27),
-						GasLimit: gasLimit,
+						Producer:    identityset.Address(27),
+						GasLimit:    gasLimit,
 					},
 				)
 				wsctx = protocol.WithBlockchainCtx(

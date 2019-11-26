@@ -106,8 +106,7 @@ func (stx *stateTX) validateBlockHeight(blkCtx protocol.BlockCtx) error {
 	if blkCtx.BlockHeight == stx.blockHeight {
 		return nil
 	}
-
-	return errors.Errorf("invalid block height %d, %d expected", raCtx.BlockHeight, stx.blockHeight)
+	return errors.Errorf("invalid block height %d, %d expected", blkCtx.BlockHeight, stx.blockHeight)
 }
 
 func (stx *stateTX) runAction(
