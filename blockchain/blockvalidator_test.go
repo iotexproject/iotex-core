@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -112,18 +113,17 @@ func TestWrongNonce(t *testing.T) {
 	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
 	testIndexPath := testIndexFile.Name()
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
 	require.NoError(err)
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption())
+	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), RegistryOption(registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
-
-	require.NoError(addCreatorToFactory(cfg, sf, registry))
 
 	val := &validator{sf: sf, validatorAddr: ""}
 	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
@@ -135,7 +135,7 @@ func TestWrongNonce(t *testing.T) {
 
 	blkhash := tsf1.Hash()
 	blk, err := block.NewTestingBuilder().
-		SetHeight(3).
+		SetHeight(2).
 		SetPrevBlockHash(blkhash).
 		SetTimeStamp(testutil.TimestampNow()).
 		AddActions(tsf1).
@@ -146,7 +146,7 @@ func TestWrongNonce(t *testing.T) {
 		protocol.ValidateActionsCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
+				Height: 1,
 				Hash:   blkhash,
 			},
 			Registry: registry,
@@ -159,15 +159,17 @@ func TestWrongNonce(t *testing.T) {
 	ctx = protocol.WithRunActionsCtx(
 		ctx,
 		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+			Genesis:     config.Default.Genesis,
+			Registry:    registry,
 		},
 	)
-	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{tsf1})
+	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})
 	require.NoError(err)
-	require.Nil(sf.Commit(ws))
+	require.NoError(ws.Finalize())
+	require.NoError(sf.Commit(ws))
 
 	// low nonce
 	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))

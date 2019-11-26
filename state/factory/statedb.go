@@ -79,7 +79,6 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		cfg:                cfg,
 		currentChainHeight: 0,
 	}
-
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
 			log.S().Errorf("Failed to execute state factory creation option %p: %v", opt, err)
@@ -106,14 +105,18 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	_, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
+		sdb.currentChainHeight = byteutil.BytesToUint64(h)
 		break
 	case db.ErrNotExist:
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
+		}
+		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
 		return err
@@ -187,13 +190,28 @@ func (sdb *stateDB) Height() (uint64, error) {
 func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	return newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory), nil
+
+	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (sdb *stateDB) Commit(ws WorkingSet) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	timer := sdb.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	if sdb.currentChainHeight+1 != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d + 1 doesn't match working set version %d",
+			sdb.currentChainHeight,
+			ws.Version(),
+		)
+	}
+
 	return sdb.commit(ws)
 }
 
@@ -275,19 +293,6 @@ func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
 }
 
 func (sdb *stateDB) commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
-	timer := sdb.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sdb.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sdb.currentChainHeight,
-			ws.Version(),
-		)
-	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
@@ -298,7 +303,7 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 
 // Initialize initializes the state db
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws := newStateTX(sdb.currentChainHeight, sdb.dao, sdb.saveHistory)
+	ws := newStateTX(0, sdb.dao, sdb.saveHistory)
 	if err := createGenesisStates(ctx, ws); err != nil {
 		return err
 	}
