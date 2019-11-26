@@ -179,7 +179,7 @@ func (b *baseKVStoreBatch) ExcludeEntries(ns string, writeType int32) KVStoreBat
 	}
 	// remove entries
 	for i := range b.writeQueue {
-		if b.writeQueue[i].namespace == ns && b.writeQueue[i].writeType == writeType {
+		if (ns == "" || b.writeQueue[i].namespace == ns) && b.writeQueue[i].writeType == writeType {
 			continue
 		}
 		c.writeQueue = append(c.writeQueue, b.writeQueue[i])
