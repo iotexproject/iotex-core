@@ -24,12 +24,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -274,10 +272,35 @@ func TestLocalTransfer(t *testing.T) {
 	}()
 	require.NoError(err)
 
+	for i, tsfTest := range getSimpleTransferTests {
+		if tsfTest.senderAcntState == AcntCreate {
+			sk, err := crypto.GenerateKey()
+			require.NoError(err)
+			addr, err := address.FromBytes(sk.PublicKey().Hash())
+			require.NoError(err)
+			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.senderBalance.String()
+			getSimpleTransferTests[i].senderPriKey = sk
+		}
+		if tsfTest.recvAcntState == AcntCreate {
+			sk, err := crypto.GenerateKey()
+			require.NoError(err)
+			addr, err := address.FromBytes(sk.PublicKey().Hash())
+			require.NoError(err)
+			cfg.Genesis.InitBalanceMap[addr.String()] = tsfTest.recvBalance.String()
+			getSimpleTransferTests[i].recvPriKey = sk
+		}
+	}
+	for i := 0; i < len(localKeys); i++ {
+		sk := getLocalKey(i)
+		addr, err := address.FromBytes(sk.PublicKey().Hash())
+		require.NoError(err)
+		cfg.Genesis.InitBalanceMap[addr.String()] = "30000"
+	}
+
 	// create server
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
+	require.NoError(err)
 
 	// Create and start probe server
 	probeSvr := probe.New(7788)
@@ -286,8 +309,8 @@ func TestLocalTransfer(t *testing.T) {
 	// Start server
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
 	defer func() {
-		require.Nil(probeSvr.Stop(ctx))
-		require.Nil(svr.Stop(ctx))
+		require.NoError(probeSvr.Stop(ctx))
+		require.NoError(svr.Stop(ctx))
 	}()
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -302,9 +325,6 @@ func TestLocalTransfer(t *testing.T) {
 	bc := svr.ChainService(chainID).Blockchain()
 	ap := svr.ChainService(chainID).ActionPool()
 	as := svr.ChainService(chainID).APIServer()
-	re := svr.ChainService(chainID).Registry()
-	preProcessTestCases(t, bc, cfg, re)
-	initExistingAccounts(t, big.NewInt(30000), bc, cfg, re)
 
 	for _, tsfTest := range getSimpleTransferTests {
 		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc)
@@ -456,58 +476,9 @@ func initStateKeyAddr(
 	return retKey, retAddr, nil
 }
 
-//Initialize accounts that could be used multiple times in some test cases
-func initExistingAccounts(
-	t *testing.T,
-	initBalance *big.Int,
-	bc blockchain.Blockchain,
-	cfg config.Config,
-	registry *protocol.Registry,
-) {
-	for i := 0; i < len(localKeys); i++ {
-		sk := getLocalKey(i)
-		addr, err := address.FromBytes(sk.PublicKey().Hash())
-		require.NoError(t, err)
-		_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), initBalance)
-		require.NoError(t, err)
-	}
-
-}
-
 func getLocalKey(i int) crypto.PrivateKey {
 	sk, _ := crypto.HexStringToPrivateKey(localKeys[i])
 	return sk
-}
-
-// Pre processing test cases with "AcntCreate" flag by creating new keys and accounts,
-// then filling that test case with the newly created key
-func preProcessTestCases(
-	t *testing.T,
-	bc blockchain.Blockchain,
-	cfg config.Config,
-	registry *protocol.Registry,
-) {
-	for i, tsfTest := range getSimpleTransferTests {
-		if tsfTest.senderAcntState == AcntCreate {
-			sk, err := crypto.GenerateKey()
-			require.NoError(t, err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(t, err)
-			_, err = factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.senderBalance)
-			require.NoError(t, err)
-			getSimpleTransferTests[i].senderPriKey = sk
-		}
-		if tsfTest.recvAcntState == AcntCreate {
-			sk, err := crypto.GenerateKey()
-			require.NoError(t, err)
-			addr, err := address.FromBytes(sk.PublicKey().Hash())
-			require.NoError(t, err)
-			factory.CreateTestAccount(bc.Factory(), cfg, registry, addr.String(), tsfTest.recvBalance)
-			require.NoError(t, err)
-			getSimpleTransferTests[i].recvPriKey = sk
-		}
-	}
-
 }
 
 func newTransferConfig(

@@ -1593,13 +1593,18 @@ func addProducerToFactory(sf factory.Factory, registry *protocol.Registry) error
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithRunActionsCtx(context.Background(),
 		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
-			Registry: registry,
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+			Registry:    registry,
 		})
-	if _, err = ws.RunActions(ctx, 0, nil); err != nil {
+	if _, err = ws.RunActions(ctx, nil); err != nil {
 		return err
 	}
+	if err := ws.Finalize(); err != nil {
+		return err
+	}
+
 	return sf.Commit(ws)
 }
 
@@ -1769,6 +1774,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
@@ -1871,11 +1877,6 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	// Start blockchain
 	if err := bc.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	// Create state for producer
-	if err := addProducerToFactory(bc.Factory(), registry); err != nil {
 		return nil, err
 	}
 
