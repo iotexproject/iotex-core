@@ -480,8 +480,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {
-			err := bc.Stop(ctx)
-			require.NoError(err)
+			require.NoError(bc.Stop(ctx))
 		}()
 
 		data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
@@ -519,7 +518,6 @@ func TestProtocol_Handle(t *testing.T) {
 		var evmContractAddrHash common.Address
 		copy(evmContractAddrHash[:], contract.Bytes())
 		code := stateDB.GetCode(evmContractAddrHash)
-		require.NoError(err)
 		require.Equal(data[31:], code)
 
 		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
@@ -535,6 +533,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(eHash[:], exes[0])
 
 		actIndex, err := indexer.GetActionIndex(eHash[:])
+		require.NoError(err)
 		blkHash, err := bc.BlockDAO().GetBlockHash(actIndex.BlockHeight())
 		require.NoError(err)
 		require.Equal(blk.HashBlock(), blkHash)
@@ -572,11 +571,13 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(byte(15), v[31])
 
 		eHash = execution.Hash()
-		r, _ = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
 		// read from key 0
-		data, _ = hex.DecodeString("6d4ce63c")
+		data, err = hex.DecodeString("6d4ce63c")
+		require.NoError(err)
 		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
 		require.NoError(err)
 
@@ -600,7 +601,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(1, len(blk.Receipts))
 
 		eHash = execution.Hash()
-		r, _ = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")

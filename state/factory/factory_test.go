@@ -634,17 +634,17 @@ func TestCachedBatch(t *testing.T) {
 	require.NoError(t, err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	testCachedBatch(ws, t, false)
+	testCachedBatch(ws, t)
 }
 
 func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
 	ws, _ := sdb.NewWorkingSet()
-	testCachedBatch(ws, t, true)
+	testCachedBatch(ws, t)
 }
 
-func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
+func testCachedBatch(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
 
 	// test PutState()
@@ -656,8 +656,7 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 
 	// test State()
 	testAccount := state.EmptyAccount()
-	err = ws.State(hashA, &testAccount)
-	require.NoError(err)
+	require.NoError(ws.State(hashA, &testAccount))
 	require.Equal(accountA, testAccount)
 
 	// test DelState()
@@ -665,8 +664,7 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	require.NoError(err)
 
 	// can't state account "alfa" anymore
-	err = ws.State(hashA, &testAccount)
-	require.Error(err)
+	require.Error(ws.State(hashA, &testAccount))
 }
 
 func TestGetDB(t *testing.T) {

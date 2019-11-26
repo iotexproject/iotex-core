@@ -21,12 +21,12 @@ import (
 
 func TestNewDefaultConfig(t *testing.T) {
 	_, err := New()
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {
 	cfg, err := New(DoNotValidate)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	exp := Default
 	exp.Network.MasterKey = cfg.Chain.ProducerPrivKey
@@ -38,7 +38,7 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 	defer func() { _overwritePath = "" }()
 
 	cfg, err := New()
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
 		"open wrong_path: The system cannot find the file specified") == false { // for Windows
@@ -48,7 +48,7 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 
 func TestNewConfigWithOverride(t *testing.T) {
 	sk, err := crypto.GenerateKey()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
@@ -61,18 +61,18 @@ chain:
 	defer func() {
 		err := os.Remove(_overwritePath)
 		_overwritePath = ""
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 
 	cfg, err := New()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
 	sk, err := crypto.GenerateKey()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
@@ -97,15 +97,15 @@ chain:
 
 	defer func() {
 		err := os.Remove(_overwritePath)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_overwritePath = ""
 		err = os.Remove(_secretPath)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_secretPath = ""
 	}()
 
 	cfg, err := New()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
 }
@@ -114,7 +114,7 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 
 	sk, err := crypto.GenerateKey()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	cfgStr := fmt.Sprintf(`
 chain:
     producerPrivKey: "%s"
@@ -127,25 +127,25 @@ chain:
 
 	defer func() {
 		err := os.Remove(_overwritePath)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		_overwritePath = ""
 		if oldExist {
 			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
 		} else {
 			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 		}
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 
 	cfg, err := New()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	cfg, err = New()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
@@ -153,7 +153,7 @@ func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
 	cfg.Dispatcher.EventChanSize = 0
 	err := ValidateDispatcher(cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
@@ -167,7 +167,7 @@ func TestValidateRollDPoS(t *testing.T) {
 
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 0
 	err := ValidateRollDPoS(cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
@@ -179,7 +179,7 @@ func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActsPerAcct = 0
 	err := ValidateActPool(cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
@@ -192,7 +192,7 @@ func TestValidateActPool(t *testing.T) {
 	cfg.ActPool.MaxNumActsPerAcct = 100
 	cfg.ActPool.MaxNumActsPerPool = 0
 	err = ValidateActPool(cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
@@ -204,7 +204,7 @@ func TestValidateActPool(t *testing.T) {
 
 	cfg.ActPool.MaxNumActsPerPool = 99
 	err = ValidateActPool(cfg)
-	require.NotNil(t, err)
+	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
