@@ -18,8 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-type validateActionsCtxKey struct{}
-
 // TipInfo contains the tip block information
 type TipInfo struct {
 	Height    uint64
@@ -27,7 +25,6 @@ type TipInfo struct {
 	Timestamp time.Time
 }
 
-// TODO: replace RunActionsCtx and ValidateActionsCtx with below classified independent contexts
 type blockchainContextKey struct{}
 
 type blockContextKey struct{}

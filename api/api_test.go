@@ -1481,12 +1481,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				context.Background(),
 				protocol.BlockchainCtx{
 					Registry: svr.registry,
-				},
-			)
-			ctx = protocol.WithBlockCtx(
-				ctx,
-				protocol.BlockCtx{
-					BlockHeight: uint64(4),
+					Tip: protocol.TipInfo{
+						Height:    uint64(4),
+						Timestamp: time.Time{},
+					},
 				},
 			)
 			mbc.EXPECT().Context().Return(ctx, nil).Times(1)

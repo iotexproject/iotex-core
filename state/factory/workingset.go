@@ -174,7 +174,6 @@ func (ws *workingSet) runAction(
 	}
 	// Handle action
 	var actionCtx protocol.ActionCtx
-	actionCtx, _ = protocol.GetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if blkCtx.BlockHeight != ws.blockHeight {

@@ -86,10 +86,6 @@ func (v *validator) validateActionsOnly(
 	ctx context.Context,
 	blk *block.Block,
 ) error {
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
-	}
 	actions := blk.Actions
 	// Verify transfers, votes, executions, witness, and secrets
 	errChan := make(chan error, len(actions))
@@ -97,8 +93,6 @@ func (v *validator) validateActionsOnly(
 
 	if err := v.validateActions(
 		ctx,
-		blk.Height(),
-		producerAddr,
 		actions,
 		accountNonceMap,
 		errChan,
@@ -142,20 +136,12 @@ func (v *validator) validateActionsOnly(
 
 func (v *validator) validateActions(
 	ctx context.Context,
-	height uint64,
-	producer address.Address,
 	actions []action.SealedEnvelope,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
 	var actionCtx protocol.ActionCtx
-	var blkCtx protocol.BlockCtx
-	actionCtx, _ = protocol.GetActionCtx(ctx)
-	blkCtx, _ = protocol.GetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-
-	blkCtx.BlockHeight = height
-	blkCtx.Producer = producer
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
@@ -174,8 +160,7 @@ func (v *validator) validateActions(
 			}
 		}
 		actionCtx.Caller = caller
-		aCtx := protocol.WithBlockCtx(ctx, blkCtx)
-		aCtx = protocol.WithActionCtx(aCtx, actionCtx)
+		aCtx := protocol.WithActionCtx(ctx, actionCtx)
 
 		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)

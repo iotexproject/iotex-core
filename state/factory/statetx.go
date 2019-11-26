@@ -119,7 +119,6 @@ func (stx *stateTX) runAction(
 
 	// Handle action
 	var actionCtx protocol.ActionCtx
-	actionCtx, _ = protocol.GetActionCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if err := stx.validateBlockHeight(blkCtx); err != nil {

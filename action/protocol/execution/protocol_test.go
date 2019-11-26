@@ -310,6 +310,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(registry.Register(ProtocolID, execution))
 	r.NoError(bc.Start(ctx))
+
 	return bc
 }
 

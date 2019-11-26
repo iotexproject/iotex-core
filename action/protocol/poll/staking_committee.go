@@ -90,7 +90,6 @@ func NewStakingCommittee(
 }
 
 func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
-
 	if gsc, ok := sc.governanceStaking.(protocol.GenesisStateCreator); ok {
 		if err := gsc.CreateGenesisStates(ctx, sm); err != nil {
 			return err
