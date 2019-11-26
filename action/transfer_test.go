@@ -83,8 +83,7 @@ func TestTransfer(t *testing.T) {
 
 	proto := tsf.Proto()
 	tsf2 := &Transfer{}
-	err = tsf2.LoadProto(proto)
-	require.NoError(err)
+	require.NoError(tsf2.LoadProto(proto))
 	require.Equal("10", tsf2.Amount().Text(10))
 	require.Equal([]byte{}, tsf2.Payload())
 	require.Equal(recipientAddr.String(), tsf2.Recipient())

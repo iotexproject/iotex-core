@@ -438,8 +438,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.Equal(0, int(height))
 	fmt.Printf("Create blockchain pass, height = %d\n", height)
 	defer func() {
-		err := bc.Stop(ctx)
-		require.NoError(err)
+		require.NoError(bc.Stop(ctx))
 	}()
 
 	// add 4 sample blocks
@@ -843,7 +842,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		empblk, err := bc.BlockDAO().GetBlock(hash.ZeroHash256)
 		require.Nil(empblk)
-		require.NotNil(err.Error())
+		require.Error(err)
 
 		header, err := bc.BlockHeaderByHeight(60000)
 		require.Nil(header)
@@ -868,8 +867,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
 
-		err = bc.ValidateBlock(&nblk)
-		require.Error(err)
+		require.Error(bc.ValidateBlock(&nblk))
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add block with zero prev hash
@@ -1018,7 +1016,7 @@ func TestBlockchain_Validator(t *testing.T) {
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		err := bc.Stop(ctx)
-		require.Nil(t, err)
+		require.NoError(t, err)
 	}()
 	require.NotNil(t, bc)
 
@@ -1157,8 +1155,8 @@ func TestBlocks(t *testing.T) {
 			actionMap,
 			testutil.TimestampNow(),
 		)
-		require.Nil(bc.ValidateBlock(blk))
-		require.Nil(bc.CommitBlock(blk))
+		require.NoError(bc.ValidateBlock(blk))
+		require.NoError(bc.CommitBlock(blk))
 	}
 }
 

@@ -29,11 +29,9 @@ func TestStorePutGet(sqlStore Store, t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 
-	err := sqlStore.Start(ctx)
-	require.Nil(err)
+	require.NoError(sqlStore.Start(ctx))
 	defer func() {
-		err = sqlStore.Stop(ctx)
-		require.Nil(err)
+		require.NoError(sqlStore.Stop(ctx))
 	}()
 
 	dbinstance := sqlStore.GetDB()
@@ -43,31 +41,31 @@ func TestStorePutGet(sqlStore Store, t *testing.T) {
 	actionHash := hash.ZeroHash256
 
 	// create table
-	_, err = dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
+	_, err := dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
 		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)")
-	require.Nil(err)
+	require.NoError(err)
 
 	// insert
 	stmt, err := dbinstance.Prepare("INSERT INTO action_history (node_address,user_address,action_hash) VALUES (?, ?, ?)")
-	require.Nil(err)
+	require.NoError(err)
 
 	res, err := stmt.Exec(nodeAddress, userAddress, actionHash[:])
-	require.Nil(err)
+	require.NoError(err)
 
 	affect, err := res.RowsAffected()
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(int64(1), affect)
 
 	// get
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=?")
-	require.Nil(err)
+	require.NoError(err)
 
 	rows, err := stmt.Query(nodeAddress)
-	require.Nil(err)
+	require.NoError(err)
 
 	var actionHistory ActionHistory
 	parsedRows, err := ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(1, len(parsedRows))
 	require.Equal(nodeAddress, parsedRows[0].(*ActionHistory).NodeAddress)
 	require.Equal(userAddress, parsedRows[0].(*ActionHistory).UserAddress)
@@ -75,24 +73,24 @@ func TestStorePutGet(sqlStore Store, t *testing.T) {
 
 	// delete
 	stmt, err = dbinstance.Prepare("DELETE FROM action_history WHERE node_address=? AND user_address=? AND action_hash=?")
-	require.Nil(err)
+	require.NoError(err)
 
 	res, err = stmt.Exec(nodeAddress, userAddress, actionHash[:])
-	require.Nil(err)
+	require.NoError(err)
 
 	affect, err = res.RowsAffected()
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(int64(1), affect)
 
 	// get
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=?")
-	require.Nil(err)
+	require.NoError(err)
 
 	rows, err = stmt.Query(nodeAddress)
-	require.Nil(err)
+	require.NoError(err)
 
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 }
 
@@ -101,11 +99,9 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
 
-	err := sqlStore.Start(ctx)
-	require.Nil(err)
+	require.NoError(sqlStore.Start(ctx))
 	defer func() {
-		err = sqlStore.Stop(ctx)
-		require.Nil(err)
+		require.NoError(sqlStore.Stop(ctx))
 	}()
 
 	dbinstance := sqlStore.GetDB()
@@ -116,26 +112,26 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 	actionHash := hash.ZeroHash256
 
 	// create table
-	_, err = dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
+	_, err := dbinstance.Exec("CREATE TABLE IF NOT EXISTS action_history ([node_address] TEXT NOT NULL, [user_address] " +
 		"TEXT NOT NULL, [action_hash] BLOB(32) NOT NULL)")
-	require.Nil(err)
+	require.NoError(err)
 
 	// get
 	stmt, err := dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err := stmt.Query(nodeAddress, userAddress1)
-	require.Nil(err)
+	require.NoError(err)
 	var actionHistory ActionHistory
 	parsedRows, err := ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress2)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 
 	// insert transaction with fail
@@ -150,23 +146,23 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 		return errors.New("create an error")
 	})
 	println(err)
-	require.NotNil(err)
+	require.Error(err)
 
 	// get
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress1)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress2)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 
 	// insert
@@ -180,26 +176,26 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 		}
 		return nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	// get
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress1)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(1, len(parsedRows))
 	require.Equal(nodeAddress, parsedRows[0].(*ActionHistory).NodeAddress)
 	require.Equal(userAddress1, parsedRows[0].(*ActionHistory).UserAddress)
 	require.Equal(string(actionHash[:]), parsedRows[0].(*ActionHistory).ActionHash)
 
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress2)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(1, len(parsedRows))
 	require.Equal(nodeAddress, parsedRows[0].(*ActionHistory).NodeAddress)
 	require.Equal(userAddress2, parsedRows[0].(*ActionHistory).UserAddress)
@@ -216,22 +212,22 @@ func TestStoreTransaction(sqlStore Store, t *testing.T) {
 		}
 		return nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	// get
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress1)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 
 	stmt, err = dbinstance.Prepare("SELECT * FROM action_history WHERE node_address=? AND user_address=?")
-	require.Nil(err)
+	require.NoError(err)
 	rows, err = stmt.Query(nodeAddress, userAddress2)
-	require.Nil(err)
+	require.NoError(err)
 	parsedRows, err = ParseSQLRows(rows, &actionHistory)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(0, len(parsedRows))
 }

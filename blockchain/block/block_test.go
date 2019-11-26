@@ -109,11 +109,11 @@ func TestConvertFromBlockPb(t *testing.T) {
 	blk.Header.receiptRoot = hash.Hash256b(([]byte)("test"))
 
 	raw, err := blk.Serialize()
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	var newblk Block
 	err = newblk.Deserialize(raw)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	require.Equal(t, uint64(123456789), newblk.Header.height)
 	require.Equal(t, uint64(101), newblk.Actions[0].Nonce())

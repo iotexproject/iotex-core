@@ -36,7 +36,7 @@ func TestLocalActPool(t *testing.T) {
 	// create server
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
+	require.NoError(err)
 
 	chainID := cfg.Chain.ID
 	require.NoError(svr.Start(ctx))
@@ -60,8 +60,8 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(cli.Start(ctx))
 
 	defer func() {
-		require.Nil(cli.Stop(ctx))
-		require.Nil(svr.Stop(ctx))
+		require.NoError(cli.Stop(ctx))
+		require.NoError(svr.Stop(ctx))
 	}()
 
 	// Create three valid actions from "from" to "to"
@@ -108,8 +108,8 @@ func TestPressureActPool(t *testing.T) {
 	// create server
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
-	require.Nil(svr.Start(ctx))
+	require.NoError(err)
+	require.NoError(svr.Start(ctx))
 	chainID := cfg.Chain.ID
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
@@ -127,11 +127,11 @@ func TestPressureActPool(t *testing.T) {
 		},
 	)
 	require.NotNil(cli)
-	require.Nil(cli.Start(ctx))
+	require.NoError(cli.Start(ctx))
 
 	defer func() {
-		require.Nil(cli.Stop(ctx))
-		require.Nil(svr.Stop(ctx))
+		require.NoError(cli.Stop(ctx))
+		require.NoError(svr.Stop(ctx))
 	}()
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
@@ -156,7 +156,7 @@ func TestPressureActPool(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 250, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 }
 
 func newActPoolConfig() (config.Config, error) {

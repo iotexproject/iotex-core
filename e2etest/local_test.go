@@ -287,14 +287,10 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.NoError(err)
 	// wait 4 blocks being picked and committed
-	err = p.BroadcastOutbound(p2pCtx, blk2.ConvertToBlockPb())
-	require.NoError(err)
-	err = p.BroadcastOutbound(p2pCtx, blk4.ConvertToBlockPb())
-	require.NoError(err)
-	err = p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb())
-	require.NoError(err)
-	err = p.BroadcastOutbound(p2pCtx, blk3.ConvertToBlockPb())
-	require.NoError(err)
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk2.ConvertToBlockPb()))
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk4.ConvertToBlockPb()))
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk1.ConvertToBlockPb()))
+	require.NoError(p.BroadcastOutbound(p2pCtx, blk3.ConvertToBlockPb()))
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		height := bc.TipHeight()
 		return int(height) == 9, nil
@@ -469,8 +465,7 @@ func TestLocalSync(t *testing.T) {
 			hash4 == blk4.HashBlock() &&
 			hash5 == blk5.HashBlock(), nil
 	})
-	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, check)
-	require.NoError(err)
+	require.NoError(testutil.WaitUntil(time.Millisecond*100, time.Second*60, check))
 
 	// verify 4 received blocks
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
