@@ -134,8 +134,8 @@ func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Executi
 	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height,
-			BlockTimeStamp: bcCtx.Tip.Timestamp,
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
 			GasLimit:       bcCtx.Genesis.BlockGasLimit,
 			Producer:       zeroAddr,
 		},
