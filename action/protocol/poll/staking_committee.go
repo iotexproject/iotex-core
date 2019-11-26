@@ -107,8 +107,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
 	actionCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
-	blkCtx.GasLimit = raCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(raCtx.Genesis.NativeStakingContractCode)
+	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
+	bytes, err := hexutil.Decode(bcCtx.Genesis.NativeStakingContractCode)
 	if err != nil {
 		return err
 	}
