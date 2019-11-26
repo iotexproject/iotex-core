@@ -251,7 +251,7 @@ func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
 	version := stx.blockHeight
 	ns := append([]byte(AccountKVNameSpace), pkHash[:]...)
-	ri, err := stx.dao.CreateRangeIndexNX(ns, db.NotExist)
+	ri, err := db.NewRangeIndex(stx.dao, ns, db.NotExist)
 	if err != nil {
 		return err
 	}
