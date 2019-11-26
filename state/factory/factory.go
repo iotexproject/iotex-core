@@ -245,13 +245,28 @@ func (sf *factory) Height() (uint64, error) {
 func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	return newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
+
+	return newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (sf *factory) Commit(ws WorkingSet) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	timer := sf.timerFactory.NewTimer("Commit")
+	defer timer.End()
+	if ws == nil {
+		return errors.New("working set doesn't exist")
+	}
+	if sf.currentChainHeight+1 != ws.Version() {
+		// another working set with correct version already committed, do nothing
+		return fmt.Errorf(
+			"current state height %d + 1 doesn't match working set version %d",
+			sf.currentChainHeight,
+			ws.Version(),
+		)
+	}
+
 	return sf.commit(ws)
 }
 
@@ -337,25 +352,15 @@ func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
 }
 
 func (sf *factory) commit(ws WorkingSet) error {
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
-	timer := sf.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if sf.currentChainHeight != ws.Version() {
-		// another working set with correct version already committed, do nothing
-		return fmt.Errorf(
-			"current state height %d doesn't match working set version %d",
-			sf.currentChainHeight,
-			ws.Version(),
-		)
-	}
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height and root
 	sf.currentChainHeight = ws.Height()
-	h := ws.RootHash()
+	h, err := ws.RootHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to get root hash of working set")
+	}
 	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
@@ -364,7 +369,7 @@ func (sf *factory) commit(ws WorkingSet) error {
 
 // Initialize initializes the state factory
 func (sf *factory) createGenesisStates(ctx context.Context) error {
-	ws, err := newWorkingSet(sf.currentChainHeight, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err := newWorkingSet(0, sf.dao, sf.rootHash(), sf.saveHistory)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}

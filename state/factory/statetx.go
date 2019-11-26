@@ -23,33 +23,41 @@ import (
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
 type stateTX struct {
-	ver         uint64
-	blkHeight   uint64
 	cb          db.CachedBatch // cached batch for pending writes
 	dao         db.KVStore     // the underlying DB for account/contract storage
+	finalized   bool
 	saveHistory bool
+	blockHeight uint64
 }
 
 // newStateTX creates a new state tx
 func newStateTX(
-	version uint64,
+	blockHeight uint64,
 	kv db.KVStore,
 	saveHistory bool,
 ) *stateTX {
-	st := &stateTX{
-		ver:         version,
+	return &stateTX{
 		cb:          db.NewCachedBatch(),
 		dao:         kv,
+		finalized:   false,
 		saveHistory: saveHistory,
+		blockHeight: blockHeight,
 	}
-	return st
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (stx *stateTX) RootHash() hash.Hash256 { return hash.ZeroHash256 }
+func (stx *stateTX) RootHash() (hash.Hash256, error) {
+	if !stx.finalized {
+		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
+	}
+	return hash.ZeroHash256, nil
+}
 
 // Digest returns the delta state digest
-func (stx *stateTX) Digest() hash.Hash256 {
+func (stx *stateTX) Digest() (hash.Hash256, error) {
+	if !stx.finalized {
+		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
+	}
 	var cb db.KVStoreBatch
 	if stx.saveHistory {
 		// exclude trie pruning entries before calculating digest
@@ -57,14 +65,15 @@ func (stx *stateTX) Digest() hash.Hash256 {
 	} else {
 		cb = stx.cb
 	}
-	return cb.Digest()
+
+	return cb.Digest(), nil
 }
 
 // Version returns the Version of this working set
-func (stx *stateTX) Version() uint64 { return stx.ver }
+func (stx *stateTX) Version() uint64 { return stx.blockHeight }
 
 // Height returns the Height of the block being worked on
-func (stx *stateTX) Height() uint64 { return stx.blkHeight }
+func (stx *stateTX) Height() uint64 { return stx.blockHeight }
 
 // History returns if the DB retains history
 func (stx *stateTX) History() bool { return stx.saveHistory }
@@ -72,17 +81,12 @@ func (stx *stateTX) History() bool { return stx.saveHistory }
 // RunActions runs actions in the block and track pending changes in working set
 func (stx *stateTX) RunActions(
 	ctx context.Context,
-	blockHeight uint64,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
-	var raCtx protocol.RunActionsCtx
-	if len(elps) > 0 {
-		raCtx = protocol.MustGetRunActionsCtx(ctx)
-	}
 	for _, elp := range elps {
-		receipt, err := stx.RunAction(raCtx, elp)
+		receipt, err := stx.runAction(ctx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
 		}
@@ -90,15 +94,36 @@ func (stx *stateTX) RunActions(
 			receipts = append(receipts, receipt)
 		}
 	}
-	stx.UpdateBlockLevelInfo(blockHeight)
+
 	return receipts, nil
 }
 
-// RunAction runs action in the block and track pending changes in working set
-func (stx *stateTX) RunAction(
-	raCtx protocol.RunActionsCtx,
+func (stx *stateTX) RunAction(ctx context.Context, elp action.SealedEnvelope) (*action.Receipt, error) {
+	return stx.runAction(ctx, elp)
+}
+
+func (stx *stateTX) validateBlockHeight(raCtx *protocol.RunActionsCtx) error {
+	if raCtx.BlockHeight == stx.blockHeight {
+		return nil
+	}
+
+	return errors.Errorf("invalid block height %d, %d expected", raCtx.BlockHeight, stx.blockHeight)
+}
+
+func (stx *stateTX) runAction(
+	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
+	if stx.finalized {
+		return nil, errors.Errorf("cannot run action on a finalized working set")
+	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if err := stx.validateBlockHeight(&raCtx); err != nil {
+		return nil, err
+	}
+	if raCtx.Registry == nil {
+		return nil, nil
+	}
 	// Handle action
 	// Add caller address into the run action context
 	callerAddr, err := address.FromBytes(elp.SrcPubkey().Hash())
@@ -114,10 +139,7 @@ func (stx *stateTX) RunAction(
 	}
 	raCtx.IntrinsicGas = intrinsicGas
 	raCtx.Nonce = elp.Nonce()
-	if raCtx.Registry == nil {
-		return nil, nil
-	}
-	ctx := protocol.WithRunActionsCtx(context.Background(), raCtx)
+	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
 	for _, actionHandler := range raCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
@@ -136,13 +158,21 @@ func (stx *stateTX) RunAction(
 	return nil, nil
 }
 
-// UpdateBlockLevelInfo runs action in the block and track pending changes in working set
-func (stx *stateTX) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
-	stx.blkHeight = blockHeight
+// Finalize runs action in the block and track pending changes in working set
+func (stx *stateTX) Finalize() error {
+	if stx.finalized {
+		return errors.New("Cannot finalize a working set twice")
+	}
 	// Persist current chain Height
-	h := byteutil.Uint64ToBytes(blockHeight)
-	stx.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	return hash.ZeroHash256
+	stx.cb.Put(
+		AccountKVNameSpace,
+		[]byte(CurrentHeightKey),
+		byteutil.Uint64ToBytes(stx.blockHeight),
+		"failed to store accountTrie's current Height",
+	)
+	stx.finalized = true
+
+	return nil
 }
 
 func (stx *stateTX) Snapshot() int { return stx.cb.Snapshot() }
@@ -151,6 +181,9 @@ func (stx *stateTX) Revert(snapshot int) error { return stx.cb.Revert(snapshot) 
 
 // Commit persists all changes in RunActions() into the DB
 func (stx *stateTX) Commit() error {
+	if !stx.finalized {
+		return errors.New("cannot commit a working set which has not been finalized")
+	}
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
 	var cb db.KVStoreBatch
@@ -216,7 +249,7 @@ func (stx *stateTX) DelState(pkHash hash.Hash160) error {
 
 // putIndex insert height-state
 func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
-	version := stx.ver + 1
+	version := stx.blockHeight
 	ns := append([]byte(AccountKVNameSpace), pkHash[:]...)
 	ri, err := stx.dao.CreateRangeIndexNX(ns, db.NotExist)
 	if err != nil {

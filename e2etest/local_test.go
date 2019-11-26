@@ -44,7 +44,7 @@ func TestLocalCommit(t *testing.T) {
 	require := require.New(t)
 
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
@@ -58,18 +58,20 @@ func TestLocalCommit(t *testing.T) {
 	// create server
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
+	require.NoError(err)
 	require.NoError(svr.Start(ctx))
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
+	i27Balance, err := bc.Factory().Balance(identityset.Address(27).String())
+	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2PAgent())
 
 	// create client
 	cfg, err = newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	p := p2p.NewAgent(
 		cfg,
@@ -82,58 +84,59 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(p.Start(ctx))
 
 	defer func() {
-		require.Nil(p.Stop(ctx))
-		require.Nil(svr.Stop(ctx))
-		require.Nil(bc.Stop(ctx))
+		require.NoError(p.Stop(ctx))
+		require.NoError(svr.Stop(ctx))
+		require.NoError(bc.Stop(ctx))
 	}()
 
 	// check balance
 	s, err := bc.Factory().AccountState(identityset.Address(28).String())
-	require.Nil(err)
+	require.NoError(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
 	s, err = bc.Factory().AccountState(identityset.Address(29).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
 	s, err = bc.Factory().AccountState(identityset.Address(30).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
 	s, err = bc.Factory().AccountState(identityset.Address(31).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
 	s, err = bc.Factory().AccountState(identityset.Address(32).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
 	s, err = bc.Factory().AccountState(identityset.Address(33).String())
-	require.Nil(err)
+	require.NoError(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
 	s, err = bc.Factory().AccountState(identityset.Address(27).String())
-	require.Nil(err)
+	require.NoError(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
+	change.Sub(change, i27Balance)
 
 	require.Equal(
 		unit.ConvertIotxToRau(90000000),
@@ -199,15 +202,15 @@ func TestLocalCommit(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
 	blk1, err := chain.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
-	require.Nil(chain.CommitBlock(blk1))
+	require.NoError(err)
+	require.NoError(chain.CommitBlock(blk1))
 
 	// transfer 2
 	// F --> D
@@ -221,8 +224,8 @@ func TestLocalCommit(t *testing.T) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
-	require.Nil(chain.CommitBlock(blk2))
+	require.NoError(err)
+	require.NoError(chain.CommitBlock(blk2))
 	// broadcast to P2P
 	act2 := tsf2.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -232,7 +235,7 @@ func TestLocalCommit(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 2, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	// transfer 3
 	// B --> B
@@ -246,8 +249,8 @@ func TestLocalCommit(t *testing.T) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
-	require.Nil(chain.CommitBlock(blk3))
+	require.NoError(err)
+	require.NoError(chain.CommitBlock(blk3))
 	// broadcast to P2P
 	act3 := tsf3.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -257,7 +260,7 @@ func TestLocalCommit(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 3, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	// transfer 4
 	// test --> E
@@ -271,8 +274,8 @@ func TestLocalCommit(t *testing.T) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
-	require.Nil(chain.CommitBlock(blk4))
+	require.NoError(err)
+	require.NoError(chain.CommitBlock(blk4))
 	// broadcast to P2P
 	act4 := tsf4.Proto()
 	err = testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -282,7 +285,7 @@ func TestLocalCommit(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 4, nil
 	})
-	require.Nil(err)
+	require.NoError(err)
 	// wait 4 blocks being picked and committed
 	err = p.BroadcastOutbound(p2pCtx, blk2.ConvertToBlockPb())
 	require.NoError(err)
@@ -303,51 +306,52 @@ func TestLocalCommit(t *testing.T) {
 
 	// check balance
 	s, err = bc.Factory().AccountState(identityset.Address(28).String())
-	require.Nil(err)
+	require.NoError(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
 	s, err = bc.Factory().AccountState(identityset.Address(29).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
 	s, err = bc.Factory().AccountState(identityset.Address(30).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
 	s, err = bc.Factory().AccountState(identityset.Address(31).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
 	s, err = bc.Factory().AccountState(identityset.Address(32).String())
-	require.Nil(err)
+	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
 	s, err = bc.Factory().AccountState(identityset.Address(33).String())
-	require.Nil(err)
+	require.NoError(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
 	s, err = bc.Factory().AccountState(identityset.Address(27).String())
-	require.Nil(err)
+	require.NoError(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
+	change.Sub(change, i27Balance)
 
 	require.Equal(
 		unit.ConvertIotxToRau(90000000),
@@ -360,7 +364,7 @@ func TestLocalSync(t *testing.T) {
 	require := require.New(t)
 
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
@@ -374,29 +378,29 @@ func TestLocalSync(t *testing.T) {
 	// Create server
 	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
-	require.Nil(svr.Start(ctx))
+	require.NoError(err)
+	require.NoError(svr.Start(ctx))
 
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
 	require.NotNil(svr.P2PAgent())
-	require.Nil(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc))
 
 	blk, err := bc.BlockDAO().GetBlockByHeight(1)
-	require.Nil(err)
+	require.NoError(err)
 	hash1 := blk.HashBlock()
 	blk, err = bc.BlockDAO().GetBlockByHeight(2)
-	require.Nil(err)
+	require.NoError(err)
 	hash2 := blk.HashBlock()
 	blk, err = bc.BlockDAO().GetBlockByHeight(3)
-	require.Nil(err)
+	require.NoError(err)
 	hash3 := blk.HashBlock()
 	blk, err = bc.BlockDAO().GetBlockByHeight(4)
-	require.Nil(err)
+	require.NoError(err)
 	hash4 := blk.HashBlock()
 	blk, err = bc.BlockDAO().GetBlockByHeight(5)
-	require.Nil(err)
+	require.NoError(err)
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
 
@@ -408,7 +412,7 @@ func TestLocalSync(t *testing.T) {
 	indexDBPath2 := indexDBFile2.Name()
 
 	cfg, err = newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -417,21 +421,21 @@ func TestLocalSync(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
-	require.Nil(err)
-	require.Nil(cli.Start(ctx))
+	require.NoError(err)
+	require.NoError(cli.Start(ctx))
 	require.NotNil(cli.ChainService(chainID).Blockchain())
 	require.NotNil(cli.P2PAgent())
 
 	defer func() {
-		require.Nil(cli.Stop(ctx))
-		require.Nil(svr.Stop(ctx))
+		require.NoError(cli.Stop(ctx))
+		require.NoError(svr.Stop(ctx))
 	}()
 
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, func() (bool, error) {
 		peers, err := svr.P2PAgent().Neighbors(context.Background())
 		return len(peers) >= 1, err
 	})
-	require.Nil(err)
+	require.NoError(err)
 
 	err = svr.P2PAgent().BroadcastOutbound(
 		p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID}),
@@ -466,23 +470,23 @@ func TestLocalSync(t *testing.T) {
 			hash5 == blk5.HashBlock(), nil
 	})
 	err = testutil.WaitUntil(time.Millisecond*100, time.Second*60, check)
-	require.Nil(err)
+	require.NoError(err)
 
 	// verify 4 received blocks
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash2, blk.HashBlock())
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash3, blk.HashBlock())
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
 	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
 }
@@ -506,7 +510,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Network.Port = testutil.RandomPort()
 
 	svr, err := itx.NewServer(cfg)
-	require.Nil(err)
+	require.NoError(err)
 	require.NoError(svr.Start(ctx))
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
