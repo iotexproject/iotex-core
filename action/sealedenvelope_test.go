@@ -1,7 +1,6 @@
 package action
 
 import (
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 )
 
@@ -34,7 +34,8 @@ func TestSealedEnvelope_SrcPubkey(t *testing.T) {
 	se, err := createSealedEnvelope()
 	req.NoError(err)
 	res := se.SrcPubkey()
-	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
+	cPubKey, err2 := crypto.HexStringToPublicKey(publicKey)
+	req.NoError(err2)
 	req.Equal(cPubKey, res)
 }
 func TestSealedEnvelope_Proto(t *testing.T) {
