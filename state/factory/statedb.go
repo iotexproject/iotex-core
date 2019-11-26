@@ -202,6 +202,9 @@ func (sdb *stateDB) Commit(ws WorkingSet) error {
 //======================================
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
+	if height == 0 {
+		return nil, nil
+	}
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	var candidates state.CandidateList
