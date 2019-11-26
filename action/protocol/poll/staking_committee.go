@@ -90,14 +90,17 @@ func NewStakingCommittee(
 }
 
 func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight != 0 {
-		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
-	}
 	if gsc, ok := sc.governanceStaking.(protocol.GenesisStateCreator); ok {
 		if err := gsc.CreateGenesisStates(ctx, sm); err != nil {
 			return err
 		}
+	}
+	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	if raCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	}
+	if raCtx.Genesis.NativeStakingContractCode == "" || raCtx.Genesis.NativeStakingContractAddress != "" {
+		return nil
 	}
 	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
 	raCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
