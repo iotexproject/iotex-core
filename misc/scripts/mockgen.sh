@@ -81,6 +81,7 @@ mockgen -destination=./test/mock/mock_actioniterator/mock_actioniterator.go  \
 
 mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -source=./action/protocol/protocol.go \
+        -self_package=github.com/iotexproject/iotex-core/action/protocol \
         -package=protocol \
         Protocol
 
