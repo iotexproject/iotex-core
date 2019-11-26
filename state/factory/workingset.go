@@ -266,7 +266,7 @@ func (ws *workingSet) Commit() error {
 	var cb db.KVStoreBatch
 	if ws.saveHistory {
 		// exclude trie deletion
-		cb = ws.cb.ExcludeEntries(evm.ContractKVNameSpace, db.Delete)
+		cb = ws.cb.ExcludeEntries("", db.Delete)
 	} else {
 		cb = ws.cb
 	}
