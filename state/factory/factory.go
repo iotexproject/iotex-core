@@ -275,9 +275,6 @@ func (sf *factory) Commit(ws WorkingSet) error {
 //======================================
 
 func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	if height == 0 {
-		return nil, nil
-	}
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	var candidates state.CandidateList

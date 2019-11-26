@@ -102,12 +102,11 @@ func (stx *stateTX) RunAction(ctx context.Context, elp action.SealedEnvelope) (*
 	return stx.runAction(ctx, elp)
 }
 
-func (stx *stateTX) validateBlockHeight(raCtx *protocol.RunActionsCtx) error {
-	if raCtx.BlockHeight == stx.blockHeight {
+func (stx *stateTX) validateBlockHeight(blkCtx protocol.BlockCtx) error {
+	if blkCtx.BlockHeight == stx.blockHeight {
 		return nil
 	}
-
-	return errors.Errorf("invalid block height %d, %d expected", raCtx.BlockHeight, stx.blockHeight)
+	return errors.Errorf("invalid block height %d, %d expected", blkCtx.BlockHeight, stx.blockHeight)
 }
 
 func (stx *stateTX) runAction(
@@ -117,30 +116,33 @@ func (stx *stateTX) runAction(
 	if stx.finalized {
 		return nil, errors.Errorf("cannot run action on a finalized working set")
 	}
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := stx.validateBlockHeight(&raCtx); err != nil {
+
+	// Handle action
+	var actionCtx protocol.ActionCtx
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if err := stx.validateBlockHeight(blkCtx); err != nil {
 		return nil, err
 	}
-	if raCtx.Registry == nil {
-		return nil, nil
-	}
-	// Handle action
-	// Add caller address into the run action context
 	callerAddr, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}
-	raCtx.Caller = callerAddr
-	raCtx.ActionHash = elp.Hash()
-	raCtx.GasPrice = elp.GasPrice()
+	actionCtx.Caller = callerAddr
+	actionCtx.ActionHash = elp.Hash()
+	actionCtx.GasPrice = elp.GasPrice()
 	intrinsicGas, err := elp.IntrinsicGas()
 	if err != nil {
 		return nil, err
 	}
-	raCtx.IntrinsicGas = intrinsicGas
-	raCtx.Nonce = elp.Nonce()
-	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-	for _, actionHandler := range raCtx.Registry.All() {
+
+	actionCtx.IntrinsicGas = intrinsicGas
+	actionCtx.Nonce = elp.Nonce()
+	if bcCtx.Registry == nil {
+		return nil, nil
+	}
+	ctx = protocol.WithActionCtx(ctx, actionCtx)
+	for _, actionHandler := range bcCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), stx)
 		if err != nil {
 			return nil, errors.Wrapf(

@@ -57,8 +57,8 @@ var (
 
 // Validate validates the given block's content
 func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
-	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
-	if err := verifyHeightAndHash(blk, vaCtx.Tip.Height, vaCtx.Tip.Hash); err != nil {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if err := verifyHeightAndHash(blk, bcCtx.Tip.Height, bcCtx.Tip.Hash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
 	if err := verifySigAndRoot(blk); err != nil {
@@ -86,10 +86,6 @@ func (v *validator) validateActionsOnly(
 	ctx context.Context,
 	blk *block.Block,
 ) error {
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
-	}
 	actions := blk.Actions
 	// Verify transfers, votes, executions, witness, and secrets
 	errChan := make(chan error, len(actions))
@@ -97,8 +93,6 @@ func (v *validator) validateActionsOnly(
 
 	if err := v.validateActions(
 		ctx,
-		blk.Height(),
-		producerAddr.String(),
 		actions,
 		accountNonceMap,
 		errChan,
@@ -142,15 +136,12 @@ func (v *validator) validateActionsOnly(
 
 func (v *validator) validateActions(
 	ctx context.Context,
-	height uint64,
-	producer string,
 	actions []action.SealedEnvelope,
 	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
-	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
-	vaCtx.BlockHeight = height
-	vaCtx.ProducerAddr = producer
+	var actionCtx protocol.ActionCtx
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 
 	var wg sync.WaitGroup
 	for _, selp := range actions {
@@ -168,8 +159,8 @@ func (v *validator) validateActions(
 				continue
 			}
 		}
-		vaCtx.Caller = caller
-		aCtx := protocol.WithValidateActionsCtx(ctx, vaCtx)
+		actionCtx.Caller = caller
+		aCtx := protocol.WithActionCtx(ctx, actionCtx)
 
 		for _, validator := range v.actionEnvelopeValidators {
 			wg.Add(1)
@@ -182,7 +173,7 @@ func (v *validator) validateActions(
 			}(validator, selp)
 		}
 
-		for _, validator := range vaCtx.Registry.All() {
+		for _, validator := range bcCtx.Registry.All() {
 			wg.Add(1)
 			go func(validator protocol.ActionValidator, act action.Action) {
 				defer wg.Done()

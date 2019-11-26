@@ -34,7 +34,7 @@ func NewGenericValidator(nonce Nonce) *GenericValidator {
 
 // Validate validates a generic action
 func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
-	vaCtx := MustGetValidateActionsCtx(ctx)
+	actionCtx := MustGetActionCtx(ctx)
 	// Reject action with insufficient gas limit
 	intrinsicGas, err := act.IntrinsicGas()
 	if intrinsicGas > act.GasLimit() || err != nil {
@@ -45,9 +45,9 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedNonce, err := v.nonce(vaCtx.Caller.String())
+	confirmedNonce, err := v.nonce(actionCtx.Caller.String())
 	if err != nil {
-		return errors.Wrapf(err, "invalid nonce value of account %s", vaCtx.Caller.String())
+		return errors.Wrapf(err, "invalid nonce value of account %s", actionCtx.Caller.String())
 	}
 
 	pendingNonce := confirmedNonce + 1

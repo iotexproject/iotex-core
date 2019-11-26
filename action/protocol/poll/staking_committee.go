@@ -95,17 +95,19 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 			return err
 		}
 	}
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight != 0 {
-		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	if blkCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
-	if raCtx.Genesis.NativeStakingContractCode == "" || raCtx.Genesis.NativeStakingContractAddress != "" {
+	if bcCtx.Genesis.NativeStakingContractCode == "" || bcCtx.Genesis.NativeStakingContractAddress != "" {
 		return nil
 	}
-	raCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	raCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
-	raCtx.GasLimit = raCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(raCtx.Genesis.NativeStakingContractCode)
+	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
+	actionCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
+	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
+	bytes, err := hexutil.Decode(bcCtx.Genesis.NativeStakingContractCode)
 	if err != nil {
 		return err
 	}
@@ -113,15 +115,17 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		"",
 		nativeStakingContractNonce,
 		big.NewInt(0),
-		raCtx.Genesis.BlockGasLimit,
+		bcCtx.Genesis.BlockGasLimit,
 		big.NewInt(0),
 		bytes,
 	)
 	if err != nil {
 		return err
 	}
+	ctx = protocol.WithActionCtx(ctx, actionCtx)
+	ctx = protocol.WithBlockCtx(ctx, blkCtx)
 	_, receipt, err := evm.ExecuteContract(
-		protocol.WithRunActionsCtx(ctx, raCtx),
+		ctx,
 		sm,
 		execution,
 		func(height uint64) (hash.Hash256, error) {
@@ -141,8 +145,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 }
 
 func (sc *stakingCommittee) Start(ctx context.Context) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.Genesis.NativeStakingContractAddress == "" && raCtx.Genesis.NativeStakingContractCode != "" {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if bcCtx.Genesis.NativeStakingContractAddress == "" && bcCtx.Genesis.NativeStakingContractCode != "" {
 		caller, _ := address.FromString(nativeStakingContractCreator)
 		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
 		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
@@ -186,8 +190,8 @@ func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64
 	if err != nil {
 		return nil, err
 	}
-	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
-	hu := config.NewHeightUpgrade(&vaCtx.Genesis)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// convert to epoch start height
 	if hu.IsPre(config.Cook, sc.getEpochHeight(sc.getEpochNum(height))) {
 		return sc.filterDelegates(cand), nil
@@ -197,7 +201,7 @@ func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64
 		return nil, errors.New("native staking was not set after cook height")
 	}
 
-	nativeVotes, err := sc.nativeStaking.Votes(vaCtx.Tip.Height, vaCtx.Tip.Timestamp)
+	nativeVotes, err := sc.nativeStaking.Votes(bcCtx.Tip.Height, bcCtx.Tip.Timestamp)
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil
@@ -207,7 +211,7 @@ func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64
 	}
 	sc.currentNativeBuckets = nativeVotes.Buckets
 
-	return sc.mergeDelegates(cand, nativeVotes, vaCtx.Tip.Timestamp), nil
+	return sc.mergeDelegates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
 }
 
 func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
@@ -265,9 +269,10 @@ func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *Vote
 
 func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
 	// Start to write native buckets archive after cook and only when the action is executed successfully
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	epochHeight := sc.getEpochHeight(sc.getEpochNum(raCtx.BlockHeight))
-	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	epochHeight := sc.getEpochHeight(sc.getEpochNum(blkCtx.BlockHeight))
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Cook, epochHeight) {
 		return nil
 	}
@@ -279,8 +284,8 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	}
 	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
 	if err := sc.electionCommittee.PutNativePollByEpoch(
-		sc.rp.GetEpochNum(raCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
-		raCtx.Tip.Timestamp,                    // The timestamp of last block is used to represent the current buckets timestamp
+		sc.rp.GetEpochNum(blkCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
+		bcCtx.Tip.Timestamp,                     // The timestamp of last block is used to represent the current buckets timestamp
 		sc.currentNativeBuckets,
 	); err != nil {
 		return err

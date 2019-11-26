@@ -49,9 +49,9 @@ func TestWrongRootHash(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx := protocol.WithValidateActionsCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 0,
@@ -83,9 +83,9 @@ func TestSignBlock(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx := protocol.WithValidateActionsCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -141,9 +141,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx := protocol.WithValidateActionsCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 1,
@@ -156,14 +156,19 @@ func TestWrongNonce(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithRunActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.RunActionsCtx{
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		},
+	)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
-			Genesis:     config.Default.Genesis,
-			Registry:    registry,
 		},
 	)
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})
@@ -182,9 +187,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf1, tsf2).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -207,9 +212,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf3).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -236,9 +241,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf4, tsf5).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -264,9 +269,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf6, tsf7).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -292,9 +297,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf8, tsf9).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -320,9 +325,9 @@ func TestWrongNonce(t *testing.T) {
 		AddActions(tsf10, tsf11).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 2,
@@ -351,9 +356,9 @@ func TestWrongAddress(t *testing.T) {
 	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
 	val := &validator{sf: bc.Factory(), validatorAddr: ""}
@@ -421,9 +426,9 @@ func TestBlackListAddress(t *testing.T) {
 	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol()))
 	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
 	senderBlackList := make(map[string]bool)

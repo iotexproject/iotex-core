@@ -1132,11 +1132,14 @@ func TestBlocks(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
-			Genesis:  cfg.Genesis,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, nil)
 	require.NoError(err)
@@ -1170,9 +1173,9 @@ func TestActions(t *testing.T) {
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 
-	ctx := protocol.WithValidateActionsCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -1204,12 +1207,14 @@ func TestActions(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(ws, c, big.NewInt(100000))
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithRunActionsCtx(
-		ctx,
-		protocol.RunActionsCtx{
+	ctx = protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
-			Genesis:  cfg.Genesis,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 		})
 	_, err = ws.RunActions(ctx, nil)
 	require.NoError(err)
@@ -1232,9 +1237,9 @@ func TestActions(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	val := &validator{sf: sf, validatorAddr: ""}
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 0,

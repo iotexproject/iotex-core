@@ -172,35 +172,36 @@ func (ws *workingSet) runAction(
 	if ws.finalized {
 		return nil, errors.Errorf("cannot run action on a finalized working set")
 	}
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight != ws.blockHeight {
+	// Handle action
+	var actionCtx protocol.ActionCtx
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if blkCtx.BlockHeight != ws.blockHeight {
 		return nil, errors.Errorf(
 			"invalid block height %d, %d expected",
-			raCtx.BlockHeight,
+			blkCtx.BlockHeight,
 			ws.blockHeight,
 		)
 	}
-	if raCtx.Registry == nil {
-		return nil, nil
-	}
-
-	// Handle action
-	// Add caller address into the run action context
 	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
 	}
-	raCtx.Caller = caller
-	raCtx.ActionHash = elp.Hash()
-	raCtx.GasPrice = elp.GasPrice()
+	actionCtx.Caller = caller
+	actionCtx.ActionHash = elp.Hash()
+	actionCtx.GasPrice = elp.GasPrice()
 	intrinsicGas, err := elp.IntrinsicGas()
 	if err != nil {
 		return nil, err
 	}
-	raCtx.IntrinsicGas = intrinsicGas
-	raCtx.Nonce = elp.Nonce()
-	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
-	for _, actionHandler := range raCtx.Registry.All() {
+	actionCtx.IntrinsicGas = intrinsicGas
+	actionCtx.Nonce = elp.Nonce()
+
+	ctx = protocol.WithActionCtx(ctx, actionCtx)
+	if bcCtx.Registry == nil {
+		return nil, nil
+	}
+	for _, actionHandler := range bcCtx.Registry.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(

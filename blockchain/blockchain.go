@@ -8,7 +8,6 @@ package blockchain
 
 import (
 	"context"
-	"math/big"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -121,16 +120,33 @@ func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Executi
 	if err != nil {
 		return nil, nil, err
 	}
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	raCtx.Caller = caller
-
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: caller,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       zeroAddr,
+		},
+	)
 	ws, err := bc.Factory().NewWorkingSet()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
 	return evm.ExecuteContract(
-		protocol.WithRunActionsCtx(ctx, raCtx),
+		ctx,
 		ws,
 		ex,
 		bc.BlockDAO().GetBlockHash,
@@ -143,23 +159,23 @@ func ProductivityByEpoch(bc Blockchain, epochNum uint64) (uint64, map[string]uin
 	if err != nil {
 		return 0, nil, err
 	}
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	rp := rolldpos.MustGetProtocol(raCtx.Registry)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
 	var epochEndHeight uint64
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	currentEpochNum := rp.GetEpochNum(raCtx.BlockHeight)
+	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
 	if epochNum > currentEpochNum {
-		return 0, nil, errors.New("epoch number is larger than current epoch number")
+		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
 	}
 	if epochNum == currentEpochNum {
-		epochEndHeight = raCtx.BlockHeight
+		epochEndHeight = bcCtx.Tip.Height
 	} else {
 		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(raCtx.Registry).DelegatesByEpoch(ctx, epochNum)
+	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum)
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -363,10 +379,11 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	defer bc.mu.Unlock()
 
 	// pass registry to be used by state factory's initialization
-	ctx, err := bc.context(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0))
+	ctx, err := bc.context(ctx, false, false)
 	if err != nil {
 		return err
 	}
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0))
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
@@ -382,8 +399,8 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		return err
 	}
 
-	if raCtx, ok := protocol.GetRunActionsCtx(ctx); ok {
-		for _, p := range raCtx.Registry.All() {
+	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
+		for _, p := range bcCtx.Registry.All() {
 			if s, ok := p.(lifecycle.Starter); ok {
 				if err := s.Start(ctx); err != nil {
 					return errors.Wrap(err, "failed to start protocol")
@@ -392,7 +409,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		}
 	}
 
-	return bc.startExistingBlockchain()
+	return bc.startExistingBlockchain(ctx)
 }
 
 // Stop stops the blockchain.
@@ -448,34 +465,44 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 func (bc *blockchain) Context() (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	header, err := bc.blockHeaderByHeight(bc.tipHeight)
-	if err != nil {
-		return nil, err
-	}
-
-	return bc.context(context.Background(), bc.config.ProducerAddress(), header.Height(), header.Timestamp())
+	return bc.context(context.Background(), true, true)
 }
 
-func (bc *blockchain) context(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) (context.Context, error) {
-	candidates, err := bc.candidatesByHeight(height)
-	if err != nil {
-		return nil, err
-	}
-
-	return protocol.WithRunActionsCtx(
+func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
+	return protocol.WithBlockCtx(
 		ctx,
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
-			Candidates:     candidates,
 			Producer:       producer,
 			GasLimit:       bc.config.Genesis.BlockGasLimit,
-			GasPrice:       big.NewInt(0),
-			IntrinsicGas:   0,
-			Registry:       bc.registry,
-			Genesis:        bc.config.Genesis,
-		},
-	), nil
+		})
+}
+
+func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bool) (context.Context, error) {
+	var candidates state.CandidateList
+	var tip protocol.TipInfo
+	var err error
+	if candidateFlag {
+		if candidates, err = bc.candidatesByHeight(bc.tipHeight + 1); err != nil {
+			return nil, err
+		}
+	}
+	if tipInfoFlag {
+		if tipInfoValue, err := bc.tipInfo(); err == nil {
+			tip = *tipInfoValue
+		} else {
+			return nil, err
+		}
+	}
+	return protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Registry:   bc.registry,
+			Genesis:    bc.config.Genesis,
+			Tip:        tip,
+			Candidates: candidates,
+		}), nil
 }
 
 func (bc *blockchain) MintNewBlock(
@@ -494,11 +521,11 @@ func (bc *blockchain) MintNewBlock(
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	ctx, err := bc.context(context.Background(), bc.config.ProducerAddress(), newblockHeight, timestamp)
+	ctx, err := bc.context(context.Background(), false, true)
 	if err != nil {
 		return nil, err
 	}
-
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
 	rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
@@ -633,7 +660,7 @@ func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) 
 	return bc.dao.Footer(hash)
 }
 
-func (bc *blockchain) startExistingBlockchain() error {
+func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 	if bc.sf == nil {
 		return errors.New("statefactory cannot be nil")
 	}
@@ -651,12 +678,16 @@ func (bc *blockchain) startExistingBlockchain() error {
 		if err != nil {
 			return err
 		}
-
+		producer, err := address.FromBytes(blk.PublicKey().Hash())
+		if err != nil {
+			return err
+		}
+		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
 		ws, err := bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
 		}
-		if _, err := bc.runActions(blk, ws); err != nil {
+		if _, err := bc.runActions(ctx, blk, ws); err != nil {
 			return err
 		}
 
@@ -695,22 +726,18 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 	}, nil
 }
 
-func (bc *blockchain) validateActionsCtx() (*protocol.ValidateActionsCtx, error) {
-	tip, err := bc.tipInfo()
-	if err != nil {
-		return nil, err
-	}
-
-	return &protocol.ValidateActionsCtx{Genesis: bc.config.Genesis, Tip: *tip, Registry: bc.registry}, nil
-}
-
 func (bc *blockchain) validateBlock(blk *block.Block) error {
 	validateTimer := bc.timerFactory.NewTimer("validate")
-	vaCtx, err := bc.validateActionsCtx()
+
+	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return err
 	}
-	ctx := protocol.WithValidateActionsCtx(context.Background(), *vaCtx)
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
 	err = bc.validator.Validate(ctx, blk)
 	validateTimer.End()
 	if err != nil {
@@ -722,7 +749,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 		return errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 	runTimer := bc.timerFactory.NewTimer("runActions")
-	receipts, err := bc.runActions(blk, ws)
+	receipts, err := bc.runActions(ctx, blk, ws)
 	runTimer.End()
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
@@ -789,27 +816,17 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) runActions(
+	ctx context.Context,
 	blk *block.Block,
 	ws factory.WorkingSet,
 ) ([]*action.Receipt, error) {
 	if bc.sf == nil {
 		return nil, errors.New("statefactory cannot be nil")
 	}
-
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, err := bc.context(context.Background(), producer, blk.Height(), blk.Timestamp())
-	if err != nil {
-		return nil, err
-	}
-
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	raCtx.History = ws.History()
-	registry := raCtx.Registry
-	ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	bcCtx.History = ws.History()
+	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
+	registry := bcCtx.Registry
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
@@ -836,8 +853,9 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	registry := raCtx.Registry
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	registry := bcCtx.Registry
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
@@ -853,7 +871,6 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		if !ok {
 			break
 		}
-
 		receipt, err := ws.RunAction(ctx, nextAction)
 		if err != nil {
 			if errors.Cause(err) == action.ErrHitGasLimit {
@@ -866,19 +883,18 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		if receipt != nil {
-			raCtx.GasLimit -= receipt.GasConsumed
-			ctx = protocol.WithRunActionsCtx(ctx, raCtx)
+			blkCtx.GasLimit -= receipt.GasConsumed
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, nextAction)
 
 		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
 		// than certain threshold
-		if raCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
+		if blkCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
 			break
 		}
 	}
-
 	sk := bc.config.ProducerPrivateKey()
 	for _, p := range registry.All() {
 		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
@@ -904,7 +920,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 	}
 
-	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
+	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - blkCtx.GasLimit))
 
 	return receipts, executedActions, ws.Finalize()
 }

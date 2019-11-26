@@ -1477,10 +1477,17 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().Factory().Return(msf).Times(2)
 			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
-			mbc.EXPECT().Context().Return(protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-				Registry:    svr.registry,
-				BlockHeight: uint64(4),
-			}), nil).Times(1)
+			ctx := protocol.WithBlockchainCtx(
+				context.Background(),
+				protocol.BlockchainCtx{
+					Registry: svr.registry,
+					Tip: protocol.TipInfo{
+						Height:    uint64(4),
+						Timestamp: time.Time{},
+					},
+				},
+			)
+			mbc.EXPECT().Context().Return(ctx, nil).Times(1)
 			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))
@@ -1591,13 +1598,14 @@ func addProducerToFactory(sf factory.Factory, registry *protocol.Registry) error
 		return err
 	}
 	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight: 0,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-			Registry:    registry,
-		})
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 0,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Registry: registry,
+	})
 	if _, err = ws.RunActions(ctx, nil); err != nil {
 		return err
 	}
