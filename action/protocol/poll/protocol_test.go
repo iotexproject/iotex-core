@@ -291,6 +291,5 @@ func TestProtocol_Validate(t *testing.T) {
 			Caller:       caller6,
 		},
 	)
-	err = p6.Validate(ctx6, selp6.Action())
-	require.NoError(err)
+	require.NoError(p6.Validate(ctx6, selp6.Action()))
 }
