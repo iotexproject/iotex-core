@@ -1,6 +1,7 @@
 package action
 
 import (
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -27,6 +28,26 @@ func TestSealedEnvelope_Hash(t *testing.T) {
 		126, 175, 221, 87, 180, 222, 59, 216, 154, 125, 119, 201, 191, 131, 149}
 	exlpHash := hash.BytesToHash256(exlByte)
 	req.Equal(exlpHash, rHash)
+}
+func TestSealedEnvelope_SrcPubkey(t *testing.T) {
+	req := require.New(t)
+	se, err := createSealedEnvelope()
+	req.NoError(err)
+	res := se.SrcPubkey()
+	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
+	req.Equal(cPubKey, res)
+}
+func TestSealedEnvelope_Proto(t *testing.T) {
+	req := require.New(t)
+	se, err := createSealedEnvelope()
+	req.NoError(err)
+	proto := se.Proto()
+	ac := &iotextypes.Action{
+		Core:         se.Envelope.Proto(),
+		SenderPubKey: se.srcPubkey.Bytes(),
+		Signature:    se.signature,
+	}
+	req.Equal(ac, proto)
 }
 func TestSealedEnvelope_Signature(t *testing.T) {
 	req := require.New(t)

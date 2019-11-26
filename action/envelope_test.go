@@ -1,6 +1,9 @@
 package action
 
 import (
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"math/big"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -9,25 +12,92 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestEnvelope_Version(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	req.Equal(uint32(1), evlp.Version())
+}
+func TestEnvelope_Nonce(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	req.Equal(uint64(10), evlp.Nonce())
+}
+func TestEnvelope_GasLimit(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	req.Equal(uint64(20010), evlp.GasLimit())
+}
 func TestEnvelope_Destination(t *testing.T) {
 	req := require.New(t)
 	evlp := createEnvelope()
 	res, boolT := evlp.Destination()
 	req.Equal("io1jh0ekmccywfkmj7e8qsuzsupnlk3w5337hjjg2", res)
-	req.Equal(true, boolT)
+	req.True(boolT)
 }
 func TestEnvelope_GasPrice(t *testing.T) {
 	req := require.New(t)
 	evlp := createEnvelope()
 	gasPrice := evlp.GasPrice()
-	req.Equal("11000000000000000000", gasPrice.String())
+	expPrice, _ := new(big.Int).SetString("11000000000000000000", 10)
+	req.Equal(0, gasPrice.Cmp(expPrice))
+}
+func TestEnvelope_Cost(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	c, err := evlp.Cost()
+	expC, _ := new(big.Int).SetString("111010000000000000000000", 10)
+	req.Equal(0, c.Cmp(expC))
+	req.NoError(err)
+}
+func TestEnvelope_IntrinsicGas(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	g, err := evlp.IntrinsicGas()
+	req.Equal(uint64(10000), g)
+	req.NoError(err)
+}
+func TestEnvelope_Action(t *testing.T) {
+	req := require.New(t)
+	i := 10
+	evlp := createEnvelope()
+	a := evlp.Action()
+	tsf, _ := NewTransfer(
+		uint64(i),
+		unit.ConvertIotxToRau(1000+int64(i)),
+		identityset.Address(i%identityset.Size()).String(),
+		nil,
+		20000+uint64(i),
+		unit.ConvertIotxToRau(1+int64(i)),
+	)
+	req.Equal(tsf, a)
+}
+func TestEnvelope_Proto(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	i := 10
+	proto := evlp.Proto()
+	actCore := &iotextypes.ActionCore{
+		Version:  evlp.version,
+		Nonce:    evlp.nonce,
+		GasLimit: evlp.gasLimit,
+	}
+	tsf, _ := NewTransfer(
+		uint64(i),
+		unit.ConvertIotxToRau(1000+int64(i)),
+		identityset.Address(i%identityset.Size()).String(),
+		nil,
+		20000+uint64(i),
+		unit.ConvertIotxToRau(1+int64(i)),
+	)
+	actCore.GasPrice = evlp.gasPrice.String()
+	actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: tsf.Proto()}
+	req.Equal(actCore, proto)
 }
 func TestEnvelope_LoadProto(t *testing.T) {
 	req := require.New(t)
 	evlp := createEnvelope()
 	proto := evlp.Proto()
-	err := evlp.LoadProto(proto)
-	req.Equal(nil, err)
+	req.NoError(evlp.LoadProto(proto))
 }
 func TestEnvelope_Serialize(t *testing.T) {
 	req := require.New(t)
@@ -41,6 +111,15 @@ func TestEnvelope_Serialize(t *testing.T) {
 		119, 53, 51, 51, 55,
 		104, 106, 106, 103, 50}
 	req.Equal(pS, s)
+}
+func TestEnvelope_Hash(t *testing.T) {
+	req := require.New(t)
+	evlp := createEnvelope()
+	h := evlp.Hash()
+	exp := []byte{12, 96, 244, 62, 13, 20, 16, 178, 130, 189, 206, 184, 104, 43, 140, 139, 17, 252, 15, 3, 245, 89,
+		130, 95, 81, 181, 95, 33, 100, 52, 71, 233}
+	expH := hash.BytesToHash256(exp)
+	req.Equal(expH, h)
 }
 func createEnvelope() Envelope {
 	i := 10
