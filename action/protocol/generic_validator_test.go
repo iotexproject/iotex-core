@@ -27,12 +27,29 @@ func TestActionProto(t *testing.T) {
 	require := require.New(t)
 	caller, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
-	ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", TipInfo{
-		Height:    0,
-		Hash:      config.Default.Genesis.Hash(),
-		Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
-	}, caller, config.Default.Genesis, nil}
-	c := WithValidateActionsCtx(context.Background(), ctx)
+	producer, err := address.FromString("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6")
+	require.NoError(err)
+
+	ctx := WithBlockCtx(context.Background(),
+		BlockCtx{
+			BlockHeight: 1,
+			Producer:    producer,
+		})
+	ctx = WithActionCtx(ctx,
+		ActionCtx{
+			Caller: caller,
+		})
+
+	ctx = WithBlockchainCtx(ctx,
+		BlockchainCtx{
+			Genesis: config.Default.Genesis,
+			Tip: TipInfo{
+				Height:    0,
+				Hash:      config.Default.Genesis.Hash(),
+				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
+			},
+		})
+
 	valid := NewGenericValidator(func(addr string) (uint64, error) {
 		if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
 			return 0, errors.New("MockChainManager nonce error")
@@ -53,7 +70,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
-		require.NoError(valid.Validate(c, nselp))
+		require.NoError(valid.Validate(ctx, nselp))
 	}
 	// Case II: GasLimit lower
 	{
@@ -67,7 +84,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
-		err = valid.Validate(c, nselp)
+		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "insufficient gas"))
 	}
@@ -75,12 +92,10 @@ func TestActionProto(t *testing.T) {
 	{
 		caller, err := address.FromString("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6")
 		require.NoError(err)
-		ctx := ValidateActionsCtx{1, "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", TipInfo{
-			Height:    0,
-			Hash:      config.Default.Genesis.Hash(),
-			Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
-		}, caller, config.Default.Genesis, nil}
-		c := WithValidateActionsCtx(context.Background(), ctx)
+		ctx := WithActionCtx(ctx,
+			ActionCtx{
+				Caller: caller,
+			})
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
@@ -91,7 +106,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
-		err = valid.Validate(c, nselp)
+		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "invalid nonce value of account"))
 	}
@@ -108,7 +123,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
-		err = valid.Validate(c, nselp)
+		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "nonce is too low"))
 	}

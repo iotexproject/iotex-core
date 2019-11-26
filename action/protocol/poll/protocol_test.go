@@ -191,12 +191,17 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NotNil(selp2)
 	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 	require.NoError(err)
-	ctx2 = protocol.WithValidateActionsCtx(
+	ctx2 = protocol.WithBlockCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
-			BlockHeight:  1,
-			ProducerAddr: recipientAddr.String(),
-			Caller:       caller,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    recipientAddr,
+		},
+	)
+	ctx2 = protocol.WithActionCtx(
+		ctx2,
+		protocol.ActionCtx{
+			Caller: caller,
 		},
 	)
 	err = p.Validate(ctx2, selp2.Action())
@@ -216,12 +221,17 @@ func TestProtocol_Validate(t *testing.T) {
 	selp3, err := action.Sign(elp, senderKey)
 	require.NoError(err)
 	require.NotNil(selp3)
-	ctx3 = protocol.WithValidateActionsCtx(
+	ctx3 = protocol.WithBlockCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
-			BlockHeight:  1,
-			ProducerAddr: identityset.Address(27).String(),
-			Caller:       caller,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+		},
+	)
+	ctx3 = protocol.WithActionCtx(
+		ctx3,
+		protocol.ActionCtx{
+			Caller: caller,
 		},
 	)
 	err = p.Validate(ctx3, selp3.Action())
@@ -242,12 +252,17 @@ func TestProtocol_Validate(t *testing.T) {
 	selp4, err := action.Sign(elp4, senderKey)
 	require.NoError(err)
 	require.NotNil(selp4)
-	ctx4 = protocol.WithValidateActionsCtx(
+	ctx4 = protocol.WithBlockCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
-			BlockHeight:  1,
-			ProducerAddr: identityset.Address(27).String(),
-			Caller:       caller,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+		},
+	)
+	ctx4 = protocol.WithActionCtx(
+		ctx4,
+		protocol.ActionCtx{
+			Caller: caller,
 		},
 	)
 	err = p4.Validate(ctx4, selp4.Action())
@@ -267,12 +282,17 @@ func TestProtocol_Validate(t *testing.T) {
 	selp5, err := action.Sign(elp5, senderKey)
 	require.NoError(err)
 	require.NotNil(selp5)
-	ctx5 = protocol.WithValidateActionsCtx(
+	ctx5 = protocol.WithBlockCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
-			BlockHeight:  1,
-			ProducerAddr: identityset.Address(27).String(),
-			Caller:       caller,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+		},
+	)
+	ctx5 = protocol.WithActionCtx(
+		ctx4,
+		protocol.ActionCtx{
+			Caller: caller,
 		},
 	)
 	err = p5.Validate(ctx5, selp5.Action())
@@ -293,12 +313,17 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NotNil(selp6)
 	caller6, err := address.FromBytes(selp6.SrcPubkey().Hash())
 	require.NoError(err)
-	ctx6 = protocol.WithValidateActionsCtx(
+	ctx6 = protocol.WithBlockCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{
-			BlockHeight:  1,
-			ProducerAddr: identityset.Address(27).String(),
-			Caller:       caller6,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+		},
+	)
+	ctx6 = protocol.WithActionCtx(
+		ctx6,
+		protocol.ActionCtx{
+			Caller: caller6,
 		},
 	)
 	err = p6.Validate(ctx6, selp6.Action())

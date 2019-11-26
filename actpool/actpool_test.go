@@ -103,7 +103,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	validator := ap.actionEnvelopeValidators[0]
-	ctx := protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{})
+	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{})
 	// Case I: Insufficient gas
 	tsf, err := testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
@@ -146,7 +146,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	ctx = protocol.WithValidateActionsCtx(context.Background(), protocol.ValidateActionsCtx{
+	ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(28),
 	})
 	err = validator.Validate(ctx, nTsf)

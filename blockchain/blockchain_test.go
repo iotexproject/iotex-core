@@ -1175,9 +1175,9 @@ func TestActions(t *testing.T) {
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
 
-	ctx := protocol.WithValidateActionsCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.ValidateActionsCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -1239,9 +1239,9 @@ func TestActions(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	val := &validator{sf: sf, validatorAddr: ""}
-	ctx = protocol.WithValidateActionsCtx(
+	ctx = protocol.WithBlockchainCtx(
 		ctx,
-		protocol.ValidateActionsCtx{
+		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 0,

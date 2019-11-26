@@ -226,9 +226,9 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	}
 	// envelope validation
 	for _, validator := range ap.actionEnvelopeValidators {
-		ctx := protocol.WithValidateActionsCtx(
+		ctx := protocol.WithActionCtx(
 			context.Background(),
-			protocol.ValidateActionsCtx{
+			protocol.ActionCtx{
 				Caller: caller,
 			},
 		)
@@ -239,9 +239,9 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	}
 	// Reject action if it's invalid
 	for _, validator := range ap.validators {
-		ctx := protocol.WithValidateActionsCtx(
+		ctx := protocol.WithActionCtx(
 			context.Background(),
-			protocol.ValidateActionsCtx{
+			protocol.ActionCtx{
 				Caller: caller,
 			},
 		)

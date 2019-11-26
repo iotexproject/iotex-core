@@ -122,13 +122,13 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		context.Background(),
 		protocol.BlockCtx{
 			BlockHeight: 0,
-			Candidates:  candidates,
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: ge,
+			Genesis:    ge,
+			Candidates: candidates,
 		},
 	)
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
@@ -138,7 +138,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			Candidates:  candidates,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -150,7 +149,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: ge,
+			Genesis:    ge,
+			Candidates: candidates,
 		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
@@ -243,6 +243,13 @@ func TestProtocol_Handle(t *testing.T) {
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
+			Candidates: []*state.Candidate{
+				{
+					Address:       identityset.Address(0).String(),
+					Votes:         unit.ConvertIotxToRau(4000000),
+					RewardAddress: identityset.Address(0).String(),
+				},
+			},
 		},
 	)
 
@@ -253,13 +260,6 @@ func TestProtocol_Handle(t *testing.T) {
 		protocol.BlockCtx{
 			Producer:    identityset.Address(0),
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			Candidates: []*state.Candidate{
-				{
-					Address:       identityset.Address(0).String(),
-					Votes:         unit.ConvertIotxToRau(4000000),
-					RewardAddress: identityset.Address(0).String(),
-				},
-			},
 		},
 	)
 	ctx = protocol.WithActionCtx(

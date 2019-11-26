@@ -329,20 +329,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: ge,
-		},
-	)
-
-	require.NoError(t, p.CreateGenesisStates(ctx, sm))
-
-	// Create a test account with 1000 token
-	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
-	require.NoError(t, err)
-
-	ctx = protocol.WithBlockCtx(
-		context.Background(),
-		protocol.BlockCtx{
-			Producer:    identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 			Candidates: []*state.Candidate{
 				{
 					Address:       identityset.Address(0).String(),
@@ -355,6 +341,20 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 					RewardAddress: identityset.Address(1).String(),
 				},
 			},
+		},
+	)
+
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
+
+	// Create a test account with 1000 token
+	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
+	require.NoError(t, err)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
 		},
 	)
 	ctx = protocol.WithActionCtx(

@@ -589,15 +589,17 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	if !ok {
 		return nil
 	}
-	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
-	if vaCtx.ProducerAddr != vaCtx.Caller.String() {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	if blkCtx.Producer.String() != actionCtx.Caller.String() {
 		return errors.New("Only producer could create this protocol")
 	}
 	proposedDelegates := ppr.Candidates()
 	if err := validateDelegates(proposedDelegates); err != nil {
 		return err
 	}
-	ds, err := p.DelegatesByHeight(ctx, vaCtx.BlockHeight)
+	ds, err := p.DelegatesByHeight(ctx, blkCtx.BlockHeight)
 	if err != nil {
 		return err
 	}

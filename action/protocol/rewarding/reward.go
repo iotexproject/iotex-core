@@ -69,13 +69,14 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
-	for _, candidate := range blkCtx.Candidates {
+	for _, candidate := range bcCtx.Candidates {
 		if candidate.Address == producerAddrStr {
 			rewardAddrStr = candidate.RewardAddress
 			break
@@ -129,6 +130,7 @@ func (p *Protocol) GrantEpochReward(
 ) ([]*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	epochNum := p.rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
@@ -157,7 +159,7 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 
-	candidates := blkCtx.Candidates
+	candidates := bcCtx.Candidates
 	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err

@@ -19,53 +19,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWithValidateActionsCtx(t *testing.T) {
-	require := require.New(t)
-	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
-	require.NoError(err)
-	validateCtx := ValidateActionsCtx{
-		BlockHeight:  1,
-		ProducerAddr: "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-		Caller:       addr,
-		Genesis:      config.Default.Genesis,
-	}
-	require.NotNil(WithValidateActionsCtx(context.Background(), validateCtx))
-}
-func TestGetValidateActionsCtx(t *testing.T) {
-	require := require.New(t)
-	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
-	require.NoError(err)
-	validateCtx := ValidateActionsCtx{
-		BlockHeight:  1111,
-		ProducerAddr: "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-		Caller:       addr,
-		Genesis:      config.Default.Genesis,
-	}
-	ctx := WithValidateActionsCtx(context.Background(), validateCtx)
-	require.NotNil(ctx)
-	ret, ok := GetValidateActionsCtx(ctx)
-	require.True(ok)
-	require.Equal(uint64(1111), ret.BlockHeight)
-}
-func TestMustGetValidateActionsCtx(t *testing.T) {
-	require := require.New(t)
-	addr, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
-	require.NoError(err)
-	validateCtx := ValidateActionsCtx{
-		BlockHeight:  1111,
-		ProducerAddr: "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-		Caller:       addr,
-		Genesis:      config.Default.Genesis,
-	}
-	ctx := WithValidateActionsCtx(context.Background(), validateCtx)
-	require.NotNil(ctx)
-	// Case I: Normal
-	ret := MustGetValidateActionsCtx(ctx)
-	require.Equal(uint64(1111), ret.BlockHeight)
-	// Case II: Panic
-	require.Panics(func() { MustGetValidateActionsCtx(context.Background()) }, "Miss validate action context")
-}
-
 func TestWithBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
