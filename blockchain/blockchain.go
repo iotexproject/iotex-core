@@ -383,9 +383,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if ctx, err = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0)); err != nil {
-		return err
-	}
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0))
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
@@ -470,20 +468,18 @@ func (bc *blockchain) Context() (context.Context, error) {
 	return bc.context(context.Background(), true, true)
 }
 
-func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) (context.Context, error) {
-	ctx = protocol.WithBlockCtx(
+func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
+	return protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    height,
 			BlockTimeStamp: timestamp,
 			Producer:       producer,
 			GasLimit:       bc.config.Genesis.BlockGasLimit,
-		},
-	)
-	return ctx, nil
+		})
 }
 
-func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool, candidateFlag bool) (context.Context, error) {
+func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bool) (context.Context, error) {
 	var candidates state.CandidateList
 	var tip protocol.TipInfo
 	var err error
@@ -529,10 +525,7 @@ func (bc *blockchain) MintNewBlock(
 	if err != nil {
 		return nil, err
 	}
-	if ctx, err = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp); err != nil {
-		return nil, err
-	}
-
+	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
 	rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
@@ -689,9 +682,7 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		if ctx, err = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp()); err != nil {
-			return err
-		}
+		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
 		ws, err := bc.sf.NewWorkingSet()
 		if err != nil {
 			return errors.Wrap(err, "failed to obtain working set from state factory")
@@ -746,9 +737,7 @@ func (bc *blockchain) validateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if ctx, err = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp()); err != nil {
-		return err
-	}
+	ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
 	err = bc.validator.Validate(ctx, blk)
 	validateTimer.End()
 	if err != nil {
