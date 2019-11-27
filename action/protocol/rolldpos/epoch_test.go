@@ -142,7 +142,7 @@ func TestProtocol_NumSubEpochs(t *testing.T) {
 
 	expectedP := []uint64{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3}
 
-	for i := 1; i < len(height); i++ {
+	for i := 0; i < len(height); i++ {
 		p1 := NewProtocol(23, 4, 3)
 		p2 := NewProtocol(23, 4, 3)
 		p2.numSubEpochsDardanelles = p2.numSubEpochs
@@ -203,7 +203,7 @@ func TestGetEpochHeight(t *testing.T) {
 	expectedP1 := []uint64{0, 1, 13, 25, 37, 49, 61, 73, 85, 97, 109}
 	expectedP2 := []uint64{0, 12, 24, 36, 48, 60, 72, 84, 96, 108, 120}
 
-	for i := 1; i < len(epochNum); i++ {
+	for i := 0; i < len(epochNum); i++ {
 
 		p1 := NewProtocol(23, 4, 3)
 
