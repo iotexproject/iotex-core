@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
@@ -38,10 +40,13 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			BlockHeight: 0,
 		},
 	)
+	registry := protocol.NewRegistry()
+	err := registry.Register(rolldpos.ProtocolID, rolldpos.NewProtocol(36, 36, 20))
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -108,6 +113,23 @@ func TestCreateGenesisStates(t *testing.T) {
 		require.True(ok)
 		require.Equal(addr.String(), c.Address)
 	}
+}
+
+func TestCreatePostSystemActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, _, _, err := initConstruct(ctrl)
+	require.NoError(err)
+	psac, ok := p.(protocol.PostSystemActionsCreator)
+	require.True(ok)
+	elp, err := psac.CreatePostSystemActions(ctx)
+	require.NoError(err)
+	require.Equal(1, len(elp))
+	act, ok := elp[0].Action().(*action.PutPollResult)
+	require.True(ok)
+	require.Equal(uint64(1), act.Height())
+	require.Equal(uint64(0), act.AbstractAction.Nonce())
 }
 
 func TestHandle(t *testing.T) {
