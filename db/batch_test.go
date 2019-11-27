@@ -54,6 +54,8 @@ func TestCachedBatch(t *testing.T) {
 	r := cb.ExcludeEntries(bucket1, Delete)
 	require.Equal(1, r.Size())
 	require.NotEqual(d, r.Digest())
+	r = cb.ExcludeEntries("", Put)
+	require.Equal(2, r.Size())
 }
 
 func TestSnapshot(t *testing.T) {

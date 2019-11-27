@@ -87,41 +87,41 @@ func TestProtocol_ReadState(t *testing.T) {
 		case "NumCandidateDelegates":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.numCandidateDelegates), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "NumDelegates":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.numDelegates), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "NumSubEpochs":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.NumSubEpochs(byteutil.BytesToUint64(arg1))), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "EpochNumber":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.GetEpochNum(byteutil.BytesToUint64(arg1))), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "EpochHeight":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.GetEpochHeight(byteutil.BytesToUint64(arg1))), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "EpochLastHeight":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.GetEpochLastBlockHeight(byteutil.BytesToUint64(arg1))), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		case "SubEpochNumber":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
 			require.Equal(byteutil.Uint64ToBytes(p.GetSubEpochNum(byteutil.BytesToUint64(arg1))), result)
-			require.Nil(err)
+			require.NoError(err)
 
 		default:
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)

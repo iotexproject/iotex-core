@@ -61,20 +61,20 @@ func (p *Protocol) Deposit(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
 		return err
 	}
-	if err := p.assertEnoughBalance(raCtx, sm, amount); err != nil {
+	if err := p.assertEnoughBalance(actionCtx, sm, amount); err != nil {
 		return err
 	}
 	// Subtract balance from caller
-	acc, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), acc); err != nil {
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc); err != nil {
 		return err
 	}
 	// Add balance to fund
@@ -112,11 +112,11 @@ func (p *Protocol) AvailableBalance(
 }
 
 func (p *Protocol) assertEnoughBalance(
-	raCtx protocol.RunActionsCtx,
+	actionCtx protocol.ActionCtx,
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(raCtx.Caller.Bytes()))
+	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
 		return err
 	}
@@ -127,21 +127,22 @@ func (p *Protocol) assertEnoughBalance(
 }
 
 // DepositGas deposits gas into the rewarding fund
-func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int, registry *protocol.Registry) error {
+func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
 	// If the gas fee is 0, return immediately
 	if amount.Cmp(big.NewInt(0)) == 0 {
 		return nil
 	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight == 0 {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.BlockHeight == 0 {
 		return nil
 	}
-	if registry == nil {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if bcCtx.Registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(ProtocolID)
+	p, ok := bcCtx.Registry.Find(ProtocolID)
 	if !ok {
 		return nil
 	}

@@ -338,7 +338,7 @@ func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
 	defer dao.mutex.Unlock()
 
 	if dao.htf == nil {
-		htf, err := dao.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(dao.kvstore, heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return err
 		}
@@ -353,7 +353,7 @@ func (dao *blockDAO) GetFileIndex(height uint64) ([]byte, error) {
 	defer dao.mutex.RUnlock()
 
 	if dao.htf == nil {
-		htf, err := dao.kvstore.CreateRangeIndexNX(heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(dao.kvstore, heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return nil, err
 		}

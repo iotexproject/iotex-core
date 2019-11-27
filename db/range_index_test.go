@@ -13,7 +13,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
@@ -50,7 +49,7 @@ func TestRangeIndex(t *testing.T) {
 		require.NoError(kv.Stop(context.Background()))
 	}()
 
-	index, err := kv.CreateRangeIndexNX([]byte("test"), rangeTests[0].v)
+	index, err := NewRangeIndex(kv, []byte("test"), rangeTests[0].v)
 	require.NoError(err)
 	v, err := index.Get(0)
 	require.NoError(err)
@@ -60,10 +59,13 @@ func TestRangeIndex(t *testing.T) {
 	require.Equal(rangeTests[0].v, v)
 
 	for i, e := range rangeTests {
+		require.NoError(index.Insert(e.k, e.v))
 		if i == 0 {
+			v, err = index.Get(rangeTests[0].k)
+			require.NoError(err)
+			require.Equal(rangeTests[0].v, v)
 			continue
 		}
-		require.NoError(index.Insert(e.k, e.v))
 		// test 5 random keys between the new and previous insertion
 		gap := e.k - rangeTests[i-1].k
 		for j := 0; j < 5; j++ {
@@ -89,7 +91,7 @@ func TestRangeIndex(t *testing.T) {
 	}
 
 	// delete rangeTests[1].k
-	require.Equal(ErrInvalid, errors.Cause(index.Delete(0)))
+	require.NoError(index.Delete(rangeTests[0].k))
 	require.NoError(index.Delete(rangeTests[1].k))
 	v, err = index.Get(rangeTests[1].k)
 	require.NoError(err)
@@ -175,108 +177,72 @@ func TestRangeIndex2(t *testing.T) {
 	}()
 
 	testNS := []byte("test")
-	index, err := kv.CreateRangeIndexNX(testNS, NotExist)
+	index, err := NewRangeIndex(kv, testNS, NotExist)
 	require.NoError(err)
 	// special case: insert 1
-	err = index.Insert(1, []byte("1"))
-	require.NoError(err)
+	require.NoError(index.Insert(1, []byte("1")))
 	v, err := index.Get(5)
 	require.NoError(err)
 	require.Equal([]byte("1"), v)
-
-	err = index.Purge(1)
-	require.NoError(err)
-
-	err = index.Insert(7, []byte("7"))
-	require.NoError(err)
+	// remove 1
+	require.NoError(index.Purge(1))
+	// insert 7
+	require.NoError(index.Insert(7, []byte("7")))
 	// Case I: key before 7
 	for i := uint64(1); i < 6; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	// Case II: key is 7 and greater than 7
 	for i := uint64(7); i < 10; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7"), v)
 	}
 	// Case III: duplicate key
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	require.NoError(err)
-	err = index.Insert(7, []byte("7777"))
-	require.NoError(err)
+	require.NoError(index.Insert(7, []byte("7777")))
 	for i := uint64(7); i < 10; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("7777"), v)
 	}
 	// Case IV: delete key less than 7
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	require.NoError(err)
-	err = index.Insert(66, []byte("66"))
-	require.NoError(err)
+	require.NoError(index.Insert(66, []byte("66")))
 	for i := uint64(1); i < 7; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
 		err = index.Delete(i)
 		require.NoError(err)
 	}
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	require.NoError(err)
 	v, err = index.Get(7)
 	require.NoError(err)
 	require.Equal([]byte("7777"), v)
 	// Case V: delete key 7
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	err = index.Purge(10)
-	require.NoError(err)
+	require.NoError(index.Purge(10))
 	for i := uint64(1); i < 66; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	for i := uint64(66); i < 70; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.Equal([]byte("66"), v)
 	}
 	// Case VI: delete key before 80,all keys deleted
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	err = index.Insert(70, []byte("70"))
-	require.NoError(err)
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	err = index.Insert(80, []byte("80"))
-	require.NoError(err)
-	err = index.Insert(91, []byte("91"))
-	require.NoError(err)
-	index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-	err = index.Purge(79)
-	require.NoError(err)
+	require.NoError(index.Insert(70, []byte("70")))
+	require.NoError(index.Insert(80, []byte("80")))
+	require.NoError(index.Insert(91, []byte("91")))
+	require.NoError(index.Purge(79))
 	for i := uint64(1); i < 80; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal(v, NotExist)
 	}
 	for i := uint64(80); i < 91; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("80"), v)
 	}
 	for i := uint64(91); i < 100; i++ {
-		index, err = kv.CreateRangeIndexNX(testNS, NotExist)
-		require.NoError(err)
 		v, err = index.Get(i)
 		require.NoError(err)
 		require.Equal([]byte("91"), v)

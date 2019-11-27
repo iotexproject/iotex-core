@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -86,7 +85,8 @@ func TestBlockReward(t *testing.T) {
 		return svr.ChainService(1).Blockchain().TipHeight() >= 5, nil
 	}))
 
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{})
+	//ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{})
+	ctx := context.Background()
 
 	p, ok := svr.ChainService(1).Registry().Find(rewarding.ProtocolID)
 	require.True(t, ok)

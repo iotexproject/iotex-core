@@ -7,12 +7,7 @@
 package db
 
 import (
-	"bytes"
-
 	"github.com/pkg/errors"
-	bolt "go.etcd.io/bbolt"
-
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -54,164 +49,64 @@ type (
 
 	// rangeIndex is RangeIndex implementation based on bolt DB
 	rangeIndex struct {
-		db         *bolt.DB
-		numRetries uint8
-		bucket     []byte
+		kvstore KVStoreForRangeIndex
+		bucket  []byte
 	}
 )
 
 // NewRangeIndex creates a new instance of rangeIndex
-func NewRangeIndex(db *bolt.DB, retry uint8, name []byte) (RangeIndex, error) {
-	if db == nil {
-		return nil, errors.Wrap(ErrInvalid, "db object is nil")
+func NewRangeIndex(kv KVStore, name, init []byte) (RangeIndex, error) {
+	if kv == nil {
+		return nil, errors.Wrap(ErrInvalid, "KVStore object is nil")
 	}
-
+	kvRange, ok := kv.(KVStoreForRangeIndex)
+	if !ok {
+		return nil, errors.Wrap(ErrInvalid, "range index can only be created from KVStoreForRangeIndex")
+	}
 	if len(name) == 0 {
 		return nil, errors.Wrap(ErrInvalid, "bucket name is nil")
+	}
+	// check whether init value exist or not
+	v, err := kv.Get(string(name), MaxKey)
+	if errors.Cause(err) == ErrNotExist || v == nil {
+		// write the initial value
+		if err := kv.Put(string(name), MaxKey, init); err != nil {
+			return nil, errors.Wrapf(err, "failed to create range index %x", name)
+		}
 	}
 
 	bucket := make([]byte, len(name))
 	copy(bucket, name)
 
 	return &rangeIndex{
-		db:         db,
-		numRetries: retry,
-		bucket:     bucket,
+		kvstore: kvRange,
+		bucket:  bucket,
 	}, nil
 }
 
 // Insert inserts a value into the index
 func (r *rangeIndex) Insert(key uint64, value []byte) error {
-	// cannot insert key 0, which holds initial value
-	if key == 0 {
-		return errors.Wrap(ErrInvalid, "cannot insert key 0")
-	}
-	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
-		if err = r.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket(r.bucket)
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
-			}
-			cur := bucket.Cursor()
-			ak := byteutil.Uint64ToBytesBigEndian(key - 1)
-			k, v := cur.Seek(ak)
-			if !bytes.Equal(k, ak) {
-				// insert new key
-				if err := bucket.Put(ak, v); err != nil {
-					return err
-				}
-			} else {
-				// update an existing key
-				k, _ = cur.Next()
-			}
-			if k != nil {
-				return bucket.Put(k, value)
-			}
-			return nil
-		}); err == nil {
-			break
-		}
-	}
-	if err != nil {
-		err = errors.Wrap(ErrIO, err.Error())
-	}
-	return nil
+	return r.kvstore.Insert(r.bucket, key, value)
 }
 
 // Get returns value by the key
 func (r *rangeIndex) Get(key uint64) ([]byte, error) {
-	var value []byte
-	err := r.db.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket(r.bucket)
-		if bucket == nil {
-			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
-		}
-		// seek to start
-		cur := bucket.Cursor()
-		_, v := cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
-		value = make([]byte, len(v))
-		copy(value, v)
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return value, nil
+	return r.kvstore.Seek(r.bucket, key)
 }
 
 // Delete deletes an existing key
 func (r *rangeIndex) Delete(key uint64) error {
-	// cannot delete key 0, which holds initial value
-	if key == 0 {
-		return errors.Wrap(ErrInvalid, "cannot delete key 0")
-	}
-	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
-		if err = r.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket(r.bucket)
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
-			}
-			cur := bucket.Cursor()
-			ak := byteutil.Uint64ToBytesBigEndian(key - 1)
-			k, v := cur.Seek(ak)
-			if !bytes.Equal(k, ak) {
-				// return nil if the key does not exist
-				return nil
-			}
-			if err := bucket.Delete(ak); err != nil {
-				return err
-			}
-			// write the corresponding value to next key
-			k, _ = cur.Next()
-			if k != nil {
-				return bucket.Put(k, v)
-			}
-			return nil
-		}); err == nil {
-			break
-		}
-	}
-	return err
+	return r.kvstore.Remove(r.bucket, key)
 }
 
 // Purge deletes an existing key and all keys before it
 func (r *rangeIndex) Purge(key uint64) error {
-	// cannot delete key 0, which holds initial value
-	if key == 0 {
-		return errors.Wrap(ErrInvalid, "cannot delete key 0")
-	}
-	var err error
-	for i := uint8(0); i < r.numRetries; i++ {
-		if err = r.db.Update(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket(r.bucket)
-			if bucket == nil {
-				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", r.bucket)
-			}
-			cur := bucket.Cursor()
-			nk, _ := cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
-			// delete all keys before this key
-			for k, _ := cur.Prev(); k != nil; k, _ = cur.Prev() {
-				if err := bucket.Delete(k); err != nil {
-					return err
-				}
-			}
-			// write not exist value to next key
-			if nk != nil {
-				return bucket.Put(nk, NotExist)
-			}
-			return nil
-		}); err == nil {
-			break
-		}
-	}
-	return err
+	return r.kvstore.Purge(r.bucket, key)
 }
 
 // Close makes the index not usable
 func (r *rangeIndex) Close() {
 	// frees reference to db, the db object itself will be closed/freed by its owner, not here
-	r.db = nil
+	r.kvstore = nil
 	r.bucket = nil
 }

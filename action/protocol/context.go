@@ -18,109 +18,12 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-type runActionsCtxKey struct{}
-
-type validateActionsCtxKey struct{}
-
-// RunActionsCtx provides the runactions with auxiliary information.
-type RunActionsCtx struct {
-	// height of block containing those actions
-	BlockHeight uint64
-	// timestamp of block containing those actions
-	BlockTimeStamp time.Time
-	// gas Limit for perform those actions
-	GasLimit uint64
-	// Genesis is a copy of current genesis
-	Genesis genesis.Genesis
-	// Tip is the information of tip block
-	Tip TipInfo
-	// Producer is the address of whom composes the block containing this action
-	Producer address.Address
-	// Caller is the address of whom issues this action
-	Caller address.Address
-	// ActionHash is the hash of the action with the sealed envelope
-	ActionHash hash.Hash256
-	// GasPrice is the action gas price
-	GasPrice *big.Int
-	// IntrinsicGas is the action intrinsic gas
-	IntrinsicGas uint64
-	// Nonce is the nonce of the action
-	Nonce uint64
-	// History indicates whether to save account/contract history or not
-	History bool
-	// Registry is the pointer of protocol registry
-	// Candidates is a list of candidates of current round
-	Candidates []*state.Candidate
-	// Registry is the pointer protocol registry
-	Registry *Registry
-}
-
 // TipInfo contains the tip block information
 type TipInfo struct {
 	Height    uint64
 	Hash      hash.Hash256
 	Timestamp time.Time
 }
-
-// ValidateActionsCtx provides action validators with auxiliary information.
-type ValidateActionsCtx struct {
-	// height of block containing those actions
-	BlockHeight uint64
-	// public key of producer who compose those actions
-	ProducerAddr string
-	// information of the tip block
-	Tip TipInfo
-	// Caller is the address of whom issues the action
-	Caller address.Address
-	// Genesis is a copy of current genesis
-	Genesis genesis.Genesis
-	// Registry is the pointer of protocol registry
-	Registry *Registry
-}
-
-// WithRunActionsCtx add RunActionsCtx into context.
-func WithRunActionsCtx(ctx context.Context, ra RunActionsCtx) context.Context {
-	return context.WithValue(ctx, runActionsCtxKey{}, ra)
-}
-
-// GetRunActionsCtx gets runActions context
-func GetRunActionsCtx(ctx context.Context) (RunActionsCtx, bool) {
-	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
-	return ra, ok
-}
-
-// MustGetRunActionsCtx must get runActions context.
-// If context doesn't exist, this function panic.
-func MustGetRunActionsCtx(ctx context.Context) RunActionsCtx {
-	ra, ok := ctx.Value(runActionsCtxKey{}).(RunActionsCtx)
-	if !ok {
-		log.S().Panic("Miss run actions context")
-	}
-	return ra
-}
-
-// WithValidateActionsCtx add ValidateActionsCtx into context.
-func WithValidateActionsCtx(ctx context.Context, va ValidateActionsCtx) context.Context {
-	return context.WithValue(ctx, validateActionsCtxKey{}, va)
-}
-
-// GetValidateActionsCtx gets validateActions context
-func GetValidateActionsCtx(ctx context.Context) (ValidateActionsCtx, bool) {
-	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
-	return va, ok
-}
-
-// MustGetValidateActionsCtx gets validateActions context.
-// If context doesn't exist, this function panic.
-func MustGetValidateActionsCtx(ctx context.Context) ValidateActionsCtx {
-	va, ok := ctx.Value(validateActionsCtxKey{}).(ValidateActionsCtx)
-	if !ok {
-		log.S().Panic("Miss validate actions context")
-	}
-	return va
-}
-
-// TODO: replace RunActionsCtx and ValidateActionsCtx with below classified independent contexts
 
 type blockchainContextKey struct{}
 
@@ -136,6 +39,10 @@ type BlockchainCtx struct {
 	History bool
 	// Registry is the pointer protocol registry
 	Registry *Registry
+	// Tip is the information of tip block
+	Tip TipInfo
+	// Candidates is a list of candidates of current round
+	Candidates []*state.Candidate
 }
 
 // BlockCtx provides block auxiliary information.
