@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestEnvelope_Version(t *testing.T) {
