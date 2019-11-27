@@ -130,9 +130,11 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require.True(ok)
 	require.Equal(uint64(1), act.Height())
 	require.Equal(uint64(0), act.AbstractAction.Nonce())
-	require.Equal(len(act.Candidates()), len(r.Delegates()))
+	delegates := r.Delegates()
+	require.Equal(len(act.Candidates()), len(delegates))
 	for _, can := range act.Candidates() {
-		require.NotNil(r.DelegateByName(can.CanName))
+		d := r.DelegateByName(can.CanName)
+		require.NotNil(d)
 	}
 }
 
