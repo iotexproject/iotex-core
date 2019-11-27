@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -34,7 +35,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(registry.Register(account.ProtocolID, acc))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))

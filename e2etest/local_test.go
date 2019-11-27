@@ -178,7 +178,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
 	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
 	registry.Register(rewarding.ProtocolID, rewardingProtocol)
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	registry.Register(account.ProtocolID, acc)
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	require.NoError(chain.Start(ctx))

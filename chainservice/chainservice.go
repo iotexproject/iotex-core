@@ -278,7 +278,7 @@ func New(
 				actPool,
 			)
 	}
-	accountProtocol := account.NewProtocol()
+	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
 	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
 		return blockchain.ProductivityByEpoch(chain, epochNum)

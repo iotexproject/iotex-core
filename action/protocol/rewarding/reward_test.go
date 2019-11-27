@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/config"
 
@@ -227,7 +228,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(5), primAcc.Balance)
+		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
 
 		// Claim negative amount of token will fail
 		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(-5)))
@@ -243,7 +244,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(5), primAcc.Balance)
+		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
 
 		// Claim another 5 token
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
@@ -256,7 +257,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(10), primAcc.Balance)
+		assert.Equal(t, big.NewInt(1000010), primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
 		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(5)))
@@ -274,6 +275,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -306,6 +308,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
 	))
+	require.NoError(t, registry.Register(ProtocolID, p))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"
@@ -318,13 +321,25 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ge.Rewarding.FoundationBonusLastEpoch = 365
 	ge.Rewarding.ProductivityThreshold = 50
 
+	// Create a test account with 1000 token
+	ge.InitBalanceMap[identityset.Address(0).String()] = "1000"
+
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
-		context.Background(),
+		protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis:  ge,
+				Registry: registry,
+			},
+		),
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
 	)
+	ap := account.NewProtocol(DepositGas)
+	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
@@ -341,14 +356,11 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 					RewardAddress: identityset.Address(1).String(),
 				},
 			},
+			Registry: registry,
 		},
 	)
 
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
-
-	// Create a test account with 1000 token
-	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
-	require.NoError(t, err)
 
 	ctx = protocol.WithBlockCtx(
 		ctx,

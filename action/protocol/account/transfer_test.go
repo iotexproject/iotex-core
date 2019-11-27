@@ -58,7 +58,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol()
+	p := NewProtocol(rewarding.DepositGas)
 	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.NewRegistry()
 	require.NoError(registry.Register(rewarding.ProtocolID, reward))
@@ -167,7 +167,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
 	require := require.New(t)
-	protocol := NewProtocol()
+	protocol := NewProtocol(rewarding.DepositGas)
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	payload := tmpPayload[:]

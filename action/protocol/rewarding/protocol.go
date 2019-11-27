@@ -231,14 +231,13 @@ func (p *Protocol) settleAction(
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if status == uint64(iotextypes.ReceiptStatus_Failure) {
 		if err := sm.Revert(si); err != nil {
 			return nil, err
 		}
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if err := DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
+	if err := DepositGas(ctx, sm, gasFee); err != nil {
 		return nil, err
 	}
 	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
@@ -248,7 +247,7 @@ func (p *Protocol) settleAction(
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	acc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
 	if err != nil {
 		return err
 	}
