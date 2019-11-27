@@ -3,13 +3,13 @@ package action
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/test/identityset"
-
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -67,15 +67,13 @@ func TestSealedEnvelope_LoadProto(t *testing.T) {
 }
 
 func createSealedEnvelope() (SealedEnvelope, error) {
-	i := 10
-
 	tsf, _ := NewTransfer(
-		uint64(i),
-		unit.ConvertIotxToRau(1000+int64(i)),
-		identityset.Address(i%identityset.Size()).String(),
+		uint64(10),
+		unit.ConvertIotxToRau(1000+int64(10)),
+		identityset.Address(10%identityset.Size()).String(),
 		nil,
-		20000+uint64(i),
-		unit.ConvertIotxToRau(1+int64(i)),
+		20000+uint64(10),
+		unit.ConvertIotxToRau(1+int64(10)),
 	)
 	eb := EnvelopeBuilder{}
 	evlp := eb.
