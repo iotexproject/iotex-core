@@ -119,7 +119,7 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, _, _, err := initConstruct(ctrl)
+	p, ctx, _, r, err := initConstruct(ctrl)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
@@ -130,6 +130,10 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require.True(ok)
 	require.Equal(uint64(1), act.Height())
 	require.Equal(uint64(0), act.AbstractAction.Nonce())
+	require.Equal(len(act.Candidates()), len(r.Delegates()))
+	for _, can := range act.Candidates() {
+		require.NotNil(r.DelegateByName(can.CanName))
+	}
 }
 
 func TestHandle(t *testing.T) {
