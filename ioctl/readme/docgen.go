@@ -16,9 +16,15 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd"
 )
 
-var ioctlPath = filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "iotexproject", "iotex-core", "ioctl")
+var ioctlPath string
 
 func main() {
+	corePath, err := filepath.Abs(".")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ioctlPath = filepath.Join(corePath, "ioctl")
+
 	preString := `# ioctl
 ioctl is a command-line interface for interacting with IoTeX blockchains.
 
@@ -43,21 +49,21 @@ specific release so install-cli.sh can download them.
 		if c == cmd.RootCmd {
 			return "readme/" + s
 		}
-		if strings.HasSuffix(s, "ioctl.md") {
+		if strings.Contains(s, "ioctl.md") {
 			return "../README.md"
 		}
 		return s
 	}
 
 	filePrepender := func(s string) string {
-		if strings.HasSuffix(s, "README.md") {
+		if strings.Contains(s, "README.md") {
 			return preString
 		}
 		return ""
 	}
 
-	path := filepath.Join(ioctlPath, "readme")
-	err := GenMarkdownTreeCustom(cmd.RootCmd, path, filePrepender, linkHandler)
+	path := os.Getenv("GOPATH") + "/src/github.com/iotexproject/iotex-core/ioctl/readme"
+	err = GenMarkdownTreeCustom(cmd.RootCmd, path, filePrepender, linkHandler)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -78,7 +84,7 @@ func GenMarkdownTreeCustom(c *cobra.Command, dir string, filePrepender func(stri
 
 	basename := strings.Replace(c.CommandPath(), " ", "_", -1) + ".md"
 	filename := filepath.Join(dir, basename)
-	if strings.HasSuffix(filename, "ioctl.md") {
+	if strings.Contains(filename, "ioctl.md") {
 		filename = filepath.Join(ioctlPath, "README.md")
 	}
 
@@ -136,9 +142,9 @@ func GenMarkdownCustom(c *cobra.Command, w io.Writer, linkHandler func(*cobra.Co
 			link := pname + ".md"
 			link = strings.Replace(link, " ", "_", -1)
 			buf.WriteString(fmt.Sprintf("* [%s](%s)\t - %s\n", pname, linkHandler(c, link), parent.Short))
-			c.VisitParents(func(cm *cobra.Command) {
-				if cm.DisableAutoGenTag {
-					c.DisableAutoGenTag = cm.DisableAutoGenTag
+			c.VisitParents(func(c *cobra.Command) {
+				if c.DisableAutoGenTag {
+					c.DisableAutoGenTag = c.DisableAutoGenTag
 				}
 			})
 		}
