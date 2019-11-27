@@ -91,13 +91,16 @@ func TestProtocol_Initialize(t *testing.T) {
 		identityset.Address(0).String(): big.NewInt(100).String(),
 		identityset.Address(1).String(): big.NewInt(200).String(),
 	}
+	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+		BlockHeight: 0,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: ge,
+	})
 	p := NewProtocol()
 	require.NoError(
 		p.CreateGenesisStates(
-			protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-				BlockHeight: 0,
-				Genesis:     ge,
-			}),
+			ctx,
 			sm,
 		),
 	)

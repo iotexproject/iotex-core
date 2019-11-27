@@ -31,7 +31,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
@@ -50,14 +50,14 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
-	require.Nil(err)
+	require.NoError(err)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
-		require.Nil(chain.Stop(ctx))
+		require.NoError(chain.Stop(ctx))
 	}()
 
 	b := blockBuffer{
@@ -75,7 +75,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
+	require.NoError(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
 	assert.Equal(bCheckinValid, re)
@@ -134,7 +134,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -149,14 +149,14 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
-	require.Nil(err)
+	require.NoError(err)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
-		require.Nil(chain.Stop(ctx))
+		require.NoError(chain.Stop(ctx))
 	}()
 
 	b := blockBuffer{
@@ -278,7 +278,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		nil,
 		testutil.TimestampNow(),
 	)
-	require.Nil(err)
+	require.NoError(err)
 	b.Flush(blk)
 	// There should always have at least 1 interval range to sync
 	assert.Len(b.GetBlocksIntervalsToSync(0), 1)

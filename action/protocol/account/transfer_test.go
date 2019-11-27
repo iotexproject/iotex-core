@@ -71,17 +71,24 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
 	cfg.Genesis.Rewarding.ProductivityThreshold = 0
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Registry: registry,
+			Genesis:  cfg.Genesis,
+		})
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		})
+	ctx = protocol.WithActionCtx(ctx,
+		protocol.ActionCtx{
+			Caller: identityset.Address(28),
+		})
 	require.NoError(
 		reward.CreateGenesisStates(
-			protocol.WithRunActionsCtx(context.Background(),
-				protocol.RunActionsCtx{
-					BlockHeight: 0,
-					Producer:    identityset.Address(27),
-					Caller:      identityset.Address(28),
-					GasLimit:    testutil.TestGasLimit,
-					Registry:    registry,
-					Genesis:     cfg.Genesis,
-				}),
+			ctx,
 			sm,
 		),
 	)
@@ -110,15 +117,20 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 	gas, err := transfer.IntrinsicGas()
 	require.NoError(err)
-	ctx = protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			BlockHeight:  1,
-			Producer:     identityset.Address(27),
-			Caller:       identityset.Address(28),
-			GasLimit:     testutil.TestGasLimit,
-			IntrinsicGas: gas,
-			Registry:     registry,
-		})
+
+	ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		Caller:       identityset.Address(28),
+		IntrinsicGas: gas,
+	})
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer:    identityset.Address(27),
+		GasLimit:    testutil.TestGasLimit,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Registry: registry,
+	})
+
 	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)

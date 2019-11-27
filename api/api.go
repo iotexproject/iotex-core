@@ -754,9 +754,11 @@ func (api *Server) readState(ctx context.Context, in *iotexapi.ReadStateRequest)
 		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
 	}
 	// TODO: need to complete the context
-	ctx = protocol.WithRunActionsCtx(ctx, protocol.RunActionsCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: api.bc.TipHeight(),
-		Registry:    api.registry,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Registry: api.registry,
 	})
 	ws, err := api.bc.Factory().NewWorkingSet()
 	if err != nil {

@@ -33,7 +33,7 @@ import (
 
 func TestProtocol_GrantBlockReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 
 		// Grant block reward will fail because of no available balance
@@ -55,7 +55,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(190), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, raCtx.Producer)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, blkCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
@@ -71,7 +71,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 
 func TestProtocol_GrantEpochReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 
 		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
@@ -172,8 +172,9 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.Error(t, err)
 
 		// Grant the epoch reward on a block that is not the last one in an epoch will fail
-		raCtx.BlockHeight++
-		_, err = p.GrantEpochReward(protocol.WithRunActionsCtx(context.Background(), raCtx), sm)
+		blkCtx.BlockHeight++
+		ctx = protocol.WithBlockCtx(ctx, blkCtx)
+		_, err = p.GrantEpochReward(ctx, sm)
 		require.Error(t, err)
 	}, false)
 
@@ -210,21 +211,21 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.Equal(t, "10", rl.Amount)
 
 		// Claim 5 token
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		actionCtx, ok := protocol.GetActionCtx(ctx)
 		require.True(t, ok)
-		claimRaCtx := raCtx
-		claimRaCtx.Caller = identityset.Address(0)
-		claimCtx := protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
+		claimActionCtx := actionCtx
+		claimActionCtx.Caller = identityset.Address(0)
+		claimCtx := protocol.WithActionCtx(context.Background(), claimActionCtx)
 
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
 		totalBalance, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
+		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -237,10 +238,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		totalBalance, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), primAcc.Balance)
 
@@ -250,10 +251,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		totalBalance, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimRaCtx.Caller)
+		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimRaCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), primAcc.Balance)
 
@@ -261,8 +262,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
 		// Operator should have nothing to claim
-		claimRaCtx.Caller = raCtx.Producer
-		claimCtx = protocol.WithRunActionsCtx(context.Background(), claimRaCtx)
+		blkCtx, ok := protocol.GetBlockCtx(ctx)
+		require.True(t, ok)
+		claimActionCtx.Caller = blkCtx.Producer
+		claimCtx = protocol.WithActionCtx(context.Background(), claimActionCtx)
 		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(1)))
 	}, false)
 }
@@ -316,25 +319,16 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ge.Rewarding.ProductivityThreshold = 50
 
 	// Initialize the protocol
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
-			Genesis:     ge,
 		},
 	)
-	require.NoError(t, p.CreateGenesisStates(ctx, sm))
-
-	// Create a test account with 1000 token
-	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
-	require.NoError(t, err)
-
-	ctx = protocol.WithRunActionsCtx(
-		context.Background(),
-		protocol.RunActionsCtx{
-			Producer:    identityset.Address(0),
-			Caller:      identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: ge,
 			Candidates: []*state.Candidate{
 				{
 					Address:       identityset.Address(0).String(),
@@ -347,6 +341,26 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 					RewardAddress: identityset.Address(1).String(),
 				},
 			},
+		},
+	)
+
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
+
+	// Create a test account with 1000 token
+	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000))
+	require.NoError(t, err)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: identityset.Address(0),
 		},
 	)
 	require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))

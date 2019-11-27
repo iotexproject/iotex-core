@@ -28,39 +28,41 @@ const TransferSizeLimit = 32 * 1024
 
 // handleTransfer handles a transfer
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
 	}
 	// check sender
-	sender, err := accountutil.LoadOrCreateAccount(sm, raCtx.Caller.String(), big.NewInt(0))
+	sender, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String(), big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", raCtx.Caller.String())
+		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	if raCtx.GasLimit < raCtx.IntrinsicGas {
+	if blkCtx.GasLimit < actionCtx.IntrinsicGas {
 		return nil, action.ErrHitGasLimit
 	}
 
-	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(raCtx.IntrinsicGas))
+	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
 			"sender %s balance %s, required amount %s",
-			raCtx.Caller.String(),
+			actionCtx.Caller.String(),
 			sender.Balance,
 			big.NewInt(0).Add(tsf.Amount(), gasFee),
 		)
 	}
 
-	hu := config.NewHeightUpgrade(&raCtx.Genesis)
-	if hu.IsPre(config.Pacific, raCtx.BlockHeight) {
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPre(config.Pacific, blkCtx.BlockHeight) {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
-			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", raCtx.Caller.String())
+			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
-		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+		if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
 			return nil, err
 		}
 	}
@@ -74,31 +76,31 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
 		// put updated sender's state to trie
-		if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
-			if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+		if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
+			if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
 				return nil, err
 			}
 		}
 		return &action.Receipt{
 			Status:          uint64(iotextypes.ReceiptStatus_Failure),
-			BlockHeight:     raCtx.BlockHeight,
-			ActionHash:      raCtx.ActionHash,
-			GasConsumed:     raCtx.IntrinsicGas,
+			BlockHeight:     blkCtx.BlockHeight,
+			ActionHash:      actionCtx.ActionHash,
+			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
 		}, nil
 	}
 
 	// update sender Balance
 	if err := sender.SubBalance(tsf.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", raCtx.Caller.String())
+		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", actionCtx.Caller.String())
 	}
 	// update sender Nonce
 	accountutil.SetNonce(tsf, sender)
 	// put updated sender's state to trie
-	if err := accountutil.StoreAccount(sm, raCtx.Caller.String(), sender); err != nil {
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// check recipient
@@ -115,17 +117,17 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
-		if err := rewarding.DepositGas(ctx, sm, gasFee, raCtx.Registry); err != nil {
+	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
+		if err := rewarding.DepositGas(ctx, sm, gasFee, bcCtx.Registry); err != nil {
 			return nil, err
 		}
 	}
 
 	return &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     raCtx.BlockHeight,
-		ActionHash:      raCtx.ActionHash,
-		GasConsumed:     raCtx.IntrinsicGas,
+		BlockHeight:     blkCtx.BlockHeight,
+		ActionHash:      actionCtx.ActionHash,
+		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}, nil
 }

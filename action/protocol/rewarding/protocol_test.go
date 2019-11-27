@@ -118,27 +118,41 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		}
 		ge.Rewarding.NumDelegatesForEpochReward = 10
 	}
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
-			Candidates:  candidates,
-			Genesis:     ge,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:    ge,
+			Candidates: candidates,
 		},
 	)
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
-	ctx = protocol.WithRunActionsCtx(
-		context.Background(),
-		protocol.RunActionsCtx{
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
 			Producer:    identityset.Address(27),
-			Caller:      identityset.Address(28),
-			Candidates:  candidates,
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			Genesis:     ge,
 		},
 	)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: identityset.Address(28),
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:    ge,
+			Candidates: candidates,
+		},
+	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(10), blockReward)
@@ -218,22 +232,17 @@ func TestProtocol_Handle(t *testing.T) {
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
 	cfg.Genesis.Rewarding.ProductivityThreshold = 50
 
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
-			Genesis:     cfg.Genesis,
 		},
 	)
-	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
-	ctx = protocol.WithRunActionsCtx(
-		context.Background(),
-		protocol.RunActionsCtx{
-			Producer:    identityset.Address(0),
-			Caller:      identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			GasPrice:    big.NewInt(0),
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 			Candidates: []*state.Candidate{
 				{
 					Address:       identityset.Address(0).String(),
@@ -241,6 +250,23 @@ func TestProtocol_Handle(t *testing.T) {
 					RewardAddress: identityset.Address(0).String(),
 				},
 			},
+		},
+	)
+
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
 		},
 	)
 

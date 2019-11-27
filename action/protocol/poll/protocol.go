@@ -181,9 +181,9 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight != 0 {
-		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
 	return setCandidates(sm, p.delegates, uint64(1))
@@ -298,9 +298,9 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (err error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if raCtx.BlockHeight != 0 {
-		return errors.Errorf("Cannot create genesis state for height %d", raCtx.BlockHeight)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.BlockHeight != 0 {
+		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
 	var ds state.CandidateList
@@ -326,18 +326,19 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	rp := rolldpos.MustGetProtocol(raCtx.Registry)
-	epochNum := rp.GetEpochNum(raCtx.BlockHeight)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
-	if raCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
+	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
 	log.L().Debug(
 		"createPutPollResultAction",
-		zap.Uint64("height", raCtx.BlockHeight),
+		zap.Uint64("height", blkCtx.BlockHeight),
 		zap.Uint64("epochNum", epochNum),
 		zap.Uint64("epochHeight", epochHeight),
 		zap.Uint64("nextEpochHeight", nextEpochHeight),
@@ -351,7 +352,7 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 		)
 	}
 
-	if err != nil && raCtx.BlockHeight == lastBlkHeight {
+	if err != nil && blkCtx.BlockHeight == lastBlkHeight {
 		return nil, errors.Wrapf(
 			err,
 			"failed to prepare delegates for next epoch %d",
@@ -562,7 +563,9 @@ func validateDelegates(cs state.CandidateList) error {
 }
 
 func handle(ctx context.Context, act action.Action, sm protocol.StateManager, protocolAddr string) (*action.Receipt, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
 	r, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil, nil
@@ -574,9 +577,9 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 	}
 	return &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		ActionHash:      raCtx.ActionHash,
-		BlockHeight:     raCtx.BlockHeight,
-		GasConsumed:     raCtx.IntrinsicGas,
+		ActionHash:      actionCtx.ActionHash,
+		BlockHeight:     blkCtx.BlockHeight,
+		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: protocolAddr,
 	}, nil
 }
@@ -586,15 +589,17 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	if !ok {
 		return nil
 	}
-	vaCtx := protocol.MustGetValidateActionsCtx(ctx)
-	if vaCtx.ProducerAddr != vaCtx.Caller.String() {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	if blkCtx.Producer.String() != actionCtx.Caller.String() {
 		return errors.New("Only producer could create this protocol")
 	}
 	proposedDelegates := ppr.Candidates()
 	if err := validateDelegates(proposedDelegates); err != nil {
 		return err
 	}
-	ds, err := p.DelegatesByHeight(ctx, vaCtx.BlockHeight)
+	ds, err := p.DelegatesByHeight(ctx, blkCtx.BlockHeight)
 	if err != nil {
 		return err
 	}

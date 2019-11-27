@@ -130,8 +130,7 @@ func TestCandidate(t *testing.T) {
 	candidatesBytes, err := candidateList.Serialize()
 	require.NoError(err)
 	var candidates CandidateList
-	err = candidates.Deserialize(candidatesBytes)
-	require.NoError(err)
+	require.NoError(candidates.Deserialize(candidatesBytes))
 	require.Equal(3, len(candidates))
 	require.Equal(identityset.Address(30).String(), candidates[0].Address)
 	require.Equal(identityset.Address(29).String(), candidates[1].Address)

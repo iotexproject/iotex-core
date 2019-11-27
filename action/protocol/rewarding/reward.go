@@ -67,14 +67,16 @@ func (p *Protocol) GrantBlockReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) (*action.Log, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 
-	producerAddrStr := raCtx.Producer.String()
+	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
-	for _, candidate := range raCtx.Candidates {
+	for _, candidate := range bcCtx.Candidates {
 		if candidate.Address == producerAddrStr {
 			rewardAddrStr = candidate.RewardAddress
 			break
@@ -100,7 +102,7 @@ func (p *Protocol) GrantBlockReward(
 	if err := p.grantToAccount(sm, rewardAddr, a.blockReward); err != nil {
 		return nil, err
 	}
-	if err := p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, raCtx.BlockHeight); err != nil {
+	if err := p.updateRewardHistory(sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 	rewardLog := rewardingpb.RewardLog{
@@ -116,8 +118,8 @@ func (p *Protocol) GrantBlockReward(
 		Address:     p.addr.String(),
 		Topics:      nil,
 		Data:        data,
-		BlockHeight: raCtx.BlockHeight,
-		ActionHash:  raCtx.ActionHash,
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
 	}, nil
 }
 
@@ -126,12 +128,14 @@ func (p *Protocol) GrantEpochReward(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) ([]*action.Log, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	epochNum := p.rp.GetEpochNum(raCtx.BlockHeight)
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	epochNum := p.rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
 	}
-	if err := p.assertLastBlockInEpoch(raCtx.BlockHeight, epochNum); err != nil {
+	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum); err != nil {
 		return nil, err
 	}
 	a := admin{}
@@ -150,12 +154,12 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Get unqualified delegate list
-	uqd, err := p.unqualifiedDelegates(raCtx.Producer, epochNum, a.productivityThreshold)
+	uqd, err := p.unqualifiedDelegates(blkCtx.Producer, epochNum, a.productivityThreshold)
 	if err != nil {
 		return nil, err
 	}
 
-	candidates := raCtx.Candidates
+	candidates := bcCtx.Candidates
 	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
@@ -187,8 +191,8 @@ func (p *Protocol) GrantEpochReward(
 			Address:     p.addr.String(),
 			Topics:      nil,
 			Data:        data,
-			BlockHeight: raCtx.BlockHeight,
-			ActionHash:  raCtx.ActionHash,
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actionCtx.ActionHash,
 		})
 		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
 	}
@@ -225,8 +229,8 @@ func (p *Protocol) GrantEpochReward(
 				Address:     p.addr.String(),
 				Topics:      nil,
 				Data:        data,
-				BlockHeight: raCtx.BlockHeight,
-				ActionHash:  raCtx.ActionHash,
+				BlockHeight: blkCtx.BlockHeight,
+				ActionHash:  actionCtx.ActionHash,
 			})
 			actualTotalReward = big.NewInt(0).Add(actualTotalReward, a.foundationBonus)
 		}
@@ -248,14 +252,14 @@ func (p *Protocol) Claim(
 	sm protocol.StateManager,
 	amount *big.Int,
 ) error {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
 		return err
 	}
 	if err := p.updateTotalBalance(sm, amount); err != nil {
 		return err
 	}
-	return p.claimFromAccount(sm, raCtx.Caller, amount)
+	return p.claimFromAccount(sm, actionCtx.Caller, amount)
 }
 
 // UnclaimedBalance returns unclaimed balance of a given address

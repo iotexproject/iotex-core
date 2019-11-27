@@ -96,7 +96,7 @@ func TestBlockEndorsementCollection(t *testing.T) {
 func TestEndorsementManager(t *testing.T) {
 	require := require.New(t)
 	em, err := newEndorsementManager(nil)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(em)
 	require.Equal(0, em.Size())
 	require.Equal(0, em.SizeWithBlock())
@@ -141,8 +141,7 @@ func TestEndorsementManager(t *testing.T) {
 	require.Equal(end2, collection.endorsements[LOCK])
 
 	//cleanup
-	err = em.Cleanup(timestamp.Add(time.Second * 2))
-	require.Nil(err)
+	require.NoError(em.Cleanup(timestamp.Add(time.Second * 2)))
 	require.NotNil(em)
 	require.Equal(1, len(em.collections))
 	require.Equal(1, len(em.collections[encoded].endorsers))
@@ -154,15 +153,14 @@ func TestEndorsementManager(t *testing.T) {
 	//when the time is zero, it should generate empty eManager
 	zerotime := time.Time{}
 	require.Equal(zerotime.IsZero(), true)
-	err = em.Cleanup(zerotime)
-	require.Nil(err)
+	require.NoError(em.Cleanup(zerotime))
 	require.Equal(0, len(em.collections))
 }
 
 func TestEndorsementManagerProto(t *testing.T) {
 	require := require.New(t)
 	em, err := newEndorsementManager(nil)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(em)
 
 	b := getBlock(t)
@@ -176,16 +174,16 @@ func TestEndorsementManagerProto(t *testing.T) {
 
 	//test converting endorsement pb
 	endProto, err := end.Proto()
-	require.Nil(err)
+	require.NoError(err)
 	end2 := &endorsement.Endorsement{}
 	require.NoError(end2.LoadProto(endProto))
 	require.Equal(end, end2)
 
 	//test converting emanager pb
 	emProto, err := em.toProto()
-	require.Nil(err)
+	require.NoError(err)
 	em2, err := newEndorsementManager(nil)
-	require.Nil(err)
+	require.NoError(err)
 	require.NoError(em2.fromProto(emProto))
 
 	require.Equal(len(em.collections), len(em2.collections))
