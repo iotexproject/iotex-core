@@ -9,7 +9,6 @@ package rolldpos
 import (
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"net"
 	"sync"
 	"testing"
@@ -30,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -422,7 +422,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			for j := 0; j < numNodes; j++ {
 				ws, err := sf.NewWorkingSet()
 				require.NoError(t, err)
-				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j], big.NewInt(0))
+				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j])
 				require.NoError(t, err)
 				gasLimit := testutil.TestGasLimit
 				wsctx := protocol.WithBlockCtx(
@@ -445,7 +445,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.NewRegistry()
-			acc := account.NewProtocol()
+			acc := account.NewProtocol(rewarding.DepositGas)
 			require.NoError(t, registry.Register(account.ProtocolID, acc))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))

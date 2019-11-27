@@ -29,7 +29,7 @@ func SetNonce(i noncer, state *state.Account) {
 }
 
 // LoadOrCreateAccount either loads an account state or creates an account state
-func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) (*state.Account, error) {
+func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.Account, error) {
 	var account state.Account
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
@@ -39,11 +39,10 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string, init *big
 	addrHash := hash.BytesToHash160(addr.Bytes())
 	err = sm.State(addrHash, &account)
 	if err == nil {
-		// TODO: init value cannot be non-zero
 		return &account, nil
 	}
 	if errors.Cause(err) == state.ErrStateNotExist {
-		account.Balance = init
+		account.Balance = big.NewInt(0)
 		account.VotingWeight = big.NewInt(0)
 		if err := sm.PutState(addrHash, account); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)

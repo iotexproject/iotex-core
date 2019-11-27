@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -1585,37 +1584,6 @@ func TestServer_GetLogs(t *testing.T) {
 	}
 }
 
-func addProducerToFactory(sf factory.Factory, registry *protocol.Registry) error {
-	ws, err := sf.NewWorkingSet()
-	if err != nil {
-		return err
-	}
-	if _, err = accountutil.LoadOrCreateAccount(
-		ws,
-		identityset.Address(27).String(),
-		unit.ConvertIotxToRau(10000000000),
-	); err != nil {
-		return err
-	}
-	gasLimit := testutil.TestGasLimit
-	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
-		BlockHeight: 0,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: registry,
-	})
-	if _, err = ws.RunActions(ctx, nil); err != nil {
-		return err
-	}
-	if err := ws.Finalize(); err != nil {
-		return err
-	}
-
-	return sf.Commit(ws)
-}
-
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
@@ -1808,7 +1776,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
