@@ -60,7 +60,7 @@ func TestCreateContract(t *testing.T) {
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
 	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	addr := identityset.Address(28)
-	_, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	_, err := accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
 	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hash.ZeroHash256)
@@ -84,7 +84,7 @@ func TestCreateContract(t *testing.T) {
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
 	// reload same contract
-	contract1, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	contract1, err := accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	require.Equal(codeHash[:], contract1.CodeHash)
 }

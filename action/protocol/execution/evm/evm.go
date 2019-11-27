@@ -192,7 +192,7 @@ func ExecuteContract(
 	}
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		if err := rewarding.DepositGas(ctx, sm, gasValue, bcCtx.Registry); err != nil {
+		if err := rewarding.DepositGas(ctx, sm, gasValue); err != nil {
 			return nil, nil, err
 		}
 	}

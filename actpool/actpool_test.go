@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -86,7 +87,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
-	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -158,7 +159,7 @@ func TestActPool_AddActs(t *testing.T) {
 	defer ctrl.Finish()
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "10"
@@ -177,7 +178,7 @@ func TestActPool_AddActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -322,7 +323,7 @@ func TestActPool_PickActs(t *testing.T) {
 	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		require := require.New(t)
 		registry := protocol.NewRegistry()
-		require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+		require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 		cfgDefault := config.Default
 		cfgDefault.Genesis.InitBalanceMap[addr1] = "100"
 		cfgDefault.Genesis.InitBalanceMap[addr2] = "10"
@@ -340,7 +341,7 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		ap.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+		ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
@@ -407,7 +408,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -417,7 +418,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -461,7 +462,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "200"
@@ -484,13 +485,13 @@ func TestActPool_Reset(t *testing.T) {
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap1.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap1.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	Ap2, err := NewActPool(bc, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap2.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap2.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	// Tsfs to be added to ap1
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
@@ -838,7 +839,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -886,7 +887,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -930,7 +931,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -1027,7 +1028,7 @@ func TestActPool_GetSize(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
-	require.NoError(re.Register(account.ProtocolID, account.NewProtocol()))
+	require.NoError(re.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -1044,7 +1045,7 @@ func TestActPool_GetSize(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	require.Zero(ap.GetSize())
 	require.Zero(ap.GetGasSize())
 

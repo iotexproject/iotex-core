@@ -627,7 +627,7 @@ func setCandidates(
 	height uint64,
 ) error {
 	for _, candidate := range candidates {
-		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address, big.NewInt(0))
+		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}

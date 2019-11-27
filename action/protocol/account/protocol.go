@@ -17,8 +17,8 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // ProtocolID is the protocol ID
@@ -27,18 +27,22 @@ const ProtocolID = "account"
 
 // Protocol defines the protocol of handling account
 type Protocol struct {
-	addr address.Address
+	addr       address.Address
+	depositGas DepositGas
 }
 
+// DepositGas deposits gas to some pool
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+
 // NewProtocol instantiates the protocol of account
-func NewProtocol() *Protocol {
+func NewProtocol(depositGas DepositGas) *Protocol {
 	h := hash.Hash160b([]byte(ProtocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr}
+	return &Protocol{addr: addr, depositGas: depositGas}
 }
 
 // Handle handles an account
@@ -66,6 +70,28 @@ func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...
 	return nil, protocol.ErrUnimplemented
 }
 
+func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {
+	var account state.Account
+	addr, err := address.FromString(encodedAddr)
+	if err != nil {
+		return errors.Wrap(err, "failed to get address public key hash from encoded address")
+	}
+	addrHash := hash.BytesToHash160(addr.Bytes())
+	err = sm.State(addrHash, &account)
+	switch errors.Cause(err) {
+	case nil:
+		return errors.Errorf("failed to create account %s", encodedAddr)
+	case state.ErrStateNotExist:
+		account.Balance = init
+		account.VotingWeight = big.NewInt(0)
+		if err := sm.PutState(addrHash, account); err != nil {
+			return errors.Wrapf(err, "failed to put state for account %x", addrHash)
+		}
+		return nil
+	}
+	return err
+}
+
 // CreateGenesisStates initializes the protocol by setting the initial balances to some addresses
 func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -81,7 +107,7 @@ func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 		return err
 	}
 	for i, addr := range addrs {
-		if _, err := accountutil.LoadOrCreateAccount(sm, addr.String(), amounts[i]); err != nil {
+		if err := createAccount(sm, addr.String(), amounts[i]); err != nil {
 			return err
 		}
 	}
