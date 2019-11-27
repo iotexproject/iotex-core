@@ -68,7 +68,7 @@ func TestNewBlockSyncer(t *testing.T) {
 	mBc.EXPECT().BlockDAO().Return(dao).AnyTimes()
 
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	ap, err := actpool.NewActPool(mBc, cfg.ActPool, actpool.EnableExperimentalActions())
 	assert.NoError(err)
 
@@ -146,7 +146,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	dao := mock_blockdao.NewMockBlockDAO(ctrl)
@@ -160,7 +160,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
-	require.Nil(err)
+	require.NoError(err)
 	pbBs := &iotexrpc.BlockSync{
 		Start: 1,
 		End:   5,
@@ -174,7 +174,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
@@ -198,10 +198,10 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	cs.EXPECT().Calibrate(uint64(1)).Times(1)
 
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
-	require.Nil(err)
+	require.NoError(err)
 
 	defer func() {
-		require.Nil(chain.Stop(ctx))
+		require.NoError(chain.Stop(ctx))
 		ctrl.Finish()
 	}()
 
@@ -233,7 +233,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol()
 	require.NoError(registry.Register(account.ProtocolID, acc))
@@ -273,16 +273,16 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
-	require.Nil(err)
+	require.NoError(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
-	require.Nil(err)
+	require.NoError(err)
 
 	defer func() {
-		require.Nil(chain1.Stop(ctx))
-		require.Nil(chain2.Stop(ctx))
+		require.NoError(chain1.Stop(ctx))
+		require.NoError(chain2.Stop(ctx))
 		ctrl.Finish()
 	}()
 
@@ -292,29 +292,29 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk1)
-	require.Nil(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(err)
+	require.NoError(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk2)
-	require.Nil(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(err)
+	require.NoError(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk3)
-	require.Nil(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(err)
+	require.NoError(bs1.ProcessBlock(ctx, blk3))
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.Nil(bs2.ProcessBlock(ctx, blk3))
-	require.Nil(bs2.ProcessBlock(ctx, blk2))
-	require.Nil(bs2.ProcessBlock(ctx, blk2))
-	require.Nil(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, blk1))
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -347,7 +347,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
 	require.NotNil(ap1)
-	require.Nil(err)
+	require.NoError(err)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
@@ -368,16 +368,16 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
-	require.Nil(err)
+	require.NoError(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, ap2, cs2, opts...)
-	require.Nil(err)
+	require.NoError(err)
 
 	defer func() {
-		require.Nil(chain1.Stop(ctx))
-		require.Nil(chain2.Stop(ctx))
+		require.NoError(chain1.Stop(ctx))
+		require.NoError(chain2.Stop(ctx))
 		ctrl.Finish()
 	}()
 
@@ -388,27 +388,27 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	)
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, blk1))
 	blk2, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, blk2))
 	blk3, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.Nil(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, blk3))
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.Nil(bs2.ProcessBlockSync(ctx, blk3))
-	require.Nil(bs2.ProcessBlockSync(ctx, blk2))
-	require.Nil(bs2.ProcessBlockSync(ctx, blk1))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk3))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk2))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk1))
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -419,7 +419,7 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	ctx := context.Background()
 	cfg, err := newTestConfig()
-	require.Nil(err)
+	require.NoError(err)
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
@@ -436,12 +436,12 @@ func TestBlockSyncerSync(t *testing.T) {
 	bs, err := NewBlockSyncer(cfg, chain, ap, cs, opts...)
 	require.NotNil(bs)
 	require.NoError(err)
-	require.Nil(bs.Start(ctx))
+	require.NoError(bs.Start(ctx))
 	time.Sleep(time.Millisecond << 7)
 
 	defer func() {
-		require.Nil(bs.Stop(ctx))
-		require.Nil(chain.Stop(ctx))
+		require.NoError(bs.Stop(ctx))
+		require.NoError(chain.Stop(ctx))
 		ctrl.Finish()
 	}()
 
@@ -451,7 +451,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 
 	blk, err = chain.MintNewBlock(
 		nil,
@@ -459,7 +459,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	require.Nil(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk))
 	time.Sleep(time.Millisecond << 7)
 }
 

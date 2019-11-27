@@ -9,7 +9,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
 	reflect "reflect"
 )
@@ -38,7 +37,7 @@ func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 }
 
 // RunAction mocks base method
-func (m *MockWorkingSet) RunAction(arg0 protocol.RunActionsCtx, arg1 action.SealedEnvelope) (*action.Receipt, error) {
+func (m *MockWorkingSet) RunAction(arg0 context.Context, arg1 action.SealedEnvelope) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunAction", arg0, arg1)
 	ret0, _ := ret[0].(*action.Receipt)
@@ -52,33 +51,33 @@ func (mr *MockWorkingSetMockRecorder) RunAction(arg0, arg1 interface{}) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunAction", reflect.TypeOf((*MockWorkingSet)(nil).RunAction), arg0, arg1)
 }
 
-// UpdateBlockLevelInfo mocks base method
-func (m *MockWorkingSet) UpdateBlockLevelInfo(blockHeight uint64) hash.Hash256 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateBlockLevelInfo", blockHeight)
-	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
-}
-
-// UpdateBlockLevelInfo indicates an expected call of UpdateBlockLevelInfo
-func (mr *MockWorkingSetMockRecorder) UpdateBlockLevelInfo(blockHeight interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateBlockLevelInfo", reflect.TypeOf((*MockWorkingSet)(nil).UpdateBlockLevelInfo), blockHeight)
-}
-
 // RunActions mocks base method
-func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 uint64, arg2 []action.SealedEnvelope) ([]*action.Receipt, error) {
+func (m *MockWorkingSet) RunActions(arg0 context.Context, arg1 []action.SealedEnvelope) ([]*action.Receipt, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunActions", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
 	ret0, _ := ret[0].([]*action.Receipt)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunActions indicates an expected call of RunActions
-func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockWorkingSetMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockWorkingSet)(nil).RunActions), arg0, arg1)
+}
+
+// Finalize mocks base method
+func (m *MockWorkingSet) Finalize() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Finalize")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Finalize indicates an expected call of Finalize
+func (mr *MockWorkingSetMockRecorder) Finalize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockWorkingSet)(nil).Finalize))
 }
 
 // Snapshot mocks base method
@@ -124,11 +123,12 @@ func (mr *MockWorkingSetMockRecorder) Commit() *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockWorkingSet) RootHash() hash.Hash256 {
+func (m *MockWorkingSet) RootHash() (hash.Hash256, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
 	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RootHash indicates an expected call of RootHash
@@ -138,11 +138,12 @@ func (mr *MockWorkingSetMockRecorder) RootHash() *gomock.Call {
 }
 
 // Digest mocks base method
-func (m *MockWorkingSet) Digest() hash.Hash256 {
+func (m *MockWorkingSet) Digest() (hash.Hash256, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Digest")
 	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Digest indicates an expected call of Digest

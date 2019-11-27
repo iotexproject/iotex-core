@@ -62,12 +62,15 @@ type (
 
 // NewParams creates a new context for use in the EVM.
 func NewParams(
-	raCtx protocol.RunActionsCtx,
+	ctx context.Context,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
 	getBlockHash GetBlockHash,
 ) (*Params, error) {
-	executorAddr := common.BytesToAddress(raCtx.Caller.Bytes())
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
 		contract, err := address.FromString(execution.Contract())
@@ -79,9 +82,9 @@ func NewParams(
 	}
 
 	gasLimit := execution.GasLimit()
-	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if raCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, raCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
+	if blkCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
@@ -97,9 +100,9 @@ func NewParams(
 			return common.Hash{}
 		},
 		Origin:      executorAddr,
-		Coinbase:    common.BytesToAddress(raCtx.Producer.Bytes()),
-		BlockNumber: new(big.Int).SetUint64(raCtx.BlockHeight),
-		Time:        new(big.Int).SetInt64(raCtx.BlockTimeStamp.Unix()),
+		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
+		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),
+		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    gasLimit,
 		GasPrice:    execution.GasPrice(),
@@ -108,7 +111,7 @@ func NewParams(
 	return &Params{
 		context,
 		execution.Nonce(),
-		raCtx.Caller.String(),
+		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
 		gasLimit,
@@ -141,43 +144,44 @@ func ExecuteContract(
 	execution *action.Execution,
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
-	hu := config.NewHeightUpgrade(&raCtx.Genesis)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	var stateDB *StateDBAdapter
-	if raCtx.History {
+	if bcCtx.History {
 		stateDB = NewStateDBAdapter(
 			sm,
-			raCtx.BlockHeight,
-			hu.IsPre(config.Aleutian, raCtx.BlockHeight),
+			blkCtx.BlockHeight,
+			hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
 			execution.Hash(),
 			SaveHistoryOption(),
 		)
 	} else {
 		stateDB = NewStateDBAdapter(
 			sm,
-			raCtx.BlockHeight,
-			hu.IsPre(config.Aleutian, raCtx.BlockHeight),
+			blkCtx.BlockHeight,
+			hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
 			execution.Hash(),
 		)
 	}
-	ps, err := NewParams(raCtx, execution, stateDB, getBlockHash)
+	ps, err := NewParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, hu, raCtx.GasLimit, raCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, hu, blkCtx.GasLimit, blkCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
 	}
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
-		BlockHeight:     raCtx.BlockHeight,
+		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      execution.Hash(),
 		ContractAddress: contractAddress,
 	}
 
 	receipt.Status = statusCode
 
-	if hu.IsPost(config.Pacific, raCtx.BlockHeight) {
+	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {
@@ -188,7 +192,7 @@ func ExecuteContract(
 	}
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		if err := rewarding.DepositGas(ctx, sm, gasValue, raCtx.Registry); err != nil {
+		if err := rewarding.DepositGas(ctx, sm, gasValue, bcCtx.Registry); err != nil {
 			return nil, nil, err
 		}
 	}

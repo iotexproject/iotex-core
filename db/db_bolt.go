@@ -14,6 +14,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const fileMode = 0600
@@ -266,30 +267,130 @@ func (b *boltDB) SetBucketFillPercent(namespace string, percent float64) error {
 	return nil
 }
 
-// CreateRangeIndexNX creates a new range index if it does not exist, otherwise return existing index
-func (b *boltDB) CreateRangeIndexNX(name, init []byte) (RangeIndex, error) {
-	if err := b.db.Update(func(tx *bolt.Tx) error {
-		bucket, err := tx.CreateBucketIfNotExists(name)
-		if err != nil {
-			return errors.Wrapf(err, "failed to create bucket %x", name)
+// ======================================
+// below functions used by RangeIndex
+// ======================================
+
+// Insert inserts a value into the index
+func (b *boltDB) Insert(name []byte, key uint64, value []byte) error {
+	var err error
+	for i := uint8(0); i < b.config.NumRetries; i++ {
+		if err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket(name)
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+			}
+			cur := bucket.Cursor()
+			ak := byteutil.Uint64ToBytesBigEndian(key - 1)
+			k, v := cur.Seek(ak)
+			if !bytes.Equal(k, ak) {
+				// insert new key
+				if err := bucket.Put(ak, v); err != nil {
+					return err
+				}
+			} else {
+				// update an existing key
+				k, _ = cur.Next()
+			}
+			if k != nil {
+				return bucket.Put(k, value)
+			}
+			return nil
+		}); err == nil {
+			break
 		}
-		// check whether init value exist or not
-		v := bucket.Get(MaxKey)
-		if v == nil {
-			// write the initial value
-			return bucket.Put(MaxKey, init)
-		}
-		init = v
-		return nil
-	}); err != nil {
-		return nil, err
 	}
-	return NewRangeIndex(b.db, b.config.NumRetries, name)
+	if err != nil {
+		err = errors.Wrap(ErrIO, err.Error())
+	}
+	return nil
 }
 
-//======================================
+// Seek returns value by the key
+func (b *boltDB) Seek(name []byte, key uint64) ([]byte, error) {
+	var value []byte
+	err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(name)
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+		}
+		// seek to start
+		cur := bucket.Cursor()
+		_, v := cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
+		value = make([]byte, len(v))
+		copy(value, v)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// Remove removes an existing key
+func (b *boltDB) Remove(name []byte, key uint64) error {
+	var err error
+	for i := uint8(0); i < b.config.NumRetries; i++ {
+		if err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket(name)
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+			}
+			cur := bucket.Cursor()
+			ak := byteutil.Uint64ToBytesBigEndian(key - 1)
+			k, v := cur.Seek(ak)
+			if !bytes.Equal(k, ak) {
+				// return nil if the key does not exist
+				return nil
+			}
+			if err := bucket.Delete(ak); err != nil {
+				return err
+			}
+			// write the corresponding value to next key
+			k, _ = cur.Next()
+			if k != nil {
+				return bucket.Put(k, v)
+			}
+			return nil
+		}); err == nil {
+			break
+		}
+	}
+	return err
+}
+
+// Purge deletes an existing key and all keys before it
+func (b *boltDB) Purge(name []byte, key uint64) error {
+	var err error
+	for i := uint8(0); i < b.config.NumRetries; i++ {
+		if err = b.db.Update(func(tx *bolt.Tx) error {
+			bucket := tx.Bucket(name)
+			if bucket == nil {
+				return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+			}
+			cur := bucket.Cursor()
+			nk, _ := cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
+			// delete all keys before this key
+			for k, _ := cur.Prev(); k != nil; k, _ = cur.Prev() {
+				if err := bucket.Delete(k); err != nil {
+					return err
+				}
+			}
+			// write not exist value to next key
+			if nk != nil {
+				return bucket.Put(nk, NotExist)
+			}
+			return nil
+		}); err == nil {
+			break
+		}
+	}
+	return err
+}
+
+// ======================================
 // private functions
-//======================================
+// ======================================
 
 // intentionally fail to test DB can successfully rollback
 func (b *boltDB) batchPutForceFail(namespace string, key [][]byte, value [][]byte) error {
