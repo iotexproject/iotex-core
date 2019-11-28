@@ -17,8 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// ProtocolID is the identity of this protocol
-const ProtocolID = "rolldpos"
+const protocolID = "rolldpos"
 
 // Protocol defines an epoch protocol
 type Protocol struct {
@@ -35,7 +34,7 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
 		return nil
 	}
-	p, ok := registry.Find(ProtocolID)
+	p, ok := registry.Find(protocolID)
 	if !ok {
 		return nil
 	}
@@ -51,7 +50,7 @@ func MustGetProtocol(registry *protocol.Registry) *Protocol {
 	if registry == nil {
 		log.S().Panic("registry cannot be nil")
 	}
-	p, ok := registry.Find(ProtocolID)
+	p, ok := registry.Find(protocolID)
 	if !ok {
 		log.S().Panic("rolldpos protocol is not registered")
 	}
@@ -138,6 +137,16 @@ func (p *Protocol) ReadState(ctx context.Context, sm protocol.StateManager, meth
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
+}
+
+// Register registers the protocol with a unique ID
+func (p *Protocol) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *Protocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
 }
 
 // Validate validates a modification

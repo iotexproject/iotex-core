@@ -285,9 +285,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	}
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	r.NoError(registry.Register(account.ProtocolID, acc))
+	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	r.NoError(rp.Register(registry))
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
@@ -301,14 +301,14 @@ func (sct *SmartContractTest) prepareBlockchain(
 		blockchain.RegistryOption(registry),
 	)
 	reward := rewarding.NewProtocol(nil, rp)
-	r.NoError(registry.Register(rewarding.ProtocolID, reward))
+	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	sf := bc.Factory()
 	r.NotNil(sf)
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
-	r.NoError(registry.Register(ProtocolID, execution))
+	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
 	return bc
@@ -455,9 +455,9 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol(rewarding.DepositGas)
-		require.NoError(registry.Register(account.ProtocolID, acc))
+		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-		require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+		require.NoError(rp.Register(registry))
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), hash.ZeroHash256)
@@ -473,7 +473,7 @@ func TestProtocol_Handle(t *testing.T) {
 			blockchain.RegistryOption(registry),
 		)
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
-		require.NoError(registry.Register(ProtocolID, exeProtocol))
+		require.NoError(exeProtocol.Register(registry))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 		sf := bc.Factory()
 		require.NotNil(sf)

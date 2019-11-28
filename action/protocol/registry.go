@@ -39,7 +39,6 @@ func (r *Registry) register(id string, p Protocol, force bool) error {
 	}
 	r.ids[id] = len(r.ids)
 	r.protocols = append(r.protocols, p)
-
 	return nil
 }
 
@@ -47,19 +46,16 @@ func (r *Registry) register(id string, p Protocol, force bool) error {
 func (r *Registry) Register(id string, p Protocol) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	return r.register(id, p, false)
 }
 
-// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (r *Registry) ForceRegister(id string, p Protocol) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	return r.register(id, p, true)
 }
 
-// Find finds a protocol by ID
+// Find finds a protocol by ID at Registry
 func (r *Registry) Find(id string) (Protocol, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

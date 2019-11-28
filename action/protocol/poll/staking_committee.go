@@ -226,6 +226,16 @@ func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateMana
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 
+// Register registers the protocol with a unique ID
+func (p *stakingCommittee) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *stakingCommittee) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
+}
+
 // SetNativeStakingContract sets the address of native staking contract
 func (sc *stakingCommittee) SetNativeStakingContract(contract string) {
 	sc.nativeStaking.SetContract(contract)
