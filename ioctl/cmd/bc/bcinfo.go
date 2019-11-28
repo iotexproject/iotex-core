@@ -17,10 +17,18 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support
+var (
+	bcinfoCmdShorts = map[config.Language]string{
+		config.English: "Get current block chain information",
+		config.Chinese: "获取当前区块链信息",
+	}
+)
+
 // bcInfoCmd represents the bc info command
 var bcInfoCmd = &cobra.Command{
 	Use:   "info",
-	Short: "Get current block chain information",
+	Short: config.TranslateInLang(bcinfoCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
