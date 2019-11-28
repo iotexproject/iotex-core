@@ -761,12 +761,8 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	data, err := p.ReadState(ctx, ws, methodName, arguments...)
 	// TODO: need to distinguish user error and system error
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
+	return p.ReadState(ctx, ws, methodName, arguments...)
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
