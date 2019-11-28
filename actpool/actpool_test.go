@@ -87,7 +87,8 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
-	require.NoError(re.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(re))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -159,7 +160,8 @@ func TestActPool_AddActs(t *testing.T) {
 	defer ctrl.Finish()
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "10"
@@ -323,7 +325,8 @@ func TestActPool_PickActs(t *testing.T) {
 	createActPool := func(cfg config.ActPool) (*actPool, []action.SealedEnvelope, []action.SealedEnvelope, []action.SealedEnvelope) {
 		require := require.New(t)
 		registry := protocol.NewRegistry()
-		require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+		acc := account.NewProtocol(rewarding.DepositGas)
+		require.NoError(acc.Register(registry))
 		cfgDefault := config.Default
 		cfgDefault.Genesis.InitBalanceMap[addr1] = "100"
 		cfgDefault.Genesis.InitBalanceMap[addr2] = "10"
@@ -408,8 +411,10 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
-	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -462,7 +467,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 func TestActPool_Reset(t *testing.T) {
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "200"
@@ -476,7 +480,10 @@ func TestActPool_Reset(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 
 	apConfig := getActPoolCfg()
@@ -839,7 +846,6 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -847,7 +853,10 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -887,7 +896,6 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -895,7 +903,10 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -931,7 +942,6 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -939,7 +949,10 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	require.NoError(registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
 	apConfig := getActPoolCfg()
@@ -1028,7 +1041,6 @@ func TestActPool_GetSize(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
-	require.NoError(re.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -1036,7 +1048,10 @@ func TestActPool_GetSize(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(re),
 	)
-	require.NoError(re.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(re))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(re))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
 	apConfig := getActPoolCfg()

@@ -446,9 +446,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			}
 			registry := protocol.NewRegistry()
 			acc := account.NewProtocol(rewarding.DepositGas)
-			require.NoError(t, registry.Register(account.ProtocolID, acc))
+			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-			require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+			require.NoError(t, rp.Register(registry))
 			chain := blockchain.NewBlockchain(
 				cfg,
 				nil,

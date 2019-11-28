@@ -24,6 +24,8 @@ type Protocol interface {
 	ActionValidator
 	ActionHandler
 	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
+	Register(*Registry) error
+	ForceRegister(*Registry) error
 }
 
 // GenesisStateCreator creates some genesis states

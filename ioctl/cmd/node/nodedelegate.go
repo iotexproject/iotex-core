@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
@@ -183,7 +182,7 @@ func nextDelegates() error {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(poll.ProtocolID),
+		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
 	}
@@ -205,7 +204,7 @@ func nextDelegates() error {
 		return output.NewError(output.SerializationError, "failed to deserialize active BPs", err)
 	}
 	request = &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(poll.ProtocolID),
+		ProtocolID: []byte("poll"),
 		MethodName: []byte("BlockProducersByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
 	}

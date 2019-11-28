@@ -631,17 +631,10 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		return nil, nil
 	}
 
-	p, ok := bc.registry.Find(poll.ProtocolID)
-	if !ok {
-		return nil, nil
+	if pp := poll.FindProtocol(bc.registry); pp != nil {
+		return pp.CandidatesByHeight(height)
 	}
-
-	pp, ok := p.(poll.Protocol)
-	if !ok {
-		log.L().Panic("failed to cast to poll protocol")
-	}
-
-	return pp.CandidatesByHeight(height)
+	return nil, nil
 }
 
 func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
