@@ -185,14 +185,15 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 		cfg.Genesis.NumSubEpochs,
 	)
 
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
 		return blockchain.ProductivityByEpoch(chain, epochNum)
 	}, rolldposProtocol)
-	registry.Register(rewarding.ProtocolID, rewardingProtocol)
+	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
-	registry.Register(account.ProtocolID, acc)
-	require.NoError(registry.Register(poll.ProtocolID, poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)))
+	require.NoError(acc.Register(registry))
+	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
+	require.NoError(pp.Register(registry))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))

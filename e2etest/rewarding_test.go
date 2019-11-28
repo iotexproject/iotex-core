@@ -85,13 +85,10 @@ func TestBlockReward(t *testing.T) {
 		return svr.ChainService(1).Blockchain().TipHeight() >= 5, nil
 	}))
 
-	//ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{})
 	ctx := context.Background()
 
-	p, ok := svr.ChainService(1).Registry().Find(rewarding.ProtocolID)
-	require.True(t, ok)
-	rp, ok := p.(*rewarding.Protocol)
-	require.True(t, ok)
+	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
+	require.NotNil(t, rp)
 	sf := svr.ChainService(1).Blockchain().Factory()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
@@ -231,10 +228,8 @@ func TestBlockEpochReward(t *testing.T) {
 	getRewardAddStr := make(map[string]string)
 
 	for i := 0; i < numNodes; i++ {
-		p, ok := svrs[i].ChainService(configs[i].Chain.ID).Registry().Find(rewarding.ProtocolID)
-		require.True(t, ok)
-		rp, ok := p.(*rewarding.Protocol)
-		require.True(t, ok)
+		rp := rewarding.FindProtocol(svrs[i].ChainService(configs[i].Chain.ID).Registry())
+		require.NotNil(t, rp)
 		rps[i] = rp
 
 		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().Factory()

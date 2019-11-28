@@ -71,8 +71,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			},
 			nil
 	}, rp)
-	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
-	require.NoError(t, registry.Register(ProtocolID, p))
+	require.NoError(t, rp.Register(registry))
+	require.NoError(t, p.Register(registry))
 
 	candidates := []*state.Candidate{
 		{
@@ -139,7 +139,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		},
 	)
 	ap := account.NewProtocol(DepositGas)
-	require.NoError(t, registry.Register(account.ProtocolID, ap))
+	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
@@ -226,11 +226,11 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(t, rp.Register(registry))
 	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
 		return 0, nil, nil
 	}, rp)
-	require.NoError(t, registry.Register(ProtocolID, p))
+	require.NoError(t, p.Register(registry))
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
 	cfg.Genesis.Rewarding.EpochRewardStr = "100"
@@ -265,7 +265,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 	ap := account.NewProtocol(DepositGas)
-	require.NoError(t, registry.Register(account.ProtocolID, ap))
+	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 

@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	// ProtocolID is the protocol ID
 	// TODO: it works only for one instance per protocol definition now
-	ProtocolID = "rewarding"
+	protocolID = "rewarding"
 )
 
 var (
@@ -55,7 +54,7 @@ type Protocol struct {
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol) *Protocol {
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
@@ -66,6 +65,22 @@ func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol)
 		addr:                addr,
 		rp:                  rp,
 	}
+}
+
+// FindProtocol finds the registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(protocolID)
+	if !ok {
+		return nil
+	}
+	rp, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast reward protocol")
+	}
+	return rp
 }
 
 // CreatePreStates updates state manager
@@ -205,6 +220,16 @@ func (p *Protocol) ReadState(
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
+}
+
+// Register registers the protocol with a unique ID
+func (p *Protocol) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *Protocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
 }
 
 func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
