@@ -86,12 +86,12 @@ func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...
 	return nil, protocol.ErrUnimplemented
 }
 
-// RegisterProtocol registers the protocol with a unique ID
+// Register registers the protocol with a unique ID
 func (p *Protocol) Register(r *protocol.Registry) error {
 	return r.Register(protocolID, p)
 }
 
-// ForceRegisterProtocol registers the protocol with a unique ID and force replacing the previous protocol if it exists
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
