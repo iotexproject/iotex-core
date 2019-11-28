@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	glog "log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,7 +41,7 @@ func listenBlockSync() {
 	time.Sleep(time.Minute * 5)
 	conn, err := iotex.NewDefaultGRPCConn("localhost:14014")
 	if err != nil {
-		glog.Fatal(err)
+		log.L().Fatal("Failed to create rpc connection.", zap.Error(err))
 	}
 	defer conn.Close()
 
@@ -53,10 +52,10 @@ func listenBlockSync() {
 		time.Sleep(time.Minute * 5)
 		meta, err := c.API().GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
 		if err != nil {
-			glog.Fatal(err)
+			log.L().Fatal("Failed get chain meta config.", zap.Error(err))
 		}
 		if start >= meta.ChainMeta.Height {
-			glog.Fatalf("blockchain stop sync at %d height", start)
+			log.S().Fatalf("Blockchain stop sync at %d height", start)
 		}
 		start = meta.ChainMeta.Height
 	}
@@ -72,12 +71,12 @@ func startServer() {
 
 	genesisCfg, err := genesis.New()
 	if err != nil {
-		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
+		log.L().Fatal("Failed to new genesis config.", zap.Error(err))
 	}
 
 	cfg, err := config.New()
 	if err != nil {
-		glog.Fatalln("Failed to new config.", zap.Error(err))
+		log.L().Fatal("Failed to new config.", zap.Error(err))
 	}
 	initLogger(cfg)
 
@@ -131,6 +130,6 @@ func initLogger(cfg config.Config) {
 		zap.String("ioAddr", addr.String()),
 		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
 	)); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
+		log.L().Fatal("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 }
