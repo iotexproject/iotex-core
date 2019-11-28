@@ -27,7 +27,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
@@ -60,11 +62,22 @@ func TestSnapshot(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
-	require.NoError(sf.Start(context.Background()))
+	registry := protocol.NewRegistry()
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sf.Start(ctx))
 	defer func() {
-		require.NoError(sf.Stop(context.Background()))
+		require.NoError(sf.Stop(ctx))
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -79,19 +92,28 @@ func TestSDBSnapshot(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
-	require.NoError(sdb.Start(context.Background()))
+	registry := protocol.NewRegistry()
+	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(ctx))
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testSDBRevert(ws, t)
 }
+
 func testRevert(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	addr := identityset.Address(28).String()
-	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
-	require.NoError(err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
 	s, err := accountutil.LoadAccount(ws, sHash)
@@ -100,28 +122,17 @@ func testRevert(ws WorkingSet, t *testing.T) {
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	h0 := ws.RootHash()
-	require.NotEqual(h0, hash.ZeroHash256)
-
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(10), s.Balance)
 	require.NoError(ws.PutState(sHash, s))
 
-	h1 := ws.RootHash()
-	require.NotEqual(h1, h0)
-
 	require.NoError(ws.Revert(s0))
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(5), s.Balance)
-
-	h2 := ws.RootHash()
-	require.Equal(h0, h2)
 }
+
 func testSDBRevert(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	addr := identityset.Address(28).String()
-	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
-	require.NoError(err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
 	s, err := accountutil.LoadAccount(ws, sHash)
@@ -130,31 +141,24 @@ func testSDBRevert(ws WorkingSet, t *testing.T) {
 	s0 := ws.Snapshot()
 	require.Equal(1, s0)
 
-	h0 := ws.Digest()
-	require.NotEqual(h0, hash.ZeroHash256)
-
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(10), s.Balance)
 	require.NoError(ws.PutState(sHash, s))
 
-	h1 := ws.Digest()
-	require.NotEqual(h1, h0)
-
 	require.NoError(ws.Revert(s0))
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(5), s.Balance)
-
-	h2 := ws.Digest()
-	require.Equal(h0, h2)
 }
+
 func testSnapshot(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	addr := identityset.Address(28).String()
-	_, err := accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(5))
-	require.NoError(err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
 
-	s, err := accountutil.LoadAccount(ws, sHash)
+	s, err := accountutil.LoadAccount(ws, tHash)
+	require.NoError(err)
+	require.Equal(big.NewInt(7), s.Balance)
+	s, err = accountutil.LoadAccount(ws, sHash)
 	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 	s0 := ws.Snapshot()
@@ -167,11 +171,6 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(15), s.Balance)
 	require.NoError(ws.PutState(sHash, s))
-	// add another account
-	addr = identityset.Address(29).String()
-	_, err = accountutil.LoadOrCreateAccount(ws, addr, big.NewInt(7))
-	require.NoError(err)
-	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
 
 	s, err = accountutil.LoadAccount(ws, tHash)
 	require.NoError(err)
@@ -190,12 +189,9 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	require.NoError(ws.Revert(s1))
 	require.NoError(ws.State(sHash, s))
 	require.Equal(big.NewInt(10), s.Balance)
-	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
 	require.NoError(ws.Revert(s0))
 	require.NoError(ws.State(sHash, s))
-
 	require.Equal(big.NewInt(5), s.Balance)
-	require.Equal(state.ErrStateNotExist, errors.Cause(ws.State(tHash, s)))
 }
 
 func TestCandidates(t *testing.T) {
@@ -219,6 +215,7 @@ func testCandidates(sf Factory, t *testing.T) {
 	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(0).String(), big.NewInt(0)))
 	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(1).String()))
 	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(1).String(), big.NewInt(1)))
+	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
 
 	candidates, err := sf.CandidatesByHeight(1)
@@ -257,15 +254,32 @@ func testState(sf Factory, t *testing.T) {
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	require.NoError(t, sf.Start(context.Background()))
+	ge := genesis.Default
+	ge.InitBalanceMap[a] = "100"
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		},
+	)
+
+	require.NoError(t, sf.Start(ctx))
 	defer func() {
-		require.NoError(t, sf.Stop(context.Background()))
+		require.NoError(t, sf.Stop(ctx))
 	}()
 	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
 
 	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
@@ -274,17 +288,17 @@ func testState(sf Factory, t *testing.T) {
 	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
-	gasLimit := uint64(1000000)
-	raCtx := protocol.RunActionsCtx{
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
-	}
-
-	_, err = ws.RunAction(raCtx, selp)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
-	_ = ws.UpdateBlockLevelInfo(0)
+	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
 
 	//test AccountState() & State()
@@ -327,15 +341,28 @@ func testNonce(sf Factory, t *testing.T) {
 	b := identityset.Address(29).String()
 
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, registry.Register(account.ProtocolID, acc))
-	require.NoError(t, sf.Start(context.Background()))
+	ge := genesis.Default
+	ge.InitBalanceMap[a] = "100"
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		})
+
+	require.NoError(t, sf.Start(ctx))
 	defer func() {
-		require.NoError(t, sf.Stop(context.Background()))
+		require.NoError(t, sf.Stop(ctx))
 	}()
 	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	_, err = accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
 	require.NoError(t, err)
 
 	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
@@ -344,15 +371,14 @@ func testNonce(sf Factory, t *testing.T) {
 	elp := bd.SetAction(tx).SetNonce(0).SetGasLimit(20000).Build()
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
-	gasLimit := uint64(1000000)
-	raCtx := protocol.RunActionsCtx{
-		Producer: identityset.Address(27),
-		GasLimit: gasLimit,
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
-	}
 
-	_, err = ws.RunAction(raCtx, selp)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
 	nonce, err := sf.Nonce(a)
 	require.NoError(t, err)
@@ -365,9 +391,9 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(raCtx, selp)
+	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
-	_ = ws.UpdateBlockLevelInfo(0)
+	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
 	nonce, err = sf.Nonce(a)
 	require.NoError(t, err)
@@ -457,8 +483,9 @@ func TestFactory_RootHashByHeight(t *testing.T) {
 
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	_, err = ws.RunActions(context.Background(), 1, nil)
+	_, err = ws.RunActions(ctx, nil)
 	require.NoError(t, err)
+	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
 
 	rootHash, err := sf.RootHashByHeight(1)
@@ -473,15 +500,24 @@ func TestRunActions(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(registry.Register(account.ProtocolID, acc))
-	require.NoError(sf.Start(context.Background()))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sf.Start(ctx))
 	defer func() {
-		require.NoError(sf.Stop(context.Background()))
+		require.NoError(sf.Stop(ctx))
 	}()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
@@ -495,15 +531,24 @@ func TestSTXRunActions(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(registry.Register(account.ProtocolID, acc))
-	require.NoError(sdb.Start(context.Background()))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(ctx))
 	defer func() {
-		require.NoError(sdb.Stop(context.Background()))
+		require.NoError(sdb.Stop(ctx))
 	}()
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
@@ -512,15 +557,11 @@ func TestSTXRunActions(t *testing.T) {
 
 func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
-	require.Equal(uint64(0), ws.Version())
+	require.Equal(uint64(1), ws.Version())
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
-	_, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
-	require.NoError(err)
-	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
-	require.NoError(err)
 
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -537,48 +578,37 @@ func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	require.NoError(err)
 
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
 			Genesis:  config.Default.Genesis,
 			Registry: registry,
 		})
+	require.Equal(uint64(1), ws.Height())
 	s0 := ws.Snapshot()
-	rootHash0 := ws.RootHash()
-	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
+	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
-	rootHash1 := ws.UpdateBlockLevelInfo(1)
-
-	rootHash2 := ws.RootHash()
-	require.Equal(rootHash1, rootHash2)
-	h := ws.Height()
-	require.Equal(uint64(1), h)
 
 	require.NoError(ws.Revert(s0))
-	require.Equal(rootHash0, ws.RootHash())
 
-	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp2, selp1})
+	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp2, selp1})
 	require.NoError(err)
-	rootHash1 = ws.UpdateBlockLevelInfo(1)
+	require.NoError(ws.Finalize())
 	require.NoError(ws.Commit())
-	rootHash3 := ws.RootHash()
-	require.Equal(rootHash1, rootHash3)
-	h = ws.Height()
-	require.Equal(uint64(1), h)
-	require.Equal(rootHash3, rootHash2)
 }
+
 func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
-	require.Equal(uint64(0), ws.Version())
+	require.Equal(uint64(1), ws.Version())
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
-	_, err := accountutil.LoadOrCreateAccount(ws, a, big.NewInt(100))
-	require.NoError(err)
-	_, err = accountutil.LoadOrCreateAccount(ws, b, big.NewInt(200))
-	require.NoError(err)
 
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -595,36 +625,28 @@ func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T)
 	require.NoError(err)
 
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithRunActionsCtx(context.Background(),
-		protocol.RunActionsCtx{
-			Producer: identityset.Address(27),
-			GasLimit: gasLimit,
+	ctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	ctx = protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
 			Genesis:  config.Default.Genesis,
 			Registry: registry,
 		})
-
+	require.Equal(uint64(1), ws.Height())
 	s0 := ws.Snapshot()
-	rootHash0 := ws.Digest()
-
-	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp1, selp2})
+	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
-	ws.UpdateBlockLevelInfo(1)
-
-	rootHash2 := ws.Digest()
-	h := ws.Height()
-	require.Equal(uint64(1), h)
 
 	require.NoError(ws.Revert(s0))
-	require.Equal(rootHash0, ws.Digest())
 
-	_, err = ws.RunActions(ctx, 1, []action.SealedEnvelope{selp2, selp1})
+	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp2, selp1})
 	require.NoError(err)
-	ws.UpdateBlockLevelInfo(1)
+	require.NoError(ws.Finalize())
 	require.NoError(ws.Commit())
-	rootHash3 := ws.Digest()
-	h = ws.Height()
-	require.Equal(uint64(1), h)
-	require.NotEqual(rootHash2, rootHash3)
 }
 
 func TestCachedBatch(t *testing.T) {
@@ -632,22 +654,18 @@ func TestCachedBatch(t *testing.T) {
 	require.NoError(t, err)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
-	testCachedBatch(ws, t, false)
+	testCachedBatch(ws, t)
 }
 
 func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
 	ws, _ := sdb.NewWorkingSet()
-	testCachedBatch(ws, t, true)
+	testCachedBatch(ws, t)
 }
 
-func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
+func testCachedBatch(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	hash1 := ws.Digest()
-	if chechCachedBatchHash {
-		require.NotEqual(hash.ZeroHash256, hash1)
-	}
 
 	// test PutState()
 	hashA := hash.BytesToHash160(identityset.Address(28).Bytes())
@@ -655,28 +673,18 @@ func testCachedBatch(ws WorkingSet, t *testing.T, chechCachedBatchHash bool) {
 	accountA.Balance = big.NewInt(70)
 	err := ws.PutState(hashA, accountA)
 	require.NoError(err)
-	hash2 := ws.Digest()
-	if chechCachedBatchHash {
-		require.NotEqual(hash1, hash2)
-	}
 
 	// test State()
 	testAccount := state.EmptyAccount()
-	err = ws.State(hashA, &testAccount)
-	require.NoError(err)
+	require.NoError(ws.State(hashA, &testAccount))
 	require.Equal(accountA, testAccount)
 
 	// test DelState()
 	err = ws.DelState(hashA)
 	require.NoError(err)
-	hash3 := ws.Digest()
-	if chechCachedBatchHash {
-		require.NotEqual(hash2, hash3)
-	}
 
 	// can't state account "alfa" anymore
-	err = ws.State(hashA, &testAccount)
-	require.Error(err)
+	require.Error(ws.State(hashA, &testAccount))
 }
 
 func TestGetDB(t *testing.T) {
@@ -697,7 +705,7 @@ func TestSTXGetDB(t *testing.T) {
 func testGetDB(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
 	memDB := db.NewMemKVStore()
-	require.Equal(uint64(0), ws.Version())
+	require.Equal(uint64(1), ws.Version())
 	require.NoError(ws.GetDB().Start(context.Background()))
 	require.Equal(memDB, ws.GetDB())
 }
@@ -799,37 +807,28 @@ func benchRunAction(sf Factory, b *testing.B) {
 		identityset.PrivateKey(33).PublicKey(),
 	}
 	nonces := make([]uint64, len(accounts))
-
+	ge := genesis.Default
+	for _, acc := range accounts {
+		ge.InitBalanceMap[acc] = big.NewInt(int64(b.N * 100)).String()
+	}
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
+	acc := account.NewProtocol(rewarding.DepositGas)
 	if err := registry.Register(account.ProtocolID, acc); err != nil {
 		b.Fatal(err)
 	}
-	if err := sf.Start(context.Background()); err != nil {
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  ge,
+		Registry: registry,
+	})
+	if err := sf.Start(ctx); err != nil {
 		b.Fatal(err)
 	}
 	defer func() {
-		defer func() {
-			if err := sf.Stop(context.Background()); err != nil {
-				b.Fatal(err)
-			}
-
-		}()
-	}()
-
-	ws, err := sf.NewWorkingSet()
-	if err != nil {
-		b.Fatal(err)
-	}
-	for _, acc := range accounts {
-		_, err = accountutil.LoadOrCreateAccount(ws, acc, big.NewInt(int64(b.N*100)))
-		if err != nil {
+		if err := sf.Stop(ctx); err != nil {
 			b.Fatal(err)
 		}
-	}
-	if err := sf.Commit(ws); err != nil {
-		b.Fatal(err)
-	}
+	}()
+
 	gasLimit := testutil.TestGasLimit * 100000
 
 	for n := 0; n < b.N; n++ {
@@ -864,15 +863,22 @@ func benchRunAction(sf Factory, b *testing.B) {
 			acts = append(acts, selp)
 		}
 		b.StartTimer()
-		zctx := protocol.WithRunActionsCtx(context.Background(),
-			protocol.RunActionsCtx{
-				Producer: identityset.Address(27),
-				GasLimit: gasLimit,
+		zctx := protocol.WithBlockCtx(context.Background(),
+			protocol.BlockCtx{
+				BlockHeight: uint64(n),
+				Producer:    identityset.Address(27),
+				GasLimit:    gasLimit,
+			})
+		zctx = protocol.WithBlockchainCtx(zctx,
+			protocol.BlockchainCtx{
 				Genesis:  config.Default.Genesis,
 				Registry: registry,
 			})
-		_, err = ws.RunActions(zctx, uint64(n), acts)
+		_, err = ws.RunActions(zctx, acts)
 		if err != nil {
+			b.Fatal(err)
+		}
+		if err := ws.Finalize(); err != nil {
 			b.Fatal(err)
 		}
 		b.StopTimer()

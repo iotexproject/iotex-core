@@ -40,7 +40,7 @@ func TestBackdoorEvt(t *testing.T) {
 			}
 		}).AnyTimes()
 	cfsm, err := NewConsensusFSM(mockCtx, clock.NewMock())
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(cfsm)
 	require.Equal(sPrepare, cfsm.CurrentState())
 
@@ -83,7 +83,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 			}
 		}).AnyTimes()
 	cfsm, err := NewConsensusFSM(mockCtx, mockClock)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(cfsm)
 	require.Equal(sPrepare, cfsm.CurrentState())
 	evt := &ConsensusEvent{eventType: BackdoorEvent, data: sPrepare}

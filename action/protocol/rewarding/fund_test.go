@@ -21,7 +21,7 @@ import (
 
 func TestProtocol_Fund(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		raCtx, ok := protocol.GetRunActionsCtx(ctx)
+		actionCtx, ok := protocol.GetActionCtx(ctx)
 		require.True(t, ok)
 
 		// Deposit 5 token
@@ -33,7 +33,7 @@ func TestProtocol_Fund(t *testing.T) {
 		availableBalance, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
-		acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(raCtx.Caller.Bytes()))
+		acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
@@ -45,9 +45,6 @@ func TestProtocol_Fund(t *testing.T) {
 
 func TestDepositNegativeGasFee(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		r := protocol.NewRegistry()
-		r.Register(ProtocolID, p)
-
-		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1), r))
+		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1)))
 	}, false)
 }

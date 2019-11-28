@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -34,6 +34,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -54,6 +55,11 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			return nil
 		}).AnyTimes()
 
+	rp := rolldpos.NewProtocol(
+		genesis.Default.NumCandidateDelegates,
+		genesis.Default.NumDelegates,
+		genesis.Default.NumSubEpochs,
+	)
 	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
 		return uint64(19),
 			map[string]uint64{
@@ -64,11 +70,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 				identityset.Address(31).String(): 2,
 			},
 			nil
-	}, rolldpos.NewProtocol(
-		genesis.Default.NumCandidateDelegates,
-		genesis.Default.NumDelegates,
-		genesis.Default.NumSubEpochs,
-	))
+	}, rp)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(t, registry.Register(ProtocolID, p))
+
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -102,6 +107,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		},
 	}
 	ge := config.Default.Genesis
+	// Create a test account with 1000 token
+	ge.InitBalanceMap[identityset.Address(28).String()] = "1000"
 	ge.Rewarding.InitBalanceStr = "0"
 	ge.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
 	ge.Rewarding.BlockRewardStr = "10"
@@ -118,27 +125,45 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		}
 		ge.Rewarding.NumDelegatesForEpochReward = 10
 	}
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
-			Candidates:  candidates,
-			Genesis:     ge,
 		},
 	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:    ge,
+			Candidates: candidates,
+		},
+	)
+	ap := account.NewProtocol(DepositGas)
+	require.NoError(t, registry.Register(account.ProtocolID, ap))
+	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
-	ctx = protocol.WithRunActionsCtx(
-		context.Background(),
-		protocol.RunActionsCtx{
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
 			Producer:    identityset.Address(27),
-			Caller:      identityset.Address(28),
-			Candidates:  candidates,
 			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			Genesis:     ge,
 		},
 	)
-
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: identityset.Address(28),
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:    ge,
+			Registry:   registry,
+			Candidates: candidates,
+		},
+	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(10), blockReward)
@@ -165,10 +190,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), availableBalance)
 
-	// Create a test account with 1000 token
-	_, err = accountutil.LoadOrCreateAccount(sm, identityset.Address(28).String(), big.NewInt(1000))
-	require.NoError(t, err)
-
 	test(t, ctx, sm, p)
 }
 
@@ -177,7 +198,7 @@ func TestProtocol_Handle(t *testing.T) {
 	defer ctrl.Finish()
 
 	cfg := config.Default
-
+	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := db.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -205,9 +226,11 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
+	require.NoError(t, registry.Register(rolldpos.ProtocolID, rp))
 	p := NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
 		return 0, nil, nil
 	}, rp)
+	require.NoError(t, registry.Register(ProtocolID, p))
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
 	cfg.Genesis.Rewarding.EpochRewardStr = "100"
@@ -217,23 +240,20 @@ func TestProtocol_Handle(t *testing.T) {
 	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 5
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
 	cfg.Genesis.Rewarding.ProductivityThreshold = 50
+	// Create a test account with 1000000 token
+	cfg.Genesis.InitBalanceMap[identityset.Address(0).String()] = "1000000"
 
-	ctx := protocol.WithRunActionsCtx(
+	ctx := protocol.WithBlockCtx(
 		context.Background(),
-		protocol.RunActionsCtx{
+		protocol.BlockCtx{
 			BlockHeight: 0,
-			Genesis:     cfg.Genesis,
 		},
 	)
-	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
-	ctx = protocol.WithRunActionsCtx(
-		context.Background(),
-		protocol.RunActionsCtx{
-			Producer:    identityset.Address(0),
-			Caller:      identityset.Address(0),
-			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
-			GasPrice:    big.NewInt(0),
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
 			Candidates: []*state.Candidate{
 				{
 					Address:       identityset.Address(0).String(),
@@ -241,12 +261,28 @@ func TestProtocol_Handle(t *testing.T) {
 					RewardAddress: identityset.Address(0).String(),
 				},
 			},
+			Registry: registry,
 		},
 	)
+	ap := account.NewProtocol(DepositGas)
+	require.NoError(t, registry.Register(account.ProtocolID, ap))
+	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
+	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 
-	// Create a test account with 1000000 token
-	_, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(1000000))
-	require.NoError(t, err)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			Producer:    identityset.Address(0),
+			BlockHeight: genesis.Default.NumDelegates * genesis.Default.NumSubEpochs,
+		},
+	)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:   identityset.Address(0),
+			GasPrice: big.NewInt(0),
+		},
+	)
 
 	// Deposit
 	db := action.DepositToRewardingFundBuilder{}

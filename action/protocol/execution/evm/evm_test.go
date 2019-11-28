@@ -50,11 +50,15 @@ func TestExecuteContractFailure(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller:   identityset.Address(27),
+	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		Caller: identityset.Address(27),
+	})
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
-		Genesis:  config.Default.Genesis,
+	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: config.Default.Genesis,
 	})
 
 	retval, receipt, err := ExecuteContract(ctx, sm, e, func(uint64) (hash.Hash256, error) {
@@ -76,13 +80,15 @@ func TestConstantinople(t *testing.T) {
 	cb := db.NewCachedBatch()
 	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 
-	ctx := protocol.WithRunActionsCtx(context.Background(), protocol.RunActionsCtx{
-		Caller:   identityset.Address(27),
-		Producer: identityset.Address(27),
-		GasLimit: testutil.TestGasLimit,
-		Genesis:  config.Default.Genesis,
+	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		Caller: identityset.Address(27),
 	})
-	raCtx := protocol.MustGetRunActionsCtx(ctx)
+
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: config.Default.Genesis,
+	})
+
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 
 	execHeights := []struct {
 		contract string
@@ -127,10 +133,15 @@ func TestConstantinople(t *testing.T) {
 			nil,
 		)
 		require.NoError(err)
-		raCtx.BlockHeight = e.height
-		hu := config.NewHeightUpgrade(&raCtx.Genesis)
+
+		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), ex.Hash())
-		ps, err := NewParams(raCtx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+			BlockHeight: e.height,
+		})
+		ps, err := NewParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)
