@@ -121,7 +121,7 @@ func ReadSecretFromStdin() (string, error) {
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
 	routineTerminate := make(chan struct{})
-	sta, err := terminal.GetState(1)
+	sta, err := terminal.GetState(int(syscall.Stdin))
 	if err != nil {
 		return "", output.NewError(output.RuntimeError, "", err)
 	}
