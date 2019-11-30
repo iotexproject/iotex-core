@@ -339,7 +339,7 @@ chain:
 	require.NoError(t, err)
 
 	defer func() {
-		err := os.Remove(_subChainPath)
+		err = os.Remove(_subChainPath)
 		require.NoError(t, err)
 		_subChainPath = ""
 		err = os.Remove(_secretPath)
