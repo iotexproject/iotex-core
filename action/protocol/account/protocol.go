@@ -21,9 +21,9 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-// ProtocolID is the protocol ID
+// protocolID is the protocol ID
 // TODO: it works only for one instance per protocol definition now
-const ProtocolID = "account"
+const protocolID = "account"
 
 // Protocol defines the protocol of handling account
 type Protocol struct {
@@ -36,13 +36,29 @@ type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.
 
 // NewProtocol instantiates the protocol of account
 func NewProtocol(depositGas DepositGas) *Protocol {
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of account protocol", zap.Error(err))
 	}
 
 	return &Protocol{addr: addr, depositGas: depositGas}
+}
+
+// FindProtocol finds the registered protocol from registry
+func FindProtocol(registry *protocol.Registry) *Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(protocolID)
+	if !ok {
+		return nil
+	}
+	ap, ok := p.(*Protocol)
+	if !ok {
+		log.S().Panic("fail to cast account protocol")
+	}
+	return ap
 }
 
 // Handle handles an account
@@ -68,6 +84,16 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
 	return nil, protocol.ErrUnimplemented
+}
+
+// Register registers the protocol with a unique ID
+func (p *Protocol) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *Protocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
 }
 
 func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {

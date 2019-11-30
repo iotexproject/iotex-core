@@ -175,11 +175,11 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
-	registry.Register(rewarding.ProtocolID, rewardingProtocol)
+	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
-	registry.Register(account.ProtocolID, acc)
+	require.NoError(acc.Register(registry))
 	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
