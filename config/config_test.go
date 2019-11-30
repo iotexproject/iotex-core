@@ -23,10 +23,9 @@ import (
 )
 
 func TestDB_SplitDBSize(t *testing.T) {
-	require := require.New(t)
 	var db = DB{SplitDBSizeMB: uint64(1)}
 	var expected = uint64(1 * 1024 * 1024)
-	require.Equal(expected, db.SplitDBSize())
+	require.Equal(t, expected, db.SplitDBSize())
 }
 
 func TestStrs_String(t *testing.T) {
@@ -83,7 +82,6 @@ func TestNewConfigWithPlugins(t *testing.T) {
 	defer func() {
 		_plugins = nil
 	}()
-
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
@@ -308,7 +306,7 @@ chain:
 	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
 	require.NoError(t, err)
 	defer func() {
-		err := os.Remove(_subChainPath)
+		err = os.Remove(_subChainPath)
 		_subChainPath = ""
 		require.NoError(t, err)
 	}()
@@ -373,7 +371,7 @@ chain:
 	require.NoError(t, err)
 
 	defer func() {
-		err := os.Remove(_subChainPath)
+		err = os.Remove(_subChainPath)
 		require.NoError(t, err)
 		_subChainPath = ""
 		if oldExist {
