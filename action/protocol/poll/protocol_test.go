@@ -41,7 +41,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		},
 	)
 	registry := protocol.NewRegistry()
-	err := registry.Register(rolldpos.ProtocolID, rolldpos.NewProtocol(36, 36, 20))
+	err := registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20))
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
