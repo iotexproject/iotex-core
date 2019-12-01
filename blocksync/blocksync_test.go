@@ -24,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	bc "github.com/iotexproject/iotex-core/blockchain"
@@ -176,10 +177,10 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(rp.Register(registry))
 	chain := bc.NewBlockchain(
 		cfg,
 		nil,
@@ -235,10 +236,10 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(rp.Register(registry))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		nil,
@@ -259,8 +260,8 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
-	require.NoError(registry2.Register(account.ProtocolID, acc))
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rp))
+	require.NoError(acc.Register(registry2))
+	require.NoError(rp.Register(registry2))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		nil,
@@ -327,14 +328,14 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cfg, err := newTestConfig()
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	acc := account.NewProtocol()
-	require.NoError(registry.Register(account.ProtocolID, acc))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(rolldposProtocol.Register(registry))
 	chain1 := bc.NewBlockchain(
 		cfg,
 		nil,
@@ -354,8 +355,8 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	bs1, err := NewBlockSyncer(cfg, chain1, ap1, cs1, opts...)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
-	require.NoError(registry2.Register(account.ProtocolID, acc))
-	require.NoError(registry2.Register(rolldpos.ProtocolID, rolldposProtocol))
+	require.NoError(acc.Register(registry2))
+	require.NoError(rolldposProtocol.Register(registry2))
 	chain2 := bc.NewBlockchain(
 		cfg,
 		nil,
@@ -422,7 +423,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(err)
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	require.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	require.NoError(rp.Register(registry))
 	chain := bc.NewBlockchain(cfg, nil, bc.InMemStateFactoryOption(), bc.InMemDaoOption(), bc.RegistryOption(registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

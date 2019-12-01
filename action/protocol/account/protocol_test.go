@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
@@ -53,7 +54,8 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	s, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
-	s, err = accountutil.LoadOrCreateAccount(sm, addrv1.String(), big.NewInt(5))
+	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
+	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())
 	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
@@ -88,8 +90,7 @@ func TestProtocol_Initialize(t *testing.T) {
 
 	ge := config.Default.Genesis
 	ge.Account.InitBalanceMap = map[string]string{
-		identityset.Address(0).String(): big.NewInt(100).String(),
-		identityset.Address(1).String(): big.NewInt(200).String(),
+		identityset.Address(0).String(): "100",
 	}
 	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
 		BlockHeight: 0,
@@ -97,17 +98,15 @@ func TestProtocol_Initialize(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Genesis: ge,
 	})
-	p := NewProtocol()
+	p := NewProtocol(rewarding.DepositGas)
 	require.NoError(
 		p.CreateGenesisStates(
 			ctx,
 			sm,
 		),
 	)
-	acc0, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(0).String(), big.NewInt(0))
+	require.Error(createAccount(sm, identityset.Address(0).String(), big.NewInt(0)))
+	acc0, err := accountutil.LoadAccount(sm, hash.BytesToHash160(identityset.Address(0).Bytes()))
 	require.NoError(err)
 	require.Equal(big.NewInt(100), acc0.Balance)
-	acc1, err := accountutil.LoadOrCreateAccount(sm, identityset.Address(1).String(), big.NewInt(0))
-	require.NoError(err)
-	require.Equal(big.NewInt(200), acc1.Balance)
 }

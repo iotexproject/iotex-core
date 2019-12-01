@@ -45,9 +45,6 @@ func TestProtocol_Fund(t *testing.T) {
 
 func TestDepositNegativeGasFee(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		r := protocol.NewRegistry()
-		r.Register(ProtocolID, p)
-
-		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1), r))
+		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1)))
 	}, false)
 }

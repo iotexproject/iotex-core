@@ -339,7 +339,7 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	}
 
 	// Update primary account
-	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr.String(), big.NewInt(0))
+	primAcc, err := accountutil.LoadOrCreateAccount(sm, addr.String())
 	if err != nil {
 		return err
 	}

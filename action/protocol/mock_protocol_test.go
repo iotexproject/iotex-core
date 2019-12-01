@@ -83,6 +83,34 @@ func (mr *MockProtocolMockRecorder) ReadState(arg0, arg1, arg2 interface{}, arg3
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadState", reflect.TypeOf((*MockProtocol)(nil).ReadState), varargs...)
 }
 
+// Register mocks base method
+func (m *MockProtocol) Register(arg0 *Registry) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Register", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Register indicates an expected call of Register
+func (mr *MockProtocolMockRecorder) Register(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockProtocol)(nil).Register), arg0)
+}
+
+// ForceRegister mocks base method
+func (m *MockProtocol) ForceRegister(arg0 *Registry) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ForceRegister", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ForceRegister indicates an expected call of ForceRegister
+func (mr *MockProtocolMockRecorder) ForceRegister(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForceRegister", reflect.TypeOf((*MockProtocol)(nil).ForceRegister), arg0)
+}
+
 // MockGenesisStateCreator is a mock of GenesisStateCreator interface
 type MockGenesisStateCreator struct {
 	ctrl     *gomock.Controller
