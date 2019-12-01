@@ -345,7 +345,7 @@ func (x *blockIndexer) commit() error {
 	if err := x.tac.Commit(); err != nil {
 		return err
 	}
-	return x.kvstore.Commit(x.batch)
+	return x.kvstore.WriteBatch(x.batch)
 }
 
 // getIndexerForAddr returns the counting indexer for an address

@@ -142,7 +142,7 @@ func TestDBInMemBatchCommit(t *testing.T) {
 	value, err = kvStore.Get(bucket2, testK2[1])
 	require.NoError(err)
 	require.Equal(testV2[0], value)
-	require.NoError(kvStore.Commit(batch))
+	require.NoError(kvStore.WriteBatch(batch))
 	value, err = kvStore.Get(bucket1, testK1[0])
 	require.NoError(err)
 	require.Equal(testV1[0], value)
@@ -172,7 +172,7 @@ func TestDBBatch(t *testing.T) {
 		value, err = kvStore.Get(bucket2, testK2[1])
 		require.NoError(err)
 		require.Equal(testV2[0], value)
-		require.NoError(kvStore.Commit(batch))
+		require.NoError(kvStore.WriteBatch(batch))
 
 		value, err = kvStore.Get(bucket1, testK1[0])
 		require.NoError(err)
@@ -187,7 +187,7 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(testV1[0], value)
 
 		batch.Put(bucket1, testK1[0], testV1[1], "")
-		require.NoError(kvStore.Commit(batch))
+		require.NoError(kvStore.WriteBatch(batch))
 
 		require.Equal(0, batch.Size())
 
@@ -199,10 +199,10 @@ func TestDBBatch(t *testing.T) {
 		require.NoError(err)
 		require.Equal(testV1[1], value)
 
-		require.NoError(kvStore.Commit(batch))
+		require.NoError(kvStore.WriteBatch(batch))
 
 		batch.Put(bucket1, testK1[2], testV1[2], "")
-		require.NoError(kvStore.Commit(batch))
+		require.NoError(kvStore.WriteBatch(batch))
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)
@@ -215,7 +215,7 @@ func TestDBBatch(t *testing.T) {
 		batch.Clear()
 		batch.Put(bucket1, testK1[2], testV1[2], "")
 		batch.Delete(bucket2, testK2[1], "")
-		require.NoError(kvStore.Commit(batch))
+		require.NoError(kvStore.WriteBatch(batch))
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)
@@ -263,13 +263,13 @@ func TestCacheKV(t *testing.T) {
 		require.Equal(testV1[2], v)
 		// delete a non-existing entry is OK
 		cb.Delete(bucket2, []byte("notexist"), "")
-		require.NoError(kv.Commit(cb))
+		require.NoError(kv.WriteBatch(cb))
 
 		v, _ = kv.Get(bucket1, testK1[1])
 		require.Equal(testV1[2], v)
 
 		cb = NewCachedBatch()
-		require.NoError(kv.Commit(cb))
+		require.NoError(kv.WriteBatch(cb))
 	}
 
 	t.Run("In-memory KV Store", func(t *testing.T) {
