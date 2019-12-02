@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
-func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
+func initMockStateManager(ctrl *gomock.Controller) (protocol.StateManager, error) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -46,9 +46,11 @@ func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), cb)
+	if err != nil {
+		return nil, err
+	}
+	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 	sm.EXPECT().Snapshot().DoAndReturn(
 		func() int {
 			return cb.Snapshot()
@@ -57,7 +59,7 @@ func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 		func(snapshot int) error {
 			return cb.Revert(snapshot)
 		}).AnyTimes()
-	return sm
+	return sm, nil
 }
 
 func TestAddBalance(t *testing.T) {
@@ -65,7 +67,8 @@ func TestAddBalance(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	addAmount := big.NewInt(40000)
@@ -82,8 +85,8 @@ func TestRefundAPIs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
-
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.Zero(stateDB.GetRefund())
 	refund := uint64(1024)
@@ -96,8 +99,8 @@ func TestEmptyAndCode(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
-
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.True(stateDB.Empty(addr))
@@ -113,8 +116,8 @@ func TestForEachStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
-
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	stateDB.CreateAccount(addr)
@@ -149,8 +152,8 @@ func TestNonce(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
-
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 	require.Equal(uint64(0), stateDB.GetNonce(addr))
@@ -164,7 +167,8 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := initMockStateManager(ctrl)
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
 		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 		tests := []stateDBTest{
 			{
@@ -367,7 +371,8 @@ func TestGetCommittedState(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sm := initMockStateManager(ctrl)
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
 		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 
 		stateDB.SetState(c1, k1, v1)
@@ -394,10 +399,10 @@ func TestGetBalanceOnError(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(t, err)
+	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
+
 	errs := []error{
 		state.ErrStateNotExist,
 		errors.New("other error"),
@@ -416,7 +421,8 @@ func TestPreimage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := initMockStateManager(ctrl)
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("cat"))
@@ -426,15 +432,7 @@ func TestPreimage(t *testing.T) {
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
-	k, _ := stateDB.cb.Get(PreimageKVNameSpace, v1[:])
-	require.Equal([]byte("cat"), k)
-	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v2[:])
-	require.Equal([]byte("dog"), k)
-	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v3[:])
-	require.Equal([]byte("hen"), k)
-
-	require.NoError(stateDB.dao.WriteBatch(stateDB.cb))
-	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v1[:])
+	k, _ := stateDB.dao.Get(PreimageKVNameSpace, v1[:])
 	require.Equal([]byte("cat"), k)
 	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v2[:])
 	require.Equal([]byte("dog"), k)

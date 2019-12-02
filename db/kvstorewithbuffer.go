@@ -74,20 +74,26 @@ func FlushTranslateOption(wit batch.WriteInfoTranslate) KVStoreFlusherOption {
 }
 
 // NewKVStoreFlusher returns kv store flusher
-func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch) (KVStoreFlusher, error) {
+func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreFlusherOption) (KVStoreFlusher, error) {
 	if store == nil {
 		return nil, errors.New("store cannot be nil")
 	}
 	if buffer == nil {
 		return nil, errors.New("buffer cannot be nil")
 	}
-
-	return &flusher{
+	f := &flusher{
 		kvb: &kvStoreWithBuffer{
 			store:  store,
 			buffer: buffer,
 		},
-	}, nil
+	}
+	for _, opt := range opts {
+		if err := opt(f); err != nil {
+			return nil, errors.Wrap(err, "failed to apply option")
+		}
+	}
+
+	return f, nil
 }
 
 func (f *flusher) Flush() error {

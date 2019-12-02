@@ -9,7 +9,6 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
-	batch "github.com/iotexproject/iotex-core/db/batch"
 	reflect "reflect"
 )
 
@@ -205,18 +204,4 @@ func (m *MockStateManager) GetDB() db.KVStore {
 func (mr *MockStateManagerMockRecorder) GetDB() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockStateManager)(nil).GetDB))
-}
-
-// GetCachedBatch mocks base method
-func (m *MockStateManager) GetCachedBatch() batch.CachedBatch {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCachedBatch")
-	ret0, _ := ret[0].(batch.CachedBatch)
-	return ret0
-}
-
-// GetCachedBatch indicates an expected call of GetCachedBatch
-func (mr *MockStateManagerMockRecorder) GetCachedBatch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockStateManager)(nil).GetCachedBatch))
 }

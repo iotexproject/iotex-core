@@ -26,8 +26,8 @@ type (
 	// and keep batching Put/Delete operation into it
 	// b.Put(bucket, k, v)
 	// b.Delete(bucket, k, v)
-	// once it's done, call KVStore interface's Commit() to persist to underlying DB
-	// KVStore.Commit(b)
+	// once it's done, call KVStore interface's WriteBatch() to persist to underlying DB
+	// KVStore.WriteBatch(b)
 	// if commit succeeds, the batch is cleared
 	// otherwise the batch is kept intact (so batch user can figure out what’s wrong and attempt re-commit later)
 	KVStoreBatch interface {
@@ -47,8 +47,6 @@ type (
 		Entry(int) (*WriteInfo, error)
 		// SerializeQueue serialize the writes in queue
 		SerializeQueue(WriteInfoFilter) []byte
-		// ExcludeEntries returns copy of batch with certain entries excluded
-		ExcludeEntries(string, WriteType) KVStoreBatch
 		// Clear clears entries staged in batch
 		Clear()
 		// Translate clones the batch

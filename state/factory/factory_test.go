@@ -38,7 +38,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -643,22 +642,18 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	require.NoError(sf.Start(context.Background()))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	require.NoError(sf.Start(ctx))
 	defer func() {
-		require.NoError(sf.Stop(context.Background()))
+		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	dao := ws.GetDB()
-	require.NoError(dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
 
-	require.NoError(dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
 	height, err = sf.Height()
 	require.NoError(err)
-	require.Equal(uint64(10), height)
+	require.Equal(uint64(1), height)
 }
 
 func TestRunActions(t *testing.T) {
@@ -990,26 +985,27 @@ func testCachedBatch(ws WorkingSet, t *testing.T) {
 }
 
 func TestGetDB(t *testing.T) {
+	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(t, err)
+	require.NoError(err)
 	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	testGetDB(ws, t)
+	require.NoError(err)
+	require.Equal(uint64(1), ws.Version())
+	kvstore := ws.GetDB()
+	_, ok := kvstore.(db.KVStoreWithBuffer)
+	require.True(ok)
 }
 
 func TestSTXGetDB(t *testing.T) {
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-	require.NoError(t, err)
-	ws, _ := sdb.NewWorkingSet()
-	testGetDB(ws, t)
-}
-
-func testGetDB(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	memDB := db.NewMemKVStore()
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(err)
+	ws, err := sdb.NewWorkingSet()
+	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
-	require.NoError(ws.GetDB().Start(context.Background()))
-	require.Equal(memDB, ws.GetDB())
+	kvstore := ws.GetDB()
+	_, ok := kvstore.(db.KVStoreWithBuffer)
+	require.True(ok)
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
@@ -1031,7 +1027,8 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), false)
+		ws, err := newStateTX(0, db.NewMemKVStore())
+		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }

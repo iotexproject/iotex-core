@@ -61,7 +61,6 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	return p, ctx, sm, nil
 }
 

@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 )
 
 // NamespaceOption creates an option for given namesapce
@@ -17,9 +16,9 @@ func NamespaceOption(ns string) StateOption {
 }
 
 // BlockHeightOption creates an option for given namesapce
-func BlockHeightOption(atHeight bool, height uint64) StateOption {
+func BlockHeightOption(height uint64) StateOption {
 	return func(sc *StateConfig) error {
-		sc.AtHeight = atHeight
+		sc.AtHeight = true
 		sc.Height = height
 		return nil
 	}
@@ -63,6 +62,5 @@ type (
 		PutState(hash.Hash160, interface{}, ...StateOption) error
 		DelState(hash.Hash160, ...StateOption) error
 		GetDB() db.KVStore
-		GetCachedBatch() batch.CachedBatch
 	}
 )

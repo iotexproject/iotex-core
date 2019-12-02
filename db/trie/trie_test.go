@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 )
 
 var (
@@ -427,14 +426,12 @@ func TestHistoryTrie(t *testing.T) {
 	dao := db.NewBoltDB(cfg)
 	require.NoError(dao.Start(context.Background()))
 	AccountKVNameSpace := "Account"
-	PruneKVNameSpace := "cp"
 	AccountTrieRootKey := "accountTrieRoot"
 	addrKey := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 	value1 := []byte{1}
 	value2 := []byte{2}
 
-	cb := batch.NewCachedBatch()
-	trieDB, err := db.NewKVStoreForTrie(AccountKVNameSpace, PruneKVNameSpace, dao, db.CachedBatchOption(cb))
+	trieDB, err := db.NewKVStoreForTrie(AccountKVNameSpace, dao)
 	require.NoError(err)
 	tr, err := NewTrie(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
 	require.NoError(err)
@@ -449,9 +446,6 @@ func TestHistoryTrie(t *testing.T) {
 
 	// update entry
 	require.NoError(tr.Upsert(addrKey, value2))
-	newcb := cb.ExcludeEntries("", batch.Delete)
-	cb.Clear()
-	require.NoError(dao.WriteBatch(newcb))
 
 	// get new value
 	c, err = tr.Get(addrKey)

@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -49,7 +48,6 @@ type (
 		logs               []*action.Log
 		err                error
 		blockHeight        uint64
-		saveHistory        bool
 		executionHash      hash.Hash256
 		refund             uint64
 		cachedContract     contractMap
@@ -59,21 +57,12 @@ type (
 		preimages          preimageMap
 		preimageSnapshot   map[int]preimageMap
 		dao                db.KVStore
-		cb                 batch.CachedBatch
 		notFixTopicCopyBug bool
 	}
 )
 
 // StateDBOption set StateDBAdapter construction param
 type StateDBOption func(*StateDBAdapter) error
-
-// SaveHistoryOption creates StateDBAdapter with history
-func SaveHistoryOption() StateDBOption {
-	return func(s *StateDBAdapter) error {
-		s.saveHistory = true
-		return nil
-	}
-}
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
@@ -96,7 +85,6 @@ func NewStateDBAdapter(
 		preimages:          make(preimageMap),
 		preimageSnapshot:   make(map[int]preimageMap),
 		dao:                sm.GetDB(),
-		cb:                 sm.GetCachedBatch(),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
 	for _, opt := range opts {
@@ -692,7 +680,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		stateDB.cb.Put(PreimageKVNameSpace, h, v, "failed to put hash %x preimage %x", k, v)
+		stateDB.dao.Put(PreimageKVNameSpace, h, v)
 	}
 	return nil
 }
@@ -710,12 +698,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	var contract Contract
-	if stateDB.saveHistory {
-		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb, HistoryRetentionOption(stateDB.blockHeight))
-	} else {
-		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb)
-	}
+	contract, err := newContract(addr, account, stateDB.dao)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

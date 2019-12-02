@@ -13,9 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -26,8 +24,6 @@ const (
 	ContractKVNameSpace = "Contract"
 	// PreimageKVNameSpace is the bucket name for preimage data storage
 	PreimageKVNameSpace = "Preimage"
-	// PruneKVNameSpace is the bucket name for entries to be pruned
-	PruneKVNameSpace = "cp"
 )
 
 type (
@@ -48,30 +44,15 @@ type (
 
 	contract struct {
 		*state.Account
-		dirtyCode   bool   // contract's code has been set
-		dirtyState  bool   // contract's account state has changed
-		code        []byte // contract byte-code
-		root        hash.Hash256
-		committed   map[hash.Hash256][]byte
-		dao         db.KVStore
-		trie        trie.Trie // storage trie of the contract
-		saveHistory bool
-		height      uint64 // height at which contract state changes
-
+		dirtyCode  bool   // contract's code has been set
+		dirtyState bool   // contract's account state has changed
+		code       []byte // contract byte-code
+		root       hash.Hash256
+		committed  map[hash.Hash256][]byte
+		dao        db.KVStore
+		trie       trie.Trie // storage trie of the contract
 	}
 )
-
-// ContractOption set contract construction param
-type ContractOption func(*contract) error
-
-// HistoryRetentionOption creates contract with history
-func HistoryRetentionOption(height uint64) ContractOption {
-	return func(c *contract) error {
-		c.saveHistory = true
-		c.height = height
-		return nil
-	}
-}
 
 func (c *contract) Iterator() (trie.Iterator, error) {
 	return trie.NewLeafIterator(c.trie)
@@ -175,19 +156,14 @@ func (c *contract) Snapshot() Contract {
 }
 
 // newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore, batch batch.CachedBatch, opts ...ContractOption) (Contract, error) {
+func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
 		dao:       dao,
 	}
-	for _, opt := range opts {
-		if err := opt(c); err != nil {
-			log.L().Panic("failed to execute contract creation option")
-		}
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, PruneKVNameSpace, dao, db.CachedBatchOption(batch))
+	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao)
 	if err != nil {
 		return nil, err
 	}
@@ -197,9 +173,6 @@ func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore, batc
 		trie.HashFuncOption(func(data []byte) []byte {
 			return trie.DefaultHashFunc(append(addr[:], data...))
 		}),
-	}
-	if c.saveHistory {
-		options = append(options, trie.HistoryRetentionOption(c.height))
 	}
 	if account.Root != hash.ZeroHash256 {
 		options = append(options, trie.RootHashOption(account.Root[:]))

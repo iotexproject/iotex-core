@@ -40,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -1437,7 +1436,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := db.NewKVStoreForTrie(evm.ContractKVNameSpace, evm.PruneKVNameSpace, kv, db.CachedBatchOption(batch.NewCachedBatch()))
+	dbForTrie, err := db.NewKVStoreForTrie(evm.ContractKVNameSpace, kv)
 	require.NoError(err)
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),
@@ -1446,7 +1445,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 			return trie.DefaultHashFunc(append(addrHash[:], data...))
 		}),
 	}
-	options = append(options, trie.RootHashOption(root[:]), trie.HistoryRetentionOption(2000))
+	options = append(options, trie.RootHashOption(root[:]))
 	tr, err := trie.NewTrie(options...)
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))

@@ -9,6 +9,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -59,18 +59,15 @@ type (
 		RootHash() (hash.Hash256, error)
 		Digest() (hash.Hash256, error)
 		Version() uint64
-		History() bool
 	}
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
 		finalized   bool
 		blockHeight uint64
-		saveHistory bool
 		accountTrie trie.Trie            // global account state trie
 		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
-		cb          batch.CachedBatch    // cached batch for pending writes
-		dao         db.KVStore           // the underlying DB for account/contract storage
+		flusher     db.KVStoreFlusher
 	}
 )
 
@@ -81,15 +78,34 @@ func newWorkingSet(
 	root hash.Hash256,
 	saveHistory bool,
 ) (WorkingSet, error) {
-	ws := &workingSet{
-		finalized:   false,
-		blockHeight: height,
-		saveHistory: saveHistory,
-		trieRoots:   make(map[int]hash.Hash256),
-		cb:          batch.NewCachedBatch(),
-		dao:         kv,
+	opts := []db.KVStoreFlusherOption{
+		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
+			return wi.Namespace() == AccountKVNamespace
+		}),
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
+	if saveHistory {
+		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if wi.WriteType() != batch.Delete {
+				return wi
+			}
+			oldKey := wi.Key()
+			newKey := byteutil.Uint64ToBytesBigEndian(height)
+			return batch.NewWriteInfo(
+				batch.Put,
+				strings.Join([]string{ArchiveNamespacePrefix, wi.Namespace()}, "-"),
+				append(newKey, oldKey...),
+				wi.Value(),
+				wi.ErrorFormat(),
+				wi.ErrorArgs(),
+			)
+		}))
+	}
+	flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch(), opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNamespace, flusher.KVStoreWithBuffer())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state tire db")
 	}
@@ -97,11 +113,14 @@ func newWorkingSet(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state trie from config")
 	}
-	ws.accountTrie = tr
-	if err := ws.accountTrie.Start(context.Background()); err != nil {
-		return nil, errors.Wrapf(err, "failed to load state trie from root = %x", root)
-	}
-	return ws, nil
+
+	return &workingSet{
+		accountTrie: tr,
+		finalized:   false,
+		blockHeight: height,
+		trieRoots:   make(map[int]hash.Hash256),
+		flusher:     flusher,
+	}, tr.Start(context.Background())
 }
 
 // RootHash returns the hash of the root node of the accountTrie
@@ -125,10 +144,6 @@ func (ws *workingSet) Version() uint64 {
 // Height returns the Height of the block being worked on
 func (ws *workingSet) Height() (uint64, error) {
 	return ws.blockHeight, nil
-}
-
-func (ws *workingSet) History() bool {
-	return ws.saveHistory
 }
 
 // RunActions runs actions in the block and track pending changes in working set
@@ -218,30 +233,30 @@ func (ws *workingSet) Finalize() error {
 		return errors.New("Cannot finalize a working set twice")
 	}
 	ws.finalized = true
-	// Persist accountTrie's root hash
-	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(protocol.AccountNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(ws.blockHeight)
-	ws.cb.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
+	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), h)
+	// Persist accountTrie's root hash
+	rootHash := ws.accountTrie.RootHash()
+	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(AccountTrieRootKey), rootHash)
 	// Persist the historical accountTrie's root hash
-	ws.cb.Put(
-		protocol.AccountNameSpace,
+	ws.flusher.KVStoreWithBuffer().MustPut(
+		AccountKVNamespace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, ws.blockHeight)),
 		rootHash,
-		"failed to store accountTrie's root hash",
 	)
+
 	return nil
 }
 
 func (ws *workingSet) Snapshot() int {
-	s := ws.cb.Snapshot()
+	s := ws.flusher.KVStoreWithBuffer().Snapshot()
 	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
 	return s
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
-	if err := ws.cb.Revert(snapshot); err != nil {
+	if err := ws.flusher.KVStoreWithBuffer().Revert(snapshot); err != nil {
 		return err
 	}
 	root, ok := ws.trieRoots[snapshot]
@@ -255,15 +270,8 @@ func (ws *workingSet) Revert(snapshot int) error {
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
-	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
-	var cb batch.KVStoreBatch
-	if ws.saveHistory {
-		// exclude trie deletion
-		cb = ws.cb.ExcludeEntries("", batch.Delete)
-	} else {
-		cb = ws.cb
-	}
-	if err := ws.dao.WriteBatch(cb); err != nil {
+	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.flusher.KVStoreWithBuffer().Size()))
+	if err := ws.flusher.Flush(); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clear()
@@ -272,12 +280,7 @@ func (ws *workingSet) Commit() error {
 
 // GetDB returns the underlying DB for account/contract storage
 func (ws *workingSet) GetDB() db.KVStore {
-	return ws.dao
-}
-
-// GetCachedBatch returns the cached batch for pending writes
-func (ws *workingSet) GetCachedBatch() batch.CachedBatch {
-	return ws.cb
+	return ws.flusher.KVStoreWithBuffer()
 }
 
 // State pulls a state from DB
@@ -287,44 +290,11 @@ func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.S
 		return err
 	}
 	if cfg.AtHeight {
-		return ws.stateAtHeight(cfg.Height, hash, s)
+		return ErrNotSupported
 	}
 
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := ws.accountTrie.Get(hash[:])
-	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
-	}
-	if err != nil {
-		return errors.Wrapf(err, "failed to get account of %x", hash)
-	}
-	return state.Deserialize(s, mstate)
-}
-
-// StateAtHeight pulls a state from DB
-func (ws *workingSet) stateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
-	if !ws.saveHistory {
-		return ErrNoArchiveData
-	}
-	// get root through height
-	rootHash, err := ws.dao.Get(protocol.AccountNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
-	if err != nil {
-		return errors.Wrap(err, "failed to get root hash through height")
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(batch.NewCachedBatch()))
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state tire db")
-	}
-	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(rootHash))
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state trie from config")
-	}
-	err = tr.Start(context.Background())
-	if err != nil {
-		return err
-	}
-	defer tr.Stop(context.Background())
-	mstate, err := tr.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
 		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
 	}
@@ -341,11 +311,15 @@ func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}, opts ...proto
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
+	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, pkHash[:], ss)
+
 	return ws.accountTrie.Upsert(pkHash[:], ss)
 }
 
 // DelState deletes a state from DB
 func (ws *workingSet) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
+	ws.flusher.KVStoreWithBuffer().MustDelete(AccountKVNamespace, pkHash[:])
+
 	return ws.accountTrie.Delete(pkHash[:])
 }
 

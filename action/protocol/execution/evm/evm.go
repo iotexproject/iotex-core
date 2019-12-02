@@ -147,23 +147,12 @@ func ExecuteContract(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	var stateDB *StateDBAdapter
-	if bcCtx.History {
-		stateDB = NewStateDBAdapter(
-			sm,
-			blkCtx.BlockHeight,
-			hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
-			execution.Hash(),
-			SaveHistoryOption(),
-		)
-	} else {
-		stateDB = NewStateDBAdapter(
-			sm,
-			blkCtx.BlockHeight,
-			hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
-			execution.Hash(),
-		)
-	}
+	stateDB := NewStateDBAdapter(
+		sm,
+		blkCtx.BlockHeight,
+		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
+		execution.Hash(),
+	)
 	ps, err := NewParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err

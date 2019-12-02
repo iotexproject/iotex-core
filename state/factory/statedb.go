@@ -35,7 +35,6 @@ import (
 type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
-	saveHistory        bool
 	cfg                config.Config
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
@@ -65,7 +64,7 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
-		sdb.saveHistory = cfg.Chain.EnableHistoryStateDB
+
 		return nil
 	}
 }
@@ -113,7 +112,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
@@ -123,7 +122,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
 		}
-		if err = sdb.dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
@@ -144,7 +143,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
+	height, err := sdb.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -155,7 +154,7 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 
-	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
+	return newStateTX(sdb.currentChainHeight+1, sdb.dao)
 }
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
@@ -181,8 +180,11 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
-	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	ws, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
 	sdb.mutex.Unlock()
+	if err != nil {
+		return nil, err
+	}
 	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
@@ -203,8 +205,11 @@ func (sdb *stateDB) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sdb.mutex.Lock()
-	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	ws, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
 	sdb.mutex.Unlock()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
@@ -266,7 +271,7 @@ func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol
 	if cfg.AtHeight {
 		return ErrNotSupported
 	}
-	ns := protocol.AccountNameSpace
+	ns := AccountKVNamespace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
 	}
@@ -317,7 +322,10 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws := newStateTX(0, sdb.dao, sdb.saveHistory)
+	ws, err := newStateTX(0, sdb.dao)
+	if err != nil {
+		return err
+	}
 	if err := createGenesisStates(ctx, ws); err != nil {
 		return err
 	}
@@ -336,7 +344,7 @@ func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, erro
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), false, nil
+	return newStateTX(sdb.currentChainHeight+1, sdb.dao), false, nil
 }
 
 func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {

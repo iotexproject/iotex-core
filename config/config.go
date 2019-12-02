@@ -233,7 +233,8 @@ type (
 		Committee       committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
-		EnableHistoryStateDB  bool `yaml:"enableHistoryStateDB"`
+		// EnableHistoryStateDB is only meaningful when EnableTrielessStateDB is false
+		EnableHistoryStateDB bool `yaml:"enableHistoryStateDB"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
 		// CompressBlock enables gzip compression on block data
