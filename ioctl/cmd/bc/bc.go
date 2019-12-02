@@ -20,10 +20,18 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	bcCmdShorts = map[config.Language]string{
+		config.English: "Deal with block chain of IoTeX blockchain",
+		config.Chinese: "处理IoTeX区块链上的区块",
+	}
+)
+
 // BCCmd represents the bc(block chain) command
 var BCCmd = &cobra.Command{
 	Use:   "bc",
-	Short: "Deal with block chain of IoTeX blockchain",
+	Short: config.TranslateInLang(bcCmdShorts, config.UILanguage),
 }
 
 func init() {
