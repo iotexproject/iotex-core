@@ -7,6 +7,7 @@ package db
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
+	batch "github.com/iotexproject/iotex-core/db/batch"
 	reflect "reflect"
 )
 
@@ -105,7 +106,7 @@ func (mr *MockKVStoreMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // WriteBatch mocks base method
-func (m *MockKVStore) WriteBatch(arg0 KVStoreBatch) error {
+func (m *MockKVStore) WriteBatch(arg0 batch.KVStoreBatch) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteBatch", arg0)
 	ret0, _ := ret[0].(error)
@@ -213,7 +214,7 @@ func (mr *MockKVStoreWithRangeMockRecorder) Delete(arg0, arg1 interface{}) *gomo
 }
 
 // WriteBatch mocks base method
-func (m *MockKVStoreWithRange) WriteBatch(arg0 KVStoreBatch) error {
+func (m *MockKVStoreWithRange) WriteBatch(arg0 batch.KVStoreBatch) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteBatch", arg0)
 	ret0, _ := ret[0].(error)
@@ -336,7 +337,7 @@ func (mr *MockKVStoreWithBucketFillPercentMockRecorder) Delete(arg0, arg1 interf
 }
 
 // WriteBatch mocks base method
-func (m *MockKVStoreWithBucketFillPercent) WriteBatch(arg0 KVStoreBatch) error {
+func (m *MockKVStoreWithBucketFillPercent) WriteBatch(arg0 batch.KVStoreBatch) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteBatch", arg0)
 	ret0, _ := ret[0].(error)
@@ -458,7 +459,7 @@ func (mr *MockKVStoreForRangeIndexMockRecorder) Delete(arg0, arg1 interface{}) *
 }
 
 // WriteBatch mocks base method
-func (m *MockKVStoreForRangeIndex) WriteBatch(arg0 KVStoreBatch) error {
+func (m *MockKVStoreForRangeIndex) WriteBatch(arg0 batch.KVStoreBatch) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteBatch", arg0)
 	ret0, _ := ret[0].(error)

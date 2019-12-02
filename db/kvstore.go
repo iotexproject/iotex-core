@@ -8,6 +8,8 @@ package db
 
 import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+
+	"github.com/iotexproject/iotex-core/db/batch"
 )
 
 type (
@@ -22,7 +24,7 @@ type (
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte) error
 		// WriteBatch commits a batch
-		WriteBatch(KVStoreBatch) error
+		WriteBatch(batch.KVStoreBatch) error
 	}
 
 	// KVStoreWithRange is KVStore with Range() API

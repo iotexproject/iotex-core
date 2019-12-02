@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -20,10 +21,6 @@ var (
 	ErrBucketNotExist = errors.New("bucket not exist in DB")
 	// ErrNotExist indicates certain item does not exist in Blockchain database
 	ErrNotExist = errors.New("not exist in DB")
-	// ErrAlreadyDeleted indicates the key has been deleted
-	ErrAlreadyDeleted = errors.New("already deleted from DB")
-	// ErrAlreadyExist indicates certain item already exists in Blockchain database
-	ErrAlreadyExist = errors.New("already exist in DB")
 	// ErrIO indicates the generic error of DB I/O operation
 	ErrIO = errors.New("DB I/O operation error")
 )
@@ -95,7 +92,7 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 }
 
 // WriteBatch commits a batch
-func (m *memKVStore) WriteBatch(b KVStoreBatch) (e error) {
+func (m *memKVStore) WriteBatch(b batch.KVStoreBatch) (e error) {
 	succeed := false
 	b.Lock()
 	defer func() {
@@ -111,16 +108,18 @@ func (m *memKVStore) WriteBatch(b KVStoreBatch) (e error) {
 		if err != nil {
 			return err
 		}
-		if write.writeType == Put {
-			if err := m.Put(write.namespace, write.key, write.value); err != nil {
+		switch write.WriteType() {
+		case batch.Put:
+			if err := m.Put(write.Namespace(), write.Key(), write.Value()); err != nil {
 				e = err
-				break
 			}
-		} else if write.writeType == Delete {
-			if err := m.Delete(write.namespace, write.key); err != nil {
+		case batch.Delete:
+			if err := m.Delete(write.Namespace(), write.Key()); err != nil {
 				e = err
-				break
 			}
+		}
+		if e != nil {
+			break
 		}
 	}
 	if e == nil {

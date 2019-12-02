@@ -4,13 +4,16 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
 	withBuffer interface {
 		Snapshot() int
 		Revert(int) error
-		SerializeQueue() []byte
+		SerializeQueue(batch.WriteInfoFilter) []byte
 		MustPut(string, []byte, []byte)
 		MustDelete(string, []byte)
 		Size() int
@@ -26,24 +29,52 @@ type (
 	// kvStoreWithBuffer is an implementation of KVStore, which buffers all the changes
 	kvStoreWithBuffer struct {
 		store  KVStore
-		buffer CachedBatch
+		buffer batch.CachedBatch
 	}
 
 	// KVStoreFlusher is a wrapper of KVStoreWithBuffer, which has flush api
 	KVStoreFlusher interface {
-		withBuffer
-		Get(string, []byte) ([]byte, error)
+		SerializeQueue() []byte
 		Flush() error
 		KVStoreWithBuffer() KVStoreWithBuffer
 	}
 
 	flusher struct {
-		kvb *kvStoreWithBuffer
+		kvb             *kvStoreWithBuffer
+		serializeFilter batch.WriteInfoFilter
+		flushTranslate  batch.WriteInfoTranslate
 	}
+
+	// KVStoreFlusherOption sets option for KVStoreFlusher
+	KVStoreFlusherOption func(*flusher) error
 )
 
+// SerializeFilterOption sets the filter for serialize write queue
+func SerializeFilterOption(filter batch.WriteInfoFilter) KVStoreFlusherOption {
+	return func(f *flusher) error {
+		if filter == nil {
+			return errors.New("filter cannot be nil")
+		}
+		f.serializeFilter = filter
+
+		return nil
+	}
+}
+
+// FlushTranslateOption sets the translate for flush
+func FlushTranslateOption(wit batch.WriteInfoTranslate) KVStoreFlusherOption {
+	return func(f *flusher) error {
+		if wit == nil {
+			return errors.New("translate cannot be nil")
+		}
+		f.flushTranslate = wit
+
+		return nil
+	}
+}
+
 // NewKVStoreFlusher returns kv store flusher
-func NewKVStoreFlusher(store KVStore, buffer CachedBatch) (KVStoreFlusher, error) {
+func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch) (KVStoreFlusher, error) {
 	if store == nil {
 		return nil, errors.New("store cannot be nil")
 	}
@@ -60,35 +91,11 @@ func NewKVStoreFlusher(store KVStore, buffer CachedBatch) (KVStoreFlusher, error
 }
 
 func (f *flusher) Flush() error {
-	return f.kvb.store.WriteBatch(f.kvb.buffer)
+	return f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate))
 }
 
 func (f *flusher) SerializeQueue() []byte {
-	return f.kvb.SerializeQueue()
-}
-
-func (f *flusher) MustPut(ns string, key, value []byte) {
-	f.kvb.MustPut(ns, key, value)
-}
-
-func (f *flusher) MustDelete(ns string, key []byte) {
-	f.kvb.MustDelete(ns, key)
-}
-
-func (f *flusher) Get(ns string, key []byte) ([]byte, error) {
-	return f.kvb.Get(ns, key)
-}
-
-func (f *flusher) Snapshot() int {
-	return f.kvb.Snapshot()
-}
-
-func (f *flusher) Revert(si int) error {
-	return f.kvb.Revert(si)
-}
-
-func (f *flusher) Size() int {
-	return f.kvb.Size()
+	return f.kvb.SerializeQueue(f.serializeFilter)
 }
 
 func (f *flusher) KVStoreWithBuffer() KVStoreWithBuffer {
@@ -111,8 +118,8 @@ func (kvb *kvStoreWithBuffer) Revert(sid int) error {
 	return kvb.buffer.Revert(sid)
 }
 
-func (kvb *kvStoreWithBuffer) SerializeQueue() []byte {
-	return kvb.buffer.SerializeQueue()
+func (kvb *kvStoreWithBuffer) SerializeQueue(filter batch.WriteInfoFilter) []byte {
+	return kvb.buffer.SerializeQueue(filter)
 }
 
 func (kvb *kvStoreWithBuffer) Size() int {
@@ -121,10 +128,10 @@ func (kvb *kvStoreWithBuffer) Size() int {
 
 func (kvb *kvStoreWithBuffer) Get(ns string, key []byte) ([]byte, error) {
 	value, err := kvb.buffer.Get(ns, key)
-	if errors.Cause(err) == ErrNotExist {
+	if errors.Cause(err) == batch.ErrNotExist {
 		value, err = kvb.store.Get(ns, key)
 	}
-	if errors.Cause(err) == ErrAlreadyDeleted {
+	if errors.Cause(err) == batch.ErrAlreadyDeleted {
 		err = errors.Wrapf(ErrNotExist, "failed to get key %x in %s, deleted in buffer level", key, ns)
 	}
 	return value, err
@@ -148,7 +155,7 @@ func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
 }
 
-func (kvb *kvStoreWithBuffer) WriteBatch(b KVStoreBatch) (err error) {
+func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	b.Lock()
 	defer func() {
 		if err == nil {
@@ -158,21 +165,28 @@ func (kvb *kvStoreWithBuffer) WriteBatch(b KVStoreBatch) (err error) {
 			b.Unlock()
 		}
 	}()
-	writes := make([]*WriteInfo, b.Size())
+	writes := make([]*batch.WriteInfo, b.Size())
 	for i := 0; i < b.Size(); i++ {
 		write, e := b.Entry(i)
 		if e != nil {
 			return e
 		}
-		if write.writeType != Put && write.writeType != Delete {
-			return errors.Errorf("invalid write type %d", write.writeType)
+		if write.WriteType() != batch.Put && write.WriteType() != batch.Delete {
+			return errors.Errorf("invalid write type %d", write.WriteType())
 		}
 		writes[i] = write
 	}
 	kvb.buffer.Lock()
 	defer kvb.buffer.Unlock()
 	for _, write := range writes {
-		kvb.buffer.batch(write.writeType, write.namespace, write.key, write.value, write.errorFormat, write.errorArgs)
+		switch write.WriteType() {
+		case batch.Put:
+			kvb.buffer.Put(write.Namespace(), write.Key(), write.Value(), write.ErrorFormat(), write.ErrorArgs())
+		case batch.Delete:
+			kvb.buffer.Delete(write.Namespace(), write.Key(), write.ErrorFormat(), write.ErrorArgs())
+		default:
+			log.S().Panic("unexpected write type")
+		}
 	}
 
 	return nil

@@ -4,29 +4,22 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package db
+package batch
 
-const (
-	// Put indicate the type of write operation to be Put
-	Put WriteType = iota
-	// Delete indicate the type of write operation to be Delete
-	Delete
+import "errors"
+
+var (
+	// ErrAlreadyDeleted indicates the key has been deleted
+	ErrAlreadyDeleted = errors.New("already deleted from DB")
+	// ErrAlreadyExist indicates certain item already exists in Blockchain database
+	ErrAlreadyExist = errors.New("already exist in DB")
+	// ErrNotExist indicates certain item does not exist in Blockchain database
+	ErrNotExist = errors.New("not exist in DB")
+	// ErrOutOfBound indicates an out of bound error
+	ErrOutOfBound = errors.New("out of bound")
 )
 
 type (
-	// WriteType is the type of write
-	WriteType int32
-
-	// WriteInfo is the struct to store Put/Delete operation info
-	WriteInfo struct {
-		writeType   WriteType
-		namespace   string
-		key         []byte
-		value       []byte
-		errorFormat string
-		errorArgs   interface{}
-	}
-
 	// KVStoreBatch defines a batch buffer interface that stages Put/Delete entries in sequential order
 	// To use it, first start a new batch
 	// b := NewBatch()
@@ -53,17 +46,13 @@ type (
 		// Entry returns the entry at the index
 		Entry(int) (*WriteInfo, error)
 		// SerializeQueue serialize the writes in queue
-		SerializeQueue() []byte
+		SerializeQueue(WriteInfoFilter) []byte
 		// ExcludeEntries returns copy of batch with certain entries excluded
 		ExcludeEntries(string, WriteType) KVStoreBatch
 		// Clear clears entries staged in batch
 		Clear()
-		// CloneBatch clones the batch
-		CloneBatch() KVStoreBatch
-		// batch puts an entry into the write queue
-		batch(op WriteType, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{})
-		// truncate the write queue
-		truncate(int)
+		// Translate clones the batch
+		Translate(WriteInfoTranslate) KVStoreBatch
 	}
 
 	// CachedBatch derives from Batch interface
@@ -78,11 +67,3 @@ type (
 		Revert(int) error
 	}
 )
-
-func (wi *WriteInfo) serialize() []byte {
-	bytes := make([]byte, 0)
-	bytes = append(bytes, []byte(wi.namespace)...)
-	bytes = append(bytes, wi.key...)
-	bytes = append(bytes, wi.value...)
-	return bytes
-}

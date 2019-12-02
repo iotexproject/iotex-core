@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -64,7 +65,7 @@ type (
 		mutex       sync.RWMutex
 		genesisHash hash.Hash256
 		kvstore     db.KVStoreWithRange
-		batch       db.KVStoreBatch
+		batch       batch.KVStoreBatch
 		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
 		tac         db.CountingIndex
@@ -82,7 +83,7 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	}
 	x := blockIndexer{
 		kvstore:     kvRange,
-		batch:       db.NewBatch(),
+		batch:       batch.NewBatch(),
 		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,
 	}

@@ -8,6 +8,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/test/mock/mock_batch"
 )
 
 func TestFlusher(t *testing.T) {
@@ -28,7 +31,7 @@ func TestFlusher(t *testing.T) {
 	})
 	t.Run("create flusher successfully", func(t *testing.T) {
 		store := NewMockKVStore(ctrl)
-		buffer := NewMockCachedBatch(ctrl)
+		buffer := mock_batch.NewMockCachedBatch(ctrl)
 		f, err := NewKVStoreFlusher(store, buffer)
 		require.NoError(t, err)
 		kvb := f.KVStoreWithBuffer()
@@ -52,53 +55,55 @@ func TestFlusher(t *testing.T) {
 			require.NoError(t, kvb.Stop(context.Background()))
 		})
 		t.Run("fail to flush", func(t *testing.T) {
+			buffer.EXPECT().Translate(gomock.Any()).Return(buffer).Times(1)
 			store.EXPECT().WriteBatch(gomock.Any()).Return(expectedError).Times(1)
 			require.Equal(t, expectedError, f.Flush())
 		})
 		t.Run("flush successfully", func(t *testing.T) {
+			buffer.EXPECT().Translate(gomock.Any()).Return(buffer).Times(1)
 			store.EXPECT().WriteBatch(gomock.Any()).Return(nil).Times(1)
 			require.NoError(t, f.Flush())
 		})
 		t.Run("Get", func(t *testing.T) {
 			buffer.EXPECT().Get(ns, key).Return(value, nil).Times(1)
-			v, err := f.Get(ns, key)
+			v, err := kvb.Get(ns, key)
 			require.True(t, bytes.Equal(value, v))
 			require.NoError(t, err)
-			buffer.EXPECT().Get(ns, key).Return(nil, ErrNotExist).Times(1)
+			buffer.EXPECT().Get(ns, key).Return(nil, batch.ErrNotExist).Times(1)
 			store.EXPECT().Get(ns, key).Return(value, nil)
-			v, err = f.Get(ns, key)
+			v, err = kvb.Get(ns, key)
 			require.True(t, bytes.Equal(value, v))
 			require.NoError(t, err)
-			buffer.EXPECT().Get(ns, key).Return(nil, ErrAlreadyDeleted).Times(1)
-			v, err = f.Get(ns, key)
+			buffer.EXPECT().Get(ns, key).Return(nil, batch.ErrAlreadyDeleted).Times(1)
+			v, err = kvb.Get(ns, key)
 			require.Nil(t, v)
 			require.Equal(t, errors.Cause(err), ErrNotExist)
 		})
 		t.Run("Snapshot", func(t *testing.T) {
 			buffer.EXPECT().Snapshot().Return(1).Times(1)
-			require.Equal(t, 1, f.Snapshot())
+			require.Equal(t, 1, kvb.Snapshot())
 		})
 		t.Run("Revert", func(t *testing.T) {
 			buffer.EXPECT().Revert(gomock.Any()).Return(expectedError).Times(1)
-			require.Equal(t, expectedError, f.Revert(1))
+			require.Equal(t, expectedError, kvb.Revert(1))
 			buffer.EXPECT().Revert(gomock.Any()).Return(nil).Times(1)
-			require.NoError(t, f.Revert(1))
+			require.NoError(t, kvb.Revert(1))
 		})
 		t.Run("Size", func(t *testing.T) {
 			buffer.EXPECT().Size().Return(5).Times(1)
-			require.Equal(t, 5, f.Size())
+			require.Equal(t, 5, kvb.Size())
 		})
 		t.Run("SerializeQueue", func(t *testing.T) {
-			buffer.EXPECT().SerializeQueue().Return(value).Times(1)
+			buffer.EXPECT().SerializeQueue(gomock.Any()).Return(value).Times(1)
 			require.Equal(t, value, f.SerializeQueue())
 		})
 		t.Run("MustPut", func(t *testing.T) {
 			buffer.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			f.MustPut(ns, key, value)
+			kvb.MustPut(ns, key, value)
 		})
 		t.Run("MustDelete", func(t *testing.T) {
 			buffer.EXPECT().Delete(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(1)
-			f.MustDelete(ns, key)
+			kvb.MustDelete(ns, key)
 		})
 	})
 }

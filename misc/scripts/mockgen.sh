@@ -91,10 +91,10 @@ mockgen -destination=./db/mock_kvstore_test.go  \
         -package=db \
         KVStore
 
-mockgen -destination=./db/mock_batch_test.go  \
-        -source=./db/batch.go \
-        -self_package=github.com/iotexproject/iotex-core/db \
-        -package=db \
+mkdir -p ./test/mock/mock_batch
+mockgen -destination=./test/mock/mock_batch/mock_batch.go  \
+        -source=./db/batch/batch.go \
+        -package=mock_batch \
         CachedBatch
 
 mkdir -p ./test/mock/mock_chainmanager
