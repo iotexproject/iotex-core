@@ -85,6 +85,18 @@ mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -package=protocol \
         Protocol
 
+mockgen -destination=./db/mock_kvstore_test.go  \
+        -source=./db/kvstore.go \
+        -self_package=github.com/iotexproject/iotex-core/db \
+        -package=db \
+        KVStore
+
+mockgen -destination=./db/mock_batch_test.go  \
+        -source=./db/batch.go \
+        -self_package=github.com/iotexproject/iotex-core/db \
+        -package=db \
+        CachedBatch
+
 mkdir -p ./test/mock/mock_chainmanager
 mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
         -source=./action/protocol/managers.go \

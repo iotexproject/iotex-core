@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -27,53 +26,6 @@ var (
 	ErrAlreadyExist = errors.New("already exist in DB")
 	// ErrIO indicates the generic error of DB I/O operation
 	ErrIO = errors.New("DB I/O operation error")
-)
-
-type (
-	// KVStore is the interface of KV store.
-	KVStore interface {
-		lifecycle.StartStopper
-
-		// Put insert or update a record identified by (namespace, key)
-		Put(string, []byte, []byte) error
-		// Get gets a record by (namespace, key)
-		Get(string, []byte) ([]byte, error)
-		// Delete deletes a record by (namespace, key)
-		Delete(string, []byte) error
-		// WriteBatch commits a batch
-		WriteBatch(KVStoreBatch) error
-	}
-
-	// KVStoreWithRange is KVStore with Range() API
-	KVStoreWithRange interface {
-		KVStore
-		// Range gets a range of records by (namespace, key, count)
-		Range(string, []byte, uint64) ([][]byte, error)
-	}
-
-	// KVStoreWithBucketFillPercent is KVStore with option to set bucket fill percent
-	KVStoreWithBucketFillPercent interface {
-		KVStore
-		// SetBucketFillPercent sets specified fill percent for a bucket
-		SetBucketFillPercent(string, float64) error
-	}
-
-	// KVStoreForRangeIndex is KVStore for range index
-	KVStoreForRangeIndex interface {
-		KVStore
-		// Insert inserts a value into the index
-		Insert([]byte, uint64, []byte) error
-		// Seek returns value by the key
-		Seek([]byte, uint64) ([]byte, error)
-		// Remove removes an existing key
-		Remove([]byte, uint64) error
-		// Purge deletes an existing key and all keys before it
-		Purge([]byte, uint64) error
-		// GetBucketByPrefix retrieves all bucket those with const namespace prefix
-		GetBucketByPrefix([]byte) ([][]byte, error)
-		// GetKeyByPrefix retrieves all keys those with const prefix
-		GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error)
-	}
 )
 
 const (

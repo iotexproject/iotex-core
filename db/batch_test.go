@@ -49,11 +49,11 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(Delete, w.writeType)
 
 	// test ExcludeEntries
-	d := cb.Digest()
+	d := cb.SerializeQueue()
 	require.Equal(3, cb.Size())
 	r := cb.ExcludeEntries(bucket1, Delete)
 	require.Equal(1, r.Size())
-	require.NotEqual(d, r.Digest())
+	require.NotEqual(d, r.SerializeQueue())
 	r = cb.ExcludeEntries("", Put)
 	require.Equal(2, r.Size())
 }
@@ -154,7 +154,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		b.StartTimer()
-		h := cb.Digest()
+		h := cb.SerializeQueue()
 		b.StopTimer()
 		require.NotEqual(b, hash.ZeroHash256, h)
 	}
