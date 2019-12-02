@@ -66,7 +66,7 @@ func (stx *stateTX) Digest() (hash.Hash256, error) {
 		cb = stx.cb
 	}
 
-	return cb.Digest(), nil
+	return hash.Hash256b(cb.SerializeQueue()), nil
 }
 
 // Version returns the Version of this working set
