@@ -103,7 +103,8 @@ func TestWrongNonce(t *testing.T) {
 
 	require := require.New(t)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
 	testTriePath := testTrieFile.Name()
@@ -354,8 +355,10 @@ func TestWrongAddress(t *testing.T) {
 		err := bc.Stop(ctx)
 		require.NoError(t, err)
 	}()
-	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
-	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
@@ -424,8 +427,10 @@ func TestBlackListAddress(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	require.NoError(t, registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
-	require.NoError(t, registry.Register(execution.ProtocolID, execution.NewProtocol(bc.BlockDAO().GetBlockHash)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, acc.Register(registry))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,

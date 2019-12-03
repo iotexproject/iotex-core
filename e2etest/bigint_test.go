@@ -73,9 +73,9 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	cfg.Genesis.InitBalanceMap[executor] = "1000000000000000000000000000"
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	r.NoError(registry.Register(account.ProtocolID, acc))
+	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
-	r.NoError(registry.Register(rolldpos.ProtocolID, rp))
+	r.NoError(rp.Register(registry))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
@@ -85,14 +85,14 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(nil, rp)
-	r.NoError(registry.Register(rewarding.ProtocolID, reward))
+	r.NoError(reward.Register(registry))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
 	sf := bc.Factory()
 	r.NotNil(sf)
 	r.NoError(bc.Start(ctx))
-	exec := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
-	r.NoError(registry.Register(execution.ProtocolID, exec))
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	return bc
 }

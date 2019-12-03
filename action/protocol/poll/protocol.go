@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	// ProtocolID defines the ID of this protocol
-	ProtocolID = "poll"
+	protocolID = "poll"
 )
 
 // ErrNoElectionCommittee is an error that the election committee is not specified
@@ -79,7 +78,7 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	if registry == nil {
 		log.S().Panic("registry cannot be nil")
 	}
-	p, ok := registry.Find(ProtocolID)
+	p, ok := registry.Find(protocolID)
 	if !ok {
 		log.S().Panic("poll protocol is not registered")
 	}
@@ -169,12 +168,28 @@ func NewLifeLongDelegatesProtocol(delegates []genesis.Delegate) Protocol {
 			RewardAddress: rewardAddress.String(),
 		})
 	}
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
 	}
 	return &lifeLongDelegatesProtocol{delegates: l, addr: addr}
+}
+
+// FindProtocol finds the registered protocol from registry
+func FindProtocol(registry *protocol.Registry) Protocol {
+	if registry == nil {
+		return nil
+	}
+	p, ok := registry.Find(protocolID)
+	if !ok {
+		return nil
+	}
+	pp, ok := p.(Protocol)
+	if !ok {
+		log.S().Panic("fail to cast poll protocol")
+	}
+	return pp
 }
 
 func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
@@ -232,6 +247,16 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	}
 }
 
+// Register registers the protocol with a unique ID
+func (p *lifeLongDelegatesProtocol) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *lifeLongDelegatesProtocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
+}
+
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 	return p.delegates.Serialize()
 }
@@ -275,7 +300,7 @@ func NewGovernanceChainCommitteeProtocol(
 		return nil, errors.New("getEpochNum api is not provided")
 	}
 
-	h := hash.Hash160b([]byte(ProtocolID))
+	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
@@ -479,6 +504,16 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		return nil, errors.New("corresponding method isn't found")
 
 	}
+}
+
+// Register registers the protocol with a unique ID
+func (p *governanceChainCommitteeProtocol) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, p)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, p)
 }
 
 func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {

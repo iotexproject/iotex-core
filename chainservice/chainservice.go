@@ -426,8 +426,8 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 }
 
 // registerProtocol register a protocol
-func (cs *ChainService) registerProtocol(id string, p protocol.Protocol) error {
-	if err := cs.registry.Register(id, p); err != nil {
+func (cs *ChainService) registerProtocol(p protocol.Protocol) error {
+	if err := p.Register(cs.registry); err != nil {
 		return err
 	}
 
@@ -441,20 +441,20 @@ func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
 
 // registerDefaultProtocols registers default protocol into chainservice's registry
 func (cs *ChainService) registerDefaultProtocols(accountProtocol *account.Protocol, rDPoSProtocol *rolldpos.Protocol, pollProtocol poll.Protocol, executionProtocol *execution.Protocol, rewardingProtocol *rewarding.Protocol) (err error) {
-	if err = cs.registerProtocol(account.ProtocolID, accountProtocol); err != nil {
+	if err = cs.registerProtocol(accountProtocol); err != nil {
 		return
 	}
-	if err = cs.registerProtocol(rolldpos.ProtocolID, rDPoSProtocol); err != nil {
+	if err = cs.registerProtocol(rDPoSProtocol); err != nil {
 		return
 	}
 	if pollProtocol != nil {
-		if err = cs.registerProtocol(poll.ProtocolID, pollProtocol); err != nil {
+		if err = cs.registerProtocol(pollProtocol); err != nil {
 			return
 		}
 	}
-	if err = cs.registerProtocol(execution.ProtocolID, executionProtocol); err != nil {
+	if err = cs.registerProtocol(executionProtocol); err != nil {
 		return
 	}
 
-	return cs.registerProtocol(rewarding.ProtocolID, rewardingProtocol)
+	return cs.registerProtocol(rewardingProtocol)
 }

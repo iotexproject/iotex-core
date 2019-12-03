@@ -67,7 +67,8 @@ func TestSnapshot(t *testing.T) {
 	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
@@ -97,7 +98,8 @@ func TestSDBSnapshot(t *testing.T) {
 	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(err)
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(account.ProtocolID, account.NewProtocol(rewarding.DepositGas)))
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
@@ -255,7 +257,7 @@ func testState(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	require.NoError(t, acc.Register(registry))
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
@@ -342,7 +344,7 @@ func testNonce(sf Factory, t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, registry.Register(account.ProtocolID, acc))
+	require.NoError(t, acc.Register(registry))
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
@@ -507,7 +509,7 @@ func TestRunActions(t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(registry.Register(account.ProtocolID, acc))
+	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
@@ -538,7 +540,7 @@ func TestSTXRunActions(t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(registry.Register(account.ProtocolID, acc))
+	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
@@ -813,7 +815,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	if err := registry.Register(account.ProtocolID, acc); err != nil {
+	if err := acc.Register(registry); err != nil {
 		b.Fatal(err)
 	}
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{

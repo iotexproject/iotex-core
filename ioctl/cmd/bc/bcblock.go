@@ -23,10 +23,18 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var (
+	bcblockCmdShorts = map[config.Language]string{
+		config.English: "Get block from block chain",
+		config.Chinese: "获取IoTeX区块链中的区块",
+	}
+)
+
 // bcBlockCmd represents the bc Block command
 var bcBlockCmd = &cobra.Command{
 	Use:   "block [HEIGHT|HASH]",
-	Short: "Get block from block chain",
+	Short: config.TranslateInLang(bcblockCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

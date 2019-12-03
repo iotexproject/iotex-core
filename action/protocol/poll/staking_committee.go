@@ -97,7 +97,6 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	actionCtx := protocol.MustGetActionCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
@@ -105,7 +104,6 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return nil
 	}
 	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	actionCtx.Caller, _ = address.FromString(nativeStakingContractCreator)
 	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
 	bytes, err := hexutil.Decode(bcCtx.Genesis.NativeStakingContractCode)
 	if err != nil {
@@ -119,6 +117,18 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		big.NewInt(0),
 		bytes,
 	)
+	if err != nil {
+		return err
+	}
+	actionCtx := protocol.ActionCtx{}
+	actionCtx.Caller, err = address.FromString(nativeStakingContractCreator)
+	if err != nil {
+		return err
+	}
+	actionCtx.Nonce = nativeStakingContractNonce
+	actionCtx.ActionHash = execution.Hash()
+	actionCtx.GasPrice = execution.GasPrice()
+	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
 		return err
 	}
@@ -224,6 +234,16 @@ func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateLi
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
+}
+
+// Register registers the protocol with a unique ID
+func (sc *stakingCommittee) Register(r *protocol.Registry) error {
+	return r.Register(protocolID, sc)
+}
+
+// ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
+func (sc *stakingCommittee) ForceRegister(r *protocol.Registry) error {
+	return r.ForceRegister(protocolID, sc)
 }
 
 // SetNativeStakingContract sets the address of native staking contract

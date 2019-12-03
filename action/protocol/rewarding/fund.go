@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -142,13 +141,9 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) 
 	if bcCtx.Registry == nil {
 		return nil
 	}
-	p, ok := bcCtx.Registry.Find(ProtocolID)
-	if !ok {
+	rp := FindProtocol(bcCtx.Registry)
+	if rp == nil {
 		return nil
-	}
-	rp, ok := p.(*Protocol)
-	if !ok {
-		log.S().Panicf("Protocol %d is not a rewarding protocol", ProtocolID)
 	}
 	return rp.Deposit(ctx, sm, amount)
 }
