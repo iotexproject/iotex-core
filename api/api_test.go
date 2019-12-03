@@ -436,14 +436,14 @@ var (
 		balance   *big.Int
 	}{
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: "rewarding",
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(0).String(),
 			returnErr:  false,
 			balance:    unit.ConvertIotxToRau(64), // 4 block * 36 IOTX reward by default = 144 IOTX
 		},
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: "rewarding",
 			methodName: "UnclaimedBalance",
 			addr:       identityset.Address(1).String(),
 			returnErr:  false,
@@ -456,7 +456,7 @@ var (
 			returnErr:  true,
 		},
 		{
-			protocolID: rewarding.ProtocolID,
+			protocolID: "rewarding",
 			methodName: "Wrong Method",
 			addr:       identityset.Address(27).String(),
 			returnErr:  true,
@@ -997,7 +997,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		if pol != nil {
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(pol.ForceRegister(svr.registry))
 		}
 		if test.emptyChain {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
@@ -1187,7 +1187,7 @@ func TestServer_TotalBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
 		Arguments:  nil,
 	})
@@ -1204,7 +1204,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
-		ProtocolID: []byte(rewarding.ProtocolID),
+		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
 		Arguments:  nil,
 	})
@@ -1254,7 +1254,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(pol.ForceRegister(svr.registry))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1308,7 +1308,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(pol.ForceRegister(svr.registry))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1362,7 +1362,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
-		require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+		require.NoError(pol.ForceRegister(svr.registry))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1421,7 +1421,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	for _, test := range getEpochMetaTests {
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(pol.ForceRegister(svr.registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			msf := mock_factory.NewMockFactory(ctrl)
@@ -1470,7 +1470,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 			)
-			require.NoError(svr.registry.ForceRegister(poll.ProtocolID, pol))
+			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
@@ -1789,19 +1789,19 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return 0, nil, nil
 	}, rolldposProtocol)
 
-	if err := registry.Register(rolldpos.ProtocolID, rolldposProtocol); err != nil {
+	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := registry.Register(account.ProtocolID, acc); err != nil {
+	if err := acc.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := registry.Register(execution.ProtocolID, evm); err != nil {
+	if err := evm.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := registry.Register(rewarding.ProtocolID, r); err != nil {
+	if err := r.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	if err := registry.Register(poll.ProtocolID, p); err != nil {
+	if err := p.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))

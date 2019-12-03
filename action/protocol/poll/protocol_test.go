@@ -18,16 +18,18 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
 )
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
@@ -38,10 +40,16 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			BlockHeight: 0,
 		},
 	)
+	registry := protocol.NewRegistry()
+	err := registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20))
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -107,6 +115,29 @@ func TestCreateGenesisStates(t *testing.T) {
 		c, ok := candidates[hash.BytesToHash160(addr.Bytes())]
 		require.True(ok)
 		require.Equal(addr.String(), c.Address)
+	}
+}
+
+func TestCreatePostSystemActions(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, _, r, err := initConstruct(ctrl)
+	require.NoError(err)
+	psac, ok := p.(protocol.PostSystemActionsCreator)
+	require.True(ok)
+	elp, err := psac.CreatePostSystemActions(ctx)
+	require.NoError(err)
+	require.Equal(1, len(elp))
+	act, ok := elp[0].Action().(*action.PutPollResult)
+	require.True(ok)
+	require.Equal(uint64(1), act.Height())
+	require.Equal(uint64(0), act.AbstractAction.Nonce())
+	delegates := r.Delegates()
+	require.Equal(len(act.Candidates()), len(delegates))
+	for _, can := range act.Candidates() {
+		d := r.DelegateByName(can.CanName)
+		require.NotNil(d)
 	}
 }
 

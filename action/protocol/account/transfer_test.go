@@ -61,7 +61,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	p := NewProtocol(rewarding.DepositGas)
 	reward := rewarding.NewProtocol(nil, rolldpos.NewProtocol(1, 1, 1))
 	registry := protocol.NewRegistry()
-	require.NoError(registry.Register(rewarding.ProtocolID, reward))
+	require.NoError(reward.Register(registry))
 	cfg.Genesis.Rewarding.InitBalanceStr = "0"
 	cfg.Genesis.Rewarding.BlockRewardStr = "0"
 	cfg.Genesis.Rewarding.EpochRewardStr = "0"

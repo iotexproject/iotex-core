@@ -308,7 +308,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
 	))
-	require.NoError(t, registry.Register(ProtocolID, p))
+	require.NoError(t, p.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"
