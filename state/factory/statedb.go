@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -218,6 +219,82 @@ func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvel
 		return nil, nil, err
 	}
 	return receipts, ws, ws.Finalize()
+}
+
+func (sdb *stateDB) PickAndRunActions(ctx context.Context, cfg config.Config,
+	actionMap map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	receipts := make([]*action.Receipt, 0)
+	executedActions := make([]action.SealedEnvelope, 0)
+
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	registry := bcCtx.Registry
+	for _, p := range registry.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+
+	// initial action iterator
+	actionIterator := actioniterator.NewActionIterator(actionMap)
+	for {
+		nextAction, ok := actionIterator.Next()
+		if !ok {
+			break
+		}
+		receipt, err := ws.RunAction(ctx, nextAction)
+		if err != nil {
+			if errors.Cause(err) == action.ErrHitGasLimit {
+				// hit block gas limit, we should not process actions belong to this user anymore since we
+				// need monotonically increasing nonce. But we can continue processing other actions
+				// that belong other users
+				actionIterator.PopAccount()
+				continue
+			}
+			return nil, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+		}
+		if receipt != nil {
+			blkCtx.GasLimit -= receipt.GasConsumed
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
+			receipts = append(receipts, receipt)
+		}
+		executedActions = append(executedActions, nextAction)
+
+		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
+		// than certain threshold
+		if blkCtx.GasLimit < cfg.Chain.AllowedBlockGasResidue {
+			break
+		}
+	}
+	sk := cfg.ProducerPrivateKey()
+	for _, p := range registry.All() {
+		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psac.CreatePostSystemActions(ctx)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			for _, elp := range elps {
+				se, err := action.Sign(elp, sk)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+
+				receipt, err := ws.RunAction(ctx, se)
+				if err != nil {
+					return nil, nil, nil, err
+				}
+				if receipt != nil {
+					receipts = append(receipts, receipt)
+				}
+				executedActions = append(executedActions, se)
+			}
+		}
+	}
+
+	return receipts, executedActions, ws, ws.Finalize()
 }
 
 // Commit persists all changes in RunActions() into the DB

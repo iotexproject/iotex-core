@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -520,17 +519,12 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-
 	ctx, err := bc.context(context.Background(), false, true)
 	if err != nil {
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
-	rc, actions, err := bc.pickAndRunActions(ctx, actionMap, ws)
+	rc, actions, ws, err := bc.sf.PickAndRunActions(ctx, bc.config, actionMap)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
 	}
@@ -759,87 +753,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil
-}
-
-func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,
-	ws factory.WorkingSet) ([]*action.Receipt, []action.SealedEnvelope, error) {
-	if bc.sf == nil {
-		return nil, nil, errors.New("statefactory cannot be nil")
-	}
-
-	receipts := make([]*action.Receipt, 0)
-	executedActions := make([]action.SealedEnvelope, 0)
-
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
-		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, nil, err
-			}
-		}
-	}
-
-	// initial action iterator
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	for {
-		nextAction, ok := actionIterator.Next()
-		if !ok {
-			break
-		}
-		receipt, err := ws.RunAction(ctx, nextAction)
-		if err != nil {
-			if errors.Cause(err) == action.ErrHitGasLimit {
-				// hit block gas limit, we should not process actions belong to this user anymore since we
-				// need monotonically increasing nounce. But we can continue processing other actions
-				// that belong other users
-				actionIterator.PopAccount()
-				continue
-			}
-			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
-		}
-		if receipt != nil {
-			blkCtx.GasLimit -= receipt.GasConsumed
-			ctx = protocol.WithBlockCtx(ctx, blkCtx)
-			receipts = append(receipts, receipt)
-		}
-		executedActions = append(executedActions, nextAction)
-
-		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
-		// than certain threshold
-		if blkCtx.GasLimit < bc.config.Chain.AllowedBlockGasResidue {
-			break
-		}
-	}
-	sk := bc.config.ProducerPrivateKey()
-	for _, p := range registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
-			if err != nil {
-				return nil, nil, err
-			}
-			for _, elp := range elps {
-				se, err := action.Sign(elp, sk)
-				if err != nil {
-					return nil, nil, err
-				}
-
-				receipt, err := ws.RunAction(ctx, se)
-				if err != nil {
-					return nil, nil, err
-				}
-				if receipt != nil {
-					receipts = append(receipts, receipt)
-				}
-				executedActions = append(executedActions, se)
-			}
-		}
-	}
-
-	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - blkCtx.GasLimit))
-
-	return receipts, executedActions, ws.Finalize()
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
