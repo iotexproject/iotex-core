@@ -270,7 +270,7 @@ func (ws *workingSet) Commit() error {
 	} else {
 		cb = ws.cb
 	}
-	if err := ws.dao.Commit(cb); err != nil {
+	if err := ws.dao.WriteBatch(cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clear()

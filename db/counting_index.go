@@ -129,7 +129,7 @@ func (c *countingIndex) Add(value []byte, batch bool) error {
 	b := NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
-	if err := c.kvStore.Commit(b); err != nil {
+	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
 	c.size++
@@ -176,7 +176,7 @@ func (c *countingIndex) Revert(count uint64) error {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
 	}
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
-	if err := c.kvStore.Commit(b); err != nil {
+	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
 	c.size = start
@@ -196,7 +196,7 @@ func (c *countingIndex) Commit() error {
 		return nil
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
-	if err := c.kvStore.Commit(c.batch); err != nil {
+	if err := c.kvStore.WriteBatch(c.batch); err != nil {
 		return err
 	}
 	c.batch = nil
