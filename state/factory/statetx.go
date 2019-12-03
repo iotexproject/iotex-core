@@ -195,7 +195,7 @@ func (stx *stateTX) Commit() error {
 	} else {
 		cb = stx.cb
 	}
-	if err := stx.dao.Commit(cb); err != nil {
+	if err := stx.dao.WriteBatch(cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	return nil

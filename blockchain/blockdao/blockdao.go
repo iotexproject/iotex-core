@@ -627,7 +627,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 			log.L().Error("failed to serialize receipits for block", zap.Uint64("height", blkHeight))
 		}
 	}
-	if err = kv.Commit(batchForBlock); err != nil {
+	if err = kv.WriteBatch(batchForBlock); err != nil {
 		return err
 	}
 
@@ -645,7 +645,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		batch.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
 		batch.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
-	return dao.kvstore.Commit(batch)
+	return dao.kvstore.WriteBatch(batch)
 }
 
 // deleteTipBlock deletes the tip block
@@ -704,10 +704,10 @@ func (dao *blockDAO) deleteTipBlock() error {
 	}
 	batch.Put(blockNS, topHashKey, hash2[:], "failed to put top hash")
 
-	if err := dao.kvstore.Commit(batch); err != nil {
+	if err := dao.kvstore.WriteBatch(batch); err != nil {
 		return err
 	}
-	return whichDB.Commit(batchForBlock)
+	return whichDB.WriteBatch(batchForBlock)
 }
 
 // getDBFromHash returns db of this block stored
