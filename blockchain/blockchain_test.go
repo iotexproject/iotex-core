@@ -1281,7 +1281,7 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
-	bc.AddSubscriber(mb)
+	req.NoError(bc.AddSubscriber(mb))
 	req.Nil(bc.RemoveSubscriber(mb))
 	err := bc.RemoveSubscriber(nil)
 	req.EqualError(err, "cannot find subscription")
