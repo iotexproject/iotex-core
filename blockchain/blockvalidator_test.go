@@ -166,7 +166,7 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk.Height() - 1,
+				Height: blk.Height()-1,
 				Hash:   cfg.Genesis.Hash(),
 			},
 			Registry: registry,
@@ -205,7 +205,7 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk2.Height() - 1,
+				Height: blk2.Height()-1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
@@ -245,7 +245,7 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk3.Height() - 1,
+				Height: blk3.Height()-1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
@@ -285,7 +285,7 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk4.Height() - 1,
+				Height: blk4.Height()-1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
