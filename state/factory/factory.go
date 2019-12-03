@@ -52,7 +52,7 @@ type (
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
-		//TODO : erase this interface
+		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
 		Commit(WorkingSet) error
@@ -266,7 +266,7 @@ func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelo
 	registry := bcCtx.Registry
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err := pp.CreatePreStates(ctx, ws); err != nil {
+			if err = pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, nil, err
 			}
 		}
