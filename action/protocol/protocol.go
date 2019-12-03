@@ -48,7 +48,7 @@ type ActionValidator interface {
 	Validate(context.Context, action.Action) error
 }
 
-// ActionEnvelopeValidator is the interface of validating an action
+// ActionEnvelopeValidator is the interface of validating an SealedEnvelope action
 type ActionEnvelopeValidator interface {
 	Validate(context.Context, action.SealedEnvelope) error
 }
