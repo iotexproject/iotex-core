@@ -126,5 +126,5 @@ func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
 
 // Flush flushs the data in cache layer to db
 func (s *KVStoreForTrie) Flush() error {
-	return s.dao.Commit(s.cb)
+	return s.dao.WriteBatch(s.cb)
 }
