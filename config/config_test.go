@@ -8,16 +8,31 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"math/big"
 	"os"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/crypto"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 )
+
+func TestDB_SplitDBSize(t *testing.T) {
+	var db = DB{SplitDBSizeMB: uint64(1)}
+	var expected = uint64(1 * 1024 * 1024)
+	require.Equal(t, expected, db.SplitDBSize())
+}
+
+func TestStrs_String(t *testing.T) {
+	ss := strs{"test"}
+	str := "TEST"
+	require.Nil(t, ss.Set(str))
+}
 
 func TestNewDefaultConfig(t *testing.T) {
 	_, err := New()
@@ -44,6 +59,29 @@ func TestNewConfigWithWrongConfigPath(t *testing.T) {
 		"open wrong_path: The system cannot find the file specified") == false { // for Windows
 		require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
 	}
+}
+
+func TestNewConfigWithPlugins(t *testing.T) {
+	_plugins = strs{
+		"gateway",
+	}
+	cfg, err := New()
+
+	require.Nil(t, cfg.Plugins[GatewayPlugin])
+	require.NoError(t, err)
+
+	_plugins = strs{
+		"trick",
+	}
+
+	cfg, err = New()
+
+	require.Equal(t, Config{}, cfg)
+	require.Error(t, err)
+
+	defer func() {
+		_plugins = nil
+	}()
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
@@ -82,8 +120,6 @@ chain:
 	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
 	require.NoError(t, err)
-	defer func() {
-	}()
 
 	cfgStr = fmt.Sprintf(`
 chain:
@@ -213,4 +249,154 @@ func TestValidateActPool(t *testing.T) {
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		),
 	)
+}
+
+func TestValidateMinGasPrice(t *testing.T) {
+	ap := ActPool{MinGasPriceStr: Default.ActPool.MinGasPriceStr}
+	mgp := ap.MinGasPrice()
+	fmt.Printf("%T,%v", mgp, mgp)
+	require.IsType(t, &big.Int{}, mgp)
+}
+
+func TestValidateProducerPrivateKey(t *testing.T) {
+	cfg := Default
+	sk := cfg.ProducerPrivateKey()
+	require.NotNil(t, sk)
+}
+
+func TestValidateProducerAddress(t *testing.T) {
+	cfg := Default
+	addr := cfg.ProducerAddress()
+	require.NotNil(t, addr)
+}
+
+func TestNewSubDefaultConfig(t *testing.T) {
+	_, err := NewSub()
+	require.NoError(t, err)
+}
+
+func TestNewSubConfigWithoutValidation(t *testing.T) {
+	cfg, err := NewSub(DoNotValidate)
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+}
+
+func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
+	_subChainPath = "wrong_path"
+	defer func() { _subChainPath = "" }()
+	cfg, err := NewSub()
+	require.Error(t, err)
+	require.Equal(t, Config{}, cfg)
+	if strings.Contains(err.Error(),
+		"open wrong_path: The system cannot find the file specified") == false { // for Windows
+		require.Contains(t, err.Error(), "open wrong_path: no such file or directory")
+	}
+}
+
+func TestNewSubConfigWithSubChainPath(t *testing.T) {
+	sk, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	cfgStr := fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+`,
+		sk.HexString(),
+	)
+	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
+	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+	defer func() {
+		err = os.Remove(_subChainPath)
+		_subChainPath = ""
+		require.NoError(t, err)
+	}()
+
+	cfg, err := NewSub()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
+}
+
+func TestNewSubConfigWithSecret(t *testing.T) {
+	sk, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	cfgStr := fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+`,
+		sk.HexString(),
+	)
+	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
+	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+
+	cfgStr = fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+`,
+		sk.HexString(),
+	)
+	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
+	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+
+	defer func() {
+		err = os.Remove(_subChainPath)
+		require.NoError(t, err)
+		_subChainPath = ""
+		err = os.Remove(_secretPath)
+		require.NoError(t, err)
+		_secretPath = ""
+	}()
+
+	cfg, err := NewSub()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
+}
+
+func TestNewSubConfigWithLookupEnv(t *testing.T) {
+	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
+
+	sk, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	cfgStr := fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+`,
+		sk.HexString(),
+	)
+	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
+	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+	require.NoError(t, err)
+
+	defer func() {
+		err = os.Remove(_subChainPath)
+		require.NoError(t, err)
+		_subChainPath = ""
+		if oldExist {
+			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
+		} else {
+			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+		}
+		require.NoError(t, err)
+	}()
+
+	cfg, err := NewSub()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+
+	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+	require.NoError(t, err)
+
+	cfg, err = NewSub()
+	require.NoError(t, err)
+	require.NotNil(t, cfg)
+}
+
+func TestNewSubConfigWithoutSubChainPath(t *testing.T) {
+	_subChainPath = ""
+	cfg, err := NewSub()
+	require.Equal(t, Config{}, cfg)
+	require.Nil(t, err)
 }
