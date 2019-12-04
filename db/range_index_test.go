@@ -107,7 +107,6 @@ func TestRangeIndex(t *testing.T) {
 
 	// delete rangeTests[3].k
 	require.NoError(index.Delete(rangeTests[3].k))
-	v, err = index.Get(rangeTests[3].k)
 	for i := 2; i <= 3; i++ {
 		v, err = index.Get(rangeTests[i].k)
 		require.NoError(err)
@@ -225,6 +224,7 @@ func TestRangeIndex2(t *testing.T) {
 	}
 	for i := uint64(66); i < 70; i++ {
 		v, err = index.Get(i)
+		require.NoError(err)
 		require.Equal([]byte("66"), v)
 	}
 	// Case VI: delete key before 80,all keys deleted
