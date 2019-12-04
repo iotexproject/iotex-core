@@ -8,7 +8,9 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
+	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
+	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -198,6 +200,39 @@ func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
+}
+
+// PickAndRunActions mocks base method
+func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PickAndRunActions", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].([]action.SealedEnvelope)
+	ret2, _ := ret[2].(factory.WorkingSet)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// PickAndRunActions indicates an expected call of PickAndRunActions
+func (mr *MockFactoryMockRecorder) PickAndRunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickAndRunActions", reflect.TypeOf((*MockFactory)(nil).PickAndRunActions), arg0, arg1, arg2)
+}
+
+// SimulateExecution mocks base method
+func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution, arg3 evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SimulateExecution indicates an expected call of SimulateExecution
+func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
 }
 
 // CandidatesByHeight mocks base method
