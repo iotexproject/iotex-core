@@ -351,7 +351,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
-		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/sucide/exist is same)
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
 	t.Run("contract snapshot/revert/commit with in memery DB", func(t *testing.T) {
