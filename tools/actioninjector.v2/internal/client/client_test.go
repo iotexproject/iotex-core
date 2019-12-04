@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
-	ap.EXPECT().Add(gomock.Any()).Return(nil).AnyTimes()
+	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	newOption := api.WithBroadcastOutbound(func(_ context.Context, _ uint32, _ proto.Message) error {
 		return nil
 	})

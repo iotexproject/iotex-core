@@ -1031,7 +1031,7 @@ func TestServer_SendAction(t *testing.T) {
 	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	ap.EXPECT().Add(gomock.Any()).Return(nil).Times(2)
+	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
@@ -1710,7 +1710,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	return bc.CommitBlock(blk)
 }
 
-func addActsToActPool(ap actpool.ActPool) error {
+func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	// Producer transfer--> A
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -1732,16 +1732,17 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(tsf1); err != nil {
+
+	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
-	if err := ap.Add(tsf2); err != nil {
+	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
-	if err := ap.Add(tsf3); err != nil {
+	if err := ap.Add(ctx, tsf3); err != nil {
 		return err
 	}
-	return ap.Add(execution1)
+	return ap.Add(ctx, execution1)
 }
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, error) {
@@ -1816,7 +1817,6 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 	}
 
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	return ap, nil
 }
@@ -1868,7 +1868,8 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 			return nil, err
 		}
 		// Add actions to actpool
-		if err := addActsToActPool(ap); err != nil {
+		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+		if err := addActsToActPool(ctx, ap); err != nil {
 			return nil, err
 		}
 	}

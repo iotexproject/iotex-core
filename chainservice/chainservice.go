@@ -357,12 +357,13 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 }
 
 // HandleAction handles incoming action request.
-func (cs *ChainService) HandleAction(_ context.Context, actPb *iotextypes.Action) error {
+func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	err := cs.actpool.Add(act)
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: cs.registry})
+	err := cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
@@ -430,8 +431,6 @@ func (cs *ChainService) registerProtocol(p protocol.Protocol) error {
 	if err := p.Register(cs.registry); err != nil {
 		return err
 	}
-
-	cs.actpool.AddActionValidators(p)
 
 	return nil
 }
