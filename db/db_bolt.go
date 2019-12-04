@@ -207,8 +207,8 @@ func (b *boltDB) Delete(namespace string, key []byte) (err error) {
 	return err
 }
 
-// Commit commits a batch
-func (b *boltDB) Commit(batch KVStoreBatch) (err error) {
+// WriteBatch commits a batch
+func (b *boltDB) WriteBatch(batch KVStoreBatch) (err error) {
 	succeed := true
 	batch.Lock()
 	defer func() {

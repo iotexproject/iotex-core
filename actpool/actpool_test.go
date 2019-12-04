@@ -78,7 +78,6 @@ func TestActPool_NewActPool(t *testing.T) {
 	require.Error(err)
 
 	// test AddAction nil
-	require.NotPanics(func() { act.AddActionValidators(nil) }, "option is nil")
 	require.NotPanics(func() { act.AddActionEnvelopeValidators(nil) }, "option is nil")
 }
 
@@ -125,20 +124,20 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(ap.Add(prevTsf))
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
+	require.NoError(ap.Add(ctx, prevTsf))
 	sf := bc.Factory()
 	require.NotNil(sf)
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: re,
 	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{prevTsf})
 	require.NoError(err)
@@ -180,7 +179,6 @@ func TestActPool_AddActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -199,15 +197,19 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf2))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
-	err = ap.Add(tsf5)
+	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	require.NoError(ep.Register(registry))
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
+	err = ap.Add(ctx, tsf5)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	require.NoError(ap.Add(tsf6))
-	require.NoError(ap.Add(tsf7))
-	require.NoError(ap.Add(tsf8))
+	require.NoError(ap.Add(ctx, tsf6))
+	require.NoError(ap.Add(ctx, tsf7))
+	require.NoError(ap.Add(ctx, tsf8))
 
 	pBalance1, _ := ap.getPendingBalance(addr1)
 	require.Equal(uint64(10), pBalance1.Uint64())
@@ -221,7 +223,7 @@ func TestActPool_AddActs(t *testing.T) {
 
 	tsf9, err := testutil.SignedTransfer(addr2, priKey2, uint64(2), big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(ap.Add(tsf9))
+	require.NoError(ap.Add(ctx, tsf9))
 	pBalance2, _ = ap.getPendingBalance(addr2)
 	require.Equal(uint64(1), pBalance2.Uint64())
 	pNonce2, _ = ap.getPendingNonce(addr2)
@@ -230,11 +232,11 @@ func TestActPool_AddActs(t *testing.T) {
 	// Case I: Action source address is blacklisted
 	bannedTsf, err := testutil.SignedTransfer(addr6, priKey6, uint64(1), big.NewInt(0), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.Add(bannedTsf)
+	err = ap.Add(ctx, bannedTsf)
 	require.True(strings.Contains(err.Error(), "action source address is blacklisted"))
 	// Case II: Action already exists in pool
-	require.Error(ap.Add(tsf1))
-	require.Error(ap.Add(tsf4))
+	require.Error(ap.Add(ctx, tsf1))
+	require.Error(ap.Add(ctx, tsf4))
 	// Case III: Pool space/gas space is full
 	mockBC := mock_blockchain.NewMockBlockchain(ctrl)
 	Ap2, err := NewActPool(mockBC, apConfig, EnableExperimentalActions())
@@ -247,9 +249,9 @@ func TestActPool_AddActs(t *testing.T) {
 
 		ap2.allActions[nTsf.Hash()] = nTsf
 	}
-	err = ap2.Add(tsf1)
+	err = ap2.Add(ctx, tsf1)
 	require.Equal(action.ErrActPool, errors.Cause(err))
-	err = ap2.Add(tsf4)
+	err = ap2.Add(ctx, tsf4)
 	require.Equal(action.ErrActPool, errors.Cause(err))
 
 	Ap3, err := NewActPool(mockBC, apConfig)
@@ -266,13 +268,13 @@ func TestActPool_AddActs(t *testing.T) {
 	}
 	tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(apConfig.MaxGasLimitPerPool/10000), big.NewInt(50), []byte{1, 2, 3}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	err = ap3.Add(tsf10)
+	err = ap3.Add(ctx, tsf10)
 	require.True(strings.Contains(err.Error(), "insufficient gas space for action"))
 
 	// Case IV: Nonce already exists
 	replaceTsf, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.Add(replaceTsf)
+	err = ap.Add(ctx, replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -285,17 +287,17 @@ func TestActPool_AddActs(t *testing.T) {
 
 	require.NoError(err)
 
-	err = ap.Add(selp)
+	err = ap.Add(ctx, selp)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case V: Nonce is too large
 	outOfBoundsTsf, err := testutil.SignedTransfer(addr1, priKey1, ap.cfg.MaxNumActsPerAcct+1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.Add(outOfBoundsTsf)
+	err = ap.Add(ctx, outOfBoundsTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 	// Case VI: Insufficient balance
 	overBalTsf, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(20), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	err = ap.Add(overBalTsf)
+	err = ap.Add(ctx, overBalTsf)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Case VII: insufficient gas
 	tmpData := [1234]byte{}
@@ -317,7 +319,7 @@ func TestActPool_AddActs(t *testing.T) {
 	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
-	err = ap.Add(selp)
+	err = ap.Add(ctx, selp)
 	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
 }
 
@@ -344,7 +346,6 @@ func TestActPool_PickActs(t *testing.T) {
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
 		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-		ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
@@ -367,17 +368,21 @@ func TestActPool_PickActs(t *testing.T) {
 		tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
-		require.NoError(ap.Add(tsf1))
-		require.NoError(ap.Add(tsf2))
-		require.NoError(ap.Add(tsf3))
-		require.NoError(ap.Add(tsf4))
-		err = ap.Add(tsf5)
+		ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+		require.NoError(ep.Register(registry))
+
+		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+		require.NoError(ap.Add(ctx, tsf1))
+		require.NoError(ap.Add(ctx, tsf2))
+		require.NoError(ap.Add(ctx, tsf3))
+		require.NoError(ap.Add(ctx, tsf4))
+		err = ap.Add(ctx, tsf5)
 		require.Equal(action.ErrBalance, errors.Cause(err))
-		require.Error(ap.Add(tsf6))
-		require.Error(ap.Add(tsf7))
-		require.NoError(ap.Add(tsf8))
-		require.NoError(ap.Add(tsf9))
-		require.NoError(ap.Add(tsf10))
+		require.Error(ap.Add(ctx, tsf6))
+		require.Error(ap.Add(ctx, tsf7))
+		require.NoError(ap.Add(ctx, tsf8))
+		require.NoError(ap.Add(ctx, tsf9))
+		require.NoError(ap.Add(ctx, tsf10))
 		return ap, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}, []action.SealedEnvelope{}, []action.SealedEnvelope{}
 	}
 
@@ -423,7 +428,6 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -434,10 +438,14 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf2))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1])
@@ -446,14 +454,10 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
 	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
@@ -492,13 +496,11 @@ func TestActPool_Reset(t *testing.T) {
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap1.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	Ap2, err := NewActPool(bc, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap2.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 
 	// Tsfs to be added to ap1
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
@@ -520,17 +522,21 @@ func TestActPool_Reset(t *testing.T) {
 	tsf9, err := testutil.SignedTransfer(addr1, priKey3, uint64(4), big.NewInt(100), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap1.Add(tsf1))
-	require.NoError(ap1.Add(tsf2))
-	err = ap1.Add(tsf3)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	})
+	require.NoError(ap1.Add(ctx, tsf1))
+	require.NoError(ap1.Add(ctx, tsf2))
+	err = ap1.Add(ctx, tsf3)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	require.NoError(ap1.Add(tsf4))
-	require.NoError(ap1.Add(tsf5))
-	err = ap1.Add(tsf6)
+	require.NoError(ap1.Add(ctx, tsf4))
+	require.NoError(ap1.Add(ctx, tsf5))
+	err = ap1.Add(ctx, tsf6)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	require.NoError(ap1.Add(tsf7))
-	require.NoError(ap1.Add(tsf8))
-	require.NoError(ap1.Add(tsf9))
+	require.NoError(ap1.Add(ctx, tsf7))
+	require.NoError(ap1.Add(ctx, tsf8))
+	require.NoError(ap1.Add(ctx, tsf9))
 	// Tsfs to be added to ap2 only
 	tsf10, err := testutil.SignedTransfer(addr2, priKey1, uint64(3), big.NewInt(20), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
@@ -543,16 +549,16 @@ func TestActPool_Reset(t *testing.T) {
 	tsf14, err := testutil.SignedTransfer(addr2, priKey3, uint64(2), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap2.Add(tsf1))
-	require.NoError(ap2.Add(tsf2))
-	require.NoError(ap2.Add(tsf10))
-	err = ap2.Add(tsf11)
+	require.NoError(ap2.Add(ctx, tsf1))
+	require.NoError(ap2.Add(ctx, tsf2))
+	require.NoError(ap2.Add(ctx, tsf10))
+	err = ap2.Add(ctx, tsf11)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	require.NoError(ap2.Add(tsf4))
-	require.NoError(ap2.Add(tsf12))
-	require.NoError(ap2.Add(tsf13))
-	require.NoError(ap2.Add(tsf14))
-	err = ap2.Add(tsf9)
+	require.NoError(ap2.Add(ctx, tsf4))
+	require.NoError(ap2.Add(ctx, tsf12))
+	require.NoError(ap2.Add(ctx, tsf13))
+	require.NoError(ap2.Add(ctx, tsf14))
+	err = ap2.Add(ctx, tsf9)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
@@ -596,14 +602,10 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 
-	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
 	})
 
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
@@ -662,13 +664,13 @@ func TestActPool_Reset(t *testing.T) {
 	tsf20, err := testutil.SignedTransfer(addr2, priKey3, uint64(3), big.NewInt(200), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap1.Add(tsf15))
-	require.NoError(ap2.Add(tsf16))
-	require.NoError(ap2.Add(tsf17))
-	require.NoError(ap2.Add(tsf18))
-	err = ap2.Add(tsf19)
+	require.NoError(ap1.Add(ctx, tsf15))
+	require.NoError(ap2.Add(ctx, tsf16))
+	require.NoError(ap2.Add(ctx, tsf17))
+	require.NoError(ap2.Add(ctx, tsf18))
+	err = ap2.Add(ctx, tsf19)
 	require.Equal(action.ErrBalance, errors.Cause(err))
-	err = ap2.Add(tsf20)
+	err = ap2.Add(ctx, tsf20)
 	require.Equal(action.ErrBalance, errors.Cause(err))
 	// Check confirmed nonce, pending nonce, and pending balance after adding Tsfs above for each account
 	// ap1
@@ -708,14 +710,10 @@ func TestActPool_Reset(t *testing.T) {
 	// ap2 commits update of accounts to trie
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
-	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 2,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
 	})
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
@@ -787,12 +785,12 @@ func TestActPool_Reset(t *testing.T) {
 	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 
-	require.NoError(ap1.Add(tsf21))
-	require.Error(ap1.Add(tsf22))
-	require.Error(ap1.Add(selp23))
-	require.NoError(ap1.Add(tsf24))
-	require.NoError(ap1.Add(tsf25))
-	require.Error(ap1.Add(selp26))
+	require.NoError(ap1.Add(ctx, tsf21))
+	require.Error(ap1.Add(ctx, tsf22))
+	require.Error(ap1.Add(ctx, selp23))
+	require.NoError(ap1.Add(ctx, tsf24))
+	require.NoError(ap1.Add(ctx, tsf25))
+	require.Error(ap1.Add(ctx, selp26))
 	// Check confirmed nonce, pending nonce, and pending balance after adding actions above for account4 and account5
 	// ap1
 	// Addr4
@@ -811,16 +809,11 @@ func TestActPool_Reset(t *testing.T) {
 	ws, err = sf.NewWorkingSet()
 	require.NoError(err)
 
-	ctx = protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 3,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
-	})
-
 	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
 	require.NoError(err)
 	require.NoError(ws.Finalize())
@@ -875,10 +868,11 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf2))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	hash1 := tsf1.Hash()
 	hash2 := tsf4.Hash()
@@ -923,9 +917,10 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 
 	nonce, err := ap.GetPendingNonce(addr2)
 	require.NoError(err)
@@ -970,10 +965,12 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	tsf5, err := testutil.SignedTransfer(addr1, priKey2, uint64(1), big.NewInt(30), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
-	require.NoError(ap.Add(tsf5))
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
+	require.NoError(ap.Add(ctx, tsf5))
 
 	acts := ap.GetUnconfirmedActs(addr3)
 	require.Equal([]action.SealedEnvelope(nil), acts)
@@ -1060,7 +1057,6 @@ func TestActPool_GetSize(t *testing.T) {
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(account.NewProtocol(rewarding.DepositGas), execution.NewProtocol(bc.BlockDAO().GetBlockHash))
 	require.Zero(ap.GetSize())
 	require.Zero(ap.GetGasSize())
 
@@ -1072,10 +1068,15 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	tsf4, err := testutil.SignedTransfer(addr1, priKey1, uint64(4), big.NewInt(30), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	require.NoError(ap.Add(tsf1))
-	require.NoError(ap.Add(tsf2))
-	require.NoError(ap.Add(tsf3))
-	require.NoError(ap.Add(tsf4))
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
+	require.NoError(ap.Add(ctx, tsf1))
+	require.NoError(ap.Add(ctx, tsf2))
+	require.NoError(ap.Add(ctx, tsf3))
+	require.NoError(ap.Add(ctx, tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
 	sf := bc.Factory()
@@ -1084,14 +1085,10 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	gasLimit := uint64(1000000)
 
-	ctx := protocol.WithBlockCtx(context.Background(), protocol.BlockCtx{
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: bc.TipHeight() + 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: re,
 	})
 	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
 	require.NoError(err)
@@ -1102,7 +1099,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.Equal(uint64(0), ap.GetGasSize())
 }
 
-func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
+func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	bc := blockchain.NewBlockchain(
@@ -1129,7 +1126,9 @@ func TestActPool_AddActionNotEnoughGasPride(t *testing.T) {
 		big.NewInt(0),
 	)
 	require.NoError(t, err)
-	require.Error(t, ap.Add(tsf))
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
+	require.Error(t, ap.Add(ctx, tsf))
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue

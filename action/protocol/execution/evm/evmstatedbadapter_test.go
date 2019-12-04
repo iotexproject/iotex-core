@@ -432,7 +432,7 @@ func TestPreimage(t *testing.T) {
 	k, _ = stateDB.cb.Get(PreimageKVNameSpace, v3[:])
 	require.Equal([]byte("hen"), k)
 
-	require.NoError(stateDB.dao.Commit(stateDB.cb))
+	require.NoError(stateDB.dao.WriteBatch(stateDB.cb))
 	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v1[:])
 	require.Equal([]byte("cat"), k)
 	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v2[:])
