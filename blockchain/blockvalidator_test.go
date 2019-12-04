@@ -134,211 +134,122 @@ func TestWrongNonce(t *testing.T) {
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[identityset.Address(27).String()] = []action.SealedEnvelope{tsf1}
 
-	blkhash := tsf1.Hash()
-	blk, err := block.NewTestingBuilder().
-		SetHeight(2).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(
+		accMap,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk)
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 1,
-				Hash:   blkhash,
+				Height: blk.Height() - 1,
+				Hash:   cfg.Genesis.Hash(),
 			},
 			Registry: registry,
 		},
 	)
-	require.NoError(val.Validate(ctx, &blk))
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
-		},
-	)
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-		},
-	)
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})
-	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(val.Validate(ctx, blk))
+	require.NoError(bc.CommitBlock(blk))
 
 	// low nonce
 	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf2).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap2 := make(map[string][]action.SealedEnvelope)
+	accMap2[identityset.Address(27).String()] = []action.SealedEnvelope{tsf2}
+
+	prevHash := bc.TipHash()
+	blk2, err := bc.MintNewBlock(
+		accMap2,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk2.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Equal(action.ErrNonce, errors.Cause(err))
-
-	tsf3, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf3).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk2)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
+	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
 	tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	accMap3 := make(map[string][]action.SealedEnvelope)
+	accMap3[identityset.Address(27).String()] = []action.SealedEnvelope{tsf3, tsf4}
+
+	blk3, err := bc.MintNewBlock(
+		accMap3,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf4, tsf5).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
+	require.NotNil(blk3)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk3.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Error(err)
-	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf6, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	tsf7, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf6, tsf7).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk3)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf8, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf9, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf8, tsf9).
-		SignAndBuild(identityset.PrivateKey(27))
+
+	accMap4 := make(map[string][]action.SealedEnvelope)
+	accMap4[identityset.Address(27).String()] = []action.SealedEnvelope{tsf5, tsf6}
+
+	blk4, err := bc.MintNewBlock(
+		accMap4,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk4)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk4.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Error(err)
-	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf10, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-	tsf11, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf10, tsf11).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk4)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }

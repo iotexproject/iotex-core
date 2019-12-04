@@ -18,6 +18,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
@@ -50,7 +52,9 @@ type (
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
+		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
+		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
 		Commit(WorkingSet) error
 		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
@@ -247,6 +251,33 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	defer sf.mutex.RUnlock()
 
 	return newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+}
+
+func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	bcCtx.History = ws.History()
+	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
+	registry := bcCtx.Registry
+	for _, p := range registry.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err = pp.CreatePreStates(ctx, ws); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+	// TODO: verify whether the post system actions are appended tail
+
+	receipts, err := ws.RunActions(ctx, actions)
+	if err != nil {
+		return nil, nil, err
+	}
+	return receipts, ws, ws.Finalize()
 }
 
 // Commit persists all changes in RunActions() into the DB

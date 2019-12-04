@@ -459,7 +459,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
 	defer timer.End()
-	return bc.validateBlock(blk)
+	ctx, err := bc.context(context.Background(), true, true)
+	if err != nil {
+		return err
+	}
+	return bc.validator.Validate(ctx, blk)
 }
 
 func (bc *blockchain) Context() (context.Context, error) {
@@ -676,14 +680,10 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 			return err
 		}
 		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
-		ws, err := bc.sf.NewWorkingSet()
+		_, ws, err := bc.sf.RunActions(ctx, blk.RunnableActions().Actions())
 		if err != nil {
-			return errors.Wrap(err, "failed to obtain working set from state factory")
-		}
-		if _, err := bc.runActions(ctx, blk, ws); err != nil {
 			return err
 		}
-
 		if err := bc.sf.Commit(ws); err != nil {
 			return err
 		}
@@ -717,53 +717,6 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 		Hash:      bc.tipHash,
 		Timestamp: header.Timestamp(),
 	}, nil
-}
-
-func (bc *blockchain) validateBlock(blk *block.Block) error {
-	validateTimer := bc.timerFactory.NewTimer("validate")
-
-	ctx, err := bc.context(context.Background(), true, true)
-	if err != nil {
-		return err
-	}
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
-	}
-	ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
-	err = bc.validator.Validate(ctx, blk)
-	validateTimer.End()
-	if err != nil {
-		return errors.Wrapf(err, "error when validating block %d", blk.Height())
-	}
-	// run actions and update state factory
-	ws, err := bc.sf.NewWorkingSet()
-	if err != nil {
-		return errors.Wrap(err, "Failed to obtain working set from state factory")
-	}
-	runTimer := bc.timerFactory.NewTimer("runActions")
-	receipts, err := bc.runActions(ctx, blk, ws)
-	runTimer.End()
-	if err != nil {
-		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bc.tipHeight), zap.Error(err))
-	}
-	digest, err := ws.Digest()
-	if err != nil {
-		return err
-	}
-	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
-		return err
-	}
-
-	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
-		return errors.Wrap(err, "Failed to verify receipt root")
-	}
-
-	blk.Receipts = receipts
-
-	// attach working set to be committed to state factory
-	blk.WorkingSet = ws
-	return nil
 }
 
 // commitBlock commits a block to the chain
@@ -806,35 +759,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil
-}
-
-func (bc *blockchain) runActions(
-	ctx context.Context,
-	blk *block.Block,
-	ws factory.WorkingSet,
-) ([]*action.Receipt, error) {
-	if bc.sf == nil {
-		return nil, errors.New("statefactory cannot be nil")
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	bcCtx.History = ws.History()
-	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
-		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, err
-			}
-		}
-	}
-	// TODO: verify whether the post system actions are appended tail
-
-	receipts, err := ws.RunActions(ctx, blk.RunnableActions().Actions())
-	if err != nil {
-		return nil, err
-	}
-
-	return receipts, ws.Finalize()
 }
 
 func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[string][]action.SealedEnvelope,

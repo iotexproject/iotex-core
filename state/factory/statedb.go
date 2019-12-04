@@ -18,6 +18,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -192,6 +194,30 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	defer sdb.mutex.RUnlock()
 
 	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
+}
+
+func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+	sdb.mutex.Lock()
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	bcCtx.History = ws.History()
+	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
+	registry := bcCtx.Registry
+	for _, p := range registry.All() {
+		if pp, ok := p.(protocol.PreStatesCreator); ok {
+			if err := pp.CreatePreStates(ctx, ws); err != nil {
+				return nil, nil, err
+			}
+		}
+	}
+	// TODO: verify whether the post system actions are appended tail
+
+	receipts, err := ws.RunActions(ctx, actions)
+	if err != nil {
+		return nil, nil, err
+	}
+	return receipts, ws, ws.Finalize()
 }
 
 // Commit persists all changes in RunActions() into the DB

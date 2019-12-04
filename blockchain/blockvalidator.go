@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -68,8 +69,43 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
 	if v.sf == nil {
 		return nil
 	}
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producerAddr,
+		},
+	)
 
-	return v.validateActionsOnly(ctx, blk)
+	if err := v.validateActionsOnly(ctx, blk); err != nil {
+		return errors.Wrap(err, "failed to validate actions only")
+	}
+	receipts, ws, err := v.sf.RunActions(ctx, blk.RunnableActions().Actions())
+	if err != nil {
+		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bcCtx.Tip.Height), zap.Error(err))
+	}
+
+	digest, err := ws.Digest()
+	if err != nil {
+		return err
+	}
+	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
+		return errors.Wrap(err, "failed to verify delta state digest")
+	}
+	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+		return errors.Wrap(err, "Failed to verify receipt root")
+	}
+
+	blk.Receipts = receipts
+
+	// attach working set to be committed to state factory
+	blk.WorkingSet = ws
+	return nil
 }
 
 // AddActionEnvelopeValidators add action envelope validators

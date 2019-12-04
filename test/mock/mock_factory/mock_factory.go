@@ -8,6 +8,7 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
+	action "github.com/iotexproject/iotex-core/action"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -167,6 +168,22 @@ func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
 func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
+}
+
+// RunActions mocks base method
+func (m *MockFactory) RunActions(arg0 context.Context, arg1 []action.SealedEnvelope) ([]*action.Receipt, factory.WorkingSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].(factory.WorkingSet)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// RunActions indicates an expected call of RunActions
+func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1)
 }
 
 // Commit mocks base method
