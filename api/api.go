@@ -322,7 +322,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
-	if err = api.ap.Add(selp); err != nil {
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: api.registry})
+	if err = api.ap.Add(ctx, selp); err != nil {
 		log.L().Debug(err.Error())
 		var desc string
 		switch errors.Cause(err) {

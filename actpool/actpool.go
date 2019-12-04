@@ -44,7 +44,7 @@ type ActPool interface {
 	// PendingActionMap returns an action map with all accepted actions
 	PendingActionMap() map[string][]action.SealedEnvelope
 	// Add adds an action into the pool after passing validation
-	Add(act action.SealedEnvelope) error
+	Add(ctx context.Context, act action.SealedEnvelope) error
 	// GetPendingNonce returns pending nonce in pool given an account address
 	GetPendingNonce(addr string) (uint64, error)
 	// GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -59,8 +59,6 @@ type ActPool interface {
 	GetGasSize() uint64
 	// GetGasCapacity returns the act pool gas capacity
 	GetGasCapacity() uint64
-	// AddActionValidators add validators
-	AddActionValidators(...protocol.ActionValidator)
 
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 }
@@ -93,7 +91,6 @@ type actPool struct {
 	allActions                map[hash.Hash256]action.SealedEnvelope
 	gasInPool                 uint64
 	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
-	validators                []protocol.ActionValidator
 	timerFactory              *prometheustimer.TimerFactory
 	enableExperimentalActions bool
 	senderBlackList           map[string]bool
@@ -136,11 +133,6 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 	return ap, nil
 }
 
-// AddActionValidators add validators
-func (ap *actPool) AddActionValidators(validators ...protocol.ActionValidator) {
-	ap.validators = append(ap.validators, validators...)
-}
-
 func (ap *actPool) AddActionEnvelopeValidators(fs ...protocol.ActionEnvelopeValidator) {
 	ap.actionEnvelopeValidators = append(ap.actionEnvelopeValidators, fs...)
 }
@@ -175,9 +167,11 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 	return actionMap
 }
 
-func (ap *actPool) Add(act action.SealedEnvelope) error {
+func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+
 	// Reject action if action source address is blacklisted
 	pubKeyHash := act.SrcPubkey().Hash()
 	srcAddr, err := address.FromBytes(pubKeyHash)
@@ -224,6 +218,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 	if err != nil {
 		return err
 	}
+
 	// envelope validation
 	for _, validator := range ap.actionEnvelopeValidators {
 		ctx := protocol.WithActionCtx(
@@ -238,7 +233,7 @@ func (ap *actPool) Add(act action.SealedEnvelope) error {
 		}
 	}
 	// Reject action if it's invalid
-	for _, validator := range ap.validators {
+	for _, validator := range bcCtx.Registry.All() {
 		ctx := protocol.WithActionCtx(
 			context.Background(),
 			protocol.ActionCtx{
