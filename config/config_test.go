@@ -21,19 +21,23 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 )
 
-func makePathAndWriteFile(cfgStr string, flagForPath string) (err error) {
+const (
+	overwritePath = "_overwritePath"
+	secretPath    = "_secretPath"
+	subChainPath  = "_subChainPath"
+)
+
+func makePathAndWriteFile(cfgStr, flagForPath string) (err error) {
 	switch flagForPath {
-	case "_overwritePath":
+	case overwritePath:
 		_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
 		err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
-	case "_secretPath":
+	case secretPath:
 		_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
 		err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
-	case "_subChainPath":
+	case subChainPath:
 		_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
 		err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
-	default:
-		return errors.New("wrong path to the config file!")
 	}
 	return err
 }
@@ -41,15 +45,15 @@ func makePathAndWriteFile(cfgStr string, flagForPath string) (err error) {
 func resetPathValues(t *testing.T, flagForPath []string) {
 	for _, pathValue := range flagForPath {
 		switch pathValue {
-		case "_overwritePath":
+		case overwritePath:
 			err := os.Remove(_overwritePath)
 			_overwritePath = ""
 			require.NoError(t, err)
-		case "_secretPath":
+		case secretPath:
 			err := os.Remove(_secretPath)
 			_secretPath = ""
 			require.NoError(t, err)
-		case "_subChainPath":
+		case subChainPath:
 			err := os.Remove(_subChainPath)
 			_subChainPath = ""
 			require.NoError(t, err)
@@ -59,7 +63,7 @@ func resetPathValues(t *testing.T, flagForPath []string) {
 
 func resetPathValuesWithLookupEnv(t *testing.T, oldEnv string, oldExist bool, flagForPath string) {
 	switch flagForPath {
-	case "_overwritePath":
+	case overwritePath:
 		err := os.Remove(_overwritePath)
 		require.NoError(t, err)
 		_overwritePath = ""
@@ -69,7 +73,7 @@ func resetPathValuesWithLookupEnv(t *testing.T, oldEnv string, oldExist bool, fl
 			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 		}
 		require.NoError(t, err)
-	case "_subChainPath":
+	case subChainPath:
 		err := os.Remove(_subChainPath)
 		require.NoError(t, err)
 		_subChainPath = ""
