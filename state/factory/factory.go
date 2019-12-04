@@ -115,42 +115,6 @@ func InMemTrieOption() Option {
 	}
 }
 
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func (sf *factory) SimulateExecution(ctx context.Context, caller address.Address, ex *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	zeroAddr, err := address.FromString(address.ZeroAddress)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
-			Producer:       zeroAddr,
-		},
-	)
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		getBlockHash,
-	)
-}
-
 // NewFactory creates a new state factory
 func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
@@ -322,7 +286,9 @@ func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelo
 
 func (sf *factory) PickAndRunActions(ctx context.Context, cfg config.Config,
 	actionMap map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	sf.mutex.Lock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -398,6 +364,44 @@ func (sf *factory) PickAndRunActions(ctx context.Context, cfg config.Config,
 	}
 
 	return receipts, executedActions, ws, ws.Finalize()
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sf *factory) SimulateExecution(ctx context.Context, caller address.Address, ex *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: caller,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       zeroAddr,
+		},
+	)
+
+	return evm.ExecuteContract(
+		ctx,
+		ws,
+		ex,
+		getBlockHash,
+	)
 }
 
 // Commit persists all changes in RunActions() into the DB

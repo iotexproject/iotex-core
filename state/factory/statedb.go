@@ -225,7 +225,9 @@ func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvel
 
 func (sdb *stateDB) PickAndRunActions(ctx context.Context, cfg config.Config,
 	actionMap map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	sdb.mutex.Lock()
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
@@ -299,6 +301,42 @@ func (sdb *stateDB) PickAndRunActions(ctx context.Context, cfg config.Config,
 	return receipts, executedActions, ws, ws.Finalize()
 }
 
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sdb *stateDB) SimulateExecution(ctx context.Context, caller address.Address, ex *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+	sdb.mutex.Lock()
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: caller,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       zeroAddr,
+		},
+	)
+
+	return evm.ExecuteContract(
+		ctx,
+		ws,
+		ex,
+		getBlockHash,
+	)
+}
+
 // Commit persists all changes in RunActions() into the DB
 func (sdb *stateDB) Commit(ws WorkingSet) error {
 	sdb.mutex.Lock()
@@ -319,6 +357,7 @@ func (sdb *stateDB) Commit(ws WorkingSet) error {
 
 	return sdb.commit(ws)
 }
+
 //======================================
 // Candidate functions
 //======================================

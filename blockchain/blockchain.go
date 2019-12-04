@@ -25,7 +25,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -110,46 +109,6 @@ type Blockchain interface {
 
 	// RemoveSubscriber make you listen to every single produced block
 	RemoveSubscriber(BlockCreationSubscriber) error
-}
-
-// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
-// cause any state change
-func SimulateExecution(bc Blockchain, caller address.Address, ex *action.Execution) ([]byte, *action.Receipt, error) {
-	ctx, err := bc.Context()
-	if err != nil {
-		return nil, nil, err
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	zeroAddr, err := address.FromString(address.ZeroAddress)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
-			Producer:       zeroAddr,
-		},
-	)
-	ws, err := bc.Factory().NewWorkingSet()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
-	}
-
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		bc.BlockDAO().GetBlockHash,
-	)
 }
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
