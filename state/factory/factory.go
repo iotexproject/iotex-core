@@ -54,9 +54,9 @@ type (
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
-		Commit(WorkingSet) error
 		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+		Commit(WorkingSet) error
 		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
