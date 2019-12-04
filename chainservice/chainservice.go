@@ -197,8 +197,12 @@ func New(
 			if err != nil {
 				return nil, err
 			}
+			ctx, err := chain.Context()
+			if err != nil {
+				return nil, err
+			}
 
-			data, _, err := blockchain.SimulateExecution(chain, addr, ex)
+			data, _, err := chain.Factory().SimulateExecution(ctx, addr, ex, chain.BlockDAO().GetBlockHash)
 
 			return data, err
 		},

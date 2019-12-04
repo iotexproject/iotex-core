@@ -228,8 +228,12 @@ func runExecution(
 		if err != nil {
 			return nil, nil, err
 		}
+		ctx, err := bc.Context()
+		if err != nil {
+			return nil, nil, err
+		}
 
-		return blockchain.SimulateExecution(bc, addr, exec)
+		return bc.Factory().SimulateExecution(ctx, addr, exec, bc.BlockDAO().GetBlockHash)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).

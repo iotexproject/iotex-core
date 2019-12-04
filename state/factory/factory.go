@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -58,6 +59,7 @@ type (
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
 		Commit(WorkingSet) error
 		PickAndRunActions(context.Context, config.Config, map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
 
@@ -111,6 +113,42 @@ func InMemTrieOption() Option {
 		sf.dao = db.NewMemKVStore()
 		return nil
 	}
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sf *factory) SimulateExecution(ctx context.Context, caller address.Address, ex *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: caller,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       zeroAddr,
+		},
+	)
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return evm.ExecuteContract(
+		ctx,
+		ws,
+		ex,
+		getBlockHash,
+	)
 }
 
 // NewFactory creates a new state factory

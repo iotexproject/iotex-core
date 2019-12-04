@@ -417,7 +417,11 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	retval, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
+	ctx, err = api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	retval, receipt, err := api.bc.Factory().SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1292,7 +1296,12 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		sc.Data(),
 	)
 
-	_, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	_, receipt, err := api.bc.Factory().SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1347,7 +1356,11 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	_, receipt, err := blockchain.SimulateExecution(api.bc, caller, sc)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return false, err
+	}
+	_, receipt, err := api.bc.Factory().SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, err
 	}
