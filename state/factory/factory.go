@@ -12,7 +12,6 @@ import (
 	"math/big"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -20,10 +19,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -58,7 +55,7 @@ type (
 		NewWorkingSet() (WorkingSet, error)
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
 		Commit(WorkingSet) error
-		PickAndRunActions(context.Context, config.Config, map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
+		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
@@ -264,28 +261,16 @@ func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelo
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	bcCtx.History = ws.History()
-	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
-		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err = pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, nil, err
-			}
-		}
-	}
-	// TODO: verify whether the post system actions are appended tail
 
-	receipts, err := ws.RunActions(ctx, actions)
-	if err != nil {
-		return nil, nil, err
-	}
-	return receipts, ws, ws.Finalize()
+	return runActions(ws, ctx, actions)
 }
 
-func (sf *factory) PickAndRunActions(ctx context.Context, cfg config.Config,
-	actionMap map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+//action you need to run after pick actions
+func (sf *factory) PickAndRunActions(
+	ctx context.Context,
+	actionMap map[string][]action.SealedEnvelope,
+	postSystemActions []action.SealedEnvelope,
+) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
 	sf.mutex.Lock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 	sf.mutex.Unlock()
@@ -293,115 +278,25 @@ func (sf *factory) PickAndRunActions(ctx context.Context, cfg config.Config,
 		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	receipts := make([]*action.Receipt, 0)
-	executedActions := make([]action.SealedEnvelope, 0)
-
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
-		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, nil, nil, err
-			}
-		}
-	}
-
-	// initial action iterator
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	for {
-		nextAction, ok := actionIterator.Next()
-		if !ok {
-			break
-		}
-		receipt, err := ws.RunAction(ctx, nextAction)
-		if err != nil {
-			if errors.Cause(err) == action.ErrHitGasLimit {
-				// hit block gas limit, we should not process actions belong to this user anymore since we
-				// need monotonically increasing nonce. But we can continue processing other actions
-				// that belong other users
-				actionIterator.PopAccount()
-				continue
-			}
-			return nil, nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
-		}
-		if receipt != nil {
-			blkCtx.GasLimit -= receipt.GasConsumed
-			ctx = protocol.WithBlockCtx(ctx, blkCtx)
-			receipts = append(receipts, receipt)
-		}
-		executedActions = append(executedActions, nextAction)
-
-		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
-		// than certain threshold
-		if blkCtx.GasLimit < cfg.Chain.AllowedBlockGasResidue {
-			break
-		}
-	}
-	sk := cfg.ProducerPrivateKey()
-	for _, p := range registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
-			if err != nil {
-				return nil, nil, nil, err
-			}
-			for _, elp := range elps {
-				se, err := action.Sign(elp, sk)
-				if err != nil {
-					return nil, nil, nil, err
-				}
-
-				receipt, err := ws.RunAction(ctx, se)
-				if err != nil {
-					return nil, nil, nil, err
-				}
-				if receipt != nil {
-					receipts = append(receipts, receipt)
-				}
-				executedActions = append(executedActions, se)
-			}
-		}
-	}
-
-	return receipts, executedActions, ws, ws.Finalize()
+	return pickAndRunActions(ws, ctx, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
 // cause any state change
-func (sf *factory) SimulateExecution(ctx context.Context, caller address.Address, ex *action.Execution, getBlockHash evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+func (sf *factory) SimulateExecution(
+	ctx context.Context,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash evm.GetBlockHash,
+) ([]byte, *action.Receipt, error) {
 	sf.mutex.Lock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	zeroAddr, err := address.FromString(address.ZeroAddress)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
-			Producer:       zeroAddr,
-		},
-	)
 
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		getBlockHash,
-	)
+	return simulateExecution(ws, ctx, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB

@@ -11,7 +11,6 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	config "github.com/iotexproject/iotex-core/config"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	big "math/big"
@@ -204,7 +203,7 @@ func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 }
 
 // PickAndRunActions mocks base method
-func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 config.Config, arg2 map[string][]action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
+func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PickAndRunActions", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]*action.Receipt)

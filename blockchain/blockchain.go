@@ -483,14 +483,30 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
-	rc, actions, ws, err := bc.sf.PickAndRunActions(ctx, bc.config, actionMap)
+	sk := bc.config.ProducerPrivateKey()
+	postSystemActions := make([]action.SealedEnvelope, 0)
+	for _, p := range bc.registry.All() {
+		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psac.CreatePostSystemActions(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, elp := range elps {
+				se, err := action.Sign(elp, sk)
+				if err != nil {
+					return nil, err
+				}
+				postSystemActions = append(postSystemActions, se)
+			}
+		}
+	}
+	rc, actions, ws, err := bc.sf.PickAndRunActions(ctx, actionMap, postSystemActions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
 	}
 
 	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
 
-	sk := bc.config.ProducerPrivateKey()
 	ra := block.NewRunnableActionsBuilder().
 		AddActions(actions...).
 		Build()
