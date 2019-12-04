@@ -1260,7 +1260,7 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	// create chain
 	registry := protocol.NewRegistry()
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
-	// mock
+	// mock blockCreationSubscriber
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
@@ -1277,7 +1277,7 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	// create chain
 	registry := protocol.NewRegistry()
 	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
-	// mock
+	// mock blockCreationSubscriber
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
