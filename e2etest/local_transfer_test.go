@@ -309,6 +309,7 @@ func TestLocalTransfer(t *testing.T) {
 	// Start server
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
 	defer func() {
+		time.Sleep(10 * time.Second)
 		require.NoError(probeSvr.Stop(ctx))
 		require.NoError(svr.Stop(ctx))
 	}()
@@ -347,8 +348,8 @@ func TestLocalTransfer(t *testing.T) {
 		switch tsfTest.expectedResult {
 		case TsfSuccess:
 			require.NoError(err, tsfTest.message)
-			//Wait long enough for a block to be minted, and check the balance of both
-			//sender and receiver.
+			// Wait long enough for a block to be minted, and check the balance of both
+			// sender and receiver.
 			var selp action.SealedEnvelope
 			err := backoff.Retry(func() error {
 				var err error

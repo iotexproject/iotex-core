@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -65,8 +66,21 @@ func TestBlockReward(t *testing.T) {
 	testIndexPath := testIndexFile.Name()
 
 	cfg := config.Default
-	cfg.Consensus.Scheme = config.StandaloneScheme
+	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Genesis.NumDelegates = 1
+	cfg.Genesis.NumSubEpochs = 10
+	cfg.Genesis.Delegates = []genesis.Delegate{
+		{
+			OperatorAddrStr: identityset.Address(0).String(),
+			RewardAddrStr:   identityset.Address(0).String(),
+			VotesStr:        "10",
+		},
+	}
 	cfg.Genesis.BlockInterval = time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath

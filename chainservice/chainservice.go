@@ -179,57 +179,67 @@ func New(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
-	rDPoSProtocol := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
-	)
-	pollProtocol, err := poll.NewProtocol(
-		cfg,
-		func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
-
-			addr, err := address.FromString(address.ZeroAddress)
-			if err != nil {
-				return nil, err
-			}
-			ctx, err := chain.Context()
-			if err != nil {
-				return nil, err
-			}
-
-			data, _, err := chain.Factory().SimulateExecution(ctx, addr, ex, chain.BlockDAO().GetBlockHash)
-
-			return data, err
-		},
-		chain.Factory().CandidatesByHeight,
-		electionCommittee,
-		func(height uint64) (time.Time, error) {
-			header, err := chain.BlockHeaderByHeight(height)
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
-		rDPoSProtocol,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate poll protocol")
-	}
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
-		consensus.WithRollDPoSProtocol(rDPoSProtocol),
-		consensus.WithPollProtocol(pollProtocol),
 	}
+	var rDPoSProtocol *rolldpos.Protocol
+	var pollProtocol poll.Protocol
+	if cfg.Consensus.Scheme == config.RollDPoSScheme {
+		rDPoSProtocol = rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		)
+		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		pollProtocol, err = poll.NewProtocol(
+			cfg,
+			func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+				ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+				if err != nil {
+					return nil, err
+				}
+
+				addr, err := address.FromString(address.ZeroAddress)
+				if err != nil {
+					return nil, err
+				}
+				ctx, err := chain.Context()
+				if err != nil {
+					return nil, err
+				}
+
+				data, _, err := chain.Factory().SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+
+				return data, err
+			},
+			chain.Factory().CandidatesByHeight,
+			electionCommittee,
+			func(height uint64) (time.Time, error) {
+				header, err := chain.BlockHeaderByHeight(height)
+				if err != nil {
+					return time.Now(), errors.Wrapf(
+						err, "error when getting the block at height: %d",
+						height,
+					)
+				}
+				return header.Timestamp(), nil
+			},
+			rDPoSProtocol,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate poll protocol")
+		}
+		if pollProtocol != nil {
+			copts = append(copts, consensus.WithPollProtocol(pollProtocol))
+		}
+	}
+	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
+	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(chain, epochNum)
+	}, rDPoSProtocol)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
@@ -284,10 +294,33 @@ func New(
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
-	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(chain, epochNum)
-	}, rDPoSProtocol)
-	cs := &ChainService{
+	if accountProtocol != nil {
+		if err = accountProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if rDPoSProtocol != nil {
+		if err = rDPoSProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if pollProtocol != nil {
+		if err = pollProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if executionProtocol != nil {
+		if err = executionProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if rewardingProtocol != nil {
+		if err = rewardingProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainService{
 		actpool:           actPool,
 		chain:             chain,
 		blocksync:         bs,
@@ -296,12 +329,7 @@ func New(
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          registry,
-	}
-	// Install protocols
-	if err := cs.registerDefaultProtocols(accountProtocol, rDPoSProtocol, pollProtocol, executionProtocol, rewardingProtocol); err != nil {
-		return nil, err
-	}
-	return cs, nil
+	}, nil
 }
 
 // Start starts the server
@@ -430,34 +458,5 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
-// registerProtocol register a protocol
-func (cs *ChainService) registerProtocol(p protocol.Protocol) error {
-	if err := p.Register(cs.registry); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
-
-// registerDefaultProtocols registers default protocol into chainservice's registry
-func (cs *ChainService) registerDefaultProtocols(accountProtocol *account.Protocol, rDPoSProtocol *rolldpos.Protocol, pollProtocol poll.Protocol, executionProtocol *execution.Protocol, rewardingProtocol *rewarding.Protocol) (err error) {
-	if err = cs.registerProtocol(accountProtocol); err != nil {
-		return
-	}
-	if err = cs.registerProtocol(rDPoSProtocol); err != nil {
-		return
-	}
-	if pollProtocol != nil {
-		if err = cs.registerProtocol(pollProtocol); err != nil {
-			return
-		}
-	}
-	if err = cs.registerProtocol(executionProtocol); err != nil {
-		return
-	}
-
-	return cs.registerProtocol(rewardingProtocol)
-}
