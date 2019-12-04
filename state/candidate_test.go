@@ -26,11 +26,11 @@ func TestCandidateEqual(t *testing.T) {
 	}{
 		{
 			[]*Candidate{
-				&Candidate{
+				{
 					Address: identityset.Address(29).String(),
 					Votes:   big.NewInt(2),
 				},
-				&Candidate{
+				{
 					Address: identityset.Address(29).String(),
 					Votes:   big.NewInt(2),
 				},
@@ -39,11 +39,11 @@ func TestCandidateEqual(t *testing.T) {
 		},
 		{
 			[]*Candidate{
-				&Candidate{
+				{
 					Address: identityset.Address(29).String(),
 					Votes:   big.NewInt(2),
 				},
-				&Candidate{
+				{
 					Address: identityset.Address(29).String(),
 					Votes:   big.NewInt(1),
 				},

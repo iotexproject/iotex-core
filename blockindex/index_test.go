@@ -12,8 +12,8 @@ func TestActionIndex(t *testing.T) {
 	require := require.New(t)
 
 	ad := []*actionIndex{
-		&actionIndex{1048000},
-		&actionIndex{1048001},
+		{1048000},
+		{1048001},
 	}
 
 	for i := range ad {
@@ -29,13 +29,13 @@ func TestBlockIndex(t *testing.T) {
 
 	h, _ := hex.DecodeString("d1ff0e7fe2a54600a171d3bcc9e222c656d584b3a0e7b33373e634de3f8cd010")
 	bd := []*blockIndex{
-		&blockIndex{
+		{
 			h, 1048000, big.NewInt(1048000),
 		},
-		&blockIndex{
+		{
 			nil, 1048000, big.NewInt(1048000),
 		},
-		&blockIndex{
+		{
 			h, 1048000, big.NewInt(0),
 		},
 	}
