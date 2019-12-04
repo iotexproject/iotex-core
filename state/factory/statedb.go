@@ -202,7 +202,7 @@ func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvel
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
 	sdb.mutex.Unlock()
 
-	return runActions(ws, ctx, actions)
+	return runActions(ctx, ws, actions)
 }
 
 func (sdb *stateDB) PickAndRunActions(
@@ -214,7 +214,7 @@ func (sdb *stateDB) PickAndRunActions(
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
 	sdb.mutex.Unlock()
 
-	return pickAndRunActions(ws, ctx, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -229,7 +229,7 @@ func (sdb *stateDB) SimulateExecution(
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
 	sdb.mutex.Unlock()
 
-	return simulateExecution(ws, ctx, caller, ex, getBlockHash)
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB

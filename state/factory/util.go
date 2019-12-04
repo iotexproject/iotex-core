@@ -34,7 +34,7 @@ func createGenesisStates(ctx context.Context, ws WorkingSet) error {
 	return ws.Finalize()
 }
 
-func runActions(ws WorkingSet, ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+func runActions(ctx context.Context, ws WorkingSet, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	bcCtx.History = ws.History()
 	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
@@ -56,8 +56,8 @@ func runActions(ws WorkingSet, ctx context.Context, actions []action.SealedEnvel
 }
 
 func pickAndRunActions(
-	ws WorkingSet,
 	ctx context.Context,
+	ws WorkingSet,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
@@ -122,8 +122,8 @@ func pickAndRunActions(
 }
 
 func simulateExecution(
-	ws WorkingSet,
 	ctx context.Context,
+	ws WorkingSet,
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,

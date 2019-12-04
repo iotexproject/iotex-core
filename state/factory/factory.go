@@ -262,10 +262,9 @@ func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelo
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return runActions(ws, ctx, actions)
+	return runActions(ctx, ws, actions)
 }
 
-//action you need to run after pick actions
 func (sf *factory) PickAndRunActions(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
@@ -278,7 +277,7 @@ func (sf *factory) PickAndRunActions(
 		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
 
-	return pickAndRunActions(ws, ctx, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -296,7 +295,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return simulateExecution(ws, ctx, caller, ex, getBlockHash)
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
