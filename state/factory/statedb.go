@@ -198,8 +198,8 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 
 func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
 	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	bcCtx.History = ws.History()
 	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)

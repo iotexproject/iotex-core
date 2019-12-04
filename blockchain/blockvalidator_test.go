@@ -60,15 +60,6 @@ func TestWrongRootHash(t *testing.T) {
 			},
 		},
 	)
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-		},
-	)
 
 	require.NoError(val.Validate(ctx, &blk))
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
@@ -101,15 +92,6 @@ func TestSignBlock(t *testing.T) {
 				Height: 2,
 				Hash:   blkhash,
 			},
-		},
-	)
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
 		},
 	)
 
@@ -166,19 +148,10 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk.Height()-1,
+				Height: blk.Height() - 1,
 				Hash:   cfg.Genesis.Hash(),
 			},
 			Registry: registry,
-		},
-	)
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: blk.Height(),
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
 		},
 	)
 
@@ -205,18 +178,10 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk2.Height()-1,
+				Height: blk2.Height() - 1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
-		},
-	)
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: blk2.Height(),
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
 		},
 	)
 	err = val.Validate(ctx, blk2)
@@ -245,18 +210,10 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk3.Height()-1,
+				Height: blk3.Height() - 1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
-		},
-	)
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: blk3.Height(),
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
 		},
 	)
 
@@ -285,18 +242,10 @@ func TestWrongNonce(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: blk4.Height()-1,
+				Height: blk4.Height() - 1,
 				Hash:   prevHash,
 			},
 			Registry: registry,
-		},
-	)
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: blk4.Height(),
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
 		},
 	)
 

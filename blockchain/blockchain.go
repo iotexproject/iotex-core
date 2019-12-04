@@ -463,11 +463,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
-	}
-	return bc.validator.Validate(bc.contextWithBlock(ctx, producerAddr, blk.Height(), blk.Timestamp()), blk)
+	return bc.validator.Validate(ctx, blk)
 }
 
 func (bc *blockchain) Context() (context.Context, error) {

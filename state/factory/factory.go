@@ -255,11 +255,11 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 
 func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
 	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
+	sf.mutex.Unlock()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	bcCtx.History = ws.History()
 	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)

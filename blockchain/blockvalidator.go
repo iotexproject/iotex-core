@@ -69,6 +69,18 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
 	if v.sf == nil {
 		return nil
 	}
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producerAddr,
+		},
+	)
 
 	if err := v.validateActionsOnly(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate actions only")
