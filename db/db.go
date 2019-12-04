@@ -40,8 +40,8 @@ type (
 		Get(string, []byte) ([]byte, error)
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte) error
-		// Commit commits a batch
-		Commit(KVStoreBatch) error
+		// WriteBatch commits a batch
+		WriteBatch(KVStoreBatch) error
 	}
 
 	// KVStoreWithRange is KVStore with Range() API
@@ -142,8 +142,8 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 	return nil
 }
 
-// Commit commits a batch
-func (m *memKVStore) Commit(b KVStoreBatch) (e error) {
+// WriteBatch commits a batch
+func (m *memKVStore) WriteBatch(b KVStoreBatch) (e error) {
 	succeed := false
 	b.Lock()
 	defer func() {

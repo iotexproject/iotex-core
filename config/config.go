@@ -88,14 +88,15 @@ var (
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
 		Network: Network{
-			Host:            "0.0.0.0",
-			Port:            4689,
-			ExternalHost:    "",
-			ExternalPort:    4689,
-			BootstrapNodes:  []string{},
-			MasterKey:       "",
-			RateLimit:       p2p.DefaultRatelimitConfig,
-			EnableRateLimit: true,
+			Host:              "0.0.0.0",
+			Port:              4689,
+			ExternalHost:      "",
+			ExternalPort:      4689,
+			BootstrapNodes:    []string{},
+			MasterKey:         "",
+			RateLimit:         p2p.DefaultRatelimitConfig,
+			EnableRateLimit:   true,
+			PrivateNetworkPSK: "",
 		},
 		Chain: Chain{
 			ChainDBPath:     "./chain.db",
@@ -209,9 +210,10 @@ type (
 		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
 		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
 		// are supported: active, nat.
-		RelayType       string              `yaml:"relayType"`
-		RateLimit       p2p.RateLimitConfig `yaml:"rateLimit"`
-		EnableRateLimit bool                `yaml:"enableRateLimit"`
+		RelayType         string              `yaml:"relayType"`
+		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
+		EnableRateLimit   bool                `yaml:"enableRateLimit"`
+		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
 	}
 
 	// Chain is the config struct for blockchain package
