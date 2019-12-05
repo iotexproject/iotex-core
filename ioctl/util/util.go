@@ -7,6 +7,7 @@
 package util
 
 import (
+	"bytes"
 	"crypto/tls"
 	"math/big"
 	"os"
@@ -14,16 +15,16 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh/terminal"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -35,6 +36,16 @@ const (
 	// GasPriceDecimalNum defines the number of decimal digits for gas price
 	GasPriceDecimalNum = 12
 )
+
+// ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
+func ExecuteCmd(cmd *cobra.Command, args ...string) (string, error) {
+	buf := new(bytes.Buffer)
+	cmd.SetOutput(buf)
+	cmd.SetArgs(args)
+	_, err := cmd.ExecuteC()
+
+	return buf.String(), err
+}
 
 // ConnectToEndpoint starts a new connection
 func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {

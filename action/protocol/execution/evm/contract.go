@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -174,7 +175,7 @@ func (c *contract) Snapshot() Contract {
 }
 
 // newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore, batch db.CachedBatch, opts ...ContractOption) (Contract, error) {
+func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore, batch batch.CachedBatch, opts ...ContractOption) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
