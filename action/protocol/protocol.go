@@ -23,7 +23,7 @@ var (
 type Protocol interface {
 	ActionValidator
 	ActionHandler
-	ReadState(context.Context, StateManager, []byte, ...[]byte) ([]byte, error)
+	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, error)
 	Register(*Registry) error
 	ForceRegister(*Registry) error
 }

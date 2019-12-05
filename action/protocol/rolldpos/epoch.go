@@ -98,7 +98,7 @@ func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager)
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
+func (p *Protocol) ReadState(ctx context.Context, sm protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
 	switch string(method) {
 	case "NumCandidateDelegates":
 		return byteutil.Uint64ToBytes(p.numCandidateDelegates), nil

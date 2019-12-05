@@ -265,7 +265,7 @@ func (p *Protocol) Claim(
 // UnclaimedBalance returns unclaimed balance of a given address
 func (p *Protocol) UnclaimedBalance(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	addr address.Address,
 ) (*big.Int, error) {
 	acc := rewardAccount{}

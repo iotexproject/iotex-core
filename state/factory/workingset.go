@@ -60,7 +60,7 @@ type (
 		RootHash() (hash.Hash256, error)
 		Digest() (hash.Hash256, error)
 		Version() uint64
-		Height() uint64
+		Height() (uint64, error)
 		History() bool
 		// General state
 		State(hash.Hash160, interface{}) error
@@ -131,8 +131,8 @@ func (ws *workingSet) Version() uint64 {
 }
 
 // Height returns the Height of the block being worked on
-func (ws *workingSet) Height() uint64 {
-	return ws.blockHeight
+func (ws *workingSet) Height() (uint64, error) {
+	return ws.blockHeight, nil
 }
 
 func (ws *workingSet) History() bool {

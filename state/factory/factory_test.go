@@ -592,7 +592,6 @@ func testRunActions(factory Factory, registry *protocol.Registry, t *testing.T) 
 	require.NotNil(rc)
 	require.NoError(err)
 	require.NoError(ws.Commit())
-
 }
 
 func TestPickAndRunActions(t *testing.T) {

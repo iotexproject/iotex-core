@@ -187,7 +187,7 @@ func (p *Protocol) Validate(
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
@@ -232,7 +232,7 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(keyHash, value)
 }

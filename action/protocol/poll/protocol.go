@@ -226,7 +226,7 @@ func (p *lifeLongDelegatesProtocol) CandidatesByHeight(height uint64) (state.Can
 
 func (p *lifeLongDelegatesProtocol) ReadState(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
@@ -459,7 +459,7 @@ func (p *governanceChainCommitteeProtocol) CandidatesByHeight(height uint64) (st
 
 func (p *governanceChainCommitteeProtocol) ReadState(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {

@@ -402,7 +402,11 @@ func (sf *factory) commit(ws WorkingSet) error {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height and root
-	sf.currentChainHeight = ws.Height()
+	height, err := ws.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get working set height")
+	}
+	sf.currentChainHeight = height
 	h, err := ws.RootHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to get root hash of working set")

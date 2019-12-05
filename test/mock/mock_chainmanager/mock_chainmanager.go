@@ -12,6 +12,58 @@ import (
 	reflect "reflect"
 )
 
+// MockStateReader is a mock of StateReader interface
+type MockStateReader struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateReaderMockRecorder
+}
+
+// MockStateReaderMockRecorder is the mock recorder for MockStateReader
+type MockStateReaderMockRecorder struct {
+	mock *MockStateReader
+}
+
+// NewMockStateReader creates a new mock instance
+func NewMockStateReader(ctrl *gomock.Controller) *MockStateReader {
+	mock := &MockStateReader{ctrl: ctrl}
+	mock.recorder = &MockStateReaderMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockStateReader) EXPECT() *MockStateReaderMockRecorder {
+	return m.recorder
+}
+
+// Height mocks base method
+func (m *MockStateReader) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockStateReaderMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateReader)(nil).Height))
+}
+
+// State mocks base method
+func (m *MockStateReader) State(arg0 hash.Hash160, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "State", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// State indicates an expected call of State
+func (mr *MockStateReaderMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateReader)(nil).State), arg0, arg1)
+}
+
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller
@@ -36,17 +88,32 @@ func (m *MockStateManager) EXPECT() *MockStateManagerMockRecorder {
 }
 
 // Height mocks base method
-func (m *MockStateManager) Height() uint64 {
+func (m *MockStateManager) Height() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Height")
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Height indicates an expected call of Height
 func (mr *MockStateManagerMockRecorder) Height() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateManager)(nil).Height))
+}
+
+// State mocks base method
+func (m *MockStateManager) State(arg0 hash.Hash160, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "State", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// State indicates an expected call of State
+func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), arg0, arg1)
 }
 
 // Snapshot mocks base method
@@ -75,20 +142,6 @@ func (m *MockStateManager) Revert(arg0 int) error {
 func (mr *MockStateManagerMockRecorder) Revert(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockStateManager)(nil).Revert), arg0)
-}
-
-// State mocks base method
-func (m *MockStateManager) State(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// State indicates an expected call of State
-func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), arg0, arg1)
 }
 
 // PutState mocks base method

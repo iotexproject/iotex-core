@@ -762,12 +762,9 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: api.registry,
 	})
-	ws, err := api.bc.Factory().NewWorkingSet()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, ws, methodName, arguments...)
+	return p.ReadState(ctx, api.bc.Factory(), methodName, arguments...)
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
