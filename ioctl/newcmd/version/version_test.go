@@ -28,12 +28,12 @@ func TestVersionCommand(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
 	cfg := config.Config{}
 	client.EXPECT().Config().Return(cfg).Times(2)
-	apiclient := mock_apiserviceclient.NewMockServiceClient(ctrl)
+	apiClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 	response := iotexapi.GetServerMetaResponse{
 		ServerMeta: &iotextypes.ServerMeta{PackageVersion: "1.0"},
 	}
-	apiclient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiclient, nil).Times(1)
+	apiClient.EXPECT().GetServerMeta(gomock.Any(), gomock.Any()).Return(&response, nil).Times(1)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiClient, nil).Times(1)
 	cmd := NewVersionCmd(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)

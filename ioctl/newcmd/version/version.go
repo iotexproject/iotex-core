@@ -13,13 +13,13 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	ver "github.com/iotexproject/iotex-core/pkg/version"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -56,7 +56,7 @@ func NewVersionCmd(c ioctl.Client) *cobra.Command {
 				},
 			}
 			fmt.Println(message.String())
-			apiclient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+			apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
 				Endpoint: endpoint,
 				Insecure: insecure,
 			})
@@ -64,7 +64,7 @@ func NewVersionCmd(c ioctl.Client) *cobra.Command {
 				return err
 			}
 
-			response, err := apiclient.GetServerMeta(
+			response, err := apiClient.GetServerMeta(
 				context.Background(),
 				&iotexapi.GetServerMetaRequest{},
 			)

@@ -36,8 +36,8 @@ type (
 		SelectTranslation(map[config.Language]string) (string, config.Language)
 		// AskToConfirm asks user to confirm from terminal, true to continue
 		AskToConfirm() bool
-		// ReadPassword reads password from terminal
-		ReadPassword() (string, error)
+		// ReadSecret reads password from terminal
+		ReadSecret() (string, error)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -109,7 +109,7 @@ func (c *client) SelectTranslation(trls map[config.Language]string) (string, con
 	return trl, config.English
 }
 
-func (c *client) ReadPassword() (string, error) {
+func (c *client) ReadSecret() (string, error) {
 	// TODO: delete util.ReadSecretFromStdin, and move code to here
 	return util.ReadSecretFromStdin()
 }
