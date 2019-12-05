@@ -163,8 +163,7 @@ func TestNewConfigWithOverride(t *testing.T) {
 	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
 
-	err = makePathAndWriteFile(cfgStr, "_overwritePath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
 
 	defer resetPathValues(t, []string{"_overwritePath"})
 
@@ -178,11 +177,9 @@ func TestNewConfigWithSecret(t *testing.T) {
 	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
 
-	err = makePathAndWriteFile(cfgStr, "_overwritePath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
 
-	err = makePathAndWriteFile(cfgStr, "_secretPath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_secretPath"))
 
 	defer resetPathValues(t, []string{"_overwritePath", "_secretPath"})
 
@@ -197,8 +194,7 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 	_, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	err = makePathAndWriteFile(cfgStr, "_overwritePath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_overwritePath")
 
@@ -325,8 +321,7 @@ func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
 func TestNewSubConfigWithSubChainPath(t *testing.T) {
 	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	err = makePathAndWriteFile(cfgStr, "_subChainPath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
 	defer resetPathValues(t, []string{"_subChainPath"})
 	cfg, err := NewSub()
@@ -338,11 +333,9 @@ func TestNewSubConfigWithSubChainPath(t *testing.T) {
 func TestNewSubConfigWithSecret(t *testing.T) {
 	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	err = makePathAndWriteFile(cfgStr, "_subChainPath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
-	err = makePathAndWriteFile(cfgStr, "_secretPath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_secretPath"))
 
 	defer resetPathValues(t, []string{"_subChainPath", "_secretPath"})
 
@@ -358,8 +351,7 @@ func TestNewSubConfigWithLookupEnv(t *testing.T) {
 	_, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
 
-	err = makePathAndWriteFile(cfgStr, "_subChainPath")
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_subChainPath")
 
