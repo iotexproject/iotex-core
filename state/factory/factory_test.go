@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"encoding/hex"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -521,9 +522,7 @@ func TestRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	testRunActions(ws, registry, t)
+	testRunActions(sf, registry, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
@@ -552,14 +551,11 @@ func TestSTXRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
 	}()
-	ws, err := sdb.NewWorkingSet()
-	require.NoError(err)
-	testSTXRunActions(ws, registry, t)
+	testRunActions(sdb, registry, t)
 }
 
-func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
+func testRunActions(factory Factory, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
-	require.Equal(uint64(1), ws.Version())
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
@@ -591,35 +587,93 @@ func testRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
 			Genesis:  config.Default.Genesis,
 			Registry: registry,
 		})
-	require.Equal(uint64(1), ws.Height())
-	s0 := ws.Snapshot()
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
-	require.NoError(err)
 
-	require.NoError(ws.Revert(s0))
-
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp2, selp1})
+	rc, ws, err := factory.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
+	require.NotNil(rc)
 	require.NoError(err)
-	require.NoError(ws.Finalize())
 	require.NoError(ws.Commit())
+
 }
 
-func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T) {
+func TestPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	require.Equal(uint64(1), ws.Version())
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	require.NoError(err)
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	testPickAndRunActions(sf, registry, t)
+}
+
+func TestSTXPickAndRunActions(t *testing.T) {
+	require := require.New(t)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testStateDBPath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(err)
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+	testPickAndRunActions(sdb, registry, t)
+}
+
+func testPickAndRunActions(factory Factory, registry *protocol.Registry, t *testing.T) {
+	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
 
-	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
+	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
-	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(0), big.NewInt(0))
+	addr0 := identityset.Address(27).String()
+	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
+
+	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
 	elp = bd.SetNonce(1).SetAction(tx2).Build()
@@ -638,17 +692,86 @@ func testSTXRunActions(ws WorkingSet, registry *protocol.Registry, t *testing.T)
 			Genesis:  config.Default.Genesis,
 			Registry: registry,
 		})
-	require.Equal(uint64(1), ws.Height())
-	s0 := ws.Snapshot()
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
-	require.NoError(err)
 
-	require.NoError(ws.Revert(s0))
-
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{selp2, selp1})
+	rc, actions, ws, err := factory.PickAndRunActions(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
-	require.NoError(ws.Finalize())
+	require.NotNil(actions)
+	require.NotNil(rc)
 	require.NoError(ws.Commit())
+
+}
+
+func TestSimulateExecution(t *testing.T) {
+	require := require.New(t)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	require.NoError(err)
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
+	testSimulateExecution(ctx, sf, t)
+}
+
+func TestSTXSimulateExecution(t *testing.T) {
+	require := require.New(t)
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testStateDBPath := testTrieFile.Name()
+
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testStateDBPath
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
+	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(err)
+
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+			Genesis:  cfg.Genesis,
+			Registry: registry,
+		}),
+		protocol.BlockCtx{},
+	)
+	require.NoError(sdb.Start(ctx))
+	defer func() {
+		require.NoError(sdb.Stop(ctx))
+	}()
+	testSimulateExecution(ctx, sdb, t)
+}
+
+func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
+	require := require.New(t)
+
+	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
+	ex, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
+	require.NoError(err)
+	addr, err := address.FromString(address.ZeroAddress)
+	require.NoError(err)
+
+	_, _, err = sf.SimulateExecution(ctx, addr, ex, func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	})
+	require.NoError(err)
 }
 
 func TestCachedBatch(t *testing.T) {
