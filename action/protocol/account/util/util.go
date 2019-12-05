@@ -76,7 +76,7 @@ func StoreAccount(sm protocol.StateManager, encodedAddr string, account *state.A
 }
 
 // Recorded tests if an account has been actually stored
-func Recorded(sm protocol.StateManager, addr address.Address) (bool, error) {
+func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
 	var account state.Account
 	err := sm.State(hash.BytesToHash160(addr.Bytes()), &account)
 	if err == nil {
