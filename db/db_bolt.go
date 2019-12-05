@@ -14,6 +14,7 @@ import (
 	bolt "go.etcd.io/bbolt"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -208,43 +209,46 @@ func (b *boltDB) Delete(namespace string, key []byte) (err error) {
 }
 
 // WriteBatch commits a batch
-func (b *boltDB) WriteBatch(batch KVStoreBatch) (err error) {
+func (b *boltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 	succeed := true
-	batch.Lock()
+	kvsb.Lock()
 	defer func() {
 		if succeed {
 			// clear the batch if commit succeeds
-			batch.ClearAndUnlock()
+			kvsb.ClearAndUnlock()
 		} else {
-			batch.Unlock()
+			kvsb.Unlock()
 		}
 	}()
 
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
-			for i := 0; i < batch.Size(); i++ {
-				write, err := batch.Entry(i)
-				if err != nil {
-					return err
+			for i := 0; i < kvsb.Size(); i++ {
+				write, e := kvsb.Entry(i)
+				if e != nil {
+					return e
 				}
-				if write.writeType == Put {
-					bucket, err := tx.CreateBucketIfNotExists([]byte(write.namespace))
-					if err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+				ns := write.Namespace()
+				errFmt := write.ErrorFormat()
+				errArgs := write.ErrorArgs()
+				if write.WriteType() == batch.Put {
+					bucket, e := tx.CreateBucketIfNotExists([]byte(ns))
+					if e != nil {
+						return errors.Wrapf(e, errFmt, errArgs)
 					}
-					if p, ok := b.fillPercent[write.namespace]; ok {
+					if p, ok := b.fillPercent[ns]; ok {
 						bucket.FillPercent = p
 					}
-					if err := bucket.Put(write.key, write.value); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					if e := bucket.Put(write.Key(), write.Value()); e != nil {
+						return errors.Wrapf(e, errFmt, errArgs)
 					}
-				} else if write.writeType == Delete {
-					bucket := tx.Bucket([]byte(write.namespace))
+				} else if write.WriteType() == batch.Delete {
+					bucket := tx.Bucket([]byte(ns))
 					if bucket == nil {
 						continue
 					}
-					if err := bucket.Delete(write.key); err != nil {
-						return errors.Wrapf(err, write.errorFormat, write.errorArgs)
+					if e := bucket.Delete(write.Key()); e != nil {
+						return errors.Wrapf(e, errFmt, errArgs)
 					}
 				}
 			}

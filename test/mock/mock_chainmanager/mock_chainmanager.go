@@ -8,6 +8,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	db "github.com/iotexproject/iotex-core/db"
+	batch "github.com/iotexproject/iotex-core/db/batch"
 	reflect "reflect"
 )
 
@@ -133,10 +134,10 @@ func (mr *MockStateManagerMockRecorder) GetDB() *gomock.Call {
 }
 
 // GetCachedBatch mocks base method
-func (m *MockStateManager) GetCachedBatch() db.CachedBatch {
+func (m *MockStateManager) GetCachedBatch() batch.CachedBatch {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCachedBatch")
-	ret0, _ := ret[0].(db.CachedBatch)
+	ret0, _ := ret[0].(batch.CachedBatch)
 	return ret0
 }
 

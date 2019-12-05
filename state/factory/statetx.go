@@ -17,14 +17,15 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // stateTX implements stateTX interface, tracks pending changes to account/contract in local cache
 type stateTX struct {
-	cb          db.CachedBatch // cached batch for pending writes
-	dao         db.KVStore     // the underlying DB for account/contract storage
+	cb          batch.CachedBatch // cached batch for pending writes
+	dao         db.KVStore        // the underlying DB for account/contract storage
 	finalized   bool
 	saveHistory bool
 	blockHeight uint64
@@ -37,7 +38,7 @@ func newStateTX(
 	saveHistory bool,
 ) *stateTX {
 	return &stateTX{
-		cb:          db.NewCachedBatch(),
+		cb:          batch.NewCachedBatch(),
 		dao:         kv,
 		finalized:   false,
 		saveHistory: saveHistory,
@@ -58,15 +59,15 @@ func (stx *stateTX) Digest() (hash.Hash256, error) {
 	if !stx.finalized {
 		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
 	}
-	var cb db.KVStoreBatch
+	var cb batch.KVStoreBatch
 	if stx.saveHistory {
 		// exclude trie pruning entries before calculating digest
-		cb = stx.cb.ExcludeEntries(evm.PruneKVNameSpace, db.Put)
+		cb = stx.cb.ExcludeEntries(evm.PruneKVNameSpace, batch.Put)
 	} else {
 		cb = stx.cb
 	}
 
-	return cb.Digest(), nil
+	return hash.Hash256b(cb.SerializeQueue(nil)), nil
 }
 
 // Version returns the Version of this working set
@@ -188,10 +189,10 @@ func (stx *stateTX) Commit() error {
 	}
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(stx.cb.Size()))
-	var cb db.KVStoreBatch
+	var cb batch.KVStoreBatch
 	if stx.saveHistory {
 		// exclude trie deletion
-		cb = stx.cb.ExcludeEntries(evm.ContractKVNameSpace, db.Delete)
+		cb = stx.cb.ExcludeEntries(evm.ContractKVNameSpace, batch.Delete)
 	} else {
 		cb = stx.cb
 	}
@@ -207,7 +208,7 @@ func (stx *stateTX) GetDB() db.KVStore {
 }
 
 // GetCachedBatch returns the cached batch for pending writes
-func (stx *stateTX) GetCachedBatch() db.CachedBatch {
+func (stx *stateTX) GetCachedBatch() batch.CachedBatch {
 	return stx.cb
 }
 
@@ -215,12 +216,12 @@ func (stx *stateTX) GetCachedBatch() db.CachedBatch {
 func (stx *stateTX) State(hash hash.Hash160, s interface{}) error {
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := stx.cb.Get(AccountKVNameSpace, hash[:])
-	if errors.Cause(err) == db.ErrNotExist {
+	if errors.Cause(err) == batch.ErrNotExist {
 		if mstate, err = stx.dao.Get(AccountKVNameSpace, hash[:]); errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
 		}
 	}
-	if errors.Cause(err) == db.ErrAlreadyDeleted {
+	if errors.Cause(err) == batch.ErrAlreadyDeleted {
 		return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
 	}
 	if err != nil {
