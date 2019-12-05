@@ -82,7 +82,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateManager, []byte, ...[]byte) ([]byte, error) {
+func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, error) {
 	return nil, protocol.ErrUnimplemented
 }
 

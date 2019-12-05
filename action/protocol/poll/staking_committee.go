@@ -232,7 +232,7 @@ func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateLi
 	return sc.candidatesByHeight(sc.getEpochHeight(sc.getEpochNum(height)))
 }
 
-func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
+func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 

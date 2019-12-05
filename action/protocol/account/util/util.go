@@ -53,7 +53,7 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 }
 
 // LoadAccount loads an account state
-func LoadAccount(sm protocol.StateManager, addrHash hash.Hash160) (*state.Account, error) {
+func LoadAccount(sm protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
 	if err := sm.State(addrHash, &account); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {

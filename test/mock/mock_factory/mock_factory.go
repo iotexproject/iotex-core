@@ -188,20 +188,6 @@ func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1)
 }
 
-// Commit mocks base method
-func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Commit indicates an expected call of Commit
-func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
-}
-
 // PickAndRunActions mocks base method
 func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
@@ -233,6 +219,20 @@ func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Addre
 func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
+}
+
+// Commit mocks base method
+func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Commit", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
 }
 
 // CandidatesByHeight mocks base method
