@@ -21,13 +21,14 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func initMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cb := db.NewCachedBatch()
+	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			val, err := cb.Get("state", addrHash[:])
@@ -351,7 +352,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 		// commit snapshot 0's state
 		require.NoError(stateDB.CommitContracts())
 		stateDB.clear()
-		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/sucide/exist is same)
+		//[TODO] need e2etest to verify state factory commit/re-open (whether result from state/balance/suicide/exist is same)
 	}
 
 	t.Run("contract snapshot/revert/commit with in memery DB", func(t *testing.T) {
@@ -395,7 +396,7 @@ func TestGetBalanceOnError(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	store := db.NewMemKVStore()
 	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := db.NewCachedBatch()
+	cb := batch.NewCachedBatch()
 	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	errs := []error{
 		state.ErrStateNotExist,

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -36,14 +37,14 @@ type KVStoreForTrie struct {
 	bucket string
 	prune  string // bucket for entries to be pruned
 	dao    KVStore
-	cb     CachedBatch
+	cb     batch.CachedBatch
 }
 
 // Option defines an interface to initialize the kv store
 type Option func(*KVStoreForTrie) error
 
 // CachedBatchOption defines a way to set the cache layer for db
-func CachedBatchOption(cb CachedBatch) Option {
+func CachedBatchOption(cb batch.CachedBatch) Option {
 	return func(kvStore *KVStoreForTrie) error {
 		kvStore.cb = cb
 		return nil
@@ -64,7 +65,7 @@ func NewKVStoreForTrie(bucket, prune string, dao KVStore, options ...Option) (*K
 	}
 	if s.cb == nil {
 		// always have a cache layer
-		s.cb = NewCachedBatch()
+		s.cb = batch.NewCachedBatch()
 	}
 	s.lc.Add(s.dao)
 	return s, nil
@@ -112,13 +113,13 @@ func (s *KVStoreForTrie) Put(key, value []byte) error {
 func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
 	trieKeystoreMtc.WithLabelValues("get").Inc()
 	v, err := s.cb.Get(s.bucket, key)
-	if errors.Cause(err) == ErrNotExist {
+	if errors.Cause(err) == batch.ErrNotExist {
 		if v, err = s.dao.Get(s.bucket, key); errors.Cause(err) == ErrNotExist {
 			return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
 		}
 		// TODO: put it back to cache
 	}
-	if errors.Cause(err) == ErrAlreadyDeleted {
+	if errors.Cause(err) == batch.ErrAlreadyDeleted {
 		return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
 	}
 	return v, err

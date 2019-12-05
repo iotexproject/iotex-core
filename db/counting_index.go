@@ -9,6 +9,7 @@ package db
 import (
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -47,7 +48,7 @@ type (
 		kvStore KVStoreWithRange
 		bucket  string
 		size    uint64 // total number of keys
-		batch   KVStoreBatch
+		batch   batch.KVStoreBatch
 	}
 )
 
@@ -119,14 +120,14 @@ func (c *countingIndex) Size() uint64 {
 }
 
 // Add inserts a value into the index
-func (c *countingIndex) Add(value []byte, batch bool) error {
-	if batch {
+func (c *countingIndex) Add(value []byte, inBatch bool) error {
+	if inBatch {
 		return c.addBatch(value)
 	}
 	if c.batch != nil {
 		return errors.Wrap(ErrInvalid, "cannot call Add in batch mode, call Commit() first to exit batch mode")
 	}
-	b := NewBatch()
+	b := batch.NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
 	if err := c.kvStore.WriteBatch(b); err != nil {
@@ -139,7 +140,7 @@ func (c *countingIndex) Add(value []byte, batch bool) error {
 // addBatch inserts a value into the index in batch mode
 func (c *countingIndex) addBatch(value []byte) error {
 	if c.batch == nil {
-		c.batch = NewBatch()
+		c.batch = batch.NewBatch()
 	}
 	c.batch.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	c.size++
@@ -170,7 +171,7 @@ func (c *countingIndex) Revert(count uint64) error {
 	if count == 0 || count > c.size {
 		return errors.Wrapf(ErrInvalid, "count: %d", count)
 	}
-	b := NewBatch()
+	b := batch.NewBatch()
 	start := c.size - count
 	for i := uint64(0); i < count; i++ {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)

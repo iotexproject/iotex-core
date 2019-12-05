@@ -100,8 +100,11 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		if err != nil {
 			return 0, err
 		}
-
-		_, receipt, err := blockchain.SimulateExecution(gs.bc, callerAddr, sc)
+		ctx, err := gs.bc.Context()
+		if err != nil {
+			return 0, err
+		}
+		_, receipt, err := gs.bc.Factory().SimulateExecution(ctx, callerAddr, sc, gs.bc.BlockDAO().GetBlockHash)
 		if err != nil {
 			return 0, err
 		}

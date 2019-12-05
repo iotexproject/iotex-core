@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package db
+package batch
 
 import (
 	"sync"
@@ -15,102 +15,31 @@ import (
 )
 
 type (
-	// KVStoreBatch defines a batch buffer interface that stages Put/Delete entries in sequential order
-	// To use it, first start a new batch
-	// b := NewBatch()
-	// and keep batching Put/Delete operation into it
-	// b.Put(bucket, k, v)
-	// b.Delete(bucket, k, v)
-	// once it's done, call KVStore interface's Commit() to persist to underlying DB
-	// KVStore.Commit(b)
-	// if commit succeeds, the batch is cleared
-	// otherwise the batch is kept intact (so batch user can figure out what’s wrong and attempt re-commit later)
-	KVStoreBatch interface {
-		// Lock locks the batch
-		Lock()
-		// Unlock unlocks the batch
-		Unlock()
-		// ClearAndUnlock clears the write queue and unlocks the batch
-		ClearAndUnlock()
-		// Put insert or update a record identified by (namespace, key)
-		Put(string, []byte, []byte, string, ...interface{})
-		// Delete deletes a record by (namespace, key)
-		Delete(string, []byte, string, ...interface{})
-		// Size returns the size of batch
-		Size() int
-		// Entry returns the entry at the index
-		Entry(int) (*writeInfo, error)
-		// Digest of the batch
-		Digest() hash.Hash256
-		// ExcludeEntries returns copy of batch with certain entries excluded
-		ExcludeEntries(string, int32) KVStoreBatch
-		// Clear clears entries staged in batch
-		Clear()
-		// CloneBatch clones the batch
-		CloneBatch() KVStoreBatch
-		// batch puts an entry into the write queue
-		batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{})
-		// truncate the write queue
-		truncate(int)
-	}
-
-	// writeInfo is the struct to store Put/Delete operation info
-	writeInfo struct {
-		writeType   int32
-		namespace   string
-		key         []byte
-		value       []byte
-		errorFormat string
-		errorArgs   interface{}
-	}
 
 	// baseKVStoreBatch is the base implementation of KVStoreBatch
 	baseKVStoreBatch struct {
 		mutex      sync.RWMutex
-		writeQueue []writeInfo
-	}
-
-	// CachedBatch derives from Batch interface
-	// A local cache is added to provide fast retrieval of pending Put/Delete entries
-	CachedBatch interface {
-		KVStoreBatch
-		// Get gets a record by (namespace, key)
-		Get(string, []byte) ([]byte, error)
-		// Snapshot takes a snapshot of current cached batch
-		Snapshot() int
-		// Revert sets the cached batch to the state at the given snapshot
-		Revert(int) error
+		writeQueue []*WriteInfo
 	}
 
 	// cachedBatch implements the CachedBatch interface
 	cachedBatch struct {
 		lock sync.RWMutex
-		KVStoreBatch
 		KVStoreCache
-		tag        int            // latest snapshot + 1
-		batchShots []int          // snapshots of batch are merely size of write queue at time of snapshot
-		cacheShots []KVStoreCache // snapshots of cache
+		kvStoreBatch *baseKVStoreBatch
+		tag          int            // latest snapshot + 1
+		batchShots   []int          // snapshots of batch are merely size of write queue at time of snapshot
+		cacheShots   []KVStoreCache // snapshots of cache
 	}
 )
 
-const (
-	// Put indicate the type of write operation to be Put
-	Put int32 = iota
-	// Delete indicate the type of write operation to be Delete
-	Delete int32 = 1
-)
-
-func (wi *writeInfo) serialize() []byte {
-	bytes := make([]byte, 0)
-	bytes = append(bytes, []byte(wi.namespace)...)
-	bytes = append(bytes, wi.key...)
-	bytes = append(bytes, wi.value...)
-	return bytes
+func newBaseKVStoreBatch() *baseKVStoreBatch {
+	return &baseKVStoreBatch{}
 }
 
 // NewBatch returns a batch
 func NewBatch() KVStoreBatch {
-	return &baseKVStoreBatch{}
+	return newBaseKVStoreBatch()
 }
 
 // Lock locks the batch
@@ -149,33 +78,36 @@ func (b *baseKVStoreBatch) Size() int {
 }
 
 // Entry returns the entry at the index
-func (b *baseKVStoreBatch) Entry(index int) (*writeInfo, error) {
+func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 	if index < 0 || index >= len(b.writeQueue) {
-		return nil, errors.Wrap(ErrIO, "index out of range")
+		return nil, errors.Wrap(ErrOutOfBound, "index out of range")
 	}
-	return &b.writeQueue[index], nil
+	return b.writeQueue[index], nil
 }
 
-func (b *baseKVStoreBatch) Digest() hash.Hash256 {
+func (b *baseKVStoreBatch) SerializeQueue(filter WriteInfoFilter) []byte {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. This could be improved by being processed in parallel
 	// 2. Digest could be replaced by merkle root if we need proof
 	bytes := make([]byte, 0)
 	for i := range b.writeQueue {
-		wi := &b.writeQueue[i]
+		wi := b.writeQueue[i]
+		if filter != nil && filter(wi) {
+			continue
+		}
 		bytes = append(bytes, wi.serialize()...)
 	}
-	return hash.Hash256b(bytes)
+	return bytes
 }
 
 // ExcludeEntries returns copy of batch with certain entries excluded
-func (b *baseKVStoreBatch) ExcludeEntries(ns string, writeType int32) KVStoreBatch {
+func (b *baseKVStoreBatch) ExcludeEntries(ns string, writeType WriteType) KVStoreBatch {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 
 	c := baseKVStoreBatch{
-		writeQueue: []writeInfo{},
+		writeQueue: []*WriteInfo{},
 	}
 	// remove entries
 	for i := range b.writeQueue {
@@ -194,24 +126,35 @@ func (b *baseKVStoreBatch) Clear() {
 	b.writeQueue = nil
 }
 
-// CloneBatch clones the batch
-func (b *baseKVStoreBatch) CloneBatch() KVStoreBatch {
+func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-
-	c := baseKVStoreBatch{
-		writeQueue: make([]writeInfo, b.Size()),
+	if wit == nil {
+		c := &baseKVStoreBatch{
+			writeQueue: make([]*WriteInfo, b.Size()),
+		}
+		// clone the writeQueue
+		copy(c.writeQueue, b.writeQueue)
+		return c
 	}
-	// clone the writeQueue
-	copy(c.writeQueue, b.writeQueue)
-	return &c
+	c := &baseKVStoreBatch{
+		writeQueue: []*WriteInfo{},
+	}
+	for _, wi := range b.writeQueue {
+		newWi := wit(wi)
+		if newWi != nil {
+			c.writeQueue = append(c.writeQueue, newWi)
+		}
+	}
+
+	return c
 }
 
 // batch puts an entry into the write queue
-func (b *baseKVStoreBatch) batch(op int32, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
+func (b *baseKVStoreBatch) batch(op WriteType, namespace string, key, value []byte, errorFormat string, errorArgs ...interface{}) {
 	b.writeQueue = append(
 		b.writeQueue,
-		writeInfo{
+		&WriteInfo{
 			writeType:   op,
 			namespace:   namespace,
 			key:         key,
@@ -226,18 +169,38 @@ func (b *baseKVStoreBatch) truncate(size int) {
 	b.writeQueue = b.writeQueue[:size]
 }
 
-//======================================
+////////////////////////////////////////
 // CachedBatch implementation
-//======================================
+////////////////////////////////////////
 
 // NewCachedBatch returns a new cached batch buffer
 func NewCachedBatch() CachedBatch {
 	return &cachedBatch{
-		KVStoreBatch: NewBatch(),
+		kvStoreBatch: newBaseKVStoreBatch(),
 		KVStoreCache: NewKVCache(),
 		batchShots:   make([]int, 0),
 		cacheShots:   make([]KVStoreCache, 0),
 	}
+}
+
+func (cb *cachedBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
+	return cb.kvStoreBatch.Translate(wit)
+}
+
+func (cb *cachedBatch) Entry(i int) (*WriteInfo, error) {
+	return cb.kvStoreBatch.Entry(i)
+}
+
+func (cb *cachedBatch) ExcludeEntries(ns string, wt WriteType) KVStoreBatch {
+	return cb.kvStoreBatch.ExcludeEntries(ns, wt)
+}
+
+func (cb *cachedBatch) SerializeQueue(filter WriteInfoFilter) []byte {
+	return cb.kvStoreBatch.SerializeQueue(filter)
+}
+
+func (cb *cachedBatch) Size() int {
+	return cb.kvStoreBatch.Size()
 }
 
 // Lock locks the batch
@@ -254,7 +217,7 @@ func (cb *cachedBatch) Unlock() {
 func (cb *cachedBatch) ClearAndUnlock() {
 	defer cb.lock.Unlock()
 	cb.KVStoreCache.Clear()
-	cb.KVStoreBatch.Clear()
+	cb.kvStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
 	cb.batchShots = nil
@@ -269,7 +232,7 @@ func (cb *cachedBatch) Put(namespace string, key, value []byte, errorFormat stri
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.Write(h, value)
-	cb.batch(Put, namespace, key, value, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Put, namespace, key, value, errorFormat, errorArgs)
 }
 
 // Delete deletes a record
@@ -278,7 +241,7 @@ func (cb *cachedBatch) Delete(namespace string, key []byte, errorFormat string, 
 	defer cb.lock.Unlock()
 	h := cb.hash(namespace, key)
 	cb.Evict(h)
-	cb.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
+	cb.kvStoreBatch.batch(Delete, namespace, key, nil, errorFormat, errorArgs)
 }
 
 // Clear clear the cached batch buffer
@@ -286,7 +249,7 @@ func (cb *cachedBatch) Clear() {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
 	cb.KVStoreCache.Clear()
-	cb.KVStoreBatch.Clear()
+	cb.kvStoreBatch.Clear()
 	// clear all saved snapshots
 	cb.tag = 0
 	cb.batchShots = nil
@@ -309,7 +272,7 @@ func (cb *cachedBatch) Snapshot() int {
 	defer cb.lock.Unlock()
 	defer func() { cb.tag++ }()
 	// save a copy of current batch/cache
-	cb.batchShots = append(cb.batchShots, cb.Size())
+	cb.batchShots = append(cb.batchShots, cb.kvStoreBatch.Size())
 	cb.cacheShots = append(cb.cacheShots, cb.KVStoreCache.Clone())
 	return cb.tag
 }
@@ -320,20 +283,17 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	defer cb.lock.Unlock()
 	// throw error if the snapshot number does not exist
 	if snapshot < 0 || snapshot >= cb.tag {
-		return errors.Wrapf(ErrIO, "invalid snapshot number = %d", snapshot)
+		return errors.Wrapf(ErrOutOfBound, "invalid snapshot number = %d", snapshot)
 	}
 	cb.tag = snapshot + 1
 	cb.batchShots = cb.batchShots[:cb.tag]
-	cb.KVStoreBatch.truncate(cb.batchShots[snapshot])
+	cb.kvStoreBatch.truncate(cb.batchShots[snapshot])
 	cb.cacheShots = cb.cacheShots[:cb.tag]
 	cb.KVStoreCache = nil
 	cb.KVStoreCache = cb.cacheShots[snapshot]
 	return nil
 }
 
-//======================================
-// private functions
-//======================================
 func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
 	return hash.Hash160b(append([]byte(namespace), key...))
 }

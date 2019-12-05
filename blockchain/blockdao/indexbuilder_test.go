@@ -86,6 +86,7 @@ func TestIndexer(t *testing.T) {
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
 		tipHeight, err := dao.GetTipHeight()
+		require.NoError(err)
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
