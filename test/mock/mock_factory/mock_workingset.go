@@ -10,6 +10,7 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
 	db "github.com/iotexproject/iotex-core/db"
+	batch "github.com/iotexproject/iotex-core/db/batch"
 	reflect "reflect"
 )
 
@@ -251,10 +252,10 @@ func (mr *MockWorkingSetMockRecorder) GetDB() *gomock.Call {
 }
 
 // GetCachedBatch mocks base method
-func (m *MockWorkingSet) GetCachedBatch() db.CachedBatch {
+func (m *MockWorkingSet) GetCachedBatch() batch.CachedBatch {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetCachedBatch")
-	ret0, _ := ret[0].(db.CachedBatch)
+	ret0, _ := ret[0].(batch.CachedBatch)
 	return ret0
 }
 

@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
@@ -55,6 +54,8 @@ type (
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
+		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(WorkingSet) error
 		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
 		CandidatesByHeight(uint64) ([]*state.Candidate, error)
@@ -260,24 +261,41 @@ func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelo
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	bcCtx.History = ws.History()
-	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
-		if pp, ok := p.(protocol.PreStatesCreator); ok {
-			if err = pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, nil, err
-			}
-		}
-	}
-	// TODO: verify whether the post system actions are appended tail
 
-	receipts, err := ws.RunActions(ctx, actions)
+	return runActions(ctx, ws, actions)
+}
+
+func (sf *factory) PickAndRunActions(
+	ctx context.Context,
+	actionMap map[string][]action.SealedEnvelope,
+	postSystemActions []action.SealedEnvelope,
+) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	return receipts, ws, ws.Finalize()
+
+	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sf *factory) SimulateExecution(
+	ctx context.Context,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash evm.GetBlockHash,
+) ([]byte, *action.Receipt, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
