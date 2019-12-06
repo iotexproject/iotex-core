@@ -256,12 +256,14 @@ func TestBlockEpochReward(t *testing.T) {
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initBalances[rewardAddrStr], err = chains[i].Factory().Balance(rewardAddrStr)
+		initState, err := chains[i].Factory().AccountState(rewardAddrStr)
 		require.NoError(t, err)
+		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
-		initBalances[operatorAddrStr], err = chains[i].Factory().Balance(operatorAddrStr)
+		initState, err = chains[i].Factory().AccountState(operatorAddrStr)
 		require.NoError(t, err)
+		initBalances[operatorAddrStr] = initState.Balance
 
 		claimedAmount[rewardAddrStr] = big.NewInt(0)
 
@@ -445,18 +447,18 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endBalance, err := chains[0].Factory().Balance(rewardAddrStr)
-		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endBalance.String())
+		endState, err := chains[0].Factory().AccountState(rewardAddrStr)
 		require.NoError(t, err)
+		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
 		fmt.Println("Server ", i, " ", rewardAddrStr, "Expected Balance ", expectBalance.String())
-		require.Equal(t, expectBalance.String(), endBalance.String())
+		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
-		operatorBalance, err := chains[i].Factory().Balance(operatorAddrStr)
+		operatorState, err := chains[i].Factory().AccountState(operatorAddrStr)
 		require.NoError(t, err)
-		require.Equal(t, initBalances[operatorAddrStr], operatorBalance)
+		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
 
 	return

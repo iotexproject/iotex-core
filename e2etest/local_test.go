@@ -63,7 +63,7 @@ func TestLocalCommit(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	require.NotNil(bc)
-	i27Balance, err := bc.Factory().Balance(identityset.Address(27).String())
+	i27State, err := bc.Factory().AccountState(identityset.Address(27).String())
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
@@ -136,7 +136,7 @@ func TestLocalCommit(t *testing.T) {
 	test := s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
-	change.Sub(change, i27Balance)
+	change.Sub(change, i27State.Balance)
 
 	require.Equal(
 		unit.ConvertIotxToRau(90000000),
@@ -180,7 +180,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -347,7 +347,7 @@ func TestLocalCommit(t *testing.T) {
 	test = s.Balance
 	t.Logf("test balance = %d", test)
 	change.Add(change, test)
-	change.Sub(change, i27Balance)
+	change.Sub(change, i27State.Balance)
 
 	require.Equal(
 		unit.ConvertIotxToRau(90000000),

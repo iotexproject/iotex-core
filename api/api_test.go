@@ -1804,7 +1804,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err := p.Register(registry); err != nil {
 		return nil, nil, nil, nil, err
 	}
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	return bc, dao, indexer, registry, nil
 }
@@ -1815,7 +1815,7 @@ func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool
 		return nil, err
 	}
 
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	return ap, nil
 }

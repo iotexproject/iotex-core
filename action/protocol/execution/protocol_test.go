@@ -208,13 +208,13 @@ func runExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	nonce, err := bc.Factory().Nonce(ecfg.Executor().String())
+	state, err := bc.Factory().AccountState(ecfg.Executor().String())
 	if err != nil {
 		return nil, nil, err
 	}
 	exec, err := action.NewExecution(
 		contractAddr,
-		nonce+1,
+		state.Nonce+1,
 		ecfg.Amount(),
 		ecfg.GasLimit(),
 		ecfg.GasPrice(),
@@ -308,7 +308,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	sf := bc.Factory()
 	r.NotNil(sf)
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
@@ -414,14 +414,14 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			balance, err := bc.Factory().Balance(account)
+			state, err := bc.Factory().AccountState(account)
 			r.NoError(err)
 			r.Equal(
 				0,
-				balance.Cmp(expectedBalance.Balance()),
+				state.Balance.Cmp(expectedBalance.Balance()),
 				"balance of account %s is different from expectation, %d vs %d",
 				account,
-				balance,
+				state.Balance,
 				expectedBalance.Balance(),
 			)
 		}
@@ -478,7 +478,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(exeProtocol.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 		sf := bc.Factory()
 		require.NotNil(sf)
 		require.NoError(bc.Start(ctx))

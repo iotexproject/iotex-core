@@ -232,12 +232,12 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedNonce, err := q.ap.bc.Factory().Nonce(q.address)
+	confirmedState, err := q.ap.bc.Factory().AccountState(q.address)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil
 	}
-	nonce := confirmedNonce + 1
+	nonce := confirmedState.Nonce + 1
 	for ; ; nonce++ {
 		if _, exist := q.items[nonce]; !exist {
 			break

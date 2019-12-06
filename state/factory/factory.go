@@ -9,7 +9,6 @@ package factory
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"sync"
 
@@ -45,8 +44,6 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		Balance(string) (*big.Int, error)
-		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
 		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
@@ -184,28 +181,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-// Balance returns balance
-func (sf *factory) Balance(addr string) (*big.Int, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	account, err := sf.accountState(addr)
-	if err != nil {
-		return nil, err
-	}
-	return account.Balance, nil
-}
-
-// Nonce returns the Nonce if the account exists
-func (sf *factory) Nonce(addr string) (uint64, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	account, err := sf.accountState(addr)
-	if err != nil {
-		return 0, err
-	}
-	return account.Nonce, nil
-}
-
 // account returns the confirmed account state on the chain
 func (sf *factory) AccountState(addr string) (*state.Account, error) {
 	sf.mutex.RLock()

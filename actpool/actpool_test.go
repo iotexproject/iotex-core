@@ -102,7 +102,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	validator := ap.actionEnvelopeValidators[0]
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{})
 	// Case I: Insufficient gas
@@ -178,7 +178,7 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	// Test actpool status after adding a sequence of Tsfs/votes: need to check confirmed nonce, pending nonce, and pending balance
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -345,7 +345,7 @@ func TestActPool_PickActs(t *testing.T) {
 		require.NoError(err)
 		ap, ok := Ap.(*actPool)
 		require.True(ok)
-		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+		ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 		tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
@@ -427,7 +427,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -495,12 +495,12 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	ap1, ok := Ap1.(*actPool)
 	require.True(ok)
-	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	Ap2, err := NewActPool(bc, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap2, ok := Ap2.(*actPool)
 	require.True(ok)
-	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	// Tsfs to be added to ap1
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(20000), big.NewInt(0))
@@ -857,7 +857,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -908,7 +908,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -955,7 +955,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 
 	tsf1, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(10), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -1056,7 +1056,7 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	require.Zero(ap.GetSize())
 	require.Zero(ap.GetGasSize())
 
@@ -1136,9 +1136,8 @@ func (ap *actPool) getPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	committedNonce, err := ap.bc.Factory().Nonce(addr)
-	pendingNonce := committedNonce + 1
-	return pendingNonce, err
+	committedState, err := ap.bc.Factory().AccountState(addr)
+	return committedState.Nonce + 1, err
 }
 
 // Helper function to return the correct pending balance just in case of empty queue
@@ -1146,7 +1145,11 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingBalance(), nil
 	}
-	return ap.bc.Factory().Balance(addr)
+	state, err := ap.bc.Factory().AccountState(addr)
+	if err != nil {
+		return nil, err
+	}
+	return state.Balance, nil
 }
 
 func getActPoolCfg() config.ActPool {

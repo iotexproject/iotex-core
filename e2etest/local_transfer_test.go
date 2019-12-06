@@ -360,7 +360,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderBalance, _ := bc.Factory().Balance(senderAddr)
+			newSenderState, _ := bc.Factory().AccountState(senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -368,9 +368,9 @@ func TestLocalTransfer(t *testing.T) {
 			gasUnitConsumed := big.NewInt(0).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
 			gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, tsfTest.gasPrice)
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
-			require.Equal(expectedSenderBalance.String(), newSenderBalance.String(), tsfTest.message)
+			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvBalance, err := bc.Factory().Balance(recvAddr)
+			newRecvState, err := bc.Factory().AccountState(recvAddr)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -378,7 +378,7 @@ func TestLocalTransfer(t *testing.T) {
 			} else {
 				expectedRecvrBalance.Add(tsfTest.recvBalance, tsfTest.amount)
 			}
-			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
+			require.Equal(expectedRecvrBalance.String(), newRecvState.Balance.String(), tsfTest.message)
 		case TsfFail:
 			require.Error(err, tsfTest.message)
 			//The transfer should be rejected right after we inject it
@@ -393,8 +393,8 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderBalance, _ := bc.Factory().Balance(senderAddr)
-				require.Equal(tsfTest.senderBalance.String(), newSenderBalance.String())
+				newSenderState, _ := bc.Factory().AccountState(senderAddr)
+				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
 		case TsfPending:
@@ -450,11 +450,11 @@ func initStateKeyAddr(
 			return nil, "", err
 		}
 		retAddr = addr.String()
-		existBalance, err := bc.Factory().Balance(retAddr)
+		existState, err := bc.Factory().AccountState(retAddr)
 		if err != nil {
 			return nil, "", err
 		}
-		initBalance.Set(existBalance)
+		initBalance.Set(existState.Balance)
 	case AcntNotRegistered:
 		sk, err := crypto.GenerateKey()
 		if err != nil {

@@ -398,14 +398,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	nonce, err := api.bc.Factory().Nonce(in.CallerAddress)
+	state, err := api.bc.Factory().AccountState(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sc, _ = action.NewExecution(
 		sc.Contract(),
-		nonce+1,
+		state.Nonce+1,
 		sc.Amount(),
 		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
@@ -1276,11 +1276,11 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce, err := api.bc.Factory().Nonce(sender)
+	state, err := api.bc.Factory().AccountState(sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce = nonce + 1
+	nonce := state.Nonce + 1
 
 	callerAddr, err := address.FromString(sender)
 	if err != nil {

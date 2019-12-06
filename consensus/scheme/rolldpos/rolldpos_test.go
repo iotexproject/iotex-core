@@ -456,7 +456,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.PrecreatedStateFactoryOption(sf),
 				blockchain.RegistryOption(registry),
 			)
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
