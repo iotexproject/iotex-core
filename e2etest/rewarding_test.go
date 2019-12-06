@@ -262,7 +262,7 @@ func TestBlockEpochReward(t *testing.T) {
 		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
-		initBalances[operatorAddrStr], err = sfs[i].AccountState(operatorAddrStr)
+		initState, err = sfs[i].AccountState(operatorAddrStr)
 		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 

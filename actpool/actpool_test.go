@@ -1166,7 +1166,7 @@ func (ap *actPool) getPendingBalance(addr string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return state.Balance, nil
 }
 

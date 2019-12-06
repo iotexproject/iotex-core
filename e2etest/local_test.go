@@ -66,7 +66,7 @@ func TestLocalCommit(t *testing.T) {
 	sf := svr.ChainService(chainID).StateFactory()
 	require.NotNil(bc)
 	require.NotNil(sf)
-	
+
 	i27State, err := sf.AccountState(identityset.Address(27).String())
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc))
