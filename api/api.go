@@ -47,6 +47,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -90,6 +91,7 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
+	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
 	ap                actpool.ActPool
@@ -107,6 +109,7 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
 	actPool actpool.ActPool,
@@ -131,6 +134,7 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
+		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
 		ap:                actPool,
@@ -138,7 +142,7 @@ func NewServer(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(),
-		gs:                gasstation.NewGasStation(chain, cfg.API),
+		gs:                gasstation.NewGasStation(chain, sf, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
@@ -157,7 +161,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	state, err := api.bc.Factory().AccountState(in.Address)
+	state, err := api.sf.AccountState(in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -398,7 +402,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	state, err := api.bc.Factory().AccountState(in.CallerAddress)
+	state, err := api.sf.AccountState(in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -421,7 +425,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err != nil {
 		return nil, err
 	}
-	retval, receipt, err := api.bc.Factory().SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -767,7 +771,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 	})
 
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, api.bc.Factory(), methodName, arguments...)
+	return p.ReadState(ctx, api.sf, methodName, arguments...)
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
@@ -1276,7 +1280,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := api.bc.Factory().AccountState(sender)
+	state, err := api.sf.AccountState(sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1300,7 +1304,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err != nil {
 		return nil, err
 	}
-	_, receipt, err := api.bc.Factory().SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -1360,7 +1364,7 @@ func (api *Server) isGasLimitEnough(
 	if err != nil {
 		return false, err
 	}
-	_, receipt, err := api.bc.Factory().SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
+	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, err
 	}

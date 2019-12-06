@@ -121,14 +121,14 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(), RegistryOption(registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 
 	// correct nonce
 
@@ -259,7 +259,9 @@ func TestWrongAddress(t *testing.T) {
 
 	ctx := context.Background()
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -276,8 +278,8 @@ func TestWrongAddress(t *testing.T) {
 		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
-	val := &validator{sf: bc.Factory(), validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	val := &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -330,7 +332,9 @@ func TestBlackListAddress(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -352,8 +356,8 @@ func TestBlackListAddress(t *testing.T) {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
-	val := &validator{sf: bc.Factory(), validatorAddr: "", senderBlackList: senderBlackList}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	val := &validator{sf: sf, validatorAddr: "", senderBlackList: senderBlackList}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}

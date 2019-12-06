@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/version"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -34,7 +35,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, config.Default.API))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -46,11 +47,12 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	blkState := blockchain.InMemStateFactoryOption()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil, rp)
@@ -101,7 +103,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, cfg.API)
+	gs := NewGasStation(bc, sf, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -120,11 +122,12 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	blkState := blockchain.InMemStateFactoryOption()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blkState, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil, rp)
@@ -157,7 +160,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, cfg.API)
+	gs := NewGasStation(bc, sf, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -173,10 +176,12 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.NotNil(act)
 	cfg := config.Default
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, blockchain.InMemStateFactoryOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	gs := NewGasStation(bc, config.Default.API)
+	gs := NewGasStation(bc, sf, config.Default.API)
 	require.NotNil(gs)
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)

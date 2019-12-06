@@ -452,14 +452,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chain := blockchain.NewBlockchain(
 				cfg,
 				nil,
+				sf,
 				blockchain.InMemDaoOption(),
-				blockchain.PrecreatedStateFactoryOption(sf),
 				blockchain.RegistryOption(registry),
 			)
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
+
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 			chains = append(chains, chain)
 
-			actPool, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
+			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)
 
 			p2p := &directOverlay{

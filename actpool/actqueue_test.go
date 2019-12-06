@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -123,11 +122,9 @@ func TestActQueuePendingActs(t *testing.T) {
 	defer ctrl.Finish()
 	require := require.New(t)
 	cfg := config.Default
-	bc := mock_blockchain.NewMockBlockchain(ctrl)
 	sf := mock_factory.NewMockFactory(ctrl)
 	sf.EXPECT().AccountState(gomock.Any()).Return(&state.Account{Nonce: 1}, nil).Times(1)
-	bc.EXPECT().Factory().Return(sf).Times(1)
-	ap, err := NewActPool(bc, cfg.ActPool, EnableExperimentalActions())
+	ap, err := NewActPool(sf, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), "").(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))

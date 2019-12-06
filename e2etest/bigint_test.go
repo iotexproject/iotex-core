@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -36,15 +37,16 @@ func TestTransfer_Negative(t *testing.T) {
 	return
 	r := require.New(t)
 	ctx := context.Background()
-	bc := prepareBlockchain(ctx, executor, r)
+	bc, sf := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := bc.Factory().AccountState(executor)
+
+	stateBeforeTransfer, err := sf.AccountState(executor)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	state, err := bc.Factory().AccountState(executor)
+	state, err := sf.AccountState(executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -52,21 +54,21 @@ func TestTransfer_Negative(t *testing.T) {
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
-	bc := prepareBlockchain(ctx, executor, r)
+	bc, sf := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := bc.Factory().AccountState(executor)
+	stateBeforeTransfer, err := sf.AccountState(executor)
 	r.NoError(err)
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	state, err := bc.Factory().AccountState(executor)
+	state, err := sf.AccountState(executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
 
-func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
+func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory) {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
@@ -76,25 +78,25 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	r.NoError(err)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		nil,
+		sf,
 		blockchain.InMemDaoOption(),
-		blockchain.InMemStateFactoryOption(),
 		blockchain.RegistryOption(registry),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(reward.Register(registry))
 
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
-	sf := bc.Factory()
-	r.NotNil(sf)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	r.NoError(bc.Start(ctx))
 	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
-	return bc
+	return bc, sf
 }
 
 func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
