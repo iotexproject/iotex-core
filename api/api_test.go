@@ -1475,7 +1475,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			mbc.EXPECT().Factory().Return(msf).Times(2)
-			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{

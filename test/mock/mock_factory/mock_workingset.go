@@ -168,11 +168,12 @@ func (mr *MockWorkingSetMockRecorder) Version() *gomock.Call {
 }
 
 // Height mocks base method
-func (m *MockWorkingSet) Height() uint64 {
+func (m *MockWorkingSet) Height() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Height")
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Height indicates an expected call of Height
