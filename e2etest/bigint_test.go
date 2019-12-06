@@ -38,15 +38,15 @@ func TestTransfer_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	balanceBeforeTransfer, err := bc.Factory().Balance(executor)
+	stateBeforeTransfer, err := bc.Factory().AccountState(executor)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	balance, err := bc.Factory().Balance(executor)
+	state, err := bc.Factory().AccountState(executor)
 	r.NoError(err)
-	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
 
 func TestAction_Negative(t *testing.T) {
@@ -54,16 +54,16 @@ func TestAction_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	balanceBeforeTransfer, err := bc.Factory().Balance(executor)
+	stateBeforeTransfer, err := bc.Factory().AccountState(executor)
 	r.NoError(err)
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	balance, err := bc.Factory().Balance(executor)
+	state, err := bc.Factory().AccountState(executor)
 	r.NoError(err)
-	r.Equal(0, balance.Cmp(balanceBeforeTransfer))
+	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
 
 func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) blockchain.Blockchain {
@@ -87,7 +87,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(reward.Register(registry))
 
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
 	sf := bc.Factory()
 	r.NotNil(sf)
 	r.NoError(bc.Start(ctx))

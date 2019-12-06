@@ -276,11 +276,11 @@ func New(
 	// Add action validators
 	actPool.
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().Nonce),
+			protocol.NewGenericValidator(chain.Factory().AccountState),
 		)
 	chain.Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().Nonce),
+			protocol.NewGenericValidator(chain.Factory().AccountState),
 		)
 	if !ops.isSubchain {
 		chain.Validator().

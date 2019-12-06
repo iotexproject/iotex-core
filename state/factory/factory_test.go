@@ -383,9 +383,9 @@ func testNonce(sf Factory, t *testing.T) {
 		})
 	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
-	nonce, err := sf.Nonce(a)
+	state, err := sf.AccountState(a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(0), nonce)
+	require.Equal(t, uint64(0), state.Nonce)
 
 	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -398,9 +398,9 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
-	nonce, err = sf.Nonce(a)
+	state, err = sf.AccountState(a)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), nonce)
+	require.Equal(t, uint64(1), state.Nonce)
 }
 
 func TestLoadStoreHeight(t *testing.T) {

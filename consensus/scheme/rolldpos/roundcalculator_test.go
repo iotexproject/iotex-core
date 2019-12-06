@@ -194,7 +194,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	require.NoError(acc.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pp.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {

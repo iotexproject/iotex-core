@@ -188,7 +188,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -248,7 +248,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(registry),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().AccountState))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -270,7 +270,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(registry2),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().AccountState))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -343,7 +343,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(registry),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().Nonce))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain1.Factory().AccountState))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(chain1, cfg.ActPool)
@@ -364,7 +364,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		bc.InMemDaoOption(),
 		bc.RegistryOption(registry2),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().Nonce))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain2.Factory().AccountState))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(chain2, cfg.ActPool, actpool.EnableExperimentalActions())
