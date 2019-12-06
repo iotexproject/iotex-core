@@ -40,7 +40,7 @@ var (
 )
 
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-type ProductivityByEpoch func(uint64) (uint64, map[string]uint64, error)
+type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,

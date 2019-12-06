@@ -196,17 +196,13 @@ func New(
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
-			func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
 				ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
 				if err != nil {
 					return nil, err
 				}
 
 				addr, err := address.FromString(address.ZeroAddress)
-				if err != nil {
-					return nil, err
-				}
-				ctx, err := chain.Context()
 				if err != nil {
 					return nil, err
 				}
@@ -237,8 +233,8 @@ func New(
 		}
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(chain, epochNum)
+	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 	}, rDPoSProtocol)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
