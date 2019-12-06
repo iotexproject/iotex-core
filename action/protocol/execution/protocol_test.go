@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -204,11 +205,12 @@ func NewSmartContractTest(t *testing.T, file string) {
 
 func runExecution(
 	bc blockchain.Blockchain,
+	sf factory.Factory,
 	ecfg *ExecutionConfig,
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	state, err := bc.Factory().AccountState(ecfg.Executor().String())
+	state, err := sf.AccountState(ecfg.Executor().String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -233,7 +235,7 @@ func runExecution(
 			return nil, nil, err
 		}
 
-		return bc.Factory().SimulateExecution(ctx, addr, exec, bc.BlockDAO().GetBlockHash)
+		return sf.SimulateExecution(ctx, addr, exec, bc.BlockDAO().GetBlockHash)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
@@ -273,7 +275,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) blockchain.Blockchain {
+) (blockchain.Blockchain, factory.Factory) {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -292,6 +294,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
+	// create state factory
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
@@ -301,32 +306,31 @@ func (sct *SmartContractTest) prepareBlockchain(
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.RegistryOption(registry),
 	)
 	reward := rewarding.NewProtocol(nil, rp)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
-	sf := bc.Factory()
-	r.NotNil(sf)
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	execution := NewProtocol(bc.BlockDAO().GetBlockHash)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
-	return bc
+	return bc, sf
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
+	sf factory.Factory,
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		_, receipt, err := runExecution(bc, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, sf, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.InitGenesis.IsBering {
@@ -347,7 +351,7 @@ func (sct *SmartContractTest) deployContracts(
 			r.Equal(sct.Deployments[i].ExpectedGasConsumed(), receipt.GasConsumed)
 		}
 
-		ws, err := bc.Factory().NewWorkingSet()
+		ws, err := sf.NewWorkingSet()
 		r.NoError(err)
 		stateDB := evm.NewStateDBAdapter(ws, uint64(0), true, hash.ZeroHash256)
 		var evmContractAddrHash common.Address
@@ -367,13 +371,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc := sct.prepareBlockchain(ctx, r)
+	bc, sf := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, r)
+	contractAddresses := sct.deployContracts(bc, sf, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -384,7 +388,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
 		}
-		retval, receipt, err := runExecution(bc, &exec, contractAddr)
+		retval, receipt, err := runExecution(bc, sf, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 
@@ -414,7 +418,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			state, err := bc.Factory().AccountState(account)
+			state, err := sf.AccountState(account)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -462,6 +466,9 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
+		// create state factory
+		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), hash.ZeroHash256)
@@ -473,14 +480,12 @@ func TestProtocol_Handle(t *testing.T) {
 		bc := blockchain.NewBlockchain(
 			cfg,
 			dao,
-			blockchain.DefaultStateFactoryOption(),
+			sf,
 			blockchain.RegistryOption(registry),
 		)
 		exeProtocol := NewProtocol(bc.BlockDAO().GetBlockHash)
 		require.NoError(exeProtocol.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
-		sf := bc.Factory()
-		require.NotNil(sf)
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {

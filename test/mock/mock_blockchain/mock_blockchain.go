@@ -13,7 +13,6 @@ import (
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	blockdao "github.com/iotexproject/iotex-core/blockchain/blockdao"
 	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
-	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 	time "time"
 )
@@ -127,20 +126,6 @@ func (m *MockBlockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error
 func (mr *MockBlockchainMockRecorder) BlockFooterByHash(h interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHash), h)
-}
-
-// Factory mocks base method
-func (m *MockBlockchain) Factory() factory.Factory {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Factory")
-	ret0, _ := ret[0].(factory.Factory)
-	return ret0
-}
-
-// Factory indicates an expected call of Factory
-func (mr *MockBlockchainMockRecorder) Factory() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Factory", reflect.TypeOf((*MockBlockchain)(nil).Factory))
 }
 
 // BlockDAO mocks base method

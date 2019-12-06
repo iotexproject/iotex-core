@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -39,17 +40,19 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
-	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
 	ctrl := gomock.NewController(t)
@@ -139,16 +142,18 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.InMemStateFactoryOption(),
+		sf,
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	require.NotNil(chain)
 	require.NoError(chain.Start(ctx))
-	ap, err := actpool.NewActPool(chain, cfg.ActPool, actpool.EnableExperimentalActions())
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
 	ctrl := gomock.NewController(t)

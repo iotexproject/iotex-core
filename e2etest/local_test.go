@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -62,8 +63,11 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(svr.Start(ctx))
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
+	sf := svr.ChainService(chainID).StateFactory()
 	require.NotNil(bc)
-	i27State, err := bc.Factory().AccountState(identityset.Address(27).String())
+	require.NotNil(sf)
+
+	i27State, err := sf.AccountState(identityset.Address(27).String())
 	require.NoError(err)
 	require.NoError(addTestingTsfBlocks(bc))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
@@ -90,48 +94,48 @@ func TestLocalCommit(t *testing.T) {
 	}()
 
 	// check balance
-	s, err := bc.Factory().AccountState(identityset.Address(28).String())
+	s, err := sf.AccountState(identityset.Address(28).String())
 	require.NoError(err)
 	change := s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "23")
 
-	s, err = bc.Factory().AccountState(identityset.Address(29).String())
+	s, err = sf.AccountState(identityset.Address(29).String())
 	require.NoError(err)
 	beta := s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.Factory().AccountState(identityset.Address(30).String())
+	s, err = sf.AccountState(identityset.Address(30).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "47")
 
-	s, err = bc.Factory().AccountState(identityset.Address(31).String())
+	s, err = sf.AccountState(identityset.Address(31).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "69")
 
-	s, err = bc.Factory().AccountState(identityset.Address(32).String())
+	s, err = sf.AccountState(identityset.Address(32).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "100")
 
-	s, err = bc.Factory().AccountState(identityset.Address(33).String())
+	s, err = sf.AccountState(identityset.Address(33).String())
 	require.NoError(err)
 	fox := s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242883")
 
-	s, err = bc.Factory().AccountState(identityset.Address(27).String())
+	s, err = sf.AccountState(identityset.Address(27).String())
 	require.NoError(err)
 	test := s.Balance
 	t.Logf("test balance = %d", test)
@@ -163,10 +167,12 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
+	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.DefaultStateFactoryOption(),
+		sf2,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
@@ -180,7 +186,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().AccountState))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -190,7 +196,7 @@ func TestLocalCommit(t *testing.T) {
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: cfg.Chain.ID})
 	// transfer 1
 	// C --> A
-	s, _ = bc.Factory().AccountState(identityset.Address(30).String())
+	s, _ = sf.AccountState(identityset.Address(30).String())
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -214,7 +220,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 2
 	// F --> D
-	s, _ = bc.Factory().AccountState(identityset.Address(33).String())
+	s, _ = sf.AccountState(identityset.Address(33).String())
 	tsf2, err := testutil.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -239,7 +245,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 3
 	// B --> B
-	s, _ = bc.Factory().AccountState(identityset.Address(29).String())
+	s, _ = sf.AccountState(identityset.Address(29).String())
 	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -264,7 +270,7 @@ func TestLocalCommit(t *testing.T) {
 
 	// transfer 4
 	// test --> E
-	s, _ = bc.Factory().AccountState(identityset.Address(27).String())
+	s, _ = sf.AccountState(identityset.Address(27).String())
 	tsf4, err := testutil.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
@@ -301,48 +307,48 @@ func TestLocalCommit(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// check balance
-	s, err = bc.Factory().AccountState(identityset.Address(28).String())
+	s, err = sf.AccountState(identityset.Address(28).String())
 	require.NoError(err)
 	change = s.Balance
 	t.Logf("Alfa balance = %d", change)
 	require.True(change.String() == "24")
 
-	s, err = bc.Factory().AccountState(identityset.Address(29).String())
+	s, err = sf.AccountState(identityset.Address(29).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Bravo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "34")
 
-	s, err = bc.Factory().AccountState(identityset.Address(30).String())
+	s, err = sf.AccountState(identityset.Address(30).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Charlie balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "46")
 
-	s, err = bc.Factory().AccountState(identityset.Address(31).String())
+	s, err = sf.AccountState(identityset.Address(31).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Delta balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "70")
 
-	s, err = bc.Factory().AccountState(identityset.Address(32).String())
+	s, err = sf.AccountState(identityset.Address(32).String())
 	require.NoError(err)
 	beta = s.Balance
 	t.Logf("Echo balance = %d", beta)
 	change.Add(change, beta)
 	require.True(beta.String() == "101")
 
-	s, err = bc.Factory().AccountState(identityset.Address(33).String())
+	s, err = sf.AccountState(identityset.Address(33).String())
 	require.NoError(err)
 	fox = s.Balance
 	t.Logf("Foxtrot balance = %d", fox)
 	change.Add(change, fox)
 	require.True(fox.String() == "5242882")
 
-	s, err = bc.Factory().AccountState(identityset.Address(27).String())
+	s, err = sf.AccountState(identityset.Address(27).String())
 	require.NoError(err)
 	test = s.Balance
 	t.Logf("test balance = %d", test)
@@ -379,7 +385,9 @@ func TestLocalSync(t *testing.T) {
 
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
+	sf := svr.ChainService(chainID).StateFactory()
 	require.NotNil(bc)
+	require.NotNil(sf)
 	require.NotNil(svr.P2PAgent())
 	require.NoError(addTestingTsfBlocks(bc))
 
@@ -509,7 +517,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(svr.Start(ctx))
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
+	sf := svr.ChainService(chainID).StateFactory()
 	require.NotNil(bc)
+	require.NotNil(sf)
 
 	defer func() {
 		require.NoError(svr.Stop(ctx))
@@ -522,7 +532,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	testutil.CleanupPath(t, testTriePath)
 	require.NoError(svr.Stop(ctx))
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
-	height, _ := bc.Factory().Height()
+	height, _ := svr.ChainService(cfg.Chain.ID).StateFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(5), height)
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))
@@ -539,7 +549,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 3
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.Factory().Height()
+	sf = svr.ChainService(chainID).StateFactory()
+	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
 
@@ -552,7 +563,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Build states from height 1 to 2
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
-	height, _ = bc.Factory().Height()
+	sf = svr.ChainService(chainID).StateFactory()
+	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
 }

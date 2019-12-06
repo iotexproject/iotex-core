@@ -21,9 +21,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -85,7 +85,7 @@ func EnableExperimentalActions() Option {
 type actPool struct {
 	mutex                     sync.RWMutex
 	cfg                       config.ActPool
-	bc                        blockchain.Blockchain
+	sf                        factory.Factory
 	accountActs               map[string]ActQueue
 	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
 	allActions                map[hash.Hash256]action.SealedEnvelope
@@ -97,9 +97,9 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (ActPool, error) {
-	if bc == nil {
-		return nil, errors.New("Try to attach a nil blockchain")
+func NewActPool(sf factory.Factory, cfg config.ActPool, opts ...Option) (ActPool, error) {
+	if sf == nil {
+		return nil, errors.New("Try to attach a nil state factory")
 	}
 
 	senderBlackList := make(map[string]bool)
@@ -109,7 +109,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 
 	ap := &actPool{
 		cfg:             cfg,
-		bc:              bc,
+		sf:              sf,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
 		accountDesActs:  make(map[string]map[hash.Hash256]action.SealedEnvelope),
@@ -256,7 +256,7 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	confirmedState, err := ap.bc.Factory().AccountState(addr)
+	confirmedState, err := ap.sf.AccountState(addr)
 	if err != nil {
 		return 0, err
 	}
@@ -326,7 +326,7 @@ func (ap *actPool) GetGasCapacity() uint64 {
 // private functions
 //======================================
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-	confirmedState, err := ap.bc.Factory().AccountState(sender)
+	confirmedState, err := ap.sf.AccountState(sender)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
@@ -342,7 +342,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
 		// Initialize balance for new account
-		state, err := ap.bc.Factory().AccountState(sender)
+		state, err := ap.sf.AccountState(sender)
 		if err != nil {
 			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
@@ -412,7 +412,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		confirmedState, err := ap.bc.Factory().AccountState(from)
+		confirmedState, err := ap.sf.AccountState(from)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
@@ -476,7 +476,7 @@ func (ap *actPool) reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		state, err := ap.bc.Factory().AccountState(from)
+		state, err := ap.sf.AccountState(from)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return

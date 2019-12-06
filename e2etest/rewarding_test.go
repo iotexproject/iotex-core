@@ -103,7 +103,7 @@ func TestBlockReward(t *testing.T) {
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
-	sf := svr.ChainService(1).Blockchain().Factory()
+	sf := svr.ChainService(1).StateFactory()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 
@@ -228,6 +228,7 @@ func TestBlockEpochReward(t *testing.T) {
 	// Get each server's parameters: rewarding protocol, working set, block chain etc.
 	rps := make([]*rewarding.Protocol, numNodes)
 	wss := make([]factory.WorkingSet, numNodes)
+	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
 	apis := make([]*api.Server, numNodes)
 	//Map of expected unclaimed balance for each reward address
@@ -246,8 +247,8 @@ func TestBlockEpochReward(t *testing.T) {
 		require.NotNil(t, rp)
 		rps[i] = rp
 
-		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().Factory()
-		ws, err := sf.NewWorkingSet()
+		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
+		ws, err := sfs[i].NewWorkingSet()
 		require.NoError(t, err)
 		wss[i] = ws
 
@@ -256,12 +257,12 @@ func TestBlockEpochReward(t *testing.T) {
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initState, err := chains[i].Factory().AccountState(rewardAddrStr)
+		initState, err := sfs[i].AccountState(rewardAddrStr)
 		require.NoError(t, err)
 		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
-		initState, err = chains[i].Factory().AccountState(operatorAddrStr)
+		initState, err = sfs[i].AccountState(operatorAddrStr)
 		require.NoError(t, err)
 		initBalances[operatorAddrStr] = initState.Balance
 
@@ -447,7 +448,7 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endState, err := chains[0].Factory().AccountState(rewardAddrStr)
+		endState, err := sfs[0].AccountState(rewardAddrStr)
 		require.NoError(t, err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
@@ -456,7 +457,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
-		operatorState, err := chains[i].Factory().AccountState(operatorAddrStr)
+		operatorState, err := sfs[i].AccountState(operatorAddrStr)
 		require.NoError(t, err)
 		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}

@@ -14,19 +14,22 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // GasStation provide gas related api
 type GasStation struct {
 	bc  blockchain.Blockchain
+	sf  factory.Factory
 	cfg config.API
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, cfg config.API) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, sf factory.Factory, cfg config.API) *GasStation {
 	return &GasStation{
 		bc:  bc,
+		sf:  sf,
 		cfg: cfg,
 	}
 }
@@ -104,7 +107,7 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		if err != nil {
 			return 0, err
 		}
-		_, receipt, err := gs.bc.Factory().SimulateExecution(ctx, callerAddr, sc, gs.bc.BlockDAO().GetBlockHash)
+		_, receipt, err := gs.sf.SimulateExecution(ctx, callerAddr, sc, gs.bc.BlockDAO().GetBlockHash)
 		if err != nil {
 			return 0, err
 		}

@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
 )
 
@@ -48,6 +49,7 @@ type ChainService struct {
 	blocksync         blocksync.BlockSync
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
+	factory           factory.Factory
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
@@ -93,17 +95,24 @@ func New(
 			return nil, err
 		}
 	}
-
-	var chainOpts []blockchain.Option
+	// create state factory
+	var sf factory.Factory
 	if ops.isTesting {
-		chainOpts = []blockchain.Option{
-			blockchain.InMemStateFactoryOption(),
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	} else {
-		chainOpts = []blockchain.Option{
-			blockchain.DefaultStateFactoryOption(),
+		if cfg.Chain.EnableTrielessStateDB {
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		} else {
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	}
+	var chainOpts []blockchain.Option
 	registry := protocol.NewRegistry()
 	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
 	var electionCommittee committee.Committee
@@ -159,7 +168,7 @@ func New(
 		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
 	if chain == nil {
 		panic("failed to create blockchain")
 	}
@@ -175,7 +184,7 @@ func New(
 	}
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
-	actPool, err := actpool.NewActPool(chain, cfg.ActPool, actOpts...)
+	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
 	}
@@ -207,11 +216,11 @@ func New(
 					return nil, err
 				}
 
-				data, _, err := chain.Factory().SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
 
 				return data, err
 			},
-			chain.Factory().CandidatesByHeight,
+			sf.CandidatesByHeight,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -260,6 +269,7 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
+		sf,
 		dao,
 		indexer,
 		actPool,
@@ -276,11 +286,11 @@ func New(
 	// Add action validators
 	actPool.
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().AccountState),
+			protocol.NewGenericValidator(sf.AccountState),
 		)
 	chain.Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().AccountState),
+			protocol.NewGenericValidator(sf.AccountState),
 		)
 	if !ops.isSubchain {
 		chain.Validator().
@@ -319,6 +329,7 @@ func New(
 	return &ChainService{
 		actpool:           actPool,
 		chain:             chain,
+		factory:           sf,
 		blocksync:         bs,
 		consensus:         consensus,
 		electionCommittee: electionCommittee,
@@ -432,6 +443,11 @@ func (cs *ChainService) ChainID() uint32 { return cs.chain.ChainID() }
 // Blockchain returns the Blockchain
 func (cs *ChainService) Blockchain() blockchain.Blockchain {
 	return cs.chain
+}
+
+// StateFactory returns the state factory
+func (cs *ChainService) StateFactory() factory.Factory {
+	return cs.factory
 }
 
 // ActionPool returns the Action pool

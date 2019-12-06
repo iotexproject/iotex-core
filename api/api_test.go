@@ -46,7 +46,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -1424,7 +1423,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
-			msf := mock_factory.NewMockFactory(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				func(uint64) ([]*state.Candidate, error) {
@@ -1474,7 +1472,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-			mbc.EXPECT().Factory().Return(msf).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
@@ -1744,33 +1741,33 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	registry := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		blockchain.PrecreatedStateFactoryOption(sf),
+		sf,
 		blockchain.RegistryOption(registry),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -1790,32 +1787,31 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}, rolldposProtocol)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 
-	return bc, dao, indexer, registry, nil
+	return bc, dao, indexer, sf, registry, nil
 }
 
-func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool, error) {
-	ap, err := actpool.NewActPool(bc, cfg, actpool.EnableExperimentalActions())
+func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
+	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
 	if err != nil {
 		return nil, err
 	}
-
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().AccountState))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 
 	return ap, nil
 }
@@ -1843,7 +1839,7 @@ func newConfig() config.Config {
 }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
-	bc, dao, indexer, registry, err := setupChain(cfg)
+	bc, dao, indexer, sf, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1862,7 +1858,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	var ap actpool.ActPool
 	if needActPool {
-		ap, err = setupActPool(bc, cfg.ActPool)
+		ap, err = setupActPool(sf, cfg.ActPool)
 		if err != nil {
 			return nil, err
 		}
@@ -1875,11 +1871,12 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	svr := &Server{
 		bc:             bc,
+		sf:             sf,
 		dao:            dao,
 		indexer:        indexer,
 		ap:             ap,
 		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, cfg.API),
+		gs:             gasstation.NewGasStation(bc, sf, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
 	}

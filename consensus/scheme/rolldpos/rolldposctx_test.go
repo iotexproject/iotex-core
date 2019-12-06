@@ -31,7 +31,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg := config.Default
 	dbConfig := config.Default.DB
 	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
-	b, _ := makeChain(t)
+	b, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
 		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, nil, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
@@ -81,7 +81,7 @@ func TestRollDPoSCtx(t *testing.T) {
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, _ := makeChain(t)
+	b, sf, _ := makeChain(t)
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
 		config.Default.Genesis.NumDelegates,
@@ -90,7 +90,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(height uint64) (state.CandidateList, error) {
-		return b.Factory().CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -110,11 +110,11 @@ func TestCheckVoteEndorser(t *testing.T) {
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, rp := makeChain(t)
+	b, sf, rp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(height uint64) (state.CandidateList, error) {
-		return b.Factory().CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
