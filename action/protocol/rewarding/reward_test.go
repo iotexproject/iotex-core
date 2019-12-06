@@ -296,7 +296,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(func(uint64) (uint64, map[string]uint64, error) {
+	p := NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
 		return uint64(19),
 			map[string]uint64{
 				identityset.Address(0).String(): 9,

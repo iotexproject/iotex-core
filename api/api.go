@@ -500,8 +500,11 @@ func (api *Server) GetEpochMeta(
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
-
-	numBlks, produce, err := blockchain.ProductivityByEpoch(api.bc, in.EpochNumber)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}

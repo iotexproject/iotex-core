@@ -154,7 +154,7 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Get unqualified delegate list
-	uqd, err := p.unqualifiedDelegates(blkCtx.Producer, epochNum, a.productivityThreshold)
+	uqd, err := p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -412,12 +412,13 @@ func (p *Protocol) splitEpochReward(
 }
 
 func (p *Protocol) unqualifiedDelegates(
+	ctx context.Context,
 	producer address.Address,
 	epochNum uint64,
 	productivityThreshold uint64,
 ) (map[string]interface{}, error) {
 	unqualifiedDelegates := make(map[string]interface{}, 0)
-	numBlks, produce, err := p.productivityByEpoch(epochNum)
+	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}

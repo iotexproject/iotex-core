@@ -7,6 +7,7 @@
 package poll
 
 import (
+	"context"
 	"math/big"
 	"strings"
 	"time"
@@ -31,7 +32,7 @@ var (
 
 type (
 	// ReadContract defines a callback function to read contract
-	ReadContract func(string, uint64, time.Time, []byte) ([]byte, error)
+	ReadContract func(context.Context, string, uint64, time.Time, []byte) ([]byte, error)
 	// NativeStaking represents native staking struct
 	NativeStaking struct {
 		readContract ReadContract
@@ -75,7 +76,7 @@ func NewNativeStaking(readContract ReadContract) (*NativeStaking, error) {
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes(height uint64, ts time.Time) (*VoteTally, error) {
+func (ns *NativeStaking) Votes(ctx context.Context, height uint64, ts time.Time) (*VoteTally, error) {
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
@@ -89,7 +90,7 @@ func (ns *NativeStaking) Votes(height uint64, ts time.Time) (*VoteTally, error) 
 	limit := big.NewInt(256)
 
 	for {
-		vote, err := ns.readBuckets(prevIndex, limit, height, ts)
+		vote, err := ns.readBuckets(ctx, prevIndex, limit, height, ts)
 		log.L().Debug("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
@@ -108,13 +109,13 @@ func (ns *NativeStaking) Votes(height uint64, ts time.Time) (*VoteTally, error) 
 	return &votes, nil
 }
 
-func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int, height uint64, ts time.Time) ([]*types.Bucket, error) {
+func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.Int, height uint64, ts time.Time) ([]*types.Bucket, error) {
 	data, err := ns.abi.Pack("getActivePyggs", prevIndx, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	data, err = ns.readContract(ns.contract, height, ts, data)
+	data, err = ns.readContract(ctx, ns.contract, height, ts, data)
 	if err != nil {
 		return nil, err
 	}

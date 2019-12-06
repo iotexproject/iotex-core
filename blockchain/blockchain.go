@@ -112,11 +112,7 @@ type Blockchain interface {
 }
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
-func ProductivityByEpoch(bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
-	ctx, err := bc.Context()
-	if err != nil {
-		return 0, nil, err
-	}
+func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
@@ -427,6 +423,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 func (bc *blockchain) Context() (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+
 	return bc.context(context.Background(), true, true)
 }
 
@@ -478,7 +475,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ctx, err := bc.context(context.Background(), false, true)
+	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return nil, err
 	}
