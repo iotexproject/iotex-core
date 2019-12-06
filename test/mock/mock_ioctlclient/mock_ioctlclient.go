@@ -122,17 +122,17 @@ func (mr *MockClientMockRecorder) AskToConfirm() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AskToConfirm", reflect.TypeOf((*MockClient)(nil).AskToConfirm))
 }
 
-// ReadPassword mocks base method
-func (m *MockClient) ReadPassword() (string, error) {
+// ReadSecret mocks base method
+func (m *MockClient) ReadSecret() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadPassword")
+	ret := m.ctrl.Call(m, "ReadSecret")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ReadPassword indicates an expected call of ReadPassword
-func (mr *MockClientMockRecorder) ReadPassword() *gomock.Call {
+// ReadSecret indicates an expected call of ReadSecret
+func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadPassword", reflect.TypeOf((*MockClient)(nil).ReadPassword))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
 }
