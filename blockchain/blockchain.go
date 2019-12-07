@@ -69,8 +69,6 @@ type Blockchain interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// BlockDAO returns the block dao
-	BlockDAO() blockdao.BlockDAO
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -267,10 +265,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 		chain.lifecycle.Add(chain.sf)
 	}
 	return chain
-}
-
-func (bc *blockchain) BlockDAO() blockdao.BlockDAO {
-	return bc.dao
 }
 
 func (bc *blockchain) ChainID() uint32 {

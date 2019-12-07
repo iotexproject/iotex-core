@@ -18,7 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -65,6 +65,7 @@ func main() {
 	// recover chain and state
 	bc := svr.ChainService(cfg.Chain.ID).Blockchain()
 	sf := svr.ChainService(cfg.Chain.ID).StateFactory()
+	dao := svr.ChainService(cfg.Chain.ID).BlockDAO()
 	if err := bc.Start(context.Background()); err == nil {
 		log.L().Info("State DB status is normal.")
 	}
@@ -73,7 +74,7 @@ func main() {
 			log.L().Fatal("Failed to stop blockchain")
 		}
 	}()
-	if err := recoverChainAndState(bc, sf, cfg, uint64(recoveryHeight)); err != nil {
+	if err := recoverChainAndState(dao, sf, cfg, uint64(recoveryHeight)); err != nil {
 		log.L().Fatal("Failed to recover chain and state.", zap.Error(err))
 	} else {
 		log.S().Infof("Success to recover chain and state to target height %d", recoveryHeight)
@@ -81,9 +82,9 @@ func main() {
 }
 
 // recoverChainAndState recovers the chain to target height and refresh state db if necessary
-func recoverChainAndState(bc blockchain.Blockchain, sf factory.Factory, cfg config.Config, targetHeight uint64) error {
+func recoverChainAndState(dao blockdao.BlockDAO, sf factory.Factory, cfg config.Config, targetHeight uint64) error {
 	// recover the blockchain to target height(blockDAO)
-	if err := bc.BlockDAO().DeleteBlockToTarget(targetHeight); err != nil {
+	if err := dao.DeleteBlockToTarget(targetHeight); err != nil {
 		return errors.Wrapf(err, "failed to recover blockchain to target height %d", targetHeight)
 	}
 	stateHeight, err := sf.Height()

@@ -386,24 +386,26 @@ func TestLocalSync(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
+	dao := svr.ChainService(chainID).BlockDAO()
 	require.NotNil(bc)
 	require.NotNil(sf)
+	require.NotNil(dao)
 	require.NotNil(svr.P2PAgent())
 	require.NoError(addTestingTsfBlocks(bc))
 
-	blk, err := bc.BlockDAO().GetBlockByHeight(1)
+	blk, err := dao.GetBlockByHeight(1)
 	require.NoError(err)
 	hash1 := blk.HashBlock()
-	blk, err = bc.BlockDAO().GetBlockByHeight(2)
+	blk, err = dao.GetBlockByHeight(2)
 	require.NoError(err)
 	hash2 := blk.HashBlock()
-	blk, err = bc.BlockDAO().GetBlockByHeight(3)
+	blk, err = dao.GetBlockByHeight(3)
 	require.NoError(err)
 	hash3 := blk.HashBlock()
-	blk, err = bc.BlockDAO().GetBlockByHeight(4)
+	blk, err = dao.GetBlockByHeight(4)
 	require.NoError(err)
 	hash4 := blk.HashBlock()
-	blk, err = bc.BlockDAO().GetBlockByHeight(5)
+	blk, err = dao.GetBlockByHeight(5)
 	require.NoError(err)
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
@@ -447,23 +449,23 @@ func TestLocalSync(t *testing.T) {
 	)
 	require.NoError(err)
 	check := testutil.CheckCondition(func() (bool, error) {
-		blk1, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
+		blk1, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(1)
 		if err != nil {
 			return false, nil
 		}
-		blk2, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
+		blk2, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(2)
 		if err != nil {
 			return false, nil
 		}
-		blk3, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
+		blk3, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(3)
 		if err != nil {
 			return false, nil
 		}
-		blk4, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
+		blk4, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(4)
 		if err != nil {
 			return false, nil
 		}
-		blk5, err := cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
+		blk5, err := cli.ChainService(chainID).BlockDAO().GetBlockByHeight(5)
 		if err != nil {
 			return false, nil
 		}
@@ -476,19 +478,19 @@ func TestLocalSync(t *testing.T) {
 	require.NoError(testutil.WaitUntil(time.Millisecond*100, time.Second*60, check))
 
 	// verify 4 received blocks
-	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(1)
+	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(1)
 	require.NoError(err)
 	require.Equal(hash1, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(2)
+	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(2)
 	require.NoError(err)
 	require.Equal(hash2, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(3)
+	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(3)
 	require.NoError(err)
 	require.Equal(hash3, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(4)
+	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(4)
 	require.NoError(err)
 	require.Equal(hash4, blk.HashBlock())
-	blk, err = cli.ChainService(chainID).Blockchain().BlockDAO().GetBlockByHeight(5)
+	blk, err = cli.ChainService(chainID).BlockDAO().GetBlockByHeight(5)
 	require.NoError(err)
 	require.Equal(hash5, blk.HashBlock())
 	t.Log("4 blocks received correctly")
@@ -518,8 +520,10 @@ func TestStartExistingBlockchain(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
+	dao := svr.ChainService(chainID).BlockDAO()
 	require.NotNil(bc)
 	require.NotNil(sf)
+	require.NotNil(dao)
 
 	defer func() {
 		require.NoError(svr.Stop(ctx))
@@ -540,9 +544,10 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
+	dao = svr.ChainService(chainID).BlockDAO()
 	// Recover to height 3 from empty state DB
 	testutil.CleanupPath(t, testTriePath)
-	require.NoError(bc.BlockDAO().DeleteBlockToTarget(3))
+	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(svr.Stop(ctx))
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
@@ -550,13 +555,14 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
 	sf = svr.ChainService(chainID).StateFactory()
+	dao = svr.ChainService(chainID).BlockDAO()
 	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(3), height)
 
 	// Recover to height 2 from an existing state DB with Height 3
 	testutil.CleanupPath(t, testTriePath)
-	require.NoError(bc.BlockDAO().DeleteBlockToTarget(2))
+	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(svr.Stop(ctx))
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)

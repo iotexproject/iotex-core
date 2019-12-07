@@ -23,7 +23,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -167,11 +169,11 @@ func TestActPool_AddActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr2] = "10"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	require.NoError(bc.Start(context.Background()))
@@ -200,7 +202,7 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
@@ -336,11 +338,11 @@ func TestActPool_PickActs(t *testing.T) {
 		cfgDefault.Genesis.InitBalanceMap[addr2] = "10"
 		sf, err := factory.NewFactory(cfgDefault, factory.InMemTrieOption())
 		require.NoError(err)
+		dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfgDefault.Chain.CompressBlock, cfgDefault.DB)
 		bc := blockchain.NewBlockchain(
 			cfgDefault,
-			nil,
+			dao,
 			sf,
-			blockchain.InMemDaoOption(),
 			blockchain.RegistryOption(registry),
 		)
 		require.NoError(bc.Start(context.Background()))
@@ -372,7 +374,7 @@ func TestActPool_PickActs(t *testing.T) {
 		tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
-		ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+		ep := execution.NewProtocol(dao.GetBlockHash)
 		require.NoError(ep.Register(registry))
 
 		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
@@ -415,16 +417,16 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -483,16 +485,16 @@ func TestActPool_Reset(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr5] = "20"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 
@@ -845,16 +847,16 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -898,16 +900,16 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -947,16 +949,16 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -1053,16 +1055,16 @@ func TestActPool_GetSize(t *testing.T) {
 	re := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(re),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(re))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool

@@ -25,7 +25,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -261,7 +263,8 @@ func TestWrongAddress(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -270,7 +273,7 @@ func TestWrongAddress(t *testing.T) {
 	}()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
@@ -334,7 +337,8 @@ func TestBlackListAddress(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -344,7 +348,7 @@ func TestBlackListAddress(t *testing.T) {
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
