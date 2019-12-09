@@ -7,33 +7,45 @@
 package gasstation
 
 import (
+	"context"
 	"math/big"
 	"sort"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+// BlockDAO represents the block data access object
+type BlockDAO interface {
+	GetBlockHash(uint64) (hash.Hash256, error)
+	GetBlockByHeight(uint64) (*block.Block, error)
+}
+
+// SimulateFunc is function that simulate execution
+type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+
 // GasStation provide gas related api
 type GasStation struct {
-	bc  blockchain.Blockchain
-	sf  factory.Factory
-	dao blockdao.BlockDAO
-	cfg config.API
+	bc        blockchain.Blockchain
+	simulator SimulateFunc
+	dao       BlockDAO
+	cfg       config.API
 }
 
 // NewGasStation creates a new gas station
-func NewGasStation(bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, cfg config.API) *GasStation {
+func NewGasStation(bc blockchain.Blockchain, simulator SimulateFunc, dao BlockDAO, cfg config.API) *GasStation {
 	return &GasStation{
-		bc:  bc,
-		sf:  sf,
-		dao: dao,
-		cfg: cfg,
+		bc:        bc,
+		simulator: simulator,
+		dao:       dao,
+		cfg:       cfg,
 	}
 }
 
@@ -110,7 +122,7 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		if err != nil {
 			return 0, err
 		}
-		_, receipt, err := gs.sf.SimulateExecution(ctx, callerAddr, sc, gs.dao.GetBlockHash)
+		_, receipt, err := gs.simulator(ctx, callerAddr, sc, gs.dao.GetBlockHash)
 		if err != nil {
 			return 0, err
 		}

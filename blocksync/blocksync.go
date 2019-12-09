@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
@@ -30,6 +29,11 @@ type (
 	// Neighbors returns the neighbors' addresses
 	Neighbors func(ctx context.Context) ([]peerstore.PeerInfo, error)
 )
+
+// BlockDAO represents the block data access object
+type BlockDAO interface {
+	GetBlockByHeight(uint64) (*block.Block, error)
+}
 
 // Config represents the config to setup blocksync
 type Config struct {
@@ -72,7 +76,7 @@ type blockSyncer struct {
 	buf              *blockBuffer
 	worker           *syncWorker
 	bc               blockchain.Blockchain
-	dao              blockdao.BlockDAO
+	dao              BlockDAO
 	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
 }
@@ -81,7 +85,7 @@ type blockSyncer struct {
 func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
-	dao blockdao.BlockDAO,
+	dao BlockDAO,
 	ap actpool.ActPool,
 	cs consensus.Consensus,
 	opts ...Option,

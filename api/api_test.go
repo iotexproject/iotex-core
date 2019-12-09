@@ -1876,7 +1876,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		indexer:        indexer,
 		ap:             ap,
 		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf, dao, cfg.API),
+		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
 	}

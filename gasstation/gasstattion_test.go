@@ -103,7 +103,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -160,7 +160,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf, blkMemDao, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -181,7 +181,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	gs := NewGasStation(bc, sf, blkMemDao, config.Default.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, config.Default.API)
 	require.NotNil(gs)
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)
