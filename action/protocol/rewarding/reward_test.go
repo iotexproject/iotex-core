@@ -303,12 +303,14 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 				identityset.Address(1).String(): 10,
 			},
 			nil
-	}, rolldpos.NewProtocol(
+	})
+	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
-	))
+	)
 	require.NoError(t, p.Register(registry))
+	require.NoError(t, rp.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"

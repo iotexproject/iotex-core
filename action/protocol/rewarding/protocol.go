@@ -49,11 +49,10 @@ type Protocol struct {
 	productivityByEpoch ProductivityByEpoch
 	keyPrefix           []byte
 	addr                address.Address
-	rp                  *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol) *Protocol {
+func NewProtocol(productivityByEpoch ProductivityByEpoch) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -63,7 +62,6 @@ func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol)
 		productivityByEpoch: productivityByEpoch,
 		keyPrefix:           h[:],
 		addr:                addr,
-		rp:                  rp,
 	}
 }
 

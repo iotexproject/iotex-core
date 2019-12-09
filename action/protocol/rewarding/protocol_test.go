@@ -70,7 +70,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 				identityset.Address(31).String(): 2,
 			},
 			nil
-	}, rp)
+	})
 	require.NoError(t, rp.Register(registry))
 	require.NoError(t, p.Register(registry))
 
@@ -229,7 +229,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	p := NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
 		return 0, nil, nil
-	}, rp)
+	})
 	require.NoError(t, p.Register(registry))
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
