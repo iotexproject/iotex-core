@@ -132,10 +132,7 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.FindProtocol(bcCtx.Registry)
-	if rp == nil {
-		return nil, errors.New("rolldpos protocol not registered")
-	}
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
