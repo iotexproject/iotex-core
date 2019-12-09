@@ -35,7 +35,7 @@ import (
 
 func TestNewGasStation(t *testing.T) {
 	require := require.New(t)
-	require.NotNil(NewGasStation(nil, nil, config.Default.API))
+	require.NotNil(NewGasStation(nil, nil, nil, config.Default.API))
 }
 func TestSuggestGasPriceForUserAction(t *testing.T) {
 	ctx := context.Background()
@@ -53,7 +53,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil, rp)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -103,7 +103,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -128,7 +128,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil, rp)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -160,7 +160,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	height := bc.TipHeight()
 	fmt.Printf("Open blockchain pass, height = %d\n", height)
 
-	gs := NewGasStation(bc, sf, cfg.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, cfg.API)
 	require.NotNil(t, gs)
 
 	gp, err := gs.SuggestGasPrice()
@@ -181,7 +181,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
-	gs := NewGasStation(bc, sf, config.Default.API)
+	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, config.Default.API)
 	require.NotNil(gs)
 	ret, err := gs.EstimateGasForAction(act)
 	require.NoError(err)

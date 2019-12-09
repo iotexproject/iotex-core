@@ -22,7 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -80,11 +82,11 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	r.NoError(err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
-		nil,
+		dao,
 		sf,
-		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
 	r.NotNil(bc)
@@ -93,7 +95,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	r.NoError(bc.Start(ctx))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
 	return bc, sf
