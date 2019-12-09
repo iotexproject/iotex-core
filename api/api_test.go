@@ -779,7 +779,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.bc.BlockDAO().GetBlockByHeight(test.blkNumber)
+			blk, err := svr.dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -1774,7 +1774,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	evm := execution.NewProtocol(dao.GetBlockHash)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1876,7 +1876,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		indexer:        indexer,
 		ap:             ap,
 		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf, cfg.API),
+		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
 	}

@@ -142,7 +142,7 @@ func NewServer(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(),
-		gs:                gasstation.NewGasStation(chain, sf, cfg.API),
+		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {

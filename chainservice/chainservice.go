@@ -50,6 +50,7 @@ type ChainService struct {
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
 	factory           factory.Factory
+	blockdao          blockdao.BlockDAO
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
@@ -253,6 +254,7 @@ func New(
 	bs, err := blocksync.NewBlockSyncer(
 		cfg,
 		chain,
+		dao,
 		actPool,
 		consensus,
 		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
@@ -299,7 +301,7 @@ func New(
 			)
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
 	if accountProtocol != nil {
 		if err = accountProtocol.Register(registry); err != nil {
 			return nil, err
@@ -330,6 +332,7 @@ func New(
 		actpool:           actPool,
 		chain:             chain,
 		factory:           sf,
+		blockdao:          dao,
 		blocksync:         bs,
 		consensus:         consensus,
 		electionCommittee: electionCommittee,
@@ -448,6 +451,11 @@ func (cs *ChainService) Blockchain() blockchain.Blockchain {
 // StateFactory returns the state factory
 func (cs *ChainService) StateFactory() factory.Factory {
 	return cs.factory
+}
+
+// BlockDAO returns the blockdao
+func (cs *ChainService) BlockDAO() blockdao.BlockDAO {
+	return cs.blockdao
 }
 
 // ActionPool returns the Action pool
