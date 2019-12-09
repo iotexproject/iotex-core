@@ -432,7 +432,7 @@ func TestCreateBlockchain(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(rewardingProtocol.Register(registry))
 	require.NoError(bc.Start(ctx))
 	require.NotNil(bc)
@@ -466,7 +466,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -533,7 +533,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, rp)
+	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 	require.NoError(t, bc.Start(ctx))
@@ -633,7 +633,7 @@ func TestConstantinople(t *testing.T) {
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 		ep := execution.NewProtocol(dao.GetBlockHash)
 		require.NoError(ep.Register(registry))
-		rewardingProtocol := rewarding.NewProtocol(nil, rp)
+		rewardingProtocol := rewarding.NewProtocol(nil)
 		require.NoError(rewardingProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		defer func() {
@@ -823,7 +823,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			genesis.Default.NumSubEpochs,
 		)
 		require.NoError(rolldposProtocol.Register(registry))
-		rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
+		rewardingProtocol := rewarding.NewProtocol(nil)
 		require.NoError(rewardingProtocol.Register(registry))
 		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
 		require.NoError(bc.Start(ctx))
@@ -1070,7 +1070,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		genesis.Default.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(rewardingProtocol.Register(registry))
 	pollProtocol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pollProtocol.Register(registry))

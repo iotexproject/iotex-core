@@ -310,7 +310,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		sf,
 		blockchain.RegistryOption(registry),
 	)
-	reward := rewarding.NewProtocol(nil, rp)
+	reward := rewarding.NewProtocol(nil)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
