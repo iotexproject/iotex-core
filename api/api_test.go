@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -1801,7 +1802,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err := p.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	return bc, dao, indexer, sf, registry, nil
 }
@@ -1811,7 +1812,8 @@ func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, erro
 	if err != nil {
 		return nil, err
 	}
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	return ap, nil
 }

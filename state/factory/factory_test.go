@@ -306,7 +306,7 @@ func testState(sf Factory, t *testing.T) {
 
 	//test AccountState() & State()
 	var testAccount state.Account
-	accountA, err := sf.AccountState(a)
+	accountA, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 	err = sf.State(sHash, &testAccount)
@@ -383,7 +383,7 @@ func testNonce(sf Factory, t *testing.T) {
 		})
 	_, err = ws.RunAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := sf.AccountState(a)
+	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), state.Nonce)
 
@@ -398,7 +398,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
-	state, err = sf.AccountState(a)
+	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
 }

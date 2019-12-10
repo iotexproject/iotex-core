@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -49,7 +50,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())

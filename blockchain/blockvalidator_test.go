@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -130,7 +131,7 @@ func TestWrongNonce(t *testing.T) {
 	}()
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	// correct nonce
 
@@ -282,7 +283,7 @@ func TestWrongAddress(t *testing.T) {
 	)
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -361,7 +362,7 @@ func TestBlackListAddress(t *testing.T) {
 		senderBlackList[bannedSender] = true
 	}
 	val := &validator{sf: sf, validatorAddr: "", senderBlackList: senderBlackList}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}

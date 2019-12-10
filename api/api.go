@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"math"
 	"math/big"
 	"net"
@@ -161,7 +162,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	state, err := api.sf.AccountState(in.Address)
+	state, err := accountutil.AccountState(api.sf, in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -402,7 +403,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	state, err := api.sf.AccountState(in.CallerAddress)
+	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
@@ -1280,7 +1281,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	state, err := api.sf.AccountState(sender)
+	state, err := accountutil.AccountState(api.sf, sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
