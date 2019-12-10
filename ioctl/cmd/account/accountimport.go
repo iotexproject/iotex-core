@@ -25,24 +25,36 @@ var (
 		config.English: "Import IoTeX private key or keystore into wallet",
 		config.Chinese: "将IoTeX的私钥或私钥库导入钱包",
 	}
+	importCmdUses = map[config.Language]string{
+		config.English: "import",
+		config.Chinese: "导入",
+	}
 	importKeyCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX private key into wallet",
 		config.Chinese: "将IoTeX的私钥导入钱包",
+	}
+	importKeyCmdUses = map[config.Language]string{
+		config.English: "key ALIAS",
+		config.Chinese: "key 别名",
 	}
 	importKeyStoreCmdShorts = map[config.Language]string{
 		config.English: "Import IoTeX keystore into wallet",
 		config.Chinese: "将IoTeX的私钥库导入钱包",
 	}
+	importKeyStoreCmdUses = map[config.Language]string{
+		config.English: "keystore ALIAS FILEPATH",
+		config.Chinese: "keystore 别名 文件路径",
+	}
 )
 var (
 	// accountImportCmd represents the account import command
 	accountImportCmd = &cobra.Command{
-		Use:   "import",
+		Use:   config.TranslateInLang(importCmdUses, config.UILanguage),
 		Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
 	}
 	// accountImportKeyCmd represents the account import key command
 	accountImportKeyCmd = &cobra.Command{
-		Use:   "key ALIAS",
+		Use:   config.TranslateInLang(importKeyCmdUses, config.UILanguage),
 		Short: config.TranslateInLang(importKeyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -53,7 +65,7 @@ var (
 	}
 	// accountImportKeyCmd represents the account import keystore command
 	accountImportKeyStoreCmd = &cobra.Command{
-		Use:   "keystore ALIAS FILEPATH",
+		Use:   config.TranslateInLang(importKeyStoreCmdUses, config.UILanguage),
 		Short: config.TranslateInLang(importKeyStoreCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -7,22 +7,28 @@
 package action
 
 import (
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
+
 // Multi-language support
-var(
+var (
 	readCmdShorts = map[config.Language]string{
 		config.English: "read smart contract on IoTeX blockchain",
 		config.Chinese: "读取IoTeX区块链上的智能合约",
 	}
+	readCmdUses = map[config.Language]string{
+		config.English: "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
+		config.Chinese: "读取 (别名|联系人地址) -b 类型码 [-s 签署人]",
+	}
 )
+
 // actionReadCmd represents the action Read command
 var actionReadCmd = &cobra.Command{
-	Use:   "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
+	Use:   config.TranslateInLang(readCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(readCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

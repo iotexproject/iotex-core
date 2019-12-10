@@ -18,15 +18,20 @@ import (
 )
 
 // Multi-language support
-var(
+var (
 	listCmdShorts = map[config.Language]string{
 		config.English: "List aliases",
 		config.Chinese: "列出别名",
 	}
+	listCmdUses = map[config.Language]string{
+		config.English: "list",
+		config.Chinese: "list 列出别名",
+	}
 )
+
 // aliasListCmd represents the alias list command
 var aliasListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   config.TranslateInLang(listCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {

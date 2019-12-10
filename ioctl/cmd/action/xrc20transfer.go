@@ -15,6 +15,8 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support
+
 // xrc20TransferCmd could do transfer action
 var xrc20TransferCmd = &cobra.Command{
 	Use: "transfer (ALIAS|TARGET_ADDRESS) AMOUNT -c ALIAS|CONTRACT_ADDRESS" +

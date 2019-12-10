@@ -19,15 +19,20 @@ import (
 )
 
 // Multi-language support
-var(
+var (
 	removeCmdShorts = map[config.Language]string{
 		config.English: "Remove alias",
 		config.Chinese: "移除别名",
 	}
+	removeCmdUses = map[config.Language]string{
+		config.English: "remove ALIAS",
+		config.Chinese: "remove 别名",
+	}
 )
+
 // aliasRemoveCmd represents the alias remove command
 var aliasRemoveCmd = &cobra.Command{
-	Use:   "remove ALIAS",
+	Use:   config.TranslateInLang(removeCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(removeCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

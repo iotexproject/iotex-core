@@ -24,11 +24,15 @@ var (
 		config.English: "Translate address between IOTX and ETH",
 		config.Chinese: "在IOTX和ETH间转换地址",
 	}
+	ethaddrCmdUses = map[config.Language]string{
+		config.English: "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
+		config.Chinese: "ethaddr (别名|IOTEX_地址|ETH_地址)",
+	}
 )
 
 // accountEthaddrCmd represents the account ethaddr command
 var accountEthaddrCmd = &cobra.Command{
-	Use:   "ethaddr (ALIAS|IOTEX_ADDRESS|ETH_ADDRESS)",
+	Use:   config.TranslateInLang(ethaddrCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(ethaddrCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

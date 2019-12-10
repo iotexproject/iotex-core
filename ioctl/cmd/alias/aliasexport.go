@@ -24,11 +24,19 @@ var (
 		config.English: "Export aliases to either json or yaml format",
 		config.Chinese: "以json或yaml格式导出别名",
 	}
+	aliasExportUses = map[config.Language]string{
+		config.English: "export",
+		config.Chinese: "export 导出",
+	}
+	flagExportFormatUsages = map[config.Language]string{
+		config.English: "set format: json/yaml",
+		config.Chinese: "设置格式：json / yaml",
+	}
 )
 
 // aliasExportCmd represents the alias export command
 var aliasExportCmd = &cobra.Command{
-	Use:   "export",
+	Use:   config.TranslateInLang(aliasExportUses, config.UILanguage),
 	Short: config.TranslateInLang(exportCmd, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -43,7 +51,7 @@ var aliasExportCmd = &cobra.Command{
 
 func init() {
 	aliasExportCmd.Flags().StringVarP(&format,
-		"format", "f", "json", "set format: json/yaml")
+		"format", "f", "json", config.TranslateInLang(flagExportFormatUsages, config.UILanguage))
 }
 
 func aliasExport(cmd *cobra.Command) (string, error) {

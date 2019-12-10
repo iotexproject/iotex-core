@@ -18,16 +18,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
+
 // Multi-language support
-var(
+var (
 	listCmdShorts = map[config.Language]string{
 		config.English: "List existing account for ioctl",
 		config.Chinese: "列出ioctl中已存在的账户",
 	}
+	listCmdUses = map[config.Language]string{
+		config.English: "list",
+		config.Chinese: "list 列表",
+	}
 )
+
 // accountListCmd represents the account list command
 var accountListCmd = &cobra.Command{
-	Use:   "list",
+	Use:   config.TranslateInLang(listCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -21,11 +21,15 @@ var (
 		config.English: "Claim rewards from rewarding fund",
 		config.Chinese: "从奖励基金中获取奖励",
 	}
+	claimCmdUses = map[config.Language]string{
+		config.English: "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "获取 IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+	}
 )
 
 // actionClaimCmd represents the action claim command
 var actionClaimCmd = &cobra.Command{
-	Use:   "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
+	Use:   config.TranslateInLang(claimCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(claimCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {

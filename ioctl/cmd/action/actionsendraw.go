@@ -8,25 +8,31 @@ package action
 
 import (
 	"encoding/hex"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
+
 // Multi-language support
-var(
+var (
 	sendRawCmdShorts = map[config.Language]string{
 		config.English: "Send raw action on IoTeX blokchain",
 		config.Chinese: "在IoTeX区块链上发送原始行为",
 	}
+	sendRawCmdUses = map[config.Language]string{
+		config.English: "sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "发送原始 数据 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+	}
 )
+
 // actionSendRawCmd represents the action send raw transaction command
 var actionSendRawCmd = &cobra.Command{
-	Use:   "sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+	Use:   config.TranslateInLang(sendRawCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(sendRawCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

@@ -30,15 +30,20 @@ import (
 )
 
 // Multi-language support
-var(
+var (
 	hashCmdShorts = map[config.Language]string{
 		config.English: "Get action by hash",
 		config.Chinese: "依据哈希值，获取行动",
 	}
+	hashCmdUses = map[config.Language]string{
+		config.English: "hash ACTION_HASH",
+		config.Chinese: "哈希 行动_哈希", // this translation
+	}
 )
+
 // actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
-	Use:   "hash ACTION_HASH",
+	Use:   config.TranslateInLang(hashCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(hashCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
