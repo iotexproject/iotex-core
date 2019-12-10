@@ -8,17 +8,17 @@ package actpool
 
 import (
 	"container/heap"
+	"go.uber.org/zap"
 	"math/big"
 	"sort"
 	"time"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"go.uber.org/zap"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type nonceWithTTL struct {
@@ -232,7 +232,7 @@ func (q *actQueue) PendingActs() []action.SealedEnvelope {
 		return []action.SealedEnvelope{}
 	}
 	acts := make([]action.SealedEnvelope, 0, len(q.items))
-	confirmedState, err := q.ap.sf.AccountState(q.address)
+	confirmedState, err := accountutil.AccountState(q.ap.sf, q.address)
 	if err != nil {
 		log.L().Error("Error when getting the nonce", zap.String("address", q.address), zap.Error(err))
 		return nil

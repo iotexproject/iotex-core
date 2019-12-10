@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -52,7 +53,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
@@ -127,7 +128,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	blkRegistryOption := blockchain.RegistryOption(registry)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)

@@ -456,8 +456,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				blockchain.InMemDaoOption(),
 				blockchain.RegistryOption(registry),
 			)
-
-			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+			chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 			chains = append(chains, chain)
 
 			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())

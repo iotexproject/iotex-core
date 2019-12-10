@@ -13,6 +13,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -86,4 +87,22 @@ func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+// AccountState returns the confirmed account state on the chain
+func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, error) {
+	addr, err := address.FromString(encodedAddr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+	}
+	pkHash := hash.BytesToHash160(addr.Bytes())
+	var account state.Account
+	if err := sr.State(pkHash, &account); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			account = state.EmptyAccount()
+			return &account, nil
+		}
+		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
+	}
+	return &account, nil
 }

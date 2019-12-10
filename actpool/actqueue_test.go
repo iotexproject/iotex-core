@@ -17,9 +17,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -123,10 +126,12 @@ func TestActQueuePendingActs(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 	sf := mock_factory.NewMockFactory(ctrl)
-	sf.EXPECT().AccountState(gomock.Any()).Return(&state.Account{Nonce: 1}, nil).Times(1)
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(_ hash.Hash160, accountState *state.Account) {
+		accountState.Nonce = uint64(1)
+	}).Return(nil).Times(1)
 	ap, err := NewActPool(sf, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
-	q := NewActQueue(ap.(*actPool), "").(*actQueue)
+	q := NewActQueue(ap.(*actPool), identityset.Address(0).String()).(*actQueue)
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 2, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
 	tsf2, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))

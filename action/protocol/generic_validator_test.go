@@ -51,7 +51,7 @@ func TestActionProto(t *testing.T) {
 			},
 		})
 
-	valid := NewGenericValidator(func(addr string) (*state.Account, error) {
+	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
 		if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
 			return nil, errors.New("MockChainManager nonce error")
 		}

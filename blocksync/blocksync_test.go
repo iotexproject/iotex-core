@@ -24,6 +24,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -194,7 +195,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		sf,
 		bc.RegistryOption(registry),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
@@ -256,7 +257,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(registry),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain1.Start(ctx))
 	ap1, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -280,7 +281,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		bc.RegistryOption(registry2),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2.AccountState))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain2.Start(ctx))
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -355,7 +356,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		sf,
 		bc.RegistryOption(registry),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	ap1, err := actpool.NewActPool(sf, cfg.ActPool)
@@ -378,7 +379,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		sf2,
 		bc.RegistryOption(registry2),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2.AccountState))
+	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
