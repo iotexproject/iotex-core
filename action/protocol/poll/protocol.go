@@ -103,7 +103,8 @@ func NewProtocol(
 	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
-	rp *rolldpos.Protocol) (Protocol, error) {
+	getEpochHeight GetEpochHeight,
+	getEpochNum GetEpochNum) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		var pollProtocol Protocol
@@ -115,8 +116,8 @@ func NewProtocol(
 				electionCommittee,
 				genesisConfig.GravityChainStartHeight,
 				getBlockTimeFunc,
-				rp.GetEpochHeight,
-				rp.GetEpochNum,
+				getEpochHeight,
+				getEpochNum,
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
@@ -132,11 +133,10 @@ func NewProtocol(
 				governance,
 				readContract,
 				candidatesByHeight,
-				rp.GetEpochHeight,
-				rp.GetEpochNum,
+				getEpochHeight,
+				getEpochNum,
 				cfg.Genesis.NativeStakingContractAddress,
 				cfg.Genesis.NativeStakingContractCode,
-				rp,
 				scoreThreshold,
 			); err != nil {
 				return nil, err

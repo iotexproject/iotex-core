@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -43,7 +42,6 @@ type stakingCommittee struct {
 	electionCommittee    committee.Committee
 	governanceStaking    Protocol
 	nativeStaking        *NativeStaking
-	rp                   *rolldpos.Protocol
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
 }
@@ -58,7 +56,6 @@ func NewStakingCommittee(
 	getEpochNum GetEpochNum,
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
-	rp *rolldpos.Protocol,
 	scoreThreshold *big.Int,
 ) (Protocol, error) {
 	if getEpochHeight == nil {
@@ -84,7 +81,6 @@ func NewStakingCommittee(
 		nativeStaking:      ns,
 		getEpochHeight:     getEpochHeight,
 		getEpochNum:        getEpochNum,
-		rp:                 rp,
 		scoreThreshold:     scoreThreshold,
 	}, nil
 }
@@ -305,8 +301,8 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	}
 	log.L().Info("Store native buckets to election db", zap.Int("size", len(sc.currentNativeBuckets)))
 	if err := sc.electionCommittee.PutNativePollByEpoch(
-		sc.rp.GetEpochNum(blkCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
-		bcCtx.Tip.Timestamp,                     // The timestamp of last block is used to represent the current buckets timestamp
+		sc.getEpochNum(blkCtx.BlockHeight)+1, // The native buckets recorded in this epoch will be used in next one
+		bcCtx.Tip.Timestamp,                  // The timestamp of last block is used to represent the current buckets timestamp
 		sc.currentNativeBuckets,
 	); err != nil {
 		return err
