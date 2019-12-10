@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -24,7 +24,8 @@ var (
 	}
 	deployCmdUses = map[config.Language]string{
 		config.English: "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "部署 [IOTX数量] [-s 签署人] -b 类型码 [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.Chinese: "deploy [IOTX数量] [-s 签署人] -b 类型码 [-n NONCE] [-l GAS限制] [-p GAS价格] [-P" +
+			" 密码] [-y]",
 	}
 )
 

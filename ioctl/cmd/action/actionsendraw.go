@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
@@ -26,7 +26,7 @@ var (
 	}
 	sendRawCmdUses = map[config.Language]string{
 		config.English: "sendraw DATA [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "发送原始 数据 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.Chinese: "sendraw 数据 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 

@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
@@ -24,7 +24,7 @@ var (
 	}
 	totalSupplyCmdUses = map[config.Language]string{
 		config.English: "totalSupply -c ALIAS|CONTRACT_ADDRESS",
-		config.Chinese: "总供应 -c 别名|合同地址",
+		config.Chinese: "totalSupply -c 别名|合同地址",
 	}
 )
 

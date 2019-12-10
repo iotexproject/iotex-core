@@ -98,9 +98,10 @@ func init() {
 	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.AddCommand(actionSendRawCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagActionEndPointUsages,
+			config.UILanguage))
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
+		config.TranslateInLang(flagActionInsecureUsages, config.UILanguage))
 }
 
 func decodeBytecode() ([]byte, error) {

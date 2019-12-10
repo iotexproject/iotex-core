@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -23,7 +23,7 @@ var (
 	}
 	claimCmdUses = map[config.Language]string{
 		config.English: "claim AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "获取 IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.Chinese: "claim IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 )
 

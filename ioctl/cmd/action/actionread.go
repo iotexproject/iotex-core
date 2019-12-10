@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
@@ -22,7 +22,7 @@ var (
 	}
 	readCmdUses = map[config.Language]string{
 		config.English: "read (ALIAS|CONTRACT_ADDRESS) -b BYTE_CODE [-s SIGNER]",
-		config.Chinese: "读取 (别名|联系人地址) -b 类型码 [-s 签署人]",
+		config.Chinese: "reads (别名|联系人地址) -b 类型码 [-s 签署人]",
 	}
 )
 

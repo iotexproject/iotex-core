@@ -15,13 +15,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -37,7 +38,7 @@ var (
 	}
 	hashCmdUses = map[config.Language]string{
 		config.English: "hash ACTION_HASH",
-		config.Chinese: "哈希 行动_哈希", // this translation
+		config.Chinese: "hash 行动_哈希", // this translation
 	}
 )
 

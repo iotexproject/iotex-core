@@ -25,16 +25,20 @@ import (
 
 // Multi-language support
 var (
-	bcblockCmdShorts = map[config.Language]string{
+	bcBlockCmdShorts = map[config.Language]string{
 		config.English: "Get block from block chain",
 		config.Chinese: "获取IoTeX区块链中的区块",
+	}
+	bcBlockCmdUses = map[config.Language]string{
+		config.English: "block [HEIGHT|HASH]",
+		config.Chinese: "block [高度|哈希]",
 	}
 )
 
 // bcBlockCmd represents the bc Block command
 var bcBlockCmd = &cobra.Command{
 	Use:   "block [HEIGHT|HASH]",
-	Short: config.TranslateInLang(bcblockCmdShorts, config.UILanguage),
+	Short: config.TranslateInLang(bcBlockCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

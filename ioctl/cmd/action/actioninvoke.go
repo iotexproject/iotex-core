@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -24,7 +24,8 @@ var (
 	}
 	invokeCmdUses = map[config.Language]string{
 		config.English: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX] -b BYTE_CODE [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "调用 (别名|联系人地址) [IOTX数量] -b 类型码 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.Chinese: "invoke (别名|联系人地址) [IOTX数量] -b 类型码 [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS" +
+			"价格] [-P 密码] [-y]",
 	}
 )
 

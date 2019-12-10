@@ -17,23 +17,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-<<<<<<< Updated upstream
-	"github.com/iotexproject/iotex-core/ioctl/config"
-=======
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
->>>>>>> Stashed changes
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
