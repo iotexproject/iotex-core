@@ -1273,14 +1273,15 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	req.NoError(err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
 	req.NoError(bc.AddSubscriber(mb))
-	err := bc.AddSubscriber(nil)
-	req.EqualError(err, "subscriber could not be nil")
+	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
 }
 
 func TestBlockchain_RemoveSubscriber(t *testing.T) {
@@ -1290,7 +1291,9 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	req.NoError(err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
