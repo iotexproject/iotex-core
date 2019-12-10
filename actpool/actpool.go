@@ -12,17 +12,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -256,7 +258,7 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	confirmedState, err := ap.sf.AccountState(addr)
+	confirmedState, err := accountutil.AccountState(ap.sf, addr)
 	if err != nil {
 		return 0, err
 	}
@@ -326,7 +328,7 @@ func (ap *actPool) GetGasCapacity() uint64 {
 // private functions
 //======================================
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-	confirmedState, err := ap.sf.AccountState(sender)
+	confirmedState, err := accountutil.AccountState(ap.sf, sender)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
@@ -342,7 +344,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
 		// Initialize balance for new account
-		state, err := ap.sf.AccountState(sender)
+		state, err := accountutil.AccountState(ap.sf, sender)
 		if err != nil {
 			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
@@ -412,7 +414,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		confirmedState, err := ap.sf.AccountState(from)
+		confirmedState, err := accountutil.AccountState(ap.sf, from)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
@@ -476,7 +478,7 @@ func (ap *actPool) reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		state, err := ap.sf.AccountState(from)
+		state, err := accountutil.AccountState(ap.sf, from)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return

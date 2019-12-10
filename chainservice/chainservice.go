@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -288,11 +289,11 @@ func New(
 	// Add action validators
 	actPool.
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(sf.AccountState),
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)
 	chain.Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(sf.AccountState),
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)
 	if !ops.isSubchain {
 		chain.Validator().

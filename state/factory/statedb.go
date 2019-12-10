@@ -9,7 +9,6 @@ package factory
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"sync"
 
@@ -137,40 +136,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-
-// Balance returns balance
-func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-
-	account, err := sdb.accountState(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return account.Balance, nil
-}
-
-// Nonce returns the Nonce if the account exists
-func (sdb *stateDB) Nonce(addr string) (uint64, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-
-	account, err := sdb.accountState(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	return account.Nonce, nil
-}
-
-// AccountState returns the confirmed account state on the chain
-func (sdb *stateDB) AccountState(addr string) (*state.Account, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-	return sdb.accountState(addr)
-}
-
 // RootHash returns the hash of the root node of the state trie
 func (sdb *stateDB) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
@@ -307,24 +272,6 @@ func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
 	return nil
-}
-
-func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
-	// TODO: state db shouldn't serve this function
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, err
-	}
-	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	if err := sdb.state(pkHash, &account); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	return &account, nil
 }
 
 func (sdb *stateDB) commit(ws WorkingSet) error {

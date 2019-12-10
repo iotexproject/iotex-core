@@ -67,21 +67,6 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
-// AccountState mocks base method
-func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AccountState", arg0)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AccountState indicates an expected call of AccountState
-func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountState", reflect.TypeOf((*MockFactory)(nil).AccountState), arg0)
-}
-
 // RootHash mocks base method
 func (m *MockFactory) RootHash() hash.Hash256 {
 	m.ctrl.T.Helper()
