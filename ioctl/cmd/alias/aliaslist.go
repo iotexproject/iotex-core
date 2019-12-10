@@ -13,14 +13,21 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support
+var(
+	listCmdShorts = map[config.Language]string{
+		config.English: "List aliases",
+		config.Chinese: "列出别名",
+	}
+)
 // aliasListCmd represents the alias list command
 var aliasListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List aliases",
+	Short: config.TranslateInLang(listCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	Run: func(cmd *cobra.Command, args []string) {
 		aliasList()

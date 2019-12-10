@@ -51,7 +51,6 @@ func TestClient(t *testing.T) {
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 
 	sf.EXPECT().AccountState(gomock.Any()).Return(&state, nil).AnyTimes()
-	bc.EXPECT().Factory().Return(sf).AnyTimes()
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
@@ -61,7 +60,7 @@ func TestClient(t *testing.T) {
 	})
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, nil, indexer, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

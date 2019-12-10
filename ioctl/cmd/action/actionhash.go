@@ -24,15 +24,22 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	hashCmdShorts = map[config.Language]string{
+		config.English: "Get action by hash",
+		config.Chinese: "依据哈希值，获取行动",
+	}
+)
 // actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
 	Use:   "hash ACTION_HASH",
-	Short: "Get action by hash",
+	Short: config.TranslateInLang(hashCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

@@ -8,6 +8,7 @@ package account
 
 import (
 	"fmt"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 
 	"github.com/spf13/cobra"
 
@@ -15,10 +16,17 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	nonceCmdShorts = map[config.Language]string{
+		config.English: "Get nonce of an account",
+		config.Chinese: "获取账户的nonce值",
+	}
+)
 // accountNonceCmd represents the account nonce command
 var accountNonceCmd = &cobra.Command{
 	Use:   "nonce [ALIAS|ADDRESS]",
-	Short: "Get nonce of an account",
+	Short: config.TranslateInLang(nonceCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

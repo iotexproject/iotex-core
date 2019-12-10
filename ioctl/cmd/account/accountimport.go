@@ -13,22 +13,37 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var (
+	importCmdShorts = map[config.Language]string{
+		config.English: "Import IoTeX private key or keystore into wallet",
+		config.Chinese: "将IoTeX的私钥或私钥库导入钱包",
+	}
+	importKeyCmdShorts = map[config.Language]string{
+		config.English: "Import IoTeX private key into wallet",
+		config.Chinese: "将IoTeX的私钥导入钱包",
+	}
+	importKeyStoreCmdShorts = map[config.Language]string{
+		config.English: "Import IoTeX keystore into wallet",
+		config.Chinese: "将IoTeX的私钥库导入钱包",
+	}
+)
 var (
 	// accountImportCmd represents the account import command
 	accountImportCmd = &cobra.Command{
 		Use:   "import",
-		Short: "Import IoTeX private key or keystore into wallet",
+		Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
 	}
 	// accountImportKeyCmd represents the account import key command
 	accountImportKeyCmd = &cobra.Command{
 		Use:   "key ALIAS",
-		Short: "Import IoTeX private key into wallet",
+		Short: config.TranslateInLang(importKeyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
@@ -39,7 +54,7 @@ var (
 	// accountImportKeyCmd represents the account import keystore command
 	accountImportKeyStoreCmd = &cobra.Command{
 		Use:   "keystore ALIAS FILEPATH",
-		Short: "Import IoTeX keystore into wallet",
+		Short: config.TranslateInLang(importKeyStoreCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true

@@ -14,14 +14,22 @@ import (
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	importCmdShorts = map[config.Language]string{
+		config.English: "Import aliases",
+		config.Chinese: "导入别名",
+	}
 )
 
 // aliasImportCmd represents the alias import command
 var aliasImportCmd = &cobra.Command{
 	Use:   "import 'DATA'",
-	Short: "Import aliases",
+	Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

@@ -7,6 +7,7 @@
 package action
 
 import (
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"math/big"
 
 	"github.com/spf13/cobra"
@@ -15,11 +16,18 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	invokeCmdShorts = map[config.Language]string{
+		config.English: "Invoke smart contract on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上调用智能合约",
+	}
+)
 // actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
 	Use: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX] -b BYTE_CODE" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Invoke smart contract on IoTeX blockchain",
+	Short: config.TranslateInLang(invokeCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

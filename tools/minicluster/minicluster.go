@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/tools/executiontester/assetcontract"
 	bc "github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
@@ -283,6 +284,7 @@ func main() {
 		}
 
 		chains := make([]blockchain.Blockchain, numNodes)
+		sfs := make([]factory.Factory, numNodes)
 		stateHeights := make([]uint64, numNodes)
 		bcHeights := make([]uint64, numNodes)
 		idealHeight := make([]uint64, numNodes)
@@ -292,8 +294,9 @@ func main() {
 
 		for i := 0; i < numNodes; i++ {
 			chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
+			sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
 
-			stateHeights[i], err = chains[i].Factory().Height()
+			stateHeights[i], err = sfs[i].Height()
 			if err != nil {
 				log.S().Errorf("Node %d: Can not get State height", i)
 			}

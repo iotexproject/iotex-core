@@ -15,15 +15,22 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	updateCmdShorts = map[config.Language]string{
+		config.English: "Update password for IoTeX account",
+		config.Chinese: "为IoTeX账户更新密码",
+	}
+)
 // accountUpdateCmd represents the account update command
 var accountUpdateCmd = &cobra.Command{
 	Use:   "update [ALIAS|ADDRESS]",
-	Short: "Update password for IoTeX account",
+	Short: config.TranslateInLang(updateCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

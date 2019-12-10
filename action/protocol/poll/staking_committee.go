@@ -211,7 +211,8 @@ func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64
 		return nil, errors.New("native staking was not set after cook height")
 	}
 
-	nativeVotes, err := sc.nativeStaking.Votes(bcCtx.Tip.Height, bcCtx.Tip.Timestamp)
+	// TODO: extract tip info inside of Votes function
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Height, bcCtx.Tip.Timestamp)
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil
@@ -232,7 +233,7 @@ func (sc *stakingCommittee) CandidatesByHeight(height uint64) (state.CandidateLi
 	return sc.candidatesByHeight(sc.getEpochHeight(sc.getEpochNum(height)))
 }
 
-func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateManager, method []byte, args ...[]byte) ([]byte, error) {
+func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
 	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
 }
 

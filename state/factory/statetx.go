@@ -74,7 +74,9 @@ func (stx *stateTX) Digest() (hash.Hash256, error) {
 func (stx *stateTX) Version() uint64 { return stx.blockHeight }
 
 // Height returns the Height of the block being worked on
-func (stx *stateTX) Height() uint64 { return stx.blockHeight }
+func (stx *stateTX) Height() (uint64, error) {
+	return stx.blockHeight, nil
+}
 
 // History returns if the DB retains history
 func (stx *stateTX) History() bool { return stx.saveHistory }

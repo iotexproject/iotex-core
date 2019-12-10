@@ -13,15 +13,22 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var(
+	removeCmdShorts = map[config.Language]string{
+		config.English: "Remove alias",
+		config.Chinese: "移除别名",
+	}
+)
 // aliasRemoveCmd represents the alias remove command
 var aliasRemoveCmd = &cobra.Command{
 	Use:   "remove ALIAS",
-	Short: "Remove alias",
+	Short: config.TranslateInLang(removeCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

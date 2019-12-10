@@ -19,15 +19,22 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	deleteCmdShort = map[config.Language]string{
+		config.English: "Delete an IoTeX account/address from wallet/config",
+		config.Chinese: "从 wallet/config 中删除一个IoTeX的账户或地址",
+	}
+)
 // accountDeleteCmd represents the account delete command
 var accountDeleteCmd = &cobra.Command{
 	Use:   "delete [ALIAS|ADDRESS]",
-	Short: "Delete an IoTeX account/address from wallet/config",
+	Short: config.TranslateInLang(deleteCmdShort, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

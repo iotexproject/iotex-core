@@ -11,14 +11,23 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+)
+
+// Multi-language support
+var (
+	deployCmdShorts = map[config.Language]string{
+		config.English: "Deploy smart contract on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上部署智能合约",
+	}
 )
 
 // actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
 	Use:   "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Deploy smart contract on IoTeX blockchain",
+	Short: config.TranslateInLang(deployCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

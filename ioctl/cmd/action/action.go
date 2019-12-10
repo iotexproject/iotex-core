@@ -26,12 +26,20 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+)
+
+// Multi-language support
+var(
+	actionCmdShorts = map[config.Language]string{
+		config.English: "Manage actions of IoTeX blockchain",
+		config.Chinese: "管理IoTex区块链的行为",// this translation
+	}
 )
 
 const defaultGasLimit = uint64(20000000)
@@ -52,7 +60,7 @@ var (
 // ActionCmd represents the action command
 var ActionCmd = &cobra.Command{
 	Use:   "action",
-	Short: "Manage actions of IoTeX blockchain",
+	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
 }
 
 type sendMessage struct {

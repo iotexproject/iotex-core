@@ -69,10 +69,6 @@ type Blockchain interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// BlockFooterByHash return block footer by hash
 	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
-	// Factory returns the state factory
-	Factory() factory.Factory
-	// BlockDAO returns the block dao
-	BlockDAO() blockdao.BlockDAO
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -112,11 +108,7 @@ type Blockchain interface {
 }
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
-func ProductivityByEpoch(bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
-	ctx, err := bc.Context()
-	if err != nil {
-		return 0, nil, err
-	}
+func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
@@ -179,51 +171,6 @@ type ActPoolManager interface {
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
 
-// DefaultStateFactoryOption sets blockchain's sf from config
-func DefaultStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) (err error) {
-		if bc.sf != nil {
-			return nil
-		}
-		if cfg.Chain.EnableTrielessStateDB {
-			bc.sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
-		} else {
-			bc.sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
-		}
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create state factory")
-		}
-		return nil
-	}
-}
-
-// PrecreatedStateFactoryOption sets blockchain's state.Factory to sf
-func PrecreatedStateFactoryOption(sf factory.Factory) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		if bc.sf != nil {
-			return nil
-		}
-		bc.sf = sf
-		return nil
-	}
-}
-
-// InMemStateFactoryOption sets blockchain's factory.Factory as in memory sf
-func InMemStateFactoryOption() Option {
-	return func(bc *blockchain, cfg config.Config) error {
-		if bc.sf != nil {
-			return nil
-		}
-		sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-		if err != nil {
-			return errors.Wrapf(err, "Failed to create state factory")
-		}
-		bc.sf = sf
-
-		return nil
-	}
-}
-
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
 	return func(bc *blockchain, cfg config.Config) error {
@@ -275,11 +222,12 @@ func RegistryOption(registry *protocol.Registry) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
-func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blockchain {
+func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config: cfg,
 		dao:    dao,
+		sf:     sf,
 		clk:    clock.New(),
 	}
 	for _, opt := range opts {
@@ -317,10 +265,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, opts ...Option) Blo
 		chain.lifecycle.Add(chain.sf)
 	}
 	return chain
-}
-
-func (bc *blockchain) BlockDAO() blockdao.BlockDAO {
-	return bc.dao
 }
 
 func (bc *blockchain) ChainID() uint32 {
@@ -394,11 +338,6 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 	return bc.dao.Footer(h)
 }
 
-// GetFactory returns the state factory
-func (bc *blockchain) Factory() factory.Factory {
-	return bc.sf
-}
-
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
 	bc.mu.RLock()
@@ -427,6 +366,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 func (bc *blockchain) Context() (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
+
 	return bc.context(context.Background(), true, true)
 }
 
@@ -478,7 +418,7 @@ func (bc *blockchain) MintNewBlock(
 
 	newblockHeight := bc.tipHeight + 1
 	// run execution and update state trie root hash
-	ctx, err := bc.context(context.Background(), false, true)
+	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return nil, err
 	}

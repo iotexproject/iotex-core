@@ -148,21 +148,21 @@ func (v *validator) validateActionsOnly(
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedNonce, err := v.sf.Nonce(srcAddr)
+		confirmedState, err := v.sf.AccountState(srcAddr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 		for i, nonce := range receivedNonces {
-			if nonce != confirmedNonce+uint64(i+1) {
+			if nonce != confirmedState.Nonce+uint64(i+1) {
 				return errors.Wrapf(
 					action.ErrNonce,
 					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
-					confirmedNonce,
+					confirmedState.Nonce,
 				)
 			}
 		}

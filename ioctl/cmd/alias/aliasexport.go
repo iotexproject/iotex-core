@@ -13,15 +13,23 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 // aliasExportCmd doesn't support global flag "output-format", use `ioctl alias list -o [FORMAT]` instead
 
+// Multi-language support
+var (
+	exportCmd = map[config.Language]string{
+		config.English: "Export aliases to either json or yaml format",
+		config.Chinese: "以json或yaml格式导出别名",
+	}
+)
+
 // aliasExportCmd represents the alias export command
 var aliasExportCmd = &cobra.Command{
 	Use:   "export",
-	Short: "Export aliases to either json or yaml format",
+	Short: config.TranslateInLang(exportCmd, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

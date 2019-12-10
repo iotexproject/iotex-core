@@ -8,6 +8,7 @@ package action
 
 import (
 	"encoding/hex"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
 
 	"github.com/spf13/cobra"
 
@@ -16,11 +17,18 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var(
+	transferCmdShorts = map[config.Language]string{
+		config.English: "Transfer tokens on IoTeX blokchain",
+		config.Chinese: "在IoTeX区块链上转移令牌",
+	}
+)
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
 	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA]" +
 		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Transfer tokens on IoTeX blokchain",
+	Short: config.TranslateInLang(transferCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

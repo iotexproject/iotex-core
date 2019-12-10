@@ -15,9 +15,17 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+)
+
+// Multi-language support
+var (
+	aliasCmdShorts = map[config.Language]string{
+		config.English: "Manage aliases of IoTeX addresses",
+		config.Chinese: "管理IoTeX的地址别名",
+	}
 )
 
 // Errors
@@ -43,7 +51,7 @@ type aliases struct {
 // AliasCmd represents the alias command
 var AliasCmd = &cobra.Command{
 	Use:   "alias",
-	Short: "Manage aliases of IoTeX addresses",
+	Short: config.TranslateInLang(aliasCmdShorts, config.UILanguage),
 }
 
 func init() {

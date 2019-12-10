@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-election/committee"
 )
 
@@ -48,6 +49,8 @@ type ChainService struct {
 	blocksync         blocksync.BlockSync
 	consensus         consensus.Consensus
 	chain             blockchain.Blockchain
+	factory           factory.Factory
+	blockdao          blockdao.BlockDAO
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
@@ -93,17 +96,24 @@ func New(
 			return nil, err
 		}
 	}
-
-	var chainOpts []blockchain.Option
+	// create state factory
+	var sf factory.Factory
 	if ops.isTesting {
-		chainOpts = []blockchain.Option{
-			blockchain.InMemStateFactoryOption(),
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	} else {
-		chainOpts = []blockchain.Option{
-			blockchain.DefaultStateFactoryOption(),
+		if cfg.Chain.EnableTrielessStateDB {
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		} else {
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	}
+	var chainOpts []blockchain.Option
 	registry := protocol.NewRegistry()
 	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
 	var electionCommittee committee.Committee
@@ -159,7 +169,7 @@ func New(
 		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
 	if chain == nil {
 		panic("failed to create blockchain")
 	}
@@ -175,61 +185,67 @@ func New(
 	}
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
-	actPool, err := actpool.NewActPool(chain, cfg.ActPool, actOpts...)
+	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create actpool")
-	}
-	rDPoSProtocol := rolldpos.NewProtocol(
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
-		cfg.Genesis.NumSubEpochs,
-		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
-	)
-	pollProtocol, err := poll.NewProtocol(
-		cfg,
-		func(contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
-			if err != nil {
-				return nil, err
-			}
-
-			addr, err := address.FromString(address.ZeroAddress)
-			if err != nil {
-				return nil, err
-			}
-			ctx, err := chain.Context()
-			if err != nil {
-				return nil, err
-			}
-
-			data, _, err := chain.Factory().SimulateExecution(ctx, addr, ex, chain.BlockDAO().GetBlockHash)
-
-			return data, err
-		},
-		chain.Factory().CandidatesByHeight,
-		electionCommittee,
-		func(height uint64) (time.Time, error) {
-			header, err := chain.BlockHeaderByHeight(height)
-			if err != nil {
-				return time.Now(), errors.Wrapf(
-					err, "error when getting the block at height: %d",
-					height,
-				)
-			}
-			return header.Timestamp(), nil
-		},
-		rDPoSProtocol,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate poll protocol")
 	}
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
-		consensus.WithRollDPoSProtocol(rDPoSProtocol),
-		consensus.WithPollProtocol(pollProtocol),
 	}
+	var rDPoSProtocol *rolldpos.Protocol
+	var pollProtocol poll.Protocol
+	if cfg.Consensus.Scheme == config.RollDPoSScheme {
+		rDPoSProtocol = rolldpos.NewProtocol(
+			cfg.Genesis.NumCandidateDelegates,
+			cfg.Genesis.NumDelegates,
+			cfg.Genesis.NumSubEpochs,
+			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
+		)
+		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		pollProtocol, err = poll.NewProtocol(
+			cfg,
+			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+				ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+				if err != nil {
+					return nil, err
+				}
+
+				addr, err := address.FromString(address.ZeroAddress)
+				if err != nil {
+					return nil, err
+				}
+
+				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+
+				return data, err
+			},
+			sf.CandidatesByHeight,
+			electionCommittee,
+			func(height uint64) (time.Time, error) {
+				header, err := chain.BlockHeaderByHeight(height)
+				if err != nil {
+					return time.Now(), errors.Wrapf(
+						err, "error when getting the block at height: %d",
+						height,
+					)
+				}
+				return header.Timestamp(), nil
+			},
+			rDPoSProtocol,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to generate poll protocol")
+		}
+		if pollProtocol != nil {
+			copts = append(copts, consensus.WithPollProtocol(pollProtocol))
+		}
+	}
+	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
+	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+	})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
@@ -238,6 +254,7 @@ func New(
 	bs, err := blocksync.NewBlockSyncer(
 		cfg,
 		chain,
+		dao,
 		actPool,
 		consensus,
 		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
@@ -254,6 +271,7 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
+		sf,
 		dao,
 		indexer,
 		actPool,
@@ -270,11 +288,11 @@ func New(
 	// Add action validators
 	actPool.
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().Nonce),
+			protocol.NewGenericValidator(sf.AccountState),
 		)
 	chain.Validator().
 		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(chain.Factory().Nonce),
+			protocol.NewGenericValidator(sf.AccountState),
 		)
 	if !ops.isSubchain {
 		chain.Validator().
@@ -283,25 +301,45 @@ func New(
 			)
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	executionProtocol := execution.NewProtocol(chain.BlockDAO().GetBlockHash)
-	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(chain, epochNum)
-	}, rDPoSProtocol)
-	cs := &ChainService{
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
+	if accountProtocol != nil {
+		if err = accountProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if rDPoSProtocol != nil {
+		if err = rDPoSProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if pollProtocol != nil {
+		if err = pollProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if executionProtocol != nil {
+		if err = executionProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+	if rewardingProtocol != nil {
+		if err = rewardingProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainService{
 		actpool:           actPool,
 		chain:             chain,
+		factory:           sf,
+		blockdao:          dao,
 		blocksync:         bs,
 		consensus:         consensus,
 		electionCommittee: electionCommittee,
 		indexBuilder:      indexBuilder,
 		api:               apiSvr,
 		registry:          registry,
-	}
-	// Install protocols
-	if err := cs.registerDefaultProtocols(accountProtocol, rDPoSProtocol, pollProtocol, executionProtocol, rewardingProtocol); err != nil {
-		return nil, err
-	}
-	return cs, nil
+	}, nil
 }
 
 // Start starts the server
@@ -410,6 +448,16 @@ func (cs *ChainService) Blockchain() blockchain.Blockchain {
 	return cs.chain
 }
 
+// StateFactory returns the state factory
+func (cs *ChainService) StateFactory() factory.Factory {
+	return cs.factory
+}
+
+// BlockDAO returns the blockdao
+func (cs *ChainService) BlockDAO() blockdao.BlockDAO {
+	return cs.blockdao
+}
+
 // ActionPool returns the Action pool
 func (cs *ChainService) ActionPool() actpool.ActPool {
 	return cs.actpool
@@ -430,34 +478,5 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 	return cs.blocksync
 }
 
-// registerProtocol register a protocol
-func (cs *ChainService) registerProtocol(p protocol.Protocol) error {
-	if err := p.Register(cs.registry); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
-
-// registerDefaultProtocols registers default protocol into chainservice's registry
-func (cs *ChainService) registerDefaultProtocols(accountProtocol *account.Protocol, rDPoSProtocol *rolldpos.Protocol, pollProtocol poll.Protocol, executionProtocol *execution.Protocol, rewardingProtocol *rewarding.Protocol) (err error) {
-	if err = cs.registerProtocol(accountProtocol); err != nil {
-		return
-	}
-	if err = cs.registerProtocol(rDPoSProtocol); err != nil {
-		return
-	}
-	if pollProtocol != nil {
-		if err = cs.registerProtocol(pollProtocol); err != nil {
-			return
-		}
-	}
-	if err = cs.registerProtocol(executionProtocol); err != nil {
-		return
-	}
-
-	return cs.registerProtocol(rewardingProtocol)
-}

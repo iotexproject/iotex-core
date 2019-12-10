@@ -296,19 +296,21 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(func(uint64) (uint64, map[string]uint64, error) {
+	p := NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
 		return uint64(19),
 			map[string]uint64{
 				identityset.Address(0).String(): 9,
 				identityset.Address(1).String(): 10,
 			},
 			nil
-	}, rolldpos.NewProtocol(
+	})
+	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
-	))
+	)
 	require.NoError(t, p.Register(registry))
+	require.NoError(t, rp.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"

@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -50,11 +51,11 @@ func TestActionProto(t *testing.T) {
 			},
 		})
 
-	valid := NewGenericValidator(func(addr string) (uint64, error) {
+	valid := NewGenericValidator(func(addr string) (*state.Account, error) {
 		if strings.EqualFold("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6", addr) {
-			return 0, errors.New("MockChainManager nonce error")
+			return nil, errors.New("MockChainManager nonce error")
 		}
-		return 2, nil
+		return &state.Account{Nonce: 2}, nil
 	})
 	data, err := hex.DecodeString("")
 	require.NoError(err)
@@ -108,7 +109,7 @@ func TestActionProto(t *testing.T) {
 		require.NoError(nselp.LoadProto(selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
-		require.True(strings.Contains(err.Error(), "invalid nonce value of account"))
+		require.True(strings.Contains(err.Error(), "invalid state of account"))
 	}
 	// Case IV: Call Nonce err
 	{

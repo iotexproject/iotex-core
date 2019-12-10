@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/probe"
@@ -65,8 +66,21 @@ func TestBlockReward(t *testing.T) {
 	testIndexPath := testIndexFile.Name()
 
 	cfg := config.Default
-	cfg.Consensus.Scheme = config.StandaloneScheme
+	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Genesis.NumDelegates = 1
+	cfg.Genesis.NumSubEpochs = 10
+	cfg.Genesis.Delegates = []genesis.Delegate{
+		{
+			OperatorAddrStr: identityset.Address(0).String(),
+			RewardAddrStr:   identityset.Address(0).String(),
+			VotesStr:        "10",
+		},
+	}
 	cfg.Genesis.BlockInterval = time.Second
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath
@@ -89,7 +103,7 @@ func TestBlockReward(t *testing.T) {
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
-	sf := svr.ChainService(1).Blockchain().Factory()
+	sf := svr.ChainService(1).StateFactory()
 	ws, err := sf.NewWorkingSet()
 	require.NoError(t, err)
 
@@ -105,7 +119,7 @@ func TestBlockReward(t *testing.T) {
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
 	for i := 1; i <= 5; i++ {
-		blk, err := svr.ChainService(1).Blockchain().BlockDAO().GetBlockByHeight(uint64(i))
+		blk, err := svr.ChainService(1).BlockDAO().GetBlockByHeight(uint64(i))
 		require.NoError(t, err)
 		ok := false
 		var gr *action.GrantReward
@@ -214,6 +228,7 @@ func TestBlockEpochReward(t *testing.T) {
 	// Get each server's parameters: rewarding protocol, working set, block chain etc.
 	rps := make([]*rewarding.Protocol, numNodes)
 	wss := make([]factory.WorkingSet, numNodes)
+	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
 	apis := make([]*api.Server, numNodes)
 	//Map of expected unclaimed balance for each reward address
@@ -232,8 +247,8 @@ func TestBlockEpochReward(t *testing.T) {
 		require.NotNil(t, rp)
 		rps[i] = rp
 
-		sf := svrs[i].ChainService(configs[i].Chain.ID).Blockchain().Factory()
-		ws, err := sf.NewWorkingSet()
+		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
+		ws, err := sfs[i].NewWorkingSet()
 		require.NoError(t, err)
 		wss[i] = ws
 
@@ -242,12 +257,14 @@ func TestBlockEpochReward(t *testing.T) {
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
-		initBalances[rewardAddrStr], err = chains[i].Factory().Balance(rewardAddrStr)
+		initState, err := sfs[i].AccountState(rewardAddrStr)
 		require.NoError(t, err)
+		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
-		initBalances[operatorAddrStr], err = chains[i].Factory().Balance(operatorAddrStr)
+		initState, err = sfs[i].AccountState(operatorAddrStr)
 		require.NoError(t, err)
+		initBalances[operatorAddrStr] = initState.Balance
 
 		claimedAmount[rewardAddrStr] = big.NewInt(0)
 
@@ -431,18 +448,18 @@ func TestBlockEpochReward(t *testing.T) {
 	for i := 0; i < numNodes; i++ {
 		//Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
-		endBalance, err := chains[0].Factory().Balance(rewardAddrStr)
-		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endBalance.String())
+		endState, err := sfs[0].AccountState(rewardAddrStr)
 		require.NoError(t, err)
+		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
 		fmt.Println("Server ", i, " ", rewardAddrStr, "Expected Balance ", expectBalance.String())
-		require.Equal(t, expectBalance.String(), endBalance.String())
+		require.Equal(t, expectBalance.String(), endState.Balance.String())
 
 		//Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
-		operatorBalance, err := chains[i].Factory().Balance(operatorAddrStr)
+		operatorState, err := sfs[i].AccountState(operatorAddrStr)
 		require.NoError(t, err)
-		require.Equal(t, initBalances[operatorAddrStr], operatorBalance)
+		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
 	}
 
 	return

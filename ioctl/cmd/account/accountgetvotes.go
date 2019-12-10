@@ -14,15 +14,21 @@ import (
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-core/ioctl/cmd/config"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
-
+// Multi-language support
+var(
+	getVotesCmdShorts = map[config.Language]string{
+		config.English: "Get votes of this votee",
+		config.Chinese: "从投票人处获得投票",
+	}
+)
 // accountGetVotesCmd represents the account get votes command
 var accountGetVotesCmd = &cobra.Command{
 	Use:   "getVotes VOTEE HEIGHT OFFSET LIMIT",
-	Short: "Get votes of this votee",
+	Short: config.TranslateInLang(getVotesCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

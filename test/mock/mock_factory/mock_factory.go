@@ -13,7 +13,6 @@ import (
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
 	reflect "reflect"
 )
 
@@ -66,36 +65,6 @@ func (m *MockFactory) Stop(arg0 context.Context) error {
 func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
-}
-
-// Balance mocks base method
-func (m *MockFactory) Balance(arg0 string) (*big.Int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Balance", arg0)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Balance indicates an expected call of Balance
-func (mr *MockFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockFactory)(nil).Balance), arg0)
-}
-
-// Nonce mocks base method
-func (m *MockFactory) Nonce(arg0 string) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Nonce", arg0)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
 }
 
 // AccountState mocks base method

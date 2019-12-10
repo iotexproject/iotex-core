@@ -11,19 +11,29 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 var numAccounts uint
 
+// Multi-language support
+var (
+	createCmdShorts = map[config.Language]string{
+		config.English: "Create N new accounts and print them",
+		config.Chinese: "创建 N 个新账户，并打印",
+	}
+)
+
 // accountCreateCmd represents the account create command
 var accountCreateCmd = &cobra.Command{
 	Use:   "create",
-	Short: "Create N new accounts and print them",
+	Short: config.TranslateInLang(createCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
