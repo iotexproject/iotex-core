@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package db
+package batch
 
 import (
 	"math/rand"
@@ -15,6 +15,14 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+)
+
+var (
+	bucket1 = "test_ns1"
+	testK1  = [3][]byte{[]byte("key_1"), []byte("key_2"), []byte("key_3")}
+	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
+	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
+	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
 )
 
 func TestCachedBatch(t *testing.T) {
@@ -49,11 +57,11 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(Delete, w.writeType)
 
 	// test ExcludeEntries
-	d := cb.Digest()
+	d := cb.SerializeQueue(nil)
 	require.Equal(3, cb.Size())
 	r := cb.ExcludeEntries(bucket1, Delete)
 	require.Equal(1, r.Size())
-	require.NotEqual(d, r.Digest())
+	require.NotEqual(d, r.SerializeQueue(nil))
 	r = cb.ExcludeEntries("", Put)
 	require.Equal(2, r.Size())
 }
@@ -154,7 +162,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		b.StartTimer()
-		h := cb.Digest()
+		h := cb.SerializeQueue(nil)
 		b.StopTimer()
 		require.NotEqual(b, hash.ZeroHash256, h)
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -58,7 +59,7 @@ type (
 		preimages          preimageMap
 		preimageSnapshot   map[int]preimageMap
 		dao                db.KVStore
-		cb                 db.CachedBatch
+		cb                 batch.CachedBatch
 		notFixTopicCopyBug bool
 	}
 )

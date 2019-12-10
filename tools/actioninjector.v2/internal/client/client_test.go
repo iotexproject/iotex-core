@@ -37,7 +37,6 @@ func TestClient(t *testing.T) {
 	mockCtrl := gomock.NewController(t)
 	defer mockCtrl.Finish()
 
-	state := state.EmptyAccount()
 	chainID := uint32(1)
 	tx, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
 	require.NoError(err)
@@ -50,8 +49,9 @@ func TestClient(t *testing.T) {
 	sf := mock_factory.NewMockFactory(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 
-	sf.EXPECT().AccountState(gomock.Any()).Return(&state, nil).AnyTimes()
-	bc.EXPECT().Factory().Return(sf).AnyTimes()
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(_ hash.Hash160, accountState *state.Account) {
+		*accountState = state.EmptyAccount()
+	})
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
 	bc.EXPECT().AddSubscriber(gomock.Any()).Return(nil).AnyTimes()
 	ap.EXPECT().GetPendingNonce(gomock.Any()).Return(uint64(1), nil).AnyTimes()
@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 	})
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, nil, indexer, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

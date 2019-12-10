@@ -64,7 +64,7 @@ func (mr *MockProtocolMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock
 }
 
 // ReadState mocks base method
-func (m *MockProtocol) ReadState(arg0 context.Context, arg1 StateManager, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
+func (m *MockProtocol) ReadState(arg0 context.Context, arg1 StateReader, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {

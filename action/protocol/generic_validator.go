@@ -13,22 +13,25 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
-	// Nonce defines a function to return the nonce of a given address
-	Nonce func(string) (uint64, error)
+	// AccountState defines a function to return the account state of a given address
+	AccountState func(StateReader, string) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
-		mu    sync.RWMutex
-		nonce Nonce
+		mu           sync.RWMutex
+		accountState AccountState
+		sr           StateReader
 	}
 )
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(nonce Nonce) *GenericValidator {
+func NewGenericValidator(sr StateReader, accountState AccountState) *GenericValidator {
 	return &GenericValidator{
-		nonce: nonce,
+		sr:           sr,
+		accountState: accountState,
 	}
 }
 
@@ -45,12 +48,12 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedNonce, err := v.nonce(actionCtx.Caller.String())
+	confirmedState, err := v.accountState(v.sr, actionCtx.Caller.String())
 	if err != nil {
-		return errors.Wrapf(err, "invalid nonce value of account %s", actionCtx.Caller.String())
+		return errors.Wrapf(err, "invalid state of account %s", actionCtx.Caller.String())
 	}
 
-	pendingNonce := confirmedNonce + 1
+	pendingNonce := confirmedState.Nonce + 1
 	if act.Nonce() > 0 && pendingNonce > act.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
 	}

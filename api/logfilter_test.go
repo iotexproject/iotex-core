@@ -17,24 +17,24 @@ var (
 	topicB = hash.Hash256b([]byte("topicB"))
 
 	testFilter = []*iotexapi.LogsFilter{
-		&iotexapi.LogsFilter{
+		{
 			Address: []string{},
 			Topics:  []*iotexapi.Topics{},
 		},
-		&iotexapi.LogsFilter{
+		{
 			Address: []string{"topic1", "topic2", "topicA", "topicB"},
 			Topics:  nil,
 		},
-		&iotexapi.LogsFilter{
+		{
 			Address: nil,
 			Topics: []*iotexapi.Topics{
-				&iotexapi.Topics{
+				{
 					Topic: [][]byte{
 						topic1[:],
 						topic2[:],
 					},
 				},
-				&iotexapi.Topics{
+				{
 					Topic: [][]byte{
 						topicA[:],
 						topicB[:],
@@ -42,10 +42,10 @@ var (
 				},
 			},
 		},
-		&iotexapi.LogsFilter{
+		{
 			Address: []string{"topic1", "topic2"},
 			Topics: []*iotexapi.Topics{
-				&iotexapi.Topics{
+				{
 					Topic: [][]byte{
 						topic1[:],
 						topic2[:],
@@ -54,11 +54,11 @@ var (
 				nil,
 			},
 		},
-		&iotexapi.LogsFilter{
+		{
 			Address: []string{"topicA", "topicB"},
 			Topics: []*iotexapi.Topics{
 				nil,
-				&iotexapi.Topics{
+				{
 					Topic: [][]byte{
 						topicA[:],
 						topicB[:],

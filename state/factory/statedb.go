@@ -9,7 +9,6 @@ package factory
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"sync"
 
@@ -18,6 +17,9 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -134,40 +136,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-
-// Balance returns balance
-func (sdb *stateDB) Balance(addr string) (*big.Int, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-
-	account, err := sdb.accountState(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return account.Balance, nil
-}
-
-// Nonce returns the Nonce if the account exists
-func (sdb *stateDB) Nonce(addr string) (uint64, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-
-	account, err := sdb.accountState(addr)
-	if err != nil {
-		return 0, err
-	}
-
-	return account.Nonce, nil
-}
-
-// AccountState returns the confirmed account state on the chain
-func (sdb *stateDB) AccountState(addr string) (*state.Account, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-	return sdb.accountState(addr)
-}
-
 // RootHash returns the hash of the root node of the state trie
 func (sdb *stateDB) RootHash() hash.Hash256 { return hash.ZeroHash256 }
 
@@ -192,6 +160,41 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	defer sdb.mutex.RUnlock()
 
 	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
+}
+
+func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+	sdb.mutex.Lock()
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+
+	return runActions(ctx, ws, actions)
+}
+
+func (sdb *stateDB) PickAndRunActions(
+	ctx context.Context,
+	actionMap map[string][]action.SealedEnvelope,
+	postSystemActions []action.SealedEnvelope,
+) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	sdb.mutex.Lock()
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+
+	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sdb *stateDB) SimulateExecution(
+	ctx context.Context,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash evm.GetBlockHash,
+) ([]byte, *action.Receipt, error) {
+	sdb.mutex.Lock()
+	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -271,30 +274,17 @@ func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) accountState(encodedAddr string) (*state.Account, error) {
-	// TODO: state db shouldn't serve this function
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, err
-	}
-	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	if err := sdb.state(pkHash, &account); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	return &account, nil
-}
-
 func (sdb *stateDB) commit(ws WorkingSet) error {
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height
-	sdb.currentChainHeight = ws.Height()
+	height, err := ws.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get working set height")
+	}
+	sdb.currentChainHeight = height
+
 	return nil
 }
 

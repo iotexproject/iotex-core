@@ -21,6 +21,82 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 )
 
+const (
+	overwritePath = "_overwritePath"
+	secretPath    = "_secretPath"
+	subChainPath  = "_subChainPath"
+)
+
+func makePathAndWriteFile(cfgStr, flagForPath string) (err error) {
+	switch flagForPath {
+	case overwritePath:
+		_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
+		err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	case secretPath:
+		_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
+		err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
+	case subChainPath:
+		_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
+		err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+	}
+	return err
+}
+
+func resetPathValues(t *testing.T, flagForPath []string) {
+	for _, pathValue := range flagForPath {
+		switch pathValue {
+		case overwritePath:
+			err := os.Remove(_overwritePath)
+			_overwritePath = ""
+			require.NoError(t, err)
+		case secretPath:
+			err := os.Remove(_secretPath)
+			_secretPath = ""
+			require.NoError(t, err)
+		case subChainPath:
+			err := os.Remove(_subChainPath)
+			_subChainPath = ""
+			require.NoError(t, err)
+		}
+	}
+}
+
+func resetPathValuesWithLookupEnv(t *testing.T, oldEnv string, oldExist bool, flagForPath string) {
+	switch flagForPath {
+	case overwritePath:
+		err := os.Remove(_overwritePath)
+		require.NoError(t, err)
+		_overwritePath = ""
+		if oldExist {
+			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
+		} else {
+			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+		}
+		require.NoError(t, err)
+	case subChainPath:
+		err := os.Remove(_subChainPath)
+		require.NoError(t, err)
+		_subChainPath = ""
+		if oldExist {
+			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
+		} else {
+			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
+		}
+		require.NoError(t, err)
+	}
+}
+
+func generateProducerPrivKey() (crypto.PrivateKey, string, error) {
+	sk, err := crypto.GenerateKey()
+	cfgStr := fmt.Sprintf(`
+chain:
+    producerPrivKey: "%s"
+`,
+		sk.HexString(),
+	)
+	return sk, cfgStr, err
+}
+
 func TestDB_SplitDBSize(t *testing.T) {
 	var db = DB{SplitDBSizeMB: uint64(1)}
 	var expected = uint64(1 * 1024 * 1024)
@@ -84,22 +160,12 @@ func TestNewConfigWithPlugins(t *testing.T) {
 }
 
 func TestNewConfigWithOverride(t *testing.T) {
-	sk, err := crypto.GenerateKey()
+	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
-	defer func() {
-		err := os.Remove(_overwritePath)
-		_overwritePath = ""
-		require.NoError(t, err)
-	}()
+
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
+
+	defer resetPathValues(t, []string{"_overwritePath"})
 
 	cfg, err := New()
 	require.NoError(t, err)
@@ -108,36 +174,14 @@ chain:
 }
 
 func TestNewConfigWithSecret(t *testing.T) {
-	sk, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
+	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
 
-	cfgStr = fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
-	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
 
-	defer func() {
-		err := os.Remove(_overwritePath)
-		require.NoError(t, err)
-		_overwritePath = ""
-		err = os.Remove(_secretPath)
-		require.NoError(t, err)
-		_secretPath = ""
-	}()
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_secretPath"))
+
+	defer resetPathValues(t, []string{"_overwritePath", "_secretPath"})
 
 	cfg, err := New()
 	require.NoError(t, err)
@@ -148,29 +192,11 @@ chain:
 func TestNewConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 
-	sk, err := crypto.GenerateKey()
+	_, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_overwritePath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_overwritePath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_overwritePath"))
 
-	defer func() {
-		err := os.Remove(_overwritePath)
-		require.NoError(t, err)
-		_overwritePath = ""
-		if oldExist {
-			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
-		} else {
-			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
-		}
-		require.NoError(t, err)
-	}()
+	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_overwritePath")
 
 	cfg, err := New()
 	require.NoError(t, err)
@@ -293,23 +319,11 @@ func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
 }
 
 func TestNewSubConfigWithSubChainPath(t *testing.T) {
-	sk, err := crypto.GenerateKey()
+	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
-	defer func() {
-		err = os.Remove(_subChainPath)
-		_subChainPath = ""
-		require.NoError(t, err)
-	}()
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
+	defer resetPathValues(t, []string{"_subChainPath"})
 	cfg, err := NewSub()
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
@@ -317,36 +331,13 @@ chain:
 }
 
 func TestNewSubConfigWithSecret(t *testing.T) {
-	sk, err := crypto.GenerateKey()
+	sk, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
-	cfgStr = fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_secretPath = filepath.Join(os.TempDir(), "secret.yaml")
-	err = ioutil.WriteFile(_secretPath, []byte(cfgStr), 0666)
-	require.NoError(t, err)
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_secretPath"))
 
-	defer func() {
-		err = os.Remove(_subChainPath)
-		require.NoError(t, err)
-		_subChainPath = ""
-		err = os.Remove(_secretPath)
-		require.NoError(t, err)
-		_secretPath = ""
-	}()
+	defer resetPathValues(t, []string{"_subChainPath", "_secretPath"})
 
 	cfg, err := NewSub()
 	require.NoError(t, err)
@@ -357,29 +348,12 @@ chain:
 func TestNewSubConfigWithLookupEnv(t *testing.T) {
 	oldEnv, oldExist := os.LookupEnv("IOTEX_TEST_NODE_TYPE")
 
-	sk, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	cfgStr := fmt.Sprintf(`
-chain:
-    producerPrivKey: "%s"
-`,
-		sk.HexString(),
-	)
-	_subChainPath = filepath.Join(os.TempDir(), "config.yaml")
-	err = ioutil.WriteFile(_subChainPath, []byte(cfgStr), 0666)
+	_, cfgStr, err := generateProducerPrivKey()
 	require.NoError(t, err)
 
-	defer func() {
-		err = os.Remove(_subChainPath)
-		require.NoError(t, err)
-		_subChainPath = ""
-		if oldExist {
-			err = os.Setenv("IOTEX_TEST_NODE_TYPE", oldEnv)
-		} else {
-			err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
-		}
-		require.NoError(t, err)
-	}()
+	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
+
+	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_subChainPath")
 
 	cfg, err := NewSub()
 	require.NoError(t, err)

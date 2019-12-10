@@ -12,18 +12,20 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -85,7 +87,7 @@ func EnableExperimentalActions() Option {
 type actPool struct {
 	mutex                     sync.RWMutex
 	cfg                       config.ActPool
-	bc                        blockchain.Blockchain
+	sf                        factory.Factory
 	accountActs               map[string]ActQueue
 	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
 	allActions                map[hash.Hash256]action.SealedEnvelope
@@ -97,9 +99,9 @@ type actPool struct {
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (ActPool, error) {
-	if bc == nil {
-		return nil, errors.New("Try to attach a nil blockchain")
+func NewActPool(sf factory.Factory, cfg config.ActPool, opts ...Option) (ActPool, error) {
+	if sf == nil {
+		return nil, errors.New("Try to attach a nil state factory")
 	}
 
 	senderBlackList := make(map[string]bool)
@@ -109,7 +111,7 @@ func NewActPool(bc blockchain.Blockchain, cfg config.ActPool, opts ...Option) (A
 
 	ap := &actPool{
 		cfg:             cfg,
-		bc:              bc,
+		sf:              sf,
 		senderBlackList: senderBlackList,
 		accountActs:     make(map[string]ActQueue),
 		accountDesActs:  make(map[string]map[hash.Hash256]action.SealedEnvelope),
@@ -256,9 +258,11 @@ func (ap *actPool) GetPendingNonce(addr string) (uint64, error) {
 	if queue, ok := ap.accountActs[addr]; ok {
 		return queue.PendingNonce(), nil
 	}
-	confirmedNonce, err := ap.bc.Factory().Nonce(addr)
-	pendingNonce := confirmedNonce + 1
-	return pendingNonce, err
+	confirmedState, err := accountutil.AccountState(ap.sf, addr)
+	if err != nil {
+		return 0, err
+	}
+	return confirmedState.Nonce + 1, err
 }
 
 // GetUnconfirmedActs returns unconfirmed actions in pool given an account address
@@ -324,11 +328,12 @@ func (ap *actPool) GetGasCapacity() uint64 {
 // private functions
 //======================================
 func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHash hash.Hash256, actNonce uint64) error {
-	confirmedNonce, err := ap.bc.Factory().Nonce(sender)
+	confirmedState, err := accountutil.AccountState(ap.sf, sender)
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetNonce").Inc()
 		return errors.Wrapf(err, "failed to get sender's nonce for action %x", actHash)
 	}
+	confirmedNonce := confirmedState.Nonce
 
 	queue := ap.accountActs[sender]
 	if queue == nil {
@@ -339,12 +344,12 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
 		// Initialize balance for new account
-		balance, err := ap.bc.Factory().Balance(sender)
+		state, err := accountutil.AccountState(ap.sf, sender)
 		if err != nil {
 			actpoolMtc.WithLabelValues("failedToGetBalance").Inc()
 			return errors.Wrapf(err, "failed to get sender's balance for action %x", actHash)
 		}
-		queue.SetPendingBalance(balance)
+		queue.SetPendingBalance(state.Balance)
 	}
 	if queue.Overlaps(act) {
 		// Nonce already exists
@@ -409,12 +414,12 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 // removeConfirmedActs removes processed (committed to block) actions from pool
 func (ap *actPool) removeConfirmedActs() {
 	for from, queue := range ap.accountActs {
-		confirmedNonce, err := ap.bc.Factory().Nonce(from)
+		confirmedState, err := accountutil.AccountState(ap.sf, from)
 		if err != nil {
 			log.L().Error("Error when removing confirmed actions", zap.Error(err))
 			return
 		}
-		pendingNonce := confirmedNonce + 1
+		pendingNonce := confirmedState.Nonce + 1
 		// Remove all actions that are committed to new block
 		acts := queue.FilterNonce(pendingNonce)
 		ap.removeInvalidActs(acts)
@@ -473,19 +478,15 @@ func (ap *actPool) reset() {
 	ap.removeConfirmedActs()
 	for from, queue := range ap.accountActs {
 		// Reset pending balance for each account
-		balance, err := ap.bc.Factory().Balance(from)
+		state, err := accountutil.AccountState(ap.sf, from)
 		if err != nil {
 			log.L().Error("Error when resetting actpool state.", zap.Error(err))
 			return
 		}
-		queue.SetPendingBalance(balance)
+		queue.SetPendingBalance(state.Balance)
 
 		// Reset pending nonce and remove invalid actions for each account
-		confirmedNonce, err := ap.bc.Factory().Nonce(from)
-		if err != nil {
-			log.L().Error("Error when resetting actpool state.", zap.Error(err))
-			return
-		}
+		confirmedNonce := state.Nonce
 		pendingNonce := confirmedNonce + 1
 		queue.SetPendingNonce(pendingNonce)
 		ap.updateAccount(from)

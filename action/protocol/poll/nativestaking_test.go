@@ -2,6 +2,7 @@ package poll
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -38,7 +39,7 @@ func TestStaking(t *testing.T) {
 
 	ns, err := NewNativeStaking(nil)
 	require.Error(err)
-	ns, err = NewNativeStaking(func(string, uint64, time.Time, []byte) ([]byte, error) {
+	ns, err = NewNativeStaking(func(context.Context, string, uint64, time.Time, []byte) ([]byte, error) {
 		return nil, nil
 	})
 	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")

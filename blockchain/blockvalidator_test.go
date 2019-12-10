@@ -22,10 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -121,224 +124,135 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, PrecreatedStateFactoryOption(sf), BoltDBDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(), RegistryOption(registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
 	val := &validator{sf: sf, validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	// correct nonce
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 1, big.NewInt(20), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[identityset.Address(27).String()] = []action.SealedEnvelope{tsf1}
 
-	blkhash := tsf1.Hash()
-	blk, err := block.NewTestingBuilder().
-		SetHeight(2).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(
+		accMap,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk)
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 1,
-				Hash:   blkhash,
+				Height: blk.Height() - 1,
+				Hash:   cfg.Genesis.Hash(),
 			},
 			Registry: registry,
 		},
 	)
-	require.NoError(val.Validate(ctx, &blk))
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
-		},
-	)
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-		},
-	)
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1})
-	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(val.Validate(ctx, blk))
+	require.NoError(bc.CommitBlock(blk))
 
 	// low nonce
 	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf1, tsf2).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap2 := make(map[string][]action.SealedEnvelope)
+	accMap2[identityset.Address(27).String()] = []action.SealedEnvelope{tsf2}
+
+	prevHash := bc.TipHash()
+	blk2, err := bc.MintNewBlock(
+		accMap2,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk2.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Equal(action.ErrNonce, errors.Cause(err))
-
-	tsf3, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf3).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk2)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// duplicate nonce
+	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	require.NoError(err)
+
 	tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
 
-	tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	accMap3 := make(map[string][]action.SealedEnvelope)
+	accMap3[identityset.Address(27).String()] = []action.SealedEnvelope{tsf3, tsf4}
+
+	blk3, err := bc.MintNewBlock(
+		accMap3,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf4, tsf5).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
+	require.NotNil(blk3)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk3.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Error(err)
-	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf6, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	tsf7, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf6, tsf7).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk3)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
 	// non consecutive nonce
-	tsf8, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf5, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	tsf9, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
+	tsf6, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
 	require.NoError(err)
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf8, tsf9).
-		SignAndBuild(identityset.PrivateKey(27))
+
+	accMap4 := make(map[string][]action.SealedEnvelope)
+	accMap4[identityset.Address(27).String()] = []action.SealedEnvelope{tsf5, tsf6}
+
+	blk4, err := bc.MintNewBlock(
+		accMap4,
+		testutil.TimestampNow(),
+	)
 	require.NoError(err)
+	require.NotNil(blk4)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
+				Height: blk4.Height() - 1,
+				Hash:   prevHash,
 			},
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, &blk)
-	require.Error(err)
-	require.Equal(action.ErrNonce, errors.Cause(err))
 
-	tsf10, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 2, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-	tsf11, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
-	require.NoError(err)
-
-	blkhash = tsf1.Hash()
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(blkhash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(tsf10, tsf11).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 2,
-				Hash:   blkhash,
-			},
-			Registry: registry,
-		},
-	)
-	err = val.Validate(ctx, &blk)
+	err = val.Validate(ctx, blk4)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }
@@ -348,7 +262,10 @@ func TestWrongAddress(t *testing.T) {
 
 	ctx := context.Background()
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -357,7 +274,7 @@ func TestWrongAddress(t *testing.T) {
 	}()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
@@ -365,8 +282,8 @@ func TestWrongAddress(t *testing.T) {
 		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
-	val := &validator{sf: bc.Factory(), validatorAddr: ""}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	val := &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	invalidRecipient := "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep"
 	tsf, err := action.NewTransfer(1, big.NewInt(1), invalidRecipient, []byte{}, uint64(100000), big.NewInt(10))
@@ -419,7 +336,10 @@ func TestBlackListAddress(t *testing.T) {
 	require.NoError(t, err)
 	cfg.ActPool.BlackList = []string{addr.String()}
 	registry := protocol.NewRegistry()
-	bc := NewBlockchain(cfg, nil, InMemStateFactoryOption(), InMemDaoOption(), RegistryOption(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	require.NoError(t, err)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	require.NoError(t, bc.Start(ctx))
 	require.NotNil(t, bc)
 	defer func() {
@@ -429,7 +349,7 @@ func TestBlackListAddress(t *testing.T) {
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	ep := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 
 	ctx = protocol.WithBlockchainCtx(
@@ -441,8 +361,8 @@ func TestBlackListAddress(t *testing.T) {
 	for _, bannedSender := range cfg.ActPool.BlackList {
 		senderBlackList[bannedSender] = true
 	}
-	val := &validator{sf: bc.Factory(), validatorAddr: "", senderBlackList: senderBlackList}
-	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	val := &validator{sf: sf, validatorAddr: "", senderBlackList: senderBlackList}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	tsf, err := action.NewTransfer(1, big.NewInt(1), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}

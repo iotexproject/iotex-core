@@ -89,7 +89,7 @@ func (p *Protocol) Deposit(
 // TotalBalance returns the total balance of the rewarding fund
 func (p *Protocol) TotalBalance(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 ) (*big.Int, error) {
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
@@ -101,7 +101,7 @@ func (p *Protocol) TotalBalance(
 // AvailableBalance returns the available balance of the rewarding fund
 func (p *Protocol) AvailableBalance(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 ) (*big.Int, error) {
 	f := fund{}
 	if err := p.state(sm, fundKey, &f); err != nil {
@@ -112,7 +112,7 @@ func (p *Protocol) AvailableBalance(
 
 func (p *Protocol) assertEnoughBalance(
 	actionCtx protocol.ActionCtx,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	amount *big.Int,
 ) error {
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))

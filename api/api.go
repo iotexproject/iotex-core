@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"math"
 	"math/big"
 	"net"
@@ -47,6 +48,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -90,6 +92,7 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
+	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
 	ap                actpool.ActPool
@@ -107,6 +110,7 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
 	actPool actpool.ActPool,
@@ -131,6 +135,7 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
+		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
 		ap:                actPool,
@@ -138,7 +143,7 @@ func NewServer(
 		cfg:               cfg,
 		registry:          registry,
 		chainListener:     NewChainListener(),
-		gs:                gasstation.NewGasStation(chain, cfg.API),
+		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 	}
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
@@ -157,7 +162,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	state, err := api.bc.Factory().AccountState(in.Address)
+	state, err := accountutil.AccountState(api.sf, in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -398,14 +403,14 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	nonce, err := api.bc.Factory().Nonce(in.CallerAddress)
+	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sc, _ = action.NewExecution(
 		sc.Contract(),
-		nonce+1,
+		state.Nonce+1,
 		sc.Amount(),
 		api.cfg.Genesis.BlockGasLimit,
 		big.NewInt(0),
@@ -417,7 +422,11 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	retval, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
+	ctx, err = api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -496,8 +505,11 @@ func (api *Server) GetEpochMeta(
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
-
-	numBlks, produce, err := blockchain.ProductivityByEpoch(api.bc, in.EpochNumber)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -758,12 +770,9 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: api.registry,
 	})
-	ws, err := api.bc.Factory().NewWorkingSet()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+
 	// TODO: need to distinguish user error and system error
-	return p.ReadState(ctx, ws, methodName, arguments...)
+	return p.ReadState(ctx, api.sf, methodName, arguments...)
 }
 
 func (api *Server) getActionsFromIndex(totalActions, start, count uint64) (*iotexapi.GetActionsResponse, error) {
@@ -1272,11 +1281,11 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err := sc.LoadProto(exec); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce, err := api.bc.Factory().Nonce(sender)
+	state, err := accountutil.AccountState(api.sf, sender)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	nonce = nonce + 1
+	nonce := state.Nonce + 1
 
 	callerAddr, err := address.FromString(sender)
 	if err != nil {
@@ -1292,7 +1301,12 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		sc.Data(),
 	)
 
-	_, receipt, err := blockchain.SimulateExecution(api.bc, callerAddr, sc)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1347,7 +1361,11 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	_, receipt, err := blockchain.SimulateExecution(api.bc, caller, sc)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return false, err
+	}
+	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, err
 	}
