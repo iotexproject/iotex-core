@@ -1301,6 +1301,5 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	req.Error(bc.RemoveSubscriber(mb))
 	req.NoError(bc.AddSubscriber(mb))
 	req.NoError(bc.RemoveSubscriber(mb))
-	err := bc.RemoveSubscriber(nil)
-	req.EqualError(err, "cannot find subscription")
+	req.EqualError(bc.RemoveSubscriber(nil), "cannot find subscription")
 }
