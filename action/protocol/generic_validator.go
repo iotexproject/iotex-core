@@ -18,17 +18,19 @@ import (
 
 type (
 	// AccountState defines a function to return the account state of a given address
-	AccountState func(string) (*state.Account, error)
+	AccountState func(StateReader, string) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
 		mu           sync.RWMutex
 		accountState AccountState
+		sr           StateReader
 	}
 )
 
 // NewGenericValidator constructs a new genericValidator
-func NewGenericValidator(accountState AccountState) *GenericValidator {
+func NewGenericValidator(sr StateReader, accountState AccountState) *GenericValidator {
 	return &GenericValidator{
+		sr:           sr,
 		accountState: accountState,
 	}
 }
@@ -46,7 +48,7 @@ func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelo
 		return errors.Wrap(err, "failed to verify action signature")
 	}
 	// Reject action if nonce is too low
-	confirmedState, err := v.accountState(actionCtx.Caller.String())
+	confirmedState, err := v.accountState(v.sr, actionCtx.Caller.String())
 	if err != nil {
 		return errors.Wrapf(err, "invalid state of account %s", actionCtx.Caller.String())
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -211,7 +212,7 @@ func runExecution(
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
 	log.S().Info(ecfg.Comment)
-	state, err := sf.AccountState(ecfg.Executor().String())
+	state, err := accountutil.AccountState(sf, ecfg.Executor().String())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -314,7 +315,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	execution := NewProtocol(dao.GetBlockHash)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
@@ -420,7 +421,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			if account == "" {
 				account = contractAddr
 			}
-			state, err := sf.AccountState(account)
+			state, err := accountutil.AccountState(sf, account)
 			r.NoError(err)
 			r.Equal(
 				0,
@@ -487,7 +488,7 @@ func TestProtocol_Handle(t *testing.T) {
 		)
 		exeProtocol := NewProtocol(dao.GetBlockHash)
 		require.NoError(exeProtocol.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {

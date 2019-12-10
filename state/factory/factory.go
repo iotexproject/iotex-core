@@ -12,10 +12,11 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
@@ -44,7 +45,6 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		AccountState(string) (*state.Account, error)
 		RootHash() hash.Hash256
 		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
@@ -181,14 +181,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-// account returns the confirmed account state on the chain
-func (sf *factory) AccountState(addr string) (*state.Account, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	return sf.accountState(addr)
-}
-
 // RootHash returns the hash of the root node of the state trie
 func (sf *factory) RootHash() hash.Hash256 {
 	sf.mutex.RLock()
@@ -352,24 +344,6 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
 	return nil
-}
-
-func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
-	// TODO: state db shouldn't serve this function
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	if err := sf.state(pkHash, &account); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	return &account, nil
 }
 
 func (sf *factory) commit(ws WorkingSet) error {

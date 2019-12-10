@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -41,14 +42,13 @@ func TestTransfer_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-
-	stateBeforeTransfer, err := sf.AccountState(executor)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, r)
 	r.NoError(err)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	state, err := sf.AccountState(executor)
+	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -58,14 +58,14 @@ func TestAction_Negative(t *testing.T) {
 	ctx := context.Background()
 	bc, sf := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
-	stateBeforeTransfer, err := sf.AccountState(executor)
+	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	blk, err := prepareAction(bc, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
-	state, err := sf.AccountState(executor)
+	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
@@ -93,7 +93,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	reward := rewarding.NewProtocol(nil)
 	r.NoError(reward.Register(registry))
 
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf.AccountState))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	r.NoError(bc.Start(ctx))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	r.NoError(ep.Register(registry))
