@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_blockcreationsubscriber"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -1262,4 +1264,42 @@ func TestActions(t *testing.T) {
 		},
 	)
 	require.NoError(val.Validate(ctx, blk))
+}
+
+func TestBlockchain_AddSubscriber(t *testing.T) {
+	req := require.New(t)
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.EnableGravityChainVoting = false
+	// create chain
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	req.NoError(err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	// mock
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
+	req.NoError(bc.AddSubscriber(mb))
+	req.EqualError(bc.AddSubscriber(nil), "subscriber could not be nil")
+}
+
+func TestBlockchain_RemoveSubscriber(t *testing.T) {
+	req := require.New(t)
+	cfg := config.Default
+	cfg.Genesis.BlockGasLimit = uint64(100000)
+	cfg.Genesis.EnableGravityChainVoting = false
+	// create chain
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	req.NoError(err)
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	// mock
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	mb := mock_blockcreationsubscriber.NewMockBlockCreationSubscriber(ctrl)
+	req.Error(bc.RemoveSubscriber(mb))
+	req.NoError(bc.AddSubscriber(mb))
+	req.NoError(bc.RemoveSubscriber(mb))
+	req.EqualError(bc.RemoveSubscriber(nil), "cannot find subscription")
 }

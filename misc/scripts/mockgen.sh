@@ -109,6 +109,12 @@ mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go 
         -package=mock_apiserviceclient \
         APIServiceClient
 
+mkdir -p ./test/mock/mock_blockcreationsubscriber
+mockgen -destination=./test/mock/mock_blockcreationsubscriber/mock_blockcreationsubscriber.go \
+        -source=./blockchain/blockcreationsubscriber.go \
+        -package=mock_blockcreationsubscriber   \
+        BlockCreationSubscriber
+
 mkdir -p ./test/mock/mock_ioctlclient
 mockgen -destination=./test/mock/mock_ioctlclient/mock_ioctlclient.go  \
         -source=./ioctl/client.go \

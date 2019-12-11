@@ -136,14 +136,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-// RootHash returns the hash of the root node of the state trie
-func (sdb *stateDB) RootHash() hash.Hash256 { return hash.ZeroHash256 }
-
-// RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sdb *stateDB) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
-}
-
 // Height returns factory's height
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
