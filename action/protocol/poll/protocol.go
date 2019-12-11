@@ -55,12 +55,6 @@ type CandidatesByHeight func(uint64) ([]*state.Candidate, error)
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
-// GetEpochHeight defines a function to get the corresponding epoch height given an epoch number
-type GetEpochHeight func(uint64) uint64
-
-// GetEpochNum defines a function to get epoch number given a block height
-type GetEpochNum func(uint64) uint64
-
 // Protocol defines the protocol of handling votes
 type Protocol interface {
 	protocol.Protocol
@@ -70,7 +64,7 @@ type Protocol interface {
 	// DelegatesByHeight returns the delegates by chain height
 	DelegatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// CandidatesByHeight returns a list of delegate candidates
-	CandidatesByHeight(uint64) (state.CandidateList, error)
+	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }
 
 // MustGetProtocol return a registered protocol from registry
@@ -103,7 +97,7 @@ func NewProtocol(
 	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
-	rp *rolldpos.Protocol) (Protocol, error) {
+) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
 		var pollProtocol Protocol
@@ -115,8 +109,6 @@ func NewProtocol(
 				electionCommittee,
 				genesisConfig.GravityChainStartHeight,
 				getBlockTimeFunc,
-				rp.GetEpochHeight,
-				rp.GetEpochNum,
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
@@ -132,11 +124,8 @@ func NewProtocol(
 				governance,
 				readContract,
 				candidatesByHeight,
-				rp.GetEpochHeight,
-				rp.GetEpochNum,
 				cfg.Genesis.NativeStakingContractAddress,
 				cfg.Genesis.NativeStakingContractCode,
-				rp,
 				scoreThreshold,
 			); err != nil {
 				return nil, err
@@ -220,7 +209,7 @@ func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochN
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) CandidatesByHeight(height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -264,8 +253,6 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 type governanceChainCommitteeProtocol struct {
 	candidatesByHeight        CandidatesByHeight
 	getBlockTime              GetBlockTime
-	getEpochHeight            GetEpochHeight
-	getEpochNum               GetEpochNum
 	electionCommittee         committee.Committee
 	initGravityChainHeight    uint64
 	numCandidateDelegates     uint64
@@ -280,8 +267,6 @@ func NewGovernanceChainCommitteeProtocol(
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
-	getEpochHeight GetEpochHeight,
-	getEpochNum GetEpochNum,
 	numCandidateDelegates uint64,
 	numDelegates uint64,
 	initialCandidatesInterval time.Duration,
@@ -291,13 +276,6 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 	if getBlockTime == nil {
 		return nil, errors.New("getBlockTime api is not provided")
-	}
-	if getEpochHeight == nil {
-		return nil, errors.New("getEpochHeight api is not provided")
-	}
-
-	if getEpochNum == nil {
-		return nil, errors.New("getEpochNum api is not provided")
 	}
 
 	h := hash.Hash160b([]byte(protocolID))
@@ -310,8 +288,6 @@ func NewGovernanceChainCommitteeProtocol(
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
 		getBlockTime:              getBlockTime,
-		getEpochHeight:            getEpochHeight,
-		getEpochNum:               getEpochNum,
 		numCandidateDelegates:     numCandidateDelegates,
 		numDelegates:              numDelegates,
 		addr:                      addr,
@@ -438,7 +414,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	gravityHeight, err := p.getGravityHeight(height)
+	gravityHeight, err := p.getGravityHeight(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")
 	}
@@ -450,11 +426,13 @@ func (p *governanceChainCommitteeProtocol) DelegatesByHeight(ctx context.Context
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return p.readActiveBlockProducersByEpoch(epochNum)
+	return p.readActiveBlockProducersByEpoch(ctx, epochNum)
 }
 
-func (p *governanceChainCommitteeProtocol) CandidatesByHeight(height uint64) (state.CandidateList, error) {
-	return p.candidatesByHeight(p.getEpochHeight(p.getEpochNum(height)))
+func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	return p.candidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -468,7 +446,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		delegates, err := p.readDelegatesByEpoch(byteutil.BytesToUint64(args[0]))
+		delegates, err := p.readDelegatesByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -477,7 +455,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		blockProducers, err := p.readBlockProducersByEpoch(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -486,7 +464,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(byteutil.BytesToUint64(args[0]))
+		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -495,7 +473,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		gravityStartheight, err := p.getGravityHeight(byteutil.BytesToUint64(args[0]))
+		gravityStartheight, err := p.getGravityHeight(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -516,13 +494,15 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochNum uint64) (state.CandidateList, error) {
-	epochHeight := p.getEpochHeight(epochNum)
+func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochHeight := rp.GetEpochHeight(epochNum)
 	return p.candidatesByHeight(epochHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
-	delegates, err := p.readDelegatesByEpoch(epochNum)
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	delegates, err := p.readDelegatesByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
@@ -536,8 +516,8 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochNum ui
 	return blockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(epochNum uint64) (state.CandidateList, error) {
-	blockProducers, err := p.readBlockProducersByEpoch(epochNum)
+func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers in epoch %d", epochNum)
 	}
@@ -548,8 +528,9 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(epoch
 		blockProducerList = append(blockProducerList, bp.Address)
 		blockProducerMap[bp.Address] = bp
 	}
-
-	epochHeight := p.getEpochHeight(epochNum)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochHeight := rp.GetEpochHeight(epochNum)
 	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
 
 	length := int(p.numDelegates)
@@ -564,9 +545,11 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(epoch
 	return activeBlockProducers, nil
 }
 
-func (p *governanceChainCommitteeProtocol) getGravityHeight(height uint64) (uint64, error) {
-	epochNumber := p.getEpochNum(height)
-	epochHeight := p.getEpochHeight(epochNumber)
+func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNumber := rp.GetEpochNum(height)
+	epochHeight := rp.GetEpochHeight(epochNumber)
 	blkTime, err := p.getBlockTime(epochHeight)
 	if err != nil {
 		return 0, err

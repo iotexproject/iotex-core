@@ -217,7 +217,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, rp := makeChain(t)
-	return &roundCalculator{bc, true, rp, func(height uint64) (state.CandidateList, error) {
+	return &roundCalculator{bc, true, rp, func(ctx context.Context, height uint64) (state.CandidateList, error) {
 		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, 0}
 }

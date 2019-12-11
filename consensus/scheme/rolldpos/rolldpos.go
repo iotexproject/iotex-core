@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -200,7 +201,18 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
 	// Get all candidates
-	candidates, err := r.ctx.roundCalc.candidatesByHeightFunc(height)
+	rp := r.ctx.roundCalc.rp
+	re := protocol.NewRegistry()
+	if err := rp.Register(re); err != nil {
+		return metrics, errors.Wrap(err, "failed to register rolldpos protocol")
+	}
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{
+			Registry: re,
+		},
+	)
+	candidates, err := r.ctx.roundCalc.candidatesByHeightFunc(ctx, height)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when getting all candidates")
 	}
