@@ -73,7 +73,7 @@ func init() {
 }
 
 // CandidatesByHeightFunc defines a function to overwrite candidates
-type CandidatesByHeightFunc func(uint64) (state.CandidateList, error)
+type CandidatesByHeightFunc func(context.Context, uint64) (state.CandidateList, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
 

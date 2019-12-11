@@ -234,8 +234,6 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
-			rDPoSProtocol.GetEpochHeight,
-			rDPoSProtocol.GetEpochNum,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")

@@ -87,8 +87,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		func(uint64) uint64 { return 1 },
-		func(uint64) uint64 { return 1 },
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
@@ -223,7 +221,7 @@ func TestProtocol_Validate(t *testing.T) {
 	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 	require.NoError(err)
 	ctx2 = protocol.WithBlockCtx(
-		context.Background(),
+		ctx2,
 		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    recipientAddr,
@@ -253,7 +251,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(selp3)
 	ctx3 = protocol.WithBlockCtx(
-		context.Background(),
+		ctx3,
 		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    identityset.Address(27),
@@ -284,7 +282,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(selp4)
 	ctx4 = protocol.WithBlockCtx(
-		context.Background(),
+		ctx4,
 		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    identityset.Address(27),
@@ -314,14 +312,14 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(selp5)
 	ctx5 = protocol.WithBlockCtx(
-		context.Background(),
+		ctx5,
 		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    identityset.Address(27),
 		},
 	)
 	ctx5 = protocol.WithActionCtx(
-		ctx4,
+		ctx5,
 		protocol.ActionCtx{
 			Caller: caller,
 		},
@@ -345,7 +343,7 @@ func TestProtocol_Validate(t *testing.T) {
 	caller6, err := address.FromBytes(selp6.SrcPubkey().Hash())
 	require.NoError(err)
 	ctx6 = protocol.WithBlockCtx(
-		context.Background(),
+		ctx6,
 		protocol.BlockCtx{
 			BlockHeight: 1,
 			Producer:    identityset.Address(27),
