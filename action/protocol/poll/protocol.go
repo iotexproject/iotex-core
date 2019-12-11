@@ -446,7 +446,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		delegates, err := p.readDelegatesByEpoch(byteutil.BytesToUint64(args[0]))
+		delegates, err := p.readDelegatesByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -455,7 +455,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		blockProducers, err := p.readBlockProducersByEpoch(byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -494,12 +494,15 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(epochHeight uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochHeight := rp.GetEpochHeight(epochNum)
 	return p.candidatesByHeight(epochHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochHeight uint64) (state.CandidateList, error) {
-	delegates, err := p.readDelegatesByEpoch(epochHeight)
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+	delegates, err := p.readDelegatesByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
@@ -514,10 +517,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(epochHeight
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	blockProducers, err := p.readBlockProducersByEpoch(epochHeight)
+	blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get active block producers in epoch %d", epochNum)
 	}
@@ -528,6 +528,9 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 		blockProducerList = append(blockProducerList, bp.Address)
 		blockProducerMap[bp.Address] = bp
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochHeight := rp.GetEpochHeight(epochNum)
 	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
 
 	length := int(p.numDelegates)
