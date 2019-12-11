@@ -11,12 +11,14 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -27,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
@@ -37,6 +38,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
+
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			val, err := cb.Get("state", addrHash[:])
@@ -231,6 +233,9 @@ func TestProtocol_Handle(t *testing.T) {
 		return 0, nil, nil
 	})
 	require.NoError(t, p.Register(registry))
+	// Test for ForceRegister
+	require.NoError(t, p.ForceRegister(registry))
+
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
 	cfg.Genesis.Rewarding.EpochRewardStr = "100"
@@ -284,6 +289,9 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
+	// Test for CreatePreStates
+	require.Nil(t, p.CreatePreStates(ctx, sm))
+
 	// Deposit
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
@@ -303,14 +311,8 @@ func TestProtocol_Handle(t *testing.T) {
 	assert.Equal(t, big.NewInt(2000000), balance)
 
 	// Grant
-	gb := action.GrantRewardBuilder{}
-	grant := gb.SetRewardType(action.BlockReward).Build()
-	eb2 := action.EnvelopeBuilder{}
-	e2 := eb2.SetNonce(0).
-		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
-		SetAction(&grant).
-		Build()
+	// Test for createGrantRewardAction
+	e2 := createGrantRewardAction(0, uint64(0))
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
@@ -322,4 +324,65 @@ func TestProtocol_Handle(t *testing.T) {
 	receipt, err = p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
+
+	// Claim
+	claimBuilder := action.ClaimFromRewardingFundBuilder{}
+	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
+	eb3 := action.EnvelopeBuilder{}
+	e3 := eb3.SetNonce(0).
+		SetGasPrice(big.NewInt(0)).
+		SetGasLimit(claim.GasLimit()).
+		SetAction(&claim).
+		Build()
+	se3, err := action.Sign(e3, identityset.PrivateKey(0))
+	require.NoError(t, err)
+
+	receipt, err = p.Handle(ctx, se3.Action(), sm)
+	require.NoError(t, err)
+
+	// Test for Validate
+	require.Nil(t, p.Validate(ctx, se2.Action()))
+
+	// Test for CreatePostSystemActions
+	grants_, err := p.CreatePostSystemActions(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, grants_)
+	// Test for ReadState
+	methods := []string{
+		"AvailableBalance",
+		"TotalBalance",
+		"UnclaimedBalance",
+	}
+	for i, method_ := range methods {
+		switch i {
+		case 0:
+			AvailableBalance, err := p.ReadState(ctx, sm, []byte(method_), nil)
+			require.NoError(t, err)
+			require.Equal(t, []byte{49, 57, 57, 57, 57, 57, 48}, AvailableBalance)
+		case 1:
+			TotalBalance, _ := p.ReadState(ctx, sm, []byte(method_), nil)
+			require.NoError(t, err)
+			require.Equal(t, []byte{49, 48, 48, 48, 48, 48, 48}, TotalBalance)
+		case 2:
+			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(method_), nil)
+			require.Nil(t, UnclaimedBalance)
+			require.Error(t, err)
+
+			arg1 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
+			arg2 := []byte(identityset.Address(28).String())
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method_), arg1, arg2)
+			require.Nil(t, UnclaimedBalance)
+			require.Error(t, err)
+
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method_), arg1)
+			require.Equal(t, []byte{48}, UnclaimedBalance)
+			require.NoError(t, err)
+		}
+	}
+
+	// Test for deleteState
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(func(addrHash hash.Hash160) error {
+		cb.Delete("state", addrHash[:], "failed to delete state")
+		return nil
+	}).AnyTimes()
 }
