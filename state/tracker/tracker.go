@@ -7,7 +7,9 @@
 package tracker
 
 import (
+	"context"
 	"database/sql"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"reflect"
 	"sync"
 
@@ -23,8 +25,8 @@ var specialActionHash = hash.ZeroHash256
 // StateChange represents state change of state db
 type StateChange interface {
 	Type() reflect.Type
-	init(*sql.DB, *sql.Tx) error
-	handle(*sql.Tx, uint64) error
+	init(context.Context, *sql.DB, *sql.Tx) error
+	handle(context.Context, *sql.Tx, uint64) error
 }
 
 // StateTracker defines an interface for state change track
@@ -36,6 +38,7 @@ type StateTracker interface {
 }
 
 type stateTracker struct {
+	genesis   genesis.Genesis
 	store     asql.Store
 	changes   []StateChange
 	snapshots []int
@@ -43,10 +46,13 @@ type stateTracker struct {
 }
 
 // InitStore initializes state tracker store
-func InitStore(store asql.Store) error {
+func InitStore(genesis genesis.Genesis, store asql.Store) error {
 	if err := store.Transact(func(tx *sql.Tx) error {
 		// TODO: we may need other state changes' initializations later
-		return BalanceChange{}.init(store.GetDB(), tx)
+		ctx := WithTrackerCtx(context.Background(), Context{
+			Genesis: genesis,
+		})
+		return BalanceChange{}.init(ctx, store.GetDB(), tx)
 	}); err != nil {
 		return errors.Wrap(err, "failed to init balance change tracker")
 	}
@@ -54,8 +60,10 @@ func InitStore(store asql.Store) error {
 }
 
 // New creates a state tracker
-func New(store asql.Store) StateTracker {
-	return &stateTracker{store: store,
+func New(store asql.Store, genesis genesis.Genesis) StateTracker {
+	return &stateTracker{
+		genesis:   genesis,
+		store:     store,
 		changes:   make([]StateChange, 0),
 		snapshots: make([]int, 0),
 	}
@@ -92,8 +100,11 @@ func (t *stateTracker) Commit(height uint64) error {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	if err := t.store.Transact(func(tx *sql.Tx) error {
+		ctx := WithTrackerCtx(context.Background(), Context{
+			Genesis: t.genesis,
+		})
 		for _, c := range t.changes {
-			if err := c.handle(tx, height); err != nil {
+			if err := c.handle(ctx, tx, height); err != nil {
 				return errors.Wrap(err, "failed to handle state change")
 			}
 		}

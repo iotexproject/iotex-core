@@ -7,23 +7,17 @@
 package tracker
 
 import (
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"os"
 	"reflect"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
-)
-
-const (
-	dardanellesOn           = true
-	dardanellesHeight       = uint64(1816201)
-	numDelegates            = uint64(24)
-	numSubEpochs            = uint64(15)
-	numSubEpochsDardanelles = uint64(30)
 )
 
 var (
@@ -51,7 +45,8 @@ func (b BalanceChange) Type() reflect.Type {
 	return reflect.TypeOf(b)
 }
 
-func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
+func (b BalanceChange) init(ctx context.Context, db *sql.DB, tx *sql.Tx) error {
+	trackerCtx := MustGetTrackerCtx(ctx)
 	if _, err := db.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s "+
 		"(epoch_number DECIMAL(65, 0) NOT NULL, block_height DECIMAL(65, 0) NOT NULL, action_hash VARCHAR(64) NOT NULL, "+
 		"action_type TEXT NOT NULL, `from` VARCHAR(41) NOT NULL, `to` VARCHAR(41) NOT NULL, amount DECIMAL(65, 0) NOT NULL)", BalanceHistoryTableName)); err != nil {
@@ -68,7 +63,7 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 		return nil
 	}
 
-	initBalance := initBalanceMap()
+	initBalance := trackerCtx.Genesis.InitBalanceMap
 	for addr, amount := range initBalance {
 		insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, action_type, `from`, `to`, amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
 			BalanceHistoryTableName)
@@ -79,8 +74,9 @@ func (b BalanceChange) init(db *sql.DB, tx *sql.Tx) error {
 	return nil
 }
 
-func (b BalanceChange) handle(tx *sql.Tx, blockHeight uint64) error {
-	epochNumber := getEpochNumber(blockHeight)
+func (b BalanceChange) handle(ctx context.Context, tx *sql.Tx, blockHeight uint64) error {
+	trackerCtx := MustGetTrackerCtx(ctx)
+	epochNumber := getEpochNumber(trackerCtx.Genesis.Blockchain, blockHeight)
 	actionType := "execution"
 	insertQuery := fmt.Sprintf("INSERT INTO %s (epoch_number, block_height, action_hash, action_type, `from`, `to`, amount) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		BalanceHistoryTableName)
@@ -88,39 +84,6 @@ func (b BalanceChange) handle(tx *sql.Tx, blockHeight uint64) error {
 		return errors.Wrap(err, "failed to update balance history")
 	}
 	return nil
-}
-
-func initBalanceMap() map[string]string {
-	return map[string]string{
-		"io1uqhmnttmv0pg8prugxxn7d8ex9angrvfjfthxa": "9800000000000000000000000000",
-		"io1v3gkc49d5vwtdfdka2ekjl3h468egun8e43r7z": "100000000000000000000000000",
-		"io1vrl48nsdm8jaujccd9cx4ve23cskr0ys6urx92": "100000000000000000000000000",
-		"io1llupp3n8q5x8usnr5w08j6hc6hn55x64l46rr7": "100000000000000000000000000",
-		"io1ns7y0pxmklk8ceattty6n7makpw76u770u5avy": "100000000000000000000000000",
-		"io1xuavja5dwde8pvy4yms06yyncad4yavghjhwra": "100000000000000000000000000",
-		"io1cdqx6p5rquudxuewflfndpcl0l8t5aezen9slr": "100000000000000000000000000",
-		"io1hh97f273nhxcq8ajzcpujtt7p9pqyndfmavn9r": "100000000000000000000000000",
-		"io1yhvu38epz5vmkjaclp45a7t08r27slmcc0zjzh": "100000000000000000000000000",
-		"io1cl6rl2ev5dfa988qmgzg2x4hfazmp9vn2g66ng": "100000000000000000000000000",
-		"io1skmqp33qme8knyw0fzgt9takwrc2nvz4sevk5c": "100000000000000000000000000",
-		"io1fxzh50pa6qc6x5cprgmgw4qrp5vw97zk5pxt3q": "100000000000000000000000000",
-		"io1jh0ekmccywfkmj7e8qsuzsupnlk3w5337hjjg2": "100000000000000000000000000",
-		"io1juvx5g063eu4ts832nukp4vgcwk2gnc5cu9ayd": "100000000000000000000000000",
-		"io19d0p3ah4g8ww9d7kcxfq87yxe7fnr8rpth5shj": "100000000000000000000000000",
-		"io1ed52svvdun2qv8sf2m0xnynuxfaulv6jlww7ur": "100000000000000000000000000",
-		"io158hyzrmf4a8xll7gfc8xnwlv70jgp44tzy5nvd": "100000000000000000000000000",
-		"io19kshh892255x4h5ularvr3q3al2v8cgl80fqrt": "100000000000000000000000000",
-		"io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02": "100000000000000000000000000",
-		"io1znka733xefxjjw2wqddegplwtefun0mfdmz7dw": "100000000000000000000000000",
-		"io13sj9mzpewn25ymheukte4v39hvjdtrfp00mlyv": "100000000000000000000000000",
-		"io14gnqxf9dpkn05g337rl7eyt2nxasphf5m6n0rd": "100000000000000000000000000",
-		"io1l3wc0smczyay8xq747e2hw63mzg3ctp6uf8wsg": "100000000000000000000000000",
-		"io1q4tdrahguffdu4e9j9aj4f38p2nee0r9vlhx7s": "100000000000000000000000000",
-		"io1k9y4a9juk45zaqwvjmhtz6yjc68twqds4qcvzv": "100000000000000000000000000",
-		"io15flratm0nhh5xpxz2lznrrpmnwteyd86hxdtj0": "100000000000000000000000000",
-		"io1eq4ehs6xx6zj9gcsax7h3qydwlxut9xcfcjras": "100000000000000000000000000",
-		"io10a298zmzvrt4guq79a9f4x7qedj59y7ery84he": "100000000000000000000000000",
-	}
 }
 
 // rowExists checks whether a row exists
@@ -140,26 +103,26 @@ func rowExists(db *sql.DB, query string, args ...interface{}) (bool, error) {
 	return exists, nil
 }
 
-func getEpochNumber(height uint64) uint64 {
+func getEpochNumber(cfg genesis.Blockchain, height uint64) uint64 {
 	if height == 0 {
 		return 0
 	}
-	if !dardanellesOn || height <= dardanellesHeight {
-		return (height-1)/numDelegates/numSubEpochs + 1
+	if height <= cfg.DardanellesBlockHeight {
+		return (height-1)/cfg.NumDelegates/cfg.NumSubEpochs + 1
 	}
-	dardanellesEpoch := getEpochNumber(dardanellesHeight)
-	dardanellesEpochHeight := getEpochHeight(dardanellesEpoch)
-	return dardanellesEpoch + (height-dardanellesEpochHeight)/numDelegates/numSubEpochsDardanelles
+	dardanellesEpoch := getEpochNumber(cfg, cfg.DardanellesBlockHeight)
+	dardanellesEpochHeight := getEpochHeight(cfg, dardanellesEpoch)
+	return dardanellesEpoch + (height-dardanellesEpochHeight)/cfg.NumDelegates/cfg.DardanellesNumSubEpochs
 }
 
-func getEpochHeight(epochNum uint64) uint64 {
+func getEpochHeight(cfg genesis.Blockchain, epochNum uint64) uint64 {
 	if epochNum == 0 {
 		return 0
 	}
-	dardanellesEpoch := getEpochNumber(dardanellesHeight)
-	if !dardanellesOn || epochNum <= dardanellesEpoch {
-		return (epochNum-1)*numDelegates*numSubEpochs + 1
+	dardanellesEpoch := getEpochNumber(cfg, cfg.DardanellesBlockHeight)
+	if epochNum <= dardanellesEpoch {
+		return (epochNum-1)*cfg.NumDelegates*cfg.NumSubEpochs + 1
 	}
-	dardanellesEpochHeight := getEpochHeight(dardanellesEpoch)
-	return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*numDelegates*numSubEpochsDardanelles
+	dardanellesEpochHeight := getEpochHeight(cfg, dardanellesEpoch)
+	return dardanellesEpochHeight + (epochNum-dardanellesEpoch)*cfg.NumDelegates*cfg.DardanellesNumSubEpochs
 }
