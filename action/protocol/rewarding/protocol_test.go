@@ -344,27 +344,27 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Nil(t, p.Validate(ctx, se2.Action()))
 
 	// Test for CreatePostSystemActions
-	grants_, err := p.CreatePostSystemActions(ctx)
+	grants, err := p.CreatePostSystemActions(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, grants_)
+	require.NotNil(t, grants)
 	// Test for ReadState
 	methods := []string{
 		"AvailableBalance",
 		"TotalBalance",
 		"UnclaimedBalance",
 	}
-	for i, method_ := range methods {
+	for i, method := range methods {
 		switch i {
 		case 0:
-			AvailableBalance, err := p.ReadState(ctx, sm, []byte(method_), nil)
+			AvailableBalance, err := p.ReadState(ctx, sm, []byte(method), nil)
 			require.NoError(t, err)
 			require.Equal(t, []byte{49, 57, 57, 57, 57, 57, 48}, AvailableBalance)
 		case 1:
-			TotalBalance, _ := p.ReadState(ctx, sm, []byte(method_), nil)
+			TotalBalance, _ := p.ReadState(ctx, sm, []byte(method), nil)
 			require.NoError(t, err)
 			require.Equal(t, []byte{49, 48, 48, 48, 48, 48, 48}, TotalBalance)
 		case 2:
-			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(method_), nil)
+			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(method), nil)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
