@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
@@ -91,7 +92,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
@@ -115,7 +116,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)

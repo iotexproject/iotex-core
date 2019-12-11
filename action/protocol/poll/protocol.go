@@ -50,7 +50,7 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 
 // CandidatesByHeight returns the candidates of a given height
-type CandidatesByHeight func(uint64) ([]*state.Candidate, error)
+type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
@@ -97,6 +97,7 @@ func NewProtocol(
 	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
+	sr protocol.StateReader,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme == config.RollDPoSScheme && genesisConfig.EnableGravityChainVoting {
@@ -112,6 +113,7 @@ func NewProtocol(
 				genesisConfig.NumCandidateDelegates,
 				genesisConfig.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				sr,
 			); err != nil {
 				return nil, err
 			}
@@ -127,6 +129,7 @@ func NewProtocol(
 				cfg.Genesis.NativeStakingContractAddress,
 				cfg.Genesis.NativeStakingContractCode,
 				scoreThreshold,
+				sr,
 			); err != nil {
 				return nil, err
 			}
@@ -259,6 +262,7 @@ type governanceChainCommitteeProtocol struct {
 	numDelegates              uint64
 	addr                      address.Address
 	initialCandidatesInterval time.Duration
+	stateReader               protocol.StateReader
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
@@ -270,6 +274,7 @@ func NewGovernanceChainCommitteeProtocol(
 	numCandidateDelegates uint64,
 	numDelegates uint64,
 	initialCandidatesInterval time.Duration,
+	sr protocol.StateReader,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -292,6 +297,7 @@ func NewGovernanceChainCommitteeProtocol(
 		numDelegates:              numDelegates,
 		addr:                      addr,
 		initialCandidatesInterval: initialCandidatesInterval,
+		stateReader:               sr,
 	}, nil
 }
 
@@ -432,7 +438,7 @@ func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context,
 func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	return p.candidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+	return p.candidatesByHeight(p.stateReader, rp.GetEpochHeight(rp.GetEpochNum(height)))
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -498,7 +504,7 @@ func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(ctx context.Cont
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochHeight := rp.GetEpochHeight(epochNum)
-	return p.candidatesByHeight(epochHeight)
+	return p.candidatesByHeight(p.stateReader, epochHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {

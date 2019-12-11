@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -27,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -41,7 +44,6 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-election/committee"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -222,7 +224,7 @@ func New(
 
 				return data, err
 			},
-			sf.CandidatesByHeight,
+			candidatesutil.CandidatesByHeight,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -234,6 +236,7 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
+			sf,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")

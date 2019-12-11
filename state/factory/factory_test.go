@@ -221,7 +221,7 @@ func testCandidates(sf Factory, t *testing.T) {
 	require.NoError(t, ws.Finalize())
 	require.NoError(t, sf.Commit(ws))
 
-	candidates, err := sf.CandidatesByHeight(1)
+	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	assert.Equal(t, candidates[0].Address, identityset.Address(1).String())

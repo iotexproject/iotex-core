@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -44,7 +43,6 @@ type (
 	// Factory defines an interface for managing states
 	Factory interface {
 		lifecycle.StartStopper
-		// Accounts
 		Height() (uint64, error)
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
@@ -52,9 +50,6 @@ type (
 		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(WorkingSet) error
-		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
-		CandidatesByHeight(uint64) ([]*state.Candidate, error)
-
 		State(hash.Hash160, interface{}) error
 	}
 
@@ -176,9 +171,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 	return sf.lifecycle.OnStop(ctx)
 }
 
-//======================================
-// account functions
-//======================================
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
@@ -261,36 +253,6 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 
 	return sf.commit(ws)
-}
-
-//======================================
-// Candidate functions
-//======================================
-
-func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	var candidates state.CandidateList
-	// Load Candidates on the given height from underlying db
-	candidatesKey := candidatesutil.ConstructKey(height)
-	err := sf.state(candidatesKey, &candidates)
-	log.L().Debug(
-		"CandidatesByHeight",
-		zap.Uint64("height", height),
-		zap.Any("candidates", candidates),
-		zap.Error(err),
-	)
-	if errors.Cause(err) == nil {
-		if len(candidates) > 0 {
-			return candidates, nil
-		}
-		err = state.ErrStateNotExist
-	}
-	return nil, errors.Wrapf(
-		err,
-		"failed to get state of candidateList for height %d",
-		height,
-	)
 }
 
 // State returns a confirmed state in the state factory
