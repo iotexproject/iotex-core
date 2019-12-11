@@ -474,28 +474,6 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require.Equal(uint64(10), height)
 }
 
-func TestFactory_RootHashByHeight(t *testing.T) {
-	cfg := config.Default
-	ctx := context.Background()
-	sf, err := NewFactory(cfg, InMemTrieOption())
-	require.NoError(t, err)
-	require.NoError(t, sf.Start(ctx))
-	defer func() {
-		require.NoError(t, sf.Stop(ctx))
-	}()
-
-	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	_, err = ws.RunActions(ctx, nil)
-	require.NoError(t, err)
-	require.NoError(t, ws.Finalize())
-	require.NoError(t, sf.Commit(ws))
-
-	rootHash, err := sf.RootHashByHeight(1)
-	require.NoError(t, err)
-	require.NotEqual(t, hash.ZeroHash256, rootHash)
-}
-
 func TestRunActions(t *testing.T) {
 	require := require.New(t)
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)

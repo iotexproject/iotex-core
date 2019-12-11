@@ -45,8 +45,6 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		// Accounts
-		RootHash() hash.Hash256
-		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
@@ -181,27 +179,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 //======================================
 // account functions
 //======================================
-// RootHash returns the hash of the root node of the state trie
-func (sf *factory) RootHash() hash.Hash256 {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.rootHash()
-}
-
-// RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	var rootHash hash.Hash256
-	copy(rootHash[:], data)
-	return rootHash, nil
-}
-
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()

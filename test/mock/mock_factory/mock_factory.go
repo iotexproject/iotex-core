@@ -67,35 +67,6 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
-// RootHash mocks base method
-func (m *MockFactory) RootHash() hash.Hash256 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
-}
-
-// RootHash indicates an expected call of RootHash
-func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
-}
-
-// RootHashByHeight mocks base method
-func (m *MockFactory) RootHashByHeight(arg0 uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHashByHeight", arg0)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RootHashByHeight indicates an expected call of RootHashByHeight
-func (mr *MockFactoryMockRecorder) RootHashByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHashByHeight", reflect.TypeOf((*MockFactory)(nil).RootHashByHeight), arg0)
-}
-
 // Height mocks base method
 func (m *MockFactory) Height() (uint64, error) {
 	m.ctrl.T.Helper()
