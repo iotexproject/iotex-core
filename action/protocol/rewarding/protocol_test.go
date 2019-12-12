@@ -370,11 +370,11 @@ func TestProtocol_Handle(t *testing.T) {
 
 			arg1 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
 			arg2 := []byte(identityset.Address(28).String())
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method_), arg1, arg2)
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method), arg1, arg2)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method_), arg1)
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(t, []byte{48}, UnclaimedBalance)
 			require.NoError(t, err)
 		}
