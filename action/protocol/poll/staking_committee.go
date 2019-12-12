@@ -43,6 +43,7 @@ type stakingCommittee struct {
 	nativeStaking        *NativeStaking
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
+	stateReader          protocol.StateReader
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
@@ -54,6 +55,7 @@ func NewStakingCommittee(
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
 	scoreThreshold *big.Int,
+	sr protocol.StateReader,
 ) (Protocol, error) {
 	var ns *NativeStaking
 	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
@@ -71,6 +73,7 @@ func NewStakingCommittee(
 		governanceStaking:  gs,
 		nativeStaking:      ns,
 		scoreThreshold:     scoreThreshold,
+		stateReader:        sr,
 	}, nil
 }
 
@@ -218,7 +221,7 @@ func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint6
 func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	return sc.candidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+	return sc.candidatesByHeight(sc.stateReader, rp.GetEpochHeight(rp.GetEpochNum(height)))
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {

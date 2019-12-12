@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -218,6 +219,6 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, sf, rp := makeChain(t)
 	return &roundCalculator{bc, true, rp, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
+		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
 	}, 0}
 }
