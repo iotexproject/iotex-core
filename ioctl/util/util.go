@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
@@ -132,7 +133,7 @@ func ReadSecretFromStdin() (string, error) {
 	signalListener := make(chan os.Signal, 1)
 	signal.Notify(signalListener, os.Interrupt)
 	routineTerminate := make(chan struct{})
-	sta, err := terminal.GetState(1)
+	sta, err := terminal.GetState(int(syscall.Stdin))
 	if err != nil {
 		return "", output.NewError(output.RuntimeError, "", err)
 	}
@@ -140,7 +141,7 @@ func ReadSecretFromStdin() (string, error) {
 		for {
 			select {
 			case <-signalListener:
-				err = terminal.Restore(1, sta)
+				err = terminal.Restore(int(syscall.Stdin), sta)
 				if err != nil {
 					log.L().Error("failed restore terminal", zap.Error(err))
 					return
