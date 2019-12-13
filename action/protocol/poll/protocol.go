@@ -48,8 +48,8 @@ type Protocol interface {
 	protocol.GenesisStateCreator
 	// DelegatesByEpoch returns the delegates by epoch
 	DelegatesByEpoch(context.Context, uint64) (state.CandidateList, error)
-	// DelegatesByHeight returns the delegates by chain height
-	DelegatesByHeight(context.Context, uint64) (state.CandidateList, error)
+	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
+	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// CandidatesByHeight returns a list of delegate candidates
 	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }

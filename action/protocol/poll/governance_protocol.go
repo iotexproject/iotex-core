@@ -113,6 +113,7 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
+	// make sure that putpollresult action is created around half of each epoch
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
@@ -123,7 +124,7 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 		zap.Uint64("epochHeight", epochHeight),
 		zap.Uint64("nextEpochHeight", nextEpochHeight),
 	)
-	l, err := p.DelegatesByHeight(ctx, epochHeight)
+	l, err := p.CalculateCandidatesByHeight(ctx, epochHeight)
 	if err == nil && len(l) == 0 {
 		err = errors.Wrapf(
 			ErrDelegatesNotExist,
@@ -192,7 +193,7 @@ func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height 
 	return l, nil
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	gravityHeight, err := p.getGravityHeight(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")

@@ -16,7 +16,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -69,7 +71,7 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 	return validate(ctx, p, act)
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
