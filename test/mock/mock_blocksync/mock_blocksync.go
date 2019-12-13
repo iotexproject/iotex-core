@@ -13,6 +13,44 @@ import (
 	reflect "reflect"
 )
 
+// MockBlockDAO is a mock of BlockDAO interface
+type MockBlockDAO struct {
+	ctrl     *gomock.Controller
+	recorder *MockBlockDAOMockRecorder
+}
+
+// MockBlockDAOMockRecorder is the mock recorder for MockBlockDAO
+type MockBlockDAOMockRecorder struct {
+	mock *MockBlockDAO
+}
+
+// NewMockBlockDAO creates a new mock instance
+func NewMockBlockDAO(ctrl *gomock.Controller) *MockBlockDAO {
+	mock := &MockBlockDAO{ctrl: ctrl}
+	mock.recorder = &MockBlockDAOMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockBlockDAO) EXPECT() *MockBlockDAOMockRecorder {
+	return m.recorder
+}
+
+// GetBlockByHeight mocks base method
+func (m *MockBlockDAO) GetBlockByHeight(arg0 uint64) (*block.Block, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBlockByHeight", arg0)
+	ret0, _ := ret[0].(*block.Block)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBlockByHeight indicates an expected call of GetBlockByHeight
+func (mr *MockBlockDAOMockRecorder) GetBlockByHeight(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHeight", reflect.TypeOf((*MockBlockDAO)(nil).GetBlockByHeight), arg0)
+}
+
 // MockBlockSync is a mock of BlockSync interface
 type MockBlockSync struct {
 	ctrl     *gomock.Controller

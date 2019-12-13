@@ -63,7 +63,7 @@ func TestNewRollDPoS(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	candidatesByHeight := func(uint64) (state.CandidateList, error) { return nil, nil }
+	candidatesByHeight := func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
@@ -219,7 +219,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
-		SetCandidatesByHeightFunc(func(uint64) (state.CandidateList, error) {
+		SetCandidatesByHeightFunc(func(context.Context, uint64) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
@@ -300,7 +300,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		SetCandidatesByHeightFunc(func(uint64) (state.CandidateList, error) {
+		SetCandidatesByHeightFunc(func(context.Context, uint64) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
@@ -402,7 +402,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		candidatesByHeightFunc := func(_ uint64) (state.CandidateList, error) {
+		candidatesByHeightFunc := func(ctx context.Context, _ uint64) (state.CandidateList, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})

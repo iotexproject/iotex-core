@@ -11,7 +11,6 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	state "github.com/iotexproject/iotex-core/state"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 )
@@ -65,35 +64,6 @@ func (m *MockFactory) Stop(arg0 context.Context) error {
 func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
-}
-
-// RootHash mocks base method
-func (m *MockFactory) RootHash() hash.Hash256 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
-}
-
-// RootHash indicates an expected call of RootHash
-func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
-}
-
-// RootHashByHeight mocks base method
-func (m *MockFactory) RootHashByHeight(arg0 uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHashByHeight", arg0)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RootHashByHeight indicates an expected call of RootHashByHeight
-func (mr *MockFactoryMockRecorder) RootHashByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHashByHeight", reflect.TypeOf((*MockFactory)(nil).RootHashByHeight), arg0)
 }
 
 // Height mocks base method
@@ -187,21 +157,6 @@ func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", arg0)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockFactory)(nil).CandidatesByHeight), arg0)
 }
 
 // State mocks base method

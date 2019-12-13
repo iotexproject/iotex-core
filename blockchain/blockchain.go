@@ -543,9 +543,14 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 	if bc.registry == nil {
 		return nil, nil
 	}
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{
+			Registry: bc.registry,
+		})
 
 	if pp := poll.FindProtocol(bc.registry); pp != nil {
-		return pp.CandidatesByHeight(height)
+		return pp.CandidatesByHeight(ctx, height)
 	}
 	return nil, nil
 }

@@ -7,10 +7,12 @@
 package rolldpos
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -165,7 +167,17 @@ func (c *roundCalculator) roundInfo(
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochStartHeight := c.rp.GetEpochHeight(c.rp.GetEpochNum(height))
 	numDelegates := c.rp.NumDelegates()
-	candidates, err := c.candidatesByHeightFunc(epochStartHeight)
+	re := protocol.NewRegistry()
+	if err := c.rp.Register(re); err != nil {
+		return nil, err
+	}
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{
+			Registry: re,
+		},
+	)
+	candidates, err := c.candidatesByHeightFunc(ctx, epochStartHeight)
 	if err != nil {
 		return nil, errors.Wrapf(
 			err,

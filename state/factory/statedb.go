@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -133,17 +132,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	return sdb.dao.Stop(ctx)
 }
 
-//======================================
-// account functions
-//======================================
-// RootHash returns the hash of the root node of the state trie
-func (sdb *stateDB) RootHash() hash.Hash256 { return hash.ZeroHash256 }
-
-// RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sdb *stateDB) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
-}
-
 // Height returns factory's height
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
@@ -216,36 +204,6 @@ func (sdb *stateDB) Commit(ws WorkingSet) error {
 	}
 
 	return sdb.commit(ws)
-}
-
-//======================================
-// Candidate functions
-//======================================
-// CandidatesByHeight returns array of Candidates in candidate pool of a given height
-func (sdb *stateDB) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-	var candidates state.CandidateList
-	// Load Candidates on the given height from underlying db
-	candidatesKey := candidatesutil.ConstructKey(height)
-	err := sdb.state(candidatesKey, &candidates)
-	log.L().Debug(
-		"CandidatesByHeight",
-		zap.Uint64("height", height),
-		zap.Any("candidates", candidates),
-		zap.Error(err),
-	)
-	if errors.Cause(err) == nil {
-		if len(candidates) > 0 {
-			return candidates, nil
-		}
-		err = state.ErrStateNotExist
-	}
-	return nil, errors.Wrapf(
-		err,
-		"failed to get state of candidateList for height %d",
-		height,
-	)
 }
 
 // State returns a confirmed state in the state factory
