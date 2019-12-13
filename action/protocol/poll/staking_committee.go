@@ -224,8 +224,8 @@ func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, height uint6
 	return sc.candidatesByHeight(sc.stateReader, rp.GetEpochHeight(rp.GetEpochNum(height)))
 }
 
-func (sc *stakingCommittee) ReadState(ctx context.Context, sm protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
-	return sc.governanceStaking.ReadState(ctx, sm, method, args...)
+func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+	return sc.governanceStaking.ReadState(ctx, sr, method, args...)
 }
 
 // Register registers the protocol with a unique ID
