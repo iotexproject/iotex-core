@@ -27,7 +27,7 @@ var (
 	}
 	listCmdUses = map[config.Language]string{
 		config.English: "list",
-		config.Chinese: "list 列表",
+		config.Chinese: "list",
 	}
 )
 

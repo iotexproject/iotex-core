@@ -27,7 +27,7 @@ import (
 var (
 	stakeCmdUses = map[config.Language]string{
 		config.English: "stake",
-		config.Chinese: "stake 权益",
+		config.Chinese: "stake",
 	}
 	stakeCmdShorts = map[config.Language]string{
 		config.English: "Support native staking from ioctl",

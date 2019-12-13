@@ -28,7 +28,7 @@ var (
 	}
 	aliasCmdUses = map[config.Language]string{
 		config.English: "alias",
-		config.Chinese: "alias 别名",
+		config.Chinese: "alias",
 	}
 )
 

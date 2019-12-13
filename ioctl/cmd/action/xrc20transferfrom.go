@@ -27,7 +27,7 @@ var (
 	}
 	xrc20TransferFromCmdShorts = map[config.Language]string{
 		config.English: "Send amount of tokens from owner address to target address",
-		config.Chinese: "将令牌数量从所有者地址发送到目标地址",
+		config.Chinese: "将通证数量从所有者地址发送到目标地址",
 	}
 )
 

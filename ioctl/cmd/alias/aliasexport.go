@@ -26,7 +26,7 @@ var (
 	}
 	aliasExportUses = map[config.Language]string{
 		config.English: "export",
-		config.Chinese: "export 导出",
+		config.Chinese: "export",
 	}
 	flagExportFormatUsages = map[config.Language]string{
 		config.English: "set format: json/yaml",

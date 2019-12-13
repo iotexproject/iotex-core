@@ -16,7 +16,7 @@ import (
 var (
 	nodeCmdUses = map[config.Language]string{
 		config.English: "node",
-		config.Chinese: "node 节点",
+		config.Chinese: "node",
 	}
 	nodeCmdShorts = map[config.Language]string{
 		config.English: "Deal with nodes of IoTeX blockchain",

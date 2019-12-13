@@ -27,7 +27,7 @@ var (
 	}
 	flagAutoRestakeUsages = map[config.Language]string{
 		config.English: "auto restake without power decay",
-		config.Chinese: "无算力衰减的自动重权益",
+		config.Chinese: "自动质押，权重不会衰减",
 	}
 )
 

@@ -25,7 +25,7 @@ import (
 var (
 	versionCmdUses = map[config.Language]string{
 		config.English: "version",
-		config.Chinese: "version 版本",
+		config.Chinese: "version",
 	}
 	versionCmdShorts = map[config.Language]string{
 		config.English: "Print the version of ioctl and node",

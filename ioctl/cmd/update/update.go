@@ -28,7 +28,7 @@ var (
 	}
 	flagVersionTypeUsages = map[config.Language]string{
 		config.English: `set version type, "stable" or "unstable"`,
-		config.Chinese: `设置 版本 类型, "稳定版" or "非稳定版"`,
+		config.Chinese: `设置版本类型, "稳定版" 或 "非稳定版"`,
 	}
 )
 

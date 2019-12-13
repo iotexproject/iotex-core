@@ -28,7 +28,7 @@ import (
 var (
 	deleteCmdShorts = map[config.Language]string{
 		config.English: "Delete an IoTeX account/address from wallet/config",
-		config.Chinese: "从 wallet/config 中删除一个IoTeX的账户或地址",
+		config.Chinese: "从 钱包/配置 中删除一个IoTeX的账户或地址",
 	}
 	deleteCmdUses = map[config.Language]string{
 		config.English: "delete [ALIAS|ADDRESS]",

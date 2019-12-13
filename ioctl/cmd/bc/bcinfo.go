@@ -25,7 +25,7 @@ var (
 	}
 	bcInfoCmdUses = map[config.Language]string{
 		config.English: "info",
-		config.Chinese: "info 信息",
+		config.Chinese: "info",
 	}
 )
 
