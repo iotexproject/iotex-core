@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
@@ -33,7 +32,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg := config.Default
 	dbConfig := config.Default.DB
 	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
-	b, _, _ := makeChain(t)
+	b, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
 		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, nil, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
@@ -83,7 +82,7 @@ func TestRollDPoSCtx(t *testing.T) {
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, sf, _ := makeChain(t)
+	b, _, _, pp := makeChain(t)
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
 		config.Default.Genesis.NumDelegates,
@@ -91,9 +90,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 
@@ -105,19 +102,17 @@ func TestCheckVoteEndorser(t *testing.T) {
 	require.Error(rctx.CheckVoteEndorser(0, nil, en))
 
 	// case 3:normal
-	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(10).PublicKey(), nil)
+	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(11).PublicKey(), nil)
 	require.NoError(rctx.CheckVoteEndorser(1, nil, en))
 }
 
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, sf, rp := makeChain(t)
+	b, _, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 	block := getBlockforctx(t, 0, false)

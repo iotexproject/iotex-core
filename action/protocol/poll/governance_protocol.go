@@ -221,11 +221,11 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "DelegatesByEpoch":
+	case "CandidatesByEpoch":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		delegates, err := p.readDelegatesByEpoch(ctx, byteutil.BytesToUint64(args[0]))
+		delegates, err := p.readCandidatesByEpoch(ctx, byteutil.BytesToUint64(args[0]))
 		if err != nil {
 			return nil, err
 		}
@@ -273,24 +273,23 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *governanceChainCommitteeProtocol) readDelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	return p.candidatesByHeight(p.stateReader, epochHeight)
+	return p.candidatesByHeight(p.stateReader, rp.GetEpochHeight(epochNum))
 }
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	delegates, err := p.readDelegatesByEpoch(ctx, epochNum)
+	candidates, err := p.readCandidatesByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
 	var blockProducers state.CandidateList
-	for i, delegate := range delegates {
+	for i, candidate := range candidates {
 		if uint64(i) >= p.numCandidateDelegates {
 			break
 		}
-		blockProducers = append(blockProducers, delegate)
+		blockProducers = append(blockProducers, candidate)
 	}
 	return blockProducers, nil
 }
@@ -298,7 +297,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get active block producers in epoch %d", epochNum)
+		return nil, errors.Wrapf(err, "failed to get candidates in epoch %d", epochNum)
 	}
 
 	var blockProducerList []string
@@ -312,8 +311,11 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 	epochHeight := rp.GetEpochHeight(epochNum)
 	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
 
+	// TODO: kick-out unqualified delegates based on productivity
+
 	length := int(p.numDelegates)
 	if len(blockProducerList) < int(p.numDelegates) {
+		// TODO: if the number of delegates is smaller than expected, should it return error or not?
 		length = len(blockProducerList)
 	}
 

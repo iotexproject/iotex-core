@@ -47,5 +47,4 @@ type ConsensusMetrics struct {
 	LatestHeight        uint64
 	LatestDelegates     []string
 	LatestBlockProducer string
-	Candidates          []string
 }

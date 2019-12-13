@@ -463,7 +463,7 @@ var (
 		},
 	}
 
-	readDelegatesByEpochTests = []struct {
+	readCandidatesByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -475,14 +475,14 @@ var (
 		{
 			protocolID:   "poll",
 			protocolType: lld,
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 3,
 		},
 		{
 			protocolID:   "poll",
 			protocolType: "governanceChainCommittee",
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 2,
 		},
@@ -1213,7 +1213,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 	assert.Equal(t, unit.ConvertIotxToRau(199999936), val)
 }
 
-func TestServer_ReadDelegatesByEpoch(t *testing.T) {
+func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -1233,7 +1233,7 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 		},
 	}
 
-	for _, test := range readDelegatesByEpochTests {
+	for _, test := range readCandidatesByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates

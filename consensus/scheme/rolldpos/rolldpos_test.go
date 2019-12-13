@@ -63,7 +63,7 @@ func TestNewRollDPoS(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	candidatesByHeight := func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
+	delegatesByEpoch := func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
@@ -75,7 +75,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
-			SetCandidatesByHeightFunc(candidatesByHeight).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
-			SetCandidatesByHeightFunc(candidatesByHeight).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -114,7 +114,7 @@ func TestNewRollDPoS(t *testing.T) {
 				return nil
 			}).
 			SetClock(clock.NewMock()).
-			SetCandidatesByHeightFunc(candidatesByHeight).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.NoError(t, err)
@@ -130,7 +130,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
-			SetCandidatesByHeightFunc(candidatesByHeight).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
 		assert.Error(t, err)
@@ -219,13 +219,12 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
-		SetCandidatesByHeightFunc(func(context.Context, uint64) (state.CandidateList, error) {
+		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
 				{Address: candidates[2]},
 				{Address: candidates[3]},
-				{Address: candidates[4]},
 			}, nil
 		}).
 		SetClock(clock).
@@ -240,7 +239,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	require.NoError(t, err)
 
 	// Proposer is wrong
-	blk = makeBlock(t, 0, 4, false, 9)
+	blk = makeBlock(t, 4, 4, false, 9)
 	err = r.ValidateBlockFooter(blk)
 	require.Error(t, err)
 
@@ -300,13 +299,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		SetCandidatesByHeightFunc(func(context.Context, uint64) (state.CandidateList, error) {
+		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
 				{Address: candidates[2]},
 				{Address: candidates[3]},
-				{Address: candidates[4]},
 			}, nil
 		}).
 		RegisterProtocol(rp).
@@ -315,14 +313,13 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	require.NotNil(t, r)
 	clock.Add(r.ctx.BlockInterval(blockHeight))
 	require.NoError(t, r.ctx.Start(context.Background()))
-	r.ctx.round, err = r.ctx.RoundCalc().UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
+	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 
-	cp.SortCandidates(candidates, rp.GetEpochHeight(m.LatestEpoch), cp.CryptoSeed)
 	assert.Equal(t, candidates[:4], m.LatestDelegates)
 	assert.Equal(t, candidates[1], m.LatestBlockProducer)
 }
@@ -402,7 +399,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		candidatesByHeightFunc := func(ctx context.Context, _ uint64) (state.CandidateList, error) {
+		delegatesByEpochFunc := func(ctx context.Context, _ uint64) (state.CandidateList, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})
@@ -475,7 +472,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				SetChainManager(chain).
 				SetActPool(actPool).
 				SetBroadcast(p2p.Broadcast).
-				SetCandidatesByHeightFunc(candidatesByHeightFunc).
+				SetDelegatesByEpochFunc(delegatesByEpochFunc).
 				RegisterProtocol(rp).
 				Build()
 			require.NoError(t, err)
