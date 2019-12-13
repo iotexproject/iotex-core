@@ -97,7 +97,7 @@ type (
 	// participating into the same network should use EXACTLY SAME genesis config.
 	Genesis struct {
 		Blockchain `yaml:"blockchain"`
-		Account    `ymal:"account"`
+		Account    `yaml:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
 	}
