@@ -72,7 +72,7 @@ func init() {
 	prometheus.MustRegister(consensusHeightMtc)
 }
 
-// CandidatesByHeightFunc defines a function to overwrite candidates
+// DelegatesByEpochFunc defines a function to overwrite candidates
 type DelegatesByEpochFunc func(context.Context, uint64) (state.CandidateList, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
