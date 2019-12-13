@@ -8,7 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -231,21 +230,17 @@ func (c *roundCalculator) newRound(
 		epochNum = c.rp.GetEpochNum(height)
 		epochStartHeight := c.rp.GetEpochHeight(epochNum)
 		if delegates, err = c.Delegates(epochStartHeight); err != nil {
-			fmt.Println("aaa")
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {
-			fmt.Println("bbb")
 			return
 		}
 		if proposer, err = c.calculateProposer(height, roundNum, delegates); err != nil {
-			fmt.Println("ccc")
 			return
 		}
 	}
 	if eManager == nil {
 		if eManager, err = newEndorsementManager(nil); err != nil {
-			fmt.Println("ddd")
 			return nil, err
 		}
 	}
@@ -276,9 +271,6 @@ func (c *roundCalculator) calculateProposer(
 ) (proposer string, err error) {
 	numDelegates := c.rp.NumDelegates()
 	if numDelegates != uint64(len(delegates)) {
-		fmt.Println("expected", numDelegates)
-		fmt.Println("real", len(delegates))
-		fmt.Println("qwer")
 		err = errors.New("invalid delegate list")
 		return
 	}

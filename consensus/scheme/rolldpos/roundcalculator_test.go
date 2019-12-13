@@ -134,7 +134,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.Protocol, poll.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -209,10 +209,10 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, sf, rolldposProtocol, pp
+	return chain, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, _, rp, pp := makeChain(t)
+	bc, rp, pp := makeChain(t)
 	return &roundCalculator{bc, true, rp, pp.DelegatesByEpoch, 0}
 }
