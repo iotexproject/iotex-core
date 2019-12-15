@@ -9,19 +9,32 @@ package account
 import (
 	"fmt"
 
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	verifyCmdShorts = map[config.Language]string{
+		config.English: "Verify IoTeX public key and address by private key",
+		config.Chinese: "用私钥验证IoTeX的公钥和地址",
+	}
+	verifyCmdUses = map[config.Language]string{
+		config.English: "verify",
+		config.Chinese: "verify 验证",
+	}
+)
 var (
 	// accountVerifyCmd represents the account verify command
 	accountVerifyCmd = &cobra.Command{
-		Use:   "verify",
-		Short: "Verify IoTeX public key and address by private key",
+		Use:   config.TranslateInLang(verifyCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(verifyCmdShorts, config.UILanguage),
 		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true

@@ -23,6 +23,30 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+// Multi-language support
+var (
+	stakeCmdUses = map[config.Language]string{
+		config.English: "stake",
+		config.Chinese: "stake",
+	}
+	stakeCmdShorts = map[config.Language]string{
+		config.English: "Support native staking from ioctl",
+		config.Chinese: "支持来自ioctl的本地权益",
+	}
+	flagStakingContractAddressUsages = map[config.Language]string{
+		config.English: "set staking contract address",
+		config.Chinese: "设置权益合约地址",
+	}
+	flagEndpointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置所有端点",
+	}
+	flagInsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once (default false)",
+		config.Chinese: "一次不安全连接（默认为false）",
+	}
+)
+
 // MainnetStakingAddress stores native staking address as string
 const MainnetStakingAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
 
@@ -32,8 +56,8 @@ var stakeABI abi.ABI
 
 //StakeCmd represent stake command
 var StakeCmd = &cobra.Command{
-	Use:   "stake",
-	Short: "Support native staking from ioctl",
+	Use:   config.TranslateInLang(stakeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(stakeCmdShorts, config.UILanguage),
 }
 
 func init() {
@@ -44,11 +68,12 @@ func init() {
 	StakeCmd.AddCommand(stakeWithdrawCmd)
 
 	StakeCmd.PersistentFlags().StringVarP(&stakingContractAddress, "staking-contract-address", "c",
-		MainnetStakingAddress, "set staking contract address")
+		MainnetStakingAddress, config.TranslateInLang(flagStakingContractAddressUsages,
+			config.UILanguage))
 	StakeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	StakeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once (default false)")
+		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
 
 	var err error
 

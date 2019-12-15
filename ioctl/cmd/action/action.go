@@ -34,6 +34,26 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// Multi-language support
+var (
+	actionCmdShorts = map[config.Language]string{
+		config.English: "Manage actions of IoTeX blockchain",
+		config.Chinese: "管理IoTex区块链的行为", // this translation
+	}
+	actionCmdUses = map[config.Language]string{
+		config.English: "action",
+		config.Chinese: "action 行为", // this translation
+	}
+	flagActionEndPointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点", // this translation
+	}
+	flagActionInsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接", // this translation
+	}
+)
+
 const defaultGasLimit = uint64(20000000)
 
 var defaultGasPrice = big.NewInt(unit.Qev)
@@ -51,8 +71,8 @@ var (
 
 // ActionCmd represents the action command
 var ActionCmd = &cobra.Command{
-	Use:   "action",
-	Short: "Manage actions of IoTeX blockchain",
+	Use:   config.TranslateInLang(actionCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
 }
 
 type sendMessage struct {
@@ -78,9 +98,10 @@ func init() {
 	ActionCmd.AddCommand(actionDepositCmd)
 	ActionCmd.AddCommand(actionSendRawCmd)
 	ActionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagActionEndPointUsages,
+			config.UILanguage))
 	ActionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
+		config.TranslateInLang(flagActionInsecureUsages, config.UILanguage))
 }
 
 func decodeBytecode() ([]byte, error) {

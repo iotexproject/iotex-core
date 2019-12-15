@@ -18,10 +18,30 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support
+var (
+	importCmdShorts = map[config.Language]string{
+		config.English: "Import aliases",
+		config.Chinese: "导入别名",
+	}
+	importCmdUses = map[config.Language]string{
+		config.English: "import 'DATA'",
+		config.Chinese: "import '数据'",
+	}
+	flagImportFormatUsages = map[config.Language]string{
+		config.English: "set format: json/yaml",
+		config.Chinese: "设置格式：json / yaml",
+	}
+	flagForceImportUsages = map[config.Language]string{
+		config.English: "override existing aliases",
+		config.Chinese: "覆盖现有别名",
+	}
+)
+
 // aliasImportCmd represents the alias import command
 var aliasImportCmd = &cobra.Command{
-	Use:   "import 'DATA'",
-	Short: "Import aliases",
+	Use:   config.TranslateInLang(importCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(importCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -39,9 +59,9 @@ type importMessage struct {
 
 func init() {
 	aliasImportCmd.Flags().StringVarP(&format,
-		"format=", "f", "json", "set format: json/yaml")
+		"format=", "f", "json", config.TranslateInLang(flagImportFormatUsages, config.UILanguage))
 	aliasImportCmd.Flags().BoolVarP(&forceImport,
-		"force-import", "F", false, "override existing aliases")
+		"force-import", "F", false, config.TranslateInLang(flagForceImportUsages, config.UILanguage))
 }
 
 func aliasImport(cmd *cobra.Command, args []string) error {
