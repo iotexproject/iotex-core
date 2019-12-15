@@ -37,7 +37,7 @@ var (
 	}
 )
 
-// NewAccountDeleteCmd represents the account delete command
+// NewAccountDelete represents the account delete command
 func NewAccountDelete(c ioctl.Client) *cobra.Command {
 
 	use, _ := c.SelectTranslation(deleteUses)
