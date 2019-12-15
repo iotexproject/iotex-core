@@ -12,6 +12,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
@@ -38,6 +41,8 @@ type (
 		AskToConfirm() bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
+		// doing
+		GetAddress(in string) (string, error)
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -130,4 +135,26 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 		return nil, err
 	}
 	return iotexapi.NewAPIServiceClient(c.conn), nil
+}
+
+func (c *client) GetAddress(in string) (string, error) {
+	addr, err := config.GetAddressOrAlias(in)
+	if err != nil {
+		return "", output.NewError(output.AddressError, "", err)
+	}
+	return address(addr)
+}
+
+func address(in string) (string, error) {
+	if len(in) >= validator.IoAddrLen {
+		if err := validator.ValidateAddress(in); err != nil {
+			return "", output.NewError(output.ValidationError, "", err)
+		}
+		return in, nil
+	}
+	addr, ok := config.ReadConfig.Aliases[in]
+	if ok {
+		return addr, nil
+	}
+	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
