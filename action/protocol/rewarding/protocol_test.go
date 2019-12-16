@@ -11,14 +11,14 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -290,7 +290,15 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	// Test for CreatePreStates
-	require.Nil(t, p.CreatePreStates(ctx, sm))
+
+	//ctx = protocol.WithBlockCtx(
+	//	ctx,
+	//	protocol.BlockCtx{
+	//		BlockHeight: uint64(864001),
+	//		Producer:    identityset.Address(0),
+	//	})
+
+	//require.Nil(t, p.CreatePreStates(ctx, sm))
 
 	// Deposit
 	db := action.DepositToRewardingFundBuilder{}
@@ -339,6 +347,32 @@ func TestProtocol_Handle(t *testing.T) {
 
 	receipt, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
+	balance, err = p.TotalBalance(ctx, sm)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(1000000), balance)
+
+	// Test CreatePreStates
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1816201,
+		},
+	)
+	err = p.CreatePreStates(ctx, sm)
+	blockReward, err := p.BlockReward(ctx, sm)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(8000000000000000000), blockReward)
+
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 864001,
+		},
+	)
+	err = p.CreatePreStates(ctx, sm)
+	epochReward, err := p.BlockReward(ctx, sm)
+	require.NoError(t, err)
+	assert.Equal(t, big.NewInt(8000000000000000000), epochReward)
 
 	// Test for Validate
 	require.Nil(t, p.Validate(ctx, se2.Action()))
@@ -347,37 +381,48 @@ func TestProtocol_Handle(t *testing.T) {
 	grants, err := p.CreatePostSystemActions(ctx)
 	require.NoError(t, err)
 	require.NotNil(t, grants)
+
 	// Test for ReadState
-	methods := []string{
-		"AvailableBalance",
-		"TotalBalance",
-		"UnclaimedBalance",
+	testMethods := []struct {
+		input  string
+		expect []byte
+	}{
+		{
+			input:  "AvailableBalance",
+			expect: []byte{49, 57, 57, 57, 57, 57, 48},
+		},
+		{
+			input:  "TotalBalance",
+			expect: []byte{49, 48, 48, 48, 48, 48, 48},
+		},
+		{
+			input:  "UnclaimedBalance",
+			expect: []byte{48},
+		},
 	}
-	for i, method := range methods {
-		switch i {
-		case 0:
-			AvailableBalance, err := p.ReadState(ctx, sm, []byte(method), nil)
-			require.NoError(t, err)
-			require.Equal(t, []byte{49, 57, 57, 57, 57, 57, 48}, AvailableBalance)
-		case 1:
-			TotalBalance, _ := p.ReadState(ctx, sm, []byte(method), nil)
-			require.NoError(t, err)
-			require.Equal(t, []byte{49, 48, 48, 48, 48, 48, 48}, TotalBalance)
-		case 2:
-			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(method), nil)
+
+	for _, ts := range testMethods {
+
+		if ts.input == "UnclaimedBalance" {
+			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
 			arg1 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
-			arg2 := []byte(identityset.Address(28).String())
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method), arg1, arg2)
+			arg2 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym8")
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(ts.input), arg1, arg2)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(method), arg1)
-			require.Equal(t, []byte{48}, UnclaimedBalance)
+			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(ts.input), arg1)
+			require.Equal(t, ts.expect, UnclaimedBalance)
 			require.NoError(t, err)
+			continue
 		}
+
+		output, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
+		require.NoError(t, err)
+		require.Equal(t, ts.expect, output)
 	}
 
 	// Test for deleteState
