@@ -34,6 +34,7 @@ var (
 	}
 )
 
+// NewAliasExport represents the alias export command
 func NewAliasExport(c ioctl.Client) *cobra.Command {
 	var format string
 
