@@ -28,6 +28,26 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// Multi-language support
+var (
+	delegateCmdUses = map[config.Language]string{
+		config.English: "delegate [-e epoch-num|-n]",
+		config.Chinese: "delegate [-e epoch数|-n]",
+	}
+	delegateCmdShorts = map[config.Language]string{
+		config.English: "Print consensus delegates information in certain epoch",
+		config.Chinese: "打印在特定epoch内的共识委托信息",
+	}
+	flagEpochNumUsages = map[config.Language]string{
+		config.English: "specify specific epoch",
+		config.Chinese: "指定特定epoch",
+	}
+	flagNextEpochUsages = map[config.Language]string{
+		config.English: "query delegate of upcoming epoch",
+		config.Chinese: "查询即将到来的epoch的委托",
+	}
+)
+
 var (
 	epochNum   uint64
 	nextEpoch  bool
@@ -36,8 +56,8 @@ var (
 
 // nodeDelegateCmd represents the node delegate command
 var nodeDelegateCmd = &cobra.Command{
-	Use:   "delegate [-e epoch-num|-n]",
-	Short: "Print consensus delegates information in certain epoch",
+	Use:   config.TranslateInLang(delegateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(delegateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -122,9 +142,10 @@ func (m *nextDelegatesMessage) String() string {
 }
 
 func init() {
-	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0, "specify specific epoch")
+	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
+		config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	nodeDelegateCmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
-		"query delegate of upcoming epoch")
+		config.TranslateInLang(flagNextEpochUsages, config.UILanguage))
 	nodeStatus = map[bool]string{true: "active", false: ""}
 }
 

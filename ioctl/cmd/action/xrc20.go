@@ -20,10 +20,34 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+// Multi-language support
+var (
+	xrc20CmdShorts = map[config.Language]string{
+		config.English: "Support ERC20 standard command-line from ioctl",
+		config.Chinese: "使ioctl命令行支持ERC20标准",
+	}
+	xrc20CmdUses = map[config.Language]string{
+		config.English: "xrc20",
+		config.Chinese: "xrc20",
+	}
+	flagContractAddressUsages = map[config.Language]string{
+		config.English: "set contract address",
+		config.Chinese: "设定合约地址",
+	}
+	flagXrc20EndPointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagXrc20InsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once (default false)",
+		config.Chinese: "一次不安全的连接（默认为false）",
+	}
+)
+
 //Xrc20Cmd represent erc20 standard command-line
 var Xrc20Cmd = &cobra.Command{
-	Use:   "xrc20",
-	Short: "Support ERC20 standard command-line from ioctl",
+	Use:   config.TranslateInLang(xrc20CmdUses, config.UILanguage),
+	Short: config.TranslateInLang(xrc20CmdShorts, config.UILanguage),
 }
 
 var xrc20ContractAddress string
@@ -56,11 +80,11 @@ func init() {
 	Xrc20Cmd.AddCommand(xrc20ApproveCmd)
 	Xrc20Cmd.AddCommand(xrc20AllowanceCmd)
 	Xrc20Cmd.PersistentFlags().StringVarP(&xrc20ContractAddress, "contract-address", "c", "",
-		"set contract address")
+		config.TranslateInLang(flagContractAddressUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagXrc20EndPointUsages, config.UILanguage))
 	Xrc20Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once (default false)")
+		config.TranslateInLang(flagXrc20InsecureUsages, config.UILanguage))
 	cobra.MarkFlagRequired(Xrc20Cmd.PersistentFlags(), "contract-address")
 }
 

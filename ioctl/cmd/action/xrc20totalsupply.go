@@ -12,13 +12,26 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	totalSupplyCmdShorts = map[config.Language]string{
+		config.English: "Get total supply",
+		config.Chinese: "获得总供应",
+	}
+	totalSupplyCmdUses = map[config.Language]string{
+		config.English: "totalSupply -c ALIAS|CONTRACT_ADDRESS",
+		config.Chinese: "totalSupply -c 别名|合同地址",
+	}
 )
 
 // xrc20TotalSupplyCmd represents total supply of the contract
 var xrc20TotalSupplyCmd = &cobra.Command{
-	Use:   "totalSupply -c ALIAS|CONTRACT_ADDRESS",
-	Short: "Get total supply",
+	Use:   config.TranslateInLang(totalSupplyCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(totalSupplyCmdShorts, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := totalSupply()
