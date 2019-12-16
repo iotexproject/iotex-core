@@ -46,7 +46,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 	ad := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			arg := ""

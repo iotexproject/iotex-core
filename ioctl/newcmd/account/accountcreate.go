@@ -46,7 +46,7 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 	ac := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			newAccounts := make([]generatedAccount, 0)
