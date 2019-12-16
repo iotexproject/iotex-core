@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ioctlPath = filepath.Join(corePath, "tool", "ioctl")
+	ioctlPath = filepath.Join(corePath, "tools", "ioctl")
 
 	preString := `# ioctl
 ioctl is a command-line interface for interacting with IoTeX blockchains.
