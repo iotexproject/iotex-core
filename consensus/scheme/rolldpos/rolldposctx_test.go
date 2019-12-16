@@ -102,7 +102,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	require.Error(rctx.CheckVoteEndorser(0, nil, en))
 
 	// case 3:normal
-	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(11).PublicKey(), nil)
+	en = endorsement.NewEndorsement(time.Now(), identityset.PrivateKey(10).PublicKey(), nil)
 	require.NoError(rctx.CheckVoteEndorser(1, nil, en))
 }
 

@@ -259,6 +259,10 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	return nil
 }
 
+func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {	
+	return ctx.roundCalc	
+}
+
 /////////////////////////////////////
 // Context of consensusFSM interfaces
 /////////////////////////////////////
