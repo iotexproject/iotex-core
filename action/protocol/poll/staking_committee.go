@@ -183,8 +183,9 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 	return validate(ctx, sc, act)
 }
 
-func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	cand, err := sc.governanceStaking.DelegatesByHeight(ctx, height)
+// CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
+func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+	cand, err := sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -214,10 +215,12 @@ func (sc *stakingCommittee) DelegatesByHeight(ctx context.Context, height uint64
 	return sc.mergeDelegates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
 }
 
+// DelegatesByEpoch returns exact number of delegates according to epoch number
 func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum)
 }
 
+// CandidatesByHeight returns candidate list from state factory according to height
 func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)

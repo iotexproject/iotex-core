@@ -72,8 +72,8 @@ func init() {
 	prometheus.MustRegister(consensusHeightMtc)
 }
 
-// CandidatesByHeightFunc defines a function to overwrite candidates
-type CandidatesByHeightFunc func(context.Context, uint64) (state.CandidateList, error)
+// DelegatesByEpochFunc defines a function to overwrite candidates
+type DelegatesByEpochFunc func(context.Context, uint64) (state.CandidateList, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
 
@@ -103,7 +103,7 @@ func newRollDPoSCtx(
 	actPool actpool.ActPool,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
-	candidatesByHeightFunc CandidatesByHeightFunc,
+	delegatesByEpochFunc DelegatesByEpochFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
 	clock clock.Clock,
@@ -118,8 +118,8 @@ func newRollDPoSCtx(
 	if clock == nil {
 		return nil, errors.New("clock cannot be nil")
 	}
-	if candidatesByHeightFunc == nil {
-		return nil, errors.New("canidates by height function cannot be nil")
+	if delegatesByEpochFunc == nil {
+		return nil, errors.New("delegates by epoch function cannot be nil")
 	}
 	if cfg.AcceptBlockTTL(0)+cfg.AcceptProposalEndorsementTTL(0)+cfg.AcceptLockEndorsementTTL(0)+cfg.CommitTTL(0) > cfg.BlockInterval(0) {
 		return nil, errors.Errorf(
@@ -136,11 +136,11 @@ func newRollDPoSCtx(
 		eManagerDB = db.NewBoltDB(consensusDBConfig)
 	}
 	roundCalc := &roundCalculator{
-		candidatesByHeightFunc: candidatesByHeightFunc,
-		chain:                  chain,
-		rp:                     rp,
-		timeBasedRotation:      timeBasedRotation,
-		beringHeight:           beringHeight,
+		delegatesByEpochFunc: delegatesByEpochFunc,
+		chain:                chain,
+		rp:                   rp,
+		timeBasedRotation:    timeBasedRotation,
+		beringHeight:         beringHeight,
 	}
 	return &rollDPoSCtx{
 		ConsensusConfig:   cfg,
@@ -177,6 +177,7 @@ func (ctx *rollDPoSCtx) Stop(c context.Context) error {
 	return nil
 }
 
+// CheckVoteEndorser checks if the endorsement's endorser is a valid delegate at the given height
 func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	height uint64,
 	vote *ConsensusVote,
@@ -195,6 +196,7 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 	return nil
 }
 
+// CheckBlockProposer checks the block proposal
 func (ctx *rollDPoSCtx) CheckBlockProposer(
 	height uint64,
 	proposal *blockProposal,
@@ -257,12 +259,12 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	return nil
 }
 
-func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
-	return ctx.roundCalc
+func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {	
+	return ctx.roundCalc	
 }
 
 /////////////////////////////////////
-// ConsensusFSM interfaces
+// Context of consensusFSM interfaces
 /////////////////////////////////////
 
 func (ctx *rollDPoSCtx) NewConsensusEvent(
