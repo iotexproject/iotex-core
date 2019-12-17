@@ -16,7 +16,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -69,12 +71,38 @@ func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Act
 	return validate(ctx, p, act)
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
 func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return p.delegates, nil
+	var blockProducerList []string
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	blockProducerMap := make(map[string]*state.Candidate)
+	delegates := p.delegates
+	if len(p.delegates) > int(rp.NumCandidateDelegates()) {
+		delegates = p.delegates[:rp.NumCandidateDelegates()]
+	}
+	for _, bp := range delegates {
+		blockProducerList = append(blockProducerList, bp.Address)
+		blockProducerMap[bp.Address] = bp
+	}
+
+	epochHeight := rp.GetEpochHeight(epochNum)
+	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
+	// TODO: kick-out unqualified delegates based on productivity
+	length := int(rp.NumDelegates())
+	if len(blockProducerList) < length {
+		// TODO: if the number of delegates is smaller than expected, should it return error or not?
+		length = len(blockProducerList)
+	}
+
+	var activeBlockProducers state.CandidateList
+	for i := 0; i < length; i++ {
+		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
+	}
+	return activeBlockProducers, nil
 }
 
 func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
@@ -88,7 +116,7 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "DelegatesByEpoch":
+	case "CandidatesByEpoch":
 		fallthrough
 	case "BlockProducersByEpoch":
 		fallthrough

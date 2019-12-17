@@ -21,10 +21,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	rewardCmdUses = map[config.Language]string{
+		config.English: "reward [ALIAS|DELEGATE_ADDRESS]",
+		config.Chinese: "reward [别名|委托地址]",
+	}
+	rewardCmdShorts = map[config.Language]string{
+		config.English: "Query rewards",
+		config.Chinese: "查询奖励",
+	}
+)
+
 // nodeRewardCmd represents the node reward command
 var nodeRewardCmd = &cobra.Command{
-	Use:   "reward [ALIAS|DELEGATE_ADDRESS]",
-	Short: "Query rewards",
+	Use:   config.TranslateInLang(rewardCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(rewardCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

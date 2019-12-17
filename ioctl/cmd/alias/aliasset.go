@@ -18,10 +18,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var (
+	setCmdShorts = map[config.Language]string{
+		config.English: "Set alias for address",
+		config.Chinese: "设定地址的别名",
+	}
+	setCmdUses = map[config.Language]string{
+		config.English: "set ALIAS ADDRESS",
+		config.Chinese: "set 别名 地址",
+	}
+)
+
 // aliasSetCmd represents the alias set command
 var aliasSetCmd = &cobra.Command{
-	Use:   "set ALIAS ADDRESS",
-	Short: "Set alias for address",
+	Use:   config.TranslateInLang(setCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(setCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

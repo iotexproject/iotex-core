@@ -32,6 +32,10 @@ var (
 		config.English: `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 		config.Chinese: `ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
+	rootCmdUses = map[config.Language]string{
+		config.English: "ioctl",
+		config.Chinese: "ioctl",
+	}
 	flagOutputFormatUsages = map[config.Language]string{
 		config.English: "output format",
 		config.Chinese: "指定输出格式",
@@ -40,7 +44,7 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "ioctl",
+	Use:   config.TranslateInLang(rootCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(rootCmdShorts, config.UILanguage),
 	Long:  config.TranslateInLang(rootCmdLongs, config.UILanguage),
 }

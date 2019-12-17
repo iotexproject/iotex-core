@@ -22,12 +22,10 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -93,8 +91,6 @@ func TestNewRound(t *testing.T) {
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
-	_, err := rc.Delegates(361)
-	require.Error(err)
 
 	dels, err := rc.Delegates(4)
 	require.NoError(err)
@@ -138,7 +134,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -213,12 +209,10 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, sf, rolldposProtocol
+	return chain, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, sf, rp := makeChain(t)
-	return &roundCalculator{bc, true, rp, func(ctx context.Context, height uint64) (state.CandidateList, error) {
-		return candidatesutil.CandidatesByHeight(sf, rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, 0}
+	bc, rp, pp := makeChain(t)
+	return &roundCalculator{bc, true, rp, pp.DelegatesByEpoch, 0}
 }

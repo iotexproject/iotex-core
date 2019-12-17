@@ -15,13 +15,14 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -29,10 +30,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	hashCmdShorts = map[config.Language]string{
+		config.English: "Get action by hash",
+		config.Chinese: "依据哈希值，获取行动",
+	}
+	hashCmdUses = map[config.Language]string{
+		config.English: "hash ACTION_HASH",
+		config.Chinese: "hash 行动_哈希", // this translation
+	}
+)
+
 // actionHashCmd represents the action hash command
 var actionHashCmd = &cobra.Command{
-	Use:   "hash ACTION_HASH",
-	Short: "Get action by hash",
+	Use:   config.TranslateInLang(hashCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(hashCmdShorts, config.UILanguage),
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

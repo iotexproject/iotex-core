@@ -13,13 +13,26 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	xrc20AllowanceCmdUses = map[config.Language]string{
+		config.English: "allowance [-s SIGNER] (ALIAS|SPENDER_ADDRESS) -c ALIAS|CONTRACT_ADDRESS ",
+		config.Chinese: "allowance [-s 签署人] (ALIAS|支出者地址) -c 别名|合约地址 ",
+	}
+	xrc20AllowanceCmdShorts = map[config.Language]string{
+		config.English: "the amount which spender is still allowed to withdraw from owner",
+		config.Chinese: "仍然允许支出者从所有者中提取的金额",
+	}
 )
 
 // xrc20AllowanceCmd represents your signer limited amount on target address
 var xrc20AllowanceCmd = &cobra.Command{
-	Use:   "allowance [-s SIGNER] (ALIAS|SPENDER_ADDRESS) -c ALIAS|CONTRACT_ADDRESS ",
-	Short: "the amount which spender is still allowed to withdraw from owner",
+	Use:   config.TranslateInLang(xrc20AllowanceCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(xrc20AllowanceCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

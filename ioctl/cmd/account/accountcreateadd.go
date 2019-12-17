@@ -19,10 +19,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var (
+	createAddCmdShorts = map[config.Language]string{
+		config.English: "Create new account for ioctl",
+		config.Chinese: "为ioctl创建新账户",
+	}
+	createAddCmdUses = map[config.Language]string{
+		config.English: "createadd ALIAS",
+		config.Chinese: "createadd 别名",
+	}
+)
+
 // accountCreateAddCmd represents the account createadd command
 var accountCreateAddCmd = &cobra.Command{
-	Use:   "createadd ALIAS",
-	Short: "Create new account for ioctl",
+	Use:   config.TranslateInLang(createAddCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(createAddCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

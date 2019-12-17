@@ -10,9 +10,26 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-
 	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	updateCmdUses = map[config.Language]string{
+		config.English: "update [-t version-type]",
+		config.Chinese: "update [-t 版本类型]",
+	}
+	updateCmdShorts = map[config.Language]string{
+		config.English: "Update ioctl with latest version",
+		config.Chinese: "使用最新版本更新ioctl",
+	}
+	flagVersionTypeUsages = map[config.Language]string{
+		config.English: `set version type, "stable" or "unstable"`,
+		config.Chinese: `设置版本类型, "稳定版" 或 "非稳定版"`,
+	}
 )
 
 var (
@@ -21,8 +38,8 @@ var (
 
 // UpdateCmd represents the update command
 var UpdateCmd = &cobra.Command{
-	Use:   "update [-t version-type]",
-	Short: "Update ioctl with latest version",
+	Use:   config.TranslateInLang(updateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(updateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -33,7 +50,7 @@ var UpdateCmd = &cobra.Command{
 
 func init() {
 	UpdateCmd.Flags().StringVarP(&versionType, "version-type", "t", "stable",
-		`set version type, "stable" or "unstable"`)
+		config.TranslateInLang(flagVersionTypeUsages, config.UILanguage))
 }
 
 func update() error {
