@@ -10,14 +10,28 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	depositCmdShorts = map[config.Language]string{
+		config.English: "Deposit rewards to rewarding fund",
+		config.Chinese: "将奖励存入奖励基金",
+	}
+	depositCmdUses = map[config.Language]string{
+		config.English: "deposit AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "deposit IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P" +
+			" 密码] [-y]",
+	}
+)
+
 // actionDepositCmd represents the action deposit command
 var actionDepositCmd = &cobra.Command{
-	Use:   "deposit AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASPRICE] [-P PASSWORD] [-y]",
-	Short: "Deposit rewards from rewarding fund",
+	Use:   config.TranslateInLang(deployCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(depositCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

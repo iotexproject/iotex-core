@@ -11,14 +11,27 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	exportCmdShorts = map[config.Language]string{
+		config.English: "Export IoTeX private key from wallet",
+		config.Chinese: "从钱包导出IoTeX的私钥",
+	}
+	exportCmdUses = map[config.Language]string{
+		config.English: "export (ALIAS|ADDRESS)",
+		config.Chinese: "export (别名|地址)",
+	}
+)
+
 // accountExportCmd represents the account export command
 var accountExportCmd = &cobra.Command{
-	Use:   "export (ALIAS|ADDRESS)",
-	Short: "Export IoTeX private key from wallet",
+	Use:   config.TranslateInLang(exportCmdShorts, config.UILanguage),
+	Short: config.TranslateInLang(exportCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

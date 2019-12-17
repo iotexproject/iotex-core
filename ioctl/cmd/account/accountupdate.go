@@ -20,10 +20,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	updateCmdShorts = map[config.Language]string{
+		config.English: "Update password for IoTeX account",
+		config.Chinese: "为IoTeX账户更新密码",
+	}
+	updateCmdUses = map[config.Language]string{
+		config.English: "update [ALIAS|ADDRESS]",
+		config.Chinese: "update [别名|地址]",
+	}
+)
+
 // accountUpdateCmd represents the account update command
 var accountUpdateCmd = &cobra.Command{
-	Use:   "update [ALIAS|ADDRESS]",
-	Short: "Update password for IoTeX account",
+	Use:   config.TranslateInLang(updateCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(updateCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(0, 1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

@@ -17,14 +17,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -37,6 +38,18 @@ var (
 		config.English: "Manage accounts of IoTeX blockchain",
 		config.Chinese: "管理IoTeX区块链上的账号",
 	}
+	accountCmdUses = map[config.Language]string{
+		config.English: "account",
+		config.Chinese: "账户",
+	}
+	flagEndpoint = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagInsecure = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接",
+	}
 )
 
 // Errors
@@ -46,7 +59,7 @@ var (
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
-	Use:   "account",
+	Use:   config.TranslateInLang(accountCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(accountCmdShorts, config.UILanguage),
 }
 
@@ -66,9 +79,8 @@ func init() {
 	AccountCmd.AddCommand(accountUpdateCmd)
 	AccountCmd.AddCommand(accountVerifyCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
-	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
+	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
 }
 
 // Sign sign message with signer

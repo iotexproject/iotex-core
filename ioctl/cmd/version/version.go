@@ -21,10 +21,30 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+// Multi-language support
+var (
+	versionCmdUses = map[config.Language]string{
+		config.English: "version",
+		config.Chinese: "version",
+	}
+	versionCmdShorts = map[config.Language]string{
+		config.English: "Print the version of ioctl and node",
+		config.Chinese: "打印ioctl和节点的版本",
+	}
+	flagEndpointUsage = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagInsecureUsage = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全的连接",
+	}
+)
+
 // VersionCmd represents the version command
 var VersionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the version of ioctl and node",
+	Use:   config.TranslateInLang(versionCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(versionCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
@@ -40,9 +60,9 @@ type versionMessage struct {
 
 func init() {
 	VersionCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsage, config.UILanguage))
 	VersionCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
+		config.TranslateInLang(flagInsecureUsage, config.UILanguage))
 }
 
 func version() error {
