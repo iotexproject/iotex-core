@@ -114,7 +114,7 @@ jobs:
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd ioctl/ && ./buildcli.sh
+      - run: cd tools/ioctl/ && ./buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run: 
           name: build bin put s3 (unstable) or github (release)
@@ -129,7 +129,7 @@ jobs:
             else
                 sudo apt-get install python python-pip
                 sudo pip install awscli
-                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync tools/ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 
@@ -166,8 +166,8 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd ioctl/ && ./buildcli.sh
-            cd ../tools/actioninjector.v2/ && ./build_injector.sh
+            cd tools/ioctl/ && ./buildcli.sh
+            cd ../actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
           command: |
@@ -180,7 +180,7 @@ jobs:
                 ghr $arg tools/actioninjector.v2/release/
             else
                 sudo pip install awscli
-                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync tools/ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 
