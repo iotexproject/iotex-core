@@ -27,12 +27,32 @@ var (
 		config.English: "update [ALIAS|ADDRESS]",
 		config.Chinese: "update [别名|地址]",
 	}
+	flagUsages = map[config.Language]string{
+		config.English: `set version type, "stable" or "unstable"`,
+		config.Chinese: `设置版本类型, "稳定版" 或 "非稳定版"`,
+	}
+	resultSuccess = map[config.Language]string{
+		config.English: "ioctl is up-to-date now.",
+		config.Chinese: "ioctl 现已更新完毕。",
+	}
+	resultFail = map[config.Language]string{
+		config.English: "failed to update ioctl",
+		config.Chinese: "ioctl 更新失败",
+	}
+	resultInfo = map[config.Language]string{
+		config.English: "Downloading the latest %s version ...\n",
+		config.Chinese: "正在下载最新的 %s 版本 ...\n",
+	}
 )
 
 func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	var versionType string
 	use, _ := c.SelectTranslation(uses)
 	short, _ := c.SelectTranslation(shorts)
+	flagUsage, _ := c.SelectTranslation(flagUsages)
+	success, _ := c.SelectTranslation(resultSuccess)
+	fail, _ := c.SelectTranslation(resultFail)
+	info, _ := c.SelectTranslation(resultInfo)
 	uc := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -49,21 +69,20 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh -s \"unstable\""
 
 			}
+			output.PrintResult(fmt.Sprintf(info, versionType))
 
-			output.PrintResult(fmt.Sprintf("Downloading the latest %s version ...\n", versionType))
 			err := exec.Command("bash", "-c", cmdString).Run()
 			if err != nil {
-				return output.NewError(output.UpdateError, "failed to update ioctl", nil)
+				return output.NewError(output.UpdateError, fail, nil)
 			}
-			output.PrintResult("ioctl is up-to-date now.")
+			output.PrintResult(success)
 			return nil
 
 		},
 	}
 
 	uc.Flags().StringVarP(&versionType, "version-type", "t", "stable",
-		`set version type, "stable" or "unstable"`)
+		flagUsage)
 
 	return uc
-
 }
