@@ -45,6 +45,7 @@ var (
 	}
 )
 
+// NewUpdateCmd represents the update command
 func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	var versionType string
 	// TODO create function func MustSelectTranslation(map[config.Language]string) string
