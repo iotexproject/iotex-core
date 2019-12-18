@@ -22,12 +22,14 @@ func TestNewAccountDelete(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
+		config.English).AnyTimes()
 
 	client.EXPECT().GetAddress(gomock.Any()).Return("io1kuz56knh9g7x3ht36t2pgfd8fz5g6rxrh5a8dn", nil)
 
 	cmd := NewAccountDelete(client)
 
-	_, err := util.ExecuteCmd(cmd)
-	require.EqualError(t, err, "account #io1kuz56knh9g7x3ht36t2pgfd8fz5g6rxrh5a8dn not found")
+	result, err := util.ExecuteCmd(cmd)
+	require.NotNil(t, result)
+	require.Error(t, err)
 }

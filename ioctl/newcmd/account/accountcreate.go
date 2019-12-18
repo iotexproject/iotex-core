@@ -23,7 +23,7 @@ import (
 
 // Multi-language support
 var (
-	createshorts = map[config.Language]string{
+	createShorts = map[config.Language]string{
 		config.English: "Create N new accounts and print them",
 		config.Chinese: "创建 N 个新账户，并打印",
 	}
@@ -31,9 +31,17 @@ var (
 		config.English: "create",
 		config.Chinese: "create 创建",
 	}
-	createflagUsages = map[config.Language]string{
+	createFlagUsages = map[config.Language]string{
 		config.English: "number of accounts to create",
 		config.Chinese: "指定创建账户的数量",
+	}
+	failToGenerateNewPrivateKey = map[config.Language]string{
+		config.English: "failed to generate new private key",
+		config.Chinese: "生成新私钥失败",
+	}
+	failToConvertPublicKeyIntoAddress = map[config.Language]string{
+		config.English: "failed to convert public key into address",
+		config.Chinese: "将公钥转换为地址失败",
 	}
 )
 
@@ -41,8 +49,10 @@ var (
 func NewAccountCreate(c ioctl.Client) *cobra.Command {
 	var numAccounts uint
 	use, _ := c.SelectTranslation(createUses)
-	short, _ := c.SelectTranslation(createshorts)
-	usage, _ := c.SelectTranslation(createflagUsages)
+	short, _ := c.SelectTranslation(createShorts)
+	usage, _ := c.SelectTranslation(createFlagUsages)
+	failToGenerateNewPrivateKey, _ := c.SelectTranslation(failToGenerateNewPrivateKey)
+	failToConvertPublicKeyIntoAddress, _ := c.SelectTranslation(failToConvertPublicKeyIntoAddress)
 	ac := &cobra.Command{
 		Use:   use,
 		Short: short,
@@ -53,11 +63,11 @@ func NewAccountCreate(c ioctl.Client) *cobra.Command {
 			for i := 0; i < int(numAccounts); i++ {
 				private, err := crypto.GenerateKey()
 				if err != nil {
-					return output.NewError(output.CryptoError, "failed to generate new private key", err)
+					return output.NewError(output.CryptoError, failToGenerateNewPrivateKey, err)
 				}
 				addr, err := address.FromBytes(private.PublicKey().Hash())
 				if err != nil {
-					return output.NewError(output.ConvertError, "failed to convert public key into address", err)
+					return output.NewError(output.ConvertError, failToConvertPublicKeyIntoAddress, err)
 				}
 				newAccount := generatedAccount{
 					Address:    addr.String(),
