@@ -11,11 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
-
 	"github.com/golang/mock/gomock"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
@@ -26,6 +25,7 @@ func TestNewUpdateCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
 		config.English).AnyTimes()
 	cmd := NewUpdateCmd(client)
+	client.EXPECT().ReadSecret().Return("", nil).AnyTimes()
 	res, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, res)
 	require.NoError(t, err)

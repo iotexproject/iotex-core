@@ -47,6 +47,7 @@ var (
 
 func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 	var versionType string
+	// TODO create function func MustSelectTranslation(map[config.Language]string) string
 	use, _ := c.SelectTranslation(uses)
 	short, _ := c.SelectTranslation(shorts)
 	flagUsage, _ := c.SelectTranslation(flagUsages)
@@ -62,6 +63,7 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 			var cmdString string
 			switch versionType {
 			default:
+				//TODO: add translations
 				output.NewError(output.FlagError, "invalid version-type flag:"+versionType, nil)
 			case "stable":
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh"
@@ -69,12 +71,16 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh -s \"unstable\""
 
 			}
+			//TODO: add translations
 			output.PrintResult(fmt.Sprintf(info, versionType))
 
 			err := exec.Command("bash", "-c", cmdString).Run()
+			c.ReadSecret()
 			if err != nil {
+				//TODO: add translations
 				return output.NewError(output.UpdateError, fail, nil)
 			}
+			//TODO: add translations
 			output.PrintResult(success)
 			return nil
 
