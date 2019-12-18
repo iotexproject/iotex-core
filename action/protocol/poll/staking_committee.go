@@ -119,6 +119,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	// deploy native staking contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
@@ -281,9 +282,6 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Cook, epochHeight) {
-		return nil
-	}
-	if err != nil {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
