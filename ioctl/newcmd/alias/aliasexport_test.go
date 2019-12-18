@@ -21,7 +21,8 @@ func TestNewAliasExport(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).AnyTimes()
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslation",
+		config.English).AnyTimes()
 	cmd := NewAliasExport(client)
 	result, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
