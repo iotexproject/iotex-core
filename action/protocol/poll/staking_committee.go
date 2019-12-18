@@ -37,7 +37,6 @@ var nativeStakingContractCreator = address.ZeroAddress
 var nativeStakingContractNonce = uint64(0)
 
 type stakingCommittee struct {
-	candidatesByHeight   CandidatesByHeight
 	electionCommittee    committee.Committee
 	governanceStaking    Protocol
 	nativeStaking        *NativeStaking
@@ -51,7 +50,6 @@ func NewStakingCommittee(
 	ec committee.Committee,
 	gs Protocol,
 	readContract ReadContract,
-	candidatesByHeight CandidatesByHeight,
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
 	scoreThreshold *big.Int,
@@ -68,12 +66,11 @@ func NewStakingCommittee(
 		}
 	}
 	return &stakingCommittee{
-		candidatesByHeight: candidatesByHeight,
-		electionCommittee:  ec,
-		governanceStaking:  gs,
-		nativeStaking:      ns,
-		scoreThreshold:     scoreThreshold,
-		stateReader:        sr,
+		electionCommittee: ec,
+		governanceStaking: gs,
+		nativeStaking:     ns,
+		scoreThreshold:    scoreThreshold,
+		stateReader:       sr,
 	}, nil
 }
 
@@ -122,6 +119,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
+	// deploy native staking contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
@@ -164,11 +162,7 @@ func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.Sta
 }
 
 func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	if psac, ok := sc.governanceStaking.(protocol.PostSystemActionsCreator); ok {
-		return psac.CreatePostSystemActions(ctx)
-	}
-
-	return nil, nil
+	return createPostSystemActions(ctx, sc)
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -222,9 +216,7 @@ func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint6
 
 // CandidatesByHeight returns candidate list from state factory according to height
 func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	return sc.candidatesByHeight(sc.stateReader, rp.GetEpochHeight(rp.GetEpochNum(height)))
+	return sc.governanceStaking.CandidatesByHeight(ctx, height)
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
@@ -290,9 +282,6 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Cook, epochHeight) {
-		return nil
-	}
-	if err != nil {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
