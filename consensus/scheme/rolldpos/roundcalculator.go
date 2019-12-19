@@ -15,18 +15,18 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
 type roundCalculator struct {
-	chain                  ChainManager
-	timeBasedRotation      bool
-	rp                     *rolldpos.Protocol
-	candidatesByHeightFunc CandidatesByHeightFunc
-	beringHeight           uint64
+	chain                ChainManager
+	timeBasedRotation    bool
+	rp                   *rolldpos.Protocol
+	delegatesByEpochFunc DelegatesByEpochFunc
+	beringHeight         uint64
 }
 
+// UpdateRound updates previous roundCtx
 func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
 	epochStartHeight := round.EpochStartHeight()
@@ -40,6 +40,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		}
 	default:
 		if height >= round.NextEpochStartHeight() {
+			// update the epoch
 			epochNum = c.rp.GetEpochNum(height)
 			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
@@ -91,6 +92,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	}, nil
 }
 
+// Proposer returns the block producer of the round
 func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, roundStartTime time.Time) string {
 	round, err := c.newRound(height, blockInterval, roundStartTime, nil, 0)
 	if err != nil {
@@ -114,6 +116,7 @@ func (c *roundCalculator) IsDelegate(addr string, height uint64) bool {
 	return false
 }
 
+// RoundInfo returns information of round by the given height and current time
 func (c *roundCalculator) RoundInfo(
 	height uint64,
 	blockInterval time.Duration,
@@ -164,9 +167,9 @@ func (c *roundCalculator) roundInfo(
 	return roundNum, roundStartTime, nil
 }
 
+// Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
-	epochStartHeight := c.rp.GetEpochHeight(c.rp.GetEpochNum(height))
-	numDelegates := c.rp.NumDelegates()
+	epochNum := c.rp.GetEpochNum(height)
 	re := protocol.NewRegistry()
 	if err := c.rp.Register(re); err != nil {
 		return nil, err
@@ -177,33 +180,19 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 			Registry: re,
 		},
 	)
-	candidates, err := c.candidatesByHeightFunc(ctx, epochStartHeight)
+	candidatesList, err := c.delegatesByEpochFunc(ctx, epochNum)
 	if err != nil {
-		return nil, errors.Wrapf(
-			err,
-			"failed to get candidates on height %d",
-			epochStartHeight,
-		)
-	}
-	if len(candidates) < int(numDelegates) {
-		return nil, errors.Errorf(
-			"# of candidates %d is less than from required number %d",
-			len(candidates),
-			numDelegates,
-		)
+		return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
 	}
 	addrs := []string{}
-	for i, candidate := range candidates {
-		if uint64(i) >= c.rp.NumCandidateDelegates() {
-			break
-		}
+	for _, candidate := range candidatesList {
 		addrs = append(addrs, candidate.Address)
 	}
-	crypto.SortCandidates(addrs, epochStartHeight, crypto.CryptoSeed)
 
-	return addrs[:numDelegates], nil
+	return addrs, nil
 }
 
+// NewRoundWithToleration starts new round with tolerated over time
 func (c *roundCalculator) NewRoundWithToleration(
 	height uint64,
 	blockInterval time.Duration,
@@ -214,6 +203,7 @@ func (c *roundCalculator) NewRoundWithToleration(
 	return c.newRound(height, blockInterval, now, eManager, toleratedOvertime)
 }
 
+// NewRound starts new round and returns roundCtx
 func (c *roundCalculator) NewRound(
 	height uint64,
 	blockInterval time.Duration,
@@ -273,6 +263,7 @@ func (c *roundCalculator) newRound(
 	return round, nil
 }
 
+// calculateProposer calulates proposer according to height and round number
 func (c *roundCalculator) calculateProposer(
 	height uint64,
 	round uint32,
