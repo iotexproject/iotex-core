@@ -28,7 +28,7 @@ var (
 // stakeAddCmd represents the stake add command
 var stakeAddCmd = &cobra.Command{
 	Use:   config.TranslateInLang(addCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(actionCmdShorts, config.UILanguage),
+	Short: config.TranslateInLang(addCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
