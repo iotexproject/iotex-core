@@ -143,7 +143,7 @@ func (m *nextDelegatesMessage) String() string {
 
 func init() {
 	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
-		config.TranslateInLang(flagEndpointUsages, config.UILanguage))
+		config.TranslateInLang(flagEpochNumUsages, config.UILanguage))
 	nodeDelegateCmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		config.TranslateInLang(flagNextEpochUsages, config.UILanguage))
 	nodeStatus = map[bool]string{true: "active", false: ""}
