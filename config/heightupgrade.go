@@ -7,7 +7,6 @@
 package config
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -65,7 +64,6 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 	case Dardanelles:
 		h = hu.dardanellesHeight
 	case English:
-		fmt.Println("hu.englishBlockHeight", hu.englishHeight)
 		h = hu.englishHeight
 	default:
 		log.Panic("invalid height name!")

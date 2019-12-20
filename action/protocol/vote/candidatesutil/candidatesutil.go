@@ -145,7 +145,7 @@ func ConstructKey(height uint64) hash.Hash160 {
 	return hash.Hash160b(k)
 }
 
-// ConstrctDelegateKey constructs a key for delegate storage
+// ConstructDelegateKey constructs a key for delegate storage
 func ConstructDelegateKey(epochNum uint64) hash.Hash160 {
 	epochInBytes := byteutil.Uint64ToBytes(epochNum)
 	k := []byte(DelegatePrefix)

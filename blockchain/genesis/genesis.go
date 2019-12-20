@@ -8,7 +8,6 @@ package genesis
 
 import (
 	"flag"
-	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -38,7 +37,6 @@ func init() {
 }
 
 func defaultConfig() Genesis {
-	fmt.Println("aaa")
 	return Genesis{
 		Blockchain: Blockchain{
 			Timestamp:               1546329600,
