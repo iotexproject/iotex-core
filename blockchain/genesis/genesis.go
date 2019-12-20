@@ -8,6 +8,7 @@ package genesis
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"sort"
 	"time"
@@ -37,6 +38,7 @@ func init() {
 }
 
 func defaultConfig() Genesis {
+	fmt.Println("aaa")
 	return Genesis{
 		Blockchain: Blockchain{
 			Timestamp:               1546329600,
@@ -60,6 +62,7 @@ func defaultConfig() Genesis {
 		},
 		Poll: Poll{
 			EnableGravityChainVoting: true,
+			KickOutEpochPeriod:       3,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -165,6 +168,8 @@ type (
 		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
+		// KickOutEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
+		KickOutEpochPeriod uint64 `yaml:"kickOutEpochPeriod"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

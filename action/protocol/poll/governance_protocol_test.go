@@ -90,7 +90,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		nil,
+		sm,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickOutEpochPeriod,
 	)
 	return p, ctx, sm, r, err
 }

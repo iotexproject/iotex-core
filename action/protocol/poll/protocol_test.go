@@ -36,6 +36,9 @@ func TestNewProtocol(t *testing.T) {
 		committee,
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		sm,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
 	)
 	require.NoError(err)
 	require.NotNil(p)

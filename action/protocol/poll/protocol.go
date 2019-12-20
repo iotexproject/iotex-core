@@ -42,6 +42,9 @@ type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, 
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
+// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
+
 // Protocol defines the protocol of handling votes
 type Protocol interface {
 	protocol.Protocol
@@ -95,7 +98,8 @@ func NewProtocol(
 	candidatesByHeight CandidatesByHeight,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
-	sr protocol.StateReader,
+	sm protocol.StateManager,
+	productivityByEpoch ProductivityByEpoch,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
@@ -118,7 +122,10 @@ func NewProtocol(
 		genesisConfig.NumCandidateDelegates,
 		genesisConfig.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sr,
+		sm,
+		productivityByEpoch,
+		genesisConfig.ProductivityThreshold,
+		genesisConfig.KickOutEpochPeriod,
 	); err != nil {
 		return nil, err
 	}
@@ -133,7 +140,7 @@ func NewProtocol(
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
-		sr,
+		sm,
 	); err != nil {
 		return nil, err
 	}

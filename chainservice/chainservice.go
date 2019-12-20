@@ -207,6 +207,10 @@ func New(
 			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 		)
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
+		ws, err := sf.NewWorkingSet()
+		if err != nil {
+			return nil, err
+		}
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
 			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
@@ -236,7 +240,10 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
-			sf,
+			ws,
+			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+			},
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")

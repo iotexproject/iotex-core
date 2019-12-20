@@ -24,6 +24,9 @@ import (
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
 
+// DelegatePrefix is the prefix of the key of delegateList
+const DelegatePrefix = "Delegates."
+
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
 	var candidates state.CandidateList
@@ -46,6 +49,31 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 		err,
 		"failed to get state of candidateList for height %d",
 		height,
+	)
+}
+
+// GetDelegatesByEpochFromDB returns array of Delegates in delegate pool of a given epochNum
+func GetDelegatesByEpochFromDB(sr protocol.StateReader, epochNum uint64) ([]*state.Candidate, error) {
+	var delegates state.CandidateList
+	// Load Delegates on the given epochNum from underlying db
+	delegatesKey := ConstructDelegateKey(epochNum)
+	err := sr.State(delegatesKey, &delegates)
+	log.L().Debug(
+		"GetDelegatesByEpochFromDB",
+		zap.Uint64("epoch number", epochNum),
+		zap.Any("delegates", delegates),
+		zap.Error(err),
+	)
+	if errors.Cause(err) == nil {
+		if len(delegates) > 0 {
+			return delegates, nil
+		}
+		err = state.ErrStateNotExist
+	}
+	return nil, errors.Wrapf(
+		err,
+		"failed to get state of delegateList for epoch number %d",
+		epochNum,
 	)
 }
 
@@ -114,6 +142,14 @@ func ConstructKey(height uint64) hash.Hash160 {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
+	return hash.Hash160b(k)
+}
+
+// ConstrctDelegateKey constructs a key for delegate storage
+func ConstructDelegateKey(epochNum uint64) hash.Hash160 {
+	epochInBytes := byteutil.Uint64ToBytes(epochNum)
+	k := []byte(DelegatePrefix)
+	k = append(k, epochInBytes...)
 	return hash.Hash160b(k)
 }
 
