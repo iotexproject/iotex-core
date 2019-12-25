@@ -352,6 +352,9 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 		}
 		tipHeight--
 		atomic.StoreUint64(&dao.tipHeight, tipHeight)
+		if dao.tipHash, err = dao.getTipHash(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
