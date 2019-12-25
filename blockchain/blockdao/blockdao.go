@@ -7,6 +7,7 @@
 package blockdao
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -129,6 +130,8 @@ type (
 		footerCache   *cache.ThreadSafeLruCache
 		cfg           config.DB
 		mutex         sync.RWMutex // for create new db file
+		tipHeight     uint64
+		tipHash       hash.Hash256
 	}
 )
 
@@ -236,11 +239,27 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 }
 
 func (dao *blockDAO) GetTipHash() (hash.Hash256, error) {
-	return dao.getTipHash()
+	var err error
+	if bytes.Equal(dao.tipHash[:], hash.ZeroHash256[:]) {
+		dao.tipHash, err = dao.getTipHash()
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+	}
+	return dao.tipHash, nil
 }
 
 func (dao *blockDAO) GetTipHeight() (uint64, error) {
-	return dao.getTipHeight()
+	tipHeight := atomic.LoadUint64(&dao.tipHeight)
+	var err error
+	if tipHeight == 0 {
+		tipHeight, err = dao.getTipHeight()
+		if err != nil {
+			return 0, err
+		}
+		atomic.StoreUint64(&dao.tipHeight, tipHeight)
+	}
+	return tipHeight, nil
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
@@ -293,6 +312,8 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 	if err := dao.putBlock(blk); err != nil {
 		return err
 	}
+	atomic.StoreUint64(&dao.tipHeight, blk.Height())
+	dao.tipHash = blk.HashBlock()
 	// index the block if there's indexer
 	if dao.indexer == nil {
 		return nil
