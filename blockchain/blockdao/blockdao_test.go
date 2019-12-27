@@ -199,11 +199,6 @@ func TestBlockDAO(t *testing.T) {
 			require.NoError(err)
 			require.Equal(blks[i].Height(), height)
 
-			// test getTipHash
-			hash, err := dao.GetTipHash()
-			require.NoError(err)
-			require.Equal(blks[i].HashBlock(), hash)
-
 			// test getBlock()
 			blk, err := dao.GetBlock(blks[i].HashBlock())
 			require.NoError(err)
@@ -260,9 +255,6 @@ func TestBlockDAO(t *testing.T) {
 			require.EqualValues(prevTipHeight-1, tipHeight)
 			h, err := indexer.GetBlockHash(tipHeight)
 			require.NoError(err)
-			h1, err := dao.GetTipHash()
-			require.NoError(err)
-			require.Equal(h, h1)
 			_, err = dao.GetBlockHash(prevTipHeight)
 			require.Error(err)
 			_, err = dao.GetBlockHeight(prevTipHash)
