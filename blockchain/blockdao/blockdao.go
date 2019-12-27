@@ -104,6 +104,8 @@ type (
 		IndexFile(uint64, []byte) error
 		GetFileIndex(uint64) ([]byte, error)
 		KVStore() db.KVStore
+		BlockHeaderByHeight(uint64) (*block.Header, error)
+		BlockFooterByHeight(uint64) (*block.Footer, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -233,6 +235,22 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 		return nil, err
 	}
 	return dao.getBlock(hash)
+}
+
+func (dao *blockDAO) BlockHeaderByHeight(height uint64) (*block.Header, error) {
+	hash, err := dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return dao.header(hash)
+}
+
+func (dao *blockDAO) BlockFooterByHeight(height uint64) (*block.Footer, error) {
+	hash, err := dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return dao.footer(hash)
 }
 
 func (dao *blockDAO) GetTipHash() (hash.Hash256, error) {
