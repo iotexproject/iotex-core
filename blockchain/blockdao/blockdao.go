@@ -90,7 +90,7 @@ type (
 		GetBlockHeight(hash.Hash256) (uint64, error)
 		GetBlock(hash.Hash256) (*block.Block, error)
 		GetBlockByHeight(uint64) (*block.Block, error)
-		GetTipHeight() (uint64, error)
+		GetTipHeight() uint64
 		Header(hash.Hash256) (*block.Header, error)
 		Body(hash.Hash256) (*block.Body, error)
 		Footer(hash.Hash256) (*block.Footer, error)
@@ -240,9 +240,8 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 	return dao.getBlock(hash)
 }
 
-func (dao *blockDAO) GetTipHeight() (uint64, error) {
-	tipHeight := atomic.LoadUint64(&dao.tipHeight)
-	return tipHeight, nil
+func (dao *blockDAO) GetTipHeight() uint64 {
+	return atomic.LoadUint64(&dao.tipHeight)
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {

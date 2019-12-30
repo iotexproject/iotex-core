@@ -288,10 +288,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		return err
 	}
 	// get blockchain tip height
-	var tipHeight uint64
-	if tipHeight, err = bc.dao.GetTipHeight(); err != nil {
-		return err
-	}
+	tipHeight := bc.dao.GetTipHeight()
 	if tipHeight == 0 {
 		return nil
 	}
@@ -334,10 +331,7 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
-	tipHeight, err := bc.dao.GetTipHeight()
-	if err != nil {
-		return hash.ZeroHash256
-	}
+	tipHeight := bc.dao.GetTipHeight()
 	tipHash, err := bc.dao.GetBlockHash(tipHeight)
 	if err != nil {
 		return hash.ZeroHash256
@@ -347,10 +341,7 @@ func (bc *blockchain) TipHash() hash.Hash256 {
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	tipHei, err := bc.dao.GetTipHeight()
-	if err != nil {
-		return 0
-	}
+	tipHei := bc.dao.GetTipHeight()
 	return tipHei
 }
 
@@ -390,7 +381,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bo
 	var tip protocol.TipInfo
 	var err error
 	if candidateFlag {
-		tipHeight := bc.TipHeight()
+		tipHeight := bc.dao.GetTipHeight()
 		if candidates, err = bc.candidatesByHeight(tipHeight + 1); err != nil {
 			return nil, err
 		}
@@ -420,7 +411,7 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-	tipHeight := bc.TipHeight()
+	tipHeight := bc.dao.GetTipHeight()
 	newblockHeight := tipHeight + 1
 	// run execution and update state trie root hash
 	ctx, err := bc.context(context.Background(), true, true)
@@ -455,7 +446,10 @@ func (bc *blockchain) MintNewBlock(
 	ra := block.NewRunnableActionsBuilder().
 		AddActions(actions...).
 		Build()
-	prevBlkHash := bc.TipHash()
+	prevBlkHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return nil, err
+	}
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
 	// could verify that they start from the same genesis
 	if newblockHeight == 1 {
@@ -584,7 +578,7 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tipHeight := bc.TipHeight()
+	tipHeight := bc.dao.GetTipHeight()
 	if stateHeight > tipHeight {
 		return errors.New("factory is higher than blockchain")
 	}
@@ -619,7 +613,7 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 }
 
 func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
-	tipHeight := bc.TipHeight()
+	tipHeight := bc.dao.GetTipHeight()
 	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
@@ -674,7 +668,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
-	tipHash := bc.TipHash()
+	tipHeight := bc.dao.GetTipHeight()
+	tipHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return err
+	}
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
 
 	// emit block to all block subscribers
