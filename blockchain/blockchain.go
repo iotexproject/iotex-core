@@ -149,8 +149,6 @@ type blockchain struct {
 	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
 	dao           blockdao.BlockDAO
 	config        config.Config
-	tipHeight     uint64
-	tipHash       hash.Hash256
 	validator     Validator
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
@@ -290,17 +288,10 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		return err
 	}
 	// get blockchain tip height
-	if bc.tipHeight, err = bc.dao.GetTipHeight(); err != nil {
-		return err
-	}
-	if bc.tipHeight == 0 {
+	tipHeight := bc.dao.GetTipHeight()
+	if tipHeight == 0 {
 		return nil
 	}
-	// get blockchain tip hash
-	if bc.tipHash, err = bc.dao.GetTipHash(); err != nil {
-		return err
-	}
-
 	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
 		for _, p := range bcCtx.Registry.All() {
 			if s, ok := p.(lifecycle.Starter); ok {
@@ -340,14 +331,17 @@ func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	return bc.tipHash
+	tipHeight := bc.dao.GetTipHeight()
+	tipHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return hash.ZeroHash256
+	}
+	return tipHash
 }
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	return atomic.LoadUint64(&bc.tipHeight)
+	return bc.dao.GetTipHeight()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -386,7 +380,8 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bo
 	var tip protocol.TipInfo
 	var err error
 	if candidateFlag {
-		if candidates, err = bc.candidatesByHeight(bc.tipHeight + 1); err != nil {
+		tipHeight := bc.dao.GetTipHeight()
+		if candidates, err = bc.candidatesByHeight(tipHeight + 1); err != nil {
 			return nil, err
 		}
 	}
@@ -415,8 +410,8 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-
-	newblockHeight := bc.tipHeight + 1
+	tipHeight := bc.dao.GetTipHeight()
+	newblockHeight := tipHeight + 1
 	// run execution and update state trie root hash
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
@@ -450,8 +445,10 @@ func (bc *blockchain) MintNewBlock(
 	ra := block.NewRunnableActionsBuilder().
 		AddActions(actions...).
 		Build()
-
-	prevBlkHash := bc.tipHash
+	prevBlkHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return nil, err
+	}
 	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
 	// could verify that they start from the same genesis
 	if newblockHeight == 1 {
@@ -580,11 +577,12 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if stateHeight > bc.tipHeight {
+	tipHeight := bc.dao.GetTipHeight()
+	if stateHeight > tipHeight {
 		return errors.New("factory is higher than blockchain")
 	}
 
-	for i := stateHeight + 1; i <= bc.tipHeight; i++ {
+	for i := stateHeight + 1; i <= tipHeight; i++ {
 		blk, err := bc.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
@@ -607,28 +605,32 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
 	log.L().Info("Restarting blockchain.",
-		zap.Uint64("chainHeight",
-			bc.tipHeight),
+		zap.Uint64("chainHeight", tipHeight),
 		zap.Uint64("factoryHeight", stateHeight))
 	return nil
 }
 
 func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
-	if bc.tipHeight == 0 {
+	tipHeight := bc.dao.GetTipHeight()
+	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
 			Hash:      bc.config.Genesis.Hash(),
 			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		}, nil
 	}
-	header, err := bc.dao.Header(bc.tipHash)
+	tipHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return nil, err
+	}
+	header, err := bc.dao.Header(tipHash)
 	if err != nil {
 		return nil, err
 	}
 
 	return &protocol.TipInfo{
-		Height:    bc.tipHeight,
-		Hash:      bc.tipHash,
+		Height:    tipHeight,
+		Hash:      tipHash,
 		Timestamp: header.Timestamp(),
 	}, nil
 }
@@ -655,10 +657,6 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return err
 	}
 
-	// update tip hash and height
-	atomic.StoreUint64(&bc.tipHeight, blk.Height())
-	bc.tipHash = blk.HashBlock()
-
 	// commit state/contract changes
 	sfTimer := bc.timerFactory.NewTimer("sf.Commit")
 	err = bc.sf.Commit(blk.WorkingSet)
@@ -668,7 +666,12 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", bc.tipHash[:]))
+	tipHeight := bc.dao.GetTipHeight()
+	tipHash, err := bc.dao.GetBlockHash(tipHeight)
+	if err != nil {
+		return err
+	}
+	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
 
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
