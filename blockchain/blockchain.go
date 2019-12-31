@@ -312,10 +312,6 @@ func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) 
 	return bc.dao.HeaderByHeight(height)
 }
 
-func (bc *blockchain) BlockHeaderByHash(h hash.Hash256) (*block.Header, error) {
-	return bc.dao.Header(h)
-}
-
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
 	return bc.dao.FooterByHeight(height)
 }
