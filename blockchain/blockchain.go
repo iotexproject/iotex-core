@@ -60,15 +60,10 @@ type Blockchain interface {
 	lifecycle.StartStopper
 
 	// For exposing blockchain states
-
 	// BlockHeaderByHeight return block header by height
 	BlockHeaderByHeight(height uint64) (*block.Header, error)
-	// BlockHeaderByHash return block header by hash
-	BlockHeaderByHash(h hash.Hash256) (*block.Header, error)
 	// BlockFooterByHeight return block footer by height
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
-	// BlockFooterByHash return block footer by hash
-	BlockFooterByHash(h hash.Hash256) (*block.Footer, error)
 	// ChainID returns the chain ID
 	ChainID() uint32
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -314,19 +309,11 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
-	return bc.blockHeaderByHeight(height)
-}
-
-func (bc *blockchain) BlockHeaderByHash(h hash.Hash256) (*block.Header, error) {
-	return bc.dao.Header(h)
+	return bc.dao.HeaderByHeight(height)
 }
 
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
-	return bc.blockFooterByHeight(height)
-}
-
-func (bc *blockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
-	return bc.dao.Footer(h)
+	return bc.dao.FooterByHeight(height)
 }
 
 // TipHash returns tip block's hash
@@ -550,22 +537,6 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		return pp.CandidatesByHeight(ctx, height)
 	}
 	return nil, nil
-}
-
-func (bc *blockchain) blockHeaderByHeight(height uint64) (*block.Header, error) {
-	hash, err := bc.dao.GetBlockHash(height)
-	if err != nil {
-		return nil, err
-	}
-	return bc.dao.Header(hash)
-}
-
-func (bc *blockchain) blockFooterByHeight(height uint64) (*block.Footer, error) {
-	hash, err := bc.dao.GetBlockHash(height)
-	if err != nil {
-		return nil, err
-	}
-	return bc.dao.Footer(hash)
 }
 
 func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
