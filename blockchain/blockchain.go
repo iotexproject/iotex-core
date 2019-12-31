@@ -341,8 +341,7 @@ func (bc *blockchain) TipHash() hash.Hash256 {
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	tipHei := bc.dao.GetTipHeight()
-	return tipHei
+	return bc.dao.GetTipHeight()
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -606,8 +605,7 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get factory's height")
 	}
 	log.L().Info("Restarting blockchain.",
-		zap.Uint64("chainHeight",
-			tipHeight),
+		zap.Uint64("chainHeight", tipHeight),
 		zap.Uint64("factoryHeight", stateHeight))
 	return nil
 }

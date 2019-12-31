@@ -291,10 +291,18 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 }
 
 func (dao *blockDAO) PutBlock(blk *block.Block) error {
-	if err := dao.putBlock(blk); err != nil {
+	err := func() error {
+		dao.mutex.Lock()
+		defer dao.mutex.Unlock()
+		if err := dao.putBlock(blk); err != nil {
+			return err
+		}
+		atomic.StoreUint64(&dao.tipHeight, blk.Height())
+		return nil
+	}()
+	if err != nil {
 		return err
 	}
-	atomic.StoreUint64(&dao.tipHeight, blk.Height())
 	// index the block if there's indexer
 	if dao.indexer == nil {
 		return nil
