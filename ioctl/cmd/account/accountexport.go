@@ -30,7 +30,7 @@ var (
 
 // accountExportCmd represents the account export command
 var accountExportCmd = &cobra.Command{
-	Use:   config.TranslateInLang(exportCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(exportCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(exportCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

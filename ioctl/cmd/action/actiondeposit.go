@@ -30,7 +30,7 @@ var (
 
 // actionDepositCmd represents the action deposit command
 var actionDepositCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deployCmdUses, config.UILanguage),
+	Use:   config.TranslateInLang(depositCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(depositCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
