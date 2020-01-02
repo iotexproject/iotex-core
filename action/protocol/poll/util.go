@@ -171,3 +171,13 @@ func setCandidates(
 	}
 	return sm.PutState(candidatesutil.ConstructKey(height), &candidates)
 }
+
+// setKickOutBlackList sets the black list for kick-out for corresponding epoch
+func setKickOutBlackList(
+	sm protocol.StateManager,
+	blackList []string,
+	epochNum uint64,
+) error {
+	blackListKey := candidatesutil.ConstructBlackListKey(epochNum)
+	return sm.PutState(blackListKey, blackList)
+}

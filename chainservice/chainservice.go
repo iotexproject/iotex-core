@@ -207,10 +207,6 @@ func New(
 			rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 		)
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
-		ws, err := sf.NewWorkingSet()
-		if err != nil {
-			return nil, err
-		}
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
 			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
@@ -229,6 +225,7 @@ func New(
 				return data, err
 			},
 			candidatesutil.CandidatesByHeight,
+			candidatesutil.KickOutListByEpoch,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -240,7 +237,7 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
-			ws,
+			sf,
 			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 			},

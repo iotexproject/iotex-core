@@ -982,6 +982,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1247,6 +1248,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1305,6 +1307,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1365,6 +1368,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1482,6 +1486,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 						},
 					}, nil
 				},
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },

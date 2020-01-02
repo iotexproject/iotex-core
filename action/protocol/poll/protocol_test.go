@@ -33,6 +33,7 @@ func TestNewProtocol(t *testing.T) {
 		cfg,
 		func(context.Context, string, uint64, time.Time, []byte) ([]byte, error) { return nil, nil },
 		nil,
+		nil,
 		committee,
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		sm,

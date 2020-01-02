@@ -24,8 +24,8 @@ import (
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
 
-// DelegatePrefix is the prefix of the key of delegateList
-const DelegatePrefix = "Delegates."
+// KickOutPrefix is the prefix of the key of blackList for kick-out
+const KickOutPrefix = "KickOutList."
 
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
@@ -52,27 +52,27 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 	)
 }
 
-// GetDelegatesByEpochFromDB returns array of Delegates in delegate pool of a given epochNum
-func GetDelegatesByEpochFromDB(sr protocol.StateReader, epochNum uint64) ([]*state.Candidate, error) {
-	var delegates state.CandidateList
-	// Load Delegates on the given epochNum from underlying db
-	delegatesKey := ConstructDelegateKey(epochNum)
-	err := sr.State(delegatesKey, &delegates)
+// KickOutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
+func KickOutListByEpoch(sr protocol.StateReader, epochNum uint64) ([]string, error) {
+	var blackList []string
+	// Load kick out list on the given epochNum from underlying db
+	blackListKey := ConstructBlackListKey(epochNum)
+	err := sr.State(blackListKey, &blackList)
 	log.L().Debug(
-		"GetDelegatesByEpochFromDB",
+		"KickOutListByEpoch",
 		zap.Uint64("epoch number", epochNum),
-		zap.Any("delegates", delegates),
+		zap.Any("kick out list ", blackList),
 		zap.Error(err),
 	)
 	if errors.Cause(err) == nil {
-		if len(delegates) > 0 {
-			return delegates, nil
+		if len(blackList) > 0 {
+			return blackList, nil
 		}
 		err = state.ErrStateNotExist
 	}
 	return nil, errors.Wrapf(
 		err,
-		"failed to get state of delegateList for epoch number %d",
+		"failed to get state of kick-out list for epoch number %d",
 		epochNum,
 	)
 }
@@ -145,10 +145,10 @@ func ConstructKey(height uint64) hash.Hash160 {
 	return hash.Hash160b(k)
 }
 
-// ConstructDelegateKey constructs a key for delegate storage
-func ConstructDelegateKey(epochNum uint64) hash.Hash160 {
+// ConstructBlackListKey constructs a key for kick-out blacklist storage
+func ConstructBlackListKey(epochNum uint64) hash.Hash160 {
 	epochInBytes := byteutil.Uint64ToBytes(epochNum)
-	k := []byte(DelegatePrefix)
+	k := []byte(KickOutPrefix)
 	k = append(k, epochInBytes...)
 	return hash.Hash160b(k)
 }

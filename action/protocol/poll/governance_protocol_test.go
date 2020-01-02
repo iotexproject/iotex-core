@@ -84,6 +84,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	p, err := NewGovernanceChainCommitteeProtocol(
 		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },

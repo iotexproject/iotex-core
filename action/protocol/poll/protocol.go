@@ -39,6 +39,9 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 // CandidatesByHeight returns the candidates of a given height
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
+// DelegatesByEpoch returns the delegates of a given epoch
+type KickOutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
+
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
@@ -96,9 +99,10 @@ func NewProtocol(
 	cfg config.Config,
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
+	kickOutListByEpoch KickOutListByEpoch,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
-	sm protocol.StateManager,
+	sr protocol.StateReader,
 	productivityByEpoch ProductivityByEpoch,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
@@ -116,13 +120,14 @@ func NewProtocol(
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidatesByHeight,
+		kickOutListByEpoch,
 		electionCommittee,
 		genesisConfig.GravityChainStartHeight,
 		getBlockTimeFunc,
 		genesisConfig.NumCandidateDelegates,
 		genesisConfig.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sm,
+		sr,
 		productivityByEpoch,
 		genesisConfig.ProductivityThreshold,
 		genesisConfig.KickOutEpochPeriod,
@@ -140,7 +145,7 @@ func NewProtocol(
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
-		sm,
+		sr,
 	); err != nil {
 		return nil, err
 	}
