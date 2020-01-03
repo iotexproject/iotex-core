@@ -995,6 +995,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 				},
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickOutEpochPeriod,
+				cfg.Genesis.KickOutIntensityRate,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1261,6 +1262,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				},
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickOutEpochPeriod,
+				cfg.Genesis.KickOutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1320,6 +1322,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				},
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickOutEpochPeriod,
+				cfg.Genesis.KickOutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1381,6 +1384,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				},
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickOutEpochPeriod,
+				cfg.Genesis.KickOutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1499,6 +1503,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				},
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickOutEpochPeriod,
+				cfg.Genesis.KickOutIntensityRate,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
@@ -1815,9 +1820,11 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
-		return 0, nil, nil
-	})
+	r := rewarding.NewProtocol(cfg.Genesis.KickOutIntensityRate,
+		nil,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		})
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, err

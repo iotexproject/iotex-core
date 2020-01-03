@@ -39,7 +39,7 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 // CandidatesByHeight returns the candidates of a given height
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
-// DelegatesByEpoch returns the delegates of a given epoch
+// KickOutListByEpoch returns the black list for kickout of a given epoch
 type KickOutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
 
 // GetBlockTime defines a function to get block creation time
@@ -131,6 +131,7 @@ func NewProtocol(
 		productivityByEpoch,
 		genesisConfig.ProductivityThreshold,
 		genesisConfig.KickOutEpochPeriod,
+		genesisConfig.KickOutIntensityRate,
 	); err != nil {
 		return nil, err
 	}

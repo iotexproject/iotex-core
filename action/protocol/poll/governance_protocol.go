@@ -8,12 +8,14 @@ package poll
 
 import (
 	"context"
+	"math/big"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/iotexproject/iotex-election/db"
+	"github.com/iotexproject/iotex-election/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -41,6 +43,7 @@ type governanceChainCommitteeProtocol struct {
 	productivityByEpoch       ProductivityByEpoch
 	productivityThreshold     uint64
 	kickOutEpochPeriod        uint64
+	kickOutIntensity          float64
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
@@ -57,6 +60,7 @@ func NewGovernanceChainCommitteeProtocol(
 	productivityByEpoch ProductivityByEpoch,
 	productivityThreshold uint64,
 	kickOutEpochPeriod uint64,
+	kickOutIntensity float64,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -84,6 +88,7 @@ func NewGovernanceChainCommitteeProtocol(
 		productivityByEpoch:       productivityByEpoch,
 		productivityThreshold:     productivityThreshold,
 		kickOutEpochPeriod:        kickOutEpochPeriod,
+		kickOutIntensity:          kickOutIntensity,
 	}, nil
 }
 
@@ -281,24 +286,46 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	unqualifiedList := make(map[string]bool)
-	if hu.IsPost(config.English, epochHeight) {
-		// after English height, kick-out unqualified delegates based on productivity
-		if unqualifiedList, err = p.getKickOutBlackList(epochNum); err != nil {
-			return nil, err
-		}
-	}
-
-	var verifiedCandidates state.CandidateList
-	for _, cand := range candidates {
-		if _, ok := unqualifiedList[cand.Address]; !ok {
-			// if it is a qualified delegate, append it to list
-			verifiedCandidates = append(verifiedCandidates, cand)
-			if len(verifiedCandidates) >= int(p.numCandidateDelegates) {
+	if hu.IsPre(config.English, epochHeight) {
+		var blockProducers state.CandidateList
+		for i, candidate := range candidates {
+			if uint64(i) >= p.numCandidateDelegates {
 				break
 			}
+			blockProducers = append(blockProducers, candidate)
+		}
+		return blockProducers, nil
+	}
+
+	// after English height, kick-out unqualified delegates based on productivity
+	unqualifiedList := make(map[string]bool)
+	if unqualifiedList, err = p.getKickOutBlackList(epochNum); err != nil {
+		return nil, err
+	}
+	// recalculate the voting power for black list delegates
+	candidatesMap := make(map[string]*state.Candidate)
+	updatedVotingPower := make(map[string]*big.Int)
+	for _, cand := range candidates {
+		candidatesMap[cand.Address] = cand
+		if _, ok := unqualifiedList[cand.Address]; ok {
+			// if it is an unqualified delegate, multiply the voting power of candidate with kick-out intensity rate
+			votingPower := new(big.Float).SetInt(cand.Votes)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickOutIntensity)).Int(nil)
+			updatedVotingPower[cand.Address] = newVotingPower
+		} else {
+			updatedVotingPower[cand.Address] = cand.Votes
 		}
 	}
+	// re-sort with updated voting power
+	sorted := util.Sort(updatedVotingPower, epochNum)
+	var verifiedCandidates state.CandidateList
+	for i, name := range sorted {
+		if uint64(i) >= p.numCandidateDelegates {
+			break
+		}
+		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
+	}
+
 	return verifiedCandidates, nil
 }
 

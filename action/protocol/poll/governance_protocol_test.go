@@ -97,6 +97,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		},
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickOutEpochPeriod,
+		cfg.Genesis.KickOutIntensityRate,
 	)
 	return p, ctx, sm, r, err
 }
