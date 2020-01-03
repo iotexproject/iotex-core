@@ -34,6 +34,7 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
+	cfg.Genesis.EnglishBlockHeight = 0 // set up testing after English Height 
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -48,7 +49,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
+			Genesis:  cfg.Genesis,
 			Registry: registry,
 		},
 	)
@@ -82,14 +83,37 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address:       "address1",
+			Votes:         big.NewInt(30),
+			RewardAddress: "rewardAddress1",
+		},
+		{
+			Address:       "address2",
+			Votes:         big.NewInt(22),
+			RewardAddress: "rewardAddress2",
+		},
+		{
+			Address:       "address3",
+			Votes:         big.NewInt(20),
+			RewardAddress: "rewardAddress3",
+		},
+		{
+			Address:       "address4",
+			Votes:         big.NewInt(10),
+			RewardAddress: "rewardAddress4",
+		},
+	}
+	kickoutList := []string { "address1", "address2" }
 	p, err := NewGovernanceChainCommitteeProtocol(
-		nil,
-		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+		func(protocol.StateReader, uint64) ([]string, error) { return kickoutList, nil },
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
+		2,
+		2,
 		cfg.Chain.PollInitialCandidatesInterval,
 		sm,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
@@ -364,4 +388,20 @@ func TestProtocol_Validate(t *testing.T) {
 		},
 	)
 	require.NoError(p6.Validate(ctx6, selp6.Action()))
+}
+
+func TestDelegatesByEpoch(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, _, _, err := initConstruct(ctrl)
+	require.NoError(err)
+	delegates, err := p.DelegatesByEpoch(ctx, 1)
+	require.NoError(err)
+
+	require.Equal(2, len(delegates))
+	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
+	require.Equal("address3", delegates[0].Address) 
+	require.Equal("address4", delegates[1].Address) 
+
 }
