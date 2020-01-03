@@ -118,7 +118,7 @@ jobs:
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd tools/ioctl/ && ./buildcli.sh
+      - run: cd tools/ioctl/ && sh buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
@@ -169,7 +169,7 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd tools/ioctl/ && ./buildcli.sh
+            cd tools/ioctl/ && sh buildcli.sh
             cd ../actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
