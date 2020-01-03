@@ -134,7 +134,7 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if blkCtx.BlockHeight == epochStartHeight {
-		// if the block height is the very start of each epoch calculate and set delegates into state DB
+		// if the block height is the start of epoch, calculate blacklist for kick-out and write into state DB
 		unqualifiedList, err := p.calculateKickOutBlackList(ctx, epochNum)
 		if err != nil {
 			return err
@@ -297,18 +297,18 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 		return blockProducers, nil
 	}
 
-	// after English height, kick-out unqualified delegates based on productivity
+	// After English height, kick-out unqualified delegates based on productivity
 	unqualifiedList := make(map[string]bool)
 	if unqualifiedList, err = p.getKickOutBlackList(epochNum); err != nil {
 		return nil, err
 	}
-	// recalculate the voting power for black list delegates
+	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
 	for _, cand := range candidates {
 		candidatesMap[cand.Address] = cand
 		if _, ok := unqualifiedList[cand.Address]; ok {
-			// if it is an unqualified delegate, multiply the voting power of candidate with kick-out intensity rate
+			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
 			votingPower := new(big.Float).SetInt(cand.Votes)
 			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickOutIntensity)).Int(nil)
 			updatedVotingPower[cand.Address] = newVotingPower
@@ -316,7 +316,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 			updatedVotingPower[cand.Address] = cand.Votes
 		}
 	}
-	// re-sort with updated voting power
+	// sort again with updated voting power
 	sorted := util.Sort(updatedVotingPower, epochNum)
 	var verifiedCandidates state.CandidateList
 	for i, name := range sorted {
@@ -344,7 +344,6 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochHeight := rp.GetEpochHeight(epochNum)
-
 	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
 
 	length := int(p.numDelegates)

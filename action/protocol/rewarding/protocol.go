@@ -42,7 +42,7 @@ var (
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
-// KickOutListByEpoch returns the black list for kickout of a given epoch
+// KickOutListByEpoch returns the blacklist for kickout of a given epoch
 type KickOutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
