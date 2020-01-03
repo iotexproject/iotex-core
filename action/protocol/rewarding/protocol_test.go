@@ -61,7 +61,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		genesis.Default.NumSubEpochs,
 	)
 	p := NewProtocol(
-		genesis.Default.KickOutIntensityRate,
+		genesis.Default.KickoutIntensityRate,
 		nil,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return uint64(19),
@@ -231,7 +231,7 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 	require.NoError(t, rp.Register(registry))
 	p := NewProtocol(
-		cfg.Genesis.KickOutIntensityRate,
+		cfg.Genesis.KickoutIntensityRate,
 		nil,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil

@@ -994,8 +994,8 @@ func TestServer_GetChainMeta(t *testing.T) {
 					return 0, nil, nil
 				},
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickOutEpochPeriod,
-				cfg.Genesis.KickOutIntensityRate,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1261,8 +1261,8 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 					return 0, nil, nil
 				},
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickOutEpochPeriod,
-				cfg.Genesis.KickOutIntensityRate,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1321,8 +1321,8 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 					return 0, nil, nil
 				},
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickOutEpochPeriod,
-				cfg.Genesis.KickOutIntensityRate,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1383,8 +1383,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 					return 0, nil, nil
 				},
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickOutEpochPeriod,
-				cfg.Genesis.KickOutIntensityRate,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1502,8 +1502,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 					return 0, nil, nil
 				},
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickOutEpochPeriod,
-				cfg.Genesis.KickOutIntensityRate,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
@@ -1820,7 +1820,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(cfg.Genesis.KickOutIntensityRate,
+	r := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate,
 		nil,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil

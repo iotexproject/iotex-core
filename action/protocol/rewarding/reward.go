@@ -167,11 +167,11 @@ func (p *Protocol) GrantEpochReward(
 		}
 	} else {
 		// Get Kick-out List from DB
-		kickOutList, err := p.kickOutListByEpoch(sm, epochNum)
+		kickoutList, err := p.kickoutListByEpoch(sm, epochNum)
 		if err != nil {
 			return nil, err
 		}
-		for _, addr := range kickOutList {
+		for _, addr := range kickoutList {
 			uqd[addr] = true
 		}
 	}
@@ -418,16 +418,15 @@ func (p *Protocol) splitEpochReward(
 	var amountPerAddr *big.Int
 	for _, candidate := range candidates {
 		if _, ok := uqd[candidate.Address]; ok {
-			if hu.IsPre(config.English, epochStartHeight) || p.kickOutIntensity == 0 {
-				// Before English or kick-out intensity is 0, skip the epoch reward
+			if hu.IsPre(config.English, epochStartHeight) {
+				// Before English, if not qualified, skip the epoch reward
 				amounts = append(amounts, big.NewInt(0))
 				continue
-			} else {
-				// After English, if it not qualified, split epoch reward according to decreased voting power
-				votingPower := new(big.Float).SetInt(candidate.Votes)
-				newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickOutIntensity)).Int(nil)
-				amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
 			}
+			// After English, if not qualified, split epoch reward according to decreased voting power
+			votingPower := new(big.Float).SetInt(candidate.Votes)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
 		} else {
 			if totalWeight.Cmp(big.NewInt(0)) == 0 {
 				amountPerAddr = big.NewInt(0)

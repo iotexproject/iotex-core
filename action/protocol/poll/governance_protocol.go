@@ -31,7 +31,7 @@ import (
 
 type governanceChainCommitteeProtocol struct {
 	candidatesByHeight        CandidatesByHeight
-	kickOutListByEpoch        KickOutListByEpoch
+	kickoutListByEpoch        KickoutListByEpoch
 	getBlockTime              GetBlockTime
 	electionCommittee         committee.Committee
 	initGravityChainHeight    uint64
@@ -42,14 +42,14 @@ type governanceChainCommitteeProtocol struct {
 	sr                        protocol.StateReader
 	productivityByEpoch       ProductivityByEpoch
 	productivityThreshold     uint64
-	kickOutEpochPeriod        uint64
-	kickOutIntensity          float64
+	kickoutEpochPeriod        uint64
+	kickoutIntensity          float64
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
 	candidatesByHeight CandidatesByHeight,
-	kickOutListByEpoch KickOutListByEpoch,
+	kickoutListByEpoch KickoutListByEpoch,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
@@ -59,8 +59,8 @@ func NewGovernanceChainCommitteeProtocol(
 	sr protocol.StateReader,
 	productivityByEpoch ProductivityByEpoch,
 	productivityThreshold uint64,
-	kickOutEpochPeriod uint64,
-	kickOutIntensity float64,
+	kickoutEpochPeriod uint64,
+	kickoutIntensity float64,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -76,7 +76,7 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 	return &governanceChainCommitteeProtocol{
 		candidatesByHeight:        candidatesByHeight,
-		kickOutListByEpoch:        kickOutListByEpoch,
+		kickoutListByEpoch:        kickoutListByEpoch,
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
 		getBlockTime:              getBlockTime,
@@ -87,8 +87,8 @@ func NewGovernanceChainCommitteeProtocol(
 		sr:                        sr,
 		productivityByEpoch:       productivityByEpoch,
 		productivityThreshold:     productivityThreshold,
-		kickOutEpochPeriod:        kickOutEpochPeriod,
-		kickOutIntensity:          kickOutIntensity,
+		kickoutEpochPeriod:        kickoutEpochPeriod,
+		kickoutIntensity:          kickoutIntensity,
 	}, nil
 }
 
@@ -135,12 +135,12 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if blkCtx.BlockHeight == epochStartHeight {
 		// if the block height is the start of epoch, calculate blacklist for kick-out and write into state DB
-		unqualifiedList, err := p.calculateKickOutBlackList(ctx, epochNum)
+		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum)
 		if err != nil {
 			return err
 		}
 
-		return setKickOutBlackList(sm, unqualifiedList, epochNum)
+		return setKickoutBlackList(sm, unqualifiedList, epochNum)
 	}
 	return nil
 }
@@ -299,7 +299,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 
 	// After English height, kick-out unqualified delegates based on productivity
 	unqualifiedList := make(map[string]bool)
-	if unqualifiedList, err = p.getKickOutBlackList(epochNum); err != nil {
+	if unqualifiedList, err = p.getKickoutBlackList(epochNum); err != nil {
 		return nil, err
 	}
 	// recalculate the voting power for blacklist delegates
@@ -310,7 +310,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 		if _, ok := unqualifiedList[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
 			votingPower := new(big.Float).SetInt(cand.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickOutIntensity)).Int(nil)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
 			updatedVotingPower[cand.Address] = newVotingPower
 		} else {
 			updatedVotingPower[cand.Address] = cand.Votes
@@ -380,25 +380,25 @@ func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context,
 	return p.electionCommittee.HeightByTime(blkTime)
 }
 
-func (p *governanceChainCommitteeProtocol) getKickOutBlackList(epochNum uint64) (map[string]bool, error) {
-	kickOutList, err := p.kickOutListByEpoch(p.sr, epochNum)
+func (p *governanceChainCommitteeProtocol) getKickoutBlackList(epochNum uint64) (map[string]bool, error) {
+	kickoutList, err := p.kickoutListByEpoch(p.sr, epochNum)
 	if err != nil {
 		return nil, err
 	}
-	kickOutMapping := make(map[string]bool, 0)
-	for _, addr := range kickOutList {
-		kickOutMapping[addr] = true
+	kickoutMapping := make(map[string]bool, 0)
+	for _, addr := range kickoutList {
+		kickoutMapping[addr] = true
 	}
-	return kickOutMapping, nil
+	return kickoutMapping, nil
 }
 
-func (p *governanceChainCommitteeProtocol) calculateKickOutBlackList(
+func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	ctx context.Context,
 	epochNum uint64,
 ) ([]string, error) {
 	var unqualifiedDelegates []string
 	var i uint64
-	for i = 1; i <= p.kickOutEpochPeriod; i++ {
+	for i = 1; i <= p.kickoutEpochPeriod; i++ {
 		// check N-1, N-2, ... N-K epochs
 		numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-i)
 		if err != nil {

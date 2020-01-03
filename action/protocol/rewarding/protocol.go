@@ -42,24 +42,24 @@ var (
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
-// KickOutListByEpoch returns the blacklist for kickout of a given epoch
-type KickOutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
+// KickoutListByEpoch returns the blacklist for kickout of a given epoch
+type KickoutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
 	productivityByEpoch ProductivityByEpoch
-	kickOutListByEpoch  KickOutListByEpoch
+	kickoutListByEpoch  KickoutListByEpoch
 	keyPrefix           []byte
 	addr                address.Address
-	kickOutIntensity    float64
+	kickoutIntensity    float64
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
-	kickOutIntensityRate float64,
-	kickOutListByEpoch KickOutListByEpoch,
+	kickoutIntensityRate float64,
+	kickoutListByEpoch KickoutListByEpoch,
 	productivityByEpoch ProductivityByEpoch,
 ) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
@@ -69,10 +69,10 @@ func NewProtocol(
 	}
 	return &Protocol{
 		productivityByEpoch: productivityByEpoch,
-		kickOutListByEpoch:  kickOutListByEpoch,
+		kickoutListByEpoch:  kickoutListByEpoch,
 		keyPrefix:           h[:],
 		addr:                addr,
-		kickOutIntensity:    kickOutIntensityRate,
+		kickoutIntensity:    kickoutIntensityRate,
 	}
 }
 

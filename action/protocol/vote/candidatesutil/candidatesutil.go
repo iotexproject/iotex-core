@@ -24,8 +24,8 @@ import (
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
 
-// KickOutPrefix is the prefix of the key of blackList for kick-out
-const KickOutPrefix = "KickOutList."
+// KickoutPrefix is the prefix of the key of blackList for kick-out
+const KickoutPrefix = "KickoutList."
 
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
@@ -52,14 +52,14 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 	)
 }
 
-// KickOutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
-func KickOutListByEpoch(sr protocol.StateReader, epochNum uint64) ([]string, error) {
+// KickoutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
+func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) ([]string, error) {
 	var blackList []string
 	// Load kick out list on the given epochNum from underlying db
 	blackListKey := ConstructBlackListKey(epochNum)
 	err := sr.State(blackListKey, &blackList)
 	log.L().Debug(
-		"KickOutListByEpoch",
+		"KickoutListByEpoch",
 		zap.Uint64("epoch number", epochNum),
 		zap.Any("kick out list ", blackList),
 		zap.Error(err),
@@ -148,7 +148,7 @@ func ConstructKey(height uint64) hash.Hash160 {
 // ConstructBlackListKey constructs a key for kick-out blacklist storage
 func ConstructBlackListKey(epochNum uint64) hash.Hash160 {
 	epochInBytes := byteutil.Uint64ToBytes(epochNum)
-	k := []byte(KickOutPrefix)
+	k := []byte(KickoutPrefix)
 	k = append(k, epochInBytes...)
 	return hash.Hash160b(k)
 }

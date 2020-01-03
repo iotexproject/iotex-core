@@ -60,8 +60,8 @@ func defaultConfig() Genesis {
 		},
 		Poll: Poll{
 			EnableGravityChainVoting: true,
-			KickOutEpochPeriod:       3,
-			KickOutIntensityRate:     0,
+			KickoutEpochPeriod:       3,
+			KickoutIntensityRate:     0,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -167,10 +167,10 @@ type (
 		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
-		// KickOutEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
-		KickOutEpochPeriod uint64 `yaml:"kickOutEpochPeriod"`
-		// KickOutIntensityRate is a intensity rate of kick-out range from [0,1), where 0 is hard-kickout
-		KickOutIntensityRate float64 `yaml:"kickOutIntensityRate"`
+		// KickoutEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
+		KickoutEpochPeriod uint64 `yaml:"kickoutEpochPeriod"`
+		// KickoutIntensityRate is a intensity rate of kick-out range from [0,1), where 0 is hard-kickout
+		KickoutIntensityRate float64 `yaml:"kickoutIntensityRate"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

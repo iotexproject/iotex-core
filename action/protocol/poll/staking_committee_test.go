@@ -100,8 +100,8 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			return 0, nil, nil
 		},
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickOutEpochPeriod,
-		cfg.Genesis.KickOutIntensityRate,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {
