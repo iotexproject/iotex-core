@@ -481,6 +481,13 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	); err != nil {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
+
+	// if the pendingBlock is read from eManagerDB, since it won't have workingset, need to regenerate it
+	if pendingBlock.WorkingSet == nil {
+		if err := ctx.chain.ValidateBlock(pendingBlock); err != nil {
+			return false, errors.Wrapf(err, "error when validating the pending block")
+		}
+	}
 	// Commit and broadcast the pending block
 	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
