@@ -34,7 +34,7 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
-	cfg.Genesis.EnglishBlockHeight = 0 // set up testing after English Height 
+	cfg.Genesis.EnglishBlockHeight = 0 // set up testing after English Height
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -105,7 +105,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			RewardAddress: "rewardAddress4",
 		},
 	}
-	kickoutList := []string { "address1", "address2" }
+	kickoutList := []string{"address1", "address2"}
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 		func(protocol.StateReader, uint64) ([]string, error) { return kickoutList, nil },
@@ -401,7 +401,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 
 	require.Equal(2, len(delegates))
 	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
-	require.Equal("address3", delegates[0].Address) 
-	require.Equal("address4", delegates[1].Address) 
+	require.Equal("address3", delegates[0].Address)
+	require.Equal("address4", delegates[1].Address)
 
 }
