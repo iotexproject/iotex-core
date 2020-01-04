@@ -441,7 +441,7 @@ func (bc *blockchain) SetMinter(minter Minter) {
 	bc.minter = minter
 }
 
-// Validator gets the current validator object
+// Minter gets the current minter object
 func (bc *blockchain) Minter() Minter {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
