@@ -1,8 +1,6 @@
 # Golang CircleCI 2.0 configuration file
+#
 # Check https://circleci.com/docs/2.0/language-go/ for more details
-# Set golang version 
-# circleci ui --> project settings --> build setting --> environment variables  --> "GOLANG_VERSION" delete and add new version
-
 version: 2
 jobs:
 
@@ -20,7 +18,7 @@ jobs:
 
   build_test_docker:
     docker:
-      - image: circleci/golang:${GOLANG_VERSION}
+      - image: circleci/golang:1.13.4
     working_directory: ~/apps/iotex-core
     resource_class: large
     steps:
@@ -42,10 +40,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang ${GOLANG_VERSION}
+          name: install golang 1.13.4
           command: |
-            curl -o go${GOLANG_VERSION}.darwin-amd64.tar.gz https://dl.google.com/go/go${GOLANG_VERSION}.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go${GOLANG_VERSION}.darwin-amd64.tar.gz
+            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -75,11 +73,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang ${GOLANG_VERSION}
+          name: clean go 1.9 update golang 1.13.4
           command: |
-            wget https://dl.google.com/go/go${GOLANG_VERSION}.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go${GOLANG_VERSION}.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.13.4.linux-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -100,8 +98,7 @@ jobs:
   nightly_build_docker:
     docker:
       # specify the version
-      #- image: iotex/iotex-core-ci:latest
-      - image: circleci/golang:${GOLANG_VERSION}
+      - image: iotex/iotex-core-ci:latest
 
     working_directory: ~/iotex-core
     steps:
@@ -112,13 +109,12 @@ jobs:
   nightly_bin_build_docker:
     docker:
       # specify the version
-      #- image: iotex/iotex-core-ci:latest
-      - image: circleci/golang:${GOLANG_VERSION}
+      - image: iotex/iotex-core-ci:latest
 
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd tools/ioctl/ && sh buildcli.sh
+      - run: cd tools/ioctl/ && ./buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
@@ -146,10 +142,11 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang ${GOLANG_VERSION}
+          name: install golang 1.13.4
           command: |
-            curl -o go${GOLANG_VERSION}.darwin-amd64.tar.gz https://dl.google.com/go/go${GOLANG_VERSION}.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go${GOLANG_VERSION}.darwin-amd64.tar.gz
+            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
+            rm go1.13.4.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
@@ -169,7 +166,7 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd tools/ioctl/ && sh buildcli.sh
+            cd tools/ioctl/ && ./buildcli.sh
             cd ../actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
