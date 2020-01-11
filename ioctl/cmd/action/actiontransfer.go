@@ -12,15 +12,28 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	actionTransferCmdShorts = map[config.Language]string{
+		config.English: "Transfer tokens on IoTeX blokchain",
+		config.Chinese: "在IoTeX区块链上转移令牌",
+	}
+	actionTransferCmdUses = map[config.Language]string{
+		config.English: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "transfer (别名|收件人地址) IOTX数量 [数据] [-s 签署人] [-n NONCE] [-l GAS限制] [-P GAS" +
+			"价格] [-P 密码] [-y]",
+	}
+)
+
 // actionTransferCmd represents the action transfer command
 var actionTransferCmd = &cobra.Command{
-	Use: "transfer (ALIAS|RECIPIENT_ADDRESS) AMOUNT_IOTX [DATA]" +
-		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Transfer tokens on IoTeX blokchain",
+	Use:   config.TranslateInLang(actionTransferCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(actionTransferCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

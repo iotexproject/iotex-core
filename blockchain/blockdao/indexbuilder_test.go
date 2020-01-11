@@ -85,7 +85,7 @@ func TestIndexer(t *testing.T) {
 		startHeight, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
-		tipHeight, err := dao.GetTipHeight()
+		tipHeight := dao.GetTipHeight()
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks

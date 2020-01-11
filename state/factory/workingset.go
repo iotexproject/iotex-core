@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -59,14 +60,14 @@ type (
 		RootHash() (hash.Hash256, error)
 		Digest() (hash.Hash256, error)
 		Version() uint64
-		Height() uint64
+		Height() (uint64, error)
 		History() bool
 		// General state
 		State(hash.Hash160, interface{}) error
 		PutState(hash.Hash160, interface{}) error
 		DelState(pkHash hash.Hash160) error
 		GetDB() db.KVStore
-		GetCachedBatch() db.CachedBatch
+		GetCachedBatch() batch.CachedBatch
 	}
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
@@ -76,7 +77,7 @@ type (
 		saveHistory bool
 		accountTrie trie.Trie            // global account state trie
 		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
-		cb          db.CachedBatch       // cached batch for pending writes
+		cb          batch.CachedBatch    // cached batch for pending writes
 		dao         db.KVStore           // the underlying DB for account/contract storage
 	}
 )
@@ -93,7 +94,7 @@ func newWorkingSet(
 		blockHeight: height,
 		saveHistory: saveHistory,
 		trieRoots:   make(map[int]hash.Hash256),
-		cb:          db.NewCachedBatch(),
+		cb:          batch.NewCachedBatch(),
 		dao:         kv,
 	}
 	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
@@ -130,8 +131,8 @@ func (ws *workingSet) Version() uint64 {
 }
 
 // Height returns the Height of the block being worked on
-func (ws *workingSet) Height() uint64 {
-	return ws.blockHeight
+func (ws *workingSet) Height() (uint64, error) {
+	return ws.blockHeight, nil
 }
 
 func (ws *workingSet) History() bool {
@@ -263,14 +264,14 @@ func (ws *workingSet) Revert(snapshot int) error {
 func (ws *workingSet) Commit() error {
 	// Commit all changes in a batch
 	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
-	var cb db.KVStoreBatch
+	var cb batch.KVStoreBatch
 	if ws.saveHistory {
 		// exclude trie deletion
-		cb = ws.cb.ExcludeEntries("", db.Delete)
+		cb = ws.cb.ExcludeEntries("", batch.Delete)
 	} else {
 		cb = ws.cb
 	}
-	if err := ws.dao.Commit(cb); err != nil {
+	if err := ws.dao.WriteBatch(cb); err != nil {
 		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 	}
 	ws.clear()
@@ -283,7 +284,7 @@ func (ws *workingSet) GetDB() db.KVStore {
 }
 
 // GetCachedBatch returns the cached batch for pending writes
-func (ws *workingSet) GetCachedBatch() db.CachedBatch {
+func (ws *workingSet) GetCachedBatch() batch.CachedBatch {
 	return ws.cb
 }
 

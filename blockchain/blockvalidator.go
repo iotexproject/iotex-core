@@ -15,9 +15,11 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -68,8 +70,43 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
 	if v.sf == nil {
 		return nil
 	}
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producerAddr,
+		},
+	)
 
-	return v.validateActionsOnly(ctx, blk)
+	if err := v.validateActionsOnly(ctx, blk); err != nil {
+		return errors.Wrap(err, "failed to validate actions only")
+	}
+	receipts, ws, err := v.sf.RunActions(ctx, blk.RunnableActions().Actions())
+	if err != nil {
+		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bcCtx.Tip.Height), zap.Error(err))
+	}
+
+	digest, err := ws.Digest()
+	if err != nil {
+		return err
+	}
+	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
+		return errors.Wrap(err, "failed to verify delta state digest")
+	}
+	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+		return errors.Wrap(err, "Failed to verify receipt root")
+	}
+
+	blk.Receipts = receipts
+
+	// attach working set to be committed to state factory
+	blk.WorkingSet = ws
+	return nil
 }
 
 // AddActionEnvelopeValidators add action envelope validators
@@ -112,21 +149,21 @@ func (v *validator) validateActionsOnly(
 	}
 	// Verify each account's Nonce
 	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedNonce, err := v.sf.Nonce(srcAddr)
+		confirmedState, err := accountutil.AccountState(v.sf, srcAddr)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
 		}
 		receivedNonces := receivedNonces
 		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
 		for i, nonce := range receivedNonces {
-			if nonce != confirmedNonce+uint64(i+1) {
+			if nonce != confirmedState.Nonce+uint64(i+1) {
 				return errors.Wrapf(
 					action.ErrNonce,
 					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
 					i,
 					nonce,
 					srcAddr,
-					confirmedNonce,
+					confirmedState.Nonce,
 				)
 			}
 		}

@@ -9,17 +9,17 @@ package factory
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"strconv"
 	"sync"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -43,18 +43,13 @@ type (
 	// Factory defines an interface for managing states
 	Factory interface {
 		lifecycle.StartStopper
-		// Accounts
-		Balance(string) (*big.Int, error)
-		Nonce(string) (uint64, error) // Note that Nonce starts with 1.
-		AccountState(string) (*state.Account, error)
-		RootHash() hash.Hash256
-		RootHashByHeight(uint64) (hash.Hash256, error)
 		Height() (uint64, error)
+		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
+		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
+		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(WorkingSet) error
-		// CandidatesByHeight returns array of Candidates in candidate pool of a given height
-		CandidatesByHeight(uint64) ([]*state.Candidate, error)
-
 		State(hash.Hash160, interface{}) error
 	}
 
@@ -176,60 +171,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 	return sf.lifecycle.OnStop(ctx)
 }
 
-//======================================
-// account functions
-//======================================
-// Balance returns balance
-func (sf *factory) Balance(addr string) (*big.Int, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	account, err := sf.accountState(addr)
-	if err != nil {
-		return nil, err
-	}
-	return account.Balance, nil
-}
-
-// Nonce returns the Nonce if the account exists
-func (sf *factory) Nonce(addr string) (uint64, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	account, err := sf.accountState(addr)
-	if err != nil {
-		return 0, err
-	}
-	return account.Nonce, nil
-}
-
-// account returns the confirmed account state on the chain
-func (sf *factory) AccountState(addr string) (*state.Account, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	return sf.accountState(addr)
-}
-
-// RootHash returns the hash of the root node of the state trie
-func (sf *factory) RootHash() hash.Hash256 {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	return sf.rootHash()
-}
-
-// RootHashByHeight returns the hash of the root node of the state trie at a given height
-func (sf *factory) RootHashByHeight(blockHeight uint64) (hash.Hash256, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	data, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, blockHeight)))
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	var rootHash hash.Hash256
-	copy(rootHash[:], data)
-	return rootHash, nil
-}
-
 // Height returns factory's height
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
@@ -247,6 +188,50 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	defer sf.mutex.RUnlock()
 
 	return newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+}
+
+func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return runActions(ctx, ws, actions)
+}
+
+func (sf *factory) PickAndRunActions(
+	ctx context.Context,
+	actionMap map[string][]action.SealedEnvelope,
+	postSystemActions []action.SealedEnvelope,
+) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+	}
+
+	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+}
+
+// SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
+// cause any state change
+func (sf *factory) SimulateExecution(
+	ctx context.Context,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash evm.GetBlockHash,
+) ([]byte, *action.Receipt, error) {
+	sf.mutex.Lock()
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -268,36 +253,6 @@ func (sf *factory) Commit(ws WorkingSet) error {
 	}
 
 	return sf.commit(ws)
-}
-
-//======================================
-// Candidate functions
-//======================================
-
-func (sf *factory) CandidatesByHeight(height uint64) ([]*state.Candidate, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	var candidates state.CandidateList
-	// Load Candidates on the given height from underlying db
-	candidatesKey := candidatesutil.ConstructKey(height)
-	err := sf.state(candidatesKey, &candidates)
-	log.L().Debug(
-		"CandidatesByHeight",
-		zap.Uint64("height", height),
-		zap.Any("candidates", candidates),
-		zap.Error(err),
-	)
-	if errors.Cause(err) == nil {
-		if len(candidates) > 0 {
-			return candidates, nil
-		}
-		err = state.ErrStateNotExist
-	}
-	return nil, errors.Wrapf(
-		err,
-		"failed to get state of candidateList for height %d",
-		height,
-	)
 }
 
 // State returns a confirmed state in the state factory
@@ -330,30 +285,16 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 	return nil
 }
 
-func (sf *factory) accountState(encodedAddr string) (*state.Account, error) {
-	// TODO: state db shouldn't serve this function
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	if err := sf.state(pkHash, &account); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	return &account, nil
-}
-
 func (sf *factory) commit(ws WorkingSet) error {
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
 	// Update chain height and root
-	sf.currentChainHeight = ws.Height()
+	height, err := ws.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get working set height")
+	}
+	sf.currentChainHeight = height
 	h, err := ws.RootHash()
 	if err != nil {
 		return errors.Wrap(err, "failed to get root hash of working set")

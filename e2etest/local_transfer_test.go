@@ -24,10 +24,12 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/probe"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -309,6 +311,7 @@ func TestLocalTransfer(t *testing.T) {
 	// Start server
 	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
 	defer func() {
+		time.Sleep(10 * time.Second)
 		require.NoError(probeSvr.Stop(ctx))
 		require.NoError(svr.Stop(ctx))
 	}()
@@ -323,14 +326,15 @@ func TestLocalTransfer(t *testing.T) {
 
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
+	sf := svr.ChainService(chainID).StateFactory()
 	ap := svr.ChainService(chainID).ActionPool()
 	as := svr.ChainService(chainID).APIServer()
 
 	for _, tsfTest := range getSimpleTransferTests {
-		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc)
+		senderPriKey, senderAddr, err := initStateKeyAddr(tsfTest.senderAcntState, tsfTest.senderPriKey, tsfTest.senderBalance, bc, sf)
 		require.NoError(err, tsfTest.message)
 
-		_, recvAddr, err := initStateKeyAddr(tsfTest.recvAcntState, tsfTest.recvPriKey, tsfTest.recvBalance, bc)
+		_, recvAddr, err := initStateKeyAddr(tsfTest.recvAcntState, tsfTest.recvPriKey, tsfTest.recvBalance, bc, sf)
 		require.NoError(err, tsfTest.message)
 
 		tsf, err := testutil.SignedTransfer(recvAddr, senderPriKey, tsfTest.nonce, tsfTest.amount,
@@ -347,8 +351,8 @@ func TestLocalTransfer(t *testing.T) {
 		switch tsfTest.expectedResult {
 		case TsfSuccess:
 			require.NoError(err, tsfTest.message)
-			//Wait long enough for a block to be minted, and check the balance of both
-			//sender and receiver.
+			// Wait long enough for a block to be minted, and check the balance of both
+			// sender and receiver.
 			var selp action.SealedEnvelope
 			err := backoff.Retry(func() error {
 				var err error
@@ -359,7 +363,7 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(tsfTest.nonce, selp.Proto().GetCore().GetNonce(), tsfTest.message)
 			require.Equal(senderPriKey.PublicKey().Bytes(), selp.Proto().SenderPubKey, tsfTest.message)
 
-			newSenderBalance, _ := bc.Factory().Balance(senderAddr)
+			newSenderState, _ := accountutil.AccountState(sf, senderAddr)
 			minusAmount := big.NewInt(0).Sub(tsfTest.senderBalance, tsfTest.amount)
 			gasUnitPayloadConsumed := big.NewInt(0).Mul(big.NewInt(int64(action.TransferPayloadGas)),
 				big.NewInt(int64(len(tsfTest.payload))))
@@ -367,9 +371,9 @@ func TestLocalTransfer(t *testing.T) {
 			gasUnitConsumed := big.NewInt(0).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
 			gasConsumed := big.NewInt(0).Mul(gasUnitConsumed, tsfTest.gasPrice)
 			expectedSenderBalance := big.NewInt(0).Sub(minusAmount, gasConsumed)
-			require.Equal(expectedSenderBalance.String(), newSenderBalance.String(), tsfTest.message)
+			require.Equal(expectedSenderBalance.String(), newSenderState.Balance.String(), tsfTest.message)
 
-			newRecvBalance, err := bc.Factory().Balance(recvAddr)
+			newRecvState, err := accountutil.AccountState(sf, recvAddr)
 			require.NoError(err)
 			expectedRecvrBalance := big.NewInt(0)
 			if tsfTest.recvAcntState == AcntNotRegistered {
@@ -377,7 +381,7 @@ func TestLocalTransfer(t *testing.T) {
 			} else {
 				expectedRecvrBalance.Add(tsfTest.recvBalance, tsfTest.amount)
 			}
-			require.Equal(expectedRecvrBalance.String(), newRecvBalance.String(), tsfTest.message)
+			require.Equal(expectedRecvrBalance.String(), newRecvState.Balance.String(), tsfTest.message)
 		case TsfFail:
 			require.Error(err, tsfTest.message)
 			//The transfer should be rejected right after we inject it
@@ -392,8 +396,8 @@ func TestLocalTransfer(t *testing.T) {
 			require.Error(err, tsfTest.message)
 
 			if tsfTest.senderAcntState == AcntCreate || tsfTest.senderAcntState == AcntExist {
-				newSenderBalance, _ := bc.Factory().Balance(senderAddr)
-				require.Equal(tsfTest.senderBalance.String(), newSenderBalance.String())
+				newSenderState, _ := accountutil.AccountState(sf, senderAddr)
+				require.Equal(tsfTest.senderBalance.String(), newSenderState.Balance.String())
 			}
 
 		case TsfPending:
@@ -432,6 +436,7 @@ func initStateKeyAddr(
 	privateKey crypto.PrivateKey,
 	initBalance *big.Int,
 	bc blockchain.Blockchain,
+	sf factory.Factory,
 ) (crypto.PrivateKey, string, error) {
 	retKey := privateKey
 	retAddr := ""
@@ -449,11 +454,11 @@ func initStateKeyAddr(
 			return nil, "", err
 		}
 		retAddr = addr.String()
-		existBalance, err := bc.Factory().Balance(retAddr)
+		existState, err := accountutil.AccountState(sf, retAddr)
 		if err != nil {
 			return nil, "", err
 		}
-		initBalance.Set(existBalance)
+		initBalance.Set(existState.Balance)
 	case AcntNotRegistered:
 		sk, err := crypto.GenerateKey()
 		if err != nil {

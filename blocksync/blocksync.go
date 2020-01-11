@@ -30,6 +30,11 @@ type (
 	Neighbors func(ctx context.Context) ([]peerstore.PeerInfo, error)
 )
 
+// BlockDAO represents the block data access object
+type BlockDAO interface {
+	GetBlockByHeight(uint64) (*block.Block, error)
+}
+
 // Config represents the config to setup blocksync
 type Config struct {
 	unicastHandler   UnicastOutbound
@@ -71,6 +76,7 @@ type blockSyncer struct {
 	buf              *blockBuffer
 	worker           *syncWorker
 	bc               blockchain.Blockchain
+	dao              BlockDAO
 	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
 }
@@ -79,6 +85,7 @@ type blockSyncer struct {
 func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	dao BlockDAO,
 	ap actpool.ActPool,
 	cs consensus.Consensus,
 	opts ...Option,
@@ -99,6 +106,7 @@ func NewBlockSyncer(
 	}
 	bs := &blockSyncer{
 		bc:               chain,
+		dao:              dao,
 		buf:              buf,
 		unicastHandler:   bsCfg.unicastHandler,
 		neighborsHandler: bsCfg.neighborsHandler,
@@ -174,7 +182,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		)
 	}
 	for i := sync.Start; i <= end; i++ {
-		blk, err := bs.bc.BlockDAO().GetBlockByHeight(i)
+		blk, err := bs.dao.GetBlockByHeight(i)
 		if err != nil {
 			return err
 		}

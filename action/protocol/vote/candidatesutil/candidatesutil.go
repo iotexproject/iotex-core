@@ -7,6 +7,7 @@
 package candidatesutil
 
 import (
+	"go.uber.org/zap"
 	"math/big"
 	"sort"
 
@@ -15,12 +16,38 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
+
+// CandidatesByHeight returns array of Candidates in candidate pool of a given height
+func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
+	var candidates state.CandidateList
+	// Load Candidates on the given height from underlying db
+	candidatesKey := ConstructKey(height)
+	err := sr.State(candidatesKey, &candidates)
+	log.L().Debug(
+		"CandidatesByHeight",
+		zap.Uint64("height", height),
+		zap.Any("candidates", candidates),
+		zap.Error(err),
+	)
+	if errors.Cause(err) == nil {
+		if len(candidates) > 0 {
+			return candidates, nil
+		}
+		err = state.ErrStateNotExist
+	}
+	return nil, errors.Wrapf(
+		err,
+		"failed to get state of candidateList for height %d",
+		height,
+	)
+}
 
 // LoadAndAddCandidates loads candidates from trie and adds a new candidate
 func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr string) error {

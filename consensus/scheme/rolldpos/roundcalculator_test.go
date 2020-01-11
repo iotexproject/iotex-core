@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
@@ -25,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -90,8 +91,6 @@ func TestNewRound(t *testing.T) {
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
-	_, err := rc.Delegates(361)
-	require.Error(err)
 
 	dels, err := rc.Delegates(4)
 	require.NoError(err)
@@ -135,7 +134,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -170,12 +169,14 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 			cfg.Genesis.Delegates = append(cfg.Genesis.Delegates, d)
 		}
 	}
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	require.NoError(err)
 
 	registry := protocol.NewRegistry()
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		blockchain.DefaultStateFactoryOption(),
+		sf,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(registry),
 	)
@@ -186,15 +187,15 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	)
 
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(chain, epochNum)
-	}, rolldposProtocol)
+	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+	})
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pp.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(chain.Factory().Nonce))
+	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
@@ -208,12 +209,10 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol) {
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, rolldposProtocol
+	return chain, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, rp := makeChain(t)
-	return &roundCalculator{bc, true, rp, func(height uint64) (state.CandidateList, error) {
-		return bc.Factory().CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, 0}
+	bc, rp, pp := makeChain(t)
+	return &roundCalculator{bc, true, rp, pp.DelegatesByEpoch, 0}
 }

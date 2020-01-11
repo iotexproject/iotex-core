@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -131,11 +132,12 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	epochNum := p.rp.GetEpochNum(blkCtx.BlockHeight)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
 	}
-	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum); err != nil {
+	if err := p.assertLastBlockInEpoch(blkCtx.BlockHeight, epochNum, rp); err != nil {
 		return nil, err
 	}
 	a := admin{}
@@ -154,7 +156,7 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Get unqualified delegate list
-	uqd, err := p.unqualifiedDelegates(blkCtx.Producer, epochNum, a.productivityThreshold)
+	uqd, err := p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +267,7 @@ func (p *Protocol) Claim(
 // UnclaimedBalance returns unclaimed balance of a given address
 func (p *Protocol) UnclaimedBalance(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	addr address.Address,
 ) (*big.Int, error) {
 	acc := rewardAccount{}
@@ -412,12 +414,13 @@ func (p *Protocol) splitEpochReward(
 }
 
 func (p *Protocol) unqualifiedDelegates(
+	ctx context.Context,
 	producer address.Address,
 	epochNum uint64,
 	productivityThreshold uint64,
 ) (map[string]interface{}, error) {
 	unqualifiedDelegates := make(map[string]interface{}, 0)
-	numBlks, produce, err := p.productivityByEpoch(epochNum)
+	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
@@ -448,8 +451,8 @@ func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, in
 	return nil
 }
 
-func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64) error {
-	lastBlkHeight := p.rp.GetEpochLastBlockHeight(epochNum)
+func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64, rp *rolldpos.Protocol) error {
+	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	if blkHeight != lastBlkHeight {
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}

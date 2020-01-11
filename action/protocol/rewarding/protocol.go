@@ -40,7 +40,7 @@ var (
 )
 
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-type ProductivityByEpoch func(uint64) (uint64, map[string]uint64, error)
+type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
@@ -49,11 +49,10 @@ type Protocol struct {
 	productivityByEpoch ProductivityByEpoch
 	keyPrefix           []byte
 	addr                address.Address
-	rp                  *rolldpos.Protocol
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
-func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol) *Protocol {
+func NewProtocol(productivityByEpoch ProductivityByEpoch) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -63,7 +62,6 @@ func NewProtocol(productivityByEpoch ProductivityByEpoch, rp *rolldpos.Protocol)
 		productivityByEpoch: productivityByEpoch,
 		keyPrefix:           h[:],
 		addr:                addr,
-		rp:                  rp,
 	}
 }
 
@@ -187,7 +185,7 @@ func (p *Protocol) Validate(
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
@@ -232,7 +230,7 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *Protocol) state(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(keyHash, value)
 }

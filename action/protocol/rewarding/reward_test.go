@@ -25,7 +25,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -277,7 +277,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cb := db.NewCachedBatch()
+	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(addrHash hash.Hash160, account interface{}) error {
 			val, err := cb.Get("state", addrHash[:])
@@ -296,19 +296,21 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	p := NewProtocol(func(uint64) (uint64, map[string]uint64, error) {
+	p := NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
 		return uint64(19),
 			map[string]uint64{
 				identityset.Address(0).String(): 9,
 				identityset.Address(1).String(): 10,
 			},
 			nil
-	}, rolldpos.NewProtocol(
+	})
+	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
-	))
+	)
 	require.NoError(t, p.Register(registry))
+	require.NoError(t, rp.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"

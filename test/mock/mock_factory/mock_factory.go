@@ -8,9 +8,10 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
-	state "github.com/iotexproject/iotex-core/state"
+	address "github.com/iotexproject/iotex-address/address"
+	action "github.com/iotexproject/iotex-core/action"
+	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	factory "github.com/iotexproject/iotex-core/state/factory"
-	big "math/big"
 	reflect "reflect"
 )
 
@@ -65,80 +66,6 @@ func (mr *MockFactoryMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockFactory)(nil).Stop), arg0)
 }
 
-// Balance mocks base method
-func (m *MockFactory) Balance(arg0 string) (*big.Int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Balance", arg0)
-	ret0, _ := ret[0].(*big.Int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Balance indicates an expected call of Balance
-func (mr *MockFactoryMockRecorder) Balance(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Balance", reflect.TypeOf((*MockFactory)(nil).Balance), arg0)
-}
-
-// Nonce mocks base method
-func (m *MockFactory) Nonce(arg0 string) (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Nonce", arg0)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Nonce indicates an expected call of Nonce
-func (mr *MockFactoryMockRecorder) Nonce(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockFactory)(nil).Nonce), arg0)
-}
-
-// AccountState mocks base method
-func (m *MockFactory) AccountState(arg0 string) (*state.Account, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AccountState", arg0)
-	ret0, _ := ret[0].(*state.Account)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AccountState indicates an expected call of AccountState
-func (mr *MockFactoryMockRecorder) AccountState(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AccountState", reflect.TypeOf((*MockFactory)(nil).AccountState), arg0)
-}
-
-// RootHash mocks base method
-func (m *MockFactory) RootHash() hash.Hash256 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
-}
-
-// RootHash indicates an expected call of RootHash
-func (mr *MockFactoryMockRecorder) RootHash() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHash", reflect.TypeOf((*MockFactory)(nil).RootHash))
-}
-
-// RootHashByHeight mocks base method
-func (m *MockFactory) RootHashByHeight(arg0 uint64) (hash.Hash256, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RootHashByHeight", arg0)
-	ret0, _ := ret[0].(hash.Hash256)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RootHashByHeight indicates an expected call of RootHashByHeight
-func (mr *MockFactoryMockRecorder) RootHashByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RootHashByHeight", reflect.TypeOf((*MockFactory)(nil).RootHashByHeight), arg0)
-}
-
 // Height mocks base method
 func (m *MockFactory) Height() (uint64, error) {
 	m.ctrl.T.Helper()
@@ -169,6 +96,55 @@ func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
 }
 
+// RunActions mocks base method
+func (m *MockFactory) RunActions(arg0 context.Context, arg1 []action.SealedEnvelope) ([]*action.Receipt, factory.WorkingSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].(factory.WorkingSet)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// RunActions indicates an expected call of RunActions
+func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1)
+}
+
+// PickAndRunActions mocks base method
+func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PickAndRunActions", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]*action.Receipt)
+	ret1, _ := ret[1].([]action.SealedEnvelope)
+	ret2, _ := ret[2].(factory.WorkingSet)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// PickAndRunActions indicates an expected call of PickAndRunActions
+func (mr *MockFactoryMockRecorder) PickAndRunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickAndRunActions", reflect.TypeOf((*MockFactory)(nil).PickAndRunActions), arg0, arg1, arg2)
+}
+
+// SimulateExecution mocks base method
+func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution, arg3 evm.GetBlockHash) ([]byte, *action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SimulateExecution", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(*action.Receipt)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// SimulateExecution indicates an expected call of SimulateExecution
+func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
+}
+
 // Commit mocks base method
 func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
 	m.ctrl.T.Helper()
@@ -181,21 +157,6 @@ func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
-}
-
-// CandidatesByHeight mocks base method
-func (m *MockFactory) CandidatesByHeight(arg0 uint64) ([]*state.Candidate, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CandidatesByHeight", arg0)
-	ret0, _ := ret[0].([]*state.Candidate)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CandidatesByHeight indicates an expected call of CandidatesByHeight
-func (mr *MockFactoryMockRecorder) CandidatesByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CandidatesByHeight", reflect.TypeOf((*MockFactory)(nil).CandidatesByHeight), arg0)
 }
 
 // State mocks base method

@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -46,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -463,7 +463,7 @@ var (
 		},
 	}
 
-	readDelegatesByEpochTests = []struct {
+	readCandidatesByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -475,14 +475,14 @@ var (
 		{
 			protocolID:   "poll",
 			protocolType: lld,
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 3,
 		},
 		{
 			protocolID:   "poll",
 			protocolType: "governanceChainCommittee",
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 2,
 		},
@@ -780,7 +780,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.bc.BlockDAO().GetBlockByHeight(test.blkNumber)
+			blk, err := svr.dao.GetBlockByHeight(test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -984,11 +984,10 @@ func TestServer_GetChainMeta(t *testing.T) {
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1031,7 +1030,7 @@ func TestServer_SendAction(t *testing.T) {
 	}}
 
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
-	ap.EXPECT().Add(gomock.Any()).Return(nil).Times(2)
+	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
@@ -1214,7 +1213,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 	assert.Equal(t, unit.ConvertIotxToRau(199999936), val)
 }
 
-func TestServer_ReadDelegatesByEpoch(t *testing.T) {
+func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -1234,22 +1233,21 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 		},
 	}
 
-	for _, test := range readDelegatesByEpochTests {
+	for _, test := range readCandidatesByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1295,15 +1293,14 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1349,15 +1346,14 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1424,10 +1420,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
-			msf := mock_factory.NewMockFactory(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) {
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
 						{
 							Address:       identityset.Address(1).String(),
@@ -1464,18 +1459,15 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
-			mbc.EXPECT().Factory().Return(msf).Times(2)
-			msf.EXPECT().NewWorkingSet().Return(nil, nil).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
@@ -1710,7 +1702,7 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	return bc.CommitBlock(blk)
 }
 
-func addActsToActPool(ap actpool.ActPool) error {
+func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	// Producer transfer--> A
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
@@ -1732,52 +1724,53 @@ func addActsToActPool(ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(tsf1); err != nil {
+
+	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
-	if err := ap.Add(tsf2); err != nil {
+	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
-	if err := ap.Add(tsf3); err != nil {
+	if err := ap.Add(ctx, tsf3); err != nil {
 		return err
 	}
-	return ap.Add(execution1)
+	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	registry := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		blockchain.PrecreatedStateFactoryOption(sf),
+		sf,
 		blockchain.RegistryOption(registry),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
-	evm := execution.NewProtocol(bc.BlockDAO().GetBlockHash)
+	evm := execution.NewProtocol(dao.GetBlockHash)
 	p := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1785,38 +1778,37 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(func(epochNum uint64) (uint64, map[string]uint64, error) {
+	r := rewarding.NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
 		return 0, nil, nil
-	}, rolldposProtocol)
+	})
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
+	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
-	return bc, dao, indexer, registry, nil
+	return bc, dao, indexer, sf, registry, nil
 }
 
-func setupActPool(bc blockchain.Blockchain, cfg config.ActPool) (actpool.ActPool, error) {
-	ap, err := actpool.NewActPool(bc, cfg, actpool.EnableExperimentalActions())
+func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
+	ap, err := actpool.NewActPool(sf, cfg, actpool.EnableExperimentalActions())
 	if err != nil {
 		return nil, err
 	}
 
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(bc.Factory().Nonce))
-	ap.AddActionValidators(execution.NewProtocol(bc.BlockDAO().GetBlockHash))
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	return ap, nil
 }
@@ -1844,7 +1836,7 @@ func newConfig() config.Config {
 }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
-	bc, dao, indexer, registry, err := setupChain(cfg)
+	bc, dao, indexer, sf, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1863,23 +1855,25 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	var ap actpool.ActPool
 	if needActPool {
-		ap, err = setupActPool(bc, cfg.ActPool)
+		ap, err = setupActPool(sf, cfg.ActPool)
 		if err != nil {
 			return nil, err
 		}
 		// Add actions to actpool
-		if err := addActsToActPool(ap); err != nil {
+		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+		if err := addActsToActPool(ctx, ap); err != nil {
 			return nil, err
 		}
 	}
 
 	svr := &Server{
 		bc:             bc,
+		sf:             sf,
 		dao:            dao,
 		indexer:        indexer,
 		ap:             ap,
 		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, cfg.API),
+		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
 		registry:       registry,
 		hasActionIndex: true,
 	}

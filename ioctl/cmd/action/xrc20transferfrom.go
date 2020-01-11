@@ -12,14 +12,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	xrc20TransferFromCmdUses = map[config.Language]string{
+		config.English: "transferFrom (ALIAS|OWNER_ADDRESS) (ALIAS|RECIPIENT_ADDRESS) AMOUNT -c (ALIAS|CONTRACT_ADDRESS)" +
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "transferFrom (别名|所有人地址) (别名|接收人地址) 数量 -c (" +
+			"别名|合约地址)" +
+			" [-s 签署] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+	}
+	xrc20TransferFromCmdShorts = map[config.Language]string{
+		config.English: "Send amount of tokens from owner address to target address",
+		config.Chinese: "将通证数量从所有者地址发送到目标地址",
+	}
 )
 
 // xrc20TransferFromCmd could transfer from owner address to target address
 var xrc20TransferFromCmd = &cobra.Command{
-	Use: "transferFrom (ALIAS|OWNER_ADDRESS) (ALIAS|RECIPIENT_ADDRESS) AMOUNT -c (ALIAS|CONTRACT_ADDRESS)" +
-		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Send amount of tokens from owner address to target address",
+	Use:   config.TranslateInLang(xrc20TransferFromCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(xrc20TransferFromCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

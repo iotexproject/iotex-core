@@ -162,7 +162,7 @@ func (r *RollDPoS) Calibrate(height uint64) {
 // ValidateBlockFooter validates the signatures in the block footer
 func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 	height := blk.Height()
-	round, err := r.ctx.RoundCalc().NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
+	round, err := r.ctx.roundCalc.NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {
 		return err
 	}
@@ -195,18 +195,9 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.RoundCalc().NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.clock.Now(), nil)
+	round, err := r.ctx.roundCalc.NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.clock.Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
-	}
-	// Get all candidates
-	candidates, err := r.ctx.roundCalc.candidatesByHeightFunc(height)
-	if err != nil {
-		return metrics, errors.Wrap(err, "error when getting all candidates")
-	}
-	candidateAddresses := make([]string, len(candidates))
-	for i, c := range candidates {
-		candidateAddresses[i] = c.Address
 	}
 
 	return scheme.ConsensusMetrics{
@@ -214,7 +205,6 @@ func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 		LatestHeight:        height,
 		LatestDelegates:     round.Delegates(),
 		LatestBlockProducer: round.proposer,
-		Candidates:          candidateAddresses,
 	}, nil
 }
 
@@ -254,8 +244,8 @@ type Builder struct {
 	broadcastHandler scheme.Broadcast
 	clock            clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
-	rp                     *rolldpos.Protocol
-	candidatesByHeightFunc CandidatesByHeightFunc
+	rp                   *rolldpos.Protocol
+	delegatesByEpochFunc DelegatesByEpochFunc
 }
 
 // NewRollDPoSBuilder instantiates a Builder instance
@@ -305,11 +295,11 @@ func (b *Builder) SetClock(clock clock.Clock) *Builder {
 	return b
 }
 
-// SetCandidatesByHeightFunc sets candidatesByHeightFunc
-func (b *Builder) SetCandidatesByHeightFunc(
-	candidatesByHeightFunc CandidatesByHeightFunc,
+// SetDelegatesByEpochFunc sets delegatesByEpochFunc
+func (b *Builder) SetDelegatesByEpochFunc(
+	delegatesByEpochFunc DelegatesByEpochFunc,
 ) *Builder {
-	b.candidatesByHeightFunc = candidatesByHeightFunc
+	b.delegatesByEpochFunc = delegatesByEpochFunc
 	return b
 }
 
@@ -344,7 +334,7 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.actPool,
 		b.rp,
 		b.broadcastHandler,
-		b.candidatesByHeightFunc,
+		b.delegatesByEpochFunc,
 		b.encodedAddr,
 		b.priKey,
 		b.clock,
