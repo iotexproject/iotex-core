@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -98,6 +99,49 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 		}
 	}
 	return nil
+}
+
+func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
+	epochHeight := rp.GetEpochHeight(epochNum)
+	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
+	// make sure that putpollresult action is created around half of each epoch
+	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
+		return nil, nil
+	}
+	log.L().Debug(
+		"createPutPollResultAction",
+		zap.Uint64("height", blkCtx.BlockHeight),
+		zap.Uint64("epochNum", epochNum),
+		zap.Uint64("epochHeight", epochHeight),
+		zap.Uint64("nextEpochHeight", nextEpochHeight),
+	)
+	l, err := p.CalculateCandidatesByHeight(ctx, epochHeight)
+	if err == nil && len(l) == 0 {
+		err = errors.Wrapf(
+			ErrDelegatesNotExist,
+			"failed to fetch delegates by epoch height %d, empty list",
+			epochHeight,
+		)
+	}
+
+	if err != nil && blkCtx.BlockHeight == lastBlkHeight {
+		return nil, errors.Wrapf(
+			err,
+			"failed to prepare delegates for next epoch %d",
+			epochNum+1,
+		)
+	}
+
+	nonce := uint64(0)
+	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
+	builder := action.EnvelopeBuilder{}
+
+	return []action.Envelope{builder.SetNonce(nonce).SetAction(pollAction).Build()}, nil
 }
 
 // setCandidates sets the candidates for the given state manager

@@ -842,10 +842,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			height, err = dao.GetBlockHeight(hash)
 			require.NoError(err)
 			require.Equal(i, height)
-			header, err := bc.BlockHeaderByHash(hash)
-			require.NoError(err)
-			require.Equal(hash, header.HashBlock())
-			header, err = bc.BlockHeaderByHeight(height)
+			header, err := bc.BlockHeaderByHeight(height)
 			require.NoError(err)
 			require.Equal(height, header.Height())
 

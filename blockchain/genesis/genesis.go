@@ -53,6 +53,7 @@ func defaultConfig() Genesis {
 			BeringBlockHeight:       1512001,
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
+			EnglishBlockHeight:      3000001,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -132,6 +133,8 @@ type (
 		CookBlockHeight uint64 `yaml:"cookHeight"`
 		// DardanellesBlockHeight is the start height of 5s block internal
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
+		// EnglishBlockHeight is the start height of kick-out for slashing
+		EnglishBlockHeight uint64 `yaml:englishHeight`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

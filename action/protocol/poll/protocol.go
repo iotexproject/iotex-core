@@ -130,7 +130,6 @@ func NewProtocol(
 		electionCommittee,
 		governance,
 		readContract,
-		candidatesByHeight,
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,

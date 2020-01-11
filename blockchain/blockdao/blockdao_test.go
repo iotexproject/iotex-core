@@ -199,11 +199,6 @@ func TestBlockDAO(t *testing.T) {
 			require.NoError(err)
 			require.Equal(blks[i].Height(), height)
 
-			// test getTipHash
-			hash, err := dao.GetTipHash()
-			require.NoError(err)
-			require.Equal(blks[i].HashBlock(), hash)
-
 			// test getBlock()
 			blk, err := dao.GetBlock(blks[i].HashBlock())
 			require.NoError(err)
@@ -247,22 +242,17 @@ func TestBlockDAO(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			prevTipHeight, err := dao.GetTipHeight()
-			require.NoError(err)
+			prevTipHeight := dao.GetTipHeight()
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
 			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
 			tipHeight, err := indexer.GetBlockchainHeight()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
-			tipHeight, err = dao.GetTipHeight()
-			require.NoError(err)
+			tipHeight = dao.GetTipHeight()
 			require.EqualValues(prevTipHeight-1, tipHeight)
 			h, err := indexer.GetBlockHash(tipHeight)
 			require.NoError(err)
-			h1, err := dao.GetTipHash()
-			require.NoError(err)
-			require.Equal(h, h1)
 			_, err = dao.GetBlockHash(prevTipHeight)
 			require.Error(err)
 			_, err = dao.GetBlockHeight(prevTipHash)
