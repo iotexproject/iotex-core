@@ -86,7 +86,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	var ds state.CandidateList
 
 	for {
-		ds, err = p.delegatesByGravityChainHeight(p.initGravityChainHeight)
+		ds, err = p.candidatesByGravityChainHeight(p.initGravityChainHeight)
 		if err == nil || errors.Cause(err) != db.ErrNotExist {
 			break
 		}
@@ -106,46 +106,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	nextEpochHeight := rp.GetEpochHeight(epochNum + 1)
-	// make sure that putpollresult action is created around half of each epoch
-	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
-		return nil, nil
-	}
-	log.L().Debug(
-		"createPutPollResultAction",
-		zap.Uint64("height", blkCtx.BlockHeight),
-		zap.Uint64("epochNum", epochNum),
-		zap.Uint64("epochHeight", epochHeight),
-		zap.Uint64("nextEpochHeight", nextEpochHeight),
-	)
-	l, err := p.CalculateCandidatesByHeight(ctx, epochHeight)
-	if err == nil && len(l) == 0 {
-		err = errors.Wrapf(
-			ErrDelegatesNotExist,
-			"failed to fetch delegates by epoch height %d, empty list",
-			epochHeight,
-		)
-	}
-
-	if err != nil && blkCtx.BlockHeight == lastBlkHeight {
-		return nil, errors.Wrapf(
-			err,
-			"failed to prepare delegates for next epoch %d",
-			epochNum+1,
-		)
-	}
-
-	nonce := uint64(0)
-	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
-	builder := action.EnvelopeBuilder{}
-
-	return []action.Envelope{builder.SetNonce(nonce).SetAction(pollAction).Build()}, nil
+	return createPostSystemActions(ctx, p)
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -156,7 +117,7 @@ func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act act
 	return validate(ctx, p, act)
 }
 
-func (p *governanceChainCommitteeProtocol) delegatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) candidatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
 	r, err := p.electionCommittee.ResultByHeight(height)
 	if err != nil {
 		return nil, err
@@ -202,7 +163,7 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 		"fetch delegates from gravity chain",
 		zap.Uint64("gravityChainHeight", gravityHeight),
 	)
-	return p.delegatesByGravityChainHeight(gravityHeight)
+	return p.candidatesByGravityChainHeight(gravityHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {

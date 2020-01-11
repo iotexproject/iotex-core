@@ -1,6 +1,8 @@
 # Golang CircleCI 2.0 configuration file
-#
 # Check https://circleci.com/docs/2.0/language-go/ for more details
+# Set golang version 
+# circleci ui --> project settings --> build setting --> environment variables  --> "GOLANG_VERSION" delete and add new version
+
 version: 2
 jobs:
 
@@ -18,7 +20,7 @@ jobs:
 
   build_test_docker:
     docker:
-      - image: circleci/golang:1.13.4
+      - image: circleci/golang:${GOLANG_VERSION}
     working_directory: ~/apps/iotex-core
     resource_class: large
     steps:
@@ -40,10 +42,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.13.4
+          name: install golang ${GOLANG_VERSION}
           command: |
-            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
+            curl -o go${GOLANG_VERSION}.darwin-amd64.tar.gz https://dl.google.com/go/go${GOLANG_VERSION}.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go${GOLANG_VERSION}.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -73,11 +75,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.13.4
+          name: clean go 1.9 update golang ${GOLANG_VERSION}
           command: |
-            wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go${GOLANG_VERSION}.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.13.4.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go${GOLANG_VERSION}.linux-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -98,7 +100,8 @@ jobs:
   nightly_build_docker:
     docker:
       # specify the version
-      - image: iotex/iotex-core-ci:latest
+      #- image: iotex/iotex-core-ci:latest
+      - image: circleci/golang:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
@@ -109,14 +112,15 @@ jobs:
   nightly_bin_build_docker:
     docker:
       # specify the version
-      - image: iotex/iotex-core-ci:latest
+      #- image: iotex/iotex-core-ci:latest
+      - image: circleci/golang:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd ioctl/ && ./buildcli.sh
+      - run: cd tools/ioctl/ && sh buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
-      - run: 
+      - run:
           name: build bin put s3 (unstable) or github (release)
           command: |
             if [ "${VERSION}" ]; then
@@ -124,12 +128,12 @@ jobs:
                 go get -u github.com/tcnksm/ghr
                 arg="-t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION}"
                 echo $arg
-                ghr $arg ioctl/release/
+                ghr $arg tools/ioctl/release/
                 ghr $arg tools/actioninjector.v2/release/
             else
                 sudo apt-get install python python-pip
                 sudo pip install awscli
-                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync tools/ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 
@@ -142,15 +146,14 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.13.4
+          name: install golang ${GOLANG_VERSION}
           command: |
-            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
-            rm go1.13.4.darwin-amd64.tar.gz
+            curl -o go${GOLANG_VERSION}.darwin-amd64.tar.gz https://dl.google.com/go/go${GOLANG_VERSION}.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go${GOLANG_VERSION}.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
-      - run: 
+      - run:
           name: go mod
           command: |
             export PATH=$PATH:/usr/local/go/bin
@@ -166,8 +169,8 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd ioctl/ && ./buildcli.sh
-            cd ../tools/actioninjector.v2/ && ./build_injector.sh
+            cd tools/ioctl/ && sh buildcli.sh
+            cd ../actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
           command: |
@@ -176,11 +179,11 @@ jobs:
                 go get -u github.com/tcnksm/ghr
                 arg="-t ${GITHUB_TOKEN} -u ${CIRCLE_PROJECT_USERNAME} -r ${CIRCLE_PROJECT_REPONAME} -c ${CIRCLE_SHA1} ${VERSION}"
                 echo $arg
-                ghr $arg ioctl/release/
+                ghr $arg tools/ioctl/release/
                 ghr $arg tools/actioninjector.v2/release/
             else
                 sudo pip install awscli
-                aws s3 sync ioctl/release/ ${S3_BUCKET_DIR}
+                aws s3 sync tools/ioctl/release/ ${S3_BUCKET_DIR}
                 aws s3 sync tools/actioninjector.v2/release/ ${S3_BUCKET_DIR}
             fi
 

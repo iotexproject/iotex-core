@@ -259,8 +259,8 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	return nil
 }
 
-func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {	
-	return ctx.roundCalc	
+func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
+	return ctx.roundCalc
 }
 
 /////////////////////////////////////

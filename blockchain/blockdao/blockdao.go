@@ -90,8 +90,7 @@ type (
 		GetBlockHeight(hash.Hash256) (uint64, error)
 		GetBlock(hash.Hash256) (*block.Block, error)
 		GetBlockByHeight(uint64) (*block.Block, error)
-		GetTipHeight() (uint64, error)
-		GetTipHash() (hash.Hash256, error)
+		GetTipHeight() uint64
 		Header(hash.Hash256) (*block.Header, error)
 		Body(hash.Hash256) (*block.Body, error)
 		Footer(hash.Hash256) (*block.Footer, error)
@@ -104,6 +103,8 @@ type (
 		IndexFile(uint64, []byte) error
 		GetFileIndex(uint64) ([]byte, error)
 		KVStore() db.KVStore
+		HeaderByHeight(uint64) (*block.Header, error)
+		FooterByHeight(uint64) (*block.Footer, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -129,6 +130,7 @@ type (
 		footerCache   *cache.ThreadSafeLruCache
 		cfg           config.DB
 		mutex         sync.RWMutex // for create new db file
+		tipHeight     uint64
 	}
 )
 
@@ -175,6 +177,11 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
 	}
+	tipHeight, err := dao.getTipHeight()
+	if err != nil {
+		return err
+	}
+	atomic.StoreUint64(&dao.tipHeight, tipHeight)
 	return dao.initStores()
 }
 
@@ -235,12 +242,24 @@ func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 	return dao.getBlock(hash)
 }
 
-func (dao *blockDAO) GetTipHash() (hash.Hash256, error) {
-	return dao.getTipHash()
+func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
+	hash, err := dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return dao.header(hash)
 }
 
-func (dao *blockDAO) GetTipHeight() (uint64, error) {
-	return dao.getTipHeight()
+func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
+	hash, err := dao.getBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return dao.footer(hash)
+}
+
+func (dao *blockDAO) GetTipHeight() uint64 {
+	return atomic.LoadUint64(&dao.tipHeight)
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
@@ -290,7 +309,16 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 }
 
 func (dao *blockDAO) PutBlock(blk *block.Block) error {
-	if err := dao.putBlock(blk); err != nil {
+	err := func() error {
+		dao.mutex.Lock()
+		defer dao.mutex.Unlock()
+		if err := dao.putBlock(blk); err != nil {
+			return err
+		}
+		atomic.StoreUint64(&dao.tipHeight, blk.Height())
+		return nil
+	}()
+	if err != nil {
 		return err
 	}
 	// index the block if there's indexer
@@ -330,6 +358,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			return err
 		}
 		tipHeight--
+		atomic.StoreUint64(&dao.tipHeight, tipHeight)
 	}
 	return nil
 }
