@@ -108,13 +108,12 @@ jobs:
 
   nightly_bin_build_docker:
     docker:
-      # specify the version
-      - image: iotex/iotex-core-ci:latest
+      - image: circleci/golang:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
       - checkout
-      - run: cd tools/ioctl/ && ./buildcli.sh
+      - run: cd tools/ioctl/ && sh buildcli.sh
       - run: cd tools/actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
@@ -136,17 +135,15 @@ jobs:
   nightly_bin_build_darwin:
     macos:
       xcode: "10.2.0"   # not supported > 10.2.0
-
     working_directory: ~/iotex-core
 
     steps:
       - checkout
       - run:
-          name: install golang 1.13.4
+          name: install golang ${GOLANG_VERSION}
           command: |
-            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
-            rm go1.13.4.darwin-amd64.tar.gz
+            curl -o go${GOLANG_VERSION}.darwin-amd64.tar.gz https://dl.google.com/go/go${GOLANG_VERSION}.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go${GOLANG_VERSION}.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }}
@@ -166,7 +163,7 @@ jobs:
             export GOPATH=~/go
             export GOROOT="/usr/local/go"
             export PATH=$PATH:$GOPATH/bin:$PATH:$GOROOT/bin
-            cd tools/ioctl/ && ./buildcli.sh
+            cd tools/ioctl/ && sh buildcli.sh
             cd ../actioninjector.v2/ && ./build_injector.sh
       - run:
           name: build bin put s3 (unstable) or github (release)
