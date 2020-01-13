@@ -133,8 +133,9 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if blkCtx.BlockHeight == epochStartHeight {
-		// if the block height is the start of epoch, calculate blacklist for kick-out and write into state DB
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.English, epochStartHeight) {
+		// if the block height is the start of epoch and after English height, calculate blacklist for kick-out and write into state DB
 		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum)
 		if err != nil {
 			return err
@@ -397,20 +398,65 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	epochNum uint64,
 ) ([]string, error) {
 	var unqualifiedDelegates []string
-	var i uint64
-	for i = 1; i <= p.kickoutEpochPeriod; i++ {
-		// check N-1, N-2, ... N-K epochs
-		numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-i)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	englishEpochNum := rp.GetEpochNum(config.English)
+
+	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
+		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
+		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
+		for {
+			if round == 0 {
+				break
+			}
+			// N-1, N-2, ..., N-K
+			numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-round)
+			if err != nil {
+				return nil, err
+			}
+			expectedNumBlks := numBlks / uint64(len(produce))
+			for addr, actualNumBlks := range produce {
+				if actualNumBlks*100/expectedNumBlks < p.productivityThreshold {
+					unqualifiedDelegates = append(unqualifiedDelegates, addr)
+				}
+			}
+			round--
+		}
+	} else {
+		// Blacklist[N] = Blacklist[N-1] - BlackList[N-K] + Low-productivity-list[N-1]
+		prevBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-1)
+		if err != nil {
+			return nil, err
+		}
+		prevKthBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-p.kickoutEpochPeriod)
+		if err != nil {
+			return nil, err
+		}
+
+		unqualifiedSet := make(map[string]bool)
+		for _, str := range prevBlacklist {
+			unqualifiedSet[str] = true
+		}
+		// subtract B[N-1] with B[N-K]
+		for _, str := range prevKthBlacklist {
+			delete(unqualifiedSet, str)
+		}
+		// add low producitvity list of epochNum-1
+		numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-1)
 		if err != nil {
 			return nil, err
 		}
 		expectedNumBlks := numBlks / uint64(len(produce))
 		for addr, actualNumBlks := range produce {
 			if actualNumBlks*100/expectedNumBlks < p.productivityThreshold {
-				unqualifiedDelegates = append(unqualifiedDelegates, addr)
+				unqualifiedSet[addr] = true
 			}
 		}
-	}
 
+		for str, _ := range unqualifiedSet {
+			unqualifiedDelegates = append(unqualifiedDelegates, str)
+		}
+
+	}
 	return unqualifiedDelegates, nil
 }
