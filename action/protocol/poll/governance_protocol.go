@@ -437,7 +437,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		for _, str := range prevBlacklist {
 			unqualifiedSet[str] = true
 		}
-		// subtract B[N-1] with B[N-K]
+		// subtract B[N-K] from B[N-1]
 		for _, str := range prevKthBlacklist {
 			delete(unqualifiedSet, str)
 		}
@@ -452,8 +452,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 				unqualifiedSet[addr] = true
 			}
 		}
-
-		for str, _ := range unqualifiedSet {
+		for str := range unqualifiedSet {
 			unqualifiedDelegates = append(unqualifiedDelegates, str)
 		}
 
