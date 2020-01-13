@@ -1,6 +1,6 @@
 # iotex-core
 
-[![Join the chat at https://gitter.im/iotex-dev-community/Lobby](https://badges.gitter.im/iotex-dev-community/Lobby.svg)](https://gitter.im/iotex-dev-community/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the forum at https://community.iotex.io/c/research-development/protocol](https://community.iotex.io/uploads/default/original/1X/2e00d16fe3e91748b7cb50d7dd6f0895284bed99.png)](https://community.iotex.io/c/research-development/protocol)
 [![Go version](https://img.shields.io/badge/go-1.11.5-blue.svg)](https://github.com/moovweb/gvm)
 [![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
@@ -113,7 +113,7 @@ Refer to [CLI document](ioctl/README.md) for more details.
 ## Contact
 
 - Mailing list: [iotex-dev](iotex-dev@iotex.io)
-- IRC: [gitter](https://gitter.im/iotex-dev-community/Lobby)
+- Dev Forum: [forum](https://community.iotex.io/c/research-development/protocol)
 - Bugs: [issues](https://github.com/iotexproject/iotex-core/issues)
 
 ## Contribution
