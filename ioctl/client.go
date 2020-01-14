@@ -14,16 +14,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 type (
