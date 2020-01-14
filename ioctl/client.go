@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 
@@ -43,6 +45,8 @@ type (
 		ReadSecret() (string, error)
 		// doing
 		GetAddress(in string) (string, error)
+		// doing
+		NewKeyStore(string, int, int) *keystore.KeyStore
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -50,7 +54,6 @@ type (
 		Endpoint string
 		Insecure bool
 	}
-
 	client struct {
 		cfg  config.Config
 		conn *grpc.ClientConn
@@ -143,6 +146,11 @@ func (c *client) GetAddress(in string) (string, error) {
 		return "", output.NewError(output.AddressError, "", err)
 	}
 	return address(addr)
+}
+
+func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
+	return keystore.NewKeyStore(keydir,
+		scryptN, scryptP)
 }
 
 func address(in string) (string, error) {

@@ -101,8 +101,10 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 				return output.NewError(output.ConvertError, fmt.Sprintf(failToConvertStringIntoAddress),
 					nil)
 			}
-			ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			ks := c.NewKeyStore(config.ReadConfig.Wallet,
 				keystore.StandardScryptN, keystore.StandardScryptP)
+			//ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			//keystore.StandardScryptN, keystore.StandardScryptP)
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 					var confirm string
