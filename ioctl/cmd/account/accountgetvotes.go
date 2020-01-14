@@ -10,19 +10,32 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+// Multi-language support
+var (
+	getVotesCmdShorts = map[config.Language]string{
+		config.English: "Get votes of this votee",
+		config.Chinese: "从投票人处获得投票",
+	}
+	getVotesCmdUses = map[config.Language]string{
+		config.English: "getVotes VOTEE HEIGHT OFFSET LIMIT",
+		config.Chinese: "getVotes 投票人 高度 偏移 限制",
+	}
+)
+
 // accountGetVotesCmd represents the account get votes command
 var accountGetVotesCmd = &cobra.Command{
-	Use:   "getVotes VOTEE HEIGHT OFFSET LIMIT",
-	Short: "Get votes of this votee",
+	Use:   config.TranslateInLang(getVotesCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(getVotesCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

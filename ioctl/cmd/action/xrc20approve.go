@@ -12,14 +12,29 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+)
+
+// Multi-language support
+var (
+	xrc20ApproveCmdUses = map[config.Language]string{
+		config.English: "approve (ALIAS|SPENDER_ADDRESS) (XRC20_AMOUNT) -c ALIAS|CONTRACT_ADDRESS" +
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "approve (别名|支出者地址) (XRC20数量) -c 别名|合约地址" +
+			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+	}
+	xrc20ApproveCmdShorts = map[config.Language]string{
+		config.English: "Allow spender to withdraw from your account, multiple times, " +
+			"up to the amount",
+		config.Chinese: "允许支出者多次从您的帐户中提款，最高限额为",
+	}
 )
 
 // xrc20ApproveCmd could config target address limited amount
 var xrc20ApproveCmd = &cobra.Command{
-	Use: "approve (ALIAS|SPENDER_ADDRESS) (XRC20_AMOUNT) -c ALIAS|CONTRACT_ADDRESS" +
-		" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-	Short: "Allow spender to withdraw from your account, multiple times, up to the amount",
+	Use:   config.TranslateInLang(xrc20ApproveCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(xrc20ApproveCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

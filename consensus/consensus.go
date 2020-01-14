@@ -104,7 +104,7 @@ func NewConsensus(
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetCandidatesByHeightFunc(ops.pp.CandidatesByHeight).
+			SetDelegatesByEpochFunc(ops.pp.DelegatesByEpoch).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
