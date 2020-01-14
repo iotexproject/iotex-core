@@ -31,6 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -841,10 +842,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			height, err = dao.GetBlockHeight(hash)
 			require.NoError(err)
 			require.Equal(i, height)
-			header, err := bc.BlockHeaderByHash(hash)
-			require.NoError(err)
-			require.Equal(hash, header.HashBlock())
-			header, err = bc.BlockHeaderByHeight(height)
+			header, err := bc.BlockHeaderByHeight(height)
 			require.NoError(err)
 			require.Equal(height, header.Height())
 
@@ -1082,7 +1080,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
 	}()
-	candidate, err := sf.CandidatesByHeight(1)
+	candidate, err := candidatesutil.CandidatesByHeight(sf, 1)
 	require.NoError(err)
 	require.Equal(24, len(candidate))
 }

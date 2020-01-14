@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-var dummyCandidatesByHeightFunc = func(uint64) (state.CandidateList, error) { return nil, nil }
+var dummyCandidatesByHeightFunc = func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
 
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
@@ -81,7 +82,7 @@ func TestRollDPoSCtx(t *testing.T) {
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, sf, _ := makeChain(t)
+	b, _, pp := makeChain(t)
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
 		config.Default.Genesis.NumDelegates,
@@ -89,9 +90,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(height uint64) (state.CandidateList, error) {
-		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 
@@ -110,12 +109,10 @@ func TestCheckVoteEndorser(t *testing.T) {
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, sf, rp := makeChain(t)
+	b, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(height uint64) (state.CandidateList, error) {
-		return sf.CandidatesByHeight(rp.GetEpochHeight(rp.GetEpochNum(height)))
-	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 	block := getBlockforctx(t, 0, false)

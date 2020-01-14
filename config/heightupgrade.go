@@ -19,6 +19,7 @@ const (
 	Bering
 	Cook
 	Dardanelles
+	English
 )
 
 type (
@@ -32,6 +33,7 @@ type (
 		beringHeight      uint64
 		cookHeight        uint64
 		dardanellesHeight uint64
+		englishHeight     uint64
 	}
 )
 
@@ -43,6 +45,7 @@ func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 		cfg.BeringBlockHeight,
 		cfg.CookBlockHeight,
 		cfg.DardanellesBlockHeight,
+		cfg.EnglishBlockHeight,
 	}
 }
 
@@ -60,6 +63,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.cookHeight
 	case Dardanelles:
 		h = hu.dardanellesHeight
+	case English:
+		h = hu.englishHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -85,3 +90,6 @@ func (hu *HeightUpgrade) CookBlockHeight() uint64 { return hu.cookHeight }
 
 // DardanellesBlockHeight returns the dardanelles height
 func (hu *HeightUpgrade) DardanellesBlockHeight() uint64 { return hu.dardanellesHeight }
+
+// EnglishBlockHeight returns the english height
+func (hu *HeightUpgrade) EnglishBlockHeight() uint64 { return hu.englishHeight }

@@ -26,11 +26,23 @@ var (
 		config.English: "Deal with block chain of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链上的区块",
 	}
+	bcCmdUses = map[config.Language]string{
+		config.English: "bc",
+		config.Chinese: "bc",
+	}
+	flagEndpointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagInsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全的连接",
+	}
 )
 
 // BCCmd represents the bc(block chain) command
 var BCCmd = &cobra.Command{
-	Use:   "bc",
+	Use:   config.TranslateInLang(bcCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(bcCmdShorts, config.UILanguage),
 }
 
@@ -38,9 +50,9 @@ func init() {
 	BCCmd.AddCommand(bcBlockCmd)
 	BCCmd.AddCommand(bcInfoCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	BCCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
+		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
 }
 
 // GetChainMeta gets block chain metadata

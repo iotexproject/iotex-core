@@ -18,10 +18,22 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
+// Multi-language support
+var (
+	removeCmdShorts = map[config.Language]string{
+		config.English: "Remove alias",
+		config.Chinese: "移除别名",
+	}
+	removeCmdUses = map[config.Language]string{
+		config.English: "remove ALIAS",
+		config.Chinese: "remove 别名",
+	}
+)
+
 // aliasRemoveCmd represents the alias remove command
 var aliasRemoveCmd = &cobra.Command{
-	Use:   "remove ALIAS",
-	Short: "Remove alias",
+	Use:   config.TranslateInLang(removeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(removeCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

@@ -12,17 +12,37 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
+// Multi-language support
+var (
+	nodeCmdUses = map[config.Language]string{
+		config.English: "node",
+		config.Chinese: "node",
+	}
+	nodeCmdShorts = map[config.Language]string{
+		config.English: "Deal with nodes of IoTeX blockchain",
+		config.Chinese: "处理IoTeX区块链的节点",
+	}
+	flagEndpointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagInsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全的连接",
+	}
+)
+
 // NodeCmd represents the node command
 var NodeCmd = &cobra.Command{
-	Use:   "node",
-	Short: "Deal with nodes of IoTeX blockchain",
+	Use:   config.TranslateInLang(nodeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(nodeCmdShorts, config.UILanguage),
 }
 
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
 	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
-		config.ReadConfig.Endpoint, "set endpoint for once")
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
-		"insecure connection for once")
+		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
 }

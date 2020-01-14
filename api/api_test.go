@@ -463,7 +463,7 @@ var (
 		},
 	}
 
-	readDelegatesByEpochTests = []struct {
+	readCandidatesByEpochTests = []struct {
 		// Arguments
 		protocolID   string
 		protocolType string
@@ -475,14 +475,14 @@ var (
 		{
 			protocolID:   "poll",
 			protocolType: lld,
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 3,
 		},
 		{
 			protocolID:   "poll",
 			protocolType: "governanceChainCommittee",
-			methodName:   "DelegatesByEpoch",
+			methodName:   "CandidatesByEpoch",
 			epoch:        1,
 			numDelegates: 2,
 		},
@@ -984,11 +984,10 @@ func TestServer_GetChainMeta(t *testing.T) {
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1214,7 +1213,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 	assert.Equal(t, unit.ConvertIotxToRau(199999936), val)
 }
 
-func TestServer_ReadDelegatesByEpoch(t *testing.T) {
+func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig()
 
@@ -1234,22 +1233,21 @@ func TestServer_ReadDelegatesByEpoch(t *testing.T) {
 		},
 	}
 
-	for _, test := range readDelegatesByEpochTests {
+	for _, test := range readCandidatesByEpochTests {
 		var pol poll.Protocol
 		if test.protocolType == lld {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1295,15 +1293,14 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1349,15 +1346,14 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) { return candidates, nil },
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1426,7 +1422,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
-				func(uint64) ([]*state.Candidate, error) {
+				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
 						{
 							Address:       identityset.Address(1).String(),
@@ -1463,11 +1459,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				func(uint64) uint64 { return 1 },
-				func(uint64) uint64 { return 1 },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
+				nil,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
