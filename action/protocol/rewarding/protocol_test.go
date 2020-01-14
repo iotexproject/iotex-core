@@ -289,17 +289,6 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	// Test for CreatePreStates
-
-	//ctx = protocol.WithBlockCtx(
-	//	ctx,
-	//	protocol.BlockCtx{
-	//		BlockHeight: uint64(864001),
-	//		Producer:    identityset.Address(0),
-	//	})
-
-	//require.Nil(t, p.CreatePreStates(ctx, sm))
-
 	// Deposit
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
@@ -359,6 +348,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 	err = p.CreatePreStates(ctx, sm)
+	require.NoError(t, err)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(8000000000000000000), blockReward)
@@ -370,9 +360,9 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 	err = p.CreatePreStates(ctx, sm)
-	epochReward, err := p.BlockReward(ctx, sm)
+	BlockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(8000000000000000000), epochReward)
+	assert.Equal(t, big.NewInt(8000000000000000000), BlockReward)
 
 	// Test for Validate
 	require.Nil(t, p.Validate(ctx, se2.Action()))
