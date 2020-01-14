@@ -132,11 +132,12 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	epochStartHeight := rp.GetEpochHeight(epochNum)
+	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
+	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.English, epochStartHeight) {
-		// if the block height is the start of epoch and after English height, calculate blacklist for kick-out and write into state DB
-		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum)
+	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.English, nextEpochStartHeight) {
+		// if the block height is the end of epoch and next epoch is after the English height, calculate blacklist for kick-out and write into state DB
+		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum+1)
 		if err != nil {
 			return err
 		}
@@ -399,6 +400,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 ) ([]string, error) {
 	var unqualifiedDelegates []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	englishEpochNum := rp.GetEpochNum(config.English)
 
@@ -413,6 +415,11 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 			numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-round)
 			if err != nil {
 				return nil, err
+			}
+			if round == 1 {
+				// The current block is not included, so that we need to add it to the stats
+				numBlks++
+				produce[blkCtx.Producer.String()]++
 			}
 			expectedNumBlks := numBlks / uint64(len(produce))
 			for addr, actualNumBlks := range produce {
@@ -446,6 +453,9 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		if err != nil {
 			return nil, err
 		}
+		// The current block is not included, so that we need to add it to the stats
+		numBlks++
+		produce[blkCtx.Producer.String()]++
 		expectedNumBlks := numBlks / uint64(len(produce))
 		for addr, actualNumBlks := range produce {
 			if actualNumBlks*100/expectedNumBlks < p.productivityThreshold {
