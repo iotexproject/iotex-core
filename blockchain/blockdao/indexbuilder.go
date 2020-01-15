@@ -46,7 +46,7 @@ type IndexBuilder struct {
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer, bufferSize uint64) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -57,7 +57,7 @@ func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (
 		return nil, err
 	}
 	return &IndexBuilder{
-		pendingBlks:  make(chan *block.Block, 8),
+		pendingBlks:  make(chan *block.Block, bufferSize),
 		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
 		dao:          dao,
@@ -89,8 +89,8 @@ func (ib *IndexBuilder) Indexer() blockindex.Indexer {
 	return ib.indexer
 }
 
-// HandleBlock handles the block and create the indices for the actions and receipts in it
-func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
+// ReceiveBlock handles the block and create the indices for the actions and receipts in it
+func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	ib.pendingBlks <- blk
 	return nil
 }
