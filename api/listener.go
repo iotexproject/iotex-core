@@ -81,7 +81,7 @@ func (cl *chainListener) Stop() error {
 	return nil
 }
 
-// HandleBlock handles the block
+// ReceiveBlock handles the block
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	cl.pendingBlks <- blk
 	return nil

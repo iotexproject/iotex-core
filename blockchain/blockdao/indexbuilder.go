@@ -89,7 +89,7 @@ func (ib *IndexBuilder) Indexer() blockindex.Indexer {
 	return ib.indexer
 }
 
-// HandleBlock handles the block and create the indices for the actions and receipts in it
+// ReceiveBlock handles the block and create the indices for the actions and receipts in it
 func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	ib.pendingBlks <- blk
 	return nil
