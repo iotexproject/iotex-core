@@ -179,7 +179,7 @@ func New(
 	// config asks for a standalone indexer
 	var indexBuilder *blockdao.IndexBuilder
 	if gateway && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
+		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), dao, indexer, cfg.BlockSync.BufferSize); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {

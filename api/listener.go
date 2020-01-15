@@ -20,7 +20,7 @@ type (
 	Listener interface {
 		Start() error
 		Stop() error
-		HandleBlock(*block.Block) error
+		ReceiveBlock(*block.Block) error
 		AddResponder(Responder) error
 	}
 
@@ -33,9 +33,9 @@ type (
 )
 
 // NewChainListener returns a new blockchain chainListener
-func NewChainListener() Listener {
+func NewChainListener(bufferSize uint64) Listener {
 	return &chainListener{
-		pendingBlks: make(chan *block.Block, 4),
+		pendingBlks: make(chan *block.Block, bufferSize),
 		cancelChan:  make(chan struct{}),
 	}
 }
@@ -82,7 +82,7 @@ func (cl *chainListener) Stop() error {
 }
 
 // HandleBlock handles the block
-func (cl *chainListener) HandleBlock(blk *block.Block) error {
+func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	cl.pendingBlks <- blk
 	return nil
 }

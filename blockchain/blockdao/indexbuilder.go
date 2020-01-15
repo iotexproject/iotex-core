@@ -38,7 +38,7 @@ type addrIndex map[hash.Hash160]db.CountingIndex
 
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
-	pendingBlks  map[uint64]*block.Block
+	pendingBlks  chan *block.Block
 	cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
 	dao          BlockDAO
@@ -46,7 +46,7 @@ type IndexBuilder struct {
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer, bufferSize uint64) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -57,7 +57,7 @@ func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (
 		return nil, err
 	}
 	return &IndexBuilder{
-		pendingBlks:  make(map[uint64]*block.Block),
+		pendingBlks:  make(chan *block.Block, bufferSize),
 		cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
 		dao:          dao,
@@ -90,8 +90,8 @@ func (ib *IndexBuilder) Indexer() blockindex.Indexer {
 }
 
 // HandleBlock handles the block and create the indices for the actions and receipts in it
-func (ib *IndexBuilder) HandleBlock(blk *block.Block) error {
-	ib.pendingBlks[blk.Height()] = blk
+func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
+	ib.pendingBlks <- blk
 	return nil
 }
 
@@ -100,36 +100,25 @@ func (ib *IndexBuilder) handler() {
 		select {
 		case <-ib.cancelChan:
 			return
-		default:
-			tipHeight, err := ib.indexer.GetBlockchainHeight()
-			if err != nil {
+		case blk := <-ib.pendingBlks:
+			timer := ib.timerFactory.NewTimer("indexBlock")
+			if err := ib.indexer.PutBlock(blk); err != nil {
 				log.L().Error(
-					"Error when get blockchain tipheight from indexer",
+					"Error when indexing the block",
+					zap.Uint64("height", blk.Height()),
 					zap.Error(err),
 				)
 			}
-			if blk, ok := ib.pendingBlks[tipHeight+1]; ok {
-				// putBlock only if the next block is in the pending blk map
-				timer := ib.timerFactory.NewTimer("indexBlock")
-				if err := ib.indexer.PutBlock(blk); err != nil {
-					log.L().Error(
-						"Error when indexing the block",
-						zap.Uint64("height", blk.Height()),
-						zap.Error(err),
-					)
-				}
-				if err := ib.indexer.Commit(); err != nil {
-					log.L().Error(
-						"Error when committing the block index",
-						zap.Uint64("height", blk.Height()),
-						zap.Error(err),
-					)
-				}
-				timer.End()
-				if blk.Height()%100 == 0 {
-					log.L().Info("<<<<<<< indexing new block", zap.Uint64("height", blk.Height()))
-				}
-				delete(ib.pendingBlks, tipHeight+1)
+			if err := ib.indexer.Commit(); err != nil {
+				log.L().Error(
+					"Error when committing the block index",
+					zap.Uint64("height", blk.Height()),
+					zap.Error(err),
+				)
+			}
+			timer.End()
+			if blk.Height()%100 == 0 {
+				log.L().Info("<<<<<<< indexing new block", zap.Uint64("height", blk.Height()))
 			}
 		}
 	}
