@@ -82,21 +82,6 @@ func (mr *MockBlockchainMockRecorder) BlockHeaderByHeight(height interface{}) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockHeaderByHeight), height)
 }
 
-// BlockHeaderByHash mocks base method
-func (m *MockBlockchain) BlockHeaderByHash(h hash.Hash256) (*block.Header, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockHeaderByHash", h)
-	ret0, _ := ret[0].(*block.Header)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockHeaderByHash indicates an expected call of BlockHeaderByHash
-func (mr *MockBlockchainMockRecorder) BlockHeaderByHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockHeaderByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockHeaderByHash), h)
-}
-
 // BlockFooterByHeight mocks base method
 func (m *MockBlockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
 	m.ctrl.T.Helper()
@@ -110,21 +95,6 @@ func (m *MockBlockchain) BlockFooterByHeight(height uint64) (*block.Footer, erro
 func (mr *MockBlockchainMockRecorder) BlockFooterByHeight(height interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHeight", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHeight), height)
-}
-
-// BlockFooterByHash mocks base method
-func (m *MockBlockchain) BlockFooterByHash(h hash.Hash256) (*block.Footer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BlockFooterByHash", h)
-	ret0, _ := ret[0].(*block.Footer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// BlockFooterByHash indicates an expected call of BlockFooterByHash
-func (mr *MockBlockchainMockRecorder) BlockFooterByHash(h interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockFooterByHash", reflect.TypeOf((*MockBlockchain)(nil).BlockFooterByHash), h)
 }
 
 // ChainID mocks base method

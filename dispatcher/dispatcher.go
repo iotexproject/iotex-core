@@ -211,6 +211,8 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 
 // handleBlockMsg handles blockMsg from peers.
 func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
+	log.L().Debug("receive blockMsg.", zap.Uint64("height", m.block.GetHeader().GetCore().GetHeight()))
+
 	d.subscribersMU.RLock()
 	defer d.subscribersMU.RUnlock()
 	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
