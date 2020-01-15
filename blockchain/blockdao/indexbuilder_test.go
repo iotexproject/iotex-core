@@ -71,7 +71,7 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		ib := &IndexBuilder{
-			pendingBlks: make(chan *block.Block, 8),
+			pendingBlks: make(map[uint64]*block.Block),
 			cancelChan:  make(chan interface{}),
 			dao:         dao,
 			indexer:     indexer,
