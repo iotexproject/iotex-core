@@ -139,15 +139,17 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao           blockdao.BlockDAO
-	config        config.Config
-	validator     Validator
-	minter        Minter
-	lifecycle     lifecycle.Lifecycle
-	clk           clock.Clock
-	blocklistener []BlockCreationSubscriber
-	timerFactory  *prometheustimer.TimerFactory
+	mu                  sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao                 blockdao.BlockDAO
+	config              config.Config
+	validator           Validator
+	minter              Minter
+	lifecycle           lifecycle.Lifecycle
+	clk                 clock.Clock
+	blocklistener       []BlockCreationSubscriber
+	blocklistenerBuffer []chan *block.Block
+	blocklistenerCancel []chan interface{}
+	timerFactory        *prometheustimer.TimerFactory
 
 	// used by account-based model
 	sf       factory.Factory
@@ -307,7 +309,6 @@ func (bc *blockchain) Start(ctx context.Context) error {
 func (bc *blockchain) Stop(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
 	return bc.lifecycle.OnStop(ctx)
 }
 
@@ -455,7 +456,14 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}
+	pendingBlksChan := make(chan *block.Block, bc.config.BlockSync.BufferSize)
+	cancelChan := make(chan interface{})
+	// create subscriber handler thread to handle pending blocks 
+	go bc.handler(cancelChan, pendingBlksChan, s)
+
 	bc.blocklistener = append(bc.blocklistener, s)
+	bc.blocklistenerBuffer = append(bc.blocklistenerBuffer, pendingBlksChan)
+	bc.blocklistenerCancel = append(bc.blocklistenerCancel, cancelChan)
 
 	return nil
 }
@@ -466,6 +474,9 @@ func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	for i, sub := range bc.blocklistener {
 		if sub == s {
 			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
+			bc.blocklistenerBuffer = append(bc.blocklistenerBuffer[:i], bc.blocklistenerBuffer[i+1:]...)
+			close(bc.blocklistenerCancel[i])
+			bc.blocklistenerCancel = append(bc.blocklistenerCancel[:i], bc.blocklistenerCancel[i+1:]...)
 			log.L().Info("Successfully unsubscribe block creation.")
 			return nil
 		}
@@ -615,9 +626,20 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	if bc.blocklistener == nil {
 		return
 	}
-	for _, s := range bc.blocklistener {
-		if err := s.ReceiveBlock(blk); err != nil {
-			log.L().Error("Failed to handle new block.", zap.Error(err))
+	for i, _ := range bc.blocklistener {
+		bc.blocklistenerBuffer[i] <- blk
+	}
+}
+
+func (bc *blockchain) handler(cancelChan <-chan interface{}, pendingBlks <-chan *block.Block, s BlockCreationSubscriber) {
+	for {
+		select {
+		case <-cancelChan:
+			return
+		case blk := <-pendingBlks:
+			if err := s.ReceiveBlock(blk); err != nil {
+				log.L().Error("Failed to handle new block.", zap.Error(err))
+			}
 		}
 	}
 }

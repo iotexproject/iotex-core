@@ -38,15 +38,15 @@ type addrIndex map[hash.Hash160]db.CountingIndex
 
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
-	pendingBlks  chan *block.Block
-	cancelChan   chan interface{}
+	//pendingBlks  chan *block.Block
+	//cancelChan   chan interface{}
 	timerFactory *prometheustimer.TimerFactory
 	dao          BlockDAO
 	indexer      blockindex.Indexer
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer, bufferSize uint64) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -57,8 +57,8 @@ func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer, b
 		return nil, err
 	}
 	return &IndexBuilder{
-		pendingBlks:  make(chan *block.Block, bufferSize),
-		cancelChan:   make(chan interface{}),
+		//pendingBlks:  make(chan *block.Block, bufferSize),
+		//cancelChan:   make(chan interface{}),
 		timerFactory: timerFactory,
 		dao:          dao,
 		indexer:      indexer,
@@ -74,13 +74,13 @@ func (ib *IndexBuilder) Start(ctx context.Context) error {
 		return err
 	}
 	// start handler to index incoming new block
-	go ib.handler()
+	//go ib.handler()
 	return nil
 }
 
 // Stop stops the index builder
 func (ib *IndexBuilder) Stop(ctx context.Context) error {
-	close(ib.cancelChan)
+	//close(ib.cancelChan)
 	return ib.indexer.Stop(ctx)
 }
 
@@ -91,10 +91,31 @@ func (ib *IndexBuilder) Indexer() blockindex.Indexer {
 
 // ReceiveBlock handles the block and create the indices for the actions and receipts in it
 func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
-	ib.pendingBlks <- blk
+	timer := ib.timerFactory.NewTimer("indexBlock")
+	if err := ib.indexer.PutBlock(blk); err != nil {
+		log.L().Error(
+			"Error when indexing the block",
+			zap.Uint64("height", blk.Height()),
+			zap.Error(err),
+		)
+		return err
+	}
+	if err := ib.indexer.Commit(); err != nil {
+		log.L().Error(
+			"Error when committing the block index",
+			zap.Uint64("height", blk.Height()),
+			zap.Error(err),
+		)
+		return err
+	}
+	timer.End()
+	if blk.Height()%100 == 0 {
+		log.L().Info("<<<<<<< indexing new block", zap.Uint64("height", blk.Height()))
+	}
 	return nil
 }
 
+/*
 func (ib *IndexBuilder) handler() {
 	for {
 		select {
@@ -123,7 +144,7 @@ func (ib *IndexBuilder) handler() {
 		}
 	}
 }
-
+*/
 func (ib *IndexBuilder) init() error {
 	startHeight, err := ib.indexer.GetBlockchainHeight()
 	if err != nil {
