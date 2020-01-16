@@ -458,7 +458,7 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	}
 	pendingBlksChan := make(chan *block.Block, bc.config.BlockSync.BufferSize)
 	cancelChan := make(chan interface{})
-	// create subscriber handler thread to handle pending blocks 
+	// create subscriber handler thread to handle pending blocks
 	go bc.handler(cancelChan, pendingBlksChan, s)
 
 	bc.blocklistener = append(bc.blocklistener, s)
