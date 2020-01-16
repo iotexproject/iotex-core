@@ -593,7 +593,7 @@ type MockSubscriber struct {
 	mu      sync.RWMutex
 }
 
-func (ms *MockSubscriber) HandleBlock(blk *block.Block) error {
+func (ms *MockSubscriber) ReceiveBlock(blk *block.Block) error {
 	ms.mu.Lock()
 	tsfs, _ := action.ClassifyActions(blk.Actions)
 	ms.counter += len(tsfs)

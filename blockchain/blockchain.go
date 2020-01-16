@@ -654,11 +654,9 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 		return
 	}
 	for _, s := range bc.blocklistener {
-		go func(bcs BlockCreationSubscriber, b *block.Block) {
-			if err := bcs.HandleBlock(b); err != nil {
-				log.L().Error("Failed to handle new block.", zap.Error(err))
-			}
-		}(s, blk)
+		if err := s.ReceiveBlock(blk); err != nil {
+			log.L().Error("Failed to handle new block.", zap.Error(err))
+		}
 	}
 }
 

@@ -142,7 +142,7 @@ func NewServer(
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
 		registry:          registry,
-		chainListener:     NewChainListener(),
+		chainListener:     NewChainListener(cfg.BlockSync.BufferSize),
 		gs:                gasstation.NewGasStation(chain, sf.SimulateExecution, dao, cfg.API),
 		electionCommittee: apiCfg.electionCommittee,
 	}

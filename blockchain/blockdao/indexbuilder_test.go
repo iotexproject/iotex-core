@@ -71,7 +71,7 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		ib := &IndexBuilder{
-			pendingBlks: make(chan *block.Block, 8),
+			pendingBlks: make(chan *block.Block, 1),
 			cancelChan:  make(chan interface{}),
 			dao:         dao,
 			indexer:     indexer,
@@ -98,7 +98,7 @@ func TestIndexer(t *testing.T) {
 		// test handle 1 new block
 		require.NoError(dao.PutBlock(blks[2]))
 		require.NoError(dao.Commit())
-		ib.HandleBlock(blks[2])
+		ib.ReceiveBlock(blks[2])
 		time.Sleep(500 * time.Millisecond)
 
 		height, err = ib.indexer.GetBlockchainHeight()
