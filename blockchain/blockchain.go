@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -31,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -145,6 +143,7 @@ type blockchain struct {
 	dao           blockdao.BlockDAO
 	config        config.Config
 	validator     Validator
+	minter        Minter
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
 	blocklistener []BlockCreationSubscriber
@@ -250,6 +249,10 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 		sf:              chain.sf,
 		validatorAddr:   cfg.ProducerAddress().String(),
 		senderBlackList: senderBlackList,
+	}
+	chain.minter = &minter{
+		sf:               chain.sf,
+		minterPrivateKey: cfg.ProducerPrivateKey(),
 	}
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
@@ -399,67 +402,12 @@ func (bc *blockchain) MintNewBlock(
 	defer mintNewBlockTimer.End()
 	tipHeight := bc.dao.GetTipHeight()
 	newblockHeight := tipHeight + 1
-	// run execution and update state trie root hash
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
-	sk := bc.config.ProducerPrivateKey()
-	postSystemActions := make([]action.SealedEnvelope, 0)
-	for _, p := range bc.registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
-			if err != nil {
-				return nil, err
-			}
-			for _, elp := range elps {
-				se, err := action.Sign(elp, sk)
-				if err != nil {
-					return nil, err
-				}
-				postSystemActions = append(postSystemActions, se)
-			}
-		}
-	}
-	rc, actions, ws, err := bc.sf.PickAndRunActions(ctx, actionMap, postSystemActions)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to update state changes in new block %d", newblockHeight)
-	}
-
-	blockMtc.WithLabelValues("numActions").Set(float64(len(actions)))
-
-	ra := block.NewRunnableActionsBuilder().
-		AddActions(actions...).
-		Build()
-	prevBlkHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return nil, err
-	}
-	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
-	// could verify that they start from the same genesis
-	if newblockHeight == 1 {
-		prevBlkHash = bc.config.Genesis.Hash()
-	}
-	digest, err := ws.Digest()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get digest")
-	}
-	blk, err := block.NewBuilder(ra).
-		SetHeight(newblockHeight).
-		SetTimestamp(timestamp).
-		SetPrevBlockHash(prevBlkHash).
-		SetDeltaStateDigest(digest).
-		SetReceipts(rc).
-		SetReceiptRoot(calculateReceiptRoot(rc)).
-		SetLogsBloom(calculateLogsBloom(bc.config, newblockHeight, rc)).
-		SignAndBuild(sk)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create block")
-	}
-	blk.WorkingSet = ws
-
-	return &blk, nil
+	return bc.minter.Mint(ctx, actionMap)
 }
 
 //  CommitBlock validates and appends a block to the chain
@@ -484,6 +432,20 @@ func (bc *blockchain) Validator() Validator {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	return bc.validator
+}
+
+// SetMinter sets the current minter object
+func (bc *blockchain) SetMinter(minter Minter) {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	bc.minter = minter
+}
+
+// Minter gets the current minter object
+func (bc *blockchain) Minter() Minter {
+	bc.mu.Lock()
+	defer bc.mu.Unlock()
+	return bc.minter
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
@@ -658,31 +620,4 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 			log.L().Error("Failed to handle new block.", zap.Error(err))
 		}
 	}
-}
-
-func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
-	if len(receipts) == 0 {
-		return hash.ZeroHash256
-	}
-	h := make([]hash.Hash256, 0, len(receipts))
-	for _, receipt := range receipts {
-		h = append(h, receipt.Hash())
-	}
-	res := crypto.NewMerkleTree(h).HashTree()
-	return res
-}
-
-func calculateLogsBloom(cfg config.Config, height uint64, receipts []*action.Receipt) bloom.BloomFilter {
-	if height < cfg.Genesis.AleutianBlockHeight {
-		return nil
-	}
-	bloom, _ := bloom.NewBloomFilter(2048, 3)
-	for _, receipt := range receipts {
-		for _, log := range receipt.Logs {
-			for _, topic := range log.Topics {
-				bloom.Add(topic[:])
-			}
-		}
-	}
-	return bloom
 }
