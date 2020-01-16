@@ -626,7 +626,7 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	if bc.blocklistener == nil {
 		return
 	}
-	for i, _ := range bc.blocklistener {
+	for i := range bc.blocklistener {
 		bc.blocklistenerBuffer[i] <- blk
 	}
 }
