@@ -398,13 +398,13 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	ctx context.Context,
 	epochNum uint64,
 ) ([]string, error) {
-	var unqualifiedDelegates []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	englishEpochNum := rp.GetEpochNum(config.English)
 
-	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
+	var unqualifiedDelegates []string
+	if epochNum <= englishEpochNum + p.kickoutEpochPeriod {
 		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
 		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
 		for {
@@ -429,43 +429,43 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 			}
 			round--
 		}
-	} else {
-		// Blacklist[N] = Blacklist[N-1] - BlackList[N-K] + Low-productivity-list[N-1]
-		prevBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-1)
-		if err != nil {
-			return nil, err
-		}
-		prevKthBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-p.kickoutEpochPeriod)
-		if err != nil {
-			return nil, err
-		}
-
-		unqualifiedSet := make(map[string]bool)
-		for _, str := range prevBlacklist {
-			unqualifiedSet[str] = true
-		}
-		// subtract B[N-K] from B[N-1]
-		for _, str := range prevKthBlacklist {
-			delete(unqualifiedSet, str)
-		}
-		// add low producitvity list of epochNum-1
-		numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-1)
-		if err != nil {
-			return nil, err
-		}
-		// The current block is not included, so that we need to add it to the stats
-		numBlks++
-		produce[blkCtx.Producer.String()]++
-		expectedNumBlks := numBlks / uint64(len(produce))
-		for addr, actualNumBlks := range produce {
-			if actualNumBlks*100/expectedNumBlks < p.productivityThreshold {
-				unqualifiedSet[addr] = true
-			}
-		}
-		for str := range unqualifiedSet {
-			unqualifiedDelegates = append(unqualifiedDelegates, str)
-		}
-
+		return unqualifiedDelegates, nil
 	}
+
+	// Blacklist[N] = Blacklist[N-1] - BlackList[N-K] + Low-productivity-list[N-1]
+	prevBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-1)
+	if err != nil {
+		return nil, err
+	}
+	prevKthBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-p.kickoutEpochPeriod)
+	if err != nil {
+		return nil, err
+	}
+	unqualifiedSet := make(map[string]bool)
+	for _, str := range prevBlacklist {
+		unqualifiedSet[str] = true
+	}
+	// subtract B[N-K] from B[N-1]
+	for _, str := range prevKthBlacklist {
+		delete(unqualifiedSet, str)
+	}
+	// add low producitvity list of epochNum-1
+	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum-1)
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so that we need to add it to the stats
+	numBlks++
+	produce[blkCtx.Producer.String()]++
+	expectedNumBlks := numBlks / uint64(len(produce))
+	for addr, actualNumBlks := range produce {
+		if actualNumBlks*100/expectedNumBlks < p.productivityThreshold {
+			unqualifiedSet[addr] = true
+		}
+	}
+	for str := range unqualifiedSet {
+		unqualifiedDelegates = append(unqualifiedDelegates, str)
+	}
+
 	return unqualifiedDelegates, nil
 }
