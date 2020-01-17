@@ -417,6 +417,10 @@ func (p *Protocol) splitEpochReward(
 	amounts := make([]*big.Int, 0)
 	var amountPerAddr *big.Int
 	for _, candidate := range candidates {
+		if totalWeight.Cmp(big.NewInt(0)) == 0 {
+			amounts = append(amounts, big.NewInt(0))
+			continue
+		}
 		if _, ok := uqd[candidate.Address]; ok {
 			if hu.IsPre(config.English, epochStartHeight) {
 				// Before English, if not qualified, skip the epoch reward
@@ -428,11 +432,7 @@ func (p *Protocol) splitEpochReward(
 			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
 			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
 		} else {
-			if totalWeight.Cmp(big.NewInt(0)) == 0 {
-				amountPerAddr = big.NewInt(0)
-			} else {
-				amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
-			}
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
 		}
 		amounts = append(amounts, amountPerAddr)
 	}

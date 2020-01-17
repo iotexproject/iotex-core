@@ -404,7 +404,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	englishEpochNum := rp.GetEpochNum(config.English)
 
 	var unqualifiedDelegates []string
-	if epochNum <= englishEpochNum + p.kickoutEpochPeriod {
+	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
 		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
 		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
 		for {
