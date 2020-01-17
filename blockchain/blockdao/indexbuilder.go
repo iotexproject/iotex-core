@@ -118,7 +118,7 @@ func (ib *IndexBuilder) handler() {
 			}
 			timer.End()
 			if blk.Height()%100 == 0 {
-				log.L().Info("<<<<<<< indexing new block", zap.Uint64("height", blk.Height()))
+				log.L().Info("indexing new block", zap.Uint64("height", blk.Height()))
 			}
 		}
 	}
