@@ -12,3 +12,10 @@ import "github.com/iotexproject/iotex-core/blockchain/block"
 type BlockCreationSubscriber interface {
 	ReceiveBlock(*block.Block) error
 }
+
+// pubSub includes Subscriber, buffered channel for storing the pending blocks and cancel channel to end the handler thread
+type pubSub struct {
+	Blocklistener       BlockCreationSubscriber
+	BlocklistenerBuffer chan *block.Block
+	BlocklistenerCancel chan interface{}
+}

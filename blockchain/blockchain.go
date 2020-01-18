@@ -139,17 +139,15 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu                  sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao                 blockdao.BlockDAO
-	config              config.Config
-	validator           Validator
-	minter              Minter
-	lifecycle           lifecycle.Lifecycle
-	clk                 clock.Clock
-	blocklistener       []BlockCreationSubscriber
-	blocklistenerBuffer []chan *block.Block
-	blocklistenerCancel []chan interface{}
-	timerFactory        *prometheustimer.TimerFactory
+	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao           blockdao.BlockDAO
+	config        config.Config
+	validator     Validator
+	minter        Minter
+	lifecycle     lifecycle.Lifecycle
+	clk           clock.Clock
+	pubSubManager []*pubSub
+	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
 	sf       factory.Factory
@@ -461,22 +459,23 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	// create subscriber handler thread to handle pending blocks
 	go bc.handler(cancelChan, pendingBlksChan, s)
 
-	bc.blocklistener = append(bc.blocklistener, s)
-	bc.blocklistenerBuffer = append(bc.blocklistenerBuffer, pendingBlksChan)
-	bc.blocklistenerCancel = append(bc.blocklistenerCancel, cancelChan)
+	pubSubElem := &pubSub{
+		Blocklistener:       s,
+		BlocklistenerBuffer: pendingBlksChan,
+		BlocklistenerCancel: cancelChan,
+	}
 
+	bc.pubSubManager = append(bc.pubSubManager, pubSubElem)
 	return nil
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	for i, sub := range bc.blocklistener {
-		if sub == s {
-			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
-			bc.blocklistenerBuffer = append(bc.blocklistenerBuffer[:i], bc.blocklistenerBuffer[i+1:]...)
-			close(bc.blocklistenerCancel[i])
-			bc.blocklistenerCancel = append(bc.blocklistenerCancel[:i], bc.blocklistenerCancel[i+1:]...)
+	for i, pubSub := range bc.pubSubManager {
+		if pubSub.Blocklistener == s {
+			close(pubSub.BlocklistenerCancel)
+			bc.pubSubManager = append(bc.pubSubManager[:i], bc.pubSubManager[i+1:]...)
 			log.L().Info("Successfully unsubscribe block creation.")
 			return nil
 		}
@@ -623,11 +622,11 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
-	if bc.blocklistener == nil {
+	if bc.pubSubManager == nil {
 		return
 	}
-	for i := range bc.blocklistener {
-		bc.blocklistenerBuffer[i] <- blk
+	for _, elem := range bc.pubSubManager {
+		elem.BlocklistenerBuffer <- blk
 	}
 }
 
