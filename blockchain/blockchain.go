@@ -146,7 +146,7 @@ type blockchain struct {
 	minter        Minter
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
-	pubSubManager []*pubSub
+	pubSubManager PubSubManager
 	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
@@ -217,10 +217,11 @@ func RegistryOption(registry *protocol.Registry) Option {
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
-		config: cfg,
-		dao:    dao,
-		sf:     sf,
-		clk:    clock.New(),
+		config:        cfg,
+		dao:           dao,
+		sf:            sf,
+		clk:           clock.New(),
+		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
@@ -454,33 +455,15 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}
-	pendingBlksChan := make(chan *block.Block, bc.config.BlockSync.BufferSize)
-	cancelChan := make(chan interface{})
-	// create subscriber handler thread to handle pending blocks
-	go bc.handler(cancelChan, pendingBlksChan, s)
 
-	pubSubElem := &pubSub{
-		Blocklistener:       s,
-		BlocklistenerBuffer: pendingBlksChan,
-		BlocklistenerCancel: cancelChan,
-	}
-
-	bc.pubSubManager = append(bc.pubSubManager, pubSubElem)
-	return nil
+	return bc.pubSubManager.AddBlockListener(s)
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	for i, pubSub := range bc.pubSubManager {
-		if pubSub.Blocklistener == s {
-			close(pubSub.BlocklistenerCancel)
-			bc.pubSubManager = append(bc.pubSubManager[:i], bc.pubSubManager[i+1:]...)
-			log.L().Info("Successfully unsubscribe block creation.")
-			return nil
-		}
-	}
-	return errors.New("cannot find subscription")
+
+	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
 //======================================
@@ -625,20 +608,5 @@ func (bc *blockchain) emitToSubscribers(blk *block.Block) {
 	if bc.pubSubManager == nil {
 		return
 	}
-	for _, elem := range bc.pubSubManager {
-		elem.BlocklistenerBuffer <- blk
-	}
-}
-
-func (bc *blockchain) handler(cancelChan <-chan interface{}, pendingBlks <-chan *block.Block, s BlockCreationSubscriber) {
-	for {
-		select {
-		case <-cancelChan:
-			return
-		case blk := <-pendingBlks:
-			if err := s.ReceiveBlock(blk); err != nil {
-				log.L().Error("Failed to handle new block.", zap.Error(err))
-			}
-		}
-	}
+	bc.pubSubManager.SendBlockToSubscribers(blk)
 }
