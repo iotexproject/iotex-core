@@ -66,7 +66,7 @@ type (
 		timerFactory       *prometheustimer.TimerFactory
 	}
 
-	// BlockWorkingSet wraps block with workingset 
+	// BlockWorkingSet wraps block with workingset
 	BlockWorkingSet struct {
 		*block.Block
 		WorkingSet WorkingSet
@@ -110,7 +110,7 @@ func InMemTrieOption() Option {
 }
 
 // NewBlockWorkingSet creates a new blockworkingset which wraps the block with workingset
-func NewBlockWorkingSet(blk *block.Block, ws WorkingSet) *blockWorkingSet {
+func NewBlockWorkingSet(blk *block.Block, ws WorkingSet) *BlockWorkingSet {
 	return &BlockWorkingSet{
 		Block:      blk,
 		WorkingSet: ws,

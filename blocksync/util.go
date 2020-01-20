@@ -25,7 +25,7 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Cons
 	if err := bc.CommitBlock(blkWs); err != nil {
 		return err
 	}
-	cs.Calibrate(blk.Height())
+	cs.Calibrate(blkWs.Height())
 	// remove transfers in this block from ActPool and reset ActPool state
 	ap.Reset()
 	return nil
