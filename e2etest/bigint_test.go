@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -101,7 +100,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	return bc, sf
 }
 
-func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
+func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*factory.BlockWorkingSet, error) {
 	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -113,7 +112,7 @@ func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Bl
 	return prepare(bc, elp, r)
 }
 
-func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
+func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*factory.BlockWorkingSet, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -125,20 +124,20 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 	return prepare(bc, elp, r)
 }
 
-func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
+func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*factory.BlockWorkingSet, error) {
 	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	r.NoError(err)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[executor] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(
+	blkWs, err := bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
-	blk.WorkingSet = nil
-	blk.Receipts = nil
-	return blk, nil
+	blkWs.WorkingSet = nil
+	blkWs.Receipts = nil
+	return blkWs, nil
 }

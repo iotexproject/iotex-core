@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -114,23 +115,23 @@ func NewConsensus(
 	case config.NOOPScheme:
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
-		mintBlockCB := func() (*block.Block, error) {
+		mintBlockCB := func() (*factory.BlockWorkingSet, error) {
 			actionMap := ap.PendingActionMap()
 			log.Logger("consensus").Debug("Pick actions.", zap.Int("actions", len(actionMap)))
-			blk, err := bc.MintNewBlock(actionMap, clock.Now())
+			blkWs, err := bc.MintNewBlock(actionMap, clock.Now())
 			if err != nil {
 				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 				return nil, err
 			}
 			log.Logger("consensus").Info("Created a new block.",
-				zap.Uint64("height", blk.Height()),
-				zap.Int("length", len(blk.Actions)))
-			return blk, nil
+				zap.Uint64("height", blkWs.Height()),
+				zap.Int("length", len(blkWs.Actions)))
+			return blkWs, nil
 		}
-		commitBlockCB := func(blk *block.Block) error {
-			err := bc.CommitBlock(blk)
+		commitBlockCB := func(blkWs *factory.BlockWorkingSet) error {
+			err := bc.CommitBlock(blkWs)
 			if err != nil {
-				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blkWs.Height()))
 			}
 			// Remove transfers in this block from ActPool and reset ActPool state
 			ap.Reset()

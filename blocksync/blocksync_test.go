@@ -220,17 +220,17 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk.Block))
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
 	// commit top
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk.Block))
 	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk.Block))
 	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
@@ -305,28 +305,28 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	)
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, blk1.Block))
 	blk2, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, blk2.Block))
 	blk3, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, blk3.Block))
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlock(ctx, blk3))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, blk3.Block))
+	require.NoError(bs2.ProcessBlock(ctx, blk2.Block))
+	require.NoError(bs2.ProcessBlock(ctx, blk2.Block))
+	require.NoError(bs2.ProcessBlock(ctx, blk1.Block))
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -404,27 +404,27 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	)
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, blk1.Block))
 	blk2, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, blk2.Block))
 	blk3, err := chain1.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, blk3.Block))
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlockSync(ctx, blk3))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk2))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk1))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk3.Block))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk2.Block))
+	require.NoError(bs2.ProcessBlockSync(ctx, blk1.Block))
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -470,7 +470,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk.Block))
 
 	blk, err = chain.MintNewBlock(
 		nil,
@@ -478,7 +478,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	)
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, blk.Block))
 	time.Sleep(time.Millisecond << 7)
 }
 

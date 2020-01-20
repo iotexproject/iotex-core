@@ -23,7 +23,7 @@ import (
 // Minter is the interface of block minters
 type Minter interface {
 	// Mint mints the block by given actionMap and timestamp
-	Mint(context.Context, map[string][]action.SealedEnvelope) (*block.Block, error)
+	Mint(context.Context, map[string][]action.SealedEnvelope) (*factory.BlockWorkingSet, error)
 }
 
 type minter struct {
@@ -31,7 +31,7 @@ type minter struct {
 	minterPrivateKey crypto.PrivateKey
 }
 
-func (m *minter) Mint(ctx context.Context, actionMap map[string][]action.SealedEnvelope) (*block.Block, error) {
+func (m *minter) Mint(ctx context.Context, actionMap map[string][]action.SealedEnvelope) (*factory.BlockWorkingSet, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	// run execution and update state trie root hash
@@ -81,8 +81,7 @@ func (m *minter) Mint(ctx context.Context, actionMap map[string][]action.SealedE
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block")
 	}
-	blk.WorkingSet = ws
-	return &blk, nil
+	return factory.NewBlockWorkingSet(&blk, ws), nil
 }
 
 func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {

@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -51,11 +52,11 @@ type ChainManager interface {
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
 		timestamp time.Time,
-	) (*block.Block, error)
+	) (*factory.BlockWorkingSet, error)
 	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
+	CommitBlock(blk *factory.BlockWorkingSet) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
+	ValidateBlock(blk *factory.BlockWorkingSet) error
 	// TipHeight returns tip block's height
 	TipHeight() uint64
 	// ChainAddress returns chain address on parent chain, the root chain return empty.

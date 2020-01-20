@@ -28,7 +28,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(ctx context.Context, block *block.Block) error
+	Validate(ctx context.Context, blkWs *factory.BlockWorkingSet) error
 	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
@@ -58,35 +58,35 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
+func (v *validator) Validate(ctx context.Context, blkWs *factory.BlockWorkingSet) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if err := verifyHeightAndHash(blk, bcCtx.Tip.Height, bcCtx.Tip.Hash); err != nil {
+	if err := verifyHeightAndHash(blkWs.Block, bcCtx.Tip.Height, bcCtx.Tip.Hash); err != nil {
 		return errors.Wrap(err, "failed to verify block's height and hash")
 	}
-	if err := verifySigAndRoot(blk); err != nil {
+	if err := verifySigAndRoot(blkWs.Block); err != nil {
 		return errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}
 
 	if v.sf == nil {
 		return nil
 	}
-	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	producerAddr, err := address.FromBytes(blkWs.PublicKey().Hash())
 	if err != nil {
 		return err
 	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight:    blk.Height(),
-			BlockTimeStamp: blk.Timestamp(),
+			BlockHeight:    blkWs.Height(),
+			BlockTimeStamp: blkWs.Timestamp(),
 			GasLimit:       bcCtx.Genesis.BlockGasLimit,
 			Producer:       producerAddr,
 		},
 	)
 
-	if err := v.validateActionsOnly(ctx, blk); err != nil {
+	if err := v.validateActionsOnly(ctx, blkWs.Block); err != nil {
 		return errors.Wrap(err, "failed to validate actions only")
 	}
-	receipts, ws, err := v.sf.RunActions(ctx, blk.RunnableActions().Actions())
+	receipts, ws, err := v.sf.RunActions(ctx, blkWs.RunnableActions().Actions())
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bcCtx.Tip.Height), zap.Error(err))
 	}
@@ -95,17 +95,17 @@ func (v *validator) Validate(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
+	if err = blkWs.VerifyDeltaStateDigest(digest); err != nil {
 		return errors.Wrap(err, "failed to verify delta state digest")
 	}
-	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+	if err = blkWs.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
 		return errors.Wrap(err, "Failed to verify receipt root")
 	}
 
-	blk.Receipts = receipts
+	blkWs.Block.Receipts = receipts
 
 	// attach working set to be committed to state factory
-	blk.WorkingSet = ws
+	blkWs.WorkingSet = ws
 	return nil
 }
 

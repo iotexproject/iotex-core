@@ -251,7 +251,7 @@ func runExecution(
 	}
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[ecfg.Executor().String()] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(
+	blkWs, err := bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
 	)
@@ -259,17 +259,17 @@ func runExecution(
 		return nil, nil, err
 	}
 	t := time.Now()
-	if err := bc.ValidateBlock(blk); err != nil {
+	if err := bc.ValidateBlock(blkWs); err != nil {
 		return nil, nil, err
 	}
 	t1 := time.Now()
-	if err := bc.CommitBlock(blk); err != nil {
+	if err := bc.CommitBlock(blkWs); err != nil {
 		return nil, nil, err
 	}
 	t2 := time.Now()
 	fmt.Println("exec time:", t1.Sub(t))
 	fmt.Println("commit time:", t2.Sub(t1))
-	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blk.Height())
+	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blkWs.Height())
 
 	return nil, receipt, err
 }
@@ -508,17 +508,17 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap := make(map[string][]action.SealedEnvelope)
 		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err := bc.MintNewBlock(
+		blkWs, err := bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
-		require.NoError(bc.CommitBlock(blk))
-		require.Equal(1, len(blk.Receipts))
+		require.NoError(bc.ValidateBlock(blkWs))
+		require.NoError(bc.CommitBlock(blkWs))
+		require.Equal(1, len(blkWs.Receipts))
 
 		eHash := execution.Hash()
-		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, _ := dao.GetReceiptByActionHash(eHash, blkWs.Height())
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
@@ -532,7 +532,7 @@ func TestProtocol_Handle(t *testing.T) {
 		code := stateDB.GetCode(evmContractAddrHash)
 		require.Equal(data[31:], code)
 
-		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
+		exe, err := dao.GetActionByActionHash(eHash, blkWs.Height())
 		require.NoError(err)
 		require.Equal(eHash, exe.Hash())
 
@@ -548,7 +548,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
 		require.NoError(err)
-		require.Equal(blk.HashBlock(), blkHash)
+		require.Equal(blkWs.HashBlock(), blkHash)
 
 		// store to key 0
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
@@ -566,14 +566,14 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
+		blkWs, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
-		require.NoError(bc.CommitBlock(blk))
-		require.Equal(1, len(blk.Receipts))
+		require.NoError(bc.ValidateBlock(blkWs))
+		require.NoError(bc.CommitBlock(blkWs))
+		require.Equal(1, len(blkWs.Receipts))
 
 		ws, err = sf.NewWorkingSet()
 		require.NoError(err)
@@ -583,7 +583,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.Equal(byte(15), v[31])
 
 		eHash = execution.Hash()
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(eHash, blkWs.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
@@ -603,17 +603,17 @@ func TestProtocol_Handle(t *testing.T) {
 		log.S().Infof("execution %+v", execution)
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
+		blkWs, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
-		require.NoError(bc.CommitBlock(blk))
-		require.Equal(1, len(blk.Receipts))
+		require.NoError(bc.ValidateBlock(blkWs))
+		require.NoError(bc.CommitBlock(blkWs))
+		require.Equal(1, len(blkWs.Receipts))
 
 		eHash = execution.Hash()
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(eHash, blkWs.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
@@ -630,14 +630,14 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actionMap = make(map[string][]action.SealedEnvelope)
 		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
+		blkWs, err = bc.MintNewBlock(
 			actionMap,
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
-		require.NoError(bc.CommitBlock(blk))
-		require.Equal(1, len(blk.Receipts))
+		require.NoError(bc.ValidateBlock(blkWs))
+		require.NoError(bc.CommitBlock(blkWs))
+		require.Equal(1, len(blkWs.Receipts))
 	}
 
 	t.Run("EVM", func(t *testing.T) {

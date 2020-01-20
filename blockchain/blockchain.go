@@ -81,11 +81,11 @@ type Blockchain interface {
 	MintNewBlock(
 		actionMap map[string][]action.SealedEnvelope,
 		timestamp time.Time,
-	) (*block.Block, error)
+	) (*factory.BlockWorkingSet, error)
 	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
+	CommitBlock(blk *factory.BlockWorkingSet) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
+	ValidateBlock(blk *factory.BlockWorkingSet) error
 
 	// For action operations
 	// Validator returns the current validator object
@@ -335,7 +335,7 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blk *block.Block) error {
+func (bc *blockchain) ValidateBlock(blkWs *factory.BlockWorkingSet) error {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
@@ -344,7 +344,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	return bc.validator.Validate(ctx, blk)
+	return bc.validator.Validate(ctx, blkWs)
 }
 
 func (bc *blockchain) Context() (context.Context, error) {
@@ -395,7 +395,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bo
 func (bc *blockchain) MintNewBlock(
 	actionMap map[string][]action.SealedEnvelope,
 	timestamp time.Time,
-) (*block.Block, error) {
+) (*factory.BlockWorkingSet, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
@@ -411,13 +411,13 @@ func (bc *blockchain) MintNewBlock(
 }
 
 //  CommitBlock validates and appends a block to the chain
-func (bc *blockchain) CommitBlock(blk *block.Block) error {
+func (bc *blockchain) CommitBlock(blkWs *factory.BlockWorkingSet) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
 
-	return bc.commitBlock(blk)
+	return bc.commitBlock(blkWs)
 }
 
 // SetValidator sets the current validator object
@@ -569,11 +569,11 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 }
 
 // commitBlock commits a block to the chain
-func (bc *blockchain) commitBlock(blk *block.Block) error {
+func (bc *blockchain) commitBlock(blkWs *factory.BlockWorkingSet) error {
 	// early exit if block already exists
-	blkHash, err := bc.dao.GetBlockHash(blk.Height())
+	blkHash, err := bc.dao.GetBlockHash(blkWs.Height())
 	if err == nil && blkHash != hash.ZeroHash256 {
-		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()))
+		log.L().Debug("Block already exists.", zap.Uint64("height", blkWs.Height()))
 		return nil
 	}
 	// early exit if it's a db io error
@@ -582,7 +582,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	if err = bc.dao.PutBlock(blk); err == nil {
+	if err = bc.dao.PutBlock(blkWs.Block); err == nil {
 		err = bc.dao.Commit()
 	}
 	putTimer.End()
@@ -592,10 +592,10 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// commit state/contract changes
 	sfTimer := bc.timerFactory.NewTimer("sf.Commit")
-	err = bc.sf.Commit(blk.WorkingSet)
+	err = bc.sf.Commit(blkWs.WorkingSet)
 	sfTimer.End()
 	// detach working set so it can be freed by GC
-	blk.WorkingSet = nil
+	blkWs.WorkingSet = nil
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
@@ -604,10 +604,10 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
+	blkWs.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
 
 	// emit block to all block subscribers
-	bc.emitToSubscribers(blk)
+	bc.emitToSubscribers(blkWs.Block)
 	return nil
 }
 

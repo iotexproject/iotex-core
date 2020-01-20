@@ -29,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -381,8 +382,10 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		if proposal.block.WorkingSet == nil {
-			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
+		if proposal.block.Receipts == nil {
+			// if the propsal block is from others
+			blkWs := factory.NewBlockWorkingSet(proposal.block, nil)
+			if err := ctx.chain.ValidateBlock(blkWs); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
 		}
@@ -482,14 +485,13 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
 
-	// if the pendingBlock is read from eManagerDB, since it won't have workingset, need to regenerate it
-	if pendingBlock.WorkingSet == nil {
-		if err := ctx.chain.ValidateBlock(pendingBlock); err != nil {
-			return false, errors.Wrapf(err, "error when validating the pending block")
-		}
+	// if the pendingBlock is read from eManagerDB, we need to regenerate workingset
+	blkWs := factory.NewBlockWorkingSet(pendingBlock, nil)
+	if err := ctx.chain.ValidateBlock(blkWs); err != nil {
+		return false, errors.Wrapf(err, "error when validating the pending block")
 	}
 	// Commit and broadcast the pending block
-	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
+	switch err := ctx.chain.CommitBlock(blkWs); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
 		return true, nil
 	case nil:
@@ -611,7 +613,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+	return ctx.endorseBlockProposal(newBlockProposal(blk.Block, proofOfUnlock))
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {

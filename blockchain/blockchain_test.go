@@ -877,7 +877,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
 
-		require.Error(bc.ValidateBlock(&nblk))
+		blkWs := factory.NewBlockWorkingSet(&nblk, nil)
+		require.Error(bc.ValidateBlock(blkWs))
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add block with zero prev hash
@@ -890,7 +891,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
-		err = bc.ValidateBlock(&nblk)
+
+		blkWs = factory.NewBlockWorkingSet(&nblk, nil)
+		err = bc.ValidateBlock(blkWs)
 		require.Error(err)
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
@@ -898,7 +901,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		blk, err := dao.GetBlockByHeight(3)
 		require.NotNil(blk)
 		require.NoError(err)
-		require.NoError(bc.(*blockchain).commitBlock(blk))
+		blkWs = factory.NewBlockWorkingSet(blk, nil)
+		require.NoError(bc.(*blockchain).commitBlock(blkWs))
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 		// invalid address returns error

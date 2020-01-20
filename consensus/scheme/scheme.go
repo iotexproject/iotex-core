@@ -11,17 +11,18 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // CreateBlockCB defines the callback to create a new block
-type CreateBlockCB func() (*block.Block, error)
+type CreateBlockCB func() (*factory.BlockWorkingSet, error)
 
 // TellPeerCB defines the callback to tell (which is a unicast) message to peers on P2P network
 type TellPeerCB func(proto.Message) error
 
 // ConsensusDoneCB defines the callback when consensus is reached
-type ConsensusDoneCB func(*block.Block) error
+type ConsensusDoneCB func(*factory.BlockWorkingSet) error
 
 // BroadcastCB defines the callback to publish the consensus result
 type BroadcastCB func(*block.Block) error

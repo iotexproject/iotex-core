@@ -12,6 +12,7 @@ import (
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	genesis "github.com/iotexproject/iotex-core/blockchain/genesis"
+	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 	time "time"
 )
@@ -183,10 +184,10 @@ func (mr *MockBlockchainMockRecorder) Context() *gomock.Call {
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*factory.BlockWorkingSet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
-	ret0, _ := ret[0].(*block.Block)
+	ret0, _ := ret[0].(*factory.BlockWorkingSet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -198,7 +199,7 @@ func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, timestamp interfac
 }
 
 // CommitBlock mocks base method
-func (m *MockBlockchain) CommitBlock(blk *block.Block) error {
+func (m *MockBlockchain) CommitBlock(blk *factory.BlockWorkingSet) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitBlock", blk)
 	ret0, _ := ret[0].(error)
@@ -212,7 +213,7 @@ func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call 
 }
 
 // ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *block.Block) error {
+func (m *MockBlockchain) ValidateBlock(blk *factory.BlockWorkingSet) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateBlock", blk)
 	ret0, _ := ret[0].(error)

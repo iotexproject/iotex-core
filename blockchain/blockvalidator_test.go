@@ -64,9 +64,10 @@ func TestWrongRootHash(t *testing.T) {
 		},
 	)
 
-	require.NoError(val.Validate(ctx, &blk))
+	blkWs := factory.NewBlockWorkingSet(&blk, nil)
+	require.NoError(val.Validate(ctx, blkWs))
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-	require.Error(val.Validate(ctx, &blk))
+	require.Error(val.Validate(ctx, blkWs))
 }
 
 func TestSignBlock(t *testing.T) {
@@ -97,8 +98,8 @@ func TestSignBlock(t *testing.T) {
 			},
 		},
 	)
-
-	require.NoError(val.Validate(ctx, &blk))
+	blkWs := factory.NewBlockWorkingSet(&blk, nil)
+	require.NoError(val.Validate(ctx, blkWs))
 }
 
 func TestWrongNonce(t *testing.T) {

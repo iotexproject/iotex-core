@@ -33,17 +33,17 @@ type standaloneHandler struct {
 }
 
 func (s *standaloneHandler) Run() {
-	blk, err := s.createCb()
+	blkWs, err := s.createCb()
 	if err != nil {
 		log.L().Error("Failed to create.", zap.Error(err))
 		return
 	}
 
-	if err := s.commitCb(blk); err != nil {
+	if err := s.commitCb(blkWs); err != nil {
 		log.L().Error("Failed to commit.", zap.Error(err))
 		return
 	}
-	if err := s.pubCb(blk); err != nil {
+	if err := s.pubCb(blkWs.Block); err != nil {
 		log.L().Error("Failed to publish event.", zap.Error(err))
 		return
 	}

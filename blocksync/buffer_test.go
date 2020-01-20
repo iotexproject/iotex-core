@@ -76,16 +76,16 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
-	blk, err := chain.MintNewBlock(
+	blkWs, err := chain.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NoError(err)
-	moved, re = b.Flush(blk)
+	moved, re = b.Flush(blkWs.Block)
 	assert.Equal(true, moved)
 	assert.Equal(bCheckinValid, re)
 
-	blk = block.NewBlockDeprecated(
+	blk := block.NewBlockDeprecated(
 		uint32(123),
 		uint64(0),
 		hash.Hash256{},
@@ -281,12 +281,12 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 2)
 
-	blk, err = chain.MintNewBlock(
+	blkWs, err := chain.MintNewBlock(
 		nil,
 		testutil.TimestampNow(),
 	)
 	require.NoError(err)
-	b.Flush(blk)
+	b.Flush(blkWs.Block)
 	// There should always have at least 1 interval range to sync
 	assert.Len(b.GetBlocksIntervalsToSync(0), 1)
 }

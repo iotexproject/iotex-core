@@ -20,6 +20,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -64,6 +65,12 @@ type (
 		dao                db.KVStore // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 	}
+
+	// BlockWorkingSet wraps block with workingset 
+	BlockWorkingSet struct {
+		*block.Block
+		WorkingSet WorkingSet
+	}
 )
 
 // Option sets Factory construction parameter
@@ -99,6 +106,14 @@ func InMemTrieOption() Option {
 	return func(sf *factory, cfg config.Config) (err error) {
 		sf.dao = db.NewMemKVStore()
 		return nil
+	}
+}
+
+// NewBlockWorkingSet creates a new blockworkingset which wraps the block with workingset
+func NewBlockWorkingSet(blk *block.Block, ws WorkingSet) *blockWorkingSet {
+	return &BlockWorkingSet{
+		Block:      blk,
+		WorkingSet: ws,
 	}
 }
 

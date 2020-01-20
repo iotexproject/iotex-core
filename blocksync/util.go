@@ -11,16 +11,18 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Consensus, blk *block.Block) error {
 	if err := cs.ValidateBlockFooter(blk); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
+	blkWs := factory.NewBlockWorkingSet(blk, nil)
+	if err := bc.ValidateBlock(blkWs); err != nil {
 		return err
 	}
-	if err := bc.CommitBlock(blk); err != nil {
+	if err := bc.CommitBlock(blkWs); err != nil {
 		return err
 	}
 	cs.Calibrate(blk.Height())
