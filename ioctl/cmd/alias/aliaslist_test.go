@@ -29,4 +29,3 @@ func TestAliasListCmd(t *testing.T) {
 		t.Errorf(`invalid command returned from ExecuteC: expected "list"', got %q`, c.Name())
 	}
 }
-

@@ -20,9 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
-
-
-
 func TestAlias(t *testing.T) {
 	require := require.New(t)
 
