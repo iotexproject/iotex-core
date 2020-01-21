@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -71,10 +70,8 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		ib := &IndexBuilder{
-			pendingBlks: make(chan *block.Block, 1),
-			cancelChan:  make(chan interface{}),
-			dao:         dao,
-			indexer:     indexer,
+			dao:     dao,
+			indexer: indexer,
 		}
 		defer ib.Stop(context.Background())
 
@@ -93,7 +90,6 @@ func TestIndexer(t *testing.T) {
 		height, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)
-		go ib.handler()
 
 		// test handle 1 new block
 		require.NoError(dao.PutBlock(blks[2]))
