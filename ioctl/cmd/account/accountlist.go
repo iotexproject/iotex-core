@@ -8,15 +8,18 @@ package account
 
 import (
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -44,7 +47,8 @@ var accountListCmd = &cobra.Command{
 }
 
 type listMessage struct {
-	Accounts []account `json:"accounts"`
+	Accounts    []account `json:"accounts"`
+	Sm2Accounts []account `json:"sm2Accounts"`
 }
 
 type account struct {
@@ -67,6 +71,23 @@ func accountList() error {
 			Alias:   aliases[address.String()],
 		})
 	}
+	files, err := ioutil.ReadDir(config.ReadConfig.Wallet)
+	if err != nil {
+		return output.NewError(output.ReadFileError, "failed to read files in wallet", err)
+	}
+	for _, f := range files {
+		if !f.IsDir() {
+			if strings.HasSuffix(f.Name(), ".pem") {
+				addr := strings.TrimRight(strings.TrimLeft(f.Name(), "sm2sk-"), ".pem")
+				if err := validator.ValidateAddress(addr); err != nil {
+					message.Sm2Accounts = append(message.Sm2Accounts, account{
+						Address: addr,
+						Alias:   aliases[addr],
+					})
+				}
+			}
+		}
+	}
 	fmt.Println(message.String())
 	return nil
 }
@@ -76,6 +97,13 @@ func (m *listMessage) String() string {
 		lines := make([]string, 0)
 		for _, account := range m.Accounts {
 			line := account.Address
+			if account.Alias != "" {
+				line += " - " + account.Alias
+			}
+			lines = append(lines, line)
+		}
+		for _, account := range m.Sm2Accounts {
+			line := account.Address + "(sm2)"
 			if account.Alias != "" {
 				line += " - " + account.Alias
 			}

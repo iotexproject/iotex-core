@@ -11,14 +11,16 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -57,6 +59,13 @@ var (
 var (
 	ErrPasswdNotMatch = errors.New("password doesn't match")
 )
+
+var cryptoSm2 bool
+
+var flagSm2Usage = map[config.Language]string{
+	config.English: "sm2 cryptographic algorithm",
+	config.Chinese: "国密sm2加密算法",
+}
 
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
@@ -120,9 +129,6 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert bytes into address")
 	}
-	// TODO: need a way to associate signer with private key type
-	// for existing p256k1, loading from keystore (the code below)
-	// for sm2, call ReadPrivateKeyFromPem()
 
 	// find the account in keystore
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
@@ -132,6 +138,19 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 			return crypto.KeystoreToPrivateKey(account, password)
 		}
 	}
+
+	// find the account in pem files
+	pemFilePath := filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+address.String()+".pem")
+	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
+	if err == nil {
+		return prvKey, nil
+	}
+
+	var pathError *os.PathError
+	if !errors.As(err, &pathError) {
+		return nil, errors.New("failed to read sm2 private key: " + err.Error())
+	}
+
 	return nil, fmt.Errorf("account #%s does not match all keys in keystore", signer)
 }
 
@@ -188,6 +207,38 @@ func newAccount(alias string, walletDir string) (string, error) {
 	return addr.String(), nil
 }
 
+func newAccountSm2(alias string, walletDir string) (string, error) {
+	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return "", output.NewError(output.InputError, "failed to get password", err)
+	}
+	output.PrintQuery(fmt.Sprintf("#%s: Enter password again\n", alias))
+	passwordAgain, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return "", output.NewError(output.InputError, "failed to get password", err)
+	}
+	if password != passwordAgain {
+		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+	}
+	priKey, err := crypto.GenerateKeySm2()
+	if err != nil {
+		return "", output.NewError(output.CryptoError, "failed to generate sm2 private key", err)
+	}
+
+	addr, err := address.FromBytes(priKey.PublicKey().Hash())
+	if err != nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	}
+
+	pemFilePath := filepath.Join(walletDir, "sm2sk-"+addr.String()+".pem")
+	if err := crypto.WritePrivateKeyToPem(pemFilePath, priKey.(*crypto.P256sm2PrvKey), password); err != nil {
+		return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
+	}
+
+	return addr.String(), nil
+}
+
 func newAccountByKey(alias string, privateKey string, walletDir string) (string, error) {
 	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
@@ -235,6 +286,11 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 	}
 	defer priKey.Zero()
 
+	addr, err := address.FromBytes(priKey.PublicKey().Hash())
+	if err != nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	}
+
 	switch sk := priKey.EcdsaPrivateKey().(type) {
 	case *ecdsa.PrivateKey:
 		ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
@@ -242,16 +298,13 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	case *crypto.P256sm2PrvKey:
-		if err := crypto.WritePrivateKeyToPem(walletDir, sk, password); err != nil {
-			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
+		pemFilePath := filepath.Join(walletDir, "sm2sk-"+addr.String()+".pem")
+		if err := crypto.WritePrivateKeyToPem(pemFilePath, sk, password); err != nil {
+			return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 		}
 	default:
 		return "", output.NewError(output.CryptoError, "invalid private key", nil)
 	}
 
-	addr, err := address.FromBytes(priKey.PublicKey().Hash())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
-	}
 	return addr.String(), nil
 }
