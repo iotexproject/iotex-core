@@ -7,6 +7,8 @@
 package alias
 
 import (
+	"bytes"
+	"github.com/spf13/cobra"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -17,6 +19,9 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
+
+
+
 
 func TestAlias(t *testing.T) {
 	require := require.New(t)
@@ -81,4 +86,13 @@ func testInit() error {
 		return err
 	}
 	return nil
+}
+
+// test helper function
+func executeCommandC(root *cobra.Command, args ...string) (c *cobra.Command, output string, err error) {
+	buf := new(bytes.Buffer)
+	root.SetOutput(buf)
+	root.SetArgs(args)
+	c, err = root.ExecuteC()
+	return c, buf.String(), err
 }
