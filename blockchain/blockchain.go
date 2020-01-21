@@ -85,7 +85,7 @@ type Blockchain interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *factory.BlockWorkingSet) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *factory.BlockWorkingSet) error
+	ValidateBlock(blk *block.Block) (*factory.BlockWorkingSet, error)
 
 	// For action operations
 	// Validator returns the current validator object
@@ -335,16 +335,16 @@ func (bc *blockchain) TipHeight() uint64 {
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
-func (bc *blockchain) ValidateBlock(blkWs *factory.BlockWorkingSet) error {
+func (bc *blockchain) ValidateBlock(blk *block.Block) (*factory.BlockWorkingSet, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
 	defer timer.End()
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return bc.validator.Validate(ctx, blkWs)
+	return bc.validator.Validate(ctx, blk)
 }
 
 func (bc *blockchain) Context() (context.Context, error) {

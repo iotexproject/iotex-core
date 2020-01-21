@@ -28,7 +28,7 @@ import (
 // Validator is the interface of validator
 type Validator interface {
 	// Validate validates the given block's content
-	Validate(ctx context.Context, blkWs *factory.BlockWorkingSet) error
+	Validate(ctx context.Context, blk *block.Block) (*factory.BlockWorkingSet, error)
 	// AddActionEnvelopeValidators add validators
 	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
 
@@ -58,55 +58,54 @@ var (
 )
 
 // Validate validates the given block's content
-func (v *validator) Validate(ctx context.Context, blkWs *factory.BlockWorkingSet) error {
+func (v *validator) Validate(ctx context.Context, blk *block.Block) (*factory.BlockWorkingSet, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if err := verifyHeightAndHash(blkWs.Block, bcCtx.Tip.Height, bcCtx.Tip.Hash); err != nil {
-		return errors.Wrap(err, "failed to verify block's height and hash")
+	if err := verifyHeightAndHash(blk, bcCtx.Tip.Height, bcCtx.Tip.Hash); err != nil {
+		return nil, errors.Wrap(err, "failed to verify block's height and hash")
 	}
-	if err := verifySigAndRoot(blkWs.Block); err != nil {
-		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+	if err := verifySigAndRoot(blk); err != nil {
+		return nil, errors.Wrap(err, "failed to verify block's signature and merkle root")
 	}
 
 	if v.sf == nil {
-		return nil
+		return factory.NewBlockWorkingSet(blk, nil), nil
 	}
-	producerAddr, err := address.FromBytes(blkWs.PublicKey().Hash())
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
-			BlockHeight:    blkWs.Height(),
-			BlockTimeStamp: blkWs.Timestamp(),
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
 			GasLimit:       bcCtx.Genesis.BlockGasLimit,
 			Producer:       producerAddr,
 		},
 	)
 
-	if err := v.validateActionsOnly(ctx, blkWs.Block); err != nil {
-		return errors.Wrap(err, "failed to validate actions only")
+	if err := v.validateActionsOnly(ctx, blk); err != nil {
+		return nil, errors.Wrap(err, "failed to validate actions only")
 	}
-	receipts, ws, err := v.sf.RunActions(ctx, blkWs.RunnableActions().Actions())
+	receipts, ws, err := v.sf.RunActions(ctx, blk.RunnableActions().Actions())
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bcCtx.Tip.Height), zap.Error(err))
 	}
 
 	digest, err := ws.Digest()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err = blkWs.VerifyDeltaStateDigest(digest); err != nil {
-		return errors.Wrap(err, "failed to verify delta state digest")
+	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
+		return nil, errors.Wrap(err, "failed to verify delta state digest")
 	}
-	if err = blkWs.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
-		return errors.Wrap(err, "Failed to verify receipt root")
+	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+		return nil, errors.Wrap(err, "Failed to verify receipt root")
 	}
 
-	blkWs.Block.Receipts = receipts
+	blk.Receipts = receipts
 
 	// attach working set to be committed to state factory
-	blkWs.WorkingSet = ws
-	return nil
+	return factory.NewBlockWorkingSet(blk, ws), nil
 }
 
 // AddActionEnvelopeValidators add action envelope validators

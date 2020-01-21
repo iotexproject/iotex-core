@@ -85,9 +85,6 @@ func addTestingConstantinopleBlocks(bc Blockchain, dao blockdao.BlockDAO) error 
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -115,9 +112,6 @@ func addTestingConstantinopleBlocks(bc Blockchain, dao blockdao.BlockDAO) error 
 			blockTime,
 		)
 		if err != nil {
-			return hash.ZeroHash256, err
-		}
-		if err := bc.ValidateBlock(blk); err != nil {
 			return hash.ZeroHash256, err
 		}
 		if err := bc.CommitBlock(blk); err != nil {
@@ -196,9 +190,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -258,9 +249,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -316,9 +304,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -355,9 +340,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -407,9 +389,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -877,8 +856,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
 
-		blkWs := factory.NewBlockWorkingSet(&nblk, nil)
-		require.Error(bc.ValidateBlock(blkWs))
+		_, err = bc.ValidateBlock(&nblk)
+		require.Error(err)
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add block with zero prev hash
@@ -892,8 +871,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			AddActions(selp2).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
 
-		blkWs = factory.NewBlockWorkingSet(&nblk, nil)
-		err = bc.ValidateBlock(blkWs)
+		_, err = bc.ValidateBlock(&nblk)
 		require.Error(err)
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
@@ -901,7 +879,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		blk, err := dao.GetBlockByHeight(3)
 		require.NotNil(blk)
 		require.NoError(err)
-		blkWs = factory.NewBlockWorkingSet(blk, nil)
+		blkWs := factory.NewBlockWorkingSet(blk, nil)
 		require.NoError(bc.(*blockchain).commitBlock(blkWs))
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
@@ -1176,7 +1154,6 @@ func TestBlocks(t *testing.T) {
 			actionMap,
 			testutil.TimestampNow(),
 		)
-		require.NoError(bc.ValidateBlock(blk))
 		require.NoError(bc.CommitBlock(blk))
 	}
 }
@@ -1265,7 +1242,8 @@ func TestActions(t *testing.T) {
 			},
 		},
 	)
-	require.NoError(val.Validate(ctx, blk))
+	_, err = val.Validate(ctx, blk.Block)
+	require.NoError(err)
 }
 
 func TestBlockchain_AddSubscriber(t *testing.T) {

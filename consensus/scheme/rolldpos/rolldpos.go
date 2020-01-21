@@ -56,7 +56,7 @@ type ChainManager interface {
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *factory.BlockWorkingSet) error
 	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *factory.BlockWorkingSet) error
+	ValidateBlock(blk *block.Block) (*factory.BlockWorkingSet, error)
 	// TipHeight returns tip block's height
 	TipHeight() uint64
 	// ChainAddress returns chain address on parent chain, the root chain return empty.
@@ -173,7 +173,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 			blk.ProducerAddress(),
 		)
 	}
-	if err := round.AddBlock(blk); err != nil {
+	if err := round.AddBlock(factory.NewBlockWorkingSet(blk, nil)); err != nil {
 		return err
 	}
 	blkHash := blk.HashBlock()

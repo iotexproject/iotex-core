@@ -96,8 +96,6 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 			gasConsumed += receipt.GasConsumed
 		}
 		require.True(t, gasConsumed <= cfg.Genesis.BlockGasLimit)
-		err = bc.ValidateBlock(blk)
-		require.NoError(t, err)
 		err = bc.CommitBlock(blk)
 		require.NoError(t, err)
 	}
@@ -153,8 +151,6 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 			gasConsumed += receipt.GasConsumed
 		}
 		require.True(t, gasConsumed <= cfg.Genesis.BlockGasLimit)
-		err = bc.ValidateBlock(blk)
-		require.NoError(t, err)
 		err = bc.CommitBlock(blk)
 		require.NoError(t, err)
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 const (
@@ -109,11 +110,11 @@ func (ee *endorserEndorsementCollection) Endorsement(
 }
 
 type blockEndorsementCollection struct {
-	blk       *block.Block
+	blk       *factory.BlockWorkingSet
 	endorsers map[string]*endorserEndorsementCollection
 }
 
-func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection {
+func newBlockEndorsementCollection(blk *factory.BlockWorkingSet) *blockEndorsementCollection {
 	return &blockEndorsementCollection{
 		blk:       blk,
 		endorsers: map[string]*endorserEndorsementCollection{},
@@ -122,6 +123,7 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 
 func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
+
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
@@ -129,7 +131,10 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
 			return err
 		}
-		bc.blk = blk
+		bc.blk = &factory.BlockWorkingSet{
+			Block:      blk,
+			WorkingSet: nil,
+		}
 	}
 	for _, endorsement := range blockPro.BlockMap {
 		ee := &endorserEndorsementCollection{}
@@ -157,12 +162,12 @@ func (bc *blockEndorsementCollection) toProto() (*endorsementpb.BlockEndorsement
 	return bcProto, nil
 }
 
-func (bc *blockEndorsementCollection) SetBlock(blk *block.Block) error {
+func (bc *blockEndorsementCollection) SetBlock(blk *factory.BlockWorkingSet) error {
 	bc.blk = blk
 	return nil
 }
 
-func (bc *blockEndorsementCollection) Block() *block.Block {
+func (bc *blockEndorsementCollection) Block() *factory.BlockWorkingSet {
 	return bc.blk
 }
 
@@ -325,7 +330,7 @@ func (m *endorsementManager) SizeWithBlock() int {
 	return size
 }
 
-func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
+func (m *endorsementManager) RegisterBlock(blk *factory.BlockWorkingSet) error {
 	blkHash := blk.HashBlock()
 	encodedBlockHash := encodeToString(blkHash[:])
 	if c, exists := m.collections[encodedBlockHash]; exists {

@@ -258,16 +258,11 @@ func runExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	t := time.Now()
-	if err := bc.ValidateBlock(blkWs); err != nil {
-		return nil, nil, err
-	}
 	t1 := time.Now()
 	if err := bc.CommitBlock(blkWs); err != nil {
 		return nil, nil, err
 	}
 	t2 := time.Now()
-	fmt.Println("exec time:", t1.Sub(t))
 	fmt.Println("commit time:", t2.Sub(t1))
 	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blkWs.Height())
 
@@ -513,7 +508,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blkWs))
 		require.NoError(bc.CommitBlock(blkWs))
 		require.Equal(1, len(blkWs.Receipts))
 
@@ -571,7 +565,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blkWs))
 		require.NoError(bc.CommitBlock(blkWs))
 		require.Equal(1, len(blkWs.Receipts))
 
@@ -608,7 +601,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blkWs))
 		require.NoError(bc.CommitBlock(blkWs))
 		require.Equal(1, len(blkWs.Receipts))
 
@@ -635,7 +627,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blkWs))
 		require.NoError(bc.CommitBlock(blkWs))
 		require.Equal(1, len(blkWs.Receipts))
 	}

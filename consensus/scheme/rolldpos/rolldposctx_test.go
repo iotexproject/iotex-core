@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -117,7 +118,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	require.NotNil(rctx)
 	block := getBlockforctx(t, 0, false)
 	en := endorsement.NewEndorsement(time.Unix(1562382392, 0), identityset.PrivateKey(10).PublicKey(), nil)
-	bp := newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp := newBlockProposal(factory.NewBlockWorkingSet(&block, nil), []*endorsement.Endorsement{en})
 
 	// case 1:panic caused by blockproposal is nil
 	require.Panics(func() {
@@ -142,14 +143,14 @@ func TestCheckBlockProposer(t *testing.T) {
 	// case 6:invalid block signature
 	block = getBlockforctx(t, 5, false)
 	en = endorsement.NewEndorsement(time.Unix(1562382392, 0), identityset.PrivateKey(5).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(factory.NewBlockWorkingSet(&block, nil), []*endorsement.Endorsement{en})
 	require.Error(rctx.CheckBlockProposer(21, bp, en))
 
 	// case 7:invalid endorsement for the vote when call AddVoteEndorsement
 	block = getBlockforctx(t, 5, true)
 	en = endorsement.NewEndorsement(time.Unix(1562382392, 0), identityset.PrivateKey(5).PublicKey(), nil)
 	en2 := endorsement.NewEndorsement(time.Unix(1562382592, 0), identityset.PrivateKey(7).PublicKey(), nil)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2, en})
+	bp = newBlockProposal(factory.NewBlockWorkingSet(&block, nil), []*endorsement.Endorsement{en2, en})
 	require.Error(rctx.CheckBlockProposer(21, bp, en2))
 
 	// case 8:Insufficient endorsements
@@ -158,12 +159,12 @@ func TestCheckBlockProposer(t *testing.T) {
 	vote := NewConsensusVote(hash[:], COMMIT)
 	en2, err = endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
 	require.NoError(err)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2})
+	bp = newBlockProposal(factory.NewBlockWorkingSet(&block, nil), []*endorsement.Endorsement{en2})
 	require.Error(rctx.CheckBlockProposer(21, bp, en2))
 
 	// case 9:normal
 	block = getBlockforctx(t, 5, true)
-	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
+	bp = newBlockProposal(factory.NewBlockWorkingSet(&block, nil), []*endorsement.Endorsement{en})
 	require.NoError(rctx.CheckBlockProposer(21, bp, en))
 }
 

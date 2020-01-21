@@ -213,11 +213,12 @@ func (mr *MockBlockchainMockRecorder) CommitBlock(blk interface{}) *gomock.Call 
 }
 
 // ValidateBlock mocks base method
-func (m *MockBlockchain) ValidateBlock(blk *factory.BlockWorkingSet) error {
+func (m *MockBlockchain) ValidateBlock(blk *block.Block) (*factory.BlockWorkingSet, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateBlock", blk)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*factory.BlockWorkingSet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ValidateBlock indicates an expected call of ValidateBlock

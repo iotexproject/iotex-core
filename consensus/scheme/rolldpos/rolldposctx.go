@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -382,10 +381,9 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		if proposal.block.Receipts == nil {
-			// if the propsal block is from others
-			blkWs := factory.NewBlockWorkingSet(proposal.block, nil)
-			if err := ctx.chain.ValidateBlock(blkWs); err != nil {
+		var err error
+		if proposal.block.WorkingSet == nil { // if the propsal block is from others
+			if proposal.block, err = ctx.chain.ValidateBlock(proposal.block.Block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
 		}
@@ -486,12 +484,14 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	}
 
 	// if the pendingBlock is read from eManagerDB, we need to regenerate workingset
-	blkWs := factory.NewBlockWorkingSet(pendingBlock, nil)
-	if err := ctx.chain.ValidateBlock(blkWs); err != nil {
-		return false, errors.Wrapf(err, "error when validating the pending block")
+	if pendingBlock.WorkingSet == nil {
+		if pendingBlock, err = ctx.chain.ValidateBlock(pendingBlock.Block); err != nil {
+			return false, errors.Wrapf(err, "error when validating the pending block")
+		}
 	}
+
 	// Commit and broadcast the pending block
-	switch err := ctx.chain.CommitBlock(blkWs); errors.Cause(err) {
+	switch err = ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
 		return true, nil
 	case nil:
@@ -613,7 +613,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk.Block, proofOfUnlock))
+	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {

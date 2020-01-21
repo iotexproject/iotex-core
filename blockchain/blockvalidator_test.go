@@ -64,10 +64,11 @@ func TestWrongRootHash(t *testing.T) {
 		},
 	)
 
-	blkWs := factory.NewBlockWorkingSet(&blk, nil)
-	require.NoError(val.Validate(ctx, blkWs))
+	_, err = val.Validate(ctx, &blk)
+	require.NoError(err)
 	blk.Actions[0], blk.Actions[1] = blk.Actions[1], blk.Actions[0]
-	require.Error(val.Validate(ctx, blkWs))
+	_, err = val.Validate(ctx, &blk)
+	require.Error(err)
 }
 
 func TestSignBlock(t *testing.T) {
@@ -98,8 +99,8 @@ func TestSignBlock(t *testing.T) {
 			},
 		},
 	)
-	blkWs := factory.NewBlockWorkingSet(&blk, nil)
-	require.NoError(val.Validate(ctx, blkWs))
+	_, err = val.Validate(ctx, &blk)
+	require.NoError(err)
 }
 
 func TestWrongNonce(t *testing.T) {
@@ -159,8 +160,9 @@ func TestWrongNonce(t *testing.T) {
 		},
 	)
 
-	require.NoError(val.Validate(ctx, blk))
-	require.NoError(bc.CommitBlock(blk))
+	blkWs, err := val.Validate(ctx, blk.Block)
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blkWs))
 
 	// low nonce
 	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(30), []byte{}, 100000, big.NewInt(10))
@@ -188,7 +190,7 @@ func TestWrongNonce(t *testing.T) {
 			Registry: registry,
 		},
 	)
-	err = val.Validate(ctx, blk2)
+	_, err = val.Validate(ctx, blk2.Block)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -221,7 +223,7 @@ func TestWrongNonce(t *testing.T) {
 		},
 	)
 
-	err = val.Validate(ctx, blk3)
+	_, err = val.Validate(ctx, blk3.Block)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 
@@ -253,7 +255,7 @@ func TestWrongNonce(t *testing.T) {
 		},
 	)
 
-	err = val.Validate(ctx, blk4)
+	_, err = val.Validate(ctx, blk4.Block)
 	require.Error(err)
 	require.Equal(action.ErrNonce, errors.Cause(err))
 }

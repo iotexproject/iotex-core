@@ -12,8 +12,8 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // ErrInsufficientEndorsements represents the error that not enough endorsements
@@ -105,7 +105,7 @@ func (ctx *roundCtx) IsDelegate(addr string) bool {
 	return false
 }
 
-func (ctx *roundCtx) Block(blkHash []byte) *block.Block {
+func (ctx *roundCtx) Block(blkHash []byte) *factory.BlockWorkingSet {
 	return ctx.block(blkHash)
 }
 
@@ -186,7 +186,7 @@ func (ctx *roundCtx) EndorsedByMajority(
 	return ctx.endorsedByMajority(blockHash, topics)
 }
 
-func (ctx *roundCtx) AddBlock(blk *block.Block) error {
+func (ctx *roundCtx) AddBlock(blk *factory.BlockWorkingSet) error {
 	return ctx.eManager.RegisterBlock(blk)
 }
 
@@ -248,7 +248,7 @@ func (ctx *roundCtx) isMajority(endorsements []*endorsement.Endorsement) bool {
 	return 3*len(endorsements) > 2*len(ctx.delegates)
 }
 
-func (ctx *roundCtx) block(blkHash []byte) *block.Block {
+func (ctx *roundCtx) block(blkHash []byte) *factory.BlockWorkingSet {
 	c := ctx.eManager.CollectionByBlockHash(blkHash)
 	if c == nil {
 		return nil

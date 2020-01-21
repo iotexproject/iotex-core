@@ -1602,9 +1602,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -1641,9 +1638,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -1654,9 +1648,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		nil,
 		blk1Time.Add(time.Second*2),
 	); err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -1694,9 +1685,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		blk1Time.Add(time.Second*3),
 	); err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)

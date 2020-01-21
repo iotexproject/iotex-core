@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -75,10 +76,11 @@ func TestEndorserEndorsementCollection(t *testing.T) {
 func TestBlockEndorsementCollection(t *testing.T) {
 	require := require.New(t)
 	b := getBlock(t)
-	ec := newBlockEndorsementCollection(&b)
+	blkWs := factory.NewBlockWorkingSet(&b, nil)
+	ec := newBlockEndorsementCollection(blkWs)
 	require.NotNil(ec)
-	require.NoError(ec.SetBlock(&b))
-	require.Equal(&b, ec.Block())
+	require.NoError(ec.SetBlock(blkWs))
+	require.Equal(blkWs, ec.Block())
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
 
 	require.NoError(ec.AddEndorsement(PROPOSAL, end))
@@ -103,7 +105,7 @@ func TestEndorsementManager(t *testing.T) {
 
 	b := getBlock(t)
 
-	require.NoError(em.RegisterBlock(&b))
+	require.NoError(em.RegisterBlock(factory.NewBlockWorkingSet(&b, nil)))
 
 	require.Panics(func() {
 		em.AddVoteEndorsement(nil, nil)
@@ -165,7 +167,7 @@ func TestEndorsementManagerProto(t *testing.T) {
 
 	b := getBlock(t)
 
-	require.NoError(em.RegisterBlock(&b))
+	require.NoError(em.RegisterBlock(factory.NewBlockWorkingSet(&b, nil)))
 	blkHash := b.HashBlock()
 	cv := NewConsensusVote(blkHash[:], PROPOSAL)
 	require.NotNil(cv)

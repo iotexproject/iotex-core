@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -26,7 +27,7 @@ func TestNewBlockProposal(t *testing.T) {
 	require.Panics(func() { bp.Hash() }, "block is nil")
 	require.Panics(func() { bp.ProposerAddress() }, "block is nil")
 	b := getBlock(t)
-	bp2 := newBlockProposal(&b, nil)
+	bp2 := newBlockProposal(factory.NewBlockWorkingSet(&b, nil), nil)
 	require.NotNil(bp2)
 	require.Equal(uint64(123), bp2.Height())
 	require.Equal(identityset.Address(0).String(), bp2.ProposerAddress())

@@ -12,15 +12,16 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type blockProposal struct {
-	block       *block.Block
+	block       *factory.BlockWorkingSet
 	proofOfLock []*endorsement.Endorsement
 }
 
-func newBlockProposal(blk *block.Block, pol []*endorsement.Endorsement) *blockProposal {
+func newBlockProposal(blk *factory.BlockWorkingSet, pol []*endorsement.Endorsement) *blockProposal {
 	return &blockProposal{
 		block:       blk,
 		proofOfLock: pol,
@@ -62,9 +63,13 @@ func (bp *blockProposal) ProposerAddress() string {
 }
 
 func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
-	bp.block = &block.Block{}
-	if err := bp.block.ConvertFromBlockPb(msg.Block); err != nil {
+	blk := &block.Block{}
+	if err := blk.ConvertFromBlockPb(msg.Block); err != nil {
 		return err
+	}
+	bp.block = &factory.BlockWorkingSet{
+		Block:      blk,
+		WorkingSet: nil,
 	}
 	bp.proofOfLock = []*endorsement.Endorsement{}
 	for _, ePb := range msg.Endorsements {
