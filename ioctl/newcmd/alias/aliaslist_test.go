@@ -15,8 +15,14 @@ func TestNewAliasListCmd(t *testing.T) {
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(2)
-	cfg := config.Config{}
-	client.EXPECT().Config().Return(cfg).Times(1)
+	cfg := config.Config{
+		Aliases: map[string]string{
+			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"b": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
+			"c": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542s1",
+		},
+	}
+	client.EXPECT().Config().Return(cfg).AnyTimes()
 	cmd := NewAliasListCmd(client)
 	res, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, res)
