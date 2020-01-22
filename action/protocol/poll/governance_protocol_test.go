@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -105,10 +106,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			RewardAddress: "rewardAddress4",
 		},
 	}
-	kickoutList := []string{"address1", "address2"}
+	kickoutList := vote.Blacklist{}
+	kickoutList["address1"] = 1
+	kickoutList["address2"] = 2
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, uint64) ([]string, error) { return kickoutList, nil },
+		func(protocol.StateReader, uint64) (vote.Blacklist, error) { return kickoutList, nil },
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -169,6 +172,10 @@ func TestCreatePostSystemActions(t *testing.T) {
 		d := r.DelegateByName(can.CanName)
 		require.NotNil(d)
 	}
+}
+
+func TestCreatePreStates(t *testing.T) {
+
 }
 
 func TestHandle(t *testing.T) {

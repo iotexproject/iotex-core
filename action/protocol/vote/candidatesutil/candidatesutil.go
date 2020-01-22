@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -53,8 +54,8 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 }
 
 // KickoutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
-func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) ([]string, error) {
-	var blackList []string
+func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (vote.Blacklist, error) {
+	var blackList vote.Blacklist
 	// Load kick out list on the given epochNum from underlying db
 	blackListKey := ConstructBlackListKey(epochNum)
 	err := sr.State(blackListKey, &blackList)
@@ -64,11 +65,8 @@ func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) ([]string, err
 		zap.Any("kick out list ", blackList),
 		zap.Error(err),
 	)
-	if errors.Cause(err) == nil {
-		if len(blackList) > 0 {
-			return blackList, nil
-		}
-		err = state.ErrStateNotExist
+	if err == nil {
+		return blackList, nil
 	}
 	return nil, errors.Wrapf(
 		err,

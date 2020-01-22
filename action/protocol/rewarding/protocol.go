@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -43,7 +44,7 @@ var (
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
 // KickoutListByEpoch returns the blacklist for kickout of a given epoch
-type KickoutListByEpoch func(protocol.StateReader, uint64) ([]string, error)
+type KickoutListByEpoch func(protocol.StateReader, uint64) (vote.Blacklist, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,

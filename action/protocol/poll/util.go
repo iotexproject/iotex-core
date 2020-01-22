@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -175,9 +176,9 @@ func setCandidates(
 // setKickoutBlackList sets the blacklist for kick-out for corresponding epoch
 func setKickoutBlackList(
 	sm protocol.StateManager,
-	blackList []string,
+	blackList vote.Blacklist,
 	epochNum uint64,
 ) error {
 	blackListKey := candidatesutil.ConstructBlackListKey(epochNum)
-	return sm.PutState(blackListKey, blackList)
+	return sm.PutState(blackListKey, &blackList)
 }
