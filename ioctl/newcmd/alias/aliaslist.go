@@ -22,7 +22,7 @@ var (
 	}
 )
 
-// new alias list command
+// NewAliasListCmd represents the alias list command
 func NewAliasListCmd(c ioctl.Client) *cobra.Command {
 	use, _ := c.SelectTranslation(listUses)
 	short, _ := c.SelectTranslation(listShorts)
