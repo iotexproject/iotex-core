@@ -56,7 +56,9 @@ type (
 
 // NewClient creates a new ioctl client
 func NewClient() Client {
-	return &client{}
+	return &client{
+		cfg: config.ReadConfig,
+	}
 }
 
 var confirmMessages = map[config.Language]string{
