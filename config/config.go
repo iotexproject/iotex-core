@@ -108,7 +108,7 @@ var (
 			IndexDBPath:     "./index.db",
 			ID:              1,
 			Address:         "",
-			ProducerPrivKey: PrivateKey.HexString(),
+			ProducerPrivKey: generateRandomKey(SigP256k1),
 			SignatureScheme: []string{SigP256k1},
 			EmptyGenesis:    false,
 			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
@@ -199,9 +199,6 @@ var (
 		ValidateAPI,
 		ValidateActPool,
 	}
-
-	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -423,9 +420,6 @@ func New(validates ...Validate) (Config, error) {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
 
-	if cfg.Chain.ProducerPrivKey == "" {
-		cfg.Chain.ProducerPrivKey = cfg.generateRandomKey()
-	}
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
@@ -538,17 +532,15 @@ func (cfg Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
 	return false
 }
 
-func (cfg Config) generateRandomKey() string {
+func generateRandomKey(scheme string) string {
 	// generate a random key
-	for _, e := range cfg.Chain.SignatureScheme {
-		switch e {
-		case SigP256k1:
-			sk, _ := crypto.GenerateKey()
-			return sk.HexString()
-		case SigP256sm2:
-			sk, _ := crypto.GenerateKeySm2()
-			return sk.HexString()
-		}
+	switch scheme {
+	case SigP256k1:
+		sk, _ := crypto.GenerateKey()
+		return sk.HexString()
+	case SigP256sm2:
+		sk, _ := crypto.GenerateKeySm2()
+		return sk.HexString()
 	}
 	return ""
 }
