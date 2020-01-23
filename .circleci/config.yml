@@ -98,7 +98,8 @@ jobs:
   nightly_build_docker:
     docker:
       # specify the version
-      - image: iotex/iotex-core-ci:latest
+      # - image: iotex/iotex-core-ci:latest
+      - image: circleci/golang:${GOLANG_VERSION}
 
     working_directory: ~/iotex-core
     steps:
