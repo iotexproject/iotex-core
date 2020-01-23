@@ -7,6 +7,7 @@
 package config
 
 import (
+	"crypto/ecdsa"
 	"flag"
 	"math/big"
 	"os"
@@ -80,6 +81,9 @@ const (
 	DardanellesCommitTTL                    = time.Second
 	DardanellesBlockInterval                = 5 * time.Second
 	DardanellesDelay                        = 2 * time.Second
+
+	SigP256k1  = "secp256k1"
+	SigP256sm2 = "p256sm2"
 )
 
 var (
@@ -104,7 +108,8 @@ var (
 			IndexDBPath:     "./index.db",
 			ID:              1,
 			Address:         "",
-			ProducerPrivKey: PrivateKey.HexString(),
+			ProducerPrivKey: generateRandomKey(SigP256k1),
+			SignatureScheme: []string{SigP256k1},
 			EmptyGenesis:    false,
 			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
@@ -194,9 +199,6 @@ var (
 		ValidateAPI,
 		ValidateActPool,
 	}
-
-	// PrivateKey is a randomly generated producer's key for testing purpose
-	PrivateKey, _ = crypto.GenerateKey()
 )
 
 // Network is the config struct for network package
@@ -224,6 +226,7 @@ type (
 		ID              uint32           `yaml:"id"`
 		Address         string           `yaml:"address"`
 		ProducerPrivKey string           `yaml:"producerPrivKey"`
+		SignatureScheme []string         `yaml:"signatureScheme"`
 		EmptyGenesis    bool             `yaml:"emptyGenesis"`
 		GravityChainDB  DB               `yaml:"gravityChainDB"`
 		Committee       committee.Config `yaml:"committee"`
@@ -416,6 +419,7 @@ func New(validates ...Validate) (Config, error) {
 	if err := yaml.Get(uconfig.Root).Populate(&cfg); err != nil {
 		return Config{}, errors.Wrap(err, "failed to unmarshal YAML config to struct")
 	}
+
 	// set network master key to private key
 	if cfg.Network.MasterKey == "" {
 		cfg.Network.MasterKey = cfg.Chain.ProducerPrivKey
@@ -499,7 +503,46 @@ func (cfg Config) ProducerPrivateKey() crypto.PrivateKey {
 			zap.Error(err),
 		)
 	}
+
+	if !cfg.whitelistSignatureScheme(sk) {
+		log.L().Panic("The private key's signature scheme is not whitelisted")
+	}
 	return sk
+}
+
+func (cfg Config) whitelistSignatureScheme(sk crypto.PrivateKey) bool {
+	var sigScheme string
+
+	switch sk.EcdsaPrivateKey().(type) {
+	case *ecdsa.PrivateKey:
+		sigScheme = SigP256k1
+	case *crypto.P256sm2PrvKey:
+		sigScheme = SigP256sm2
+	}
+
+	if sigScheme == "" {
+		return false
+	}
+	for _, e := range cfg.Chain.SignatureScheme {
+		if sigScheme == e {
+			// signature scheme is whitelisted
+			return true
+		}
+	}
+	return false
+}
+
+func generateRandomKey(scheme string) string {
+	// generate a random key
+	switch scheme {
+	case SigP256k1:
+		sk, _ := crypto.GenerateKey()
+		return sk.HexString()
+	case SigP256sm2:
+		sk, _ := crypto.GenerateKeySm2()
+		return sk.HexString()
+	}
+	return ""
 }
 
 // MinGasPrice returns the minimal gas price threshold

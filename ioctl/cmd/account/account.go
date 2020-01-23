@@ -15,7 +15,6 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/dustinxie/gmsm/sm2"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -235,7 +234,7 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	case *crypto.P256sm2PrvKey:
-		if _, err := sm2.WritePrivateKeytoPem(walletDir, sk.PrivateKey, []byte(password)); err != nil {
+		if err := crypto.WritePrivateKeyToPem(walletDir, sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	default:

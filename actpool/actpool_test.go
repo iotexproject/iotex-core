@@ -126,7 +126,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SetGasLimit(100000).Build()
 	selp := action.FakeSeal(elp, pubKey1)
 	err = validator.Validate(ctx, selp)
-	require.True(strings.Contains(err.Error(), "incorrect length of signature"))
+	require.True(strings.Contains(err.Error(), "failed to verify action signature"))
 	// Case IV: Nonce is too low
 	prevTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
