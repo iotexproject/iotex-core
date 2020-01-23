@@ -171,7 +171,7 @@ func (p *Protocol) GrantEpochReward(
 		if err != nil {
 			return nil, err
 		}
-		for addr, _ := range kickoutList {
+		for addr := range kickoutList {
 			uqd[addr] = true
 		}
 	}

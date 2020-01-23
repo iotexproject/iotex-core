@@ -143,7 +143,7 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 			return err
 		}
 
-		return setKickoutBlackList(sm, unqualifiedList, epochNum)
+		return setKickoutBlackList(sm, unqualifiedList, epochNum+1)
 	}
 	return nil
 }
