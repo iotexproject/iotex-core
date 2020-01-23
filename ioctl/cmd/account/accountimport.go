@@ -123,6 +123,9 @@ func accountImportKey(args []string) error {
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
+	// TODO: final arg depends on private key type
+	// use config.ReadConfig.Wallet for p256k1 key (the code below)
+	// use PEM file location for p256sm2 key
 	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
 	if err != nil {
 		return output.NewError(0, "", err)
@@ -142,6 +145,9 @@ func accountImportKeyStore(args []string) error {
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
+	// TODO: final arg depends on key type
+	// use config.ReadConfig.Wallet for p256k1 key (the code below)
+	// use PEM file location for p256sm2 key
 	addr, err := newAccountByKeyStore(alias, password, args[1], config.ReadConfig.Wallet)
 	if err != nil {
 		return output.NewError(0, "", err) // TODO: undefined error

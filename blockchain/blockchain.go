@@ -146,7 +146,7 @@ type blockchain struct {
 	minter        Minter
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
-	blocklistener []BlockCreationSubscriber
+	pubSubManager PubSubManager
 	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
@@ -217,10 +217,11 @@ func RegistryOption(registry *protocol.Registry) Option {
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
-		config: cfg,
-		dao:    dao,
-		sf:     sf,
-		clk:    clock.New(),
+		config:        cfg,
+		dao:           dao,
+		sf:            sf,
+		clk:           clock.New(),
+		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
 	}
 	for _, opt := range opts {
 		if err := opt(chain, cfg); err != nil {
@@ -307,7 +308,6 @@ func (bc *blockchain) Start(ctx context.Context) error {
 func (bc *blockchain) Stop(ctx context.Context) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-
 	return bc.lifecycle.OnStop(ctx)
 }
 
@@ -455,22 +455,15 @@ func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
 	if s == nil {
 		return errors.New("subscriber could not be nil")
 	}
-	bc.blocklistener = append(bc.blocklistener, s)
 
-	return nil
+	return bc.pubSubManager.AddBlockListener(s)
 }
 
 func (bc *blockchain) RemoveSubscriber(s BlockCreationSubscriber) error {
 	bc.mu.Lock()
 	defer bc.mu.Unlock()
-	for i, sub := range bc.blocklistener {
-		if sub == s {
-			bc.blocklistener = append(bc.blocklistener[:i], bc.blocklistener[i+1:]...)
-			log.L().Info("Successfully unsubscribe block creation.")
-			return nil
-		}
-	}
-	return errors.New("cannot find subscription")
+
+	return bc.pubSubManager.RemoveBlockListener(s)
 }
 
 //======================================
@@ -612,12 +605,8 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 }
 
 func (bc *blockchain) emitToSubscribers(blk *block.Block) {
-	if bc.blocklistener == nil {
+	if bc.pubSubManager == nil {
 		return
 	}
-	for _, s := range bc.blocklistener {
-		if err := s.ReceiveBlock(blk); err != nil {
-			log.L().Error("Failed to handle new block.", zap.Error(err))
-		}
-	}
+	bc.pubSubManager.SendBlockToSubscribers(blk)
 }
