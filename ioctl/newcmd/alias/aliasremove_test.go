@@ -44,7 +44,7 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 	conf, err := config.LoadConfig()
 	require.NoError(t, err)
 	_, ok := conf.Aliases["a"]
-	require.Equal(t, ok, false)
+	require.False(t, ok)
 	_, ok = conf.Aliases["b"]
-	require.Equal(t, ok, true)
+	require.True(t, ok)
 }
