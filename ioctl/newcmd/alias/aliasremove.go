@@ -47,7 +47,6 @@ func NewAliasRemove(c ioctl.Client) *cobra.Command {
 	marshalError, _ := c.SelectTranslation(removeMarshalError)
 	writeError, _ := c.SelectTranslation(removeWriteError)
 	result, _ := c.SelectTranslation(removeResult)
-	conf := c.Config()
 
 	ec := &cobra.Command{
 		Use:   use,
@@ -58,6 +57,7 @@ func NewAliasRemove(c ioctl.Client) *cobra.Command {
 			if err := validator.ValidateAlias(alias); err != nil {
 				return fmt.Errorf(invalidAlias, alias)
 			}
+			conf := c.Config()
 			delete(conf.Aliases, alias)
 			out, err := yaml.Marshal(&conf)
 			if err != nil {

@@ -1,6 +1,8 @@
 package alias
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -11,10 +13,20 @@ import (
 )
 
 func TestNewAliasRemoveCmd(t *testing.T) {
+	// mock a client
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("%s is removed", config.English).Times(6)
+
+	// configuration files to temporary files
+	defaultConfigFile := config.DefaultConfigFile
+	config.DefaultConfigFile = filepath.Join(os.TempDir(), "config.default")
+	defer func() {
+		_ = os.Remove(config.DefaultConfigFile)
+		config.DefaultConfigFile = defaultConfigFile
+	}()
+
 	cfg := config.Config{
 		Aliases: map[string]string{
 			"a": "io1uwnr55vqmhf3xeg5phgurlyl702af6eju542sx",
@@ -27,4 +39,12 @@ func TestNewAliasRemoveCmd(t *testing.T) {
 	res, err := util.ExecuteCmd(cmd, "a")
 	require.NotNil(t, res)
 	require.NoError(t, err)
+
+	// read config file check aliases
+	conf, err := config.LoadConfig()
+	require.NoError(t, err)
+	_, ok := conf.Aliases["a"]
+	require.Equal(t, ok, false)
+	_, ok = conf.Aliases["b"]
+	require.Equal(t, ok, true)
 }
