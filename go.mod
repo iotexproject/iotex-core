@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/dustinxie/gmsm v1.2.1-0.20200116070706-0cfe84befa85
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-sql-driver/mysql v1.4.1
