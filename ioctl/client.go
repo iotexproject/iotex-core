@@ -148,8 +148,7 @@ func (c *client) GetAddress(in string) (string, error) {
 }
 
 func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
-	return keystore.NewKeyStore(keydir,
-		scryptN, scryptP)
+	return keystore.NewKeyStore(keydir, scryptN, scryptP)
 }
 
 func address(in string) (string, error) {

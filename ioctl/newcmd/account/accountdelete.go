@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl"
-	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
@@ -101,10 +100,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 				return output.NewError(output.ConvertError, fmt.Sprintf(failToConvertStringIntoAddress),
 					nil)
 			}
-			ks := c.NewKeyStore(config.ReadConfig.Wallet,
-				keystore.StandardScryptN, keystore.StandardScryptP)
-			//ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-			//keystore.StandardScryptN, keystore.StandardScryptP)
+			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 					var confirm string
@@ -121,7 +117,11 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 						return output.NewError(output.WriteFileError, failToRemoveKeystoreFile, err)
 					}
 
-					aliases := alias.GetAliasMap()
+					aliases := make(map[string]string)
+					for name, addr := range config.ReadConfig.Aliases {
+						aliases[addr] = name
+					}
+
 					delete(config.ReadConfig.Aliases, aliases[addr])
 					out, err := yaml.Marshal(&config.ReadConfig)
 					if err != nil {
