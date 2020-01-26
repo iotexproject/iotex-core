@@ -347,8 +347,7 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 1816201,
 		},
 	)
-	err = p.CreatePreStates(ctx, sm)
-	require.NoError(t, err)
+	require.NoError(t, p.CreatePreStates(ctx, sm))
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(8000000000000000000), blockReward)
@@ -359,7 +358,7 @@ func TestProtocol_Handle(t *testing.T) {
 			BlockHeight: 864001,
 		},
 	)
-	err = p.CreatePreStates(ctx, sm)
+	require.NoError(t, p.CreatePreStates(ctx, sm))
 	BlockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(8000000000000000000), BlockReward)
