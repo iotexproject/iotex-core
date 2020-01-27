@@ -56,7 +56,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate, nil, nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -131,7 +131,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil)
+	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate, nil, nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
