@@ -38,7 +38,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d
 	golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
+	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	google.golang.org/genproto v0.0.0-20191203220235-3fa9dbf08042
 	google.golang.org/grpc v1.21.0
 	gopkg.in/urfave/cli.v1 v1.20.0 // indirect
@@ -46,3 +46,5 @@ require (
 )
 
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.3.0
+
+replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
