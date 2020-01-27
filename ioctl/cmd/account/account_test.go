@@ -7,6 +7,7 @@
 package account
 
 import (
+	"crypto/ecdsa"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -50,6 +52,15 @@ func TestAccount(t *testing.T) {
 	sig, err := prvkey.Sign(msg[:])
 	require.NoError(err)
 	require.True(prvkey.PublicKey().Verify(msg[:], sig))
+
+	// test import existing key
+	sk, err := crypto.GenerateKey()
+	require.NoError(err)
+	p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
+	require.Equal(true, ok)
+	account, err = ks.ImportECDSA(p256k1, passwd)
+	require.NoError(err)
+	require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
 }
 
 func testInit() error {

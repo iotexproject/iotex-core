@@ -87,10 +87,10 @@ func (r *RollDPoS) Start(ctx context.Context) error {
 
 // Stop stops RollDPoS consensus
 func (r *RollDPoS) Stop(ctx context.Context) error {
-	if err := r.ctx.Stop(ctx); err != nil {
-		return errors.Wrap(r.ctx.Stop(ctx), "error when stopping the roll dpos context")
+	if err := r.cfsm.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping the consensus FSM")
 	}
-	return errors.Wrap(r.cfsm.Stop(ctx), "error when stopping the consensus FSM")
+	return errors.Wrap(r.ctx.Stop(ctx), "error when stopping the roll dpos context")
 }
 
 // HandleConsensusMsg handles incoming consensus message

@@ -20,70 +20,54 @@ type (
 	Listener interface {
 		Start() error
 		Stop() error
-		HandleBlock(*block.Block) error
+		ReceiveBlock(*block.Block) error
 		AddResponder(Responder) error
 	}
 
 	// chainListener implements the Listener interface
 	chainListener struct {
-		pendingBlks chan *block.Block
-		cancelChan  chan struct{}
-		streamMap   sync.Map // all registered <Responder, chan error>
+		streamMap sync.Map // all registered <Responder, chan error>
 	}
 )
 
 // NewChainListener returns a new blockchain chainListener
 func NewChainListener() Listener {
-	return &chainListener{
-		pendingBlks: make(chan *block.Block, 4),
-		cancelChan:  make(chan struct{}),
-	}
+	return &chainListener{}
 }
 
 // Start starts the chainListener
 func (cl *chainListener) Start() error {
-	go func() {
-		for {
-			select {
-			case <-cl.cancelChan:
-				// notify all responders to exit
-				cl.streamMap.Range(func(key, _ interface{}) bool {
-					r, ok := key.(Responder)
-					if !ok {
-						log.S().Panic("streamMap stores a key which is not a Responder")
-					}
-					r.Exit()
-					cl.streamMap.Delete(key)
-					return true
-				})
-				return
-			case blk := <-cl.pendingBlks:
-				// pass the block to every responder
-				cl.streamMap.Range(func(key, _ interface{}) bool {
-					r, ok := key.(Responder)
-					if !ok {
-						log.S().Panic("streamMap stores a key which is not a Responder")
-					}
-					if err := r.Respond(blk); err != nil {
-						cl.streamMap.Delete(key)
-					}
-					return true
-				})
-			}
-		}
-	}()
 	return nil
 }
 
 // Stop stops the block chainListener
 func (cl *chainListener) Stop() error {
-	close(cl.cancelChan)
+	// notify all responders to exit
+	cl.streamMap.Range(func(key, _ interface{}) bool {
+		r, ok := key.(Responder)
+		if !ok {
+			log.S().Panic("streamMap stores a key which is not a Responder")
+		}
+		r.Exit()
+		cl.streamMap.Delete(key)
+		return true
+	})
 	return nil
 }
 
-// HandleBlock handles the block
-func (cl *chainListener) HandleBlock(blk *block.Block) error {
-	cl.pendingBlks <- blk
+// ReceiveBlock handles the block
+func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
+	// pass the block to every responder
+	cl.streamMap.Range(func(key, _ interface{}) bool {
+		r, ok := key.(Responder)
+		if !ok {
+			log.S().Panic("streamMap stores a key which is not a Responder")
+		}
+		if err := r.Respond(blk); err != nil {
+			cl.streamMap.Delete(key)
+		}
+		return true
+	})
 	return nil
 }
 
