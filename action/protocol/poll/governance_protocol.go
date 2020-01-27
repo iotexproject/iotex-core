@@ -431,7 +431,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	}
 	for _, addr := range skipList {
 		if _, ok := blackListMapping[addr]; !ok {
-			log.L().Info("It can't happen")
+			log.L().Fatal("skipping list element doesn't exist among one of existing map")
 			continue
 		}
 		blackListMapping[addr]--

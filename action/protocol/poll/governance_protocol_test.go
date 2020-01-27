@@ -213,7 +213,7 @@ func TestCreatePreStates(t *testing.T) {
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
 	test := make(map[uint64]vote.Blacklist)
-	test[2] = vote.Blacklist{ 
+	test[2] = vote.Blacklist{
 		identityset.Address(1).String(): 1, // [A, B, C]
 		identityset.Address(2).String(): 1,
 		identityset.Address(3).String(): 1,
