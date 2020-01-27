@@ -6,6 +6,7 @@ package mock_blockcreationsubscriber
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	reflect "reflect"
 )
@@ -45,4 +46,67 @@ func (m *MockBlockCreationSubscriber) ReceiveBlock(arg0 *block.Block) error {
 func (mr *MockBlockCreationSubscriberMockRecorder) ReceiveBlock(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockBlockCreationSubscriber)(nil).ReceiveBlock), arg0)
+}
+
+// MockPubSubManager is a mock of PubSubManager interface
+type MockPubSubManager struct {
+	ctrl     *gomock.Controller
+	recorder *MockPubSubManagerMockRecorder
+}
+
+// MockPubSubManagerMockRecorder is the mock recorder for MockPubSubManager
+type MockPubSubManagerMockRecorder struct {
+	mock *MockPubSubManager
+}
+
+// NewMockPubSubManager creates a new mock instance
+func NewMockPubSubManager(ctrl *gomock.Controller) *MockPubSubManager {
+	mock := &MockPubSubManager{ctrl: ctrl}
+	mock.recorder = &MockPubSubManagerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockPubSubManager) EXPECT() *MockPubSubManagerMockRecorder {
+	return m.recorder
+}
+
+// AddBlockListener mocks base method
+func (m *MockPubSubManager) AddBlockListener(arg0 blockchain.BlockCreationSubscriber) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddBlockListener", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddBlockListener indicates an expected call of AddBlockListener
+func (mr *MockPubSubManagerMockRecorder) AddBlockListener(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockListener", reflect.TypeOf((*MockPubSubManager)(nil).AddBlockListener), arg0)
+}
+
+// RemoveBlockListener mocks base method
+func (m *MockPubSubManager) RemoveBlockListener(arg0 blockchain.BlockCreationSubscriber) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveBlockListener", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveBlockListener indicates an expected call of RemoveBlockListener
+func (mr *MockPubSubManagerMockRecorder) RemoveBlockListener(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveBlockListener", reflect.TypeOf((*MockPubSubManager)(nil).RemoveBlockListener), arg0)
+}
+
+// SendBlockToSubscribers mocks base method
+func (m *MockPubSubManager) SendBlockToSubscribers(arg0 *block.Block) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SendBlockToSubscribers", arg0)
+}
+
+// SendBlockToSubscribers indicates an expected call of SendBlockToSubscribers
+func (mr *MockPubSubManagerMockRecorder) SendBlockToSubscribers(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendBlockToSubscribers", reflect.TypeOf((*MockPubSubManager)(nil).SendBlockToSubscribers), arg0)
 }
