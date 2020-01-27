@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -38,6 +39,8 @@ type (
 		AskToConfirm() bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
+		// Execute a bash command
+		Execute(string) error
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -132,4 +135,8 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 		return nil, err
 	}
 	return iotexapi.NewAPIServiceClient(c.conn), nil
+}
+
+func (c *client) Execute(cmd string) error {
+	return exec.Command("bash", "-c", cmd).Run()
 }

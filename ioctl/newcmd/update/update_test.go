@@ -7,11 +7,11 @@
 package update
 
 import (
+	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -25,8 +25,15 @@ func TestNewUpdateCmd(t *testing.T) {
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
 		config.English).AnyTimes()
 	cmd := NewUpdateCmd(client)
-	client.EXPECT().ReadSecret().Return("", nil).AnyTimes()
+	client.EXPECT().Execute(gomock.Any()).Return(nil).Times(1)
+	client.EXPECT().ReadSecret().Return("abc", nil).Times(1)
 	res, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, res)
 	require.NoError(t, err)
+
+	expectedError := errors.New("failed to execute bash command")
+	client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
+	client.EXPECT().ReadSecret().Return("abc", nil).AnyTimes()
+	res, err = util.ExecuteCmd(cmd)
+	require.EqualError(t, err, "mockTranslationResult: "+expectedError.Error())
 }

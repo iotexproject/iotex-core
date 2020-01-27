@@ -8,7 +8,6 @@ package update
 
 import (
 	"fmt"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 
@@ -72,14 +71,17 @@ func NewUpdateCmd(c ioctl.Client) *cobra.Command {
 				cmdString = "curl --silent https://raw.githubusercontent.com/iotexproject/" + "iotex-core/master/install-cli.sh | sh -s \"unstable\""
 
 			}
+			// TODO: Validate secret
+			_, err := c.ReadSecret()
+			if err != nil {
+				//TODO: add translations
+				return output.NewError(output.UpdateError, fail, err)
+			}
 			//TODO: add translations
 			output.PrintResult(fmt.Sprintf(info, versionType))
 
-			err := exec.Command("bash", "-c", cmdString).Run()
-			c.ReadSecret()
-			if err != nil {
-				//TODO: add translations
-				return output.NewError(output.UpdateError, fail, nil)
+			if err := c.Execute(cmdString); err != nil {
+				return output.NewError(output.UpdateError, fail, err)
 			}
 			//TODO: add translations
 			output.PrintResult(success)
