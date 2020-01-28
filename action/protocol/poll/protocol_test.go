@@ -33,9 +33,13 @@ func TestNewProtocol(t *testing.T) {
 		cfg,
 		func(context.Context, string, uint64, time.Time, []byte) ([]byte, error) { return nil, nil },
 		nil,
+		nil,
 		committee,
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		sm,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
 	)
 	require.NoError(err)
 	require.NotNil(p)
