@@ -4,13 +4,17 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockchain
+package factory
 
 import (
+	"context"
+
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
-// BlockCreationSubscriber is an interface which will get notified when a block is created
-type BlockCreationSubscriber interface {
-	ReceiveBlock(*block.Block) error
+// Minter is the interface of block minter
+type Minter interface {
+	// NewBlockBuilder creates block builder
+	NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
 }

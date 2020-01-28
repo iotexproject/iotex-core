@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -135,18 +137,22 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		Registry: re,
 	})
 	require.NoError(ap.Add(ctx, prevTsf))
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{prevTsf})
+
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{prevTsf}...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(sf.Commit(ctx, &blk))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -458,18 +464,22 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1])
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := uint64(1000000)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
+
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(sf.Commit(ctx, &blk))
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1])
@@ -605,8 +615,6 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs := ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := uint64(1000000)
 
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -615,10 +623,15 @@ func TestActPool_Reset(t *testing.T) {
 		GasLimit:    gasLimit,
 	})
 
-	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(actionMap2Slice(pickedActs)...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(sf.Commit(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -714,18 +727,21 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	pickedActs = ap2.PendingActionMap()
-	// ap2 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet()
-	require.NoError(err)
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 2,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
+
+	blk, err = block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(actionMap2Slice(pickedActs)...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(sf.Commit(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -813,18 +829,21 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	ws, err = sf.NewWorkingSet()
-	require.NoError(err)
 
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 3,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	_, err = ws.RunActions(ctx, actionMap2Slice(pickedActs))
+
+	blk, err = block.NewTestingBuilder().
+		SetHeight(3).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(actionMap2Slice(pickedActs)...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+	require.NoError(sf.Commit(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
@@ -1098,8 +1117,6 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := uint64(1000000)
 
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -1107,10 +1124,15 @@ func TestActPool_GetSize(t *testing.T) {
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
-	_, err = ws.RunActions(ctx, []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4})
+	blk, err := block.NewTestingBuilder().
+		SetHeight(bc.TipHeight() + 1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
+
+	require.NoError(sf.Commit(ctx, &blk))
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())

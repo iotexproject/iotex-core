@@ -898,7 +898,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		blk, err := dao.GetBlockByHeight(3)
 		require.NotNil(blk)
 		require.NoError(err)
-		require.NoError(bc.(*blockchain).commitBlock(blk))
+		require.NoError(bc.(*blockchain).CommitBlock(blk))
 		fmt.Printf("Cannot add block 3 again: %v\n", err)
 
 		// invalid address returns error
@@ -1146,8 +1146,6 @@ func TestBlocks(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -1158,10 +1156,6 @@ func TestBlocks(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 		})
-	_, err = ws.RunActions(ctx, nil)
-	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
 
 	for i := 0; i < 10; i++ {
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -1221,8 +1215,6 @@ func TestActions(t *testing.T) {
 		require.NoError(bc.Stop(context.Background()))
 	}()
 
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
 	gasLimit := testutil.TestGasLimit
 	ctx = protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -1233,10 +1225,6 @@ func TestActions(t *testing.T) {
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 		})
-	_, err = ws.RunActions(ctx, nil)
-	require.NoError(err)
-	require.NoError(ws.Finalize())
-	require.NoError(sf.Commit(ws))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	actionMap := make(map[string][]action.SealedEnvelope)

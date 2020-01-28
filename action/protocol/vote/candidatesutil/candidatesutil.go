@@ -61,6 +61,7 @@ func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr strin
 	return storeCandidates(candidateMap, sm, blkHeight)
 }
 
+/*
 // LoadAndDeleteCandidates loads candidates from trie and deletes a candidate if exists
 func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encodedAddr string) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
@@ -76,8 +77,8 @@ func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encoded
 		delete(candidateMap, addrHash)
 	}
 	return storeCandidates(candidateMap, sm, blkHeight)
-}
-
+}*/
+/*
 // LoadAndUpdateCandidates loads candidates from trie and updates an existing candidate
 func LoadAndUpdateCandidates(sm protocol.StateManager, blkHeight uint64, addr string, votingWeight *big.Int) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
@@ -88,7 +89,7 @@ func LoadAndUpdateCandidates(sm protocol.StateManager, blkHeight uint64, addr st
 		return errors.Wrapf(err, "failed to update candidate %s", addr)
 	}
 	return storeCandidates(candidateMap, sm, blkHeight)
-}
+}*/
 
 // GetMostRecentCandidateMap gets the most recent candidateMap from trie
 func GetMostRecentCandidateMap(sm protocol.StateManager, blkHeight uint64) (map[hash.Hash160]*state.Candidate, error) {
@@ -133,6 +134,7 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 	return nil
 }
 
+/*
 // updateCandidate updates a candidate state
 func updateCandidate(
 	candidateMap map[hash.Hash160]*state.Candidate,
@@ -151,6 +153,7 @@ func updateCandidate(
 
 	return nil
 }
+*/
 
 // storeCandidates puts updated candidates to trie
 func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol.StateManager, blkHeight uint64) error {

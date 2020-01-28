@@ -439,7 +439,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 				_, err = ws.RunActions(wsctx, nil)
 				require.NoError(t, err)
 				require.NoError(t, ws.Finalize())
-				require.NoError(t, sf.Commit(ws))
 			}
 			registry := protocol.NewRegistry()
 			acc := account.NewProtocol(rewarding.DepositGas)

@@ -381,7 +381,9 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		if proposal.block.WorkingSet == nil {
+		signerAddr, _ := address.FromBytes(ctx.priKey.PublicKey().Hash())
+		if proposal.block.ProducerAddress() != signerAddr.String() {
+			//if the proposal block is from others
 			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
 				return nil, errors.Wrapf(err, "error when validating the proposed block")
 			}
@@ -482,12 +484,6 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 		return false, errors.Wrap(err, "failed to add endorsements to block")
 	}
 
-	// if the pendingBlock is read from eManagerDB, since it won't have workingset, need to regenerate it
-	if pendingBlock.WorkingSet == nil {
-		if err := ctx.chain.ValidateBlock(pendingBlock); err != nil {
-			return false, errors.Wrapf(err, "error when validating the pending block")
-		}
-	}
 	// Commit and broadcast the pending block
 	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
