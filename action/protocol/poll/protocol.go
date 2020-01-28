@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -39,8 +40,14 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 // CandidatesByHeight returns the candidates of a given height
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
+// KickoutListByEpoch returns the blacklist for kickout of a given epoch
+type KickoutListByEpoch func(protocol.StateReader, uint64) (vote.Blacklist, error)
+
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
+
+// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
+type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
@@ -93,9 +100,11 @@ func NewProtocol(
 	cfg config.Config,
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
+	kickoutListByEpoch KickoutListByEpoch,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
 	sr protocol.StateReader,
+	productivityByEpoch ProductivityByEpoch,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
@@ -112,6 +121,7 @@ func NewProtocol(
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidatesByHeight,
+		kickoutListByEpoch,
 		electionCommittee,
 		genesisConfig.GravityChainStartHeight,
 		getBlockTimeFunc,
@@ -119,6 +129,10 @@ func NewProtocol(
 		genesisConfig.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
 		sr,
+		productivityByEpoch,
+		genesisConfig.ProductivityThreshold,
+		genesisConfig.KickoutEpochPeriod,
+		genesisConfig.KickoutIntensityRate,
 	); err != nil {
 		return nil, err
 	}

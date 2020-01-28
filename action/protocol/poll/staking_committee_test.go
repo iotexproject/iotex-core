@@ -88,13 +88,20 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		nil,
+		sm,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {
