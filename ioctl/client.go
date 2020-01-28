@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -42,6 +43,8 @@ type (
 		AskToConfirm() bool
 		// ReadSecret reads password from terminal
 		ReadSecret() (string, error)
+		// Execute a bash command
+		Execute(string) error
 		// doing
 		GetAddress(in string) (string, error)
 		// doing
@@ -139,6 +142,10 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 		return nil, err
 	}
 	return iotexapi.NewAPIServiceClient(c.conn), nil
+}
+
+func (c *client) Execute(cmd string) error {
+	return exec.Command("bash", "-c", cmd).Run()
 }
 
 func (c *client) GetAddress(in string) (string, error) {
