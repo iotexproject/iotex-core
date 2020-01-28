@@ -118,7 +118,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 					}
 
 					aliases := make(map[string]string)
-					for name, addr := range config.ReadConfig.Aliases {
+					for name, addr := range c.Config().Aliases {
 						aliases[addr] = name
 					}
 
