@@ -100,7 +100,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
-	if sdb.workingsets, err = lru.New(20); err != nil {
+	if sdb.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
 		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
 	}
 	return &sdb, nil

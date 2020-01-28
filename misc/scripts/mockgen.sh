@@ -115,12 +115,6 @@ mockgen -destination=./test/mock/mock_blockcreationsubscriber/mock_blockcreation
         -package=mock_blockcreationsubscriber   \
         BlockCreationSubscriber
 
-mkdir -p ./test/mock/mock_pubsubmanager
-mockgen -destination=./test/mock/mock_pubsubmanager/mock_pubsubmanager.go \
-        -source=./blockchain/pubsubmanager.go \
-        -package=mock_pubsubmanager   \
-        PubSubManager
-
 mkdir -p ./test/mock/mock_ioctlclient
 mockgen -destination=./test/mock/mock_ioctlclient/mock_ioctlclient.go  \
         -source=./ioctl/client.go \

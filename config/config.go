@@ -122,6 +122,7 @@ var (
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
 			EnableHistoryStateDB:          false,
+			WorkingSetCacheSize:           20,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -243,6 +244,8 @@ type (
 		MaxCacheSize int `yaml:"maxCacheSize"`
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
+		// WorkingSetCacheSize is the max size of workingset cache in state factory
+		WorkingSetCacheSize uint64 `yaml:workingSetCacheSize`
 	}
 
 	// Consensus is the config struct for consensus package

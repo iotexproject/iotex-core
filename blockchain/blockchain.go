@@ -256,6 +256,10 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
 	}
+	_, ok := chain.sf.(factory.Minter)
+	if !ok {
+		log.S().Panic("state factory didn't implement Minter")
+	}
 	return chain
 }
 
@@ -420,10 +424,7 @@ func (bc *blockchain) MintNewBlock(
 			}
 		}
 	}
-	minter, ok := bc.sf.(factory.Minter)
-	if !ok {
-		return nil, errors.New("state factory didn't implement Minter")
-	}
+	minter, _ := bc.sf.(factory.Minter)
 	blockBuilder, err := minter.NewBlockBuilder(ctx, actionMap, postSystemActions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
