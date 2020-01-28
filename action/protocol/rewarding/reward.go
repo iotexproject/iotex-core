@@ -19,6 +19,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -132,6 +133,7 @@ func (p *Protocol) GrantEpochReward(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
@@ -155,14 +157,27 @@ func (p *Protocol) GrantEpochReward(
 		exemptAddrs[addr.String()] = nil
 	}
 
-	// Get unqualified delegate list
-	uqd, err := p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold)
-	if err != nil {
-		return nil, err
+	var uqd map[string]bool
+	var err error
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	if hu.IsPre(config.English, epochStartHeight) {
+		// Get unqualified delegate list
+		if uqd, err = p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold); err != nil {
+			return nil, err
+		}
+	} else {
+		// Get Kick-out List from DB
+		kickoutList, err := p.kickoutListByEpoch(sm, epochNum)
+		if err != nil {
+			return nil, err
+		}
+		for addr := range kickoutList {
+			uqd[addr] = true
+		}
 	}
 
 	candidates := bcCtx.Candidates
-	addrs, amounts, err := p.splitEpochReward(sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
+	addrs, amounts, err := p.splitEpochReward(ctx, epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
 	}
@@ -356,13 +371,17 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 }
 
 func (p *Protocol) splitEpochReward(
+	ctx context.Context,
+	epochStartHeight uint64,
 	sm protocol.StateManager,
 	candidates []*state.Candidate,
 	totalAmount *big.Int,
 	numDelegatesForEpochReward uint64,
 	exemptAddrs map[string]interface{},
-	uqd map[string]interface{},
+	uqd map[string]bool,
 ) ([]address.Address, []*big.Int, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
@@ -396,15 +415,22 @@ func (p *Protocol) splitEpochReward(
 		totalWeight = big.NewInt(0).Add(totalWeight, candidate.Votes)
 	}
 	amounts := make([]*big.Int, 0)
+	var amountPerAddr *big.Int
 	for _, candidate := range candidates {
-		// If not qualified, skip the epoch reward
-		if _, ok := uqd[candidate.Address]; ok {
+		if totalWeight.Cmp(big.NewInt(0)) == 0 {
 			amounts = append(amounts, big.NewInt(0))
 			continue
 		}
-		var amountPerAddr *big.Int
-		if totalWeight.Cmp(big.NewInt(0)) == 0 {
-			amountPerAddr = big.NewInt(0)
+		if _, ok := uqd[candidate.Address]; ok {
+			if hu.IsPre(config.English, epochStartHeight) {
+				// Before English, if not qualified, skip the epoch reward
+				amounts = append(amounts, big.NewInt(0))
+				continue
+			}
+			// After English, if not qualified, split epoch reward according to decreased voting power
+			votingPower := new(big.Float).SetInt(candidate.Votes)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
+			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
 		} else {
 			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
 		}
@@ -418,8 +444,8 @@ func (p *Protocol) unqualifiedDelegates(
 	producer address.Address,
 	epochNum uint64,
 	productivityThreshold uint64,
-) (map[string]interface{}, error) {
-	unqualifiedDelegates := make(map[string]interface{}, 0)
+) (map[string]bool, error) {
+	unqualifiedDelegates := make(map[string]bool, 0)
 	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
@@ -431,7 +457,7 @@ func (p *Protocol) unqualifiedDelegates(
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {
 		if actualNumBlks*100/expectedNumBlks < productivityThreshold {
-			unqualifiedDelegates[addr] = nil
+			unqualifiedDelegates[addr] = true
 		}
 	}
 	return unqualifiedDelegates, nil
