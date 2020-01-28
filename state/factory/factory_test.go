@@ -747,14 +747,11 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 
 	minter, ok := factory.(Minter)
 	require.True(ok)
-
 	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
 	require.NotNil(blkBuilder)
-
 	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-
 	require.NoError(factory.Commit(ctx, &blk))
 }
 

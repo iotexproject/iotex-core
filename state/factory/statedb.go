@@ -167,7 +167,6 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 		return errors.Wrap(err, "failed to validate block with workingset in statedb")
 	}
 
-	fmt.Println("put into cache")
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sdb.workingsets.Add(key, ws)
 	return nil

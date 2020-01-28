@@ -143,8 +143,6 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
 	}
 
-	fmt.Println("size:", sf.workingsets.Len())
-
 	return sf, nil
 }
 
@@ -209,7 +207,6 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in factory")
 	}
-	fmt.Println("put into cache")
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sf.workingsets.Add(key, ws)
 	return nil
