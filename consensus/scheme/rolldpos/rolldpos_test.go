@@ -391,7 +391,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 		chainRawAddrs := make([]string, 0, numNodes)
 		addressMap := make(map[string]*addrKeyPair)
 		for _, addr := range chainAddrs {
-			ChainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
+			chainRawAddrs = append(chainRawAddrs, addr.encodedAddr)
 			addressMap[addr.encodedAddr] = addr
 		}
 		cp.SortCandidates(chainRawAddrs, 1, cp.CryptoSeed)
