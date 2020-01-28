@@ -90,7 +90,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 		blockchain.RegistryOption(registry),
 	)
 	r.NotNil(bc)
-	reward := rewarding.NewProtocol(nil)
+	reward := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate, nil, nil)
 	r.NoError(reward.Register(registry))
 
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
