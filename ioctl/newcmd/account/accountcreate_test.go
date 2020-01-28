@@ -4,36 +4,28 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package update
+package account
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/test/mock/mock_ioctlclient"
 )
 
-func TestNewUpdateCmd(t *testing.T) {
+func TestNewAccountCreate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationResult",
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("mockTranslationString",
 		config.English).AnyTimes()
-	cmd := NewUpdateCmd(client)
-	client.EXPECT().Execute(gomock.Any()).Return(nil).Times(1)
-	client.EXPECT().ReadSecret().Return("abc", nil).Times(1)
-	res, err := util.ExecuteCmd(cmd)
-	require.NotNil(t, res)
+	cmd := NewAccountCreate(client)
+	result, err := util.ExecuteCmd(cmd)
+	require.NotNil(t, result)
 	require.NoError(t, err)
-
-	expectedError := errors.New("failed to execute bash command")
-	client.EXPECT().Execute(gomock.Any()).Return(expectedError).Times(1)
-	client.EXPECT().ReadSecret().Return("abc", nil).AnyTimes()
-	res, err = util.ExecuteCmd(cmd)
-	require.EqualError(t, err, "mockTranslationResult: "+expectedError.Error())
 }
