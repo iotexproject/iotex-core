@@ -13,13 +13,17 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 type (
@@ -41,6 +45,10 @@ type (
 		ReadSecret() (string, error)
 		// Execute a bash command
 		Execute(string) error
+		// doing
+		GetAddress(in string) (string, error)
+		// doing
+		NewKeyStore(string, int, int) *keystore.KeyStore
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -48,7 +56,6 @@ type (
 		Endpoint string
 		Insecure bool
 	}
-
 	client struct {
 		cfg  config.Config
 		conn *grpc.ClientConn
@@ -139,4 +146,30 @@ func (c *client) APIServiceClient(cfg APIServiceConfig) (iotexapi.APIServiceClie
 
 func (c *client) Execute(cmd string) error {
 	return exec.Command("bash", "-c", cmd).Run()
+}
+
+func (c *client) GetAddress(in string) (string, error) {
+	addr, err := config.GetAddressOrAlias(in)
+	if err != nil {
+		return "", output.NewError(output.AddressError, "", err)
+	}
+	return address(addr)
+}
+
+func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
+	return keystore.NewKeyStore(keydir, scryptN, scryptP)
+}
+
+func address(in string) (string, error) {
+	if len(in) >= validator.IoAddrLen {
+		if err := validator.ValidateAddress(in); err != nil {
+			return "", output.NewError(output.ValidationError, "", err)
+		}
+		return in, nil
+	}
+	addr, ok := config.ReadConfig.Aliases[in]
+	if ok {
+		return addr, nil
+	}
+	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
