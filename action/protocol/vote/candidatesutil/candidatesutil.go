@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -23,6 +24,9 @@ import (
 
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
+
+// KickoutPrefix is the prefix of the key of blackList for kick-out
+const KickoutPrefix = "KickoutList."
 
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
@@ -46,6 +50,28 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 		err,
 		"failed to get state of candidateList for height %d",
 		height,
+	)
+}
+
+// KickoutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
+func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (vote.Blacklist, error) {
+	var blackList vote.Blacklist
+	// Load kick out list on the given epochNum from underlying db
+	blackListKey := ConstructBlackListKey(epochNum)
+	err := sr.State(blackListKey, &blackList)
+	log.L().Debug(
+		"KickoutListByEpoch",
+		zap.Uint64("epoch number", epochNum),
+		zap.Any("kick out list ", blackList),
+		zap.Error(err),
+	)
+	if err == nil {
+		return blackList, nil
+	}
+	return nil, errors.Wrapf(
+		err,
+		"failed to get state of kick-out list for epoch number %d",
+		epochNum,
 	)
 }
 
@@ -114,6 +140,14 @@ func ConstructKey(height uint64) hash.Hash160 {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
+	return hash.Hash160b(k)
+}
+
+// ConstructBlackListKey constructs a key for kick-out blacklist storage
+func ConstructBlackListKey(epochNum uint64) hash.Hash160 {
+	epochInBytes := byteutil.Uint64ToBytes(epochNum)
+	k := []byte(KickoutPrefix)
+	k = append(k, epochInBytes...)
 	return hash.Hash160b(k)
 }
 

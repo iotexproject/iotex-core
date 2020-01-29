@@ -225,6 +225,7 @@ func New(
 				return data, err
 			},
 			candidatesutil.CandidatesByHeight,
+			candidatesutil.KickoutListByEpoch,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -237,6 +238,9 @@ func New(
 				return header.Timestamp(), nil
 			},
 			sf,
+			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+			},
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")
@@ -246,9 +250,12 @@ func New(
 		}
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
-	})
+	rewardingProtocol := rewarding.NewProtocol(
+		cfg.Genesis.KickoutIntensityRate,
+		candidatesutil.KickoutListByEpoch,
+		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+		})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {

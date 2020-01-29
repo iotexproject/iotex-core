@@ -13,12 +13,12 @@ require (
 	github.com/golang/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/iotexproject/go-fsm v1.0.0
-	github.com/iotexproject/go-p2p v0.2.11
+	github.com/iotexproject/go-p2p v0.2.12
 	github.com/iotexproject/go-pkgs v0.1.2-0.20200117212133-15c2790a2fb3
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.11
-	github.com/iotexproject/iotex-proto v0.2.5
+	github.com/iotexproject/iotex-proto v0.2.6-0.20200127223231-9ea583b6fbf0
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
