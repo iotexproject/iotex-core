@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -113,7 +113,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
-	nativeVotes, ts, err := sc.nativeStaking.Votes()
+	nativeVotes, ts, err := sc.nativeStaking.Votes(sc.hu.IsPost(config.Daytona, height))
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil

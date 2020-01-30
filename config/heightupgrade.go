@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2020 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -17,6 +17,7 @@ const (
 	Bering
 	Cook
 	Dardanelles
+	Daytona
 )
 
 type (
@@ -30,6 +31,7 @@ type (
 		beringHeight      uint64
 		cookHeight        uint64
 		dardanellesHeight uint64
+		daytonaHeight     uint64
 	}
 )
 
@@ -41,6 +43,7 @@ func NewHeightUpgrade(cfg Config) HeightUpgrade {
 		cfg.Genesis.BeringBlockHeight,
 		cfg.Genesis.CookBlockHeight,
 		cfg.Genesis.DardanellesBlockHeight,
+		cfg.Genesis.DaytonaBlockHeight,
 	}
 }
 
@@ -58,6 +61,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.cookHeight
 	case Dardanelles:
 		h = hu.dardanellesHeight
+	case Daytona:
+		h = hu.daytonaHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -83,3 +88,6 @@ func (hu *HeightUpgrade) CookBlockHeight() uint64 { return hu.cookHeight }
 
 // DardanellesBlockHeight returns the dardanelles height
 func (hu *HeightUpgrade) DardanellesBlockHeight() uint64 { return hu.dardanellesHeight }
+
+// DaytonaBlockHeight returns the daytona height
+func (hu *HeightUpgrade) DaytonaBlockHeight() uint64 { return hu.daytonaHeight }
