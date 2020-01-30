@@ -94,7 +94,7 @@ func (ns *NativeStaking) Votes(correctGas bool) (*VoteTally, time.Time, error) {
 		Buckets:    make([]*types.Bucket, 0),
 	}
 	prevIndex := big.NewInt(0)
-	limit := big.NewInt(160)
+	limit := big.NewInt(256)
 
 	for {
 		vote, index, err := ns.readBuckets(prevIndex, limit, correctGas)
@@ -126,7 +126,7 @@ func (ns *NativeStaking) readBuckets(prevIndx, limit *big.Int, correctGas bool) 
 	// read the staking contract
 	gasLimit := uint64(1000000)
 	if correctGas {
-		gasLimit = 10000000
+		gasLimit *= 10
 	}
 	ex, err := action.NewExecution(ns.contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
 	if err != nil {

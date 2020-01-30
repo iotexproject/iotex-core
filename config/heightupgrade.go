@@ -25,6 +25,11 @@ type (
 	HeightName int
 
 	// HeightUpgrade lists heights at which certain fixes take effect
+	// prior to Dardanelles, each epoch consists of 360 sub-epochs
+	// so height = 360k + 1
+	// starting Dardanelles, each epoch consists of 720 sub-epochs
+	// however, DardanellesHeight is set to 360(2k + 1) + 1 (instead of 720k + 1)
+	// so height afterwards must be set to 360(2k + 1) + 1
 	HeightUpgrade struct {
 		pacificHeight     uint64
 		aleutianHeight    uint64

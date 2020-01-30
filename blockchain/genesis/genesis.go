@@ -53,7 +53,7 @@ func defaultConfig() Genesis {
 			BeringBlockHeight:       1512001,
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
-			DaytonaBlockHeight:      3168001,
+			DaytonaBlockHeight:      3168361,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
