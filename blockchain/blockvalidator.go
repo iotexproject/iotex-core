@@ -9,7 +9,6 @@ package blockchain
 import (
 	"bytes"
 	"context"
-	"sort"
 	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -18,7 +17,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -106,12 +104,10 @@ func (v *validator) validateActionsOnly(
 	actions := blk.Actions
 	// Verify transfers, votes, executions, witness, and secrets
 	errChan := make(chan error, len(actions))
-	accountNonceMap := make(map[string][]uint64)
 
 	if err := v.validateActions(
 		ctx,
 		actions,
-		accountNonceMap,
 		errChan,
 	); err != nil {
 		close(errChan)
@@ -123,38 +119,12 @@ func (v *validator) validateActionsOnly(
 		return errors.Wrap(err, "failed to validate action")
 	}
 
-	// Special handling for genesis block
-	if blk.Height() == 0 {
-		return nil
-	}
-	// Verify each account's Nonce
-	for srcAddr, receivedNonces := range accountNonceMap {
-		confirmedState, err := accountutil.AccountState(v.sf, srcAddr)
-		if err != nil {
-			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
-		}
-		receivedNonces := receivedNonces
-		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
-		for i, nonce := range receivedNonces {
-			if nonce != confirmedState.Nonce+uint64(i+1) {
-				return errors.Wrapf(
-					action.ErrNonce,
-					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
-					i,
-					nonce,
-					srcAddr,
-					confirmedState.Nonce,
-				)
-			}
-		}
-	}
 	return nil
 }
 
 func (v *validator) validateActions(
 	ctx context.Context,
 	actions []action.SealedEnvelope,
-	accountNonceMap map[string][]uint64,
 	errChan chan error,
 ) error {
 	var actionCtx protocol.ActionCtx
@@ -169,7 +139,6 @@ func (v *validator) validateActions(
 		if _, ok := v.senderBlackList[caller.String()]; ok {
 			return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 		}
-		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
 		// not need validate action if it already exists in pool
 		if v.actPool != nil {
 			if _, err = v.actPool.GetActionByHash(selp.Hash()); err == nil {
@@ -252,14 +221,4 @@ func verifySigAndRoot(blk *block.Block) error {
 			hashExpect)
 	}
 	return nil
-}
-
-func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonce uint64) {
-	if nonce == 0 {
-		return
-	}
-	if _, ok := accountNonceMap[srcAddr]; !ok {
-		accountNonceMap[srcAddr] = make([]uint64, 0)
-	}
-	accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], nonce)
 }

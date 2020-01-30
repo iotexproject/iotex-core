@@ -381,12 +381,8 @@ func (ctx *rollDPoSCtx) NewProposalEndorsement(msg interface{}) (interface{}, er
 		}
 		blkHash := proposal.block.HashBlock()
 		blockHash = blkHash[:]
-		signerAddr, _ := address.FromBytes(ctx.priKey.PublicKey().Hash())
-		if proposal.block.ProducerAddress() != signerAddr.String() {
-			//if the proposal block is from others
-			if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
-				return nil, errors.Wrapf(err, "error when validating the proposed block")
-			}
+		if err := ctx.chain.ValidateBlock(proposal.block); err != nil {
+			return nil, errors.Wrapf(err, "error when validating the proposed block")
 		}
 		if err := ctx.round.AddBlock(proposal.block); err != nil {
 			return nil, err

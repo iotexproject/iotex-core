@@ -53,6 +53,7 @@ type (
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
 		State(hash.Hash160, interface{}) error
+		DeleteWorkingSet(*block.Block) error
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -200,6 +201,14 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	if data, ok := sf.workingsets.Get(key); ok {
+		if _, ok := data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+		// if already validated, return nil
+		return nil
+	}
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
@@ -207,7 +216,6 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in factory")
 	}
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sf.workingsets.Add(key, ws)
 	return nil
 }
@@ -259,9 +267,20 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	defer sf.mutex.Unlock()
 	timer := sf.timerFactory.NewTimer("Commit")
 	defer timer.End()
-
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producer,
+		},
+	)
 	var ws WorkingSet
-	var err error
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	if data, ok := sf.workingsets.Get(key); ok {
 		if ws, ok = data.(WorkingSet); !ok {
@@ -297,6 +316,13 @@ func (sf *factory) State(addr hash.Hash160, state interface{}) error {
 	defer sf.mutex.RUnlock()
 
 	return sf.state(addr, state)
+}
+
+// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
+func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	sf.workingsets.Remove(key)
+	return nil
 }
 
 //======================================

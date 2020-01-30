@@ -44,7 +44,7 @@ func TestTransfer_Negative(t *testing.T) {
 	defer r.NoError(bc.Stop(ctx))
 	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
-	blk, err := prepareTransfer(bc, r)
+	blk, err := prepareTransfer(bc, sf, r)
 	r.NoError(err)
 	r.Error(bc.ValidateBlock(blk))
 	r.Panics(func() { bc.CommitBlock(blk) })
@@ -60,7 +60,7 @@ func TestAction_Negative(t *testing.T) {
 	defer r.NoError(bc.Stop(ctx))
 	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
-	blk, err := prepareAction(bc, r)
+	blk, err := prepareAction(bc, sf, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Error(bc.ValidateBlock(blk))
@@ -102,7 +102,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	return bc, sf
 }
 
-func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
+func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -111,10 +111,10 @@ func prepareTransfer(bc blockchain.Blockchain, r *require.Assertions) (*block.Bl
 		SetGasLimit(exec.GasLimit()).
 		SetGasPrice(exec.GasPrice()).
 		Build()
-	return prepare(bc, elp, r)
+	return prepare(bc, sf, elp, r)
 }
 
-func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Block, error) {
+func prepareAction(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -123,10 +123,10 @@ func prepareAction(bc blockchain.Blockchain, r *require.Assertions) (*block.Bloc
 		SetGasLimit(exec.GasLimit()).
 		SetGasPrice(exec.GasPrice()).
 		Build()
-	return prepare(bc, elp, r)
+	return prepare(bc, sf, elp, r)
 }
 
-func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
+func prepare(bc blockchain.Blockchain, sf factory.Factory, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
 	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	r.NoError(err)
 	selp, err := action.Sign(elp, priKey)
@@ -138,6 +138,7 @@ func prepare(bc blockchain.Blockchain, elp action.Envelope, r *require.Assertion
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
+	sf.DeleteWorkingSet(blk)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
 	blk.Receipts = nil
 	return blk, nil

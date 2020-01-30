@@ -447,11 +447,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	producer, err := address.FromBytes(blk.PublicKey().Hash())
-	if err != nil {
-		return err
-	}
-	ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
 	return bc.commitBlock(ctx, blk)
 }
 

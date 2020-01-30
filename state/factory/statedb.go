@@ -161,13 +161,20 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	if data, ok := sdb.workingsets.Get(key); ok {
+		if _, ok := data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+		// if already validated, return nil
+		return nil
+	}
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
 
 	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in statedb")
 	}
 
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sdb.workingsets.Add(key, ws)
 	return nil
 }
@@ -213,10 +220,22 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	defer sdb.mutex.Unlock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	defer timer.End()
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producer,
+		},
+	)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	data, ok := sdb.workingsets.Get(key)
 	var ws WorkingSet
-	var err error
 	if ok {
 		if ws, ok = data.(WorkingSet); !ok {
 			return errors.New("type assertion failed to be WorkingSet")
@@ -248,6 +267,13 @@ func (sdb *stateDB) State(addr hash.Hash160, state interface{}) error {
 	defer sdb.mutex.RUnlock()
 
 	return sdb.state(addr, state)
+}
+
+// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
+func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	sdb.workingsets.Remove(key)
+	return nil
 }
 
 //======================================

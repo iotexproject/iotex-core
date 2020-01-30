@@ -154,3 +154,17 @@ func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
 }
+
+// DeleteWorkingSet mocks base method
+func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWorkingSet", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteWorkingSet indicates an expected call of DeleteWorkingSet
+func (mr *MockFactoryMockRecorder) DeleteWorkingSet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkingSet", reflect.TypeOf((*MockFactory)(nil).DeleteWorkingSet), arg0)
+}

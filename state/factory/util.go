@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -43,6 +45,9 @@ func createGenesisStates(ctx context.Context, ws WorkingSet) error {
 
 func validateWithWorkingset(ctx context.Context, ws WorkingSet, blk *block.Block) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if err := validateNonce(ws, blk); err != nil {
+		return errors.Wrap(err, "failed to validate nonce")
+	}
 	receipts, ws, err := runActions(ctx, ws, blk.RunnableActions().Actions())
 	if err != nil {
 		log.L().Panic("Failed to update state.", zap.Uint64("tipHeight", bcCtx.Tip.Height), zap.Error(err))
@@ -61,6 +66,54 @@ func validateWithWorkingset(ctx context.Context, ws WorkingSet, blk *block.Block
 
 	blk.Receipts = receipts
 	return nil
+}
+
+func validateNonce(ws WorkingSet, blk *block.Block) error {
+	accountNonceMap := make(map[string][]uint64)
+	for _, selp := range blk.Actions {
+		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
+		if err != nil {
+			return err
+		}
+		appendActionIndex(accountNonceMap, caller.String(), selp.Nonce())
+	}
+
+	// Special handling for genesis block
+	if blk.Height() == 0 {
+		return nil
+	}
+	// Verify each account's Nonce
+	for srcAddr, receivedNonces := range accountNonceMap {
+		confirmedState, err := accountutil.AccountState(ws, srcAddr)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get the confirmed nonce of address %s", srcAddr)
+		}
+		receivedNonces := receivedNonces
+		sort.Slice(receivedNonces, func(i, j int) bool { return receivedNonces[i] < receivedNonces[j] })
+		for i, nonce := range receivedNonces {
+			if nonce != confirmedState.Nonce+uint64(i+1) {
+				return errors.Wrapf(
+					action.ErrNonce,
+					"the %d nonce %d of address %s (confirmed nonce %d) is not continuously increasing",
+					i,
+					nonce,
+					srcAddr,
+					confirmedState.Nonce,
+				)
+			}
+		}
+	}
+	return nil
+}
+
+func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonce uint64) {
+	if nonce == 0 {
+		return
+	}
+	if _, ok := accountNonceMap[srcAddr]; !ok {
+		accountNonceMap[srcAddr] = make([]uint64, 0)
+	}
+	accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], nonce)
 }
 
 func runActions(ctx context.Context, ws WorkingSet, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
@@ -258,5 +311,5 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 // generateWorkingSetCacheKey generates hash key for workingset cache by hashing blockheader core and producer pubkey
 func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
-	return hash.BytesToHash256(sum)
+	return hash.Hash256b(sum)
 }
