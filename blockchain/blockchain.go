@@ -143,7 +143,6 @@ type blockchain struct {
 	dao           blockdao.BlockDAO
 	config        config.Config
 	validator     Validator
-	minter        Minter
 	lifecycle     lifecycle.Lifecycle
 	clk           clock.Clock
 	pubSubManager PubSubManager
@@ -251,15 +250,15 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 		validatorAddr:   cfg.ProducerAddress().String(),
 		senderBlackList: senderBlackList,
 	}
-	chain.minter = &minter{
-		sf:               chain.sf,
-		minterPrivateKey: cfg.ProducerPrivateKey(),
-	}
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
+	}
+	_, ok := chain.sf.(factory.Minter)
+	if !ok {
+		log.S().Panic("state factory didn't implement Minter")
 	}
 	return chain
 }
@@ -407,7 +406,35 @@ func (bc *blockchain) MintNewBlock(
 		return nil, err
 	}
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
-	return bc.minter.Mint(ctx, actionMap)
+	// run execution and update state trie root hash
+	minterPrivateKey := bc.config.ProducerPrivateKey()
+	postSystemActions := make([]action.SealedEnvelope, 0)
+	for _, p := range bc.registry.All() {
+		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psac.CreatePostSystemActions(ctx)
+			if err != nil {
+				return nil, err
+			}
+			for _, elp := range elps {
+				se, err := action.Sign(elp, minterPrivateKey)
+				if err != nil {
+					return nil, err
+				}
+				postSystemActions = append(postSystemActions, se)
+			}
+		}
+	}
+	minter, _ := bc.sf.(factory.Minter)
+	blockBuilder, err := minter.NewBlockBuilder(ctx, actionMap, postSystemActions)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
+	}
+	blk, err := blockBuilder.SignAndBuild(minterPrivateKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create block")
+	}
+
+	return &blk, nil
 }
 
 //  CommitBlock validates and appends a block to the chain
@@ -416,8 +443,11 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
-
-	return bc.commitBlock(blk)
+	ctx, err := bc.context(context.Background(), false, false)
+	if err != nil {
+		return err
+	}
+	return bc.commitBlock(ctx, blk)
 }
 
 // SetValidator sets the current validator object
@@ -432,20 +462,6 @@ func (bc *blockchain) Validator() Validator {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	return bc.validator
-}
-
-// SetMinter sets the current minter object
-func (bc *blockchain) SetMinter(minter Minter) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	bc.minter = minter
-}
-
-// Minter gets the current minter object
-func (bc *blockchain) Minter() Minter {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	return bc.minter
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
@@ -518,11 +534,7 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 			return err
 		}
 		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
-		_, ws, err := bc.sf.RunActions(ctx, blk.RunnableActions().Actions())
-		if err != nil {
-			return err
-		}
-		if err := bc.sf.Commit(ws); err != nil {
+		if err := bc.sf.Commit(ctx, blk); err != nil {
 			return err
 		}
 	}
@@ -562,7 +574,7 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 }
 
 // commitBlock commits a block to the chain
-func (bc *blockchain) commitBlock(blk *block.Block) error {
+func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	// early exit if block already exists
 	blkHash, err := bc.dao.GetBlockHash(blk.Height())
 	if err == nil && blkHash != hash.ZeroHash256 {
@@ -585,10 +597,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 
 	// commit state/contract changes
 	sfTimer := bc.timerFactory.NewTimer("sf.Commit")
-	err = bc.sf.Commit(blk.WorkingSet)
+	err = bc.sf.Commit(ctx, blk)
 	sfTimer.End()
 	// detach working set so it can be freed by GC
-	blk.WorkingSet = nil
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}

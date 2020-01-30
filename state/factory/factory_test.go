@@ -17,19 +17,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -212,22 +216,80 @@ func TestSDBCandidates(t *testing.T) {
 }
 
 func testCandidates(sf Factory, t *testing.T) {
-	ws, err := sf.NewWorkingSet()
+	sc := state.CandidateList{
+		&state.Candidate{
+			Address: identityset.Address(1).String(),
+			Votes:   big.NewInt(2),
+		},
+		&state.Candidate{
+			Address: identityset.Address(2).String(),
+			Votes:   big.NewInt(22),
+		},
+	}
+	act := action.NewPutPollResult(1, 1, sc)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetGasLimit(uint64(100000)).
+		SetGasPrice(big.NewInt(10)).
+		SetAction(act).Build()
+	selp, err := action.Sign(elp, identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(0).String()))
-	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(0).String(), big.NewInt(0)))
-	require.NoError(t, candidatesutil.LoadAndAddCandidates(ws, 1, identityset.Address(1).String()))
-	require.NoError(t, candidatesutil.LoadAndUpdateCandidates(ws, 1, identityset.Address(1).String(), big.NewInt(1)))
-	require.NoError(t, ws.Finalize())
-	require.NoError(t, sf.Commit(ws))
+	require.NotNil(t, selp)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	committee := mock_committee.NewMockCommittee(ctrl)
+	committee.EXPECT().ResultByHeight(uint64(123456)).Return(nil, nil).AnyTimes()
+	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+
+	registry := protocol.NewRegistry()
+	require.NoError(t, registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20)))
+	p, err := poll.NewGovernanceChainCommitteeProtocol(
+		nil,
+		nil,
+		committee,
+		uint64(123456),
+		func(uint64) (time.Time, error) { return time.Now(), nil },
+		config.Default.Genesis.NumCandidateDelegates,
+		config.Default.Genesis.NumDelegates,
+		config.Default.Chain.PollInitialCandidatesInterval,
+		nil,
+		nil,
+		config.Default.Genesis.ProductivityThreshold,
+		config.Default.Genesis.KickoutEpochPeriod,
+		config.Default.Genesis.KickoutIntensityRate,
+	)
+	require.NoError(t, registry.Register("poll", p))
+	require.NoError(t, err)
+	gasLimit := testutil.TestGasLimit
+
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	})
+	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
+	})
+
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+
+	require.NoError(t, sf.Commit(ctx, &blk))
 
 	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
-	assert.Equal(t, candidates[0].Address, identityset.Address(1).String())
-	assert.Equal(t, candidates[0].Votes, big.NewInt(1))
-	assert.Equal(t, candidates[1].Address, identityset.Address(0).String())
-	assert.Equal(t, candidates[1].Votes, big.NewInt(0))
+	require.Equal(t, candidates[0].Address, identityset.Address(1).String())
+	require.Equal(t, candidates[0].Votes, big.NewInt(2))
+	require.Equal(t, candidates[1].Address, identityset.Address(2).String())
+	require.Equal(t, candidates[1].Votes, big.NewInt(22))
 }
 
 func TestState(t *testing.T) {
@@ -282,8 +344,6 @@ func testState(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
 
 	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
@@ -299,10 +359,14 @@ func testState(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
-	_, err = ws.RunAction(ctx, selp)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, ws.Finalize())
-	require.NoError(t, sf.Commit(ws))
+	require.NoError(t, sf.Commit(ctx, &blk))
 
 	//test AccountState() & State()
 	var testAccount state.Account
@@ -394,10 +458,15 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	_, err = ws.RunAction(ctx, selp)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, ws.Finalize())
-	require.NoError(t, sf.Commit(ws))
+
+	require.NoError(t, sf.Commit(ctx, &blk))
 	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
@@ -500,7 +569,7 @@ func TestRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	testRunActions(sf, registry, t)
+	testCommit(sf, registry, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
@@ -529,10 +598,10 @@ func TestSTXRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
 	}()
-	testRunActions(sdb, registry, t)
+	testCommit(sdb, registry, t)
 }
 
-func testRunActions(factory Factory, registry *protocol.Registry, t *testing.T) {
+func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -553,6 +622,8 @@ func testRunActions(factory Factory, registry *protocol.Registry, t *testing.T) 
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
+	blkHash := selp1.Hash()
+
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -564,12 +635,21 @@ func testRunActions(factory Factory, registry *protocol.Registry, t *testing.T) 
 		protocol.BlockchainCtx{
 			Genesis:  config.Default.Genesis,
 			Registry: registry,
+			Tip: protocol.TipInfo{
+				Height: 0,
+				Hash:   blkHash,
+			},
 		})
 
-	rc, ws, err := factory.RunActions(ctx, []action.SealedEnvelope{selp1, selp2})
-	require.NotNil(rc)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(blkHash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(selp1, selp2).
+		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(ws.Commit())
+
+	require.NoError(factory.Commit(ctx, &blk))
 }
 
 func TestPickAndRunActions(t *testing.T) {
@@ -598,7 +678,7 @@ func TestPickAndRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	testPickAndRunActions(sf, registry, t)
+	testNewBlockBuilder(sf, registry, t)
 }
 
 func TestSTXPickAndRunActions(t *testing.T) {
@@ -627,10 +707,10 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
 	}()
-	testPickAndRunActions(sdb, registry, t)
+	testNewBlockBuilder(sdb, registry, t)
 }
 
-func testPickAndRunActions(factory Factory, registry *protocol.Registry, t *testing.T) {
+func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -670,12 +750,14 @@ func testPickAndRunActions(factory Factory, registry *protocol.Registry, t *test
 			Registry: registry,
 		})
 
-	rc, actions, ws, err := factory.PickAndRunActions(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
+	minter, ok := factory.(Minter)
+	require.True(ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
-	require.NotNil(actions)
-	require.NotNil(rc)
-	require.NoError(ws.Commit())
-
+	require.NotNil(blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(factory.Commit(ctx, &blk))
 }
 
 func TestSimulateExecution(t *testing.T) {
@@ -934,10 +1016,6 @@ func benchRunAction(sf Factory, b *testing.B) {
 	gasLimit := testutil.TestGasLimit * 100000
 
 	for n := 0; n < b.N; n++ {
-		ws, err := sf.NewWorkingSet()
-		if err != nil {
-			b.Fatal(err)
-		}
 
 		// put 500 actions together to run
 		b.StopTimer()
@@ -976,18 +1054,18 @@ func benchRunAction(sf Factory, b *testing.B) {
 				Genesis:  config.Default.Genesis,
 				Registry: registry,
 			})
-		_, err = ws.RunActions(zctx, acts)
-		if err != nil {
+
+		blk, err := block.NewTestingBuilder().
+			SetHeight(uint64(n)).
+			SetPrevBlockHash(hash.ZeroHash256).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions(acts...).
+			SignAndBuild(identityset.PrivateKey(27))
+		b.Fatal(err)
+
+		if err := sf.Commit(zctx, &blk); err != nil {
 			b.Fatal(err)
 		}
-		if err := ws.Finalize(); err != nil {
-			b.Fatal(err)
-		}
-		b.StopTimer()
-		if err := sf.Commit(ws); err != nil {
-			b.Fatal(err)
-		}
-		b.StartTimer()
 	}
 }
 

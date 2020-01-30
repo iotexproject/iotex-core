@@ -95,3 +95,8 @@ func (b *Builder) SignAndBuild(signerPrvKey crypto.PrivateKey) (Block, error) {
 	b.blk.Header.blockSig = sig
 	return b.blk, nil
 }
+
+// GetCurrentBlockHeader returns the current hash of Block Header Core
+func (b *Builder) GetCurrentBlockHeader() Header {
+	return b.blk.Header
+}

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -36,6 +39,7 @@ type stateDB struct {
 	cfg                config.Config
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
+	workingsets        *lru.Cache // lru cache for workingsets
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -96,6 +100,9 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
+	if sdb.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
+		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
+	}
 	return &sdb, nil
 }
 
@@ -129,6 +136,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	sdb.workingsets.Purge()
 	return sdb.dao.Stop(ctx)
 }
 
@@ -150,24 +158,45 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
 }
 
-func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	if data, ok := sdb.workingsets.Get(key); ok {
+		if _, ok := data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+		// if already validated, return nil
+		return nil
+	}
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
-	sdb.mutex.Unlock()
 
-	return runActions(ctx, ws, actions)
+	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
+		return errors.Wrap(err, "failed to validate block with workingset in statedb")
+	}
+
+	sdb.workingsets.Add(key, ws)
+	return nil
 }
 
-func (sdb *stateDB) PickAndRunActions(
+// NewBlockBuilder returns block builder which hasn't been signed yet
+func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
-) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+) (*block.Builder, error) {
 	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
-	sdb.mutex.Unlock()
+	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	if err != nil {
+		return nil, err
+	}
 
-	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
+	sdb.workingsets.Add(key, ws)
+	return blkBuilder, nil
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -186,13 +215,39 @@ func (sdb *stateDB) SimulateExecution(
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (sdb *stateDB) Commit(ws WorkingSet) error {
+func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	defer timer.End()
-	if ws == nil {
-		return errors.New("working set doesn't exist")
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producer,
+		},
+	)
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	data, ok := sdb.workingsets.Get(key)
+	var ws WorkingSet
+	if ok {
+		if ws, ok = data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+	} else {
+		// regenerate the workingset
+		ws = newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
+		if err != nil {
+			log.L().Panic("Failed to update state.", zap.Error(err))
+			return err
+		}
 	}
 	if sdb.currentChainHeight+1 != ws.Version() {
 		// another working set with correct version already committed, do nothing
@@ -212,6 +267,13 @@ func (sdb *stateDB) State(addr hash.Hash160, state interface{}) error {
 	defer sdb.mutex.RUnlock()
 
 	return sdb.state(addr, state)
+}
+
+// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
+func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	sdb.workingsets.Remove(key)
+	return nil
 }
 
 //======================================

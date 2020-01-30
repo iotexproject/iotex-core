@@ -296,6 +296,14 @@ func TestHandle(t *testing.T) {
 	receipt, err = p.Handle(ctx2, selp2.Action(), sm2)
 	require.NoError(err)
 	require.NotNil(receipt)
+
+	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	require.NoError(err)
+	require.Equal(2, len(candidates))
+	require.Equal(candidates[0].Address, sc2[0].Address)
+	require.Equal(candidates[0].Votes, sc2[0].Votes)
+	require.Equal(candidates[1].Address, sc2[1].Address)
+	require.Equal(candidates[1].Votes, sc2[1].Votes)
 }
 
 func TestProtocol_Validate(t *testing.T) {
