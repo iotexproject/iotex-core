@@ -9,24 +9,33 @@ package vote
 import (
 	"testing"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/stretchr/testify/require"
 )
 
 func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	r := require.New(t)
-	blacklist1 := Blacklist{}
-	blacklist1["addr1"] = 1
-	blacklist1["addr2"] = 2
-	blacklist1["addr3"] = 1
+	blacklist1 := &Blacklist{
+		BlacklistInfos: make(map[string]int32, 0),
+	}
+
+	blacklist1.BlacklistInfos["addr1"] = 1
+	blacklist1.BlacklistInfos["addr2"] = 2
+	blacklist1.BlacklistInfos["addr3"] = 1
+
+	blacklist1.IntensityRate = config.Default.Genesis.KickoutIntensityRate
 
 	sbytes, err := blacklist1.Serialize()
 	r.NoError(err)
 
-	blacklist2 := Blacklist{}
+	blacklist2 := &Blacklist{}
 	err = blacklist2.Deserialize(sbytes)
 	r.NoError(err)
-	r.Equal(3, len(blacklist2))
-	for addr, count := range blacklist2 {
-		r.True(count == blacklist1[addr])
+	r.Equal(3, len(blacklist2.BlacklistInfos))
+	for addr, count := range blacklist2.BlacklistInfos {
+		r.True(count == blacklist1.BlacklistInfos[addr])
 	}
+	r.True(blacklist2.IntensityRate == blacklist1.IntensityRate)
+	r.True(blacklist2.IntensityRate == 0)
+
 }

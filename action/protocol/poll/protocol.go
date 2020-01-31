@@ -41,7 +41,7 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
 // KickoutListByEpoch returns the blacklist for kickout of a given epoch
-type KickoutListByEpoch func(protocol.StateReader, uint64) (vote.Blacklist, error)
+type KickoutListByEpoch func(protocol.StateReader, uint64) (*vote.Blacklist, error)
 
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
