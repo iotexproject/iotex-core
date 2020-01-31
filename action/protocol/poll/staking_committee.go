@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -196,7 +196,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	}
 
 	// TODO: extract tip info inside of Votes function
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Height, bcCtx.Tip.Timestamp)
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, hu.IsPost(config.Daytona, height))
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterCandidates(cand), nil
