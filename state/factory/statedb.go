@@ -276,6 +276,14 @@ func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
 	return nil
 }
 
+// StateAtHeight returns a confirmed state in the state factory
+func (sdb *stateDB) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+
+	return sdb.stateAtHeight(height, addr, state)
+}
+
 //======================================
 // private trie constructor functions
 //======================================
@@ -292,6 +300,22 @@ func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
 		return errors.Wrapf(err, "error when deserializing state data into %T", s)
 	}
 	return nil
+}
+
+func (sdb *stateDB) stateAtHeight(height uint64, addr hash.Hash160, s interface{}) error {
+	ns := append([]byte(AccountKVNameSpace), addr[:]...)
+	ri, err := db.NewRangeIndex(sdb.dao, ns, db.NotExist)
+	if err != nil {
+		return err
+	}
+	data, err := ri.Get(height)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
+		}
+		return errors.Wrapf(err, "error when getting the state of %x", addr)
+	}
+	return state.Deserialize(s, data)
 }
 
 func (sdb *stateDB) commit(ws WorkingSet) error {

@@ -303,6 +303,22 @@ func TestState(t *testing.T) {
 	testState(sf, t)
 }
 
+func TestHistoryState(t *testing.T) {
+	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	cfg.Chain.EnableHistoryStateDB = true
+	sf, err := NewFactory(cfg, DefaultTrieOption())
+	require.NoError(t, err)
+	testHistoryState(sf, t, false)
+
+	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
+	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	sf, err = NewStateDB(cfg, DefaultStateDBOption())
+	require.NoError(t, err)
+	testHistoryState(sf, t, true)
+}
+
 func TestSDBState(t *testing.T) {
 	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
 	testDBPath := testDBFile.Name()
@@ -377,6 +393,117 @@ func testState(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
+}
+
+func testHistoryState(sf Factory, t *testing.T, statetx bool) {
+	// Create a dummy iotex address
+	a := identityset.Address(28).String()
+	b := identityset.Address(31).String()
+	priKeyA := identityset.PrivateKey(28)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, acc.Register(registry))
+	ge := genesis.Default
+	ge.InitBalanceMap[a] = "100"
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis:  config.Default.Genesis,
+			Registry: registry,
+		},
+	)
+	require.NoError(t, sf.Start(ctx))
+	defer func() {
+		require.NoError(t, sf.Stop(ctx))
+	}()
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ctx, &blk))
+
+	// check latest balance
+	accountA, err := accountutil.AccountState(sf, a)
+	require.NoError(t, err)
+	accountB, err := accountutil.AccountState(sf, b)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(90), accountA.Balance)
+	require.Equal(t, big.NewInt(10), accountB.Balance)
+	if !statetx {
+		//check history balance in block 0,only check workingset,because statetx cannot store history in block 0
+		accountA, err = accountutil.AccountStateAtHeight(sf, a, 0)
+		require.NoError(t, err)
+		accountB, err = accountutil.AccountStateAtHeight(sf, b, 0)
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(100), accountA.Balance)
+		require.Equal(t, big.NewInt(0), accountB.Balance)
+	}
+
+	// transfer in block 2
+	tsf, err = action.NewTransfer(2, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetAction(tsf).SetGasLimit(20000).Build()
+	selp, err = action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 2,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	blk, err = block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+	require.NoError(t, sf.Commit(ctx, &blk))
+
+	// check latest balance
+	accountA, err = accountutil.AccountState(sf, a)
+	require.NoError(t, err)
+	accountB, err = accountutil.AccountState(sf, b)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(80), accountA.Balance)
+	require.Equal(t, big.NewInt(20), accountB.Balance)
+
+	//check history balance in block 1
+	accountA, err = accountutil.AccountStateAtHeight(sf, a, 1)
+	require.NoError(t, err)
+	accountB, err = accountutil.AccountStateAtHeight(sf, b, 1)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(90), accountA.Balance)
+	require.Equal(t, big.NewInt(10), accountB.Balance)
 }
 
 func TestNonce(t *testing.T) {

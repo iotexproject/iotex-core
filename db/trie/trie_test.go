@@ -8,6 +8,8 @@ package trie
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -15,6 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 )
 
 var (
@@ -410,6 +415,54 @@ func TestBatchCommit(t *testing.T) {
 	v, _ = tr.Get(fox)
 	require.Equal(testV[5], v)
 	require.NoError(tr.Stop(context.Background()))
+}
+
+func TestHistoryTrie(t *testing.T) {
+	require := require.New(t)
+	cfg := config.Default.DB
+	path := "test-history-trie.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
+	dao := db.NewBoltDB(cfg)
+	require.NoError(dao.Start(context.Background()))
+	AccountKVNameSpace := "Account"
+	PruneKVNameSpace := "cp"
+	AccountTrieRootKey := "accountTrieRoot"
+	addrKey := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
+	value1 := []byte{1}
+	value2 := []byte{2}
+
+	cb := batch.NewCachedBatch()
+	trieDB, err := db.NewKVStoreForTrie(AccountKVNameSpace, PruneKVNameSpace, dao, db.CachedBatchOption(cb))
+	require.NoError(err)
+	tr, err := NewTrie(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+
+	// insert 1 entries
+	require.NoError(tr.Upsert(addrKey, value1))
+	c, err := tr.Get(addrKey)
+	require.NoError(err)
+	require.Equal(value1, c)
+	oldRoot := tr.RootHash()
+
+	// update entry
+	require.NoError(tr.Upsert(addrKey, value2))
+	newcb := cb.ExcludeEntries("", batch.Delete)
+	cb.Clear()
+	require.NoError(dao.WriteBatch(newcb))
+
+	// get new value
+	c, err = tr.Get(addrKey)
+	require.NoError(err)
+	require.Equal(value2, c)
+
+	// get history value
+	require.NoError(tr.SetRootHash(oldRoot))
+	c, err = tr.Get(addrKey)
+	require.NoError(err)
+	require.Equal(value1, c)
 }
 
 func TestCollision(t *testing.T) {

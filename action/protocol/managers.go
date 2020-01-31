@@ -10,6 +10,7 @@ import (
 type StateReader interface {
 	Height() (uint64, error)
 	State(hash.Hash160, interface{}) error
+	StateAtHeight(uint64, hash.Hash160, interface{}) error
 }
 
 // StateManager defines the state DB interface atop IoTeX blockchain
