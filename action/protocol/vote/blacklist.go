@@ -57,7 +57,7 @@ func (bl *Blacklist) LoadProto(blackListpb *iotextypes.KickoutCandidateList) err
 		blackListMap[cand.Address] = cand.Count
 	}
 	bl.BlacklistInfos = blackListMap
-	bl.IntensityRate = float64(blackListpb.IntensityRate / 100)
+	bl.IntensityRate = float64(blackListpb.IntensityRate) / float64(100)
 
 	return nil
 }

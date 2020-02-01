@@ -9,7 +9,6 @@ package vote
 import (
 	"testing"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,8 +22,6 @@ func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	blacklist1.BlacklistInfos["addr2"] = 2
 	blacklist1.BlacklistInfos["addr3"] = 1
 
-	blacklist1.IntensityRate = config.Default.Genesis.KickoutIntensityRate
-
 	sbytes, err := blacklist1.Serialize()
 	r.NoError(err)
 
@@ -35,7 +32,7 @@ func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	for addr, count := range blacklist2.BlacklistInfos {
 		r.True(count == blacklist1.BlacklistInfos[addr])
 	}
-	r.True(blacklist2.IntensityRate == blacklist1.IntensityRate)
-	r.True(blacklist2.IntensityRate == 0)
 
+	r.True(blacklist2.IntensityRate == blacklist1.IntensityRate)
+	r.True(blacklist2.IntensityRate == 0.5)
 }
