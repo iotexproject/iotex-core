@@ -102,7 +102,7 @@ func DefaultTrieOption() Option {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sf.dao = db.NewBoltDB(cfg.DB)
-		sf.saveHistory = cfg.Chain.EnableHistoryStateDB
+		sf.saveHistory = cfg.Chain.EnableArchiveMode
 		return nil
 	}
 }
