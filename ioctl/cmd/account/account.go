@@ -15,6 +15,8 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"google.golang.org/grpc/metadata"
+
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
@@ -143,7 +145,15 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: addr}
-	response, err := cli.GetAccount(ctx, &request)
+
+	jwtString, err := util.JwtAuth()
+	var response *iotexapi.GetAccountResponse
+	if jwtString == nil {
+		response, err = cli.GetAccount(ctx, &request)
+	} else {
+		response, err = cli.GetAccount(metadata.NewOutgoingContext(ctx, jwtString), &request)
+	}
+
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
