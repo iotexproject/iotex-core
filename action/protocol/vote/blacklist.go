@@ -15,7 +15,7 @@ import (
 
 //Blacklist defines a map where key is candidate's name and value is the counter which counts the unproductivity during kick-out epoch.
 type Blacklist struct {
-	BlacklistInfos map[string]int32
+	BlacklistInfos map[string]uint32
 	IntensityRate  float64
 }
 
@@ -51,7 +51,7 @@ func (bl *Blacklist) Deserialize(buf []byte) error {
 
 // LoadProto loads blacklist from proto
 func (bl *Blacklist) LoadProto(blackListpb *iotextypes.KickoutCandidateList) error {
-	blackListMap := make(map[string]int32, 0)
+	blackListMap := make(map[string]uint32, 0)
 	candidates := blackListpb.Blacklists
 	for _, cand := range candidates {
 		blackListMap[cand.Address] = cand.Count

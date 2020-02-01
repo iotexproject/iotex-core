@@ -394,7 +394,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	nextBlacklist := &vote.Blacklist{
 		IntensityRate: p.kickoutIntensity,
 	}
-	unqualifiedDelegates := make(map[string]int32)
+	unqualifiedDelegates := make(map[string]uint32)
 	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
 		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
 		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
@@ -454,7 +454,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	}
 
 	for addr, count := range blacklistMap {
-		if count <= 0 {
+		if count == 0 {
 			delete(blacklistMap, addr)
 		}
 	}

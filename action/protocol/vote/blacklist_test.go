@@ -16,7 +16,7 @@ import (
 func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	r := require.New(t)
 	blacklist1 := &Blacklist{
-		BlacklistInfos: make(map[string]int32, 0),
+		BlacklistInfos: make(map[string]uint32, 0),
 	}
 
 	blacklist1.BlacklistInfos["addr1"] = 1
