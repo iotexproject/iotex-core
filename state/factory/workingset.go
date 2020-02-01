@@ -304,6 +304,9 @@ func (ws *workingSet) State(hash hash.Hash160, s interface{}) error {
 
 // StateAtHeight pulls a state from DB
 func (ws *workingSet) StateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
+	if !ws.saveHistory {
+		return ErrNoArchiveData
+	}
 	// get root through height
 	rootHash, err := ws.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
 	if err != nil {

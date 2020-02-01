@@ -1339,12 +1339,19 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	require.Equal(big.NewInt(110), AccountB.Balance)
 
 	// check history account's balance
-	AccountA, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
-	require.NoError(err)
-	AccountB, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
-	require.NoError(err)
-	require.Equal(big.NewInt(100), AccountA.Balance)
-	require.Equal(big.NewInt(100), AccountB.Balance)
+	if statetx {
+		_, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
+		require.True(errors.Cause(err) == factory.ErrNotSupported)
+		_, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
+		require.True(errors.Cause(err) == factory.ErrNotSupported)
+	} else {
+		AccountA, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
+		require.NoError(err)
+		AccountB, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
+		require.NoError(err)
+		require.Equal(big.NewInt(100), AccountA.Balance)
+		require.Equal(big.NewInt(100), AccountB.Balance)
+	}
 }
 
 func TestHistoryForContract(t *testing.T) {
@@ -1354,7 +1361,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, dao := newChain(t, true)
+	bc, sf, dao := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, t)
@@ -1377,12 +1384,17 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	require.Equal(expect, balance)
 
 	// check the the original balance again
-	account, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
-	require.NoError(err)
-	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
-	expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
-	require.True(ok)
-	require.Equal(expect, balance)
+	if statetx {
+		_, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
+		require.True(errors.Cause(err) == factory.ErrNotSupported)
+	} else {
+		account, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
+		require.NoError(err)
+		balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
+		require.True(ok)
+		require.Equal(expect, balance)
+	}
 }
 
 func deployXrc20(bc Blockchain, dao blockdao.BlockDAO, t *testing.T) string {

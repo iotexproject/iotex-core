@@ -25,13 +25,13 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/db/batch"
 )
 
 const (
@@ -41,6 +41,13 @@ const (
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
+)
+
+var (
+	// ErrNotSupported is the error that the statedb is not for archive mode
+	ErrNotSupported = errors.New("not supported")
+	// ErrNoArchiveData is the error that the node have no archive data
+	ErrNoArchiveData = errors.New("no archive data")
 )
 
 type (
@@ -331,7 +338,9 @@ func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
 func (sf *factory) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-
+	if !sf.saveHistory {
+		return ErrNoArchiveData
+	}
 	return sf.stateAtHeight(height, addr, state)
 }
 
