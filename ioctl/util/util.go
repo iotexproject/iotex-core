@@ -189,7 +189,7 @@ func Address(in string) (string, error) {
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
 
-// Doing: ioctl set auth and send for every grpc request
+// JwtAuth used for ioctl set auth and send for every grpc request
 func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
 	jwtString, err := ioutil.ReadFile(jwtFile)
