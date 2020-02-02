@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -202,6 +203,12 @@ func nextDelegates() error {
 
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtString, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+	}
+
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
