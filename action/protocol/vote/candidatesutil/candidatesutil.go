@@ -115,7 +115,6 @@ func GetKickoutList(sr protocol.StateReader, epochStartPoint bool) (*vote.Blackl
 // GetUnproductiveDelegate returns latest UnproductiveDelegate struct
 func GetUnproductiveDelegate(sr protocol.StateReader) (*vote.UnproductiveDelegate, error) {
 	upd := &vote.UnproductiveDelegate{}
-	// Load kick out list on the given epochNum from underlying db
 	updKey := ConstructConstKey(UnproductiveDelegateKey)
 	err := sr.State(upd, protocol.LegacyKeyOption(updKey))
 	log.L().Debug(

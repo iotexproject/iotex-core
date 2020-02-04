@@ -43,7 +43,7 @@ var (
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
-// GetKickoutList returns current the blacklist
+// GetKickoutList returns the current blacklist
 type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the

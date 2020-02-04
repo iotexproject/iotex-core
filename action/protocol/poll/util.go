@@ -195,7 +195,7 @@ func setKickoutBlackList(
 	return err 
 }
 
-// setKickoutBlackList sets the blacklist for kick-out with updkey
+// setUnproductiveDelegates sets the upd struct with updkey
 func setUnproductiveDelegates(
 	sm protocol.StateManager,
 	upd *vote.UnproductiveDelegate,
@@ -207,7 +207,6 @@ func setUnproductiveDelegates(
 // shiftCandidates updates current data with next data of candidate list
 func shiftCandidates(sm protocol.StateManager) error {
 	var next state.CandidateList
-	// Load kick out list on the given epochNum from underlying db
 	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)
 	err := sm.State(nextKey, &next)
 	if err != nil {
@@ -230,7 +229,6 @@ func shiftCandidates(sm protocol.StateManager) error {
 // shiftKickoutList updates current data with next data of kickout list
 func shiftKickoutList(sm protocol.StateManager) error {
 	next := &vote.Blacklist{}
-	// Load kick out list on the given epochNum from underlying db
 	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)
 	err := sm.State(nextKey, next)
 	if err != nil {

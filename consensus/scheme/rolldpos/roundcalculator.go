@@ -29,6 +29,7 @@ type roundCalculator struct {
 // UpdateRound updates previous roundCtx
 func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
+	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
 	switch {
 	case height < round.Height():
@@ -40,6 +41,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	default:
 		if height >= round.NextEpochStartHeight() {
 			// update the epoch
+			epochNum = c.rp.GetEpochNum(height)
+			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
 			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
@@ -71,10 +74,9 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			return nil, err
 		}
 	}
-	epochNum = c.rp.GetEpochNum(height)
 	return &roundCtx{
 		epochNum:             epochNum,
-		epochStartHeight:     c.rp.GetEpochHeight(epochNum),
+		epochStartHeight:     epochStartHeight,
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
 

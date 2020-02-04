@@ -54,7 +54,7 @@ type governanceChainCommitteeProtocol struct {
 func NewGovernanceChainCommitteeProtocol(
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
-	kickoutListByEpoch GetKickoutList,
+	getKickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
@@ -84,7 +84,7 @@ func NewGovernanceChainCommitteeProtocol(
 	return &governanceChainCommitteeProtocol{
 		candidatesByHeight:        candidatesByHeight,
 		getCandidates:             getCandidates,
-		getKickoutList:            kickoutListByEpoch,
+		getKickoutList:            getKickoutList,
 		getUnproductiveDelegate:   getUnproductiveDelegate,
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
