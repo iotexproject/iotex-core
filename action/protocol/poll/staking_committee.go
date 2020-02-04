@@ -230,8 +230,8 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 }
 
 // DelegatesByEpoch returns exact number of delegates according to epoch number
-func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum)
+func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
+	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum, readFromNext)
 }
 
 // CandidatesByHeight returns candidate list from state factory according to height

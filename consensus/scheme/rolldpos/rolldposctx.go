@@ -73,7 +73,7 @@ func init() {
 }
 
 // DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(context.Context, uint64) (state.CandidateList, error)
+type DelegatesByEpochFunc func(context.Context, uint64, bool) (state.CandidateList, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
 

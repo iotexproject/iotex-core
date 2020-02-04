@@ -96,6 +96,8 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
 		nil,
+		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -109,6 +111,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
 		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {

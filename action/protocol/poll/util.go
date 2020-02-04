@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -54,7 +55,7 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	if err := setCandidates(sm, r.Candidates(), r.Height()); err != nil {
+	if err := setCandidates(ctx, sm, r.Candidates(), r.Height()); err != nil {
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
 	return &action.Receipt{
@@ -147,19 +148,24 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 
 // setCandidates sets the candidates for the given state manager
 func setCandidates(
+	ctx context.Context,
 	sm protocol.StateManager,
 	candidates state.CandidateList,
-	height uint64,
+	height uint64, // epoch start height
 ) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(height)
+	if height != rp.GetEpochHeight(epochNum) {
+		return errors.New("put poll result height should be epoch start height")
+	}
+
 	for _, candidate := range candidates {
 		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		delegate.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
-			return err
-		}
 		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
@@ -170,17 +176,76 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
-	_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPre(config.English, height) {
+		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
+		return err 
+	}
+	_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	return err
 }
 
-// setKickoutBlackList sets the blacklist for kick-out for corresponding epoch
+// setKickoutBlackList sets the blacklist for kick-out with next key
 func setKickoutBlackList(
 	sm protocol.StateManager,
 	blackList *vote.Blacklist,
-	epochNum uint64,
 ) error {
-	blackListKey := candidatesutil.ConstructBlackListKey(epochNum)
+	blackListKey := candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)
 	_, err := sm.PutState(blackList, protocol.LegacyKeyOption(blackListKey))
-	return err
+	return err 
+}
+
+// setKickoutBlackList sets the blacklist for kick-out with updkey
+func setUnproductiveDelegates(
+	sm protocol.StateManager,
+	upd *vote.UnproductiveDelegate,
+) error {
+	updKey := candidatesutil.ConstructConstKey(candidatesutil.UnproductiveDelegateKey)
+	return sm.PutState(updKey, upd)
+}
+
+// shiftCandidates updates current data with next data of candidate list
+func shiftCandidates(sm protocol.StateManager) error {
+	var next state.CandidateList
+	// Load kick out list on the given epochNum from underlying db
+	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)
+	err := sm.State(nextKey, &next)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to read next blacklist when shifting to current blacklist",
+		)
+	}
+	curKey := candidatesutil.ConstructConstKey(candidatesutil.CurCandidateKey)
+	err = sm.PutState(curKey, &next)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+		)
+	}
+	return nil
+}
+
+// shiftKickoutList updates current data with next data of kickout list
+func shiftKickoutList(sm protocol.StateManager) error {
+	next := &vote.Blacklist{}
+	// Load kick out list on the given epochNum from underlying db
+	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)
+	err := sm.State(nextKey, next)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to read next blacklist when shifting to current blacklist",
+		)
+	}
+	curKey := candidatesutil.ConstructConstKey(candidatesutil.CurKickoutKey)
+	err = sm.PutState(curKey, next)
+	if err != nil {
+		return errors.Wrap(
+			err,
+			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+		)
+	}
+	return nil
 }

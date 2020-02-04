@@ -26,7 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-var dummyCandidatesByHeightFunc = func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
+var dummyCandidatesByHeightFunc = func(context.Context, uint64, bool) (state.CandidateList, error) { return nil, nil }
 
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)

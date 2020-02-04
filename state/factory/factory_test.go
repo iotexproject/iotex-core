@@ -257,6 +257,8 @@ func testCandidates(sf Factory, t *testing.T) {
 	p, err := poll.NewGovernanceChainCommitteeProtocol(
 		nil,
 		nil,
+		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -268,6 +270,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		config.Default.Genesis.ProductivityThreshold,
 		config.Default.Genesis.KickoutEpochPeriod,
 		config.Default.Genesis.KickoutIntensityRate,
+		config.Default.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
 	require.NoError(t, registry.Register("poll", p))
 	require.NoError(t, err)

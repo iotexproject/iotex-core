@@ -60,7 +60,7 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
-	return setCandidates(sm, p.delegates, uint64(1))
+	return setCandidates(ctx, sm, p.delegates, uint64(1))
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -75,7 +75,7 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
 	var blockProducerList []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)

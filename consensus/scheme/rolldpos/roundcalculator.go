@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type roundCalculator struct {
@@ -28,7 +29,6 @@ type roundCalculator struct {
 // UpdateRound updates previous roundCtx
 func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInterval time.Duration, now time.Time, toleratedOvertime time.Duration) (*roundCtx, error) {
 	epochNum := round.EpochNum()
-	epochStartHeight := round.EpochStartHeight()
 	delegates := round.Delegates()
 	switch {
 	case height < round.Height():
@@ -40,10 +40,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	default:
 		if height >= round.NextEpochStartHeight() {
 			// update the epoch
-			epochNum = c.rp.GetEpochNum(height)
-			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
-			if delegates, err = c.Delegates(epochStartHeight); err != nil {
+			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
 		}
@@ -73,9 +71,10 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			return nil, err
 		}
 	}
+	epochNum = c.rp.GetEpochNum(height)
 	return &roundCtx{
 		epochNum:             epochNum,
-		epochStartHeight:     epochStartHeight,
+		epochStartHeight:     c.rp.GetEpochHeight(epochNum),
 		nextEpochStartHeight: c.rp.GetEpochHeight(epochNum + 1),
 		delegates:            delegates,
 
@@ -169,7 +168,24 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	candidatesList, err := c.delegatesByEpochFunc(context.Background(), epochNum)
+	epochStartHeight := c.rp.GetEpochHeight(epochNum)
+	re := protocol.NewRegistry()
+	if err := c.rp.Register(re); err != nil {
+		return nil, err
+	}
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{
+			Registry: re,
+		},
+	)
+	var candidatesList state.CandidateList
+	var err error
+	if height == epochStartHeight {
+		candidatesList, err = c.delegatesByEpochFunc(ctx, epochNum, true)
+	} else {
+		candidatesList, err = c.delegatesByEpochFunc(ctx, epochNum, false)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
 	}
@@ -217,8 +233,8 @@ func (c *roundCalculator) newRound(
 	var roundStartTime time.Time
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
-		epochStartHeight := c.rp.GetEpochHeight(epochNum)
-		if delegates, err = c.Delegates(epochStartHeight); err != nil {
+		epochStartHeight = c.rp.GetEpochHeight(epochNum)
+		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {

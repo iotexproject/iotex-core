@@ -63,7 +63,7 @@ func TestNewRollDPoS(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	delegatesByEpoch := func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
+	delegatesByEpoch := func(context.Context, uint64, bool) (state.CandidateList, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
@@ -219,7 +219,7 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
-		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
+		SetDelegatesByEpochFunc(func(context.Context, uint64, bool) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
@@ -299,7 +299,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
+		SetDelegatesByEpochFunc(func(context.Context, uint64, bool) (state.CandidateList, error) {
 			return []*state.Candidate{
 				{Address: candidates[0]},
 				{Address: candidates[1]},
@@ -399,7 +399,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		delegatesByEpochFunc := func(ctx context.Context, _ uint64) (state.CandidateList, error) {
+		delegatesByEpochFunc := func(ctx context.Context, _ uint64, _ bool) (state.CandidateList, error) {
 			candidates := make([]*state.Candidate, 0, numNodes)
 			for _, addr := range chainAddrs {
 				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})

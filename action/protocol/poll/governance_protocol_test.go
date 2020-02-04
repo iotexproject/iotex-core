@@ -117,7 +117,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		candidatesutil.KickoutListByEpoch,
+		func(protocol.StateReader, bool) ([]*state.Candidate, error) { return candidates, nil },
+		candidatesutil.GetKickoutList,
+		candidatesutil.GetUnproductiveDelegate,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -158,7 +160,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
 		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
+
+	if err := setCandidates(ctx, sm, candidates, 1); err != nil {
+		return nil, nil, nil, nil, err
+	}
 	return p, ctx, sm, r, err
 }
 
@@ -170,7 +177,7 @@ func TestCreateGenesisStates(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var sc state.CandidateList
-	_, err = sm.State(&sc, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm.State(&sc, LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	candidates, err := state.CandidatesToMap(sc)
 	require.NoError(err)
@@ -242,6 +249,27 @@ func TestCreatePreStates(t *testing.T) {
 	// testing for kick-out slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
+		if epochNum > 1 {
+			epochStartHeight := rp.GetEpochHeight(epochNum)
+			ctx = protocol.WithBlockCtx(
+				ctx,
+				protocol.BlockCtx{
+					BlockHeight: epochStartHeight,
+					Producer:    identityset.Address(1),
+				},
+			)
+			require.NoError(psc.CreatePreStates(ctx, sm)) // shift
+			bl := &vote.Blacklist{}
+			require.NoError(sm.State(candidatesutil.ConstructConstKey(candidatesutil.CurKickoutKey), bl))
+			expected := test[epochNum]
+			require.Equal(len(expected), len(bl.BlacklistInfos))
+			for addr, count := range bl.BlacklistInfos {
+				val, ok := expected[addr]
+				require.True(ok)
+				require.Equal(val, count)
+			}
+		}
+		// at last of epoch, set blacklist into next kickout key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		ctx = protocol.WithBlockCtx(
 			ctx,
@@ -251,8 +279,9 @@ func TestCreatePreStates(t *testing.T) {
 			},
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm))
+
 		bl := &vote.Blacklist{}
-		_, err = sm.State(bl, protocol.LegacyKeyOption(candidatesutil.ConstructBlackListKey(epochNum+1)))
+		_, err = sm.State(bl, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)))
 		require.NoError(err)
 		expected := test[epochNum+1]
 		require.Equal(len(expected), len(bl.BlacklistInfos))
@@ -294,7 +323,8 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -306,7 +336,8 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(receipt)
 
-	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	require.NoError(shiftCandidates(sm2))
+	candidates, err := candidatesutil.GetCandidates(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -343,7 +374,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
@@ -374,7 +405,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 	var sc3 state.CandidateList
-	_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
@@ -406,7 +437,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 	var sc4 state.CandidateList
-	_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act4 := action.NewPutPollResult(1, 1, sc4)
@@ -437,7 +468,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 	var sc5 state.CandidateList
-	_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	sc5[0].Votes = big.NewInt(10)
 	act5 := action.NewPutPollResult(1, 1, sc5)
@@ -468,7 +499,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
 	var sc6 state.CandidateList
-	_, err = sm6.State(&sc6, protocol.LegacyKeyOption(candidatesutil.ConstructKey(1)))
+	_, err = sm6.State(&sc6, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
 	require.NoError(err)
 	act6 := action.NewPutPollResult(1, 1, sc6)
 	bd6 := &action.EnvelopeBuilder{}
@@ -511,9 +542,9 @@ func TestDelegatesByEpoch(t *testing.T) {
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
 	}
-	require.NoError(setKickoutBlackList(sm, blackList, 2))
+	require.NoError(setKickoutBlackList(sm, blackList))
 
-	delegates, err := p.DelegatesByEpoch(ctx, 2)
+	delegates, err := p.DelegatesByEpoch(ctx, 2, true)
 	require.NoError(err)
 
 	require.Equal(2, len(delegates))

@@ -118,7 +118,7 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum)
+	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum, false)
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
