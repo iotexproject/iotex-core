@@ -97,9 +97,9 @@ func getActionByHash(args []string) error {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	// search action on blockchain

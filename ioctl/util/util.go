@@ -9,7 +9,6 @@ package util
 import (
 	"bytes"
 	"crypto/tls"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -194,8 +193,7 @@ func JwtAuth() (jwt metadata.MD, err error) {
 	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
 	jwtString, err := ioutil.ReadFile(jwtFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "File Error: %s\n", err)
 		return nil, err
 	}
-	return metadata.Pairs("Authorization", "Bearer "+string(jwtString)), nil
+	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
 }

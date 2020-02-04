@@ -89,9 +89,9 @@ func version() error {
 	request := &iotexapi.GetServerMetaRequest{}
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.GetServerMeta(ctx, request)

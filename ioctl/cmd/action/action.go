@@ -148,9 +148,9 @@ func gasPriceInRau() (*big.Int, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	request := &iotexapi.SuggestGasPriceRequest{}
@@ -180,9 +180,9 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 	}
 
 	ctx := context.Background()
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	res, err := cli.EstimateActionGasConsumption(ctx, request)
@@ -207,9 +207,9 @@ func SendRaw(selp *iotextypes.Action) error {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	request := &iotexapi.SendActionRequest{Action: selp}
@@ -346,9 +346,9 @@ func Read(contract address.Address, bytecode []byte) (string, error) {
 	defer conn.Close()
 
 	ctx := context.Background()
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(

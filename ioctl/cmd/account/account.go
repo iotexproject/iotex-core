@@ -146,9 +146,9 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: addr}
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 	response, err := cli.GetAccount(ctx, &request)
 

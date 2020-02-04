@@ -67,9 +67,9 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	request := iotexapi.GetChainMetaRequest{}
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.GetChainMeta(ctx, &request)
@@ -94,9 +94,9 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
 	ctx := context.Background()
 
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.GetEpochMeta(ctx, request)

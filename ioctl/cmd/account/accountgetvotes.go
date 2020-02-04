@@ -62,9 +62,9 @@ func getVotes(args []string) error {
 	defer conn.Close()
 
 	ctx := context.Background()
-	jwtString, err := util.JwtAuth()
+	jwtMD, err := util.JwtAuth()
 	if err == nil {
-		ctx = metautils.NiceMD(jwtString).ToOutgoing(context.TODO())
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 	res, err := iotexapi.NewAPIServiceClient(conn).GetVotes(
 		ctx,
