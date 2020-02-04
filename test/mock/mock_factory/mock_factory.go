@@ -10,6 +10,7 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	factory "github.com/iotexproject/iotex-core/state/factory"
@@ -82,6 +83,39 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockFactory)(nil).Height))
 }
 
+// State mocks base method
+func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}, arg2 ...protocol.StateOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// State indicates an expected call of State
+func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
+}
+
+// StateAtHeight mocks base method
+func (m *MockFactory) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StateAtHeight indicates an expected call of StateAtHeight
+func (mr *MockFactoryMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockFactory)(nil).StateAtHeight), arg0, arg1, arg2)
+}
+
 // NewWorkingSet mocks base method
 func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
 	m.ctrl.T.Helper()
@@ -141,20 +175,6 @@ func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
 }
 
-// State mocks base method
-func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// State indicates an expected call of State
-func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
-}
-
 // DeleteWorkingSet mocks base method
 func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
 	m.ctrl.T.Helper()
@@ -167,18 +187,4 @@ func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
 func (mr *MockFactoryMockRecorder) DeleteWorkingSet(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkingSet", reflect.TypeOf((*MockFactory)(nil).DeleteWorkingSet), arg0)
-}
-
-// StateAtHeight mocks base method
-func (m *MockFactory) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockFactoryMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockFactory)(nil).StateAtHeight), arg0, arg1, arg2)
 }

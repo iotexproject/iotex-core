@@ -18,7 +18,9 @@ pprof*
 *.pyc
 
 # Test binary, build with `go test -c`
+data/*
 *.test
+*.gz
 
 #git patch
 *.patch

@@ -113,7 +113,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
@@ -123,7 +123,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
 		}
-		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
@@ -144,7 +144,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -262,11 +262,21 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(addr hash.Hash160, state interface{}) error {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
+func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
 
-	return sdb.state(addr, state)
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	ns := protocol.AccountNameSpace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+
+	return sdb.state(ns, addr, state)
 }
 
 // DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
@@ -285,8 +295,8 @@ func (sdb *stateDB) StateAtHeight(height uint64, addr hash.Hash160, state interf
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
-	data, err := sdb.dao.Get(AccountKVNameSpace, addr[:])
+func (sdb *stateDB) state(ns string, addr hash.Hash160, s interface{}) error {
+	data, err := sdb.dao.Get(ns, addr[:])
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)

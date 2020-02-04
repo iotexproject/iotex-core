@@ -35,8 +35,6 @@ import (
 )
 
 const (
-	// AccountKVNameSpace is the bucket name for account trie
-	AccountKVNameSpace = "Account"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
@@ -54,15 +52,13 @@ type (
 	// Factory defines an interface for managing states
 	Factory interface {
 		lifecycle.StartStopper
-		Height() (uint64, error)
+		protocol.StateReader
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
 		Validate(context.Context, *block.Block) error
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
-		State(hash.Hash160, interface{}) error
 		DeleteWorkingSet(*block.Block) error
-		StateAtHeight(uint64, hash.Hash160, interface{}) error
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -128,7 +124,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, sf.dao)
+	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, sf.dao)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create db for trie")
 	}
@@ -163,7 +159,7 @@ func (sf *factory) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	_, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	_, err := sf.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		break
@@ -192,7 +188,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 func (sf *factory) Height() (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	height, err := sf.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sf.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -320,7 +316,7 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(addr hash.Hash160, state interface{}) error {
+func (sf *factory) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -368,11 +364,11 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 
 func (sf *factory) stateAtHeight(height uint64, addr hash.Hash160, s interface{}) error {
 	// get root through height
-	rootHash, err := sf.dao.Get(AccountKVNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
+	rootHash, err := sf.dao.Get(protocol.AccountNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
 	if err != nil {
 		return errors.Wrap(err, "failed to get root hash through height")
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, sf.dao, db.CachedBatchOption(batch.NewCachedBatch()))
+	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, sf.dao, db.CachedBatchOption(batch.NewCachedBatch()))
 	if err != nil {
 		return errors.Wrap(err, "failed to generate state tire db")
 	}
