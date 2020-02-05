@@ -276,6 +276,11 @@ func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
 	return nil
 }
 
+// StateAtHeight returns a confirmed state in the state factory
+func (sdb *stateDB) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
+	return ErrNotSupported
+}
+
 //======================================
 // private trie constructor functions
 //======================================
