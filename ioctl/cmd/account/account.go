@@ -17,14 +17,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/pkg/errors"
+	"github.com/spf13/cobra"
+	"google.golang.org/grpc/status"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
-	"github.com/spf13/cobra"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -143,7 +145,13 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: addr}
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	response, err := cli.GetAccount(ctx, &request)
+
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
