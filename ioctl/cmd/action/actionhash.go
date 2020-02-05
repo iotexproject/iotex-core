@@ -196,7 +196,11 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
-			result += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+			amount, err := util.StringToIOTX(execution.Amount)
+			if err != nil {
+				return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
+			}
+			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
 		}
 		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
 	case action.Core.GetPutPollResult() != nil:
