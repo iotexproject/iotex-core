@@ -11,6 +11,7 @@ import (
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 )
@@ -96,37 +97,18 @@ func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
 }
 
-// RunActions mocks base method
-func (m *MockFactory) RunActions(arg0 context.Context, arg1 []action.SealedEnvelope) ([]*action.Receipt, factory.WorkingSet, error) {
+// Validate mocks base method
+func (m *MockFactory) Validate(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunActions", arg0, arg1)
-	ret0, _ := ret[0].([]*action.Receipt)
-	ret1, _ := ret[1].(factory.WorkingSet)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
-// RunActions indicates an expected call of RunActions
-func (mr *MockFactoryMockRecorder) RunActions(arg0, arg1 interface{}) *gomock.Call {
+// Validate indicates an expected call of Validate
+func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActions", reflect.TypeOf((*MockFactory)(nil).RunActions), arg0, arg1)
-}
-
-// PickAndRunActions mocks base method
-func (m *MockFactory) PickAndRunActions(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, factory.WorkingSet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PickAndRunActions", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]*action.Receipt)
-	ret1, _ := ret[1].([]action.SealedEnvelope)
-	ret2, _ := ret[2].(factory.WorkingSet)
-	ret3, _ := ret[3].(error)
-	return ret0, ret1, ret2, ret3
-}
-
-// PickAndRunActions indicates an expected call of PickAndRunActions
-func (mr *MockFactoryMockRecorder) PickAndRunActions(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PickAndRunActions", reflect.TypeOf((*MockFactory)(nil).PickAndRunActions), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockFactory)(nil).Validate), arg0, arg1)
 }
 
 // SimulateExecution mocks base method
@@ -146,17 +128,17 @@ func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 inte
 }
 
 // Commit mocks base method
-func (m *MockFactory) Commit(arg0 factory.WorkingSet) error {
+func (m *MockFactory) Commit(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0)
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Commit indicates an expected call of Commit
-func (mr *MockFactoryMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
 }
 
 // State mocks base method
@@ -171,4 +153,18 @@ func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}) error {
 func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), arg0, arg1)
+}
+
+// DeleteWorkingSet mocks base method
+func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteWorkingSet", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteWorkingSet indicates an expected call of DeleteWorkingSet
+func (mr *MockFactoryMockRecorder) DeleteWorkingSet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkingSet", reflect.TypeOf((*MockFactory)(nil).DeleteWorkingSet), arg0)
 }

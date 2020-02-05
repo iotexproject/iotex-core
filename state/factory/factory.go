@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -46,11 +49,11 @@ type (
 		Height() (uint64, error)
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
-		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error)
-		PickAndRunActions(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error)
+		Validate(context.Context, *block.Block) error
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
-		Commit(WorkingSet) error
+		Commit(context.Context, *block.Block) error
 		State(hash.Hash160, interface{}) error
+		DeleteWorkingSet(*block.Block) error
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -63,6 +66,7 @@ type (
 		accountTrie        trie.Trie  // global state trie
 		dao                db.KVStore // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
+		workingsets        *lru.Cache // lru cache for workingsets
 	}
 )
 
@@ -136,6 +140,9 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
+	if sf.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
+		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
+	}
 
 	return sf, nil
 }
@@ -168,6 +175,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 	if err := sf.dao.Stop(ctx); err != nil {
 		return err
 	}
+	sf.workingsets.Purge()
 	return sf.lifecycle.OnStop(ctx)
 }
 
@@ -190,30 +198,49 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	return newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 }
 
-func (sf *factory) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
-	sf.mutex.Unlock()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
+	defer sf.mutex.Unlock()
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	if data, ok := sf.workingsets.Get(key); ok {
+		if _, ok := data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+		// if already validated, return nil
+		return nil
 	}
-
-	return runActions(ctx, ws, actions)
+	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	if err != nil {
+		return errors.Wrap(err, "failed to obtain working set from state factory")
+	}
+	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
+		return errors.Wrap(err, "failed to validate block with workingset in factory")
+	}
+	sf.workingsets.Add(key, ws)
+	return nil
 }
 
-func (sf *factory) PickAndRunActions(
+// NewBlockBuilder returns block builder which hasn't been signed yet
+func (sf *factory) NewBlockBuilder(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
-) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+) (*block.Builder, error) {
 	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
-	sf.mutex.Unlock()
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+	}
+	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+	if err != nil {
+		return nil, err
 	}
 
-	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
+	sf.workingsets.Add(key, ws)
+	return blkBuilder, nil
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -235,13 +262,41 @@ func (sf *factory) SimulateExecution(
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (sf *factory) Commit(ws WorkingSet) error {
+func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	timer := sf.timerFactory.NewTimer("Commit")
 	defer timer.End()
-	if ws == nil {
-		return errors.New("working set doesn't exist")
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producer,
+		},
+	)
+	var ws WorkingSet
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	if data, ok := sf.workingsets.Get(key); ok {
+		if ws, ok = data.(WorkingSet); !ok {
+			return errors.New("type assertion failed to be WorkingSet")
+		}
+	} else {
+		// regenerate the workingset
+		ws, err = newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+		if err != nil {
+			return errors.Wrap(err, "Failed to obtain working set from state factory")
+		}
+		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
+		if err != nil {
+			log.L().Panic("Failed to update state.", zap.Error(err))
+			return err
+		}
 	}
 	if sf.currentChainHeight+1 != ws.Version() {
 		// another working set with correct version already committed, do nothing
@@ -261,6 +316,13 @@ func (sf *factory) State(addr hash.Hash160, state interface{}) error {
 	defer sf.mutex.RUnlock()
 
 	return sf.state(addr, state)
+}
+
+// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
+func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	sf.workingsets.Remove(key)
+	return nil
 }
 
 //======================================

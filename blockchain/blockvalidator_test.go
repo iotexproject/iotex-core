@@ -146,6 +146,9 @@ func TestWrongNonce(t *testing.T) {
 	)
 	require.NoError(err)
 	require.NotNil(blk)
+
+	sf.DeleteWorkingSet(blk)
+
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{
@@ -174,7 +177,9 @@ func TestWrongNonce(t *testing.T) {
 		testutil.TimestampNow(),
 	)
 	require.NoError(err)
-	require.NotNil(blk)
+	require.NotNil(blk2)
+
+	sf.DeleteWorkingSet(blk2)
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
@@ -208,6 +213,8 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(blk3)
 
+	sf.DeleteWorkingSet(blk3)
+
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
@@ -239,6 +246,8 @@ func TestWrongNonce(t *testing.T) {
 	)
 	require.NoError(err)
 	require.NotNil(blk4)
+
+	sf.DeleteWorkingSet(blk4)
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,

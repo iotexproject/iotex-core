@@ -54,11 +54,11 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 }
 
 // KickoutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
-func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (vote.Blacklist, error) {
-	var blackList vote.Blacklist
+func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (*vote.Blacklist, error) {
+	blackList := &vote.Blacklist{}
 	// Load kick out list on the given epochNum from underlying db
 	blackListKey := ConstructBlackListKey(epochNum)
-	err := sr.State(blackListKey, &blackList)
+	err := sr.State(blackListKey, blackList)
 	log.L().Debug(
 		"KickoutListByEpoch",
 		zap.Uint64("epoch number", epochNum),
@@ -83,35 +83,6 @@ func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr strin
 	}
 	if err := addCandidate(candidateMap, addr); err != nil {
 		return errors.Wrap(err, "failed to add candidate to candidate map")
-	}
-	return storeCandidates(candidateMap, sm, blkHeight)
-}
-
-// LoadAndDeleteCandidates loads candidates from trie and deletes a candidate if exists
-func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encodedAddr string) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
-	if err != nil {
-		return errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert address to public key hash")
-	}
-	addrHash := hash.BytesToHash160(addr.Bytes())
-	if _, ok := candidateMap[addrHash]; ok {
-		delete(candidateMap, addrHash)
-	}
-	return storeCandidates(candidateMap, sm, blkHeight)
-}
-
-// LoadAndUpdateCandidates loads candidates from trie and updates an existing candidate
-func LoadAndUpdateCandidates(sm protocol.StateManager, blkHeight uint64, addr string, votingWeight *big.Int) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
-	if err != nil {
-		return errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
-	if err := updateCandidate(candidateMap, addr, votingWeight, blkHeight); err != nil {
-		return errors.Wrapf(err, "failed to update candidate %s", addr)
 	}
 	return storeCandidates(candidateMap, sm, blkHeight)
 }
@@ -164,25 +135,6 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 			Votes:   big.NewInt(0),
 		}
 	}
-	return nil
-}
-
-// updateCandidate updates a candidate state
-func updateCandidate(
-	candidateMap map[hash.Hash160]*state.Candidate,
-	encodedAddr string,
-	totalWeight *big.Int,
-	blockHeight uint64,
-) error {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
-	}
-	addrHash := hash.BytesToHash160(addr.Bytes())
-	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate := candidateMap[addrHash]
-	candidate.Votes = totalWeight
-
 	return nil
 }
 
