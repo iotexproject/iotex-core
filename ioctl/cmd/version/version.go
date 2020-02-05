@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -87,6 +88,12 @@ func version() error {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetServerMetaRequest{}
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)

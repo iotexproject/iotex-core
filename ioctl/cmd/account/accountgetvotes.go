@@ -10,6 +10,8 @@ import (
 	"context"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -59,8 +61,13 @@ func getVotes(args []string) error {
 	}
 	defer conn.Close()
 
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	res, err := iotexapi.NewAPIServiceClient(conn).GetVotes(
-		context.Background(),
+		ctx,
 		&iotexapi.GetVotesRequest{
 			Votee:  args[0],
 			Height: args[1],
@@ -68,6 +75,7 @@ func getVotes(args []string) error {
 			Limit:  uint32(limit),
 		},
 	)
+
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
