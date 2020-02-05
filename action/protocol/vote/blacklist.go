@@ -10,11 +10,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action/protocol/vote/blacklistpb"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 //Blacklist defines a map where key is candidate's name and value is the counter which counts the unproductivity during kick-out epoch.
-type Blacklist map[string]int32
+type Blacklist struct {
+	BlacklistInfos map[string]uint32
+	IntensityRate  float64
+}
 
 // Serialize serializes map of blacklist to bytes
 func (bl *Blacklist) Serialize() ([]byte, error) {
@@ -22,23 +25,24 @@ func (bl *Blacklist) Serialize() ([]byte, error) {
 }
 
 // Proto converts the blacklist to a protobuf message
-func (bl *Blacklist) Proto() *blacklistpb.BlackList {
-	delegates := make([]*blacklistpb.BlackListInfo, 0, len(*bl))
-	for name, count := range *bl {
-		delegatepb := &blacklistpb.BlackListInfo{
-			Name:  name,
-			Count: count,
+func (bl *Blacklist) Proto() *iotextypes.KickoutCandidateList {
+	kickoutListPb := make([]*iotextypes.KickoutInfo, 0, len(bl.BlacklistInfos))
+	for name, count := range bl.BlacklistInfos {
+		kickoutpb := &iotextypes.KickoutInfo{
+			Address: name,
+			Count:   count,
 		}
-		delegates = append(delegates, delegatepb)
+		kickoutListPb = append(kickoutListPb, kickoutpb)
 	}
-	return &blacklistpb.BlackList{
-		BlackListInfos: delegates,
+	return &iotextypes.KickoutCandidateList{
+		Blacklists:    kickoutListPb,
+		IntensityRate: uint32(bl.IntensityRate * 100),
 	}
 }
 
 // Deserialize deserializes bytes to delegate blacklist
 func (bl *Blacklist) Deserialize(buf []byte) error {
-	blackList := &blacklistpb.BlackList{}
+	blackList := &iotextypes.KickoutCandidateList{}
 	if err := proto.Unmarshal(buf, blackList); err != nil {
 		return errors.Wrap(err, "failed to unmarshal blacklist")
 	}
@@ -46,13 +50,14 @@ func (bl *Blacklist) Deserialize(buf []byte) error {
 }
 
 // LoadProto loads blacklist from proto
-func (bl *Blacklist) LoadProto(blackList *blacklistpb.BlackList) error {
-	blackListMap := make(map[string]int32, 0)
-	delegates := blackList.BlackListInfos
-	for _, delegate := range delegates {
-		blackListMap[delegate.Name] = delegate.Count
+func (bl *Blacklist) LoadProto(blackListpb *iotextypes.KickoutCandidateList) error {
+	blackListMap := make(map[string]uint32, 0)
+	candidates := blackListpb.Blacklists
+	for _, cand := range candidates {
+		blackListMap[cand.Address] = cand.Count
 	}
-	*bl = blackListMap
+	bl.BlacklistInfos = blackListMap
+	bl.IntensityRate = float64(blackListpb.IntensityRate) / float64(100)
 
 	return nil
 }

@@ -310,10 +310,10 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	updatedVotingPower := make(map[string]*big.Int)
 	for _, cand := range candidates {
 		candidatesMap[cand.Address] = cand
-		if _, ok := unqualifiedList[cand.Address]; ok {
+		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
 			votingPower := new(big.Float).SetInt(cand.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(unqualifiedList.IntensityRate)).Int(nil)
 			updatedVotingPower[cand.Address] = newVotingPower
 		} else {
 			updatedVotingPower[cand.Address] = cand.Votes
@@ -386,12 +386,15 @@ func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context,
 func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	ctx context.Context,
 	epochNum uint64,
-) (vote.Blacklist, error) {
+) (*vote.Blacklist, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	englishEpochNum := rp.GetEpochNum(config.English)
 
-	unqualifiedDelegates := vote.Blacklist{}
+	nextBlacklist := &vote.Blacklist{
+		IntensityRate: p.kickoutIntensity,
+	}
+	unqualifiedDelegates := make(map[string]uint32)
 	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
 		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
 		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
@@ -417,44 +420,47 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 			}
 			round--
 		}
-		return unqualifiedDelegates, nil
+		nextBlacklist.BlacklistInfos = unqualifiedDelegates
+		return nextBlacklist, nil
 	}
 
 	// Blacklist[N] = Blacklist[N-1] - Low-productivity-list[N-K-1] + Low-productivity-list[N-1]
-	blackListMapping, err := p.kickoutListByEpoch(p.sr, epochNum-1)
+	prevBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-1)
 	if err != nil {
 		return nil, err
 	}
+	blacklistMap := prevBlacklist.BlacklistInfos
 	skipList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-p.kickoutEpochPeriod-1, false)
 	if err != nil {
 		return nil, err
 	}
 	for _, addr := range skipList {
-		if _, ok := blackListMapping[addr]; !ok {
+		if _, ok := blacklistMap[addr]; !ok {
 			log.L().Fatal("skipping list element doesn't exist among one of existing map")
 			continue
 		}
-		blackListMapping[addr]--
+		blacklistMap[addr]--
 	}
 	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1, true)
 	if err != nil {
 		return nil, err
 	}
 	for _, addr := range addList {
-		if _, ok := blackListMapping[addr]; ok {
-			blackListMapping[addr]++
+		if _, ok := blacklistMap[addr]; ok {
+			blacklistMap[addr]++
 			continue
 		}
-		blackListMapping[addr] = 1
+		blacklistMap[addr] = 1
 	}
 
-	for addr, count := range blackListMapping {
-		if count <= 0 {
-			delete(blackListMapping, addr)
+	for addr, count := range blacklistMap {
+		if count == 0 {
+			delete(blacklistMap, addr)
 		}
 	}
+	nextBlacklist.BlacklistInfos = blacklistMap
 
-	return blackListMapping, nil
+	return nextBlacklist, nil
 }
 
 func (p *governanceChainCommitteeProtocol) calculateUnproductiveDelegatesByEpoch(

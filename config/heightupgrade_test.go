@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX
+// Copyright (c) 2020 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -20,7 +20,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(2, Bering)
 	require.Equal(3, Cook)
 	require.Equal(4, Dardanelles)
-	require.Equal(5, English)
+	require.Equal(5, Daytona)
+	require.Equal(6, English)
 
 	cfg := Default
 	cfg.Genesis.PacificBlockHeight = uint64(432001)
@@ -36,6 +37,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(hu.IsPost(Cook, uint64(1641601)))
 	require.True(hu.IsPre(Dardanelles, uint64(1816200)))
 	require.True(hu.IsPost(Dardanelles, uint64(1816201)))
+	require.True(hu.IsPre(Daytona, uint64(3238920)))
+	require.True(hu.IsPost(Daytona, uint64(3238921)))
 	require.True(hu.IsPre(English, uint64(3363480)))
 	require.True(hu.IsPost(English, uint64(3363481)))
 	require.Panics(func() {
@@ -47,6 +50,6 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(hu.BeringBlockHeight(), uint64(1512001))
 	require.Equal(hu.CookBlockHeight(), uint64(1641601))
 	require.Equal(hu.DardanellesBlockHeight(), uint64(1816201))
+	require.Equal(hu.DaytonaBlockHeight(), uint64(3238921))
 	require.Equal(hu.EnglishBlockHeight(), uint64(3363481))
-
 }

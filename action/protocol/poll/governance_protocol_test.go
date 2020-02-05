@@ -212,19 +212,19 @@ func TestCreatePreStates(t *testing.T) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
-	test := make(map[uint64]vote.Blacklist)
-	test[2] = vote.Blacklist{
+	test := make(map[uint64](map[string]uint32))
+	test[2] = map[string]uint32{
 		identityset.Address(1).String(): 1, // [A, B, C]
 		identityset.Address(2).String(): 1,
 		identityset.Address(3).String(): 1,
 	}
-	test[3] = vote.Blacklist{
+	test[3] = map[string]uint32{
 		identityset.Address(1).String(): 1, // [A, B, C, D]
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 1,
 		identityset.Address(4).String(): 1,
 	}
-	test[4] = vote.Blacklist{
+	test[4] = map[string]uint32{
 		identityset.Address(2).String(): 1, // [B, D, E, F]
 		identityset.Address(4).String(): 1,
 		identityset.Address(5).String(): 1,
@@ -243,11 +243,11 @@ func TestCreatePreStates(t *testing.T) {
 			},
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm))
-		var bl vote.Blacklist
-		require.NoError(sm.State(candidatesutil.ConstructBlackListKey(epochNum+1), &bl))
+		bl := &vote.Blacklist{}
+		require.NoError(sm.State(candidatesutil.ConstructBlackListKey(epochNum+1), bl))
 		expected := test[epochNum+1]
-		require.Equal(len(expected), len(bl))
-		for addr, count := range bl {
+		require.Equal(len(expected), len(bl.BlacklistInfos))
+		for addr, count := range bl.BlacklistInfos {
 			val, ok := expected[addr]
 			require.True(ok)
 			require.Equal(val, count)
@@ -489,9 +489,13 @@ func TestDelegatesByEpoch(t *testing.T) {
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
-	blackList := vote.Blacklist{
+	blackListMap := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
+	}
+
+	blackList := &vote.Blacklist{
+		BlacklistInfos: blackListMap,
 	}
 	require.NoError(setKickoutBlackList(sm, blackList, 2))
 
