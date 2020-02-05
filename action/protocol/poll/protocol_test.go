@@ -31,7 +31,7 @@ func TestNewProtocol(t *testing.T) {
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	p, err := NewProtocol(
 		cfg,
-		func(context.Context, string, uint64, time.Time, []byte) ([]byte, error) { return nil, nil },
+		func(context.Context, string, []byte, bool) ([]byte, error) { return nil, nil },
 		nil,
 		nil,
 		committee,

@@ -111,7 +111,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	p, err := NewStakingCommittee(
 		committee,
 		gs,
-		func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+		func(context.Context, string, []byte, bool) ([]byte, error) {
 			return nil, nil
 		},
 		cfg.Genesis.NativeStakingContractAddress,
