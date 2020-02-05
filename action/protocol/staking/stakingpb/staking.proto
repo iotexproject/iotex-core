@@ -9,7 +9,7 @@
 syntax = "proto3";
 package stakingpb;
 
-message BucketMeta {
+message BucketIndex {
     uint64 index = 1;
     bytes canName = 2;
 }

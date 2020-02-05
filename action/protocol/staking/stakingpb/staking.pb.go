@@ -20,7 +20,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type BucketMeta struct {
+type BucketIndex struct {
 	Index                uint64   `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
 	CanName              []byte   `protobuf:"bytes,2,opt,name=canName,proto3" json:"canName,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -28,39 +28,39 @@ type BucketMeta struct {
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *BucketMeta) Reset()         { *m = BucketMeta{} }
-func (m *BucketMeta) String() string { return proto.CompactTextString(m) }
-func (*BucketMeta) ProtoMessage()    {}
-func (*BucketMeta) Descriptor() ([]byte, []int) {
+func (m *BucketIndex) Reset()         { *m = BucketIndex{} }
+func (m *BucketIndex) String() string { return proto.CompactTextString(m) }
+func (*BucketIndex) ProtoMessage()    {}
+func (*BucketIndex) Descriptor() ([]byte, []int) {
 	return fileDescriptor_289e7c8aea278311, []int{0}
 }
 
-func (m *BucketMeta) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_BucketMeta.Unmarshal(m, b)
+func (m *BucketIndex) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_BucketIndex.Unmarshal(m, b)
 }
-func (m *BucketMeta) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_BucketMeta.Marshal(b, m, deterministic)
+func (m *BucketIndex) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_BucketIndex.Marshal(b, m, deterministic)
 }
-func (m *BucketMeta) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BucketMeta.Merge(m, src)
+func (m *BucketIndex) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BucketIndex.Merge(m, src)
 }
-func (m *BucketMeta) XXX_Size() int {
-	return xxx_messageInfo_BucketMeta.Size(m)
+func (m *BucketIndex) XXX_Size() int {
+	return xxx_messageInfo_BucketIndex.Size(m)
 }
-func (m *BucketMeta) XXX_DiscardUnknown() {
-	xxx_messageInfo_BucketMeta.DiscardUnknown(m)
+func (m *BucketIndex) XXX_DiscardUnknown() {
+	xxx_messageInfo_BucketIndex.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_BucketMeta proto.InternalMessageInfo
+var xxx_messageInfo_BucketIndex proto.InternalMessageInfo
 
-func (m *BucketMeta) GetIndex() uint64 {
+func (m *BucketIndex) GetIndex() uint64 {
 	if m != nil {
 		return m.Index
 	}
 	return 0
 }
 
-func (m *BucketMeta) GetCanName() []byte {
+func (m *BucketIndex) GetCanName() []byte {
 	if m != nil {
 		return m.CanName
 	}
@@ -68,18 +68,18 @@ func (m *BucketMeta) GetCanName() []byte {
 }
 
 func init() {
-	proto.RegisterType((*BucketMeta)(nil), "stakingpb.BucketMeta")
+	proto.RegisterType((*BucketIndex)(nil), "stakingpb.BucketIndex")
 }
 
 func init() { proto.RegisterFile("staking.proto", fileDescriptor_289e7c8aea278311) }
 
 var fileDescriptor_289e7c8aea278311 = []byte{
-	// 101 bytes of a gzipped FileDescriptorProto
+	// 100 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2d, 0x2e, 0x49, 0xcc,
 	0xce, 0xcc, 0x4b, 0xd7, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x84, 0x72, 0x0b, 0x92, 0x94,
-	0x6c, 0xb8, 0xb8, 0x9c, 0x4a, 0x93, 0xb3, 0x53, 0x4b, 0x7c, 0x53, 0x4b, 0x12, 0x85, 0x44, 0xb8,
-	0x58, 0x33, 0xf3, 0x52, 0x52, 0x2b, 0x24, 0x18, 0x15, 0x18, 0x35, 0x58, 0x82, 0x20, 0x1c, 0x21,
-	0x09, 0x2e, 0xf6, 0xe4, 0xc4, 0x3c, 0xbf, 0xc4, 0xdc, 0x54, 0x09, 0x26, 0x05, 0x46, 0x0d, 0x9e,
-	0x20, 0x18, 0x37, 0x89, 0x0d, 0x6c, 0x9e, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x8f, 0x14, 0x4b,
-	0x97, 0x60, 0x00, 0x00, 0x00,
+	0x6c, 0xb9, 0xb8, 0x9d, 0x4a, 0x93, 0xb3, 0x53, 0x4b, 0x3c, 0xf3, 0x52, 0x52, 0x2b, 0x84, 0x44,
+	0xb8, 0x58, 0x33, 0x41, 0x0c, 0x09, 0x46, 0x05, 0x46, 0x0d, 0x96, 0x20, 0x08, 0x47, 0x48, 0x82,
+	0x8b, 0x3d, 0x39, 0x31, 0xcf, 0x2f, 0x31, 0x37, 0x55, 0x82, 0x49, 0x81, 0x51, 0x83, 0x27, 0x08,
+	0xc6, 0x4d, 0x62, 0x03, 0x1b, 0x68, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0xf3, 0x9c, 0xa0, 0x83,
+	0x61, 0x00, 0x00, 0x00,
 }
