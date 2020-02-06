@@ -9,6 +9,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
+	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	db "github.com/iotexproject/iotex-core/db"
 	batch "github.com/iotexproject/iotex-core/db/batch"
 	reflect "reflect"
@@ -35,6 +36,148 @@ func NewMockWorkingSet(ctrl *gomock.Controller) *MockWorkingSet {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockWorkingSet) EXPECT() *MockWorkingSetMockRecorder {
 	return m.recorder
+}
+
+// Height mocks base method
+func (m *MockWorkingSet) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockWorkingSet)(nil).Height))
+}
+
+// State mocks base method
+func (m *MockWorkingSet) State(arg0 hash.Hash160, arg1 interface{}, arg2 ...protocol.StateOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// State indicates an expected call of State
+func (mr *MockWorkingSetMockRecorder) State(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockWorkingSet)(nil).State), varargs...)
+}
+
+// StateAtHeight mocks base method
+func (m *MockWorkingSet) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StateAtHeight indicates an expected call of StateAtHeight
+func (mr *MockWorkingSetMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockWorkingSet)(nil).StateAtHeight), arg0, arg1, arg2)
+}
+
+// Snapshot mocks base method
+func (m *MockWorkingSet) Snapshot() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Snapshot")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// Snapshot indicates an expected call of Snapshot
+func (mr *MockWorkingSetMockRecorder) Snapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockWorkingSet)(nil).Snapshot))
+}
+
+// Revert mocks base method
+func (m *MockWorkingSet) Revert(arg0 int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Revert", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Revert indicates an expected call of Revert
+func (mr *MockWorkingSetMockRecorder) Revert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockWorkingSet)(nil).Revert), arg0)
+}
+
+// PutState mocks base method
+func (m *MockWorkingSet) PutState(arg0 hash.Hash160, arg1 interface{}, arg2 ...protocol.StateOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PutState indicates an expected call of PutState
+func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), varargs...)
+}
+
+// DelState mocks base method
+func (m *MockWorkingSet) DelState(arg0 hash.Hash160, arg1 ...protocol.StateOption) error {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DelState indicates an expected call of DelState
+func (mr *MockWorkingSetMockRecorder) DelState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockWorkingSet)(nil).DelState), varargs...)
+}
+
+// GetDB mocks base method
+func (m *MockWorkingSet) GetDB() db.KVStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDB")
+	ret0, _ := ret[0].(db.KVStore)
+	return ret0
+}
+
+// GetDB indicates an expected call of GetDB
+func (mr *MockWorkingSetMockRecorder) GetDB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockWorkingSet)(nil).GetDB))
+}
+
+// GetCachedBatch mocks base method
+func (m *MockWorkingSet) GetCachedBatch() batch.CachedBatch {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCachedBatch")
+	ret0, _ := ret[0].(batch.CachedBatch)
+	return ret0
+}
+
+// GetCachedBatch indicates an expected call of GetCachedBatch
+func (mr *MockWorkingSetMockRecorder) GetCachedBatch() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockWorkingSet)(nil).GetCachedBatch))
 }
 
 // RunAction mocks base method
@@ -79,34 +222,6 @@ func (m *MockWorkingSet) Finalize() error {
 func (mr *MockWorkingSetMockRecorder) Finalize() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Finalize", reflect.TypeOf((*MockWorkingSet)(nil).Finalize))
-}
-
-// Snapshot mocks base method
-func (m *MockWorkingSet) Snapshot() int {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Snapshot")
-	ret0, _ := ret[0].(int)
-	return ret0
-}
-
-// Snapshot indicates an expected call of Snapshot
-func (mr *MockWorkingSetMockRecorder) Snapshot() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockWorkingSet)(nil).Snapshot))
-}
-
-// Revert mocks base method
-func (m *MockWorkingSet) Revert(arg0 int) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Revert", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Revert indicates an expected call of Revert
-func (mr *MockWorkingSetMockRecorder) Revert(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Revert", reflect.TypeOf((*MockWorkingSet)(nil).Revert), arg0)
 }
 
 // Commit mocks base method
@@ -167,21 +282,6 @@ func (mr *MockWorkingSetMockRecorder) Version() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Version", reflect.TypeOf((*MockWorkingSet)(nil).Version))
 }
 
-// Height mocks base method
-func (m *MockWorkingSet) Height() (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Height")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Height indicates an expected call of Height
-func (mr *MockWorkingSetMockRecorder) Height() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockWorkingSet)(nil).Height))
-}
-
 // History mocks base method
 func (m *MockWorkingSet) History() bool {
 	m.ctrl.T.Helper()
@@ -194,88 +294,4 @@ func (m *MockWorkingSet) History() bool {
 func (mr *MockWorkingSetMockRecorder) History() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "History", reflect.TypeOf((*MockWorkingSet)(nil).History))
-}
-
-// State mocks base method
-func (m *MockWorkingSet) State(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "State", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// State indicates an expected call of State
-func (mr *MockWorkingSetMockRecorder) State(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockWorkingSet)(nil).State), arg0, arg1)
-}
-
-// StateAtHeight mocks base method
-func (m *MockWorkingSet) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockWorkingSetMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockWorkingSet)(nil).StateAtHeight), arg0, arg1, arg2)
-}
-
-// PutState mocks base method
-func (m *MockWorkingSet) PutState(arg0 hash.Hash160, arg1 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutState", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// PutState indicates an expected call of PutState
-func (mr *MockWorkingSetMockRecorder) PutState(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockWorkingSet)(nil).PutState), arg0, arg1)
-}
-
-// DelState mocks base method
-func (m *MockWorkingSet) DelState(pkHash hash.Hash160) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DelState", pkHash)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DelState indicates an expected call of DelState
-func (mr *MockWorkingSetMockRecorder) DelState(pkHash interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockWorkingSet)(nil).DelState), pkHash)
-}
-
-// GetDB mocks base method
-func (m *MockWorkingSet) GetDB() db.KVStore {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDB")
-	ret0, _ := ret[0].(db.KVStore)
-	return ret0
-}
-
-// GetDB indicates an expected call of GetDB
-func (mr *MockWorkingSetMockRecorder) GetDB() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockWorkingSet)(nil).GetDB))
-}
-
-// GetCachedBatch mocks base method
-func (m *MockWorkingSet) GetCachedBatch() batch.CachedBatch {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCachedBatch")
-	ret0, _ := ret[0].(batch.CachedBatch)
-	return ret0
-}
-
-// GetCachedBatch indicates an expected call of GetCachedBatch
-func (mr *MockWorkingSetMockRecorder) GetCachedBatch() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCachedBatch", reflect.TypeOf((*MockWorkingSet)(nil).GetCachedBatch))
 }

@@ -170,7 +170,7 @@ func (stx *stateTX) Finalize() error {
 	}
 	// Persist current chain Height
 	stx.cb.Put(
-		AccountKVNameSpace,
+		protocol.AccountNameSpace,
 		[]byte(CurrentHeightKey),
 		byteutil.Uint64ToBytes(stx.blockHeight),
 		"failed to store accountTrie's current Height",
@@ -215,11 +215,21 @@ func (stx *stateTX) GetCachedBatch() batch.CachedBatch {
 }
 
 // State pulls a state from DB
-func (stx *stateTX) State(hash hash.Hash160, s interface{}) error {
+func (stx *stateTX) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
 	stateDBMtc.WithLabelValues("get").Inc()
-	mstate, err := stx.cb.Get(AccountKVNameSpace, hash[:])
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	ns := protocol.AccountNameSpace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+
+	mstate, err := stx.cb.Get(ns, hash[:])
 	if errors.Cause(err) == batch.ErrNotExist {
-		if mstate, err = stx.dao.Get(AccountKVNameSpace, hash[:]); errors.Cause(err) == db.ErrNotExist {
+		if mstate, err = stx.dao.Get(ns, hash[:]); errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
 		}
 	}
@@ -238,30 +248,50 @@ func (stx *stateTX) StateAtHeight(height uint64, addr hash.Hash160, s interface{
 }
 
 // PutState puts a state into DB
-func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}) error {
+func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
 	stateDBMtc.WithLabelValues("put").Inc()
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	ns := protocol.AccountNameSpace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+
 	ss, err := state.Serialize(s)
 	if err != nil {
 		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
-	stx.cb.Put(AccountKVNameSpace, pkHash[:], ss, "error when putting k = %x", pkHash)
+	stx.cb.Put(ns, pkHash[:], ss, "error when putting k = %x", pkHash)
 	if stx.saveHistory {
-		return stx.putIndex(pkHash, ss)
+		return stx.putIndex(ns, pkHash, ss)
 	}
 	return nil
 }
 
 // DelState deletes a state from DB
-func (stx *stateTX) DelState(pkHash hash.Hash160) error {
-	stx.cb.Delete(AccountKVNameSpace, pkHash[:], "error when deleting k = %x", pkHash)
+func (stx *stateTX) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	ns := protocol.AccountNameSpace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+
+	stx.cb.Delete(ns, pkHash[:], "error when deleting k = %x", pkHash)
 	return nil
 }
 
 // putIndex insert height-state
-func (stx *stateTX) putIndex(pkHash hash.Hash160, ss []byte) error {
+func (stx *stateTX) putIndex(ns string, pkHash hash.Hash160, ss []byte) error {
 	version := stx.blockHeight
-	ns := append([]byte(AccountKVNameSpace), pkHash[:]...)
-	ri, err := db.NewRangeIndex(stx.dao, ns, db.NotExist)
+	name := append([]byte(ns), pkHash[:]...)
+	ri, err := db.NewRangeIndex(stx.dao, name, db.NotExist)
 	if err != nil {
 		return err
 	}
