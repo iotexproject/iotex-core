@@ -10,6 +10,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -419,25 +422,45 @@ func TestBatchCommit(t *testing.T) {
 func TestHistoryTrie(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default.DB
+	AccountKVNamespace := "Account"
+	AccountTrieRootKey := "accountTrieRoot"
 	path := "test-history-trie.bolt"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
+	opts := []db.KVStoreFlusherOption{
+		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if wi.WriteType() != batch.Delete {
+				return wi
+			}
+			oldKey := wi.Key()
+			newKey := byteutil.Uint64ToBytesBigEndian(1)
+			return batch.NewWriteInfo(
+				batch.Put,
+				strings.Join([]string{"Archive", wi.Namespace()}, "-"),
+				append(newKey, oldKey...),
+				wi.Value(),
+				wi.ErrorFormat(),
+				wi.ErrorArgs(),
+			)
+		}),
+	}
 	dao := db.NewBoltDB(cfg)
-	require.NoError(dao.Start(context.Background()))
-	AccountKVNameSpace := "Account"
-	AccountTrieRootKey := "accountTrieRoot"
+	ctx := context.Background()
+	require.NoError(dao.Start(ctx))
+	flusher, err := db.NewKVStoreFlusher(dao, batch.NewCachedBatch(), opts...)
+	require.NoError(err)
 	addrKey := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}
 	value1 := []byte{1}
 	value2 := []byte{2}
 
-	trieDB, err := db.NewKVStoreForTrie(AccountKVNameSpace, dao)
+	trieDB, err := db.NewKVStoreForTrie(AccountKVNamespace, flusher.KVStoreWithBuffer())
 	require.NoError(err)
 	tr, err := NewTrie(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
 	require.NoError(err)
-	require.NoError(tr.Start(context.Background()))
+	require.NoError(tr.Start(ctx))
 
-	// insert 1 entries
+	// insert 1 entry
 	require.NoError(tr.Upsert(addrKey, value1))
 	c, err := tr.Get(addrKey)
 	require.NoError(err)
@@ -446,6 +469,7 @@ func TestHistoryTrie(t *testing.T) {
 
 	// update entry
 	require.NoError(tr.Upsert(addrKey, value2))
+	require.NoError(flusher.Flush())
 
 	// get new value
 	c, err = tr.Get(addrKey)

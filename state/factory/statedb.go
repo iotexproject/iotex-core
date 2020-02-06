@@ -344,7 +344,9 @@ func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, erro
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	return newStateTX(sdb.currentChainHeight+1, sdb.dao), false, nil
+	tx, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
+
+	return tx, false, err
 }
 
 func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {

@@ -307,32 +307,32 @@ func TestHistoryState(t *testing.T) {
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
-	cfg.Chain.EnableHistoryStateDB = true
+	cfg.Chain.EnableArchiveMode = true
 	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using statedb and enable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
-	cfg.Chain.EnableHistoryStateDB = false
+	cfg.Chain.EnableArchiveMode = false
 	sf, err = NewFactory(cfg, DefaultTrieOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using statedb and disable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
 
 func TestSDBState(t *testing.T) {
@@ -476,15 +476,15 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	if statetx {
 		// statetx not support archive mode
 		_, err = accountutil.AccountStateAtHeight(sf, a, 0)
-		require.True(t, errors.Cause(err) == ErrNotSupported)
+		require.Equal(t, ErrNotSupported, errors.Cause(err))
 		_, err = accountutil.AccountStateAtHeight(sf, b, 0)
-		require.True(t, errors.Cause(err) == ErrNotSupported)
+		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
 			_, err = accountutil.AccountStateAtHeight(sf, a, 0)
-			require.True(t, errors.Cause(err) == ErrNoArchiveData)
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 			_, err = accountutil.AccountStateAtHeight(sf, b, 0)
-			require.True(t, errors.Cause(err) == ErrNoArchiveData)
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
 			accountA, err = accountutil.AccountStateAtHeight(sf, a, 0)
 			require.NoError(t, err)
@@ -642,18 +642,38 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-	require.NoError(sf.Start(ctx))
+	require.NoError(sf.Start(context.Background()))
 	defer func() {
-		require.NoError(sf.Stop(ctx))
+		require.NoError(sf.Stop(context.Background()))
 	}()
+	registry := protocol.NewRegistry()
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	})
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
+	lastBlockHash := hash.ZeroHash256
+	for i := uint64(1); i <= 10; i++ {
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: i,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		})
+		blk, err := block.NewTestingBuilder().
+			SetHeight(i).
+			SetPrevBlockHash(lastBlockHash).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions([]action.SealedEnvelope{}...).
+			SignAndBuild(identityset.PrivateKey(27))
+		require.NoError(err)
+		require.NoError(sf.Commit(ctx, &blk))
 
-	height, err = sf.Height()
-	require.NoError(err)
-	require.Equal(uint64(1), height)
+		height, err = sf.Height()
+		require.NoError(err)
+		require.Equal(uint64(i), height)
+	}
 }
 
 func TestRunActions(t *testing.T) {

@@ -80,7 +80,7 @@ func newWorkingSet(
 ) (WorkingSet, error) {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == AccountKVNamespace
+			return wi.Namespace() == AccountTrieNamespace
 		}),
 	}
 	if saveHistory {
@@ -105,7 +105,7 @@ func newWorkingSet(
 		return nil, err
 	}
 
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNamespace, flusher.KVStoreWithBuffer())
+	dbForTrie, err := db.NewKVStoreForTrie(AccountTrieNamespace, flusher.KVStoreWithBuffer())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state tire db")
 	}
@@ -133,7 +133,10 @@ func (ws *workingSet) RootHash() (hash.Hash256, error) {
 
 // Digest returns the delta state digest
 func (ws *workingSet) Digest() (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
+	if !ws.finalized {
+		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
+	}
+	return hash.Hash256b(ws.flusher.SerializeQueue()), nil
 }
 
 // Version returns the Version of this working set
@@ -238,10 +241,10 @@ func (ws *workingSet) Finalize() error {
 	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), h)
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(AccountTrieRootKey), rootHash)
+	ws.flusher.KVStoreWithBuffer().MustPut(AccountTrieNamespace, []byte(AccountTrieRootKey), rootHash)
 	// Persist the historical accountTrie's root hash
 	ws.flusher.KVStoreWithBuffer().MustPut(
-		AccountKVNamespace,
+		AccountTrieNamespace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, ws.blockHeight)),
 		rootHash,
 	)

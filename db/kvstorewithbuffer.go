@@ -97,7 +97,14 @@ func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreF
 }
 
 func (f *flusher) Flush() error {
-	return f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate))
+	if err := f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate)); err != nil {
+		return err
+	}
+
+	f.kvb.buffer.Lock()
+	f.kvb.buffer.ClearAndUnlock()
+
+	return nil
 }
 
 func (f *flusher) SerializeQueue() []byte {

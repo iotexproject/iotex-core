@@ -657,37 +657,37 @@ func TestConstantinople(t *testing.T) {
 		}{
 			{
 				deployHash,
-				"c241015cd47e317c1ec46e155bd6ed4e3179a0aeb14707ec26eb8afee4fcae75",
+				"7c83ca545dbf2527197dc87b866ebfc1797afa88701f6970ba69c2dd9e871c35",
 				nil,
 			},
 			{
 				setHash,
-				"56f1dceaeaaf996f07f656f2dd6390154fe5191b27bc559644a0cdd97b4b6821",
+				"94efe3933fdb193308254607d53b2f2d58eb5e6de5507a079253e1042c600819",
 				setTopic,
 			},
 			{
 				shrHash,
-				"aaf4c6da1936e28c906356f3750348dcf45da62147f11822793222539771721b",
+				"c1a7c75b3b9acd3d943f56c637dcfe18839c577209b4234bef36ced6d96dff82",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"8ae79e4016ebef1d64c98a2fd7e8ac51c71ac472d09f056cbff0750a48042078",
+				"ad47c75133b09159746ec2341e4fabd563f48ef224444473a6ed64329ee2c412",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"82767da47c4401f2efac804b2c8e9070ac02dcf14c7b1d61cdb9b2b4b7b0d700",
+				"d9ce02764a2b425d62e693acc85e0701b135075987b09bb4f06e22d2924d2093",
 				sarTopic,
 			},
 			{
 				extHash,
-				"8ce062b73d6dd87584c316ce40be9a99bf8039a1da8ebd7fcd290a16eae6c054",
+				"f553dbd4d76e6a8324bd58cf14e0e615ea71523a98ae2b4704653d778e9fd3ef",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"c1f2984681f9fe87d84db60d9f0d36c77335f9524e6216805dee109f85670211",
+				"382b34f18894ea335964b9f061adc8f0b34c8b44e333a782f624b3cf1c2ba3d8",
 				crt2Topic,
 			},
 		}
@@ -1326,7 +1326,6 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 
 	// check balances after transfer
@@ -1340,9 +1339,9 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	// check history account's balance
 	if statetx {
 		_, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
-		require.True(errors.Cause(err) == factory.ErrNotSupported)
+		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 		_, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
-		require.True(errors.Cause(err) == factory.ErrNotSupported)
+		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 	} else {
 		AccountA, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
 		require.NoError(err)
@@ -1475,7 +1474,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableHistoryStateDB = true
+	cfg.Chain.EnableArchiveMode = true
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false

@@ -34,8 +34,10 @@ import (
 )
 
 const (
-	// AccountKVNamespace is the bucket name for account trie
+	// AccountKVNamespace is the bucket name for account
 	AccountKVNamespace = "Account"
+	// AccountTrieNamespace is the bucket for the latest state view
+	AccountTrieNamespace = "AccountTrie"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
@@ -129,7 +131,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		}
 	}
 	// The sf.dao passed into the dbForTrie could be read only
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNamespace, sf.dao)
+	dbForTrie, err := db.NewKVStoreForTrie(AccountTrieNamespace, sf.dao)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create db for trie")
 	}
@@ -362,11 +364,11 @@ func (sf *factory) stateAtHeight(height uint64, addr hash.Hash160, s interface{}
 		return ErrNoArchiveData
 	}
 	// get root through height
-	rootHash, err := sf.dao.Get(AccountKVNamespace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
+	rootHash, err := sf.dao.Get(AccountTrieNamespace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
 	if err != nil {
 		return errors.Wrap(err, "failed to get root hash through height")
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNamespace, sf.dao)
+	dbForTrie, err := db.NewKVStoreForTrie(AccountTrieNamespace, sf.dao)
 	if err != nil {
 		return errors.Wrap(err, "failed to generate state tire db")
 	}
