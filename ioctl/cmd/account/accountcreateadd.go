@@ -44,7 +44,7 @@ var accountCreateAddCmd = &cobra.Command{
 }
 
 func init() {
-	accountCreateAddCmd.Flags().BoolVar(&cryptoSm2, "sm2", false,
+	accountCreateAddCmd.Flags().BoolVar(&CryptoSm2, "sm2", false,
 		config.TranslateInLang(flagSm2Usage, config.UILanguage))
 }
 
@@ -70,7 +70,7 @@ func accountCreateAdd(args []string) error {
 
 	var addr string
 	var err error
-	if !cryptoSm2 {
+	if !CryptoSm2 {
 		addr, err = newAccount(alias, config.ReadConfig.Wallet)
 		if err != nil {
 			return output.NewError(0, "", err)

@@ -59,7 +59,7 @@ var (
 	ErrPasswdNotMatch = errors.New("password doesn't match")
 )
 
-var cryptoSm2 bool
+var CryptoSm2 bool
 
 var flagSm2Usage = map[config.Language]string{
 	config.English: "sm2 cryptographic algorithm",
