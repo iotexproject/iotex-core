@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -64,7 +63,7 @@ var cryptoSm2 bool
 
 var flagSm2Usage = map[config.Language]string{
 	config.English: "sm2 cryptographic algorithm",
-	config.Chinese: "国密sm2加密算法",
+	config.Chinese: "sm2签名算法",
 }
 
 // AccountCmd represents the account command
@@ -146,12 +145,7 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 		return prvKey, nil
 	}
 
-	var pathError *os.PathError
-	if !errors.As(err, &pathError) {
-		return nil, errors.New("failed to read sm2 private key: " + err.Error())
-	}
-
-	return nil, fmt.Errorf("account #%s does not match all keys in keystore", signer)
+	return nil, fmt.Errorf("account #%s does not match all local keys", signer)
 }
 
 // GetAccountMeta gets account metadata
