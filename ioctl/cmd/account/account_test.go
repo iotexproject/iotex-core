@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
 
@@ -37,21 +38,37 @@ func TestAccount(t *testing.T) {
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	require.NotNil(ks)
 
-	// create an account
+	// create accounts
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+
 	account, err := ks.NewAccount(passwd)
 	require.NoError(err)
 	addr, err := address.FromBytes(account.Address.Bytes())
 	require.NoError(err)
 
+	account2, err := crypto.GenerateKeySm2()
+	require.NoError(err)
+	require.NotNil(account2)
+	addr2, err := address.FromBytes(account2.PublicKey().Hash())
+	require.NoError(err)
+	filePath := filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+addr2.String()+".pem")
+	require.NoError(crypto.WritePrivateKeyToPem(filePath, account2.(*crypto.P256sm2PrvKey), passwd))
+
 	// test keystore conversion and signing
-	prvkey, err := KsAccountToPrivateKey(addr.String(), passwd)
+	prvKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
 	require.NoError(err)
 	msg := hash.Hash256b([]byte(nonce))
-	sig, err := prvkey.Sign(msg[:])
+	sig, err := prvKey.Sign(msg[:])
 	require.NoError(err)
-	require.True(prvkey.PublicKey().Verify(msg[:], sig))
+	require.True(prvKey.PublicKey().Verify(msg[:], sig))
+
+	prvKey2, err := LocalAccountToPrivateKey(addr2.String(), passwd)
+	require.NoError(err)
+	msg2 := hash.Hash256b([]byte(nonce))
+	sig2, err := prvKey2.Sign(msg2[:])
+	require.NoError(err)
+	require.True(prvKey2.PublicKey().Verify(msg2[:], sig2))
 
 	// test import existing key
 	sk, err := crypto.GenerateKey()

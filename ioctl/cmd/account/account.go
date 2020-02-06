@@ -95,7 +95,7 @@ func init() {
 
 // Sign sign message with signer
 func Sign(signer, password, message string) (signedMessage string, err error) {
-	pri, err := KsAccountToPrivateKey(signer, password)
+	pri, err := LocalAccountToPrivateKey(signer, password)
 	if err != nil {
 		return
 	}
@@ -119,8 +119,8 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 	return
 }
 
-// KsAccountToPrivateKey generates our PrivateKey interface from Keystore account
-func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
+// LocalAccountToPrivateKey generates our PrivateKey interface from Keystore account
+func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	addr, err := util.Address(signer)
 	if err != nil {
 		return nil, err
@@ -277,6 +277,15 @@ func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, wallet
 		return "", output.NewError(output.KeystoreError, "failed to decrypt key", err)
 	}
 	return newAccountByKey(alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
+}
+
+func newAccountByPem(alias, passwordOfPem, pemFilePath string, walletDir string) (string, error) {
+	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, passwordOfPem)
+	if err != nil {
+		return "", output.NewError(output.CryptoError, "failed to read private key from pem file", err)
+	}
+
+	return newAccountByKey(alias, prvKey.HexString(), walletDir)
 }
 
 func storeKey(privateKey, walletDir, password string) (string, error) {

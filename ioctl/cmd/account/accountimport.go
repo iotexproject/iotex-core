@@ -9,6 +9,7 @@ package account
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
@@ -45,6 +46,14 @@ var (
 		config.English: "keystore ALIAS FILEPATH",
 		config.Chinese: "keystore 别名 文件路径",
 	}
+	importPemCmdShorts = map[config.Language]string{
+		config.English: "Import IoTeX key from pem file into wallet",
+		config.Chinese: "将IoTeX私钥从pem文件导入钱包",
+	}
+	importPemCmdUses = map[config.Language]string{
+		config.English: "pem ALIAS FILEPATH",
+		config.Chinese: "pem 别名 文件路径",
+	}
 )
 var (
 	// accountImportCmd represents the account import command
@@ -63,7 +72,7 @@ var (
 			return output.PrintError(err)
 		},
 	}
-	// accountImportKeyCmd represents the account import keystore command
+	// accountImportKeyStoreCmd represents the account import keystore command
 	accountImportKeyStoreCmd = &cobra.Command{
 		Use:   config.TranslateInLang(importKeyStoreCmdUses, config.UILanguage),
 		Short: config.TranslateInLang(importKeyStoreCmdShorts, config.UILanguage),
@@ -74,13 +83,25 @@ var (
 			return output.PrintError(err)
 		},
 	}
+	// accountImportPemCmd represents the account import pem command
+	accountImportPemCmd = &cobra.Command{
+		Use:   config.TranslateInLang(importPemCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(importPemCmdShorts, config.UILanguage),
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			err := accountImportPem(args)
+			return output.PrintError(err)
+		},
+	}
 )
 
 func init() {
 	accountImportCmd.AddCommand(accountImportKeyCmd)
 	accountImportCmd.AddCommand(accountImportKeyStoreCmd)
+	accountImportCmd.AddCommand(accountImportPemCmd)
 }
-func validataAlias(alias string) error {
+func validateAlias(alias string) error {
 	if err := validator.ValidateAlias(alias); err != nil {
 		return err
 	}
@@ -113,7 +134,7 @@ func readPasswordFromStdin() (string, error) {
 func accountImportKey(args []string) error {
 	// Validate inputs
 	alias := args[0]
-	err := validataAlias(alias)
+	err := validateAlias(alias)
 	if err != nil {
 		return output.NewError(output.ValidationError, "invalid alias", err)
 	}
@@ -123,9 +144,6 @@ func accountImportKey(args []string) error {
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
-	// TODO: final arg depends on private key type
-	// use config.ReadConfig.Wallet for p256k1 key (the code below)
-	// use PEM file location for p256sm2 key
 	addr, err := newAccountByKey(alias, privateKey, config.ReadConfig.Wallet)
 	if err != nil {
 		return output.NewError(0, "", err)
@@ -135,22 +153,49 @@ func accountImportKey(args []string) error {
 func accountImportKeyStore(args []string) error {
 	// Validate inputs
 	alias := args[0]
-	err := validataAlias(alias)
+	err := validateAlias(alias)
 	if err != nil {
 		return output.NewError(output.ValidationError, "invalid alias", err)
 	}
+	_, err = os.Stat(args[1])
+	if err != nil {
+		return output.NewError(output.ReadFileError, "", err)
+	}
+
 	output.PrintQuery(fmt.Sprintf("#%s: Enter your password of keystore, "+
 		"which will not be exposed on the screen.", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
-	// TODO: final arg depends on key type
-	// use config.ReadConfig.Wallet for p256k1 key (the code below)
-	// use PEM file location for p256sm2 key
 	addr, err := newAccountByKeyStore(alias, password, args[1], config.ReadConfig.Wallet)
 	if err != nil {
-		return output.NewError(0, "", err) // TODO: undefined error
+		return output.NewError(0, "", err)
+	}
+	return writeToFile(alias, addr)
+}
+
+func accountImportPem(args []string) error {
+	// Validate inputs
+	alias := args[0]
+	err := validateAlias(alias)
+	if err != nil {
+		return output.NewError(output.ValidationError, "invalid alias", err)
+	}
+	_, err = os.Stat(args[1])
+	if err != nil {
+		return output.NewError(output.ReadFileError, "", err)
+	}
+
+	output.PrintQuery(fmt.Sprintf("#%s: Enter your password of pem file, "+
+		"which will not be exposed on the screen.", alias))
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get password", err)
+	}
+	addr, err := newAccountByPem(alias, password, args[1], config.ReadConfig.Wallet)
+	if err != nil {
+		return output.NewError(0, "", err)
 	}
 	return writeToFile(alias, addr)
 }
