@@ -59,12 +59,16 @@ type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint6
 type Protocol interface {
 	protocol.Protocol
 	protocol.GenesisStateCreator
+	Delegates(context.Context) (state.CandidateList, error)
+	DelegatesOfNextEpoch(context.Context) (state.CandidateList, error)
+	Candidates(context.Context) (state.CandidateList, error)
+	CandidatesOfNextEpoch(context.Context) (state.CandidateList, error)
 	// DelegatesByEpoch returns the delegates by epoch
-	DelegatesByEpoch(context.Context, uint64, bool) (state.CandidateList, error)
+	//DelegatesByEpoch(context.Context, uint64, bool) (state.CandidateList, error)
 	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// CandidatesByHeight returns a list of delegate candidates
-	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
+	//CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }
 
 // FindProtocol finds the registered protocol from registry

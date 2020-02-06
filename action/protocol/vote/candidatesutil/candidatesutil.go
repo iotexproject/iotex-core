@@ -61,8 +61,8 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 		height,
 	)
 }
-// GetCandidates returns array of Candidates at current epoch
-func GetCandidates(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, error) {
+// CandidatesFromDB returns array of Candidates at current epoch
+func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, error) {
 	var candidates state.CandidateList
 	candidatesKey := ConstructConstKey(CurCandidateKey)
 	if epochStartPoint {
@@ -88,8 +88,8 @@ func GetCandidates(sr protocol.StateReader, epochStartPoint bool) ([]*state.Cand
 	)
 }
 
-// GetKickoutList returns array of kickout list at current epoch
-func GetKickoutList(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, error) {
+// KickoutListFromDB returns array of kickout list at current epoch
+func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, error) {
 	blackList := &vote.Blacklist{}
 	blackListKey := ConstructConstKey(CurKickoutKey)
 	if epochStartPoint {
@@ -112,8 +112,8 @@ func GetKickoutList(sr protocol.StateReader, epochStartPoint bool) (*vote.Blackl
 	)
 }
 
-// GetUnproductiveDelegate returns latest UnproductiveDelegate struct
-func GetUnproductiveDelegate(sr protocol.StateReader) (*vote.UnproductiveDelegate, error) {
+// UnproductiveDelegateFromDB returns latest UnproductiveDelegate struct
+func UnproductiveDelegateFromDB(sr protocol.StateReader) (*vote.UnproductiveDelegate, error) {
 	upd := &vote.UnproductiveDelegate{}
 	updKey := ConstructConstKey(UnproductiveDelegateKey)
 	err := sr.State(upd, protocol.LegacyKeyOption(updKey))

@@ -106,19 +106,39 @@ func NewConsensus(
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
 				re := protocol.NewRegistry()
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				ctx = protocol.WithBlockchainCtx(
-					ctx,
+				tipHeight := bc.TipHeight()
+				ctx := protocol.WithBlockchainCtx(
+					context.Background(),
 					protocol.BlockchainCtx{
-						Genesis:  cfg.Genesis,
 						Registry: re,
+						Genesis: cfg.Genesis,
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
 				)
-				return ops.pp.DelegatesByEpoch(ctx, epochNum)
+				var candidatesList state.CandidateList
+				var err error
+				if ops.rp.GetEpochNum(tipHeight) == epochNum {
+					candidatesList, err = ops.pp.Delegates(ctx)
+				} else if ops.rp.GetEpochNum(tipHeight) < epochNum {
+					candidatesList, err = ops.pp.DelegatesOfNextEpoch(ctx)
+				} else {
+					return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, ops.rp.GetEpochNum(tipHeight))
+				}
+				if err != nil {
+					return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
+				}
+				addrs := []string{}
+				for _, candidate := range candidatesList {
+					addrs = append(addrs, candidate.Address)
+				}
+				return addrs, nil
 			}).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api

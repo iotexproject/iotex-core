@@ -54,6 +54,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
 			Registry: registry,
+			Tip: protocol.TipInfo{
+				Height: 0,
+			},
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -118,8 +121,8 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 		func(protocol.StateReader, bool) ([]*state.Candidate, error) { return candidates, nil },
-		candidatesutil.GetKickoutList,
-		candidatesutil.GetUnproductiveDelegate,
+		candidatesutil.KickoutListFromDB,
+		candidatesutil.UnproductiveDelegateFromDB,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -337,7 +340,7 @@ func TestHandle(t *testing.T) {
 	require.NotNil(receipt)
 
 	require.NoError(shiftCandidates(sm2))
-	candidates, err := candidatesutil.GetCandidates(sm2, false)
+	candidates, err := candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -544,7 +547,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setKickoutBlackList(sm, blackList))
 
-	delegates, err := p.DelegatesByEpoch(ctx, 2, true)
+	delegates, err := p.DelegatesOfNextEpoch(ctx)
 	require.NoError(err)
 
 	require.Equal(2, len(delegates))

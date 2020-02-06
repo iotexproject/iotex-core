@@ -154,10 +154,13 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 		}
 		return setKickoutBlackList(sm, unqualifiedList)
 	} else if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.English, epochStartHeight) {
-		if err := shiftKickoutList(sm); err != nil {
+		if err := shiftCandidates(sm); err != nil {
 			return err
 		}
-		return shiftCandidates(sm)
+		if blkCtx.BlockHeight == 1 {
+			return nil
+		}
+		return shiftKickoutList(sm)
 	}
 	return nil
 }
@@ -219,12 +222,36 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 	return p.candidatesByGravityChainHeight(gravityHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
-	return p.readActiveBlockProducersByEpoch(ctx, epochNum, readFromNext)
+func (p *governanceChainCommitteeProtocol) Delegates(ctx context.Context) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	// get current epoch number
+	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	return p.readActiveBlockProducersByEpoch(ctx, currentEpochNum, false)
 }
 
-func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	return p.readCandidatesByHeight(ctx, height, false)
+func (p *governanceChainCommitteeProtocol) DelegatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	// get next epoch number
+	nextEpochNum := rp.GetEpochNum(bcCtx.Tip.Height) + 1
+	return p.readActiveBlockProducersByEpoch(ctx, nextEpochNum, true)
+}
+
+func (p *governanceChainCommitteeProtocol) Candidates(ctx context.Context) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	// get current epoch start height
+	currentEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
+	return p.readCandidatesByHeight(ctx, currentEpochStartHeight, false)
+}
+
+func (p *governanceChainCommitteeProtocol) CandidatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	// get next epoch start height
+	nextEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height) + 1)
+	return p.readCandidatesByHeight(ctx, nextEpochStartHeight, true)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -233,19 +260,29 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	tipEpoch := rp.GetEpochNum(blkCtx.BlockHeight)
 	switch string(method) {
 	case "CandidatesByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
-		delegates, err := p.readCandidatesByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
+		delegates, err := p.readCandidatesByEpoch(ctx, tipEpoch, false)
 		if err != nil {
 			return nil, err
 		}
 		return delegates.Serialize()
 	case "BlockProducersByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
 		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
 		if err != nil {
@@ -253,8 +290,11 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		}
 		return blockProducers.Serialize()
 	case "ActiveBlockProducersByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
 		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
 		if err != nil {
@@ -270,6 +310,18 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
+	case "KickoutListByEpoch":
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
+		}
+		kickoutList, err := p.getKickoutList(p.sr, false)
+		if err != nil {
+			return nil, err
+		}
+		return kickoutList.Serialize()
 	default:
 		return nil, errors.New("corresponding method isn't found")
 
@@ -292,11 +344,9 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Con
 	return p.readCandidatesByHeight(ctx, rp.GetEpochHeight(epochNum), readFromNext)
 }
 
-func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Context, epochHeight uint64, readFromNext bool) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(epochHeight))
 	if hu.IsPre(config.English, epochStartHeight) {
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
@@ -305,14 +355,13 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	candidates, err := p.readCandidatesByHeight(ctx, epochHeight, readFromNext)
+	candidates, err := p.readCandidatesByEpoch(ctx, epochNum, readFromNext)
 	if err != nil {
 		return nil, err
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.Easter, epochHeight) {
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) {
 		var blockProducers state.CandidateList
 		for i, candidate := range candidates {
 			if uint64(i) >= p.numCandidateDelegates {
@@ -326,7 +375,9 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	// After Easter height, kick-out unqualified delegates based on productivity
 	unqualifiedList, err := p.getKickoutList(p.sr, readFromNext)
 	if err != nil {
-		return nil, err
+		if errors.Cause(err) != state.ErrStateNotExist || epochNum != 1 {
+			return nil, err
+		}
 	}
 	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)

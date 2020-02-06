@@ -230,13 +230,23 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 }
 
 // DelegatesByEpoch returns exact number of delegates according to epoch number
-func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
-	return sc.governanceStaking.DelegatesByEpoch(ctx, epochNum, readFromNext)
+func (sc *stakingCommittee) Delegates(ctx context.Context) (state.CandidateList, error) {
+	return sc.governanceStaking.Delegates(ctx)
+}
+
+// DelegatesByEpoch returns exact number of delegates according to epoch number
+func (sc *stakingCommittee) DelegatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+	return sc.governanceStaking.DelegatesOfNextEpoch(ctx)
 }
 
 // CandidatesByHeight returns candidate list from state factory according to height
-func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	return sc.governanceStaking.CandidatesByHeight(ctx, height)
+func (sc *stakingCommittee) Candidates(ctx context.Context) (state.CandidateList, error) {
+	return sc.governanceStaking.Candidates(ctx)
+}
+
+// CandidatesByHeight returns candidate list from state factory according to height
+func (sc *stakingCommittee) CandidatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+	return sc.governanceStaking.CandidatesOfNextEpoch(ctx)
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {

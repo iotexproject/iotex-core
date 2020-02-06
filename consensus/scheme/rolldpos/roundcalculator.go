@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -15,7 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type roundCalculator struct {
@@ -170,33 +168,7 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	epochStartHeight := c.rp.GetEpochHeight(epochNum)
-	re := protocol.NewRegistry()
-	if err := c.rp.Register(re); err != nil {
-		return nil, err
-	}
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{
-			Registry: re,
-		},
-	)
-	var candidatesList state.CandidateList
-	var err error
-	if height == epochStartHeight {
-		candidatesList, err = c.delegatesByEpochFunc(ctx, epochNum, true)
-	} else {
-		candidatesList, err = c.delegatesByEpochFunc(ctx, epochNum, false)
-	}
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
-	}
-	addrs := []string{}
-	for _, candidate := range candidatesList {
-		addrs = append(addrs, candidate.Address)
-	}
-
-	return addrs, nil
+	return c.delegatesByEpochFunc(epochNum)
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
