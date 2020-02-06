@@ -61,6 +61,7 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 		height,
 	)
 }
+
 // CandidatesFromDB returns array of Candidates at current epoch
 func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, error) {
 	var candidates state.CandidateList
