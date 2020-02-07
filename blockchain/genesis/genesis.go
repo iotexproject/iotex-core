@@ -139,7 +139,7 @@ type (
 		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
 		// EnglishBlockHeight is the start height of kick-out for slashing
-		EnglishBlockHeight uint64 `yaml:englishHeight`
+		EnglishBlockHeight uint64 `yaml:"englishHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

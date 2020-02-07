@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -90,7 +91,20 @@ func TestCheckVoteEndorser(t *testing.T) {
 	)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+		re := protocol.NewRegistry()
+		if err := rp.Register(re); err != nil {
+			return nil, err
+		}
+		ctx = protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Genesis:  cfg.Genesis,
+				Registry: re,
+			},
+		)
+		return pp.DelegatesByEpoch(ctx, epochNum)
+	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 
@@ -112,7 +126,20 @@ func TestCheckBlockProposer(t *testing.T) {
 	b, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
-	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, pp.DelegatesByEpoch, "", nil, c, config.Default.Genesis.BeringBlockHeight)
+	rctx, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), config.Default.DB, true, time.Second, true, b, nil, rp, nil, func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+		re := protocol.NewRegistry()
+		if err := rp.Register(re); err != nil {
+			return nil, err
+		}
+		ctx = protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Genesis:  cfg.Genesis,
+				Registry: re,
+			},
+		)
+		return pp.DelegatesByEpoch(ctx, epochNum)
+	}, "", nil, c, config.Default.Genesis.BeringBlockHeight)
 	require.NoError(err)
 	require.NotNil(rctx)
 	block := getBlockforctx(t, 0, false)
