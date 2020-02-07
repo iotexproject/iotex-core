@@ -204,24 +204,24 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 }
 
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	if data, ok := sf.workingsets.Get(key); ok {
-		if _, ok := data.(WorkingSet); !ok {
-			return errors.New("type assertion failed to be WorkingSet")
-		}
-		// if already validated, return nil
+	ws, err := sf.readFromWorkingSets(key)
+	if err != nil {
+		return err
+	}
+	if ws != nil {
 		return nil
 	}
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Lock()
+	ws, srr = newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in factory")
 	}
-	sf.workingsets.Add(key, ws)
+	sf.putIntoWorkingSets(key, ws)	
 	return nil
 }
 
@@ -232,8 +232,8 @@ func (sf *factory) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
@@ -244,7 +244,7 @@ func (sf *factory) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sf.workingsets.Add(key, ws)
+	sf.putIntoWorkingSets(key, ws)
 	return blkBuilder, nil
 }
 
@@ -285,8 +285,8 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 			Producer:       producer,
 		},
 	)
-	var ws WorkingSet
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	var ws WorkingSet
 	if data, ok := sf.workingsets.Get(key); ok {
 		if ws, ok = data.(WorkingSet); !ok {
 			return errors.New("type assertion failed to be WorkingSet")
@@ -425,4 +425,25 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 		return errors.Wrap(err, "failed to commit Genesis states")
 	}
 	return nil
+}
+
+func (sf *factory) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	if data, ok := sf.workingsets.Get(key); ok {
+		if ws, ok := data.(WorkingSet); ok {
+			// if it is already validated, return workingset
+			return ws, nil
+		}
+		return nil, errors.New("type assertion failed to be WorkingSet")
+	}
+	return nil, nil
+}
+
+
+func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+	sf.mutex.Lock()
+	defer sf.mutex.Unlock()
+	sf.workingsets.Add(key, ws)
+	return
 }

@@ -159,23 +159,21 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 }
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	if data, ok := sdb.workingsets.Get(key); ok {
-		if _, ok := data.(WorkingSet); !ok {
-			return errors.New("type assertion failed to be WorkingSet")
-		}
-		// if already validated, return nil
+	ws, err := sdb.readFromWorkingSets(key)
+	if err != nil {
+		return err
+	}
+	if ws != nil {
 		return nil
 	}
-	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
-
-	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
+	sdb.mutex.Lock()
+	ws = newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
+	if err = validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in statedb")
 	}
-
-	sdb.workingsets.Add(key, ws)
+	sdb.putIntoWorkingSets(key, ws)
 	return nil
 }
 
@@ -186,8 +184,8 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	sdb.mutex.Unlock()
 	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
@@ -195,7 +193,7 @@ func (sdb *stateDB) NewBlockBuilder(
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
-	sdb.workingsets.Add(key, ws)
+	sdb.putIntoWorkingSets(key, ws)
 	return blkBuilder, nil
 }
 
@@ -331,4 +329,26 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	}
 
 	return sdb.commit(ws)
+}
+
+
+func (sdb *stateDB) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	if data, ok := sdb.workingsets.Get(key); ok {
+		if ws, ok := data.(WorkingSet); ok {
+			// if it is already validated, return workingset
+			return ws, nil
+		}
+		return nil, errors.New("type assertion failed to be WorkingSet")
+	}
+	return nil, nil
+}
+
+
+func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	sdb.workingsets.Add(key, ws)
+	return 
 }
