@@ -109,7 +109,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
+					Genesis:  config.Default.Genesis,
 					Registry: re,
 					Tip: protocol.TipInfo{
 						Height: tipHeight,
@@ -171,7 +171,7 @@ func TestCheckBlockProposer(t *testing.T) {
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
-					Genesis: cfg.Genesis,
+					Genesis:  cfg.Genesis,
 					Registry: re,
 					Tip: protocol.TipInfo{
 						Height: tipHeight,

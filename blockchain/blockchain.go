@@ -506,6 +506,7 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		context.Background(),
 		protocol.BlockchainCtx{
 			Registry: bc.registry,
+			Genesis:  bc.config.Genesis,
 			Tip:      *tipInfo,
 		})
 

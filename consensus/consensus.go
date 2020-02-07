@@ -116,7 +116,7 @@ func NewConsensus(
 					context.Background(),
 					protocol.BlockchainCtx{
 						Registry: re,
-						Genesis: cfg.Genesis,
+						Genesis:  cfg.Genesis,
 						Tip: protocol.TipInfo{
 							Height: tipHeight,
 						},

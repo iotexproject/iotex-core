@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -232,7 +231,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
+					Genesis:  config.Default.Genesis,
 					Registry: re,
 					Tip: protocol.TipInfo{
 						Height: tipHeight,
