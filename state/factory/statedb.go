@@ -331,7 +331,6 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	return sdb.commit(ws)
 }
 
-
 func (sdb *stateDB) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
@@ -345,10 +344,9 @@ func (sdb *stateDB) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
 	return nil, nil
 }
 
-
 func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Add(key, ws)
-	return 
+	return
 }

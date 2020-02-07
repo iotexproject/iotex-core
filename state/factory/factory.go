@@ -213,7 +213,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 		return nil
 	}
 	sf.mutex.Lock()
-	ws, srr = newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err = newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
 	sf.mutex.Unlock()
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
@@ -221,7 +221,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in factory")
 	}
-	sf.putIntoWorkingSets(key, ws)	
+	sf.putIntoWorkingSets(key, ws)
 	return nil
 }
 
@@ -439,7 +439,6 @@ func (sf *factory) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
 	}
 	return nil, nil
 }
-
 
 func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
 	sf.mutex.Lock()
