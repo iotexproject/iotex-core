@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -104,7 +106,20 @@ func NewConsensus(
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(ops.pp.DelegatesByEpoch).
+			SetDelegatesByEpochFunc(func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+				re := protocol.NewRegistry()
+				if err := ops.rp.Register(re); err != nil {
+					return nil, err
+				}
+				ctx = protocol.WithBlockchainCtx(
+					ctx,
+					protocol.BlockchainCtx{
+						Genesis:  cfg.Genesis,
+						Registry: re,
+					},
+				)
+				return ops.pp.DelegatesByEpoch(ctx, epochNum)
+			}).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 		cs.scheme, err = bd.Build()
