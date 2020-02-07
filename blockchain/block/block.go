@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -28,8 +27,7 @@ type Block struct {
 	Footer
 
 	// TODO: move receipts out of block struct
-	Receipts   []*action.Receipt
-	WorkingSet factory.WorkingSet
+	Receipts []*action.Receipt
 }
 
 // ConvertToBlockHeaderPb converts BlockHeader to BlockHeader
@@ -78,7 +76,6 @@ func (b *Block) Deserialize(buf []byte) error {
 	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
 		return err
 	}
-	b.WorkingSet = nil
 	b.Receipts = nil
 
 	// verify merkle root can match after deserialize

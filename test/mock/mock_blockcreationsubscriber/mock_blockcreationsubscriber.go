@@ -33,16 +33,16 @@ func (m *MockBlockCreationSubscriber) EXPECT() *MockBlockCreationSubscriberMockR
 	return m.recorder
 }
 
-// HandleBlock mocks base method
-func (m *MockBlockCreationSubscriber) HandleBlock(arg0 *block.Block) error {
+// ReceiveBlock mocks base method
+func (m *MockBlockCreationSubscriber) ReceiveBlock(arg0 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleBlock", arg0)
+	ret := m.ctrl.Call(m, "ReceiveBlock", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// HandleBlock indicates an expected call of HandleBlock
-func (mr *MockBlockCreationSubscriberMockRecorder) HandleBlock(arg0 interface{}) *gomock.Call {
+// ReceiveBlock indicates an expected call of ReceiveBlock
+func (mr *MockBlockCreationSubscriberMockRecorder) ReceiveBlock(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockBlockCreationSubscriber)(nil).HandleBlock), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockBlockCreationSubscriber)(nil).ReceiveBlock), arg0)
 }

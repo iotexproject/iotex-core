@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -53,13 +53,16 @@ func defaultConfig() Genesis {
 			BeringBlockHeight:       1512001,
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
-			EnglishBlockHeight:      3000001,
+			DaytonaBlockHeight:      3238921,
+			EnglishBlockHeight:      3363481,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
 			EnableGravityChainVoting: true,
+			KickoutEpochPeriod:       3,
+			KickoutIntensityRate:     0,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -133,8 +136,10 @@ type (
 		CookBlockHeight uint64 `yaml:"cookHeight"`
 		// DardanellesBlockHeight is the start height of 5s block internal
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
+		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
+		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
 		// EnglishBlockHeight is the start height of kick-out for slashing
-		EnglishBlockHeight uint64 `yaml:englishHeight`
+		EnglishBlockHeight uint64 `yaml:"englishHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -165,6 +170,10 @@ type (
 		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
+		// KickoutEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
+		KickoutEpochPeriod uint64 `yaml:"kickoutEpochPeriod"`
+		// KickoutIntensityRate is a intensity rate of kick-out range from [0,1), where 0 is hard-kickout
+		KickoutIntensityRate float64 `yaml:"kickoutIntensityRate"`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

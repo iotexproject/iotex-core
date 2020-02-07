@@ -16,3 +16,4 @@ ignore:
   - "ction/protocol/account/accountpb"
   - "db/trie/triepb"
   - "blockindex/indexpb"
+  - "tools/executiontester/blockchain"

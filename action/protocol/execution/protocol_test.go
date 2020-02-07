@@ -311,7 +311,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 		sf,
 		blockchain.RegistryOption(registry),
 	)
-	reward := rewarding.NewProtocol(nil)
+	reward := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate, nil, nil)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)

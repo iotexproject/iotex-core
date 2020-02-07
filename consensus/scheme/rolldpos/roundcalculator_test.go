@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -187,9 +188,13 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	)
 
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
-	})
+	rewardingProtocol := rewarding.NewProtocol(
+		cfg.Genesis.KickoutIntensityRate,
+		nil,
+		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+		},
+	)
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -214,5 +219,20 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, rp, pp := makeChain(t)
-	return &roundCalculator{bc, true, rp, pp.DelegatesByEpoch, 0}
+	return &roundCalculator{bc, true, rp, func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+		re := protocol.NewRegistry()
+		if err := rp.Register(re); err != nil {
+			return nil, err
+		}
+		ctx = protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Genesis:  config.Default.Genesis,
+				Registry: re,
+			},
+		)
+		return pp.DelegatesByEpoch(ctx, epochNum)
+	},
+		0,
+	}
 }

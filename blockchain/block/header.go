@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -166,7 +165,7 @@ func (h *Header) HashHeaderCore() hash.Hash256 {
 func (h *Header) VerifySignature() bool {
 	hash := h.HashHeaderCore()
 
-	if h.pubkey == nil || len(h.blockSig) != action.SignatureLength {
+	if h.pubkey == nil {
 		return false
 	}
 	return h.pubkey.Verify(hash[:], h.blockSig)

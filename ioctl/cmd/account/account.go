@@ -17,6 +17,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -119,6 +120,10 @@ func KsAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert bytes into address")
 	}
+	// TODO: need a way to associate signer with private key type
+	// for existing p256k1, loading from keystore (the code below)
+	// for sm2, call ReadPrivateKeyFromPem()
+
 	// find the account in keystore
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
@@ -140,7 +145,13 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: addr}
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 	response, err := cli.GetAccount(ctx, &request)
+
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -191,22 +202,8 @@ func newAccountByKey(alias string, privateKey string, walletDir string) (string,
 	if password != passwordAgain {
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
-	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	priKey, err := crypto.HexStringToPrivateKey(privateKey)
-	if err != nil {
-		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
-	}
-	defer priKey.Zero()
-	account, err := ks.ImportECDSA(priKey.EcdsaPrivateKey(), password)
-	priKey.Zero()
-	if err != nil {
-		return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
-	}
-	addr, err := address.FromBytes(account.Address.Bytes())
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
-	}
-	return addr.String(), nil
+
+	return storeKey(privateKey, walletDir, password)
 }
 
 func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, walletDir string) (string, error) {
@@ -229,4 +226,32 @@ func newAccountByKeyStore(alias, passwordOfKeyStore, keyStorePath string, wallet
 		return "", output.NewError(output.KeystoreError, "failed to decrypt key", err)
 	}
 	return newAccountByKey(alias, hex.EncodeToString(ecrypto.FromECDSA(key.PrivateKey)), walletDir)
+}
+
+func storeKey(privateKey, walletDir, password string) (string, error) {
+	priKey, err := crypto.HexStringToPrivateKey(privateKey)
+	if err != nil {
+		return "", output.NewError(output.CryptoError, "failed to generate private key from hex string ", err)
+	}
+	defer priKey.Zero()
+
+	switch sk := priKey.EcdsaPrivateKey().(type) {
+	case *ecdsa.PrivateKey:
+		ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+		if _, err := ks.ImportECDSA(sk, password); err != nil {
+			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
+		}
+	case *crypto.P256sm2PrvKey:
+		if err := crypto.WritePrivateKeyToPem(walletDir, sk, password); err != nil {
+			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
+		}
+	default:
+		return "", output.NewError(output.CryptoError, "invalid private key", nil)
+	}
+
+	addr, err := address.FromBytes(priKey.PublicKey().Hash())
+	if err != nil {
+		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+	}
+	return addr.String(), nil
 }

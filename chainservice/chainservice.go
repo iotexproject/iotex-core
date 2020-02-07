@@ -209,8 +209,12 @@ func New(
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
-			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
-				ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
+				gasLimit := uint64(1000000)
+				if correctGas {
+					gasLimit *= 10
+				}
+				ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
 				if err != nil {
 					return nil, err
 				}
@@ -225,6 +229,7 @@ func New(
 				return data, err
 			},
 			candidatesutil.CandidatesByHeight,
+			candidatesutil.KickoutListByEpoch,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -237,6 +242,9 @@ func New(
 				return header.Timestamp(), nil
 			},
 			sf,
+			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+			},
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")
@@ -246,9 +254,12 @@ func New(
 		}
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
-	rewardingProtocol := rewarding.NewProtocol(func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-		return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
-	})
+	rewardingProtocol := rewarding.NewProtocol(
+		cfg.Genesis.KickoutIntensityRate,
+		candidatesutil.KickoutListByEpoch,
+		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+		})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
 	if err != nil {
@@ -379,6 +390,9 @@ func (cs *ChainService) Start(ctx context.Context) error {
 // Stop stops the server
 func (cs *ChainService) Stop(ctx context.Context) error {
 	if cs.indexBuilder != nil {
+		if err := cs.chain.RemoveSubscriber(cs.indexBuilder); err != nil {
+			return errors.Wrap(err, "failed to unsubscribe indexBuilder")
+		}
 		if err := cs.indexBuilder.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping index builder")
 		}

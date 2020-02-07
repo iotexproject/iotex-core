@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -110,6 +111,12 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 		},
 	}
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
@@ -138,6 +145,12 @@ func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 		},
 	}
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	response, err := cli.GetBlockMetas(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)

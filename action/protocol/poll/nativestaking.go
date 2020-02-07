@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -32,7 +32,7 @@ var (
 
 type (
 	// ReadContract defines a callback function to read contract
-	ReadContract func(context.Context, string, uint64, time.Time, []byte) ([]byte, error)
+	ReadContract func(context.Context, string, []byte, bool) ([]byte, error)
 	// NativeStaking represents native staking struct
 	NativeStaking struct {
 		readContract ReadContract
@@ -76,7 +76,7 @@ func NewNativeStaking(readContract ReadContract) (*NativeStaking, error) {
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes(ctx context.Context, height uint64, ts time.Time) (*VoteTally, error) {
+func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas bool) (*VoteTally, error) {
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
@@ -90,13 +90,14 @@ func (ns *NativeStaking) Votes(ctx context.Context, height uint64, ts time.Time)
 	limit := big.NewInt(256)
 
 	for {
-		vote, err := ns.readBuckets(ctx, prevIndex, limit, height, ts)
+		vote, index, err := ns.readBuckets(ctx, prevIndex, limit, correctGas)
 		log.L().Debug("Read native buckets from contract", zap.Int("size", len(vote)))
 		if err == ErrEndOfData {
 			// all data been read
 			break
 		}
 		if err != nil {
+			log.L().Error(" read native staking contract", zap.Error(err))
 			return nil, err
 		}
 		votes.tally(vote, ts)
@@ -104,20 +105,20 @@ func (ns *NativeStaking) Votes(ctx context.Context, height uint64, ts time.Time)
 			// all data been read
 			break
 		}
-		prevIndex.Add(prevIndex, limit)
+		prevIndex = index
 	}
 	return &votes, nil
 }
 
-func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.Int, height uint64, ts time.Time) ([]*types.Bucket, error) {
+func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.Int, correctGas bool) ([]*types.Bucket, *big.Int, error) {
 	data, err := ns.abi.Pack("getActivePyggs", prevIndx, limit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	data, err = ns.readContract(ctx, ns.contract, height, ts, data)
+	data, err = ns.readContract(ctx, ns.contract, data, correctGas)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// decode the contract read result
@@ -125,12 +126,12 @@ func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.I
 	if err = ns.abi.Unpack(pygg, "getActivePyggs", data); err != nil {
 		if err.Error() == "abi: unmarshalling empty output" {
 			// no data in contract (one possible reason is that contract does not exist yet)
-			return nil, ErrNoData
+			return nil, nil, ErrNoData
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	if len(pygg.CanNames) == 0 {
-		return nil, ErrEndOfData
+		return nil, nil, ErrEndOfData
 	}
 
 	buckets := make([]*types.Bucket, len(pygg.CanNames))
@@ -144,10 +145,11 @@ func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.I
 			pygg.Decays[i],
 		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
-	return buckets, nil
+	// last one of returned indexes should be used as starting index for next query
+	return buckets, pygg.Indexes[len(pygg.Indexes)-1], nil
 }
 
 // SetContract sets the contract address

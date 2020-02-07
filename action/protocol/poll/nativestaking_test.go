@@ -1,3 +1,9 @@
+// Copyright (c) 2020 IoTeX Foundation
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
 package poll
 
 import (
@@ -39,7 +45,7 @@ func TestStaking(t *testing.T) {
 
 	ns, err := NewNativeStaking(nil)
 	require.Error(err)
-	ns, err = NewNativeStaking(func(context.Context, string, uint64, time.Time, []byte) ([]byte, error) {
+	ns, err = NewNativeStaking(func(context.Context, string, []byte, bool) ([]byte, error) {
 		return nil, nil
 	})
 	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
@@ -66,7 +72,7 @@ func TestStaking(t *testing.T) {
 		)
 	}
 
-	tallies := VoteTally{
+	tallies := &VoteTally{
 		Candidates: make(map[[12]byte]*state.Candidate),
 		Buckets:    make([]*types.Bucket, 0),
 	}
@@ -82,6 +88,44 @@ func TestStaking(t *testing.T) {
 		}
 	}
 	require.Equal(len(buckets), len(tallies.Buckets))
+	for i := range buckets {
+		require.Equal(buckets[i], tallies.Buckets[i])
+	}
+
+	// merge with existing data
+	cand := state.CandidateList{
+		&state.Candidate{
+			CanName: []byte{1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			Votes:   big.NewInt(111),
+		},
+		&state.Candidate{
+			CanName: []byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			Votes:   big.NewInt(111),
+		},
+		&state.Candidate{
+			CanName: []byte{107, 111, 118, 97, 110, 114, 111, 98, 111, 116, 50, 56},
+			Votes:   big.NewInt(111),
+		},
+		&state.Candidate{
+			CanName: []byte{107, 111, 118, 97, 110, 114, 111, 98, 111, 116, 50, 55},
+			Votes:   big.NewInt(111),
+		},
+	}
+
+	amount = big.NewInt(unit.Iotx)
+	sc := &stakingCommittee{
+		nativeStaking:  ns,
+		scoreThreshold: amount.Mul(amount, big.NewInt(200)),
+	}
+
+	newCand := sc.mergeCandidates(cand, tallies, time.Now())
+	require.Equal(2, len(newCand))
+	for i := range newCand {
+		name := cand[i].CanName
+		require.Equal(name, newCand[i].CanName)
+		cand[i].Votes.Add(cand[i].Votes, tallies.Candidates[to12Bytes(name)].Votes)
+		require.Equal(cand[i].Votes, newCand[i].Votes)
+	}
 
 	// test empty data from contract
 	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", empty))

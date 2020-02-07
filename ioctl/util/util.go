@@ -9,11 +9,14 @@ package util
 import (
 	"bytes"
 	"crypto/tls"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
@@ -183,4 +186,14 @@ func Address(in string) (string, error) {
 		return addr, nil
 	}
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+}
+
+// JwtAuth used for ioctl set auth and send for every grpc request
+func JwtAuth() (jwt metadata.MD, err error) {
+	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
+	jwtString, err := ioutil.ReadFile(jwtFile)
+	if err != nil {
+		return nil, err
+	}
+	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
 }

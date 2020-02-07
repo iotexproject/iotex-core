@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
@@ -23,6 +24,9 @@ import (
 
 // CandidatesPrefix is the prefix of the key of candidateList
 const CandidatesPrefix = "Candidates."
+
+// KickoutPrefix is the prefix of the key of blackList for kick-out
+const KickoutPrefix = "KickoutList."
 
 // CandidatesByHeight returns array of Candidates in candidate pool of a given height
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
@@ -49,6 +53,31 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 	)
 }
 
+// KickoutListByEpoch returns array of unqualified delegate address in delegate pool for the given epochNum
+func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (*vote.Blacklist, error) {
+	blackList := &vote.Blacklist{}
+	if epochNum == 1 {
+		return blackList, nil
+	}
+	// Load kick out list on the given epochNum from underlying db
+	blackListKey := ConstructBlackListKey(epochNum)
+	err := sr.State(blackListKey, blackList)
+	log.L().Debug(
+		"KickoutListByEpoch",
+		zap.Uint64("epoch number", epochNum),
+		zap.Any("kick out list ", blackList),
+		zap.Error(err),
+	)
+	if err == nil {
+		return blackList, nil
+	}
+	return nil, errors.Wrapf(
+		err,
+		"failed to get state of kick-out list for epoch number %d",
+		epochNum,
+	)
+}
+
 // LoadAndAddCandidates loads candidates from trie and adds a new candidate
 func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr string) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
@@ -57,35 +86,6 @@ func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr strin
 	}
 	if err := addCandidate(candidateMap, addr); err != nil {
 		return errors.Wrap(err, "failed to add candidate to candidate map")
-	}
-	return storeCandidates(candidateMap, sm, blkHeight)
-}
-
-// LoadAndDeleteCandidates loads candidates from trie and deletes a candidate if exists
-func LoadAndDeleteCandidates(sm protocol.StateManager, blkHeight uint64, encodedAddr string) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
-	if err != nil {
-		return errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to convert address to public key hash")
-	}
-	addrHash := hash.BytesToHash160(addr.Bytes())
-	if _, ok := candidateMap[addrHash]; ok {
-		delete(candidateMap, addrHash)
-	}
-	return storeCandidates(candidateMap, sm, blkHeight)
-}
-
-// LoadAndUpdateCandidates loads candidates from trie and updates an existing candidate
-func LoadAndUpdateCandidates(sm protocol.StateManager, blkHeight uint64, addr string, votingWeight *big.Int) error {
-	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
-	if err != nil {
-		return errors.Wrap(err, "failed to get most recent candidates from trie")
-	}
-	if err := updateCandidate(candidateMap, addr, votingWeight, blkHeight); err != nil {
-		return errors.Wrapf(err, "failed to update candidate %s", addr)
 	}
 	return storeCandidates(candidateMap, sm, blkHeight)
 }
@@ -117,6 +117,14 @@ func ConstructKey(height uint64) hash.Hash160 {
 	return hash.Hash160b(k)
 }
 
+// ConstructBlackListKey constructs a key for kick-out blacklist storage
+func ConstructBlackListKey(epochNum uint64) hash.Hash160 {
+	epochInBytes := byteutil.Uint64ToBytes(epochNum)
+	k := []byte(KickoutPrefix)
+	k = append(k, epochInBytes...)
+	return hash.Hash160b(k)
+}
+
 // addCandidate adds a new candidate to candidateMap
 func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr string) error {
 	addr, err := address.FromString(encodedAddr)
@@ -130,25 +138,6 @@ func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr st
 			Votes:   big.NewInt(0),
 		}
 	}
-	return nil
-}
-
-// updateCandidate updates a candidate state
-func updateCandidate(
-	candidateMap map[hash.Hash160]*state.Candidate,
-	encodedAddr string,
-	totalWeight *big.Int,
-	blockHeight uint64,
-) error {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get public key hash from account address")
-	}
-	addrHash := hash.BytesToHash160(addr.Bytes())
-	// Candidate was added when self-nomination, always exist in cachedCandidates
-	candidate := candidateMap[addrHash]
-	candidate.Votes = totalWeight
-
 	return nil
 }
 

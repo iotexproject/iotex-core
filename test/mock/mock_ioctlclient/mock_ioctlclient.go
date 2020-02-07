@@ -6,6 +6,7 @@ package mock_ioctlclient
 
 import (
 	context "context"
+	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	gomock "github.com/golang/mock/gomock"
 	ioctl "github.com/iotexproject/iotex-core/ioctl"
 	config "github.com/iotexproject/iotex-core/ioctl/config"
@@ -135,4 +136,47 @@ func (m *MockClient) ReadSecret() (string, error) {
 func (mr *MockClientMockRecorder) ReadSecret() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSecret", reflect.TypeOf((*MockClient)(nil).ReadSecret))
+}
+
+// Execute mocks base method
+func (m *MockClient) Execute(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Execute", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Execute indicates an expected call of Execute
+func (mr *MockClientMockRecorder) Execute(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockClient)(nil).Execute), arg0)
+}
+
+// GetAddress mocks base method
+func (m *MockClient) GetAddress(in string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAddress", in)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAddress indicates an expected call of GetAddress
+func (mr *MockClientMockRecorder) GetAddress(in interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAddress", reflect.TypeOf((*MockClient)(nil).GetAddress), in)
+}
+
+// NewKeyStore mocks base method
+func (m *MockClient) NewKeyStore(arg0 string, arg1, arg2 int) *keystore.KeyStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewKeyStore", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*keystore.KeyStore)
+	return ret0
+}
+
+// NewKeyStore indicates an expected call of NewKeyStore
+func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
 }
