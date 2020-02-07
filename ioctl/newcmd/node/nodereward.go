@@ -55,11 +55,96 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 			cmd.SilenceUsage = true
 			var err error
 			if len(args) == 0 {
-				err = rewardPool(c, endpoint, insecure, map[string]string{
-					"rewardPoolMessageTranslation": rewardPoolMessageTranslation,
-				})
+
+				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
+				if err != nil {
+					return err
+				}
+
+				response, err := apiClient.ReadState(
+					context.Background(),
+					&iotexapi.ReadStateRequest{
+						ProtocolID: []byte("rewarding"),
+						MethodName: []byte("AvailableBalance"),
+					},
+				)
+
+				if err != nil {
+					sta, ok := status.FromError(err)
+					if ok {
+						return output.NewError(output.APIError, sta.Message(), nil)
+					}
+					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+				}
+
+				availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				if !ok {
+					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+				}
+
+				response, err = apiClient.ReadState(
+					context.Background(),
+					&iotexapi.ReadStateRequest{
+						ProtocolID: []byte("rewarding"),
+						MethodName: []byte("TotalBalance"),
+					},
+				)
+				if err != nil {
+					sta, ok := status.FromError(err)
+					if ok {
+						return output.NewError(output.APIError, sta.Message(), nil)
+					}
+					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+				}
+				totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				if !ok {
+					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+				}
+
+				message := rewardPoolMessage{
+					AvailableReward: util.RauToString(availableRewardRau, util.IotxDecimalNum),
+					TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
+				}
+				fmt.Println(message.String(rewardPoolMessageTranslation))
+
+				return nil
+
 			} else {
-				err = reward(c, endpoint, insecure, args[0])
+				arg := args[0]
+				address, err := util.Address(arg)
+				if err != nil {
+					return output.NewError(output.AddressError, "failed to get address", err)
+				}
+				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
+					Endpoint: endpoint,
+					Insecure: insecure,
+				})
+				if err != nil {
+					return err
+				}
+
+				response, err := apiClient.ReadState(
+					context.Background(),
+					&iotexapi.ReadStateRequest{
+						ProtocolID: []byte("rewarding"),
+						MethodName: []byte("UnclaimedBalance"),
+						Arguments:  [][]byte{[]byte(address)},
+					},
+				)
+				if err != nil {
+					sta, ok := status.FromError(err)
+					if ok {
+						return output.NewError(output.APIError, sta.Message(), nil)
+					}
+					return output.NewError(output.NetworkError, "failed to get version from server", err)
+				}
+				rewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				if !ok {
+					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
+				}
+				message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
+				fmt.Println(message.String())
+				return nil
 			}
 			return output.PrintError(err)
 		},
@@ -72,14 +157,14 @@ type rewardPoolMessage struct {
 	TotalReward     string `json:"totalReward"`
 }
 
-func (m *rewardPoolMessage) String(rewardPoolMessageTranslation string) string {
+func (m *rewardPoolMessage) String(trans ...string) string {
 
 	if output.Format == "" {
-		message := fmt.Sprintf(rewardPoolMessageTranslation,
+		message := fmt.Sprintf(trans[0],
 			m.AvailableReward, m.TotalReward)
 		return message
 	}
-	return output.FormatString(output.Result, m)
+	return output.FormatStringWithTrans(output.Result, m)
 }
 
 type rewardMessage struct {
@@ -87,103 +172,10 @@ type rewardMessage struct {
 	Reward  string `json:"reward"`
 }
 
-func (m *rewardMessage) String() string {
+func (m *rewardMessage) String(trans ...string) string {
 	if output.Format == "" {
 		message := fmt.Sprintf("%s: %s IOTX", m.Address, m.Reward)
 		return message
 	}
-	return output.FormatString(output.Result, m)
-}
-
-func rewardPool(c ioctl.Client, endpoint string, insecure bool, multiLanguage map[string]string) error {
-	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
-	if err != nil {
-		return err
-	}
-
-	response, err := apiClient.ReadState(
-		context.Background(),
-		&iotexapi.ReadStateRequest{
-			ProtocolID: []byte("rewarding"),
-			MethodName: []byte("AvailableBalance"),
-		},
-	)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
-	}
-
-	availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
-	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
-	}
-
-	response, err = apiClient.ReadState(
-		context.Background(),
-		&iotexapi.ReadStateRequest{
-			ProtocolID: []byte("rewarding"),
-			MethodName: []byte("TotalBalance"),
-		},
-	)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
-	}
-	totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
-	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
-	}
-
-	message := rewardPoolMessage{
-		AvailableReward: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-		TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
-	}
-	fmt.Println(message.String(multiLanguage["rewardPoolMessageTranslation"]))
-	return nil
-}
-
-func reward(c ioctl.Client, endpoint string, insecure bool, arg string) error {
-	address, err := util.Address(arg)
-	if err != nil {
-		return output.NewError(output.AddressError, "failed to get address", err)
-	}
-	apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-		Endpoint: endpoint,
-		Insecure: insecure,
-	})
-	if err != nil {
-		return err
-	}
-
-	response, err := apiClient.ReadState(
-		context.Background(),
-		&iotexapi.ReadStateRequest{
-			ProtocolID: []byte("rewarding"),
-			MethodName: []byte("UnclaimedBalance"),
-			Arguments:  [][]byte{[]byte(address)},
-		},
-	)
-	if err != nil {
-		sta, ok := status.FromError(err)
-		if ok {
-			return output.NewError(output.APIError, sta.Message(), nil)
-		}
-		return output.NewError(output.NetworkError, "failed to get version from server", err)
-	}
-	rewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
-	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
-	}
-	message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
-	fmt.Println(message.String())
-	return nil
+	return output.FormatStringWithTrans(output.Result, m)
 }
