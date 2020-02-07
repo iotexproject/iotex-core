@@ -160,16 +160,13 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, err := sdb.readFromWorkingSets(key)
+	ws, isExist, err := sdb.getFromWorkingSets(key)
 	if err != nil {
 		return err
 	}
-	if ws != nil {
+	if isExist {
 		return nil
 	}
-	sdb.mutex.Lock()
-	ws = newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
-	sdb.mutex.Unlock()
 	if err = validateWithWorkingset(ctx, ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in statedb")
 	}
@@ -215,8 +212,8 @@ func (sdb *stateDB) SimulateExecution(
 // Commit persists all changes in RunActions() into the DB
 func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	timer := sdb.timerFactory.NewTimer("Commit")
+	sdb.mutex.Unlock()
 	defer timer.End()
 	producer, err := address.FromBytes(blk.PublicKey().Hash())
 	if err != nil {
@@ -232,21 +229,19 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		},
 	)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	data, ok := sdb.workingsets.Get(key)
-	var ws WorkingSet
-	if ok {
-		if ws, ok = data.(WorkingSet); !ok {
-			return errors.New("type assertion failed to be WorkingSet")
-		}
-	} else {
-		// regenerate the workingset
-		ws = newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
+	ws, isExist, err := sdb.getFromWorkingSets(key)
+	if err != nil {
+		return err
+	}
+	if !isExist {
 		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
 		if err != nil {
 			log.L().Panic("Failed to update state.", zap.Error(err))
 			return err
 		}
 	}
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
 	if sdb.currentChainHeight+1 != ws.Version() {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
@@ -279,6 +274,9 @@ func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol
 
 // DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
 func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sdb.workingsets.Remove(key)
 	return nil
@@ -321,7 +319,6 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 	return nil
 }
 
-// Initialize initializes the state db
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	ws := newStateTX(0, sdb.dao, sdb.saveHistory)
 	if err := createGenesisStates(ctx, ws); err != nil {
@@ -331,17 +328,18 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	return sdb.commit(ws)
 }
 
-func (sdb *stateDB) readFromWorkingSets(key hash.Hash256) (WorkingSet, error) {
+// getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
+func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
 		if ws, ok := data.(WorkingSet); ok {
 			// if it is already validated, return workingset
-			return ws, nil
+			return ws, true, nil
 		}
-		return nil, errors.New("type assertion failed to be WorkingSet")
+		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	return nil, nil
+	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), false, nil
 }
 
 func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
