@@ -769,6 +769,7 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: api.registry,
+		Genesis:  api.cfg.Genesis,
 	})
 
 	// TODO: need to distinguish user error and system error

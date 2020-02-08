@@ -50,24 +50,16 @@ func init() {
 type (
 	// WorkingSet defines an interface for working set of states changes
 	WorkingSet interface {
+		protocol.StateManager
 		// states and actions
 		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, error)
 		Finalize() error
-		Snapshot() int
-		Revert(int) error
 		Commit() error
 		RootHash() (hash.Hash256, error)
 		Digest() (hash.Hash256, error)
 		Version() uint64
-		Height() (uint64, error)
 		History() bool
-		// General state
-		State(hash.Hash160, interface{}) error
-		PutState(hash.Hash160, interface{}) error
-		DelState(pkHash hash.Hash160) error
-		GetDB() db.KVStore
-		GetCachedBatch() batch.CachedBatch
 	}
 
 	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
@@ -97,7 +89,7 @@ func newWorkingSet(
 		cb:          batch.NewCachedBatch(),
 		dao:         kv,
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountKVNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
+	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to generate state tire db")
 	}
@@ -228,13 +220,13 @@ func (ws *workingSet) Finalize() error {
 	ws.finalized = true
 	// Persist accountTrie's root hash
 	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(AccountKVNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
+	ws.cb.Put(protocol.AccountNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
 	// Persist current chain Height
 	h := byteutil.Uint64ToBytes(ws.blockHeight)
-	ws.cb.Put(AccountKVNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
+	ws.cb.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
 	// Persist the historical accountTrie's root hash
 	ws.cb.Put(
-		AccountKVNameSpace,
+		protocol.AccountNameSpace,
 		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, ws.blockHeight)),
 		rootHash,
 		"failed to store accountTrie's root hash",
@@ -289,7 +281,7 @@ func (ws *workingSet) GetCachedBatch() batch.CachedBatch {
 }
 
 // State pulls a state from DB
-func (ws *workingSet) State(hash hash.Hash160, s interface{}) error {
+func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
@@ -301,8 +293,41 @@ func (ws *workingSet) State(hash hash.Hash160, s interface{}) error {
 	return state.Deserialize(s, mstate)
 }
 
+// StateAtHeight pulls a state from DB
+func (ws *workingSet) StateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
+	if !ws.saveHistory {
+		return ErrNoArchiveData
+	}
+	// get root through height
+	rootHash, err := ws.dao.Get(protocol.AccountNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
+	if err != nil {
+		return errors.Wrap(err, "failed to get root hash through height")
+	}
+	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(batch.NewCachedBatch()))
+	if err != nil {
+		return errors.Wrap(err, "failed to generate state tire db")
+	}
+	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(rootHash))
+	if err != nil {
+		return errors.Wrap(err, "failed to generate state trie from config")
+	}
+	err = tr.Start(context.Background())
+	if err != nil {
+		return err
+	}
+	defer tr.Stop(context.Background())
+	mstate, err := tr.Get(hash[:])
+	if errors.Cause(err) == trie.ErrNotExist {
+		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
+	}
+	if err != nil {
+		return errors.Wrapf(err, "failed to get account of %x", hash)
+	}
+	return state.Deserialize(s, mstate)
+}
+
 // PutState puts a state into DB
-func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}) error {
+func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
 	stateDBMtc.WithLabelValues("put").Inc()
 	ss, err := state.Serialize(s)
 	if err != nil {
@@ -312,7 +337,7 @@ func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}) error {
 }
 
 // DelState deletes a state from DB
-func (ws *workingSet) DelState(pkHash hash.Hash160) error {
+func (ws *workingSet) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
 	return ws.accountTrie.Delete(pkHash[:])
 }
 

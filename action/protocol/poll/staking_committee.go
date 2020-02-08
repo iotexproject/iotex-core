@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -188,7 +188,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// convert to epoch start height
 	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
-		return sc.filterDelegates(cand), nil
+		return sc.filterCandidates(cand), nil
 	}
 	// native staking starts from Cook
 	if sc.nativeStaking == nil {
@@ -196,17 +196,17 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	}
 
 	// TODO: extract tip info inside of Votes function
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Height, bcCtx.Tip.Timestamp)
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, hu.IsPost(config.Daytona, height))
 	if err == ErrNoData {
 		// no native staking data
-		return sc.filterDelegates(cand), nil
+		return sc.filterCandidates(cand), nil
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get native chain candidates")
 	}
 	sc.currentNativeBuckets = nativeVotes.Buckets
 
-	return sc.mergeDelegates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
+	return sc.mergeCandidates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
 }
 
 // DelegatesByEpoch returns exact number of delegates according to epoch number
@@ -239,7 +239,7 @@ func (sc *stakingCommittee) SetNativeStakingContract(contract string) {
 }
 
 // return candidates whose votes are above threshold
-func (sc *stakingCommittee) filterDelegates(candidates state.CandidateList) state.CandidateList {
+func (sc *stakingCommittee) filterCandidates(candidates state.CandidateList) state.CandidateList {
 	var cand state.CandidateList
 	for _, c := range candidates {
 		if c.Votes.Cmp(sc.scoreThreshold) >= 0 {
@@ -249,7 +249,7 @@ func (sc *stakingCommittee) filterDelegates(candidates state.CandidateList) stat
 	return cand
 }
 
-func (sc *stakingCommittee) mergeDelegates(list state.CandidateList, votes *VoteTally, ts time.Time) state.CandidateList {
+func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *VoteTally, ts time.Time) state.CandidateList {
 	// as of now, native staking does not have register contract, only voting/staking contract
 	// it is assumed that all votes done on native staking target for delegates registered on Ethereum
 	// votes cast to all outside address will not be counted and simply ignored

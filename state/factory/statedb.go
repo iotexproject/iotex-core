@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -36,6 +39,7 @@ type stateDB struct {
 	cfg                config.Config
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
+	workingsets        *lru.Cache // lru cache for workingsets
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -96,6 +100,9 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
+	if sdb.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
+		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
+	}
 	return &sdb, nil
 }
 
@@ -106,7 +113,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	h, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	h, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
@@ -116,7 +123,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
 		}
-		if err = sdb.dao.Put(AccountKVNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = sdb.dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
@@ -129,6 +136,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
+	sdb.workingsets.Purge()
 	return sdb.dao.Stop(ctx)
 }
 
@@ -136,7 +144,7 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 func (sdb *stateDB) Height() (uint64, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	height, err := sdb.dao.Get(AccountKVNameSpace, []byte(CurrentHeightKey))
+	height, err := sdb.dao.Get(protocol.AccountNameSpace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
@@ -150,24 +158,40 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), nil
 }
 
-func (sdb *stateDB) RunActions(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
-	sdb.mutex.Lock()
-	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
-	sdb.mutex.Unlock()
-
-	return runActions(ctx, ws, actions)
+func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	ws, isExist, err := sdb.getFromWorkingSets(key)
+	if err != nil {
+		return err
+	}
+	if isExist {
+		return nil
+	}
+	if err = validateWithWorkingset(ctx, ws, blk); err != nil {
+		return errors.Wrap(err, "failed to validate block with workingset in statedb")
+	}
+	sdb.putIntoWorkingSets(key, ws)
+	return nil
 }
 
-func (sdb *stateDB) PickAndRunActions(
+// NewBlockBuilder returns block builder which hasn't been signed yet
+func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
-) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+) (*block.Builder, error) {
 	sdb.mutex.Lock()
 	ws := newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory)
 	sdb.mutex.Unlock()
+	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	if err != nil {
+		return nil, err
+	}
 
-	return pickAndRunActions(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	key := generateWorkingSetCacheKey(blkBuilder.GetCurrentBlockHeader(), blkCtx.Producer.String())
+	sdb.putIntoWorkingSets(key, ws)
+	return blkBuilder, nil
 }
 
 // SimulateExecution simulates a running of smart contract operation, this is done off the network since it does not
@@ -186,14 +210,38 @@ func (sdb *stateDB) SimulateExecution(
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (sdb *stateDB) Commit(ws WorkingSet) error {
+func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
+	sdb.mutex.Lock()
+	timer := sdb.timerFactory.NewTimer("Commit")
+	sdb.mutex.Unlock()
+	defer timer.End()
+	producer, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       producer,
+		},
+	)
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	ws, isExist, err := sdb.getFromWorkingSets(key)
+	if err != nil {
+		return err
+	}
+	if !isExist {
+		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
+		if err != nil {
+			log.L().Panic("Failed to update state.", zap.Error(err))
+			return err
+		}
+	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	timer := sdb.timerFactory.NewTimer("Commit")
-	defer timer.End()
-	if ws == nil {
-		return errors.New("working set doesn't exist")
-	}
 	if sdb.currentChainHeight+1 != ws.Version() {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
@@ -207,19 +255,44 @@ func (sdb *stateDB) Commit(ws WorkingSet) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(addr hash.Hash160, state interface{}) error {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
+func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
 
-	return sdb.state(addr, state)
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+
+	ns := protocol.AccountNameSpace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+
+	return sdb.state(ns, addr, state)
+}
+
+// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
+func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+
+	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
+	sdb.workingsets.Remove(key)
+	return nil
+}
+
+// StateAtHeight returns a confirmed state in the state factory
+func (sdb *stateDB) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
+	return ErrNotSupported
 }
 
 //======================================
 // private trie constructor functions
 //======================================
 
-func (sdb *stateDB) state(addr hash.Hash160, s interface{}) error {
-	data, err := sdb.dao.Get(AccountKVNameSpace, addr[:])
+func (sdb *stateDB) state(ns string, addr hash.Hash160, s interface{}) error {
+	data, err := sdb.dao.Get(ns, addr[:])
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
@@ -246,7 +319,6 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 	return nil
 }
 
-// Initialize initializes the state db
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	ws := newStateTX(0, sdb.dao, sdb.saveHistory)
 	if err := createGenesisStates(ctx, ws); err != nil {
@@ -254,4 +326,25 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	}
 
 	return sdb.commit(ws)
+}
+
+// getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
+func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, error) {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	if data, ok := sdb.workingsets.Get(key); ok {
+		if ws, ok := data.(WorkingSet); ok {
+			// if it is already validated, return workingset
+			return ws, true, nil
+		}
+		return nil, false, errors.New("type assertion failed to be WorkingSet")
+	}
+	return newStateTX(sdb.currentChainHeight+1, sdb.dao, sdb.saveHistory), false, nil
+}
+
+func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+	sdb.mutex.Lock()
+	defer sdb.mutex.Unlock()
+	sdb.workingsets.Add(key, ws)
+	return
 }

@@ -47,6 +47,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -981,6 +982,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -988,6 +990,12 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 				nil,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1241,6 +1249,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1248,6 +1257,12 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 				nil,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1294,6 +1309,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1301,12 +1317,17 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
 				nil,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
 		require.NoError(pol.ForceRegister(svr.registry))
-
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
@@ -1326,6 +1347,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1347,13 +1371,20 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		} else {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
+				sm,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1412,6 +1443,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {
@@ -1456,13 +1490,20 @@ func TestServer_GetEpochMeta(t *testing.T) {
 						},
 					}, nil
 				},
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
+				sm,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.KickoutIntensityRate,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
@@ -1471,6 +1512,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
+					Genesis:  cfg.Genesis,
 					Registry: svr.registry,
 					Tip: protocol.TipInfo{
 						Height:    uint64(4),
@@ -1778,9 +1820,11 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(func(context.Context, uint64) (uint64, map[string]uint64, error) {
-		return 0, nil, nil
-	})
+	r := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate,
+		nil,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		})
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, err

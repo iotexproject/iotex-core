@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -34,6 +35,9 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
+	cfg.Genesis.EnglishBlockHeight = 1 // set up testing after English Height
+	cfg.Genesis.KickoutEpochPeriod = 2
+	cfg.Genesis.ProductivityThreshold = 85
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -48,7 +52,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
+			Genesis:  cfg.Genesis,
 			Registry: registry,
 		},
 	)
@@ -82,15 +86,71 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	candidates := []*state.Candidate{
+		{
+			Address:       identityset.Address(1).String(),
+			Votes:         big.NewInt(30),
+			RewardAddress: "rewardAddress1",
+		},
+		{
+			Address:       identityset.Address(2).String(),
+			Votes:         big.NewInt(22),
+			RewardAddress: "rewardAddress2",
+		},
+		{
+			Address:       identityset.Address(3).String(),
+			Votes:         big.NewInt(20),
+			RewardAddress: "rewardAddress3",
+		},
+		{
+			Address:       identityset.Address(4).String(),
+			Votes:         big.NewInt(10),
+			RewardAddress: "rewardAddress4",
+		},
+	}
 	p, err := NewGovernanceChainCommitteeProtocol(
-		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+		candidatesutil.KickoutListByEpoch,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
+		2,
+		2,
 		cfg.Chain.PollInitialCandidatesInterval,
-		nil,
+		sm,
+		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
+			switch epochNum {
+			case 1:
+				return uint64(16),
+					map[string]uint64{ // [A, B, C]
+						identityset.Address(1).String(): 1, // underperformance
+						identityset.Address(2).String(): 1, // underperformance
+						identityset.Address(3).String(): 1, // underperformance
+						identityset.Address(4).String(): 13,
+					}, nil
+			case 2:
+				return uint64(12),
+					map[string]uint64{ // [B, D]
+						identityset.Address(1).String(): 7,
+						identityset.Address(2).String(): 1, // underperformance
+						identityset.Address(3).String(): 3,
+						identityset.Address(4).String(): 1, // underperformance
+					}, nil
+			case 3:
+				return uint64(12),
+					map[string]uint64{ // [E, F]
+						identityset.Address(1).String(): 5,
+						identityset.Address(2).String(): 5,
+						identityset.Address(5).String(): 1, // underperformance
+						identityset.Address(6).String(): 1, // underperformance
+					}, nil
+			default:
+				return 0, nil, nil
+			}
+		},
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
 	)
 	return p, ctx, sm, r, err
 }
@@ -140,6 +200,61 @@ func TestCreatePostSystemActions(t *testing.T) {
 	}
 }
 
+func TestCreatePreStates(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
+
+	psc, ok := p.(protocol.PreStatesCreator)
+	require.True(ok)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+
+	test := make(map[uint64](map[string]uint32))
+	test[2] = map[string]uint32{
+		identityset.Address(1).String(): 1, // [A, B, C]
+		identityset.Address(2).String(): 1,
+		identityset.Address(3).String(): 1,
+	}
+	test[3] = map[string]uint32{
+		identityset.Address(1).String(): 1, // [A, B, C, D]
+		identityset.Address(2).String(): 2,
+		identityset.Address(3).String(): 1,
+		identityset.Address(4).String(): 1,
+	}
+	test[4] = map[string]uint32{
+		identityset.Address(2).String(): 1, // [B, D, E, F]
+		identityset.Address(4).String(): 1,
+		identityset.Address(5).String(): 1,
+		identityset.Address(6).String(): 1,
+	}
+
+	// testing for kick-out slashing
+	var epochNum uint64
+	for epochNum = 1; epochNum <= 3; epochNum++ {
+		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight: epochLastHeight,
+				Producer:    identityset.Address(1),
+			},
+		)
+		require.NoError(psc.CreatePreStates(ctx, sm))
+		bl := &vote.Blacklist{}
+		require.NoError(sm.State(candidatesutil.ConstructBlackListKey(epochNum+1), bl))
+		expected := test[epochNum+1]
+		require.Equal(len(expected), len(bl.BlacklistInfos))
+		for addr, count := range bl.BlacklistInfos {
+			val, ok := expected[addr]
+			require.True(ok)
+			require.Equal(val, count)
+		}
+	}
+}
+
 func TestHandle(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -181,6 +296,14 @@ func TestHandle(t *testing.T) {
 	receipt, err = p.Handle(ctx2, selp2.Action(), sm2)
 	require.NoError(err)
 	require.NotNil(receipt)
+
+	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	require.NoError(err)
+	require.Equal(2, len(candidates))
+	require.Equal(candidates[0].Address, sc2[0].Address)
+	require.Equal(candidates[0].Votes, sc2[0].Votes)
+	require.Equal(candidates[1].Address, sc2[1].Address)
+	require.Equal(candidates[1].Votes, sc2[1].Votes)
 }
 
 func TestProtocol_Validate(t *testing.T) {
@@ -357,4 +480,31 @@ func TestProtocol_Validate(t *testing.T) {
 		},
 	)
 	require.NoError(p6.Validate(ctx6, selp6.Action()))
+}
+
+func TestDelegatesByEpoch(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
+
+	blackListMap := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 1,
+	}
+
+	blackList := &vote.Blacklist{
+		BlacklistInfos: blackListMap,
+	}
+	require.NoError(setKickoutBlackList(sm, blackList, 2))
+
+	delegates, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+
+	require.Equal(2, len(delegates))
+	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
+	require.Equal(identityset.Address(3).String(), delegates[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates[1].Address)
+
 }

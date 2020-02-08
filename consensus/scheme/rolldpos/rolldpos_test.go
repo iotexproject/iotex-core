@@ -416,31 +416,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
 			require.NoError(t, sf.Start(ctx))
-			for j := 0; j < numNodes; j++ {
-				ws, err := sf.NewWorkingSet()
-				require.NoError(t, err)
-				_, err = accountutil.LoadOrCreateAccount(ws, chainRawAddrs[j])
-				require.NoError(t, err)
-				gasLimit := testutil.TestGasLimit
-				wsctx := protocol.WithBlockCtx(
-					ctx,
-					protocol.BlockCtx{
-						BlockHeight: 0,
-						Producer:    identityset.Address(27),
-						GasLimit:    gasLimit,
-					},
-				)
-				wsctx = protocol.WithBlockchainCtx(
-					wsctx,
-					protocol.BlockchainCtx{
-						Genesis: cfg.Genesis,
-					},
-				)
-				_, err = ws.RunActions(wsctx, nil)
-				require.NoError(t, err)
-				require.NoError(t, ws.Finalize())
-				require.NoError(t, sf.Commit(ws))
-			}
 			registry := protocol.NewRegistry()
 			acc := account.NewProtocol(rewarding.DepositGas)
 			require.NoError(t, acc.Register(registry))

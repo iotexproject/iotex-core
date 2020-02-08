@@ -88,13 +88,20 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		nil,
+		sm,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {
@@ -104,7 +111,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	p, err := NewStakingCommittee(
 		committee,
 		gs,
-		func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
+		func(context.Context, string, []byte, bool) ([]byte, error) {
 			return nil, nil
 		},
 		cfg.Genesis.NativeStakingContractAddress,
@@ -205,6 +212,14 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	receipt, err = p.Handle(ctx2, selp2.Action(), sm2)
 	require.NoError(err)
 	require.NotNil(receipt)
+
+	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	require.NoError(err)
+	require.Equal(2, len(candidates))
+	require.Equal(candidates[0].Address, sc2[0].Address)
+	require.Equal(candidates[0].Votes, sc2[0].Votes)
+	require.Equal(candidates[1].Address, sc2[1].Address)
+	require.Equal(candidates[1].Votes, sc2[1].Votes)
 }
 
 func TestProtocol_Validate_StakingCommittee(t *testing.T) {

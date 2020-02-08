@@ -9,6 +9,7 @@ package bc
 import (
 	"context"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -65,6 +66,12 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	request := iotexapi.GetChainMetaRequest{}
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {
 		sta, ok := status.FromError(err)
@@ -86,6 +93,12 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	response, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
