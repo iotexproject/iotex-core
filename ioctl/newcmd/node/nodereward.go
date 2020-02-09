@@ -106,8 +106,6 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				}
 				fmt.Println(message.String(rewardPoolMessageTranslation))
 
-				return nil
-
 			} else {
 				arg := args[0]
 				address, err := c.Address(arg)
@@ -143,7 +141,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 				}
 				message := rewardMessage{Address: address, Reward: util.RauToString(rewardRau, util.IotxDecimalNum)}
 				fmt.Println(message.String())
-				return nil
+
 			}
 			return output.PrintError(err)
 		},
