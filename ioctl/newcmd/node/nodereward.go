@@ -11,8 +11,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
-
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -20,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/spf13/cobra"
 )
 
@@ -111,7 +110,7 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 
 			} else {
 				arg := args[0]
-				address, err := util.Address(arg)
+				address, err := c.Address(arg)
 				if err != nil {
 					return output.NewError(output.AddressError, "failed to get address", err)
 				}

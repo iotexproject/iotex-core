@@ -162,7 +162,7 @@ func FormatString(t MessageType, m Message) string {
 	}
 }
 
-// FormatString returns Output as string in certain format supporting multi languages
+// FormatStringWithTrans returns Output as string in certain format supporting multi languages
 func FormatStringWithTrans(t MessageType, m MessageWithTranslation) string {
 	out := Output{
 		MessageType:            t,
