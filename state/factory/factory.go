@@ -310,7 +310,13 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 func (sf *factory) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+	if cfg.AtHeight {
+		return sf.stateAtHeight(cfg.Height, addr, state)
+	}
 	return sf.state(addr, state)
 }
 
@@ -322,16 +328,6 @@ func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sf.workingsets.Remove(key)
 	return nil
-}
-
-// StateAtHeight returns a confirmed state in the state factory
-func (sf *factory) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-	if !sf.saveHistory {
-		return ErrNoArchiveData
-	}
-	return sf.stateAtHeight(height, addr, state)
 }
 
 //======================================
@@ -357,6 +353,9 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 }
 
 func (sf *factory) stateAtHeight(height uint64, addr hash.Hash160, s interface{}) error {
+	if !sf.saveHistory {
+		return ErrNoArchiveData
+	}
 	// get root through height
 	rootHash, err := sf.dao.Get(protocol.AccountNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
 	if err != nil {
