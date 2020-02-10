@@ -282,6 +282,14 @@ func (ws *workingSet) GetCachedBatch() batch.CachedBatch {
 
 // State pulls a state from DB
 func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return err
+	}
+	if cfg.AtHeight {
+		return ws.stateAtHeight(cfg.Height, hash, s)
+	}
+
 	stateDBMtc.WithLabelValues("get").Inc()
 	mstate, err := ws.accountTrie.Get(hash[:])
 	if errors.Cause(err) == trie.ErrNotExist {
@@ -294,7 +302,7 @@ func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.S
 }
 
 // StateAtHeight pulls a state from DB
-func (ws *workingSet) StateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
+func (ws *workingSet) stateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
 	if !ws.saveHistory {
 		return ErrNoArchiveData
 	}

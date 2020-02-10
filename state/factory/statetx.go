@@ -221,7 +221,9 @@ func (stx *stateTX) State(hash hash.Hash160, s interface{}, opts ...protocol.Sta
 	if err != nil {
 		return err
 	}
-
+	if cfg.AtHeight {
+		return ErrNotSupported
+	}
 	ns := protocol.AccountNameSpace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
@@ -240,11 +242,6 @@ func (stx *stateTX) State(hash hash.Hash160, s interface{}, opts ...protocol.Sta
 		return errors.Wrapf(err, "failed to get account of %x", hash)
 	}
 	return state.Deserialize(s, mstate)
-}
-
-// StateAtHeight pulls a state from DB
-func (stx *stateTX) StateAtHeight(height uint64, addr hash.Hash160, s interface{}) error {
-	return ErrNotSupported
 }
 
 // PutState puts a state into DB

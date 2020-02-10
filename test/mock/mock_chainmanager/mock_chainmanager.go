@@ -70,20 +70,6 @@ func (mr *MockStateReaderMockRecorder) State(arg0, arg1 interface{}, arg2 ...int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateReader)(nil).State), varargs...)
 }
 
-// StateAtHeight mocks base method
-func (m *MockStateReader) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockStateReaderMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockStateReader)(nil).StateAtHeight), arg0, arg1, arg2)
-}
-
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller
@@ -139,20 +125,6 @@ func (mr *MockStateManagerMockRecorder) State(arg0, arg1 interface{}, arg2 ...in
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), varargs...)
-}
-
-// StateAtHeight mocks base method
-func (m *MockStateManager) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockStateManagerMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockStateManager)(nil).StateAtHeight), arg0, arg1, arg2)
 }
 
 // Snapshot mocks base method
