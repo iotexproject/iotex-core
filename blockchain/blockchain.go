@@ -309,7 +309,6 @@ func (bc *blockchain) Start(ctx context.Context) error {
 					if err != nil {
 						return err
 					}
-					fmt.Println("blockchain put block:", i)
 				} else {
 					log.L().Error("GetLastEpochBlock", zap.Error(err))
 				}
