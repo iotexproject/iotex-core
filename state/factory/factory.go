@@ -46,6 +46,8 @@ const (
 	CurrentHeightKey = "currentHeight"
 	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
 	AccountTrieRootKey = "accountTrieRoot"
+	// StakingNameSpace is the bucket name for staking state
+	StakingNameSpace = "Staking"
 )
 
 var (
