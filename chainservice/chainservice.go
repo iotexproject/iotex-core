@@ -186,6 +186,14 @@ func New(
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
 		}
 	}
+	ws, err := sf.NewWorkingSet()
+	if err != nil {
+		return nil, err
+	}
+	pb := blockchain.NewCheckPoint(ws.GetDB(), cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs)
+	if err := chain.AddSubscriber(pb); err != nil {
+		log.L().Warn("Failed to add pb", zap.Error(err))
+	}
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
 	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)

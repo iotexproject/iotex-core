@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -288,6 +289,32 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	// get blockchain tip height
 	tipHeight := bc.dao.GetTipHeight()
 	if tipHeight == 0 {
+		// if have trie.db,start from trie.db
+		ws, err := bc.sf.NewWorkingSet()
+		if err != nil {
+			return err
+		}
+		blk, err := GetTopBlock(ws.GetDB())
+		if err == nil {
+			log.L().Info("start from checkpoint:", zap.Uint64("height", blk.Height()))
+			startHeight := uint64(1)
+			if blk.Height() > epochLength {
+				startHeight = blk.Height() - epochLength + 1
+			}
+			for i := startHeight; i <= blk.Height(); i++ {
+				heightValue := byteutil.Uint64ToBytes(i)
+				blks, err := GetBlock(ws.GetDB(), heightValue)
+				if err == nil {
+					err = bc.dao.PutBlock(blks)
+					if err != nil {
+						return err
+					}
+					fmt.Println("blockchain put block:", i)
+				} else {
+					log.L().Error("GetLastEpochBlock", zap.Error(err))
+				}
+			}
+		}
 		return nil
 	}
 	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
