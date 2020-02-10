@@ -263,7 +263,9 @@ func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol
 	if err != nil {
 		return err
 	}
-
+	if cfg.AtHeight {
+		return ErrNotSupported
+	}
 	ns := protocol.AccountNameSpace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
@@ -280,11 +282,6 @@ func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	sdb.workingsets.Remove(key)
 	return nil
-}
-
-// StateAtHeight returns a confirmed state in the state factory
-func (sdb *stateDB) StateAtHeight(height uint64, addr hash.Hash160, state interface{}) error {
-	return ErrNotSupported
 }
 
 //======================================

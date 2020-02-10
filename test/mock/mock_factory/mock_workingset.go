@@ -72,20 +72,6 @@ func (mr *MockWorkingSetMockRecorder) State(arg0, arg1 interface{}, arg2 ...inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockWorkingSet)(nil).State), varargs...)
 }
 
-// StateAtHeight mocks base method
-func (m *MockWorkingSet) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockWorkingSetMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockWorkingSet)(nil).StateAtHeight), arg0, arg1, arg2)
-}
-
 // Snapshot mocks base method
 func (m *MockWorkingSet) Snapshot() int {
 	m.ctrl.T.Helper()
