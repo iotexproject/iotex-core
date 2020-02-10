@@ -35,7 +35,7 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
-	cfg.Genesis.EnglishBlockHeight = 1 // set up testing after English Height
+	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
 	cfg.Genesis.KickoutEpochPeriod = 2
 	cfg.Genesis.ProductivityThreshold = 85
 	ctx := protocol.WithBlockCtx(

@@ -54,7 +54,7 @@ func defaultConfig() Genesis {
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
-			EnglishBlockHeight:      3363481,
+			EasterBlockHeight:       3619801,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -138,8 +138,8 @@ type (
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
 		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
-		// EnglishBlockHeight is the start height of kick-out for slashing
-		EnglishBlockHeight uint64 `yaml:"englishHeight"`
+		// EasterBlockHeight is the start height of kick-out for slashing
+		EasterBlockHeight uint64 `yaml:"easterHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

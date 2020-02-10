@@ -20,7 +20,7 @@ const (
 	Cook
 	Dardanelles
 	Daytona
-	English
+	Easter
 )
 
 type (
@@ -40,7 +40,7 @@ type (
 		cookHeight        uint64
 		dardanellesHeight uint64
 		daytonaHeight     uint64
-		englishHeight     uint64
+		easterHeight      uint64
 	}
 )
 
@@ -53,7 +53,7 @@ func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 		cfg.CookBlockHeight,
 		cfg.DardanellesBlockHeight,
 		cfg.DaytonaBlockHeight,
-		cfg.EnglishBlockHeight,
+		cfg.EasterBlockHeight,
 	}
 }
 
@@ -73,8 +73,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.dardanellesHeight
 	case Daytona:
 		h = hu.daytonaHeight
-	case English:
-		h = hu.englishHeight
+	case Easter:
+		h = hu.easterHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -104,5 +104,5 @@ func (hu *HeightUpgrade) DardanellesBlockHeight() uint64 { return hu.dardanelles
 // DaytonaBlockHeight returns the daytona height
 func (hu *HeightUpgrade) DaytonaBlockHeight() uint64 { return hu.daytonaHeight }
 
-// EnglishBlockHeight returns the english height
-func (hu *HeightUpgrade) EnglishBlockHeight() uint64 { return hu.englishHeight }
+// EasterBlockHeight returns the easter height
+func (hu *HeightUpgrade) EasterBlockHeight() uint64 { return hu.easterHeight }
