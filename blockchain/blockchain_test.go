@@ -657,37 +657,37 @@ func TestConstantinople(t *testing.T) {
 		}{
 			{
 				deployHash,
-				"7c83ca545dbf2527197dc87b866ebfc1797afa88701f6970ba69c2dd9e871c35",
+				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
 				setHash,
-				"94efe3933fdb193308254607d53b2f2d58eb5e6de5507a079253e1042c600819",
+				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
 				setTopic,
 			},
 			{
 				shrHash,
-				"c1a7c75b3b9acd3d943f56c637dcfe18839c577209b4234bef36ced6d96dff82",
+				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"ad47c75133b09159746ec2341e4fabd563f48ef224444473a6ed64329ee2c412",
+				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"d9ce02764a2b425d62e693acc85e0701b135075987b09bb4f06e22d2924d2093",
+				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
 				sarTopic,
 			},
 			{
 				extHash,
-				"f553dbd4d76e6a8324bd58cf14e0e615ea71523a98ae2b4704653d778e9fd3ef",
+				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"382b34f18894ea335964b9f061adc8f0b34c8b44e333a782f624b3cf1c2ba3d8",
+				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
 				crt2Topic,
 			},
 		}

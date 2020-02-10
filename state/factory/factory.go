@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -58,7 +60,6 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		protocol.StateReader
-		protocol.ArchiveStateReader
 		// TODO : erase this interface
 		NewWorkingSet() (WorkingSet, error)
 		Validate(context.Context, *block.Block) error
@@ -207,12 +208,56 @@ func (sf *factory) NewWorkingSet() (WorkingSet, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
-	return newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	return newWorkingSet(
+		sf.currentChainHeight+1,
+		sf.dao,
+		sf.rootHash(),
+		sf.flusherOptions(context.Background(), sf.currentChainHeight+1)...,
+	)
+}
+
+func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
+	opts := []db.KVStoreFlusherOption{
+		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
+			if wi.Namespace() == AccountTrieNamespace {
+				return true
+			}
+			if wi.Namespace() != evm.CodeKVNameSpace {
+				return false
+			}
+			// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
+			bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+			if !ok {
+				return false
+			}
+			hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+			return hu.IsPre(config.English, height)
+		}),
+	}
+	if sf.saveHistory {
+		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
+			if wi.WriteType() != batch.Delete {
+				return wi
+			}
+			oldKey := wi.Key()
+			newKey := byteutil.Uint64ToBytesBigEndian(height)
+			return batch.NewWriteInfo(
+				batch.Put,
+				strings.Join([]string{ArchiveNamespacePrefix, wi.Namespace()}, "-"),
+				append(newKey, oldKey...),
+				wi.Value(),
+				wi.ErrorFormat(),
+				wi.ErrorArgs(),
+			)
+		}))
+	}
+
+	return opts
 }
 
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(key)
+	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -233,7 +278,12 @@ func (sf *factory) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err := newWorkingSet(
+		sf.currentChainHeight+1,
+		sf.dao,
+		sf.rootHash(),
+		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
+	)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
@@ -258,7 +308,12 @@ func (sf *factory) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sf.mutex.Lock()
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err := newWorkingSet(
+		sf.currentChainHeight+1,
+		sf.dao,
+		sf.rootHash(),
+		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
+	)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
@@ -287,7 +342,7 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 		},
 	)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sf.getFromWorkingSets(key)
+	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -412,7 +467,12 @@ func (sf *factory) commit(ws WorkingSet) error {
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {
-	ws, err := newWorkingSet(0, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err := newWorkingSet(
+		0,
+		sf.dao,
+		sf.rootHash(),
+		sf.flusherOptions(ctx, 0)...,
+	)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -427,7 +487,7 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sf *factory) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, error) {
+func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	if data, ok := sf.workingsets.Get(key); ok {
@@ -437,7 +497,12 @@ func (sf *factory) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, error
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	ws, err := newWorkingSet(sf.currentChainHeight+1, sf.dao, sf.rootHash(), sf.saveHistory)
+	ws, err := newWorkingSet(
+		sf.currentChainHeight+1,
+		sf.dao,
+		sf.rootHash(),
+		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
+	)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}

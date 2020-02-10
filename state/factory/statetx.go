@@ -32,9 +32,9 @@ type stateTX struct {
 func newStateTX(
 	blockHeight uint64,
 	kv db.KVStore,
+	opts ...db.KVStoreFlusherOption,
 ) (*stateTX, error) {
-	cb := batch.NewCachedBatch()
-	flusher, err := db.NewKVStoreFlusher(kv, cb)
+	flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch(), opts...)
 	if err != nil {
 		return nil, err
 	}

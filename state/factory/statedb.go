@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -159,7 +160,7 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(key)
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -180,7 +181,11 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
+	ws, err := newStateTX(
+		sdb.currentChainHeight+1,
+		sdb.dao,
+		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
+	)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, err
@@ -205,7 +210,11 @@ func (sdb *stateDB) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
+	ws, err := newStateTX(
+		sdb.currentChainHeight+1,
+		sdb.dao,
+		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
+	)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, nil, err
@@ -234,7 +243,7 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		},
 	)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	ws, isExist, err := sdb.getFromWorkingSets(key)
+	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
 		return err
 	}
@@ -293,6 +302,25 @@ func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
 // private trie constructor functions
 //======================================
 
+func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
+	opts := []db.KVStoreFlusherOption{}
+	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	if !ok {
+		// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
+		return opts
+	}
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPre(config.English, height) {
+		return opts
+	}
+	return append(
+		opts,
+		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
+			return wi.Namespace() == evm.CodeKVNameSpace
+		}),
+	)
+}
+
 func (sdb *stateDB) state(ns string, addr hash.Hash160, s interface{}) error {
 	data, err := sdb.dao.Get(ns, addr[:])
 	if err != nil {
@@ -322,7 +350,7 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := newStateTX(0, sdb.dao)
+	ws, err := newStateTX(0, sdb.dao, sdb.flusherOptions(ctx, 0)...)
 	if err != nil {
 		return err
 	}
@@ -334,7 +362,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, error) {
+func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
@@ -344,7 +372,11 @@ func (sdb *stateDB) getFromWorkingSets(key hash.Hash256) (WorkingSet, bool, erro
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	tx, err := newStateTX(sdb.currentChainHeight+1, sdb.dao)
+	tx, err := newStateTX(
+		sdb.currentChainHeight+1,
+		sdb.dao,
+		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
+	)
 
 	return tx, false, err
 }

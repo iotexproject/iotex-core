@@ -9,7 +9,6 @@ package factory
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -76,30 +75,8 @@ func newWorkingSet(
 	height uint64,
 	kv db.KVStore,
 	root hash.Hash256,
-	saveHistory bool,
+	opts ...db.KVStoreFlusherOption,
 ) (WorkingSet, error) {
-	opts := []db.KVStoreFlusherOption{
-		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			return wi.Namespace() == AccountTrieNamespace
-		}),
-	}
-	if saveHistory {
-		opts = append(opts, db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
-			if wi.WriteType() != batch.Delete {
-				return wi
-			}
-			oldKey := wi.Key()
-			newKey := byteutil.Uint64ToBytesBigEndian(height)
-			return batch.NewWriteInfo(
-				batch.Put,
-				strings.Join([]string{ArchiveNamespacePrefix, wi.Namespace()}, "-"),
-				append(newKey, oldKey...),
-				wi.Value(),
-				wi.ErrorFormat(),
-				wi.ErrorArgs(),
-			)
-		}))
-	}
 	flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch(), opts...)
 	if err != nil {
 		return nil, err
