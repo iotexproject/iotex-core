@@ -1113,6 +1113,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 
 	raCtx := protocol.MustGetRunActionsCtx(ctx)
 
+	timer := bc.timerFactory.NewTimer("Mint.PickAndRunAction")
 	// initial action iterator
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
@@ -1144,6 +1145,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 			break
 		}
 	}
+	timer.End()
 	var lastBlkHeight uint64
 	if bc.config.Consensus.Scheme == config.RollDPoSScheme {
 		rp := bc.mustGetRollDPoSProtocol()
@@ -1177,6 +1179,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 	}
 	// Process grant block reward action
+	timer = bc.timerFactory.NewTimer("Mint.GrantReward")
 	grant, err := bc.createGrantRewardAction(action.BlockReward, raCtx.BlockHeight)
 	if err != nil {
 		return hash.ZeroHash256, nil, nil, err
@@ -1205,7 +1208,7 @@ func (bc *blockchain) pickAndRunActions(ctx context.Context, actionMap map[strin
 		}
 		executedActions = append(executedActions, grant)
 	}
-
+	timer.End()
 	blockMtc.WithLabelValues("gasConsumed").Set(float64(bc.config.Genesis.BlockGasLimit - raCtx.GasLimit))
 
 	return ws.UpdateBlockLevelInfo(raCtx.BlockHeight), receipts, executedActions, nil
@@ -1238,7 +1241,9 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 		zap.Uint64("epochHeight", epochHeight),
 		zap.Uint64("nextEpochHeight", nextEpochHeight),
 	)
+	timer := bc.timerFactory.NewTimer("Mint.CandidatesByHeight")
 	_, err = bc.candidatesByHeight(nextEpochHeight)
+	timer.End()
 	switch errors.Cause(err) {
 	case nil:
 		return
@@ -1247,7 +1252,9 @@ func (bc *blockchain) createPutPollResultAction(height uint64) (skip bool, se ac
 	default:
 		return
 	}
+	timer = bc.timerFactory.NewTimer("Mint.DelegatesByHeight")
 	l, err := pp.DelegatesByHeight(epochHeight)
+	timer.End()
 	switch errors.Cause(err) {
 	case nil:
 		if len(l) == 0 {
