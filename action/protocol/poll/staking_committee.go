@@ -12,6 +12,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-election/util"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -20,11 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-election/types"
-	"github.com/iotexproject/iotex-election/util"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type stakingCommittee struct {
@@ -38,6 +39,7 @@ type stakingCommittee struct {
 	rp                   *rolldpos.Protocol
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
+	timerFactory         *prometheustimer.TimerFactory
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
@@ -70,7 +72,18 @@ func NewStakingCommittee(
 			ns.SetContract(nativeStakingContractAddress)
 		}
 	}
-	return &stakingCommittee{
+
+	timerFactory, err := prometheustimer.New(
+		"iotex_staking_perf",
+		"Performance of staking module",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	sc := stakingCommittee{
 		hu:                hu,
 		electionCommittee: ec,
 		governanceStaking: gs,
@@ -80,7 +93,10 @@ func NewStakingCommittee(
 		getEpochNum:       getEpochNum,
 		rp:                rp,
 		scoreThreshold:    scoreThreshold,
-	}, nil
+	}
+	sc.timerFactory = timerFactory
+
+	return &sc, nil
 }
 
 func (sc *stakingCommittee) Initialize(ctx context.Context, sm protocol.StateManager) error {
@@ -100,7 +116,9 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 }
 
 func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateList, error) {
+	timer := sc.timerFactory.NewTimer("Governance")
 	cand, err := sc.governanceStaking.DelegatesByHeight(height)
+	timer.End()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +131,10 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
+
+	timer = sc.timerFactory.NewTimer("Native")
 	nativeVotes, ts, err := sc.nativeStaking.Votes(sc.hu.IsPost(config.Daytona, height))
+	timer.End()
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterDelegates(cand), nil
