@@ -33,10 +33,9 @@ func TestExecuteContractFailure(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(t, err)
+	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
@@ -76,10 +75,9 @@ func TestConstantinople(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(err)
+	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(27),

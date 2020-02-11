@@ -9,10 +9,8 @@ package db
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -35,39 +33,17 @@ func init() {
 type KVStoreForTrie struct {
 	lc     lifecycle.Lifecycle
 	bucket string
-	prune  string // bucket for entries to be pruned
 	dao    KVStore
-	cb     batch.CachedBatch
-}
-
-// Option defines an interface to initialize the kv store
-type Option func(*KVStoreForTrie) error
-
-// CachedBatchOption defines a way to set the cache layer for db
-func CachedBatchOption(cb batch.CachedBatch) Option {
-	return func(kvStore *KVStoreForTrie) error {
-		kvStore.cb = cb
-		return nil
-	}
 }
 
 // NewKVStoreForTrie creates a new KVStoreForTrie
-func NewKVStoreForTrie(bucket, prune string, dao KVStore, options ...Option) (*KVStoreForTrie, error) {
+func NewKVStoreForTrie(bucket string, dao KVStore) (*KVStoreForTrie, error) {
 	s := &KVStoreForTrie{
 		bucket: bucket,
-		prune:  prune,
 		dao:    dao,
 	}
-	for _, opt := range options {
-		if err := opt(s); err != nil {
-			return nil, err
-		}
-	}
-	if s.cb == nil {
-		// always have a cache layer
-		s.cb = batch.NewCachedBatch()
-	}
 	s.lc.Add(s.dao)
+
 	return s, nil
 }
 
@@ -84,48 +60,19 @@ func (s *KVStoreForTrie) Stop(ctx context.Context) error {
 // Delete deletes key
 func (s *KVStoreForTrie) Delete(key []byte) error {
 	trieKeystoreMtc.WithLabelValues("delete").Inc()
-	s.cb.Delete(s.bucket, key, "failed to delete key %x", key)
 	// TODO: bug, need to mark key as deleted
-	return nil
-}
 
-// Purge marks a key for future deletion when the trie is to be pruned
-func (s *KVStoreForTrie) Purge(tag, key []byte) error {
-	trieKeystoreMtc.WithLabelValues("purge").Inc()
-	// tag will be used as a criterion to determine if the key should be deleted
-	// it is simply prepended in front of the key and stored into the Prune namespace
-	// it is up to the caller to define the exact format of tag and how to use it
-	k := make([]byte, len(tag))
-	copy(k, tag)
-	k = append(k, key...)
-	s.cb.Put(s.prune, k, []byte{}, "failed to put tag-key %x", k)
-	return nil
+	return s.dao.Delete(s.bucket, key)
 }
 
 // Put puts value for key
 func (s *KVStoreForTrie) Put(key, value []byte) error {
 	trieKeystoreMtc.WithLabelValues("put").Inc()
-	s.cb.Put(s.bucket, key, value, "failed to put key %x value %x", key, value)
-	return nil
+	return s.dao.Put(s.bucket, key, value)
 }
 
 // Get gets value of key
 func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
 	trieKeystoreMtc.WithLabelValues("get").Inc()
-	v, err := s.cb.Get(s.bucket, key)
-	if errors.Cause(err) == batch.ErrNotExist {
-		if v, err = s.dao.Get(s.bucket, key); errors.Cause(err) == ErrNotExist {
-			return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
-		}
-		// TODO: put it back to cache
-	}
-	if errors.Cause(err) == batch.ErrAlreadyDeleted {
-		return nil, errors.Wrapf(ErrNotExist, "failed to get key %x", key)
-	}
-	return v, err
-}
-
-// Flush flushs the data in cache layer to db
-func (s *KVStoreForTrie) Flush() error {
-	return s.dao.WriteBatch(s.cb)
+	return s.dao.Get(s.bucket, key)
 }

@@ -57,11 +57,11 @@ func TestCreateContract(t *testing.T) {
 			return nil
 		}).AnyTimes()
 
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), cb)
+	require.NoError(err)
+	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 	addr := identityset.Address(28)
-	_, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
 	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hash.ZeroHash256)
@@ -95,7 +95,9 @@ func TestLoadStoreCommit(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, db.NewMemKVStore(), batch.NewCachedBatch())
+		flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+		require.NoError(err)
+		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, flusher.KVStoreWithBuffer())
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -226,11 +228,12 @@ func TestSnapshot(t *testing.T) {
 	s := &state.Account{
 		Balance: big.NewInt(5),
 	}
+	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+	require.NoError(err)
 	c1, err := newContract(
 		hash.BytesToHash160(identityset.Address(28).Bytes()),
 		s,
-		db.NewMemKVStore(),
-		batch.NewCachedBatch(),
+		flusher.KVStoreWithBuffer(),
 	)
 	require.NoError(err)
 	require.NoError(c1.SetState(k2b, v2[:]))

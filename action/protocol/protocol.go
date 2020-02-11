@@ -14,11 +14,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 )
 
-const (
-	// AccountNameSpace is the bucket name for account state
-	AccountNameSpace = "Account"
-)
-
 var (
 	// ErrUnimplemented indicates a method is not implemented yet
 	ErrUnimplemented = errors.New("method is unimplemented")

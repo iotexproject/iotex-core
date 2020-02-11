@@ -40,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -658,37 +657,37 @@ func TestConstantinople(t *testing.T) {
 		}{
 			{
 				deployHash,
-				"c241015cd47e317c1ec46e155bd6ed4e3179a0aeb14707ec26eb8afee4fcae75",
+				"2861aecf2b3f91822de00c9f42ca44276e386ac693df363770783bfc133346c3",
 				nil,
 			},
 			{
 				setHash,
-				"56f1dceaeaaf996f07f656f2dd6390154fe5191b27bc559644a0cdd97b4b6821",
+				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
 				setTopic,
 			},
 			{
 				shrHash,
-				"aaf4c6da1936e28c906356f3750348dcf45da62147f11822793222539771721b",
+				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"8ae79e4016ebef1d64c98a2fd7e8ac51c71ac472d09f056cbff0750a48042078",
+				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"82767da47c4401f2efac804b2c8e9070ac02dcf14c7b1d61cdb9b2b4b7b0d700",
+				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
 				sarTopic,
 			},
 			{
 				extHash,
-				"8ce062b73d6dd87584c316ce40be9a99bf8039a1da8ebd7fcd290a16eae6c054",
+				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"c1f2984681f9fe87d84db60d9f0d36c77335f9524e6216805dee109f85670211",
+				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
 				crt2Topic,
 			},
 		}
@@ -1327,7 +1326,6 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 
 	// check balances after transfer
@@ -1341,9 +1339,9 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 	// check history account's balance
 	if statetx {
 		_, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
-		require.True(errors.Cause(err) == factory.ErrNotSupported)
+		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 		_, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
-		require.True(errors.Cause(err) == factory.ErrNotSupported)
+		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 	} else {
 		AccountA, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
 		require.NoError(err)
@@ -1437,7 +1435,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := db.NewKVStoreForTrie(evm.ContractKVNameSpace, evm.PruneKVNameSpace, kv, db.CachedBatchOption(batch.NewCachedBatch()))
+	dbForTrie, err := db.NewKVStoreForTrie(evm.ContractKVNameSpace, kv)
 	require.NoError(err)
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),
@@ -1446,7 +1444,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 			return trie.DefaultHashFunc(append(addrHash[:], data...))
 		}),
 	}
-	options = append(options, trie.RootHashOption(root[:]), trie.HistoryRetentionOption(2000))
+	options = append(options, trie.RootHashOption(root[:]))
 	tr, err := trie.NewTrie(options...)
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
@@ -1476,7 +1474,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
-	cfg.Chain.EnableHistoryStateDB = true
+	cfg.Chain.EnableArchiveMode = true
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false

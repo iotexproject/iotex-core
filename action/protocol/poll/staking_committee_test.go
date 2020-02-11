@@ -81,7 +81,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			cb.Put("state", addrHash[:], ss, "failed to put state")
 			return nil
 		}).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()

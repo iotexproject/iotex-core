@@ -107,20 +107,6 @@ func RootHashOption(h []byte) Option {
 	}
 }
 
-// HistoryRetentionOption sets the save history option for the trie
-func HistoryRetentionOption(height uint64) Option {
-	return func(tr Trie) error {
-		switch t := tr.(type) {
-		case *branchRootTrie:
-			t.saveNode = true
-			t.height = height
-		default:
-			return errors.New("invalid trie type")
-		}
-		return nil
-	}
-}
-
 // RootKeyOption sets the root key for the trie
 func RootKeyOption(key string) Option {
 	return func(tr Trie) error {

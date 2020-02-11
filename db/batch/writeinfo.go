@@ -15,7 +15,7 @@ const (
 
 type (
 	// WriteType is the type of write
-	WriteType int32
+	WriteType uint8
 
 	// WriteInfo is the struct to store Put/Delete operation info
 	WriteInfo struct {
@@ -89,7 +89,17 @@ func (wi *WriteInfo) ErrorArgs() interface{} {
 	return wi.errorArgs
 }
 
-func (wi *WriteInfo) serialize() []byte {
+// Serialize serializes the write info
+func (wi *WriteInfo) Serialize() []byte {
+	bytes := []byte{byte(wi.writeType)}
+	bytes = append(bytes, []byte(wi.namespace)...)
+	bytes = append(bytes, wi.key...)
+	bytes = append(bytes, wi.value...)
+	return bytes
+}
+
+// SerializeWithoutWriteType serializes the write info without write type
+func (wi *WriteInfo) SerializeWithoutWriteType() []byte {
 	bytes := make([]byte, 0)
 	bytes = append(bytes, []byte(wi.namespace)...)
 	bytes = append(bytes, wi.key...)

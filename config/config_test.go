@@ -236,6 +236,23 @@ func TestValidateRollDPoS(t *testing.T) {
 	)
 }
 
+func TestValidateArchiveMode(t *testing.T) {
+	cfg := Default
+	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.EnableTrielessStateDB = true
+	require.Error(t, ErrInvalidCfg, errors.Cause(ValidateArchiveMode(cfg)))
+	require.EqualError(t, ValidateArchiveMode(cfg), "Archive mode is incompatible with trieless state DB: invalid config value")
+	cfg.Chain.EnableArchiveMode = false
+	cfg.Chain.EnableTrielessStateDB = true
+	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
+	cfg.Chain.EnableArchiveMode = true
+	cfg.Chain.EnableTrielessStateDB = false
+	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
+	cfg.Chain.EnableArchiveMode = false
+	cfg.Chain.EnableTrielessStateDB = false
+	require.NoError(t, errors.Cause(ValidateArchiveMode(cfg)))
+}
+
 func TestValidateActPool(t *testing.T) {
 	cfg := Default
 	cfg.ActPool.MaxNumActsPerAcct = 0

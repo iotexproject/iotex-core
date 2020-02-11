@@ -25,5 +25,6 @@ func TestWriteInfo(t *testing.T) {
 	require.True(t, bytes.Equal(value, wi.Value()))
 	require.Equal(t, ef, wi.ErrorFormat())
 	require.Equal(t, key, wi.ErrorArgs())
-	require.True(t, bytes.Equal([]byte{110, 97, 109, 101, 115, 112, 97, 99, 101, 107, 101, 121, 118, 97, 108, 117, 101}, wi.serialize()))
+	require.True(t, bytes.Equal([]byte{110, 97, 109, 101, 115, 112, 97, 99, 101, 107, 101, 121, 118, 97, 108, 117, 101}, wi.SerializeWithoutWriteType()))
+	require.True(t, bytes.Equal([]byte{0, 110, 97, 109, 101, 115, 112, 97, 99, 101, 107, 101, 121, 118, 97, 108, 117, 101}, wi.Serialize()))
 }
