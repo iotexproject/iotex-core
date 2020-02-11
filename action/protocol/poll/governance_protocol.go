@@ -234,7 +234,7 @@ func (p *governanceChainCommitteeProtocol) DelegatesOfNextEpoch(ctx context.Cont
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	// get next epoch number
-	nextEpochNum := rp.GetEpochNum(bcCtx.Tip.Height) + 1
+	nextEpochNum := rp.GetEpochNum(bcCtx.Tip.Height + 1)
 	return p.readActiveBlockProducersByEpoch(ctx, nextEpochNum, true)
 }
 
@@ -361,7 +361,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) {
+	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) || epochNum == 1 {
 		var blockProducers state.CandidateList
 		for i, candidate := range candidates {
 			if uint64(i) >= p.numCandidateDelegates {
@@ -375,9 +375,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	// After Easter height, kick-out unqualified delegates based on productivity
 	unqualifiedList, err := p.getKickoutList(p.sr, readFromNext)
 	if err != nil {
-		if errors.Cause(err) != state.ErrStateNotExist || epochNum != 1 {
-			return nil, err
-		}
+		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
 	}
 	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)
@@ -476,12 +474,17 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 				return nil, errors.Wrap(err, "failed to make new upd")
 			}
 		} else {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to read upd struct from state DB at epoch number %d", epochNum)
 		}
 	}
 	unqualifiedDelegates := make(map[string]uint32)
 	if epochNum <= easterEpochNum+p.kickoutEpochPeriod {
-		// if epoch number is smaller than easterEpochNum+K(kickout period), calculate it one-by-one (initialize).
+		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
+		log.L().Debug("Before using kick-out blacklist",
+			zap.Uint64("epochNum", epochNum),
+			zap.Uint64("englishEpochNum", englishEpochNum),
+			zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
+		)
 		existinglist := upd.DelegateList()
 		for _, listByEpoch := range existinglist {
 			for _, addr := range listByEpoch {
@@ -492,10 +495,10 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 				}
 			}
 		}
-		// calculate epochNum-1 (latest)
+		// calculate upd of epochNum-1 (latest)
 		uq, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
 		for _, addr := range uq {
 			if _, ok := unqualifiedDelegates[addr]; !ok {
@@ -505,15 +508,20 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 			}
 		}
 		if err := upd.AddRecentUPD(uq); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "failed to add recent upd")
 		}
 		nextBlacklist.BlacklistInfos = unqualifiedDelegates
 		return nextBlacklist, setUnproductiveDelegates(sm, upd)
 	}
 	// Blacklist[N] = Blacklist[N-1] - Low-productivity-list[N-K-1] + Low-productivity-list[N-1]
+	log.L().Debug("Using kick-out blacklist",
+		zap.Uint64("epochNum", epochNum),
+		zap.Uint64("englishEpochNum", englishEpochNum),
+		zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
+	)
 	prevBlacklist, err := p.getKickoutList(p.sr, false)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read latest kick-out list")
 	}
 	blacklistMap := prevBlacklist.BlacklistInfos
 	skipList := upd.ReadOldestUPD()
@@ -526,10 +534,10 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	}
 	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 	}
 	if err := upd.AddRecentUPD(addList); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to add recent upd")
 	}
 	for _, addr := range addList {
 		if _, ok := blacklistMap[addr]; ok {

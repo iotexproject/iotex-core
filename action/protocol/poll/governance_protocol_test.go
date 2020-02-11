@@ -36,6 +36,7 @@ import (
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
+	cfg.Genesis.KickoutIntensityRate = 1
 	cfg.Genesis.KickoutEpochPeriod = 2
 	cfg.Genesis.ProductivityThreshold = 85
 	ctx := protocol.WithBlockCtx(
@@ -55,7 +56,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			Genesis:  cfg.Genesis,
 			Registry: registry,
 			Tip: protocol.TipInfo{
-				Height: 0,
+				Height: 721,
 			},
 		},
 	)
@@ -537,22 +538,62 @@ func TestDelegatesByEpoch(t *testing.T) {
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
-	blackListMap := map[string]uint32{
-		identityset.Address(1).String(): 1,
-		identityset.Address(2).String(): 1,
-	}
-
+	// 1: empty blacklist DelegatesOfNextEpoch()
+	blackListMap := map[string]uint32{}
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
+		IntensityRate:  0.1,
 	}
 	require.NoError(setKickoutBlackList(sm, blackList))
 
 	delegates, err := p.DelegatesOfNextEpoch(ctx)
 	require.NoError(err)
-
 	require.Equal(2, len(delegates))
+	require.Equal(identityset.Address(2).String(), delegates[0].Address)
+	require.Equal(identityset.Address(1).String(), delegates[1].Address)
+
+	// 2: not empty blacklist DelegatesOfNextEpoch()
+	blackListMap2 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 1,
+	}
+	blackList2 := &vote.Blacklist{
+		BlacklistInfos: blackListMap2,
+		IntensityRate:  0.1,
+	}
+	require.NoError(setKickoutBlackList(sm, blackList2))
+	delegates2, err := p.DelegatesOfNextEpoch(ctx)
+	require.NoError(err)
+	require.Equal(2, len(delegates2))
 	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
-	require.Equal(identityset.Address(3).String(), delegates[0].Address)
-	require.Equal(identityset.Address(4).String(), delegates[1].Address)
+	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
+
+	// 3: shift kickout list and Delegates()
+	require.NoError(shiftKickoutList(sm))
+	delegates3, err := p.Delegates(ctx)
+	require.NoError(err)
+	require.Equal(len(delegates3), len(delegates2))
+	for i, d := range delegates2 {
+		require.True(d.Equal(delegates3[i]))
+	}
+
+	// 4: kickout out with different blacklist
+	blackListMap4 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(3).String(): 2,
+	}
+	blackList4 := &vote.Blacklist{
+		BlacklistInfos: blackListMap4,
+		IntensityRate:  0.1,
+	}
+	require.NoError(setKickoutBlackList(sm, blackList4))
+
+	delegates4, err := p.DelegatesOfNextEpoch(ctx)
+	require.NoError(err)
+
+	require.Equal(2, len(delegates4))
+	require.Equal(identityset.Address(2).String(), delegates4[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates4[1].Address)
 
 }
