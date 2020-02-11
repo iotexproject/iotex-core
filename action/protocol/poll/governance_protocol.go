@@ -153,7 +153,7 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 			return err
 		}
 		return setKickoutBlackList(sm, unqualifiedList)
-	} else if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.English, epochStartHeight) {
+	} else if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
 		if err := shiftCandidates(sm); err != nil {
 			return err
 		}
@@ -347,7 +347,7 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Con
 func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.English, epochStartHeight) {
+	if hu.IsPre(config.Easter, epochStartHeight) {
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
 	return p.getCandidates(p.sr, readFromNext)
@@ -479,10 +479,10 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	}
 	unqualifiedDelegates := make(map[string]uint32)
 	if epochNum <= easterEpochNum+p.kickoutEpochPeriod {
-		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
+		// if epoch number is smaller than easterEpochNum+K(kickout period), calculate it one-by-one (initialize).
 		log.L().Debug("Before using kick-out blacklist",
 			zap.Uint64("epochNum", epochNum),
-			zap.Uint64("englishEpochNum", englishEpochNum),
+			zap.Uint64("easterEpochNum", easterEpochNum),
 			zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
 		)
 		existinglist := upd.DelegateList()
@@ -516,7 +516,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	// Blacklist[N] = Blacklist[N-1] - Low-productivity-list[N-K-1] + Low-productivity-list[N-1]
 	log.L().Debug("Using kick-out blacklist",
 		zap.Uint64("epochNum", epochNum),
-		zap.Uint64("englishEpochNum", englishEpochNum),
+		zap.Uint64("easterEpochNum", easterEpochNum),
 		zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
 	)
 	prevBlacklist, err := p.getKickoutList(p.sr, false)

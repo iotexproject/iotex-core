@@ -177,7 +177,7 @@ func setCandidates(
 		)
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.English, height) {
+	if hu.IsPre(config.Easter, height) {
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
 		return err 
 	}
