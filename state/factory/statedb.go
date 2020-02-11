@@ -310,7 +310,7 @@ func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVSt
 		return opts
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.English, height) {
+	if hu.IsPre(config.Easter, height) {
 		return opts
 	}
 	return append(

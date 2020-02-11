@@ -231,7 +231,7 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 				return false
 			}
 			hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-			return hu.IsPre(config.English, height)
+			return hu.IsPre(config.Easter, height)
 		}),
 	}
 	if sf.saveHistory {
