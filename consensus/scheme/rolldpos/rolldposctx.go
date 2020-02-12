@@ -29,7 +29,6 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -485,14 +484,6 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	switch err := ctx.chain.CommitBlock(pendingBlock); errors.Cause(err) {
 	case blockchain.ErrInvalidTipHeight:
 		return true, nil
-	case factory.ErrNotValidated:
-		// if the cache has been reset, we need to revalidate/commit the block
-		if err := ctx.chain.ValidateBlock(pendingBlock); err != nil {
-			return false, err
-		}
-		if err := ctx.chain.CommitBlock(pendingBlock); err != nil {
-			return false, err
-		}
 	case nil:
 		break
 	default:

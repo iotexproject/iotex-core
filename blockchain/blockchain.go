@@ -602,7 +602,13 @@ func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	sfTimer := bc.timerFactory.NewTimer("sf.Commit")
 	err = bc.sf.Commit(ctx, blk)
 	sfTimer.End()
-	// detach working set so it can be freed by GC
+	if errors.Cause(err) == factory.ErrNotValidated {
+		// validate again and re-commit
+		log.L().Debug("Revalidate and generate workingset to commit.", zap.Uint64("height", blk.Height()))
+		if err = bc.validator.Validate(ctx, blk); err == nil {
+			err = bc.sf.Commit(ctx, blk)
+		}
+	}
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
