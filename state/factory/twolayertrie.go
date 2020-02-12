@@ -36,14 +36,13 @@ func (tlt *TwoLayerTrie) RootHash() []byte {
 
 func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
 	value, err := tlt.layerOne.Get(key)
-	switch errors.Cause(err) {
-	case trie.ErrNotExist:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	case nil:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	default:
+	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
+		}
 		return nil, err
 	}
+	return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
 }
 
 // Get returns the layer two value
