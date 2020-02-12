@@ -46,6 +46,7 @@ type (
 	StateDBAdapter struct {
 		sm                 protocol.StateManager
 		logs               []*action.Log
+		sysLog             *action.SystemLog
 		err                error
 		blockHeight        uint64
 		executionHash      hash.Hash256
@@ -433,6 +434,16 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 // Logs returns the logs
 func (stateDB *StateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
+}
+
+// AddEvmTransfer adds evm transfer to system log
+func (stateDB *StateDBAdapter) AddEvmTransfer(evmTransfer action.EvmTransfer) {
+	stateDB.sysLog.EvmTransferList = append(stateDB.sysLog.EvmTransferList, evmTransfer)
+}
+
+// SystemLog returns the system log
+func (stateDB *StateDBAdapter) SystemLog() *action.SystemLog {
+	return stateDB.sysLog
 }
 
 // AddPreimage adds the preimage of a hash

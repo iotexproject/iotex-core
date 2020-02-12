@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,8 +7,9 @@
 package action
 
 import (
-	"github.com/golang/protobuf/proto"
+	"math/big"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -22,6 +23,7 @@ type Receipt struct {
 	GasConsumed     uint64
 	ContractAddress string
 	Logs            []*Log
+	SystemLog       *SystemLog
 }
 
 // Log stores an evm contract event
@@ -33,6 +35,18 @@ type Log struct {
 	ActionHash         hash.Hash256
 	Index              uint
 	NotFixTopicCopyBug bool
+}
+
+// SystemLog stores log that not participating consensus
+type SystemLog struct {
+	EvmTransferList []EvmTransfer
+}
+
+// EvmTransfer records a transfer executed in contract
+type EvmTransfer struct {
+	Amount *big.Int
+	From   string
+	To     string
 }
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt

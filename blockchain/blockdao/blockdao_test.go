@@ -154,11 +154,11 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testBlockDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -167,19 +167,19 @@ func TestBlockDAO(t *testing.T) {
 		// receipts for the 3 blocks
 		receipts := [][]*action.Receipt{
 			{
-				{1, 1, t1Hash, 15, "1", []*action.Log{}},
-				{0, 1, t4Hash, 216, "2", []*action.Log{}},
-				{2, 1, e1Hash, 6, "3", []*action.Log{}},
+				{1, 1, t1Hash, 15, "1", []*action.Log{}, nil},
+				{0, 1, t4Hash, 216, "2", []*action.Log{}, nil},
+				{2, 1, e1Hash, 6, "3", []*action.Log{}, nil},
 			},
 			{
-				{3, 2, t2Hash, 1500, "1", []*action.Log{}},
-				{5, 2, t5Hash, 34, "2", []*action.Log{}},
-				{9, 2, e2Hash, 655, "3", []*action.Log{}},
+				{3, 2, t2Hash, 1500, "1", []*action.Log{}, nil},
+				{5, 2, t5Hash, 34, "2", []*action.Log{}, nil},
+				{9, 2, e2Hash, 655, "3", []*action.Log{}, nil},
 			},
 			{
-				{7, 3, t3Hash, 488, "1", []*action.Log{}},
-				{6, 3, t6Hash, 2, "2", []*action.Log{}},
-				{2, 3, e3Hash, 1099, "3", []*action.Log{}},
+				{7, 3, t3Hash, 488, "1", []*action.Log{}, nil},
+				{6, 3, t6Hash, 2, "2", []*action.Log{}, nil},
+				{2, 3, e3Hash, 1099, "3", []*action.Log{}, nil},
 			},
 		}
 
@@ -217,11 +217,11 @@ func TestBlockDAO(t *testing.T) {
 		}
 	}
 
-	testDeleteDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testDeleteDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))

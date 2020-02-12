@@ -45,6 +45,18 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+
+	outAddr, _ := address.FromBytes(fromHash.Bytes())
+	inAddr, _ := address.FromBytes(toHash.Bytes())
+	sdb, ok := db.(*StateDBAdapter)
+	if !ok {
+		log.L().Panic("failed to get StateDBAdapter")
+	}
+	sdb.AddEvmTransfer(action.EvmTransfer{
+		Amount: amount,
+		From:   outAddr.String(),
+		To:     inAddr.String(),
+	})
 }
 
 type (
@@ -191,6 +203,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
+	receipt.SystemLog = stateDB.SystemLog()
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
