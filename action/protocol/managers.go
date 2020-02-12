@@ -80,6 +80,7 @@ type (
 		// General state
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
+		// TODO: delete GetDB
 		GetDB() db.KVStore
 	}
 )

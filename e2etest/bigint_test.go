@@ -99,6 +99,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
+	r.NoError(sf.Start(ctx))
 	return bc, sf
 }
 

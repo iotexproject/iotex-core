@@ -46,6 +46,11 @@ func (tlt *TwoLayerTrie) RootHash() []byte {
 	return tlt.layerOne.RootHash()
 }
 
+// SetRootHash sets root hash for layer one trie
+func (tlt *TwoLayerTrie) SetRootHash(rh []byte) error {
+	return tlt.layerOne.SetRootHash(rh)
+}
+
 // Get returns the layer two value
 func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
@@ -93,9 +98,8 @@ func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 		return err
 	}
 
-	if layerTwo.IsEmpty() {
-		return tlt.layerOne.Delete(layerOneKey)
+	if !layerTwo.IsEmpty() {
+		return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
 	}
-
-	return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
+	return tlt.layerOne.Delete(layerOneKey)
 }
