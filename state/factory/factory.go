@@ -53,6 +53,8 @@ var (
 	ErrNotSupported = errors.New("not supported")
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
+	// ErrNotValidated is the error that the node can't commit because it has not been validated
+	ErrNotValidated = errors.New("block is not validated, can not commit")
 )
 
 type (
@@ -347,12 +349,7 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if !isExist {
-		// regenerate workingset
-		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
-		if err != nil {
-			log.L().Panic("Failed to update state.", zap.Error(err))
-			return err
-		}
+		return ErrNotValidated
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()

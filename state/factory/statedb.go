@@ -248,11 +248,7 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if !isExist {
-		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
-		if err != nil {
-			log.L().Panic("Failed to update state.", zap.Error(err))
-			return err
-		}
+		return ErrNotValidated
 	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()

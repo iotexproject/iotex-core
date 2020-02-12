@@ -534,6 +534,9 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 			return err
 		}
 		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
+		if err := bc.sf.Validate(ctx, blk); err != nil {
+			return err
+		}
 		if err := bc.sf.Commit(ctx, blk); err != nil {
 			return err
 		}

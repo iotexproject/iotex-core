@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/hash"
+	//"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -25,7 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/blockchain/block"
+	//"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -137,22 +137,10 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		Registry: re,
 	})
 	require.NoError(ap.Add(ctx, prevTsf))
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{prevTsf}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(ap.PendingActionMap(), testutil.TimestampNow())
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -454,7 +442,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	require.NoError(err)
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
+		Genesis:  cfg.Genesis,
 		Registry: registry,
 	})
 	require.NoError(ap.Add(ctx, tsf1))
@@ -464,22 +452,10 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 
 	require.Equal(4, len(ap.allActions))
 	require.NotNil(ap.accountActs[addr1])
-	gasLimit := uint64(1000000)
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(ap.PendingActionMap(), testutil.TimestampNow())
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1])
@@ -615,23 +591,10 @@ func TestActPool_Reset(t *testing.T) {
 	// Let ap1 be BP's actpool
 	pickedActs := ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
-	gasLimit := uint64(1000000)
 
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(actionMap2Slice(pickedActs)...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(pickedActs, testutil.TimestampNow())
 	require.NoError(err)
-
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -727,21 +690,11 @@ func TestActPool_Reset(t *testing.T) {
 	require.Equal(big.NewInt(180).Uint64(), ap2PBalance3.Uint64())
 	// Let ap2 be BP's actpool
 	pickedActs = ap2.PendingActionMap()
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 2,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
 
-	blk, err = block.NewTestingBuilder().
-		SetHeight(2).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(actionMap2Slice(pickedActs)...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err = bc.MintNewBlock(pickedActs, testutil.TimestampNow())
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -830,20 +783,9 @@ func TestActPool_Reset(t *testing.T) {
 	pickedActs = ap1.PendingActionMap()
 	// ap1 commits update of accounts to trie
 
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 3,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-
-	blk, err = block.NewTestingBuilder().
-		SetHeight(3).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(actionMap2Slice(pickedActs)...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err = bc.MintNewBlock(pickedActs, testutil.TimestampNow())
 	require.NoError(err)
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
@@ -1117,22 +1059,11 @@ func TestActPool_GetSize(t *testing.T) {
 	require.NoError(ap.Add(ctx, tsf4))
 	require.Equal(uint64(4), ap.GetSize())
 	require.Equal(uint64(40000), ap.GetGasSize())
-	gasLimit := uint64(1000000)
 
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: bc.TipHeight() + 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-	blk, err := block.NewTestingBuilder().
-		SetHeight(bc.TipHeight() + 1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	blk, err := bc.MintNewBlock(ap.PendingActionMap(), testutil.TimestampNow())
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(bc.CommitBlock(blk))
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())

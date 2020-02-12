@@ -33,7 +33,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -272,14 +271,13 @@ func testCandidates(sf Factory, t *testing.T) {
 		GasLimit:    gasLimit,
 	})
 
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	minter, ok := sf.(Minter)
+	require.True(t, ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, map[string][]action.SealedEnvelope{}, []action.SealedEnvelope{selp})
 	require.NoError(t, err)
-
+	require.NotNil(t, blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ctx, &blk))
 
 	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
@@ -391,12 +389,14 @@ func testState(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[a] = []action.SealedEnvelope{selp}
+	minter, ok := sf.(Minter)
+	require.True(t, ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
+	require.NoError(t, err)
+	require.NotNil(t, blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ctx, &blk))
 
@@ -455,12 +455,14 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 			GasLimit:    gasLimit,
 		},
 	)
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[a] = []action.SealedEnvelope{selp}
+	minter, ok := sf.(Minter)
+	require.True(t, ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
+	require.NoError(t, err)
+	require.NotNil(t, blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ctx, &blk))
 
@@ -575,15 +577,17 @@ func testNonce(sf Factory, t *testing.T) {
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{selp}...).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[a] = []action.SealedEnvelope{selp}
+	minter, ok := sf.(Minter)
+	require.True(t, ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
 	require.NoError(t, err)
-
+	require.NotNil(t, blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
 	require.NoError(t, sf.Commit(ctx, &blk))
+
 	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
@@ -654,19 +658,20 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
-	lastBlockHash := hash.ZeroHash256
+	//lastBlockHash := hash.ZeroHash256
 	for i := uint64(1); i <= 10; i++ {
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: i,
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 		})
-		blk, err := block.NewTestingBuilder().
-			SetHeight(i).
-			SetPrevBlockHash(lastBlockHash).
-			SetTimeStamp(testutil.TimestampNow()).
-			AddActions([]action.SealedEnvelope{}...).
-			SignAndBuild(identityset.PrivateKey(27))
+		accMap := make(map[string][]action.SealedEnvelope)
+		minter, ok := sf.(Minter)
+		require.True(ok)
+		blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
+		require.NoError(err)
+		require.NotNil(blkBuilder)
+		blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(err)
 		require.NoError(sf.Commit(ctx, &blk))
 
@@ -734,7 +739,7 @@ func TestSTXRunActions(t *testing.T) {
 	testCommit(sdb, registry, t)
 }
 
-func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
+func testCommit(sf Factory, registry *protocol.Registry, t *testing.T) {
 	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -774,15 +779,17 @@ func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
 			},
 		})
 
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(blkHash).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions(selp1, selp2).
-		SignAndBuild(identityset.PrivateKey(27))
+	accMap := make(map[string][]action.SealedEnvelope)
+	accMap[a] = []action.SealedEnvelope{selp1}
+	accMap[b] = []action.SealedEnvelope{selp2}
+	minter, ok := sf.(Minter)
+	require.True(ok)
+	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
 	require.NoError(err)
-
-	require.NoError(factory.Commit(ctx, &blk))
+	require.NotNil(blkBuilder)
+	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(err)
+	require.NoError(sf.Commit(ctx, &blk))
 }
 
 func TestPickAndRunActions(t *testing.T) {
@@ -1190,14 +1197,13 @@ func benchRunAction(sf Factory, b *testing.B) {
 				Registry: registry,
 			})
 
-		blk, err := block.NewTestingBuilder().
-			SetHeight(uint64(n)).
-			SetPrevBlockHash(hash.ZeroHash256).
-			SetTimeStamp(testutil.TimestampNow()).
-			AddActions(acts...).
-			SignAndBuild(identityset.PrivateKey(27))
+		accMap := make(map[string][]action.SealedEnvelope)
+		accMap[accounts[1]] = acts
+		minter, _ := sf.(Minter)
+		blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{})
 		b.Fatal(err)
-
+		blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
+		b.Fatal(err)
 		if err := sf.Commit(zctx, &blk); err != nil {
 			b.Fatal(err)
 		}
