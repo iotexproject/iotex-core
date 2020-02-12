@@ -112,9 +112,10 @@ func TestStakingContract(t *testing.T) {
 		})
 		require.NoError(err)
 		ns.SetContract(r.ContractAddress)
-		tally, now, err := ns.Votes(bc.TipHeight()+1, false)
+		// Using a random value for epoch number
+		tally, now, err := ns.Votes(bc.TipHeight(), bc.TipHeight()+1, false)
 		require.Equal(poll.ErrNoData, err)
-		tally, now, err = ns.Votes(bc.TipHeight()+1, true)
+		tally, now, err = ns.Votes(bc.TipHeight(), bc.TipHeight()+1, true)
 		require.NoError(err)
 		require.Equal(fixedTime, now)
 		require.Equal(numVoter*int(numBucket), len(tally.Candidates))

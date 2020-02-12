@@ -39,7 +39,7 @@ type (
 		getTipBlockTime GetTipBlockTime
 		contract        string
 		abi             abi.ABI
-		bufferHeight    uint64
+		bufferEpochNum  uint64
 		bufferResult    *VoteTally
 	}
 
@@ -77,13 +77,13 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime)
 		cm:              cm,
 		getTipBlockTime: getTipBlockTime,
 		abi:             abi,
-		bufferHeight:    0,
+		bufferEpochNum:  0,
 		bufferResult:    nil,
 	}, nil
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes(height uint64, correctGas bool) (*VoteTally, time.Time, error) {
+func (ns *NativeStaking) Votes(epochNum uint64, height uint64, correctGas bool) (*VoteTally, time.Time, error) {
 	if ns.contract == "" {
 		return nil, time.Time{}, ErrNoData
 	}
@@ -91,8 +91,8 @@ func (ns *NativeStaking) Votes(height uint64, correctGas bool) (*VoteTally, time
 	if err != nil {
 		return nil, time.Time{}, errors.Wrap(err, "failed to get current block time")
 	}
-	if ns.bufferHeight == height && ns.bufferResult != nil {
-		log.L().Info("Using cache native staking data", zap.Uint64("height", height))
+	if ns.bufferEpochNum == epochNum && ns.bufferResult != nil {
+		log.L().Info("Using cache native staking data", zap.Uint64("epochNum", epochNum))
 		return ns.bufferResult, now, nil
 	}
 	// read voter list from staking contract
@@ -121,8 +121,10 @@ func (ns *NativeStaking) Votes(height uint64, correctGas bool) (*VoteTally, time
 		}
 		prevIndex = index
 	}
-	ns.bufferHeight = height
-	ns.bufferResult = &votes
+	if epochNum > ns.bufferEpochNum {
+		ns.bufferEpochNum = epochNum
+		ns.bufferResult = &votes
+	}
 	return &votes, now, nil
 }
 

@@ -122,8 +122,9 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	if err != nil {
 		return nil, err
 	}
+	epochNum := sc.getEpochNum(height)
 	// convert to epoch start height
-	epochHeight := sc.getEpochHeight(sc.getEpochNum(height))
+	epochHeight := sc.getEpochHeight(epochNum)
 	if sc.hu.IsPre(config.Cook, epochHeight) {
 		return sc.filterDelegates(cand), nil
 	}
@@ -133,7 +134,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	}
 
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, ts, err := sc.nativeStaking.Votes(height, sc.hu.IsPost(config.Daytona, height))
+	nativeVotes, ts, err := sc.nativeStaking.Votes(epochNum, height, sc.hu.IsPost(config.Daytona, height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
