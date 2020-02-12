@@ -658,7 +658,6 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
-	//lastBlockHash := hash.ZeroHash256
 	for i := uint64(1); i <= 10; i++ {
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight: i,
