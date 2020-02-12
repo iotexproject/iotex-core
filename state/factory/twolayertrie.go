@@ -102,5 +102,6 @@ func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 	if !layerTwo.IsEmpty() {
 		return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
 	}
+
 	return tlt.layerOne.Delete(layerOneKey)
 }

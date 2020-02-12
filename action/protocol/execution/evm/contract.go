@@ -9,10 +9,10 @@ package evm
 import (
 	"context"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -44,12 +44,12 @@ type (
 
 	contract struct {
 		*state.Account
-		dirtyCode  bool   // contract's code has been set
-		dirtyState bool   // contract's account state has changed
-		code       []byte // contract byte-code
+		dirtyCode  bool              // contract's code has been set
+		dirtyState bool              // contract's account state has changed
+		code       SerializableBytes // contract byte-code
 		root       hash.Hash256
 		committed  map[hash.Hash256][]byte
-		dao        db.KVStore
+		sm         protocol.StateManager
 		trie       trie.Trie // storage trie of the contract
 	}
 )
@@ -85,6 +85,7 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	}
 	c.dirtyState = true
 	err := c.trie.Upsert(key[:], value)
+	// TODO (zhi): confirm whether we should update the root on err
 	c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
 	return err
 }
@@ -92,10 +93,14 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 // GetCode gets the contract's byte-code
 func (c *contract) GetCode() ([]byte, error) {
 	if c.code != nil {
-		return c.code, nil
+		return c.code[:], nil
 	}
-	// TODO: replace with statedb.State
-	return c.dao.Get(CodeKVNameSpace, c.Account.CodeHash)
+	_, err := c.sm.State(&c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash))
+	if err != nil {
+		return nil, err
+	}
+	return c.code[:], nil
+
 }
 
 // SetCode sets the contract's byte-code
@@ -121,9 +126,7 @@ func (c *contract) Commit() error {
 		c.committed = make(map[hash.Hash256][]byte)
 	}
 	if c.dirtyCode {
-		// put the code into storage DB
-		// TODO: replace with statedb.PutState
-		if err := c.dao.Put(CodeKVNameSpace, c.Account.CodeHash, c.code); err != nil {
+		if _, err := c.sm.PutState(c.code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(c.Account.CodeHash)); err != nil {
 			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.Account.CodeHash[:])
 		}
 		c.dirtyCode = false
@@ -150,7 +153,7 @@ func (c *contract) Snapshot() Contract {
 		code:       c.code,
 		root:       c.Account.Root,
 		committed:  c.committed,
-		dao:        c.dao,
+		sm:         c.sm,
 		// note we simply save the trie (which is an interface/pointer)
 		// later Revert() call needs to reset the saved trie root
 		trie: c.trie,
@@ -158,19 +161,15 @@ func (c *contract) Snapshot() Contract {
 }
 
 // newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore) (Contract, error) {
+func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
-		dao:       dao,
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(ContractKVNameSpace, dao)
-	if err != nil {
-		return nil, err
+		sm:        sm,
 	}
 	options := []trie.Option{
-		trie.KVStoreOption(dbForTrie),
+		trie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
 		trie.KeyLengthOption(len(hash.Hash256{})),
 		trie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))

@@ -67,26 +67,15 @@ func (eb *ExpectedBalance) Balance() *big.Int {
 	return balance
 }
 
-type codeType struct {
-	value []byte
-}
-
-func (c *codeType) Deserialize(data []byte) error {
-	c.value = make([]byte, len(data))
-	copy(c.value, data)
-
-	return nil
-}
-
 func readCode(sr protocol.StateReader, addr []byte) ([]byte, error) {
-	var c codeType
+	var c evm.SerializableBytes
 	account, err := accountutil.LoadAccount(sr, hash.BytesToHash160(addr))
 	if err != nil {
 		return nil, err
 	}
 	_, err = sr.State(&c, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:]))
 
-	return c.value, err
+	return c[:], err
 }
 
 type Log struct {

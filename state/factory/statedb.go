@@ -338,11 +338,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 
 func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{}
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
-	if !ok {
-		// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
-		return opts
-	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Easter, height) {
 		return opts

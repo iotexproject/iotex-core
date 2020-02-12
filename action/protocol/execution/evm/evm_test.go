@@ -20,8 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -33,9 +31,6 @@ func TestExecuteContractFailure(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
-	require.NoError(t, err)
-	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
@@ -75,9 +70,6 @@ func TestConstantinople(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
-	require.NoError(err)
-	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(27),

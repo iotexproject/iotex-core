@@ -338,11 +338,7 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 			if wi.Namespace() != evm.CodeKVNameSpace {
 				return false
 			}
-			// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
-			bcCtx, ok := protocol.GetBlockchainCtx(ctx)
-			if !ok {
-				return false
-			}
+			bcCtx := protocol.MustGetBlockchainCtx(ctx)
 			hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 			return hu.IsPre(config.Easter, height)
 		}),
