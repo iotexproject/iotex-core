@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -23,7 +23,7 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Aleutian")),
 	}
 	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true}
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}, nil}
 
 	typeReipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReipt)
@@ -48,7 +48,7 @@ func TestConvert(t *testing.T) {
 }
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil}
 	ser, err := receipt.Serialize()
 	require.NoError(err)
 
