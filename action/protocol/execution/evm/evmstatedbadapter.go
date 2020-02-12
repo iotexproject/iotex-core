@@ -76,6 +76,7 @@ func NewStateDBAdapter(
 	s := &StateDBAdapter{
 		sm:                 sm,
 		logs:               []*action.Log{},
+		sysLog:             &action.SystemLog{},
 		err:                nil,
 		blockHeight:        blockHeight,
 		executionHash:      executionHash,

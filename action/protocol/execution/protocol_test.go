@@ -55,7 +55,7 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
-// GensisBlockHeight defines an gensis blockHeight
+// GenesisBlockHeight defines an genesis blockHeight
 type GenesisBlockHeight struct {
 	IsBering bool `json:"isBering"`
 }
@@ -436,6 +436,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs), i)
 			// TODO: check value of logs
 		}
+		// TODO: check system log
 	}
 }
 
