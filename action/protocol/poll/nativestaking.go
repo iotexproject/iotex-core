@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/types"
@@ -38,6 +39,8 @@ type (
 		readContract ReadContract
 		contract     string
 		abi          abi.ABI
+		bufferHeight uint64
+		bufferResult *VoteTally
 	}
 
 	pygg struct {
@@ -72,6 +75,8 @@ func NewNativeStaking(readContract ReadContract) (*NativeStaking, error) {
 	return &NativeStaking{
 		abi:          abi,
 		readContract: readContract,
+		bufferHeight: 0,
+		bufferResult: nil,
 	}, nil
 }
 
@@ -80,7 +85,11 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
-
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if ns.bufferHeight == bcCtx.Tip.Height && ns.bufferResult != nil {
+		log.L().Info("Using cache native staking data", zap.Uint64("tip height", bcCtx.Tip.Height))
+		return ns.bufferResult, nil
+	}
 	// read voter list from staking contract
 	votes := VoteTally{
 		Candidates: make(map[[12]byte]*state.Candidate),
@@ -107,6 +116,9 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 		}
 		prevIndex = index
 	}
+	ns.bufferHeight = bcCtx.Tip.Height
+	ns.bufferResult = &votes
+
 	return &votes, nil
 }
 
