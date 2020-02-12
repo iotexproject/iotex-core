@@ -38,7 +38,7 @@ var (
 
 // DefaultHashFunc implements a default hash function
 func DefaultHashFunc(data []byte) []byte {
-	h := hash.Hash256b(data)
+	h := hash.Hash160b(data)
 	return h[:]
 }
 

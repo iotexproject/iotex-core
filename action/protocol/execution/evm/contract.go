@@ -171,7 +171,8 @@ func newContract(addr hash.Hash160, account *state.Account, dao db.KVStore) (Con
 		trie.KVStoreOption(dbForTrie),
 		trie.KeyLengthOption(len(hash.Hash256{})),
 		trie.HashFuncOption(func(data []byte) []byte {
-			return trie.DefaultHashFunc(append(addr[:], data...))
+			h := hash.Hash256b(append(addr[:], data...))
+			return h[:]
 		}),
 	}
 	if account.Root != hash.ZeroHash256 {
