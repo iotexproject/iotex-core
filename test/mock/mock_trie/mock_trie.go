@@ -133,6 +133,20 @@ func (mr *MockTrieMockRecorder) SetRootHash(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRootHash", reflect.TypeOf((*MockTrie)(nil).SetRootHash), arg0)
 }
 
+// IsEmpty mocks base method
+func (m *MockTrie) IsEmpty() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsEmpty")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsEmpty indicates an expected call of IsEmpty
+func (mr *MockTrieMockRecorder) IsEmpty() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEmpty", reflect.TypeOf((*MockTrie)(nil).IsEmpty))
+}
+
 // DB mocks base method
 func (m *MockTrie) DB() trie.KVStore {
 	m.ctrl.T.Helper()
