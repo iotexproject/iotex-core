@@ -66,7 +66,7 @@ func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, er
 	return layerTwo.Get(layerTwoKey)
 }
 
-// Upsert upserts an item
+// Upsert upserts an item in layer two
 func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
