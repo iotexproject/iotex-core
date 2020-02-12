@@ -133,7 +133,7 @@ func (sc *stakingCommittee) DelegatesByHeight(height uint64) (state.CandidateLis
 	}
 
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, ts, err := sc.nativeStaking.Votes(sc.hu.IsPost(config.Daytona, height))
+	nativeVotes, ts, err := sc.nativeStaking.Votes(height, sc.hu.IsPost(config.Daytona, height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
