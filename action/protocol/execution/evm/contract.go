@@ -94,6 +94,7 @@ func (c *contract) GetCode() ([]byte, error) {
 	if c.code != nil {
 		return c.code, nil
 	}
+	// TODO: replace with statedb.State
 	return c.dao.Get(CodeKVNameSpace, c.Account.CodeHash)
 }
 
@@ -121,6 +122,7 @@ func (c *contract) Commit() error {
 	}
 	if c.dirtyCode {
 		// put the code into storage DB
+		// TODO: replace with statedb.PutState
 		if err := c.dao.Put(CodeKVNameSpace, c.Account.CodeHash, c.code); err != nil {
 			return errors.Wrapf(err, "Failed to store code for new contract, codeHash %x", c.Account.CodeHash[:])
 		}

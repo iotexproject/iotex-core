@@ -272,19 +272,20 @@ func testCandidates(sf Factory, t *testing.T) {
 		config.Default.Genesis.KickoutIntensityRate,
 		config.Default.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
-	require.NoError(t, registry.Register("poll", p))
 	require.NoError(t, err)
+	require.NoError(t, registry.Register("poll", p))
 	gasLimit := testutil.TestGasLimit
 
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: registry,
-	})
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
+	// TODO: investigate why registry cannot be added in the Blockchain Ctx
+	ctx := protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: config.Default.Genesis,
+	}), protocol.BlockCtx{
+		BlockHeight: 0,
 		Producer:    identityset.Address(27),
 		GasLimit:    gasLimit,
 	})
+	require.NoError(t, sf.Start(ctx))
+	defer require.NoError(t, sf.Stop(ctx))
 
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
@@ -293,8 +294,14 @@ func testCandidates(sf Factory, t *testing.T) {
 		AddActions([]action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-
-	require.NoError(t, sf.Commit(ctx, &blk))
+	require.NoError(t, sf.Commit(protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	}), protocol.BlockCtx{
+		BlockHeight: 1,
+		Producer:    identityset.Address(27),
+		GasLimit:    gasLimit,
+	}), &blk))
 
 	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
 	require.NoError(t, err)
@@ -1062,12 +1069,13 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.NewWorkingSet()
+		ws, err := sf.(*factory).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws, err := newStateTX(0, db.NewMemKVStore())
+		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+		ws, err := sdb.(*stateDB).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})

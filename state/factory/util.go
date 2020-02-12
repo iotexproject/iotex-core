@@ -28,6 +28,18 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+func processOptions(opts ...protocol.StateOption) (bool, uint64, string, []byte, error) {
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return false, 0, "", nil, err
+	}
+	ns := AccountKVNamespace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+	return cfg.AtHeight, cfg.Height, ns, cfg.Key, nil
+}
+
 // createGenesisStates initialize the genesis states
 func createGenesisStates(ctx context.Context, ws WorkingSet) error {
 	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {

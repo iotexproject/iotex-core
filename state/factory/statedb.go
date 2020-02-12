@@ -158,7 +158,67 @@ func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 
-	return newStateTX(sdb.currentChainHeight+1, sdb.dao)
+	return sdb.newWorkingSet(context.Background(), sdb.currentChainHeight+1)
+}
+
+func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (WorkingSet, error) {
+	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &workingSet{
+		height:    height,
+		finalized: false,
+		getStateFunc: func(ns string, key []byte, s interface{}) error {
+			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
+			if err != nil {
+				if errors.Cause(err) == db.ErrNotExist {
+					return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+				}
+				return err
+			}
+			return state.Deserialize(s, data)
+		},
+		putStateFunc: func(ns string, key []byte, s interface{}) error {
+			ss, err := state.Serialize(s)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+			}
+			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
+
+			return nil
+		},
+		delStateFunc: func(ns string, key []byte) error {
+			flusher.KVStoreWithBuffer().MustDelete(ns, key)
+
+			return nil
+		},
+		digestFunc: func() hash.Hash256 {
+			return hash.Hash256b(flusher.SerializeQueue())
+		},
+		finalizeFunc: func(h uint64) error {
+			// Persist current chain Height
+			flusher.KVStoreWithBuffer().MustPut(
+				AccountKVNamespace,
+				[]byte(CurrentHeightKey),
+				byteutil.Uint64ToBytes(height),
+			)
+			return nil
+		},
+		commitFunc: func(h uint64) error {
+			if err := flusher.Flush(); err != nil {
+				return err
+			}
+			sdb.currentChainHeight = h
+			return nil
+		},
+		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
+		revertFunc:   flusher.KVStoreWithBuffer().Revert,
+		dbFunc: func() db.KVStore {
+			return flusher.KVStoreWithBuffer()
+		},
+	}, nil
 }
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
@@ -184,11 +244,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, err
@@ -213,11 +269,7 @@ func (sdb *stateDB) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, nil, err
@@ -268,7 +320,7 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return sdb.commit(ws)
+	return ws.Commit()
 }
 
 // State returns a confirmed state in the state factory
@@ -353,7 +405,7 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := newStateTX(0, sdb.dao, sdb.flusherOptions(ctx, 0)...)
+	ws, err := sdb.newWorkingSet(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -375,11 +427,7 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (W
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	tx, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	tx, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 
 	return tx, false, err
 }

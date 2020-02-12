@@ -529,6 +529,7 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
 	}
+	// TODO: replace with statedb.State
 	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
 	if err != nil {
 		// TODO: Suppress the as it's too much now
@@ -698,6 +699,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
+	// TODO: wrap stateDB as a KVStore
 	contract, err := newContract(addr, account, stateDB.dao)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
