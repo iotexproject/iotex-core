@@ -15,22 +15,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-election/types"
+	"github.com/iotexproject/iotex-election/util"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-election/types"
-	"github.com/iotexproject/iotex-election/util"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var nativeStakingContractCreator = address.ZeroAddress
@@ -43,6 +44,7 @@ type stakingCommittee struct {
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
 	stateReader          protocol.StateReader
+	timerFactory         *prometheustimer.TimerFactory
 }
 
 // NewStakingCommittee creates a staking committee which fetch result from governance chain and native staking
@@ -65,13 +67,27 @@ func NewStakingCommittee(
 			ns.SetContract(nativeStakingContractAddress)
 		}
 	}
-	return &stakingCommittee{
+
+	timerFactory, err := prometheustimer.New(
+		"iotex_staking_perf",
+		"Performance of staking module",
+		[]string{"type"},
+		[]string{"default"},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	sc := stakingCommittee{
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
 		scoreThreshold:    scoreThreshold,
 		stateReader:       sr,
-	}, nil
+	}
+	sc.timerFactory = timerFactory
+
+	return &sc, nil
 }
 
 func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
@@ -179,10 +195,12 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
 func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+	timer := sc.timerFactory.NewTimer("Governance")
 	cand, err := sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
+	timer.End()
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
@@ -196,7 +214,9 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	}
 
 	// TODO: extract tip info inside of Votes function
+	timer = sc.timerFactory.NewTimer("Native")
 	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, hu.IsPost(config.Daytona, height))
+	timer.End()
 	if err == ErrNoData {
 		// no native staking data
 		return sc.filterCandidates(cand), nil
