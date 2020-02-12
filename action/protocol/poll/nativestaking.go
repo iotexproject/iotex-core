@@ -39,6 +39,8 @@ type (
 		getTipBlockTime GetTipBlockTime
 		contract        string
 		abi             abi.ABI
+		bufferHeight    uint64
+		bufferResult    *VoteTally
 	}
 
 	pygg struct {
@@ -75,18 +77,23 @@ func NewNativeStaking(cm protocol.ChainManager, getTipBlockTime GetTipBlockTime)
 		cm:              cm,
 		getTipBlockTime: getTipBlockTime,
 		abi:             abi,
+		bufferHeight:    0,
+		bufferResult:    nil,
 	}, nil
 }
 
 // Votes returns the votes on height
-func (ns *NativeStaking) Votes(correctGas bool) (*VoteTally, time.Time, error) {
+func (ns *NativeStaking) Votes(height uint64, correctGas bool) (*VoteTally, time.Time, error) {
 	if ns.contract == "" {
 		return nil, time.Time{}, ErrNoData
 	}
-
 	now, err := ns.getTipBlockTime()
 	if err != nil {
 		return nil, time.Time{}, errors.Wrap(err, "failed to get current block time")
+	}
+	if ns.bufferHeight == height && ns.bufferResult != nil {
+		log.L().Info("Using cache native staking data", zap.Uint64("height", height))
+		return ns.bufferResult, now, nil
 	}
 	// read voter list from staking contract
 	votes := VoteTally{
@@ -114,6 +121,8 @@ func (ns *NativeStaking) Votes(correctGas bool) (*VoteTally, time.Time, error) {
 		}
 		prevIndex = index
 	}
+	ns.bufferHeight = height
+	ns.bufferResult = &votes
 	return &votes, now, nil
 }
 
