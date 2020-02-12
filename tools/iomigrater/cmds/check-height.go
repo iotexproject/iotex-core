@@ -9,7 +9,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	. "github.com/iotexproject/iotex-core/tools/iomigrater/common"
+	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
 // Multi-language support
@@ -29,10 +29,11 @@ var (
 )
 
 var (
+	// CheckHeight used to Sub command.
 	CheckHeight = &cobra.Command{
-		Use:   TranslateInLang(checkHeightCmdUse),
-		Short: TranslateInLang(checkHeightCmdShorts),
-		Long:  TranslateInLang(checkHeightCmdLongs),
+		Use:   common.TranslateInLang(checkHeightCmdUse),
+		Short: common.TranslateInLang(checkHeightCmdShorts),
+		Long:  common.TranslateInLang(checkHeightCmdLongs),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			height, err := checkDbFileHeight(args[0])

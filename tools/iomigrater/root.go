@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/tools/iomigrater/cmds"
-	. "github.com/iotexproject/iotex-core/tools/iomigrater/common"
+	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
 // Multi-language support
@@ -33,9 +33,9 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   TranslateInLang(rootCmdUses),
-	Short: TranslateInLang(rootCmdShorts),
-	Long:  TranslateInLang(rootCmdLongs),
+	Use:   common.TranslateInLang(rootCmdUses),
+	Short: common.TranslateInLang(rootCmdShorts),
+	Long:  common.TranslateInLang(rootCmdLongs),
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

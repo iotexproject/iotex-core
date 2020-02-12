@@ -10,12 +10,12 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	. "github.com/iotexproject/iotex-core/tools/iomigrater/common"
+	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
 const (
-	INT_MAX    = int(^uint(0) >> 1)
-	UINT64_MAX = 1<<64 - 1
+	// INTMAX Max value of type int.
+	INTMAX = int(^uint(0) >> 1)
 )
 
 // Multi-language support
@@ -47,10 +47,11 @@ var (
 )
 
 var (
+	// MigrateDb Used to Sub command.
 	MigrateDb = &cobra.Command{
-		Use:   TranslateInLang(migrateDbCmdUse),
-		Short: TranslateInLang(migrateDbCmdShorts),
-		Long:  TranslateInLang(migrateDbCmdLongs),
+		Use:   common.TranslateInLang(migrateDbCmdUse),
+		Short: common.TranslateInLang(migrateDbCmdShorts),
+		Long:  common.TranslateInLang(migrateDbCmdLongs),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return migrateDbFile()
 		},
@@ -64,14 +65,14 @@ var (
 )
 
 func init() {
-	MigrateDb.PersistentFlags().StringVarP(&oldFile, "old-file", "o", "", TranslateInLang(migrateDbFlagOldFileUse))
-	MigrateDb.PersistentFlags().StringVarP(&newFile, "new-file", "n", "", TranslateInLang(migrateDbFlagNewFileUse))
-	MigrateDb.PersistentFlags().Uint64VarP(&blockHeight, "block-height", "b", uint64(0), TranslateInLang(migrateDbFlagBlockHeightUse))
+	MigrateDb.PersistentFlags().StringVarP(&oldFile, "old-file", "o", "", common.TranslateInLang(migrateDbFlagOldFileUse))
+	MigrateDb.PersistentFlags().StringVarP(&newFile, "new-file", "n", "", common.TranslateInLang(migrateDbFlagNewFileUse))
+	MigrateDb.PersistentFlags().Uint64VarP(&blockHeight, "block-height", "b", uint64(0), common.TranslateInLang(migrateDbFlagBlockHeightUse))
 }
 
 func getProgressMod(num uint64) (int, int) {
 	step := 1
-	for num/2 >= uint64(INT_MAX) {
+	for num/2 >= uint64(INTMAX) {
 		step *= 2
 		num /= 2
 	}
@@ -88,23 +89,23 @@ func getProgressMod(num uint64) (int, int) {
 func migrateDbFile() error {
 	// Check flags
 	if oldFile == "" {
-		return fmt.Errorf("--old-file is empty.\n")
+		return fmt.Errorf("--old-file is empty")
 	}
 	if newFile == "" {
-		return fmt.Errorf("--new-file is empty.\n")
+		return fmt.Errorf("--new-file is empty")
 	}
 	if oldFile == newFile {
-		return fmt.Errorf("The values of --old-file --new-file flags cannot be the same.\n")
+		return fmt.Errorf("The values of --old-file --new-file flags cannot be the same")
 	}
 	if blockHeight == 0 {
-		return fmt.Errorf("--block-height is 0.\n")
+		return fmt.Errorf("--block-height is 0")
 	}
 
 	height, err := checkDbFileHeight(oldFile)
 	if err != nil {
 		return err
 	} else if height < blockHeight {
-		return fmt.Errorf("The --block-height cannot be larger than the height of the migration file (the old file)\n")
+		return fmt.Errorf("The --block-height cannot be larger than the height of the migration file")
 	}
 
 	cfg, err := config.New()
@@ -130,10 +131,10 @@ func migrateDbFile() error {
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {
-		return fmt.Errorf("Failed to start the old db file.\n")
+		return fmt.Errorf("Failed to start the old db file")
 	}
 	if err := newDAO.Start(ctx); err != nil {
-		return fmt.Errorf("Failed to start the new db file.\n")
+		return fmt.Errorf("Failed to start the new db file")
 	}
 
 	defer func() {
@@ -149,7 +150,7 @@ func migrateDbFile() error {
 
 		hash, err := oldDAO.GetBlockHash(i)
 		if err != nil {
-			return fmt.Errorf("Failed to get block hash on height %d: %v\n", i, err)
+			return fmt.Errorf("Failed to get block hash on height %d: %v", i, err)
 		}
 		blk, err := oldDAO.GetBlock(hash)
 		if err != nil {
