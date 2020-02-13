@@ -40,6 +40,8 @@ const (
 	AccountKVNamespace = "Account"
 	// AccountTrieNamespace is the bucket for the latest state view
 	AccountTrieNamespace = "AccountTrie"
+	// StakingNameSpace is the bucket name for staking state
+	StakingNameSpace = "Staking"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
@@ -53,6 +55,8 @@ var (
 	ErrNotSupported = errors.New("not supported")
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
+	// TotalBucketKey indicates the total count of staking buckets
+	TotalBucketKey = []byte("totalBucket")
 )
 
 type (
@@ -175,6 +179,12 @@ func (sf *factory) Start(ctx context.Context) error {
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
+		}
+		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init factory's height")
+		}
+		if err = sf.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to init factory's total bucket account")
 		}
 	default:
 		return err
