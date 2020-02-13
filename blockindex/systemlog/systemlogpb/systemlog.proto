@@ -7,23 +7,9 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 syntax = "proto3";
-package executionpb;
+package systemlogpb;
 
-message EvmTransfer {
-    string amount = 1;
-    string from = 2;
-    string to = 3;
+message SystemLog {
+    int32 logType = 1;
+    bytes logData = 2;
 }
-
-message ActionEvmTransfers {
-    bytes actionHash = 1;
-    int32 numEvmTransfer = 2;
-    repeated EvmTransfer evmTransfers = 3;
-}
-
-message BlockEvmTransfers{
-    uint64 blockHeight = 1;
-    int32 numEvmTransfer = 2;
-    repeated ActionEvmTransfers actionEvmTransfers = 3;
-}
-

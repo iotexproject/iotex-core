@@ -18,13 +18,15 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/blockindex/systemlog"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -52,11 +54,12 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	if !ok {
 		log.L().Panic("failed to get StateDBAdapter")
 	}
-	sdb.AddEvmTransfer(action.EvmTransfer{
+	systemLog := systemlog.LogEvmTransfer(&systemlog.EvmTransfer{
 		Amount: amount,
 		From:   outAddr.String(),
 		To:     inAddr.String(),
 	})
+	sdb.AddSystemLog(systemLog)
 }
 
 type (
@@ -203,7 +206,6 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.Logs = stateDB.Logs()
-	receipt.SystemLog = stateDB.SystemLog()
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }

@@ -15,14 +15,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/blockindex/systemlog"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -46,7 +48,6 @@ type (
 	StateDBAdapter struct {
 		sm                 protocol.StateManager
 		logs               []*action.Log
-		sysLog             *action.SystemLog
 		err                error
 		blockHeight        uint64
 		executionHash      hash.Hash256
@@ -76,7 +77,6 @@ func NewStateDBAdapter(
 	s := &StateDBAdapter{
 		sm:                 sm,
 		logs:               []*action.Log{},
-		sysLog:             &action.SystemLog{},
 		err:                nil,
 		blockHeight:        blockHeight,
 		executionHash:      executionHash,
@@ -437,14 +437,22 @@ func (stateDB *StateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
 }
 
-// AddEvmTransfer adds evm transfer to system log
-func (stateDB *StateDBAdapter) AddEvmTransfer(evmTransfer action.EvmTransfer) {
-	stateDB.sysLog.EvmTransferList = append(stateDB.sysLog.EvmTransferList, evmTransfer)
-}
+// AddSystemLog adds system log into receipt
+func (stateDB *StateDBAdapter) AddSystemLog(systemLog *systemlog.SystemLog) {
+	data, err := systemLog.Serialize()
+	if err != nil {
+		log.L().Error("Failed to serialize system log.", zap.Error(err))
+	}
 
-// SystemLog returns the system log
-func (stateDB *StateDBAdapter) SystemLog() *action.SystemLog {
-	return stateDB.sysLog
+	l := &action.Log{
+		// nil as topics represents system log
+		Topics:             nil,
+		Data:               data,
+		BlockHeight:        stateDB.blockHeight,
+		ActionHash:         stateDB.executionHash,
+		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
+	}
+	stateDB.logs = append(stateDB.logs, l)
 }
 
 // AddPreimage adds the preimage of a hash

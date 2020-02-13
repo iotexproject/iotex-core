@@ -7,8 +7,6 @@
 package action
 
 import (
-	"math/big"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -23,7 +21,6 @@ type Receipt struct {
 	GasConsumed     uint64
 	ContractAddress string
 	Logs            []*Log
-	SystemLog       *SystemLog
 }
 
 // Log stores an evm contract event
@@ -37,18 +34,6 @@ type Log struct {
 	NotFixTopicCopyBug bool
 }
 
-// SystemLog stores log that not participating consensus
-type SystemLog struct {
-	EvmTransferList []EvmTransfer
-}
-
-// EvmTransfer records a transfer executed in contract
-type EvmTransfer struct {
-	Amount *big.Int
-	From   string
-	To     string
-}
-
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
 func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r := &iotextypes.Receipt{}
@@ -58,8 +43,11 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
-	for _, log := range receipt.Logs {
-		r.Logs = append(r.Logs, log.ConvertToLogPb())
+	for _, l := range receipt.Logs {
+		// exclude system logs when calculating hash or storing receipts
+		if l.Topics != nil {
+			r.Logs = append(r.Logs, l.ConvertToLogPb())
+		}
 	}
 	return r
 }
