@@ -6,10 +6,15 @@
 
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
+
 syntax = "proto3";
 package stakingpb;
 
 message BucketIndex {
     uint64 index = 1;
     bytes canName = 2;
+}
+
+mesage bucketIndices {
+    repeated BucketIndex bucketIndex = 1;
 }
