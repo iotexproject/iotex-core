@@ -15,7 +15,14 @@ message EvmTransfer {
     string to = 3;
 }
 
-message EvmTransferList {
-    repeated EvmTransfer evmTransfers = 1;
+message ActionEvmTransfers {
+    bytes actionHash = 1;
+    int32 numEvmTransfer = 2;
+    repeated EvmTransfer evmTransfers = 3;
 }
 
+message BlockEvmTransfers{
+    uint64 blockHeight = 1;
+    int32 numEvmTransfer = 2;
+    repeated ActionEvmTransfers actionEvmTransfers = 3;
+}
