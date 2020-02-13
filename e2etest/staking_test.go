@@ -56,7 +56,8 @@ func TestStakingContract(t *testing.T) {
 		addr0 := identityset.Address(26).String()
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
 		var s state.Account
-		require.NoError(sf.State(state0, &s))
+		_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+		require.NoError(err)
 		require.Equal(unit.ConvertIotxToRau(100000000), s.Balance)
 
 		// deploy staking contract
@@ -108,7 +109,8 @@ func TestStakingContract(t *testing.T) {
 			require.NoError(bc.CommitBlock(blk))
 
 			state0 = hash.BytesToHash160(identityset.Address(i).Bytes())
-			require.NoError(sf.State(state0, &s))
+			_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
+			require.NoError(err)
 			require.Equal(unit.ConvertIotxToRau(100000000-int64(numBucket)*200), s.Balance)
 		}
 

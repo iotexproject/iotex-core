@@ -33,7 +33,7 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 	var candidates state.CandidateList
 	// Load Candidates on the given height from underlying db
 	candidatesKey := ConstructKey(height)
-	err := sr.State(candidatesKey, &candidates)
+	_, err := sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
 	log.L().Debug(
 		"CandidatesByHeight",
 		zap.Uint64("height", height),
@@ -61,7 +61,7 @@ func KickoutListByEpoch(sr protocol.StateReader, epochNum uint64) (*vote.Blackli
 	}
 	// Load kick out list on the given epochNum from underlying db
 	blackListKey := ConstructBlackListKey(epochNum)
-	err := sr.State(blackListKey, blackList)
+	_, err := sr.State(blackList, protocol.LegacyKeyOption(blackListKey))
 	log.L().Debug(
 		"KickoutListByEpoch",
 		zap.Uint64("epoch number", epochNum),
@@ -96,7 +96,7 @@ func GetMostRecentCandidateMap(sm protocol.StateManager, blkHeight uint64) (map[
 	for h := int(blkHeight); h >= 0; h-- {
 		candidatesKey := ConstructKey(uint64(h))
 		var err error
-		if err = sm.State(candidatesKey, &sc); err == nil {
+		if _, err = sm.State(&sc, protocol.LegacyKeyOption(candidatesKey)); err == nil {
 			return state.CandidatesToMap(sc)
 		}
 		if errors.Cause(err) != state.ErrStateNotExist {
@@ -149,5 +149,6 @@ func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol
 	}
 	sort.Sort(candidateList)
 	candidatesKey := ConstructKey(blkHeight)
-	return sm.PutState(candidatesKey, &candidateList)
+	_, err = sm.PutState(&candidateList, protocol.LegacyKeyOption(candidatesKey))
+	return err
 }

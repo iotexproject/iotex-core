@@ -1348,8 +1348,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1444,8 +1444,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {

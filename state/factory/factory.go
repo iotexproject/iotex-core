@@ -369,17 +369,17 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
+func (sf *factory) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if cfg.AtHeight {
-		return sf.stateAtHeight(cfg.Height, addr, state)
+		return sf.currentChainHeight, sf.stateAtHeight(cfg.Height, cfg.Key, state)
 	}
-	return sf.state(addr, state)
+	return sf.currentChainHeight, sf.state(cfg.Key, state)
 }
 
 // DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
@@ -400,8 +400,8 @@ func (sf *factory) rootHash() hash.Hash256 {
 	return hash.BytesToHash256(sf.accountTrie.RootHash())
 }
 
-func (sf *factory) state(addr hash.Hash160, s interface{}) error {
-	data, err := sf.accountTrie.Get(addr[:])
+func (sf *factory) state(addr []byte, s interface{}) error {
+	data, err := sf.accountTrie.Get(addr)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
@@ -414,7 +414,7 @@ func (sf *factory) state(addr hash.Hash160, s interface{}) error {
 	return nil
 }
 
-func (sf *factory) stateAtHeight(height uint64, addr hash.Hash160, s interface{}) error {
+func (sf *factory) stateAtHeight(height uint64, addr []byte, s interface{}) error {
 	if !sf.saveHistory {
 		return ErrNoArchiveData
 	}
@@ -436,9 +436,9 @@ func (sf *factory) stateAtHeight(height uint64, addr hash.Hash160, s interface{}
 		return err
 	}
 	defer tr.Stop(context.Background())
-	mstate, err := tr.Get(addr[:])
+	mstate, err := tr.Get(addr)
 	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", addr[:])
+		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", addr)
 	}
 	if err != nil {
 		return errors.Wrapf(err, "failed to get account of %x", addr)

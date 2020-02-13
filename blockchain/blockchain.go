@@ -601,6 +601,7 @@ func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	sfTimer.End()
 	// detach working set so it can be freed by GC
 	if err != nil {
+		//
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
 	tipHeight := bc.dao.GetTipHeight()

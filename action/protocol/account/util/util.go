@@ -38,14 +38,14 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 		return &account, errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	err = sm.State(addrHash, &account)
+	_, err = sm.State(&account, protocol.LegacyKeyOption(addrHash))
 	if err == nil {
 		return &account, nil
 	}
 	if errors.Cause(err) == state.ErrStateNotExist {
 		account.Balance = big.NewInt(0)
 		account.VotingWeight = big.NewInt(0)
-		if err := sm.PutState(addrHash, account); err != nil {
+		if _, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash)); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state for account %x", addrHash)
 		}
 		return &account, nil
@@ -56,7 +56,7 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 // LoadAccount loads an account state
 func LoadAccount(sm protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
-	if err := sm.State(addrHash, &account); err != nil {
+	if _, err := sm.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
 			return &account, nil
@@ -73,13 +73,14 @@ func StoreAccount(sm protocol.StateManager, encodedAddr string, account *state.A
 		return errors.Wrap(err, "failed to get address public key hash from encoded address")
 	}
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	return sm.PutState(addrHash, account)
+	_, err = sm.PutState(account, protocol.LegacyKeyOption(addrHash))
+	return err
 }
 
 // Recorded tests if an account has been actually stored
 func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
 	var account state.Account
-	err := sm.State(hash.BytesToHash160(addr.Bytes()), &account)
+	_, err := sm.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
 	if err == nil {
 		return true, nil
 	}
@@ -97,7 +98,7 @@ func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, 
 	}
 	pkHash := hash.BytesToHash160(addr.Bytes())
 	var account state.Account
-	if err := sr.State(pkHash, &account); err != nil {
+	if _, err := sr.State(&account, protocol.LegacyKeyOption(pkHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
 			return &account, nil
@@ -115,7 +116,7 @@ func AccountStateAtHeight(sr protocol.StateReader, encodedAddr string, height ui
 	}
 	pkHash := hash.BytesToHash160(addr.Bytes())
 	var account state.Account
-	if err := sr.State(pkHash, &account, protocol.BlockHeightOption(height)); err != nil {
+	if _, err := sr.State(&account, protocol.BlockHeightOption(height), protocol.LegacyKeyOption(pkHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
 			return &account, nil

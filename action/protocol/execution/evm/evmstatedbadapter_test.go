@@ -30,21 +30,29 @@ func initMockStateManager(ctrl *gomock.Controller) (protocol.StateManager, error
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			val, err := cb.Get("state", addrHash[:])
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
-				return state.ErrStateNotExist
+				return 0, err
 			}
-			return state.Deserialize(account, val)
+			val, err := cb.Get("state", cfg.Key)
+			if err != nil {
+				return 0, state.ErrStateNotExist
+			}
+			return 0, state.Deserialize(account, val)
 		}).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
 			ss, err := state.Serialize(account)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			cb.Put("state", addrHash[:], ss, "failed to put state")
-			return nil
+			cb.Put("state", cfg.Key, ss, "failed to put state")
+			return 0, nil
 		}).AnyTimes()
 	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), cb)
 	if err != nil {
@@ -408,7 +416,7 @@ func TestGetBalanceOnError(t *testing.T) {
 		errors.New("other error"),
 	}
 	for _, err := range errs {
-		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(err).Times(1)
+		sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), err).Times(1)
 		addr := common.HexToAddress("test address")
 		stateDB := NewStateDBAdapter(sm, 1, true, hash.ZeroHash256)
 		amount := stateDB.GetBalance(addr)
