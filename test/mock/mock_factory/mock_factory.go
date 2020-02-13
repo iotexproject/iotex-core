@@ -7,7 +7,6 @@ package mock_factory
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
@@ -84,21 +83,22 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // State mocks base method
-func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}, arg2 ...protocol.StateOption) error {
+func (m *MockFactory) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "State", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // State indicates an expected call of State
-func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
 }
 

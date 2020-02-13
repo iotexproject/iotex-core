@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/api"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
@@ -49,7 +50,7 @@ func TestClient(t *testing.T) {
 	sf := mock_factory.NewMockFactory(mockCtrl)
 	ap := mock_actpool.NewMockActPool(mockCtrl)
 
-	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(_ hash.Hash160, accountState *state.Account) {
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		*accountState = state.EmptyAccount()
 	})
 	bc.EXPECT().ChainID().Return(chainID).AnyTimes()
