@@ -23,7 +23,7 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Aleutian")),
 	}
 	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true}
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}, nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}}
 
 	typeReipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReipt)
@@ -48,7 +48,7 @@ func TestConvert(t *testing.T) {
 }
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil}
 	ser, err := receipt.Serialize()
 	require.NoError(err)
 
