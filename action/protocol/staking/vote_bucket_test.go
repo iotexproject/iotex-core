@@ -76,19 +76,19 @@ func TestGetPutStaking(t *testing.T) {
 	}{
 		{
 			CandName{1, 2, 3, 4},
-			1,
+			0,
 		},
 		{
 			CandName{1, 2, 3, 4},
-			2,
-		},
-		{
-			CandName{2, 3, 4, 5},
 			1,
 		},
 		{
 			CandName{2, 3, 4, 5},
 			2,
+		},
+		{
+			CandName{2, 3, 4, 5},
+			3,
 		},
 	}
 
@@ -102,9 +102,19 @@ func TestGetPutStaking(t *testing.T) {
 		ws, err := sdb.NewWorkingSet()
 		require.NoError(err)
 		require.NotNil(ws)
-		require.NoError(stakingPutBucket(ws, e.name, e.index, vb))
+
+		count, err := stakingGetTotalCount(ws)
+		require.NoError(err)
+		require.Equal(e.index, count)
+		require.NoError(stakingPutBucket(ws, e.name, vb))
+		count, err = stakingGetTotalCount(ws)
+		require.NoError(err)
+		require.Equal(e.index+1, count)
 		require.NoError(ws.Finalize())
 		require.NoError(ws.Commit())
+		count, err = stakingGetTotalCount(ws)
+		require.NoError(err)
+		require.Equal(e.index+1, count)
 
 		vb1, err := stakingGetBucket(sdb, e.name, e.index)
 		require.NoError(err)

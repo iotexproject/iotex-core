@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -29,6 +28,11 @@ type (
 	// VoteBucket is an alias of proto definition
 	VoteBucket struct {
 		iotextypes.Bucket
+	}
+
+	// totalBucketCount stores the total bucket count
+	totalBucketCount struct {
+		count uint64
 	}
 )
 
@@ -77,26 +81,72 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 	return proto.Marshal(vb)
 }
 
+// Deserialize deserializes bytes into bucket count
+func (tc *totalBucketCount) Deserialize(data []byte) error {
+	tc.count = byteutil.BytesToUint64BigEndian(data)
+	return nil
+}
+
+// Serialize serializes bucket count into bytes
+func (tc *totalBucketCount) Serialize() ([]byte, error) {
+	data := byteutil.Uint64ToBytesBigEndian(tc.count)
+	return data, nil
+}
+
+func (tc *totalBucketCount) Count() uint64 {
+	return tc.count
+}
+
+func stakingGetTotalCount(sr protocol.StateReader) (uint64, error) {
+	var tc totalBucketCount
+	_, err := sr.State(
+		&tc,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(factory.TotalBucketKey))
+	return tc.count, err
+}
+
 func stakingGetBucket(sr protocol.StateReader, name CandName, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
-	key := bucketKey(name, index)
-	if err := sr.State(key, &vb, protocol.NamespaceOption(factory.StakingNameSpace)); err != nil {
+	if _, err := sr.State(
+		&vb,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(bucketKey(name, index))); err != nil {
 		return nil, err
 	}
 	return &vb, nil
 }
 
-func stakingPutBucket(sm protocol.StateManager, name CandName, index uint64, bucket *VoteBucket) error {
-	key := bucketKey(name, index)
-	return sm.PutState(key, bucket, protocol.NamespaceOption(factory.StakingNameSpace))
+func stakingPutBucket(sm protocol.StateManager, name CandName, bucket *VoteBucket) error {
+	var tc totalBucketCount
+	if _, err := sm.State(
+		&tc,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(factory.TotalBucketKey)); err != nil {
+		return err
+	}
+
+	if _, err := sm.PutState(
+		bucket,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(bucketKey(name, tc.Count()))); err != nil {
+		return err
+	}
+	tc.count++
+	_, err := sm.PutState(
+		&tc,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(factory.TotalBucketKey))
+	return err
 }
 
 func stakingDelBucket(sm protocol.StateManager, name CandName, index uint64) error {
-	key := bucketKey(name, index)
-	return sm.DelState(key, protocol.NamespaceOption(factory.StakingNameSpace))
+	_, err := sm.DelState(
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(bucketKey(name, index)))
+	return err
 }
 
-func bucketKey(name CandName, index uint64) hash.Hash160 {
-	key := append(name[:], byteutil.Uint64ToBytesBigEndian(index)...)
-	return hash.BytesToHash160(key)
+func bucketKey(name CandName, index uint64) []byte {
+	return append(name[:], byteutil.Uint64ToBytesBigEndian(index)...)
 }
