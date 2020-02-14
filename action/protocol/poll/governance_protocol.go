@@ -30,11 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-var (
-	// ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
-	ErrInconsistentHeight error
-)
-
 type governanceChainCommitteeProtocol struct {
 	candidatesByHeight        CandidatesByHeight
 	getCandidates             GetCandidates
@@ -354,6 +349,7 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 	if err != nil {
 		return nil, err
 	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
 	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
 		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
 	}
@@ -453,6 +449,7 @@ func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, 
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
 	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
 	if epochNum < rp.GetEpochNum(stateHeight) {
 		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
 	}

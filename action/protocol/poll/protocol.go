@@ -25,6 +25,9 @@ const (
 	protocolID = "poll"
 )
 
+// ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
+var ErrInconsistentHeight = errors.New("data is inconsistent because the state height has been changed")
+
 // ErrNoElectionCommittee is an error that the election committee is not specified
 var ErrNoElectionCommittee = errors.New("no election committee specified")
 
