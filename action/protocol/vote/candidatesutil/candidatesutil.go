@@ -41,7 +41,7 @@ const UnproductiveDelegateKey = "UnproductiveDelegateKey."
 func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
 	var candidates state.CandidateList
 	// Load Candidates on the given height from underlying db
-	candidatesKey := ConstructKey(height)
+	candidatesKey := ConstructLegacyKey(height)
 	_, err := sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
 	log.L().Debug(
 		"CandidatesByHeight",
@@ -63,26 +63,31 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 }
 
 // CandidatesFromDB returns array of Candidates at current epoch
-func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, error) {
+func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
 	var candidates state.CandidateList
-	candidatesKey := ConstructConstKey(CurCandidateKey)
+	candidatesKey := ConstructKey(CurCandidateKey)
 	if epochStartPoint {
 		// if not shifted yet
-		candidatesKey = ConstructConstKey(NxtCandidateKey)
+		candidatesKey = ConstructKey(NxtCandidateKey)
 	}
-	err := sr.State(candidatesKey, &candidates)
+	stateHeight, err := sr.State(
+		&candidates,
+		protocol.KeyOption(candidatesKey[:]),
+		protocol.NamespaceOption(protocol.SystemNamespace),
+	)
 	log.L().Debug(
 		"GetCandidates",
 		zap.Any("candidates", candidates),
+		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
 	if errors.Cause(err) == nil {
 		if len(candidates) > 0 {
-			return candidates, nil
+			return candidates, stateHeight, nil
 		}
 		err = state.ErrStateNotExist
 	}
-	return nil, errors.Wrapf(
+	return nil, stateHeight, errors.Wrapf(
 		err,
 		"failed to get candidates with epochStartEpoch: %t",
 		epochStartPoint,
@@ -90,23 +95,28 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 }
 
 // KickoutListFromDB returns array of kickout list at current epoch
-func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, error) {
+func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, uint64, error) {
 	blackList := &vote.Blacklist{}
-	blackListKey := ConstructConstKey(CurKickoutKey)
+	blackListKey := ConstructKey(CurKickoutKey)
 	if epochStartPoint {
 		// if not shifted yet
-		blackListKey = ConstructConstKey(NxtKickoutKey)
+		blackListKey = ConstructKey(NxtKickoutKey)
 	}
-	_, err := sr.State(blackList, protocol.LegacyKeyOption(blackListKey))
+	stateHeight, err := sr.State(
+		blackList,
+		protocol.KeyOption(blackListKey[:]),
+		protocol.NamespaceOption(protocol.SystemNamespace),
+	)
 	log.L().Debug(
 		"GetKickoutList",
 		zap.Any("kick out list", blackList.BlacklistInfos),
+		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
 	if err == nil {
-		return blackList, nil
+		return blackList, stateHeight, nil
 	}
-	return nil, errors.Wrapf(
+	return nil, stateHeight, errors.Wrapf(
 		err,
 		"failed to get kick-out list with epochStartPoint: %t",
 		epochStartPoint,
@@ -116,10 +126,15 @@ func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Bla
 // UnproductiveDelegateFromDB returns latest UnproductiveDelegate struct
 func UnproductiveDelegateFromDB(sr protocol.StateReader) (*vote.UnproductiveDelegate, error) {
 	upd := &vote.UnproductiveDelegate{}
-	updKey := ConstructConstKey(UnproductiveDelegateKey)
-	err := sr.State(upd, protocol.LegacyKeyOption(updKey))
+	updKey := ConstructKey(UnproductiveDelegateKey)
+	stateHeight, err := sr.State(
+		upd,
+		protocol.KeyOption(updKey[:]),
+		protocol.NamespaceOption(protocol.SystemNamespace),
+	)
 	log.L().Debug(
 		"GetUnproductiveDelegate",
+		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
 	if err == nil {
@@ -128,16 +143,16 @@ func UnproductiveDelegateFromDB(sr protocol.StateReader) (*vote.UnproductiveDele
 	return nil, err
 }
 
-// ConstructKey constructs a key for candidates storage (deprecated version)
-func ConstructKey(height uint64) hash.Hash160 {
+// ConstructLegacyKey constructs a key for candidates storage (deprecated version)
+func ConstructLegacyKey(height uint64) hash.Hash160 {
 	heightInBytes := byteutil.Uint64ToBytes(height)
 	k := []byte(CandidatesPrefix)
 	k = append(k, heightInBytes...)
 	return hash.Hash160b(k)
 }
 
-// ConstructConstKey constructs a const key
-func ConstructConstKey(key string) hash.Hash160 {
+// ConstructKey constructs a const key
+func ConstructKey(key string) hash.Hash256 {
 	bytesKey := []byte(key)
-	return hash.Hash160b(bytesKey)
+	return hash.Hash256b(bytesKey)
 }

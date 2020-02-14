@@ -56,7 +56,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			Genesis:  cfg.Genesis,
 			Registry: registry,
 			Tip: protocol.TipInfo{
-				Height: 721,
+				Height: 720,
 			},
 		},
 	)
@@ -121,7 +121,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool) ([]*state.Candidate, error) { return candidates, nil },
+		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) { return candidates, 720, nil },
 		candidatesutil.KickoutListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		committee,
@@ -181,7 +181,8 @@ func TestCreateGenesisStates(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var sc state.CandidateList
-	_, err = sm.State(&sc, LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm.State(&sc, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	candidates, err := state.CandidatesToMap(sc)
 	require.NoError(err)
@@ -264,7 +265,9 @@ func TestCreatePreStates(t *testing.T) {
 			)
 			require.NoError(psc.CreatePreStates(ctx, sm)) // shift
 			bl := &vote.Blacklist{}
-			require.NoError(sm.State(candidatesutil.ConstructConstKey(candidatesutil.CurKickoutKey), bl))
+			candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+			_, err := sm.State(bl, protocol.KeyOption(candKey[:]))
+			require.NoError(err)
 			expected := test[epochNum]
 			require.Equal(len(expected), len(bl.BlacklistInfos))
 			for addr, count := range bl.BlacklistInfos {
@@ -285,7 +288,8 @@ func TestCreatePreStates(t *testing.T) {
 		require.NoError(psc.CreatePreStates(ctx, sm))
 
 		bl := &vote.Blacklist{}
-		_, err = sm.State(bl, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)))
+		candKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+		_, err = sm.State(bl, protocol.KeyOption(candKey[:]))
 		require.NoError(err)
 		expected := test[epochNum+1]
 		require.Equal(len(expected), len(bl.BlacklistInfos))
@@ -327,7 +331,8 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
@@ -341,7 +346,7 @@ func TestHandle(t *testing.T) {
 	require.NotNil(receipt)
 
 	require.NoError(shiftCandidates(sm2))
-	candidates, err := candidatesutil.CandidatesFromDB(sm2, false)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -378,7 +383,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
@@ -409,7 +415,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 	var sc3 state.CandidateList
-	_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	_, err = sm3.State(&sc3, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
@@ -441,7 +447,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 	var sc4 state.CandidateList
-	_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	_, err = sm4.State(&sc4, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act4 := action.NewPutPollResult(1, 1, sc4)
@@ -472,7 +478,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 	var sc5 state.CandidateList
-	_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	_, err = sm5.State(&sc5, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	sc5[0].Votes = big.NewInt(10)
 	act5 := action.NewPutPollResult(1, 1, sc5)
@@ -503,7 +509,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
 	var sc6 state.CandidateList
-	_, err = sm6.State(&sc6, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	_, err = sm6.State(&sc6, protocol.KeyOption(candKey[:]))
 	require.NoError(err)
 	act6 := action.NewPutPollResult(1, 1, sc6)
 	bd6 := &action.EnvelopeBuilder{}
@@ -538,7 +544,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
-	// 1: empty blacklist DelegatesOfNextEpoch()
+	// 1: empty blacklist DelegatesByEpoch()
 	blackListMap := map[string]uint32{}
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
@@ -546,13 +552,13 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setKickoutBlackList(sm, blackList))
 
-	delegates, err := p.DelegatesOfNextEpoch(ctx)
+	delegates, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
 	require.Equal(2, len(delegates))
 	require.Equal(identityset.Address(2).String(), delegates[0].Address)
 	require.Equal(identityset.Address(1).String(), delegates[1].Address)
 
-	// 2: not empty blacklist DelegatesOfNextEpoch()
+	// 2: not empty blacklist DelegatesByEpoch()
 	blackListMap2 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
@@ -562,38 +568,38 @@ func TestDelegatesByEpoch(t *testing.T) {
 		IntensityRate:  0.1,
 	}
 	require.NoError(setKickoutBlackList(sm, blackList2))
-	delegates2, err := p.DelegatesOfNextEpoch(ctx)
+	delegates2, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
 	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 
-	// 3: shift kickout list and Delegates()
-	require.NoError(shiftKickoutList(sm))
-	delegates3, err := p.Delegates(ctx)
-	require.NoError(err)
-	require.Equal(len(delegates3), len(delegates2))
-	for i, d := range delegates2 {
-		require.True(d.Equal(delegates3[i]))
-	}
-
-	// 4: kickout out with different blacklist
-	blackListMap4 := map[string]uint32{
+	// 3: kickout out with different blacklist
+	blackListMap3 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(3).String(): 2,
 	}
-	blackList4 := &vote.Blacklist{
-		BlacklistInfos: blackListMap4,
+	blackList3 := &vote.Blacklist{
+		BlacklistInfos: blackListMap3,
 		IntensityRate:  0.1,
 	}
-	require.NoError(setKickoutBlackList(sm, blackList4))
+	require.NoError(setKickoutBlackList(sm, blackList3))
 
-	delegates4, err := p.DelegatesOfNextEpoch(ctx)
+	delegates3, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
 
-	require.Equal(2, len(delegates4))
-	require.Equal(identityset.Address(2).String(), delegates4[0].Address)
-	require.Equal(identityset.Address(4).String(), delegates4[1].Address)
+	require.Equal(2, len(delegates3))
+	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
+
+	// 4: shift kickout list and Delegates()
+	require.NoError(shiftKickoutList(sm))
+	delegates4, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+	require.Equal(len(delegates4), len(delegates3))
+	for i, d := range delegates3 {
+		require.True(d.Equal(delegates4[i]))
+	}
 
 }

@@ -118,7 +118,7 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).Delegates(ctx)
+	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum)
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -511,16 +511,7 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		})
 
 	if pp := poll.FindProtocol(bc.registry); pp != nil {
-		rp := rolldpos.MustGetProtocol(bc.registry)
-		tipEpochNum := rp.GetEpochNum(tipInfo.Height)
-		targetEpochNum := rp.GetEpochNum(height)
-		if tipEpochNum < targetEpochNum {
-			return pp.CandidatesOfNextEpoch(ctx)
-		} else if tipEpochNum == targetEpochNum {
-			return pp.Candidates(ctx)
-		} else {
-			return nil, errors.Errorf("wrong epochNumber to get candidates, epochNumber %d can't be less than tip epoch number %d", targetEpochNum, tipEpochNum)
-		}
+		return pp.CandidatesByHeight(ctx, height)
 	}
 	return nil, nil
 }

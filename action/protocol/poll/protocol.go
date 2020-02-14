@@ -41,10 +41,10 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
 // GetCandidates returns the current candidates
-type GetCandidates func(protocol.StateReader, bool) ([]*state.Candidate, error)
+type GetCandidates func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error)
 
 // GetKickoutList returns current the blacklist
-type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, error)
+type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, uint64, error)
 
 // GetUnproductiveDelegate returns unproductiveDelegate struct which contains a cache of upd info by epochs
 type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDelegate, error)
@@ -59,10 +59,8 @@ type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint6
 type Protocol interface {
 	protocol.Protocol
 	protocol.GenesisStateCreator
-	Delegates(context.Context) (state.CandidateList, error)
-	DelegatesOfNextEpoch(context.Context) (state.CandidateList, error)
-	Candidates(context.Context) (state.CandidateList, error)
-	CandidatesOfNextEpoch(context.Context) (state.CandidateList, error)
+	DelegatesByEpoch(context.Context, uint64) (state.CandidateList, error)
+	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }

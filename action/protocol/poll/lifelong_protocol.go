@@ -75,27 +75,19 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) Delegates(ctx context.Context) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get current epoch number
-	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
-	return p.readActiveBlockProducersByEpoch(ctx, currentEpochNum, false)
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if tipEpochNum+1 == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
+	} else if tipEpochNum == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
+	}
+	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get next epoch number
-	nextEpochStartHeight := rp.GetEpochNum(bcCtx.Tip.Height) + 1
-	return p.readActiveBlockProducersByEpoch(ctx, nextEpochStartHeight, true)
-}
-
-func (p *lifeLongDelegatesProtocol) Candidates(ctx context.Context) (state.CandidateList, error) {
-	return p.delegates, nil
-}
-
-func (p *lifeLongDelegatesProtocol) CandidatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 

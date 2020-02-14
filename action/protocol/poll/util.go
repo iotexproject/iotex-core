@@ -178,10 +178,11 @@ func setCandidates(
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Easter, height) {
-		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
-		return err 
+		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
+		return err
 	}
-	_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)))
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]))
 	return err
 }
 
@@ -190,9 +191,9 @@ func setKickoutBlackList(
 	sm protocol.StateManager,
 	blackList *vote.Blacklist,
 ) error {
-	blackListKey := candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)
-	_, err := sm.PutState(blackList, protocol.LegacyKeyOption(blackListKey))
-	return err 
+	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	_, err := sm.PutState(blackList, protocol.KeyOption(blackListKey[:]))
+	return err
 }
 
 // setUnproductiveDelegates sets the upd struct with updkey
@@ -200,23 +201,25 @@ func setUnproductiveDelegates(
 	sm protocol.StateManager,
 	upd *vote.UnproductiveDelegate,
 ) error {
-	updKey := candidatesutil.ConstructConstKey(candidatesutil.UnproductiveDelegateKey)
-	return sm.PutState(updKey, upd)
+	updKey := candidatesutil.ConstructKey(candidatesutil.UnproductiveDelegateKey)
+	_, err := sm.PutState(upd, protocol.KeyOption(updKey[:]))
+	return err
 }
 
 // shiftCandidates updates current data with next data of candidate list
 func shiftCandidates(sm protocol.StateManager) error {
+	zap.L().Debug("Shift candidatelist from next key to current key")
 	var next state.CandidateList
-	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtCandidateKey)
-	err := sm.State(nextKey, &next)
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err := sm.State(&next, protocol.KeyOption(nextKey[:]))
 	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to read next blacklist when shifting to current blacklist",
 		)
 	}
-	curKey := candidatesutil.ConstructConstKey(candidatesutil.CurCandidateKey)
-	err = sm.PutState(curKey, &next)
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
+	_, err = sm.PutState(&next, protocol.KeyOption(curKey[:]))
 	if err != nil {
 		return errors.Wrap(
 			err,
@@ -228,17 +231,18 @@ func shiftCandidates(sm protocol.StateManager) error {
 
 // shiftKickoutList updates current data with next data of kickout list
 func shiftKickoutList(sm protocol.StateManager) error {
+	zap.L().Debug("Shift kickoutList from next key to current key")
 	next := &vote.Blacklist{}
-	nextKey := candidatesutil.ConstructConstKey(candidatesutil.NxtKickoutKey)
-	err := sm.State(nextKey, next)
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	_, err := sm.State(next, protocol.KeyOption(nextKey[:]))
 	if err != nil {
 		return errors.Wrap(
 			err,
 			"failed to read next blacklist when shifting to current blacklist",
 		)
 	}
-	curKey := candidatesutil.ConstructConstKey(candidatesutil.CurKickoutKey)
-	err = sm.PutState(curKey, next)
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+	_, err = sm.PutState(next, protocol.KeyOption(curKey[:]))
 	if err != nil {
 		return errors.Wrap(
 			err,

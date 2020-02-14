@@ -17,6 +17,8 @@ import (
 var (
 	// ErrUnimplemented indicates a method is not implemented yet
 	ErrUnimplemented = errors.New("method is unimplemented")
+	// SystemNamespaceis the namespace to store system information such as candidates/blacklist/unproductiveDelegates
+	SystemNamespace = "System"
 )
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain

@@ -44,7 +44,7 @@ var (
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
 // GetKickoutList returns the current blacklist
-type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, error)
+type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, uint64, error)
 
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,

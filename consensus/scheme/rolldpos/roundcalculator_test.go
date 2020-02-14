@@ -239,7 +239,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.Delegates(ctx)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, epochNum)
 			if err != nil {
 				return nil, err
 			}

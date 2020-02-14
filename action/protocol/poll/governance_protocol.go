@@ -30,6 +30,11 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+var (
+	// ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
+	ErrInconsistentHeight error
+)
+
 type governanceChainCommitteeProtocol struct {
 	candidatesByHeight        CandidatesByHeight
 	getCandidates             GetCandidates
@@ -222,36 +227,30 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 	return p.candidatesByGravityChainHeight(gravityHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) Delegates(ctx context.Context) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get current epoch number
-	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
-	return p.readActiveBlockProducersByEpoch(ctx, currentEpochNum, false)
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if tipEpochNum+1 == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
+	} else if tipEpochNum == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
+	}
+	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get next epoch number
-	nextEpochNum := rp.GetEpochNum(bcCtx.Tip.Height + 1)
-	return p.readActiveBlockProducersByEpoch(ctx, nextEpochNum, true)
-}
-
-func (p *governanceChainCommitteeProtocol) Candidates(ctx context.Context) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get current epoch start height
-	currentEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
-	return p.readCandidatesByHeight(ctx, currentEpochStartHeight, false)
-}
-
-func (p *governanceChainCommitteeProtocol) CandidatesOfNextEpoch(ctx context.Context) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	// get next epoch start height
-	nextEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height) + 1)
-	return p.readCandidatesByHeight(ctx, nextEpochStartHeight, true)
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	targetEpochNum := rp.GetEpochNum(height)
+	targetEpochStartHeight := rp.GetEpochHeight(targetEpochNum)
+	if tipEpochNum+1 == targetEpochNum {
+		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, true)
+	} else if tipEpochNum == targetEpochNum {
+		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, false)
+	}
+	return nil, errors.Errorf("wrong epochNumber to get candidatesbyHeight, target epochNumber %d can't be less than tip epoch number %d", targetEpochNum, tipEpochNum)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -317,7 +316,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 				return nil, errors.New("previous epoch data isn't available with non-archive node")
 			}
 		}
-		kickoutList, err := p.getKickoutList(p.sr, false)
+		kickoutList, err := p.readKickoutList(ctx, tipEpoch, false)
 		if err != nil {
 			return nil, err
 		}
@@ -347,10 +346,18 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Con
 func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
-	return p.getCandidates(p.sr, readFromNext)
+	sc, stateHeight, err := p.getCandidates(p.sr, readFromNext)
+	if err != nil {
+		return nil, err
+	}
+	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
+	}
+	return sc, nil
 }
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
@@ -373,9 +380,9 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	}
 
 	// After Easter height, kick-out unqualified delegates based on productivity
-	unqualifiedList, err := p.getKickoutList(p.sr, readFromNext)
+	unqualifiedList, err := p.readKickoutList(ctx, epochNum, readFromNext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+		return nil, errors.Wrap(err, "failed to read kick-out list")
 	}
 	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)
@@ -437,6 +444,19 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 	}
 
 	return activeBlockProducers, nil
+}
+
+func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, epochNum uint64, readFromNext bool) (*vote.Blacklist, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	unqualifiedList, stateHeight, err := p.getKickoutList(p.sr, readFromNext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+	}
+	if epochNum < rp.GetEpochNum(stateHeight) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
+	}
+	return unqualifiedList, nil
 }
 
 func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {
@@ -519,7 +539,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		zap.Uint64("easterEpochNum", easterEpochNum),
 		zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
 	)
-	prevBlacklist, err := p.getKickoutList(p.sr, false)
+	prevBlacklist, _, err := p.getKickoutList(p.sr, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read latest kick-out list")
 	}

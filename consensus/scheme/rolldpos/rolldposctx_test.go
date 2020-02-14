@@ -100,7 +100,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 		nil,
 		rp,
 		nil,
-		func(_ uint64) ([]string, error) {
+		func(epochnum uint64) ([]string, error) {
 			re := protocol.NewRegistry()
 			if err := rp.Register(re); err != nil {
 				return nil, err
@@ -117,7 +117,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.Delegates(ctx)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, epochnum)
 			if err != nil {
 				return nil, err
 			}
@@ -179,7 +179,7 @@ func TestCheckBlockProposer(t *testing.T) {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.Delegates(ctx)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, epochnum)
 			if err != nil {
 				return nil, err
 			}

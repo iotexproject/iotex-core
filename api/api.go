@@ -771,12 +771,16 @@ func (api *Server) Stop() error {
 
 func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodName []byte, arguments ...[]byte) ([]byte, error) {
 	// TODO: need to complete the context
+	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: api.bc.TipHeight(),
+		BlockHeight: tipHeight,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: api.registry,
 		Genesis:  api.cfg.Genesis,
+		Tip: protocol.TipInfo{
+			Height: tipHeight,
+		},
 	})
 
 	// TODO: need to distinguish user error and system error

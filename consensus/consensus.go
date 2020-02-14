@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -122,17 +121,9 @@ func NewConsensus(
 						},
 					},
 				)
-				var candidatesList state.CandidateList
-				var err error
-				if ops.rp.GetEpochNum(tipHeight) == epochNum {
-					candidatesList, err = ops.pp.Delegates(ctx)
-				} else if ops.rp.GetEpochNum(tipHeight) < epochNum {
-					candidatesList, err = ops.pp.DelegatesOfNextEpoch(ctx)
-				} else {
-					return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, ops.rp.GetEpochNum(tipHeight))
-				}
+				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, epochNum)
 				if err != nil {
-					return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
+					return nil, err
 				}
 				addrs := []string{}
 				for _, candidate := range candidatesList {
