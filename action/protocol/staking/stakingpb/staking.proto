@@ -15,6 +15,6 @@ message BucketIndex {
     bytes canName = 2;
 }
 
-mesage bucketIndices {
-    repeated BucketIndex bucketIndex = 1;
+message BucketIndices {
+    repeated BucketIndex indices = 1;
 }
