@@ -154,11 +154,11 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testBlockDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -217,11 +217,11 @@ func TestBlockDAO(t *testing.T) {
 		}
 	}
 
-	testDeleteDao := func(kvstore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testDeleteDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvstore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
