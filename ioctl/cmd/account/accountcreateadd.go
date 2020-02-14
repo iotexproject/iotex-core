@@ -71,12 +71,12 @@ func accountCreateAdd(args []string) error {
 	var addr string
 	var err error
 	if !CryptoSm2 {
-		addr, err = newAccount(alias, config.ReadConfig.Wallet)
+		addr, err = newAccount(alias)
 		if err != nil {
 			return output.NewError(0, "", err)
 		}
 	} else {
-		addr, err = newAccountSm2(alias, config.ReadConfig.Wallet)
+		addr, err = newAccountSm2(alias)
 		if err != nil {
 			return output.NewError(0, "", err)
 		}

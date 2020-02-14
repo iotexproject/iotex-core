@@ -9,8 +9,6 @@ package account
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
@@ -99,8 +97,7 @@ func accountUpdate(arg string) error {
 	}
 
 	// find the pem file and update
-	filePath := filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+addr.String()+".pem")
-	_, err = os.Stat(filePath)
+	filePath, err := findSm2PemFile(addr)
 	if err != nil {
 		return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 	}

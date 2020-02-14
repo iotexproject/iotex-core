@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -32,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -121,11 +123,11 @@ func Sign(signer, password, message string) (signedMessage string, err error) {
 
 // LocalAccountToPrivateKey generates our PrivateKey interface from Keystore account
 func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error) {
-	addr, err := util.Address(signer)
+	addrString, err := util.Address(signer)
 	if err != nil {
 		return nil, err
 	}
-	address, err := address.FromString(addr)
+	addr, err := address.FromString(addrString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert bytes into address")
 	}
@@ -134,13 +136,13 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, account := range ks.Accounts() {
-		if bytes.Equal(address.Bytes(), account.Address.Bytes()) {
+		if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
 			return crypto.KeystoreToPrivateKey(account, password)
 		}
 	}
 
 	// find the account in pem files
-	pemFilePath := filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+address.String()+".pem")
+	pemFilePath := sm2KeyPath(addr)
 	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
 	if err == nil {
 		return prvKey, nil
@@ -176,7 +178,7 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	return response.AccountMeta, nil
 }
 
-func newAccount(alias string, walletDir string) (string, error) {
+func newAccount(alias string) (string, error) {
 	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
@@ -190,7 +192,7 @@ func newAccount(alias string, walletDir string) (string, error) {
 	if password != passwordAgain {
 		return "", output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
-	ks := keystore.NewKeyStore(walletDir, keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	account, err := ks.NewAccount(password)
 	if err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to create new keystore", err)
@@ -202,7 +204,7 @@ func newAccount(alias string, walletDir string) (string, error) {
 	return addr.String(), nil
 }
 
-func newAccountSm2(alias string, walletDir string) (string, error) {
+func newAccountSm2(alias string) (string, error) {
 	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
 	if err != nil {
@@ -226,7 +228,7 @@ func newAccountSm2(alias string, walletDir string) (string, error) {
 		return "", output.NewError(output.ConvertError, "failed to convert bytes into address", err)
 	}
 
-	pemFilePath := filepath.Join(walletDir, "sm2sk-"+addr.String()+".pem")
+	pemFilePath := sm2KeyPath(addr)
 	if err := crypto.WritePrivateKeyToPem(pemFilePath, priKey.(*crypto.P256sm2PrvKey), password); err != nil {
 		return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 	}
@@ -302,7 +304,7 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 			return "", output.NewError(output.KeystoreError, "failed to import private key into keystore ", err)
 		}
 	case *crypto.P256sm2PrvKey:
-		pemFilePath := filepath.Join(walletDir, "sm2sk-"+addr.String()+".pem")
+		pemFilePath := sm2KeyPath(addr)
 		if err := crypto.WritePrivateKeyToPem(pemFilePath, sk, password); err != nil {
 			return "", output.NewError(output.KeystoreError, "failed to save private key into pem file ", err)
 		}
@@ -311,4 +313,36 @@ func storeKey(privateKey, walletDir, password string) (string, error) {
 	}
 
 	return addr.String(), nil
+}
+
+func sm2KeyPath(addr address.Address) string {
+	return filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+addr.String()+".pem")
+}
+
+func findSm2PemFile(addr address.Address) (string, error) {
+	filePath := sm2KeyPath(addr)
+	_, err := os.Stat(filePath)
+	if err != nil {
+		return "", output.NewError(output.ReadFileError, "crypto file not found", err)
+	}
+	return filePath, nil
+}
+
+func listSm2Account() ([]string, error) {
+	sm2Accounts := make([]string, 0)
+	files, err := ioutil.ReadDir(config.ReadConfig.Wallet)
+	if err != nil {
+		return nil, output.NewError(output.ReadFileError, "failed to read files in wallet", err)
+	}
+	for _, f := range files {
+		if !f.IsDir() {
+			if strings.HasSuffix(f.Name(), ".pem") {
+				addr := strings.TrimRight(strings.TrimLeft(f.Name(), "sm2sk-"), ".pem")
+				if err := validator.ValidateAddress(addr); err == nil {
+					sm2Accounts = append(sm2Accounts, addr)
+				}
+			}
+		}
+	}
+	return sm2Accounts, nil
 }
