@@ -289,7 +289,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	s.Balance = nil
 	s.Balance = big.NewInt(0)
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
-	if err := stateDB.sm.PutState(addrHash, s); err != nil {
+	if _, err := stateDB.sm.PutState(s, protocol.LegacyKeyOption(addrHash)); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
 		stateDB.logError(err)
 		return false
@@ -639,7 +639,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into account trie
-		if err := stateDB.sm.PutState(addr, state); err != nil {
+		if _, err := stateDB.sm.PutState(state, protocol.LegacyKeyOption(addr)); err != nil {
 			stateDB.logError(err)
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
@@ -658,7 +658,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			return errors.Wrap(err, "failed to decode address hash")
 		}
 		copy(addr[:], addrBytes)
-		if err := stateDB.sm.DelState(addr); err != nil {
+		if _, err := stateDB.sm.DelState(protocol.LegacyKeyOption(addr)); err != nil {
 			stateDB.logError(err)
 			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}

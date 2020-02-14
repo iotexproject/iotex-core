@@ -279,21 +279,29 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			val, err := cb.Get("state", addrHash[:])
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
-				return state.ErrStateNotExist
+				return 0, err
 			}
-			return state.Deserialize(account, val)
+			val, err := cb.Get("state", cfg.Key)
+			if err != nil {
+				return 0, state.ErrStateNotExist
+			}
+			return 0, state.Deserialize(account, val)
 		}).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
 			ss, err := state.Serialize(account)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			cb.Put("state", addrHash[:], ss, "failed to put state")
-			return nil
+			cb.Put("state", cfg.Key, ss, "failed to put state")
+			return 0, nil
 		}).AnyTimes()
 
 	p := NewProtocol(

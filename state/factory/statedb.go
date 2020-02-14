@@ -126,6 +126,9 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
+		if err = sdb.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's total bucket account")
+		}
 	default:
 		return err
 	}
@@ -269,23 +272,23 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(addr hash.Hash160, state interface{}, opts ...protocol.StateOption) error {
+func (sdb *stateDB) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if cfg.AtHeight {
-		return ErrNotSupported
+		return 0, ErrNotSupported
 	}
 	ns := AccountKVNamespace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
 	}
 
-	return sdb.state(ns, addr, state)
+	return sdb.currentChainHeight, sdb.state(ns, cfg.Key, state)
 }
 
 // DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
@@ -321,8 +324,8 @@ func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVSt
 	)
 }
 
-func (sdb *stateDB) state(ns string, addr hash.Hash160, s interface{}) error {
-	data, err := sdb.dao.Get(ns, addr[:])
+func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
+	data, err := sdb.dao.Get(ns, addr)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)

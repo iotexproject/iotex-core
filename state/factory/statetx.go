@@ -194,36 +194,36 @@ func (stx *stateTX) GetDB() db.KVStore {
 }
 
 // State pulls a state from DB
-func (stx *stateTX) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (stx *stateTX) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("get").Inc()
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if cfg.AtHeight {
-		return ErrNotSupported
+		return 0, ErrNotSupported
 	}
 	ns := AccountKVNamespace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
 	}
 
-	mstate, err := stx.flusher.KVStoreWithBuffer().Get(ns, hash[:])
+	mstate, err := stx.flusher.KVStoreWithBuffer().Get(ns, cfg.Key)
 	switch errors.Cause(err) {
 	case db.ErrNotExist:
-		return errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", hash)
+		return 0, errors.Wrapf(state.ErrStateNotExist, "k = %x doesn't exist", cfg.Key)
 	case nil:
-		return state.Deserialize(s, mstate)
+		return stx.blockHeight, state.Deserialize(s, mstate)
 	}
-	return errors.Wrapf(err, "failed to get account of %x", hash)
+	return 0, errors.Wrapf(err, "failed to get account of %x", cfg.Key)
 }
 
 // PutState puts a state into DB
-func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (stx *stateTX) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("put").Inc()
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	ns := AccountKVNamespace
@@ -233,26 +233,26 @@ func (stx *stateTX) PutState(pkHash hash.Hash160, s interface{}, opts ...protoco
 
 	ss, err := state.Serialize(s)
 	if err != nil {
-		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+		return 0, errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
 
-	stx.flusher.KVStoreWithBuffer().MustPut(ns, pkHash[:], ss)
+	stx.flusher.KVStoreWithBuffer().MustPut(ns, cfg.Key, ss)
 
-	return nil
+	return stx.blockHeight, nil
 }
 
 // DelState deletes a state from DB
-func (stx *stateTX) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
+func (stx *stateTX) DelState(opts ...protocol.StateOption) (uint64, error) {
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	ns := AccountKVNamespace
 	if cfg.Namespace != "" {
 		ns = cfg.Namespace
 	}
-	stx.flusher.KVStoreWithBuffer().MustDelete(ns, pkHash[:])
+	stx.flusher.KVStoreWithBuffer().MustDelete(ns, cfg.Key)
 
-	return nil
+	return stx.blockHeight, nil
 }

@@ -170,7 +170,8 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
-	return sm.PutState(candidatesutil.ConstructKey(height), &candidates)
+	_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
+	return err
 }
 
 // setKickoutBlackList sets the blacklist for kick-out for corresponding epoch
@@ -180,5 +181,6 @@ func setKickoutBlackList(
 	epochNum uint64,
 ) error {
 	blackListKey := candidatesutil.ConstructBlackListKey(epochNum)
-	return sm.PutState(blackListKey, blackList)
+	_, err := sm.PutState(blackList, protocol.LegacyKeyOption(blackListKey))
+	return err
 }

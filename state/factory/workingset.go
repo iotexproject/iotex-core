@@ -264,43 +264,51 @@ func (ws *workingSet) GetDB() db.KVStore {
 }
 
 // State pulls a state from DB
-func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if cfg.AtHeight {
-		return ErrNotSupported
+		return 0, ErrNotSupported
 	}
 
 	stateDBMtc.WithLabelValues("get").Inc()
-	mstate, err := ws.accountTrie.Get(hash[:])
+	mstate, err := ws.accountTrie.Get(cfg.Key)
 	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
+		return 0, errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", cfg.Key)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "failed to get account of %x", hash)
+		return 0, errors.Wrapf(err, "failed to get account of %x", cfg.Key)
 	}
-	return state.Deserialize(s, mstate)
+	return ws.blockHeight, state.Deserialize(s, mstate)
 }
 
 // PutState puts a state into DB
-func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("put").Inc()
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return 0, err
+	}
 	ss, err := state.Serialize(s)
 	if err != nil {
-		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+		return 0, errors.Wrapf(err, "failed to convert account %v to bytes", s)
 	}
-	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, pkHash[:], ss)
+	ws.flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, cfg.Key, ss)
 
-	return ws.accountTrie.Upsert(pkHash[:], ss)
+	return ws.blockHeight, ws.accountTrie.Upsert(cfg.Key, ss)
 }
 
 // DelState deletes a state from DB
-func (ws *workingSet) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
-	ws.flusher.KVStoreWithBuffer().MustDelete(AccountKVNamespace, pkHash[:])
+func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return 0, err
+	}
+	ws.flusher.KVStoreWithBuffer().MustDelete(AccountKVNamespace, cfg.Key)
 
-	return ws.accountTrie.Delete(pkHash[:])
+	return ws.blockHeight, ws.accountTrie.Delete(cfg.Key)
 }
 
 // clearCache removes all local changes after committing to trie

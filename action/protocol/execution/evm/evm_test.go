@@ -36,8 +36,8 @@ func TestExecuteContractFailure(t *testing.T) {
 	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
 	require.NoError(t, err)
 	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 
 	e, err := action.NewExecution(

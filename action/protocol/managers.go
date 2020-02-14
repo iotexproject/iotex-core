@@ -24,6 +24,24 @@ func BlockHeightOption(height uint64) StateOption {
 	}
 }
 
+// KeyOption sets the key for call
+func KeyOption(key []byte) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Key = make([]byte, len(key))
+		copy(cfg.Key, key)
+		return nil
+	}
+}
+
+// LegacyKeyOption sets the key for call with legacy key
+func LegacyKeyOption(key hash.Hash160) StateOption {
+	return func(cfg *StateConfig) error {
+		cfg.Key = make([]byte, len(key[:]))
+		copy(cfg.Key, key[:])
+		return nil
+	}
+}
+
 // CreateStateConfig creates a config for accessing stateDB
 func CreateStateConfig(opts ...StateOption) (*StateConfig, error) {
 	cfg := StateConfig{AtHeight: false}
@@ -41,6 +59,7 @@ type (
 		Namespace string // namespace used by state's storage
 		AtHeight  bool
 		Height    uint64
+		Key       []byte
 	}
 
 	// StateOption sets parameter for access state
@@ -49,7 +68,7 @@ type (
 	// StateReader defines an interface to read stateDB
 	StateReader interface {
 		Height() (uint64, error)
-		State(hash.Hash160, interface{}, ...StateOption) error
+		State(interface{}, ...StateOption) (uint64, error)
 	}
 
 	// StateManager defines the stateDB interface atop IoTeX blockchain
@@ -59,8 +78,8 @@ type (
 		Snapshot() int
 		Revert(int) error
 		// General state
-		PutState(hash.Hash160, interface{}, ...StateOption) error
-		DelState(hash.Hash160, ...StateOption) error
+		PutState(interface{}, ...StateOption) (uint64, error)
+		DelState(...StateOption) (uint64, error)
 		GetDB() db.KVStore
 	}
 )
