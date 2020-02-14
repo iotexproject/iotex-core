@@ -84,7 +84,7 @@ func TestSnapshot(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.(workingSetFactory).newWorkingSet(ctx, 1)
+	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testRevert(ws, t)
@@ -114,13 +114,13 @@ func TestSDBSnapshot(t *testing.T) {
 	require.NoError(sdb.Start(ctx))
 	height, err := sdb.Height()
 	require.NoError(err)
-	ws, err := sdb.(workingSetFactory).newWorkingSet(ctx, height)
+	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, height)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testSDBRevert(ws, t)
 }
 
-func testRevert(ws WorkingSet, t *testing.T) {
+func testRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
@@ -141,7 +141,7 @@ func testRevert(ws WorkingSet, t *testing.T) {
 	require.Equal(big.NewInt(5), s.Balance)
 }
 
-func testSDBRevert(ws WorkingSet, t *testing.T) {
+func testSDBRevert(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 
@@ -162,7 +162,7 @@ func testSDBRevert(ws WorkingSet, t *testing.T) {
 	require.Equal(big.NewInt(5), s.Balance)
 }
 
-func testSnapshot(ws WorkingSet, t *testing.T) {
+func testSnapshot(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 	tHash := hash.BytesToHash160(identityset.Address(29).Bytes())
@@ -569,7 +569,7 @@ func testNonce(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	ws, err := sf.(workingSetFactory).newWorkingSet(ctx, 1)
+	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(t, err)
 
 	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
@@ -993,7 +993,7 @@ func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
 	require.NoError(t, sf.Start(context.Background()))
-	ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 1)
+	ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 1)
 	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
@@ -1002,12 +1002,12 @@ func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
 	require.NoError(t, sdb.Start(context.Background()))
-	ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 1)
+	ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 1)
 	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
 
-func testCachedBatch(ws WorkingSet, t *testing.T) {
+func testCachedBatch(ws *workingSet, t *testing.T) {
 	require := require.New(t)
 
 	// test PutState()
@@ -1036,7 +1036,7 @@ func TestGetDB(t *testing.T) {
 	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(err)
-	ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 1)
+	ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1048,7 +1048,7 @@ func TestSTXGetDB(t *testing.T) {
 	require := require.New(t)
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(err)
-	ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 1)
+	ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1057,7 +1057,7 @@ func TestSTXGetDB(t *testing.T) {
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
-	testDeleteAndPutSameKey := func(t *testing.T, ws WorkingSet) {
+	testDeleteAndPutSameKey := func(t *testing.T, ws *workingSet) {
 		key := hash.Hash160b([]byte("test"))
 		acc := state.Account{
 			Nonce: 1,
@@ -1074,13 +1074,13 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 0)
+		ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
 		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-		ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 0)
+		ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})

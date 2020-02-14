@@ -34,20 +34,6 @@ func init() {
 }
 
 type (
-
-	// WorkingSet defines an interface for working set of states changes
-	WorkingSet interface {
-		protocol.StateManager
-		// states and actions
-		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
-		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, error)
-		Finalize() error
-		Commit() error
-		Digest() (hash.Hash256, error)
-		Version() uint64
-	}
-
-	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
 	workingSet struct {
 		height       uint64
 		finalized    bool
@@ -60,6 +46,11 @@ type (
 		digestFunc   func() hash.Hash256
 		finalizeFunc func(uint64) error
 		commitFunc   func(uint64) error
+	}
+
+	// for unit test purpose
+	workingSetCreator interface {
+		newWorkingSet(context.Context, uint64) (*workingSet, error)
 	}
 )
 

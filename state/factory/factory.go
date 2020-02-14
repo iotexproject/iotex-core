@@ -79,11 +79,6 @@ type (
 		Validate(context.Context, *block.Block) error
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
-		DeleteWorkingSet(*block.Block) error
-	}
-
-	workingSetFactory interface {
-		newWorkingSet(context.Context, uint64) (WorkingSet, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -123,7 +118,6 @@ func DefaultTrieOption() Option {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sf.dao = db.NewBoltDB(cfg.DB)
-		sf.saveHistory = cfg.Chain.EnableArchiveMode
 		return nil
 	}
 }
@@ -167,6 +161,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
+		saveHistory:        cfg.Chain.EnableArchiveMode,
 	}
 
 	for _, opt := range opts {
@@ -248,7 +243,7 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (WorkingSet, error) {
+func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
@@ -477,7 +472,7 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
+func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	archive, height, ns, key, err := processOptions(opts...)
@@ -489,20 +484,18 @@ func (sf *factory) State(state interface{}, opts ...protocol.StateOption) (uint6
 			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 		}
 		if height != sf.currentChainHeight {
-			return sf.currentChainHeight, sf.stateAtHeight(height, ns, key, state)
+			return sf.currentChainHeight, sf.stateAtHeight(height, ns, key, s)
 		}
 	}
-	return sf.currentChainHeight, readState(sf.twoLayerTrie, ns, key, state)
-}
+	value, err := sf.dao.Get(ns, key)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+		}
+		return sf.currentChainHeight, err
+	}
 
-// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
-func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	sf.workingsets.Remove(key)
-	return nil
+	return sf.currentChainHeight, state.Deserialize(s, value)
 }
 
 //======================================
@@ -562,11 +555,11 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
+func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	if data, ok := sf.workingsets.Get(key); ok {
-		if ws, ok := data.(WorkingSet); ok {
+		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
 			return ws, true, nil
 		}
@@ -579,7 +572,7 @@ func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (Wo
 	return ws, false, nil
 }
 
-func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.workingsets.Add(key, ws)

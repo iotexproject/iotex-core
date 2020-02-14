@@ -154,7 +154,7 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (WorkingSet, error) {
+func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {
 		return nil, err
@@ -317,33 +317,19 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
+func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 
-	cfg, err := protocol.CreateStateConfig(opts...)
+	archive, _, ns, key, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if cfg.AtHeight {
+	if archive {
 		return 0, ErrNotSupported
 	}
-	ns := AccountKVNamespace
-	if cfg.Namespace != "" {
-		ns = cfg.Namespace
-	}
 
-	return sdb.currentChainHeight, sdb.state(ns, cfg.Key, state)
-}
-
-// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
-func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	sdb.workingsets.Remove(key)
-	return nil
+	return sdb.currentChainHeight, sdb.state(ns, key, s)
 }
 
 //======================================
@@ -383,7 +369,7 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) commit(ws WorkingSet) error {
+func (sdb *stateDB) commit(ws *workingSet) error {
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
@@ -410,11 +396,11 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
+func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
-		if ws, ok := data.(WorkingSet); ok {
+		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
 			return ws, true, nil
 		}
@@ -425,7 +411,7 @@ func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (W
 	return tx, false, err
 }
 
-func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Add(key, ws)

@@ -7,18 +7,14 @@
 package staking
 
 import (
-	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -70,14 +66,11 @@ func TestBucketIndices(t *testing.T) {
 }
 
 func TestGetPutBucketIndex(t *testing.T) {
-	testGetPut := func(sf factory.Factory, t *testing.T) {
+	testGetPut := func(t *testing.T) {
 		require := require.New(t)
-		ctx := context.Background()
-		require.NoError(sf.Start(ctx))
-		defer func() {
-			require.NoError(sf.Stop(ctx))
-		}()
-
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		sm := newMockStateManager(ctrl)
 		tests := []struct {
 			canName   CandName
 			index     uint64
@@ -105,21 +98,17 @@ func TestGetPutBucketIndex(t *testing.T) {
 			},
 		}
 
-		ws, err := sf.NewWorkingSet()
-		require.NoError(err)
-		require.NotNil(ws)
-
 		// put buckets and get
 		for i, e := range tests {
-			_, err := stakingGetBucketIndices(sf, e.voterAddr)
+			_, err := stakingGetBucketIndices(sm, e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			bi := NewBucketIndex(e.index, e.canName)
 
-			require.NoError(stakingPutBucketIndex(ws, e.voterAddr, bi))
-			bis, err := stakingGetBucketIndices(ws, e.voterAddr)
+			require.NoError(stakingPutBucketIndex(sm, e.voterAddr, bi))
+			bis, err := stakingGetBucketIndices(sm, e.voterAddr)
 			require.NoError(err)
 			require.Equal(i+1, len(bis.GetIndices()))
 			indices := bis.GetIndices()
@@ -128,8 +117,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 		}
 
 		for i, e := range tests {
-			require.NoError(stakingDelBucketIndex(ws, e.voterAddr, e.index))
-			indices, err := stakingGetBucketIndices(ws, e.voterAddr)
+			require.NoError(stakingDelBucketIndex(sm, e.voterAddr, e.index))
+			indices, err := stakingGetBucketIndices(sm, e.voterAddr)
 			if i != len(tests)-1 {
 				require.NoError(err)
 				require.Equal(len(tests)-i-1, len(indices.GetIndices()))
@@ -139,16 +128,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		}
 	}
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath1)
-	testStateDBPath := testTrieFile.Name()
-
-	cfg := config.Default
-	cfg.Chain.TrieDBPath = testStateDBPath
-	sdb, _ := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
-
-	t.Run("test put and get bucket index", func(t *testing.T) {
-		testGetPut(sdb, t)
-	})
+	t.Run("test put and get bucket index", testGetPut)
 }
 
 func fakeCanName(addr string, index uint64) CandName {
