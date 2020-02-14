@@ -84,7 +84,7 @@ func TestSnapshot(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.(workingSetFactory).newWorkingSet(ctx, 1)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testRevert(ws, t)
@@ -112,7 +112,9 @@ func TestSDBSnapshot(t *testing.T) {
 		protocol.BlockCtx{},
 	)
 	require.NoError(sdb.Start(ctx))
-	ws, err := sdb.NewWorkingSet()
+	height, err := sdb.Height()
+	require.NoError(err)
+	ws, err := sdb.(workingSetFactory).newWorkingSet(ctx, height)
 	require.NoError(err)
 	testSnapshot(ws, t)
 	testSDBRevert(ws, t)
@@ -567,7 +569,7 @@ func testNonce(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.(workingSetFactory).newWorkingSet(ctx, 1)
 	require.NoError(t, err)
 
 	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
@@ -990,7 +992,8 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ws, err := sf.NewWorkingSet()
+	require.NoError(t, sf.Start(context.Background()))
+	ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 1)
 	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
@@ -998,7 +1001,9 @@ func TestCachedBatch(t *testing.T) {
 func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
-	ws, _ := sdb.NewWorkingSet()
+	require.NoError(t, sdb.Start(context.Background()))
+	ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 1)
+	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
 
@@ -1031,7 +1036,7 @@ func TestGetDB(t *testing.T) {
 	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(err)
-	ws, err := sf.NewWorkingSet()
+	ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1043,7 +1048,7 @@ func TestSTXGetDB(t *testing.T) {
 	require := require.New(t)
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(err)
-	ws, err := sdb.NewWorkingSet()
+	ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1069,13 +1074,13 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.(*factory).newWorkingSet(context.Background(), 0)
+		ws, err := sf.(workingSetFactory).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
 		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-		ws, err := sdb.(*stateDB).newWorkingSet(context.Background(), 0)
+		ws, err := sdb.(workingSetFactory).newWorkingSet(context.Background(), 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})

@@ -76,12 +76,14 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		protocol.StateReader
-		// TODO : erase this interface
-		NewWorkingSet() (WorkingSet, error)
 		Validate(context.Context, *block.Block) error
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
 		DeleteWorkingSet(*block.Block) error
+	}
+
+	workingSetFactory interface {
+		newWorkingSet(context.Context, uint64) (WorkingSet, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -244,17 +246,6 @@ func (sf *factory) Height() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
-}
-
-// NewWorkingSet returns new working set
-func (sf *factory) NewWorkingSet() (WorkingSet, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	return sf.newWorkingSet(
-		context.Background(),
-		sf.currentChainHeight+1,
-	)
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (WorkingSet, error) {

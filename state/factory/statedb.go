@@ -154,13 +154,6 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
-
-	return sdb.newWorkingSet(context.Background(), sdb.currentChainHeight+1)
-}
-
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (WorkingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {
