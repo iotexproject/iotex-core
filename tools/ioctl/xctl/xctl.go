@@ -12,6 +12,7 @@ import (
 )
 
 func main() {
+	// TODO: change usages
 	account.CryptoSm2 = true
 	cmd.Execute()
 }
