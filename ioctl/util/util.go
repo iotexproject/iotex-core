@@ -122,7 +122,7 @@ func StringToIOTX(amount string) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
-	return RauToString(amountInt, 18), nil
+	return RauToString(amountInt, IotxDecimalNum), nil
 }
 
 // ReadSecretFromStdin used to safely get password input
