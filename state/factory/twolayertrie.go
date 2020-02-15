@@ -84,7 +84,7 @@ func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 	return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
 }
 
-// Delete deletes an item
+// Delete deletes an item in layer two
 func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
