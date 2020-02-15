@@ -52,7 +52,7 @@ func (tlt *TwoLayerTrie) SetRootHash(rh []byte) error {
 	return tlt.layerOne.SetRootHash(rh)
 }
 
-// Get returns the layer two value
+// Get returns the value in layer two
 func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
