@@ -49,7 +49,7 @@ type (
 
 	// rangeIndex is RangeIndex implementation based on bolt DB
 	rangeIndex struct {
-		kvstore KVStoreForRangeIndex
+		kvStore KVStoreForRangeIndex
 		bucket  []byte
 	}
 )
@@ -79,34 +79,34 @@ func NewRangeIndex(kv KVStore, name, init []byte) (RangeIndex, error) {
 	copy(bucket, name)
 
 	return &rangeIndex{
-		kvstore: kvRange,
+		kvStore: kvRange,
 		bucket:  bucket,
 	}, nil
 }
 
 // Insert inserts a value into the index
 func (r *rangeIndex) Insert(key uint64, value []byte) error {
-	return r.kvstore.Insert(r.bucket, key, value)
+	return r.kvStore.Insert(r.bucket, key, value)
 }
 
 // Get returns value by the key
 func (r *rangeIndex) Get(key uint64) ([]byte, error) {
-	return r.kvstore.Seek(r.bucket, key)
+	return r.kvStore.Seek(r.bucket, key)
 }
 
 // Delete deletes an existing key
 func (r *rangeIndex) Delete(key uint64) error {
-	return r.kvstore.Remove(r.bucket, key)
+	return r.kvStore.Remove(r.bucket, key)
 }
 
 // Purge deletes an existing key and all keys before it
 func (r *rangeIndex) Purge(key uint64) error {
-	return r.kvstore.Purge(r.bucket, key)
+	return r.kvStore.Purge(r.bucket, key)
 }
 
 // Close makes the index not usable
 func (r *rangeIndex) Close() {
 	// frees reference to db, the db object itself will be closed/freed by its owner, not here
-	r.kvstore = nil
+	r.kvStore = nil
 	r.bucket = nil
 }

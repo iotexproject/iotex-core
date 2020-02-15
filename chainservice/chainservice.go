@@ -158,18 +158,18 @@ func New(
 		}
 	}
 	// create BlockDAO
-	var kvstore db.KVStore
+	var kvStore db.KVStore
 	if ops.isTesting {
-		kvstore = db.NewMemKVStore()
+		kvStore = db.NewMemKVStore()
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvstore = db.NewBoltDB(cfg.DB)
+		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvstore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, indexer, cfg.Chain.CompressBlock, cfg.DB)
 	} else {
-		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)

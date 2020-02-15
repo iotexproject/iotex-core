@@ -16,7 +16,7 @@ import (
 func TestFlusher(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	t.Run("create failed with nil kvstore", func(t *testing.T) {
+	t.Run("create failed with nil kvStore", func(t *testing.T) {
 		f, err := NewKVStoreFlusher(nil, nil)
 		require.Nil(t, f)
 		require.Error(t, err)
@@ -39,11 +39,11 @@ func TestFlusher(t *testing.T) {
 		ns := "namespace"
 		key := []byte("key")
 		value := []byte("value")
-		t.Run("fail to start kvstore with buffer", func(t *testing.T) {
+		t.Run("fail to start kvStore with buffer", func(t *testing.T) {
 			store.EXPECT().Start(gomock.Any()).Return(err).Times(1)
 			require.Equal(t, err, kvb.Start(context.Background()))
 		})
-		t.Run("fail to stop kvstore with buffer", func(t *testing.T) {
+		t.Run("fail to stop kvStore with buffer", func(t *testing.T) {
 			err = errors.New("failed to stop")
 			store.EXPECT().Stop(gomock.Any()).Return(err).Times(1)
 			require.Equal(t, err, kvb.Stop(context.Background()))

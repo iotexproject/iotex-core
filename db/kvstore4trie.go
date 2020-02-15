@@ -28,7 +28,7 @@ func init() {
 	prometheus.MustRegister(trieKeystoreMtc)
 }
 
-// KVStoreForTrie defines a kvstore with fixed bucket and cache layer for trie.
+// KVStoreForTrie defines a kvStore with fixed bucket and cache layer for trie.
 // It may be used in other cases as well
 type KVStoreForTrie struct {
 	lc     lifecycle.Lifecycle
