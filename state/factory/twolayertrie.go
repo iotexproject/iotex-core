@@ -19,6 +19,18 @@ type TwoLayerTrie struct {
 	layerOne trie.Trie
 }
 
+func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
+	value, err := tlt.layerOne.Get(key)
+	switch errors.Cause(err) {
+	case trie.ErrNotExist:
+		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
+	case nil:
+		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
+	default:
+		return nil, err
+	}
+}
+
 // Start starts the layer one trie
 func (tlt *TwoLayerTrie) Start(ctx context.Context) error {
 	return tlt.layerOne.Start(ctx)
@@ -32,18 +44,6 @@ func (tlt *TwoLayerTrie) Stop(ctx context.Context) error {
 // RootHash returns the layer one trie root
 func (tlt *TwoLayerTrie) RootHash() []byte {
 	return tlt.layerOne.RootHash()
-}
-
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
-	value, err := tlt.layerOne.Get(key)
-	switch errors.Cause(err) {
-	case trie.ErrNotExist:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	case nil:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	default:
-		return nil, err
-	}
 }
 
 // Get returns the layer two value
