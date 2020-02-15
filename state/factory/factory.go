@@ -406,8 +406,8 @@ func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
 // private trie constructor functions
 //======================================
 
-func (sf *factory) rootHash() hash.Hash256 {
-	return hash.BytesToHash256(sf.accountTrie.RootHash())
+func (sf *factory) rootHash() []byte {
+	return sf.accountTrie.RootHash()
 }
 
 func (sf *factory) state(addr []byte, s interface{}) error {
