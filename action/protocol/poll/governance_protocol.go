@@ -152,15 +152,23 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 		if err != nil {
 			return err
 		}
-		return setKickoutBlackList(sm, unqualifiedList)
+		return setNextEpochBlacklist(sm, unqualifiedList)
 	} else if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
-		if err := shiftCandidates(sm); err != nil {
+		prevHeight, err := shiftCandidates(sm)
+		if err != nil {
 			return err
 		}
 		if blkCtx.BlockHeight == 1 {
 			return nil
 		}
-		return shiftKickoutList(sm)
+		afterHeight, err := shiftKickoutList(sm)
+		if err != nil {
+			return err
+		}
+		if prevHeight != afterHeight {
+			return errors.Wrap(ErrInconsistentHeight, "shifting candidate height is not same as shifting kickout height")
+		}
+		return nil
 	}
 	return nil
 }
