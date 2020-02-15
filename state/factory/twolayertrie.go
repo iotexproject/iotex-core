@@ -40,8 +40,10 @@ func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.
 		if errors.Cause(err) == trie.ErrNotExist {
 			return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
 		}
+
 		return nil, err
 	}
+
 	return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
 }
 
