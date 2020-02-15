@@ -9,8 +9,9 @@ package factory
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db/trie"
 )
 
 // TwoLayerTrie is a trie data structure with two layers
@@ -33,13 +34,13 @@ func (tlt *TwoLayerTrie) RootHash() []byte {
 	return tlt.layerOne.RootHash()
 }
 
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte) (trie.Trie, error) {
+func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
 	value, err := tlt.layerOne.Get(key)
 	switch errors.Cause(err) {
 	case trie.ErrNotExist:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(len(key)))
+		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
 	case nil:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(len(key)))
+		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
 	default:
 		return nil, err
 	}
@@ -47,7 +48,7 @@ func (tlt *TwoLayerTrie) layerTwoTrie(key []byte) (trie.Trie, error) {
 
 // Get returns the layer two value
 func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey)
+	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, er
 
 // Upsert upserts an item
 func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey)
+	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 
 // Delete deletes an item
 func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey)
+	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
 	}
