@@ -1024,8 +1024,8 @@ func TestGetDB(t *testing.T) {
 	ws, err := sf.NewWorkingSet()
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
-	kvstore := ws.GetDB()
-	_, ok := kvstore.(db.KVStoreWithBuffer)
+	kvStore := ws.GetDB()
+	_, ok := kvStore.(db.KVStoreWithBuffer)
 	require.True(ok)
 }
 
@@ -1036,8 +1036,8 @@ func TestSTXGetDB(t *testing.T) {
 	ws, err := sdb.NewWorkingSet()
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
-	kvstore := ws.GetDB()
-	_, ok := kvstore.(db.KVStoreWithBuffer)
+	kvStore := ws.GetDB()
+	_, ok := kvStore.(db.KVStoreWithBuffer)
 	require.True(ok)
 }
 
