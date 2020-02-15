@@ -47,11 +47,11 @@ func newStateTX(
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (stx *stateTX) RootHash() (hash.Hash256, error) {
+func (stx *stateTX) RootHash() ([]byte, error) {
 	if !stx.finalized {
-		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
+		return nil, errors.New("workingset has not been finalized yet")
 	}
-	return hash.ZeroHash256, nil
+	return nil, nil
 }
 
 // Digest returns the delta state digest
