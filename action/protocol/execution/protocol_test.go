@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -46,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ExpectedBalance defines an account-balance pair
@@ -433,7 +433,13 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			)
 		}
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
-			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs), i)
+			numLog := 0
+			for _, l := range receipt.Logs {
+				if new(big.Int).SetBytes(l.Topics[0][:]).Cmp(big.NewInt(0)) == 1 {
+					numLog++
+				}
+			}
+			r.Equal(len(exec.ExpectedLogs), numLog, i)
 			// TODO: check value of logs
 		}
 	}

@@ -12,6 +12,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
@@ -36,6 +37,9 @@ var (
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 )
 
+// InContractTransfer is topic for system log of evm transfer
+var InContractTransfer = common.Hash{} // 32 bytes with all zeros
+
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
 	return db.GetBalance(fromHash).Cmp(balance) >= 0
@@ -45,6 +49,11 @@ func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool 
 func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.Int) {
 	db.SubBalance(fromHash, amount)
 	db.AddBalance(toHash, amount)
+
+	db.AddLog(&types.Log{
+		Topics: []common.Hash{InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
+		Data:   amount.Bytes(),
+	})
 }
 
 type (
