@@ -38,7 +38,7 @@ var (
 
 // DefaultHashFunc implements a default hash function
 func DefaultHashFunc(data []byte) []byte {
-	h := hash.Hash256b(data)
+	h := hash.Hash160b(data)
 	return h[:]
 }
 
@@ -133,7 +133,7 @@ func HashFuncOption(hashFunc HashFunc) Option {
 	}
 }
 
-// KVStoreOption sets the kvstore for the trie
+// KVStoreOption sets the kvStore for the trie
 func KVStoreOption(kvStore KVStore) Option {
 	return func(tr Trie) error {
 		switch t := tr.(type) {

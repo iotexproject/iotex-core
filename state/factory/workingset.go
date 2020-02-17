@@ -55,7 +55,7 @@ type (
 		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, error)
 		Finalize() error
 		Commit() error
-		RootHash() (hash.Hash256, error)
+		RootHash() ([]byte, error)
 		Digest() (hash.Hash256, error)
 		Version() uint64
 	}
@@ -64,8 +64,8 @@ type (
 	workingSet struct {
 		finalized   bool
 		blockHeight uint64
-		accountTrie trie.Trie            // global account state trie
-		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
+		accountTrie trie.Trie      // global account state trie
+		trieRoots   map[int][]byte // root of trie at time of snapshot
 		flusher     db.KVStoreFlusher
 	}
 )
@@ -74,7 +74,7 @@ type (
 func newWorkingSet(
 	height uint64,
 	kv db.KVStore,
-	root hash.Hash256,
+	root []byte,
 	opts ...db.KVStoreFlusherOption,
 ) (WorkingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch(), opts...)
@@ -95,17 +95,17 @@ func newWorkingSet(
 		accountTrie: tr,
 		finalized:   false,
 		blockHeight: height,
-		trieRoots:   make(map[int]hash.Hash256),
+		trieRoots:   make(map[int][]byte),
 		flusher:     flusher,
 	}, tr.Start(context.Background())
 }
 
 // RootHash returns the hash of the root node of the accountTrie
-func (ws *workingSet) RootHash() (hash.Hash256, error) {
+func (ws *workingSet) RootHash() ([]byte, error) {
 	if !ws.finalized {
-		return hash.ZeroHash256, errors.Errorf("working set has not been finalized")
+		return nil, errors.Errorf("working set has not been finalized")
 	}
-	return hash.BytesToHash256(ws.accountTrie.RootHash()), nil
+	return ws.accountTrie.RootHash(), nil
 }
 
 // Digest returns the delta state digest
@@ -231,7 +231,7 @@ func (ws *workingSet) Finalize() error {
 
 func (ws *workingSet) Snapshot() int {
 	s := ws.flusher.KVStoreWithBuffer().Snapshot()
-	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
+	ws.trieRoots[s] = ws.accountTrie.RootHash()
 	return s
 }
 
@@ -314,5 +314,5 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 // clearCache removes all local changes after committing to trie
 func (ws *workingSet) clear() {
 	ws.trieRoots = nil
-	ws.trieRoots = make(map[int]hash.Hash256)
+	ws.trieRoots = make(map[int][]byte)
 }

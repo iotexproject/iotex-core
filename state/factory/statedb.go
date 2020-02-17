@@ -126,6 +126,9 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
+		if err = sdb.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's total bucket account")
+		}
 	default:
 		return err
 	}
