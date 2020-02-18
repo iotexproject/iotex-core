@@ -39,7 +39,22 @@ func NewProtocol() *Protocol {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	//TODO
+	switch act := act.(type) {
+	case *action.StakeCreate:
+		return p.handleStakeCreate(ctx, act, sm)
+	case *action.StakeUnstake:
+		return p.handleStakeUnstake(ctx, act, sm)
+	case *action.StakeWithdraw:
+		return p.handleStakeWithdraw(ctx, act, sm)
+	case *action.StakeChangeCandidate:
+		return p.handleStakeChangeCandidate(ctx, act, sm)
+	case *action.StakeTransferOwnership:
+		return p.handleStakeTransferOwnership(ctx, act, sm)
+	case *action.StakeAdd:
+		return p.handleStakeAddDeposit(ctx, act, sm)
+	case *action.StakeAgain:
+		return p.handleStakeRestake(ctx, act, sm)
+	}
 	return nil, nil
 }
 
@@ -63,4 +78,39 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
+}
+
+func (p *Protocol) handleStakeCreate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeUnstake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeWithdraw(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeChangeCandidate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeTransferOwnership(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeAddDeposit(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleStakeRestake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
 }
