@@ -79,7 +79,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		}()
 
 		tests := []struct {
-			canName   [12]byte
+			canName   CandName
 			index     uint64
 			voterAddr string
 		}{
@@ -152,7 +152,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 }
 
 func fakeCanName(addr string, index uint64) CandName {
-	var name [12]byte
+	var name CandName
 	copy(name[:4], addr[3:])
 	copy(name[4:], byteutil.Uint64ToBytesBigEndian(index))
 	return name

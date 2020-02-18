@@ -18,3 +18,15 @@ message BucketIndex {
 message BucketIndices {
     repeated BucketIndex indices = 1;
 }
+
+message Delegate {
+    string owner = 1;
+    string address = 2;
+    string rewardAddress = 3;
+    bytes canName = 4;
+    bytes votes = 5;
+}
+
+message Delegates {
+    repeated Delegate delegates = 1;
+}
