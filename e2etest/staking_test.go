@@ -10,9 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -22,14 +19,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/server/itx"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -222,8 +223,8 @@ func newStakingABI() (*stakingABI, error) {
 	}, nil
 }
 
-func fakeCanName(addr string, index uint64) [12]byte {
-	var name [12]byte
+func fakeCanName(addr string, index uint64) staking.CandName {
+	var name staking.CandName
 	copy(name[:4], addr[3:])
 	copy(name[4:], byteutil.Uint64ToBytesBigEndian(index))
 	return name

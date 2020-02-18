@@ -167,7 +167,7 @@ func (p *Protocol) GrantEpochReward(
 		}
 	} else {
 		// Get Kick-out List from DB
-		kickoutList, err := p.kickoutListByEpoch(sm, epochNum)
+		kickoutList, _, err := p.getKickoutList(sm, false)
 		if err != nil {
 			return nil, err
 		}

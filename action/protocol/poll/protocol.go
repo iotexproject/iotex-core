@@ -25,6 +25,9 @@ const (
 	protocolID = "poll"
 )
 
+// ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
+var ErrInconsistentHeight = errors.New("data is inconsistent because the state height has been changed")
+
 // ErrNoElectionCommittee is an error that the election committee is not specified
 var ErrNoElectionCommittee = errors.New("no election committee specified")
 
@@ -40,8 +43,14 @@ var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 // CandidatesByHeight returns the candidates of a given height
 type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
 
-// KickoutListByEpoch returns the blacklist for kickout of a given epoch
-type KickoutListByEpoch func(protocol.StateReader, uint64) (*vote.Blacklist, error)
+// GetCandidates returns the current candidates
+type GetCandidates func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error)
+
+// GetKickoutList returns current the blacklist
+type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, uint64, error)
+
+// GetUnproductiveDelegate returns unproductiveDelegate struct which contains a cache of upd info by epochs
+type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDelegate, error)
 
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
@@ -53,12 +62,10 @@ type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint6
 type Protocol interface {
 	protocol.Protocol
 	protocol.GenesisStateCreator
-	// DelegatesByEpoch returns the delegates by epoch
 	DelegatesByEpoch(context.Context, uint64) (state.CandidateList, error)
+	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
-	// CandidatesByHeight returns a list of delegate candidates
-	CandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -100,7 +107,9 @@ func NewProtocol(
 	cfg config.Config,
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
-	kickoutListByEpoch KickoutListByEpoch,
+	getCandidates GetCandidates,
+	kickoutListByEpoch GetKickoutList,
+	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	getBlockTimeFunc GetBlockTime,
 	sr protocol.StateReader,
@@ -121,7 +130,9 @@ func NewProtocol(
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidatesByHeight,
+		getCandidates,
 		kickoutListByEpoch,
+		getUnproductiveDelegate,
 		electionCommittee,
 		genesisConfig.GravityChainStartHeight,
 		getBlockTimeFunc,
@@ -133,6 +144,7 @@ func NewProtocol(
 		genesisConfig.ProductivityThreshold,
 		genesisConfig.KickoutEpochPeriod,
 		genesisConfig.KickoutIntensityRate,
+		genesisConfig.UnproductiveDelegateMaxCacheSize,
 	); err != nil {
 		return nil, err
 	}
