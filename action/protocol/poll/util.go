@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -54,7 +55,7 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	if err := setCandidates(sm, r.Candidates(), r.Height()); err != nil {
+	if err := setCandidates(ctx, sm, r.Candidates(), r.Height()); err != nil {
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
 	return &action.Receipt{
@@ -147,19 +148,24 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 
 // setCandidates sets the candidates for the given state manager
 func setCandidates(
+	ctx context.Context,
 	sm protocol.StateManager,
 	candidates state.CandidateList,
-	height uint64,
+	height uint64, // epoch start height
 ) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(height)
+	if height != rp.GetEpochHeight(epochNum) {
+		return errors.New("put poll result height should be epoch start height")
+	}
+
 	for _, candidate := range candidates {
 		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		delegate.IsCandidate = true
-		if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
-			return err
-		}
 		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
@@ -170,17 +176,84 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
-	_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructKey(height)))
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPre(config.Easter, height) {
+		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
+		return err
+	}
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err := sm.PutState(&candidates, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
-// setKickoutBlackList sets the blacklist for kick-out for corresponding epoch
-func setKickoutBlackList(
+// setNextEpochBlacklist sets the blacklist for kick-out with next key
+func setNextEpochBlacklist(
 	sm protocol.StateManager,
 	blackList *vote.Blacklist,
-	epochNum uint64,
 ) error {
-	blackListKey := candidatesutil.ConstructBlackListKey(epochNum)
-	_, err := sm.PutState(blackList, protocol.LegacyKeyOption(blackListKey))
+	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	_, err := sm.PutState(blackList, protocol.KeyOption(blackListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
+}
+
+// setUnproductiveDelegates sets the upd struct with updkey
+func setUnproductiveDelegates(
+	sm protocol.StateManager,
+	upd *vote.UnproductiveDelegate,
+) error {
+	updKey := candidatesutil.ConstructKey(candidatesutil.UnproductiveDelegateKey)
+	_, err := sm.PutState(upd, protocol.KeyOption(updKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
+}
+
+// shiftCandidates updates current data with next data of candidate list
+func shiftCandidates(sm protocol.StateManager) (uint64, error) {
+	zap.L().Debug("Shift candidatelist from next key to current key")
+	var next state.CandidateList
+	var err error
+	var stateHeight, putStateHeight uint64
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	if stateHeight, err = sm.State(&next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to read next blacklist when shifting to current blacklist",
+		)
+	}
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
+	if putStateHeight, err = sm.PutState(&next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+		)
+	}
+	if stateHeight != putStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	return stateHeight, nil
+}
+
+// shiftKickoutList updates current data with next data of kickout list
+func shiftKickoutList(sm protocol.StateManager) (uint64, error) {
+	zap.L().Debug("Shift kickoutList from next key to current key")
+	var err error
+	var stateHeight, putStateHeight uint64
+	next := &vote.Blacklist{}
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	if stateHeight, err = sm.State(next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to read next blacklist when shifting to current blacklist",
+		)
+	}
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+	if putStateHeight, err = sm.PutState(next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+		)
+	}
+	if stateHeight != putStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	return stateHeight, nil
 }

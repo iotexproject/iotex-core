@@ -32,7 +32,9 @@ import (
 
 type governanceChainCommitteeProtocol struct {
 	candidatesByHeight        CandidatesByHeight
-	kickoutListByEpoch        KickoutListByEpoch
+	getCandidates             GetCandidates
+	getKickoutList            GetKickoutList
+	getUnproductiveDelegate   GetUnproductiveDelegate
 	getBlockTime              GetBlockTime
 	electionCommittee         committee.Committee
 	initGravityChainHeight    uint64
@@ -45,12 +47,15 @@ type governanceChainCommitteeProtocol struct {
 	productivityThreshold     uint64
 	kickoutEpochPeriod        uint64
 	kickoutIntensity          float64
+	maxKickoutPeriod          uint64
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
 	candidatesByHeight CandidatesByHeight,
-	kickoutListByEpoch KickoutListByEpoch,
+	getCandidates GetCandidates,
+	getKickoutList GetKickoutList,
+	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
@@ -62,6 +67,7 @@ func NewGovernanceChainCommitteeProtocol(
 	productivityThreshold uint64,
 	kickoutEpochPeriod uint64,
 	kickoutIntensity float64,
+	maxKickoutPeriod uint64,
 ) (Protocol, error) {
 	if electionCommittee == nil {
 		return nil, ErrNoElectionCommittee
@@ -77,7 +83,9 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 	return &governanceChainCommitteeProtocol{
 		candidatesByHeight:        candidatesByHeight,
-		kickoutListByEpoch:        kickoutListByEpoch,
+		getCandidates:             getCandidates,
+		getKickoutList:            getKickoutList,
+		getUnproductiveDelegate:   getUnproductiveDelegate,
 		electionCommittee:         electionCommittee,
 		initGravityChainHeight:    initGravityChainHeight,
 		getBlockTime:              getBlockTime,
@@ -90,6 +98,7 @@ func NewGovernanceChainCommitteeProtocol(
 		productivityThreshold:     productivityThreshold,
 		kickoutEpochPeriod:        kickoutEpochPeriod,
 		kickoutIntensity:          kickoutIntensity,
+		maxKickoutPeriod:          maxKickoutPeriod,
 	}, nil
 }
 
@@ -98,6 +107,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	sm protocol.StateManager,
 ) (err error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
@@ -112,7 +122,6 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 		log.L().Info("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
 		time.Sleep(p.initialCandidatesInterval)
 	}
-
 	if err != nil {
 		return
 	}
@@ -120,8 +129,15 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	if err = validateDelegates(ds); err != nil {
 		return
 	}
-
-	return setCandidates(sm, ds, uint64(1))
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Easter, uint64(1)) {
+		if err := setNextEpochBlacklist(sm, &vote.Blacklist{
+			IntensityRate: p.kickoutIntensity,
+		}); err != nil {
+			return err
+		}
+	}
+	return setCandidates(ctx, sm, ds, uint64(1))
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
@@ -133,17 +149,31 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	epochStartHeight := rp.GetEpochHeight(epochNum)
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
 		// if the block height is the end of epoch and next epoch is after the Easter height, calculate blacklist for kick-out and write into state DB
-		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum+1)
+		unqualifiedList, err := p.calculateKickoutBlackList(ctx, sm, epochNum+1)
 		if err != nil {
 			return err
 		}
-
-		return setKickoutBlackList(sm, unqualifiedList, epochNum+1)
+		return setNextEpochBlacklist(sm, unqualifiedList)
+	}
+	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
+		prevHeight, err := shiftCandidates(sm)
+		if err != nil {
+			return err
+		}
+		afterHeight, err := shiftKickoutList(sm)
+		if err != nil {
+			return err
+		}
+		if prevHeight != afterHeight {
+			return errors.Wrap(ErrInconsistentHeight, "shifting candidate height is not same as shifting kickout height")
+		}
+		return nil
 	}
 	return nil
 }
@@ -206,13 +236,29 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 }
 
 func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return p.readActiveBlockProducersByEpoch(ctx, epochNum)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if tipEpochNum+1 == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
+	} else if tipEpochNum == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
+	}
+	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
 }
 
 func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	return p.candidatesByHeight(p.sr, rp.GetEpochHeight(rp.GetEpochNum(height)))
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	targetEpochNum := rp.GetEpochNum(height)
+	targetEpochStartHeight := rp.GetEpochHeight(targetEpochNum)
+	if tipEpochNum+1 == targetEpochNum {
+		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, true)
+	} else if tipEpochNum == targetEpochNum {
+		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, false)
+	}
+	return nil, errors.Errorf("wrong epochNumber to get candidatesbyHeight, target epochNumber %d can't be less than tip epoch number %d", targetEpochNum, tipEpochNum)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -221,30 +267,43 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	tipEpoch := rp.GetEpochNum(blkCtx.BlockHeight)
 	switch string(method) {
 	case "CandidatesByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
-		delegates, err := p.readCandidatesByEpoch(ctx, byteutil.BytesToUint64(args[0]))
+		delegates, err := p.readCandidatesByEpoch(ctx, tipEpoch, false)
 		if err != nil {
 			return nil, err
 		}
 		return delegates.Serialize()
 	case "BlockProducersByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
-		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]))
+		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
 		if err != nil {
 			return nil, err
 		}
 		return blockProducers.Serialize()
 	case "ActiveBlockProducersByEpoch":
-		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
 		}
-		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]))
+		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
 		if err != nil {
 			return nil, err
 		}
@@ -258,6 +317,18 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
+	case "KickoutListByEpoch":
+		if len(args) != 0 {
+			inputEpochNum := byteutil.BytesToUint64(args[0])
+			if inputEpochNum != tipEpoch {
+				return nil, errors.New("previous epoch data isn't available with non-archive node")
+			}
+		}
+		kickoutList, err := p.readKickoutList(ctx, tipEpoch, false)
+		if err != nil {
+			return nil, err
+		}
+		return kickoutList.Serialize()
 	default:
 		return nil, errors.New("corresponding method isn't found")
 
@@ -274,22 +345,39 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) readCandidatesByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	return p.candidatesByHeight(p.sr, rp.GetEpochHeight(epochNum))
+	return p.readCandidatesByHeight(ctx, rp.GetEpochHeight(epochNum), readFromNext)
 }
 
-func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	candidates, err := p.readCandidatesByEpoch(ctx, epochNum)
+func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	if hu.IsPre(config.Easter, epochStartHeight) {
+		return p.candidatesByHeight(p.sr, epochStartHeight)
+	}
+	sc, stateHeight, err := p.getCandidates(p.sr, readFromNext)
 	if err != nil {
 		return nil, err
 	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
+	}
+	return sc, nil
+}
+
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochHeight := rp.GetEpochHeight(epochNum)
+	candidates, err := p.readCandidatesByEpoch(ctx, epochNum, readFromNext)
+	if err != nil {
+		return nil, err
+	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.Easter, epochHeight) {
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) || epochNum == 1 {
 		var blockProducers state.CandidateList
 		for i, candidate := range candidates {
 			if uint64(i) >= p.numCandidateDelegates {
@@ -301,9 +389,9 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	}
 
 	// After Easter height, kick-out unqualified delegates based on productivity
-	unqualifiedList, err := p.kickoutListByEpoch(p.sr, epochNum)
+	unqualifiedList, err := p.readKickoutList(ctx, epochNum, readFromNext)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read kick-out list")
 	}
 	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)
@@ -332,8 +420,8 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	return verifiedCandidates, nil
 }
 
-func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum)
+func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
+	blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum, readFromNext)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get candidates in epoch %d", epochNum)
 	}
@@ -367,6 +455,20 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 	return activeBlockProducers, nil
 }
 
+func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, epochNum uint64, readFromNext bool) (*vote.Blacklist, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	unqualifiedList, stateHeight, err := p.getKickoutList(p.sr, readFromNext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+	if epochNum < rp.GetEpochNum(stateHeight) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
+	}
+	return unqualifiedList, nil
+}
+
 func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
@@ -385,6 +487,7 @@ func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context,
 
 func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	ctx context.Context,
+	sm protocol.StateManager,
 	epochNum uint64,
 ) (*vote.Blacklist, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
@@ -394,46 +497,67 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	nextBlacklist := &vote.Blacklist{
 		IntensityRate: p.kickoutIntensity,
 	}
+	upd, err := p.getUnproductiveDelegate(p.sr)
+	if err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			if upd, err = vote.NewUnproductiveDelegate(p.kickoutEpochPeriod, p.maxKickoutPeriod); err != nil {
+				return nil, errors.Wrap(err, "failed to make new upd")
+			}
+		} else {
+			return nil, errors.Wrapf(err, "failed to read upd struct from state DB at epoch number %d", epochNum)
+		}
+	}
 	unqualifiedDelegates := make(map[string]uint32)
 	if epochNum <= easterEpochNum+p.kickoutEpochPeriod {
-		// if epoch number is smaller than EasterHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
-		round := epochNum - easterEpochNum // 0, 1, 2, 3 .. K
-		for {
-			if round == 0 {
-				break
-			}
-			// N-1, N-2, ..., N-K
-			isCurrentEpoch := false
-			if round == 1 {
-				isCurrentEpoch = true
-			}
-			uq, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-round, isCurrentEpoch)
-			if err != nil {
-				return nil, err
-			}
-			for _, addr := range uq {
+		// if epoch number is smaller than easterEpochNum+K(kickout period), calculate it one-by-one (initialize).
+		log.L().Debug("Before using kick-out blacklist",
+			zap.Uint64("epochNum", epochNum),
+			zap.Uint64("easterEpochNum", easterEpochNum),
+			zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
+		)
+		existinglist := upd.DelegateList()
+		for _, listByEpoch := range existinglist {
+			for _, addr := range listByEpoch {
 				if _, ok := unqualifiedDelegates[addr]; !ok {
 					unqualifiedDelegates[addr] = 1
 				} else {
 					unqualifiedDelegates[addr]++
 				}
 			}
-			round--
+		}
+		// calculate upd of epochNum-1 (latest)
+		uq, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
+		}
+		for _, addr := range uq {
+			if _, ok := unqualifiedDelegates[addr]; !ok {
+				unqualifiedDelegates[addr] = 1
+			} else {
+				unqualifiedDelegates[addr]++
+			}
+		}
+		if err := upd.AddRecentUPD(uq); err != nil {
+			return nil, errors.Wrap(err, "failed to add recent upd")
 		}
 		nextBlacklist.BlacklistInfos = unqualifiedDelegates
-		return nextBlacklist, nil
+		return nextBlacklist, setUnproductiveDelegates(sm, upd)
 	}
-
 	// Blacklist[N] = Blacklist[N-1] - Low-productivity-list[N-K-1] + Low-productivity-list[N-1]
-	prevBlacklist, err := p.kickoutListByEpoch(p.sr, epochNum-1)
+	log.L().Debug("Using kick-out blacklist",
+		zap.Uint64("epochNum", epochNum),
+		zap.Uint64("easterEpochNum", easterEpochNum),
+		zap.Uint64("kickoutEpochPeriod", p.kickoutEpochPeriod),
+	)
+	prevBlacklist, _, err := p.getKickoutList(p.sr, false)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to read latest kick-out list")
 	}
 	blacklistMap := prevBlacklist.BlacklistInfos
-	skipList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-p.kickoutEpochPeriod-1, false)
-	if err != nil {
-		return nil, err
+	if blacklistMap == nil {
+		blacklistMap = make(map[string]uint32)
 	}
+	skipList := upd.ReadOldestUPD()
 	for _, addr := range skipList {
 		if _, ok := blacklistMap[addr]; !ok {
 			log.L().Fatal("skipping list element doesn't exist among one of existing map")
@@ -441,9 +565,12 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		}
 		blacklistMap[addr]--
 	}
-	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1, true)
+	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
+	}
+	if err := upd.AddRecentUPD(addList); err != nil {
+		return nil, errors.Wrap(err, "failed to add recent upd")
 	}
 	for _, addr := range addList {
 		if _, ok := blacklistMap[addr]; ok {
@@ -459,25 +586,22 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		}
 	}
 	nextBlacklist.BlacklistInfos = blacklistMap
-
-	return nextBlacklist, nil
+	return nextBlacklist, setUnproductiveDelegates(sm, upd)
 }
 
 func (p *governanceChainCommitteeProtocol) calculateUnproductiveDelegatesByEpoch(
 	ctx context.Context,
 	epochNum uint64,
-	isCurrentEpoch bool,
 ) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
-	if isCurrentEpoch {
-		// The current block is not included, so that we need to add it to the stats
-		numBlks++
-		produce[blkCtx.Producer.String()]++
-	}
+	// The current block is not included, so that we need to add it to the stats
+	numBlks++
+	produce[blkCtx.Producer.String()]++
+
 	unqualified := make([]string, 0)
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {
