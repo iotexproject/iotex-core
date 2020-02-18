@@ -22,9 +22,6 @@ import (
 )
 
 type (
-	// CandName is the 12-byte of candidate name
-	CandName [12]byte
-
 	// VoteBucket is an alias of proto definition
 	VoteBucket struct {
 		iotextypes.Bucket

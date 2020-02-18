@@ -113,7 +113,7 @@ func TestCandidate(t *testing.T) {
 	require.NoError(err)
 	cand3Hash := hash.BytesToHash160(cand3Addr.Bytes())
 
-	candidateMap := make(map[hash.Hash160]*Candidate)
+	candidateMap := make(CandidateMap)
 	candidateMap[cand1Hash] = cand1
 	candidateMap[cand2Hash] = cand2
 	candidateMap[cand3Hash] = cand3
