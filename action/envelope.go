@@ -88,19 +88,19 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
 	case *PutPollResult:
 		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
-	case *StakeCreate:
+	case *Stake:
 		actCore.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
-	case *StakeUnstake:
+	case *Unstake:
 		actCore.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
-	case *StakeWithdraw:
+	case *WithdrawStake:
 		actCore.Action = &iotextypes.ActionCore_StakeWithdraw{StakeWithdraw: act.Proto()}
-	case *StakeAdd:
+	case *DepositToStake:
 		actCore.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
-	case *StakeAgain:
+	case *Restake:
 		actCore.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
-	case *StakeChangeCandidate:
+	case *SwitchCandidate:
 		actCore.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
-	case *StakeTransferOwnership:
+	case *TransferStake:
 		actCore.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
 	default:
 		log.S().Panicf("Cannot convert type of action %T.\r\n", act)
@@ -162,43 +162,43 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		elp.payload = act
 
 	case pbAct.GetStakeCreate() != nil:
-		act := &StakeCreate{}
+		act := &Stake{}
 		if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeUnstake() != nil:
-		act := &StakeUnstake{}
+		act := &Unstake{}
 		if err := act.LoadProto(pbAct.GetStakeUnstake()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeWithdraw() != nil:
-		act := &StakeWithdraw{}
+		act := &WithdrawStake{}
 		if err := act.LoadProto(pbAct.GetStakeWithdraw()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeAddDeposit() != nil:
-		act := &StakeAdd{}
+		act := &DepositToStake{}
 		if err := act.LoadProto(pbAct.GetStakeAddDeposit()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeRestake() != nil:
-		act := &StakeAdd{}
-		if err := act.LoadProto(pbAct.GetStakeAddDeposit()); err != nil {
+		act := &Restake{}
+		if err := act.LoadProto(pbAct.GetStakeRestake()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeChangeCandidate() != nil:
-		act := &StakeChangeCandidate{}
+		act := &SwitchCandidate{}
 		if err := act.LoadProto(pbAct.GetStakeChangeCandidate()); err != nil {
 			return err
 		}
 		elp.payload = act
 	case pbAct.GetStakeTransferOwnership() != nil:
-		act := &StakeTransferOwnership{}
+		act := &TransferStake{}
 		if err := act.LoadProto(pbAct.GetStakeTransferOwnership()); err != nil {
 			return err
 		}

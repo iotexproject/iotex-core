@@ -7,7 +7,6 @@
 package action
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -66,10 +65,7 @@ func (d *DepositToRewardingFund) LoadProto(deposit *iotextypes.DepositToRewardin
 // IntrinsicGas returns the intrinsic gas of a deposit action
 func (d *DepositToRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(d.Data()))
-	if (math.MaxUint64-DepositToRewardingFundBaseGas)/DepositToRewardingFundGasPerByte < dataLen {
-		return 0, ErrOutOfGas
-	}
-	return DepositToRewardingFundBaseGas + DepositToRewardingFundGasPerByte*dataLen, nil
+	return calculateIntrinsicGas(DepositToRewardingFundBaseGas, DepositToRewardingFundGasPerByte, dataLen)
 }
 
 // Cost returns the total cost of a deposit action
