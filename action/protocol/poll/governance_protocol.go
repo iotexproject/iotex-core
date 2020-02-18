@@ -107,6 +107,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	sm protocol.StateManager,
 ) (err error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
@@ -121,7 +122,6 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 		log.L().Info("calling committee,waiting for a while", zap.Int64("duration", int64(p.initialCandidatesInterval.Seconds())), zap.String("unit", " seconds"))
 		time.Sleep(p.initialCandidatesInterval)
 	}
-
 	if err != nil {
 		return
 	}
@@ -129,7 +129,14 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	if err = validateDelegates(ds); err != nil {
 		return
 	}
-
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Easter, uint64(1)) {
+		if err := setNextEpochBlacklist(sm, &vote.Blacklist{
+			IntensityRate: p.kickoutIntensity,
+		}); err != nil {
+			return err
+		}
+	}
 	return setCandidates(ctx, sm, ds, uint64(1))
 }
 
@@ -153,13 +160,11 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 			return err
 		}
 		return setNextEpochBlacklist(sm, unqualifiedList)
-	} else if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
+	}
+	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
 		prevHeight, err := shiftCandidates(sm)
 		if err != nil {
 			return err
-		}
-		if blkCtx.BlockHeight == 1 {
-			return nil
 		}
 		afterHeight, err := shiftKickoutList(sm)
 		if err != nil {
@@ -549,6 +554,9 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		return nil, errors.Wrap(err, "failed to read latest kick-out list")
 	}
 	blacklistMap := prevBlacklist.BlacklistInfos
+	if blacklistMap == nil {
+		blacklistMap = make(map[string]uint32)
+	}
 	skipList := upd.ReadOldestUPD()
 	for _, addr := range skipList {
 		if _, ok := blacklistMap[addr]; !ok {
