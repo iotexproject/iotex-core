@@ -344,6 +344,20 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
+// StartExistingBlockchain mocks base method
+func (m *MockBlockDAO) StartExistingBlockchain(arg0 context.Context, arg1 uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StartExistingBlockchain", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// StartExistingBlockchain indicates an expected call of StartExistingBlockchain
+func (mr *MockBlockDAOMockRecorder) StartExistingBlockchain(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartExistingBlockchain", reflect.TypeOf((*MockBlockDAO)(nil).StartExistingBlockchain), arg0, arg1)
+}
+
 // MockBlockIndexer is a mock of BlockIndexer interface
 type MockBlockIndexer struct {
 	ctrl     *gomock.Controller
@@ -365,6 +379,21 @@ func NewMockBlockIndexer(ctrl *gomock.Controller) *MockBlockIndexer {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockBlockIndexer) EXPECT() *MockBlockIndexerMockRecorder {
 	return m.recorder
+}
+
+// Height mocks base method
+func (m *MockBlockIndexer) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockBlockIndexerMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockBlockIndexer)(nil).Height))
 }
 
 // Start mocks base method
@@ -396,17 +425,17 @@ func (mr *MockBlockIndexerMockRecorder) Stop(ctx interface{}) *gomock.Call {
 }
 
 // PutBlock mocks base method
-func (m *MockBlockIndexer) PutBlock(blk *block.Block) error {
+func (m *MockBlockIndexer) PutBlock(ctx context.Context, blk *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PutBlock", blk)
+	ret := m.ctrl.Call(m, "PutBlock", ctx, blk)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // PutBlock indicates an expected call of PutBlock
-func (mr *MockBlockIndexerMockRecorder) PutBlock(blk interface{}) *gomock.Call {
+func (mr *MockBlockIndexerMockRecorder) PutBlock(ctx, blk interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockBlockIndexer)(nil).PutBlock), blk)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockBlockIndexer)(nil).PutBlock), ctx, blk)
 }
 
 // DeleteTipBlock mocks base method
@@ -421,18 +450,4 @@ func (m *MockBlockIndexer) DeleteTipBlock(blk *block.Block) error {
 func (mr *MockBlockIndexerMockRecorder) DeleteTipBlock(blk interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBlockIndexer)(nil).DeleteTipBlock), blk)
-}
-
-// Commit mocks base method
-func (m *MockBlockIndexer) Commit() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Commit indicates an expected call of Commit
-func (mr *MockBlockIndexerMockRecorder) Commit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBlockIndexer)(nil).Commit))
 }

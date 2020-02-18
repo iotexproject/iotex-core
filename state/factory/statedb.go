@@ -227,7 +227,7 @@ func (sdb *stateDB) SimulateExecution(
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
+func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
@@ -269,6 +269,11 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	}
 
 	return sdb.commit(ws)
+}
+
+// DeleteTipBlock delete blk
+func (sdb *stateDB) DeleteTipBlock(blk *block.Block) error {
+	return ErrNotSupported
 }
 
 // State returns a confirmed state in the state factory

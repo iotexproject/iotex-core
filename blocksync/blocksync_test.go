@@ -188,7 +188,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -249,7 +249,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -273,7 +273,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(rp.Register(registry2))
 	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
@@ -349,7 +349,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(rolldposProtocol.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -372,7 +372,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(rolldposProtocol.Register(registry2))
 	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
@@ -441,7 +441,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	chain := bc.NewBlockchain(cfg, dao, sf, bc.RegistryOption(registry))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)

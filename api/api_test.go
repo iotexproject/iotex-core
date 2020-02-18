@@ -1792,7 +1792,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.IndexerOption(indexer), blockdao.FactoryOption(sf))
 	if dao == nil {
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}

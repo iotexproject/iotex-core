@@ -434,7 +434,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(dao.GetBlockHash)
@@ -468,7 +468,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ep := execution.NewProtocol(dao.GetBlockHash)
@@ -534,7 +534,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
@@ -629,7 +629,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), cfg.Chain.CompressBlock, cfg.DB, blockdao.IndexerOption(indexer), blockdao.FactoryOption(sf))
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -791,7 +791,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), cfg.Chain.CompressBlock, cfg.DB, blockdao.IndexerOption(indexer), blockdao.FactoryOption(sf))
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -1502,7 +1502,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), cfg.Chain.CompressBlock, cfg.DB, blockdao.IndexerOption(indexer), blockdao.FactoryOption(sf))
 	require.NotNil(dao)
 	bc := NewBlockchain(
 		cfg,

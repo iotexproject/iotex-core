@@ -61,7 +61,7 @@ func TestIndexer(t *testing.T) {
 	testIndexer := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, nil, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {

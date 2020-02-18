@@ -16,15 +16,20 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -35,7 +40,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -105,21 +109,22 @@ type (
 		KVStore() db.KVStore
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
+		StartExistingBlockchain(context.Context, uint64) error
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
 	BlockIndexer interface {
+		Height() (uint64, error)
 		Start(ctx context.Context) error
 		Stop(ctx context.Context) error
-		PutBlock(blk *block.Block) error
+		PutBlock(ctx context.Context, blk *block.Block) error
 		DeleteTipBlock(blk *block.Block) error
-		Commit() error
 	}
 
 	blockDAO struct {
 		compressBlock bool
 		kvStore       db.KVStore
-		indexer       BlockIndexer
+		indexer       [2]BlockIndexer
 		htf           db.RangeIndex
 		kvStores      sync.Map //store like map[index]db.KVStore,index from 1...N
 		topIndex      atomic.Value
@@ -134,13 +139,43 @@ type (
 	}
 )
 
+// Option sets dao construction parameter
+type Option func(*blockDAO) error
+
+// IndexerOption sets dao with BlockIndexer
+func IndexerOption(indexer blockindex.Indexer) Option {
+	return func(dao *blockDAO) error {
+		if dao.indexer[0] != nil {
+			return nil
+		}
+		dao.indexer[0] = indexer
+		return nil
+	}
+}
+
+// FactoryOption sets dao with BlockIndexer
+func FactoryOption(sf BlockIndexer) Option {
+	return func(dao *blockDAO) error {
+		if dao.indexer[1] != nil {
+			return nil
+		}
+		dao.indexer[1] = sf
+		return nil
+	}
+}
+
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvStore db.KVStore, indexer BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
+func NewBlockDAO(kvStore db.KVStore,  compressBlock bool, cfg config.DB, opts ...Option) BlockDAO {
 	blockDAO := &blockDAO{
 		compressBlock: compressBlock,
 		kvStore:       kvStore,
-		indexer:       indexer,
 		cfg:           cfg,
+		indexer:       [2]BlockIndexer{},
+	}
+	for _, opt := range opts {
+		if err := opt(blockDAO); err != nil {
+			log.S().Panicf("Failed to execute dao creation option %p: %v", opt, err)
+		}
 	}
 	if cfg.MaxCacheSize > 0 {
 		blockDAO.headerCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
@@ -158,8 +193,8 @@ func NewBlockDAO(kvStore db.KVStore, indexer BlockIndexer, compressBlock bool, c
 	}
 	blockDAO.timerFactory = timerFactory
 	blockDAO.lifecycle.Add(kvStore)
-	if indexer != nil {
-		blockDAO.lifecycle.Add(indexer)
+	if blockDAO.indexer[0] != nil {
+		blockDAO.lifecycle.Add(blockDAO.indexer[0])
 	}
 	return blockDAO
 }
@@ -213,6 +248,44 @@ func (dao *blockDAO) initStores() error {
 		maxN = 1
 	}
 	dao.topIndex.Store(maxN)
+	return nil
+}
+
+func (dao *blockDAO) StartExistingBlockchain(ctx context.Context, gas uint64) error {
+	if dao.indexer[1] == nil {
+		return errors.New("statefactory cannot be nil")
+	}
+	sf := dao.indexer[1]
+	stateHeight, err := sf.Height()
+	if err != nil {
+		return err
+	}
+	tipHeight := dao.GetTipHeight()
+	if stateHeight > tipHeight {
+		return errors.New("factory is higher than blockchain")
+	}
+
+	for i := stateHeight + 1; i <= tipHeight; i++ {
+		blk, err := dao.GetBlockByHeight(i)
+		if err != nil {
+			return err
+		}
+		producer, err := address.FromBytes(blk.PublicKey().Hash())
+		if err != nil {
+			return err
+		}
+		ctx = dao.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp(), gas)
+		if err := sf.PutBlock(ctx, blk); err != nil {
+			return err
+		}
+	}
+	stateHeight, err = sf.Height()
+	if err != nil {
+		return errors.Wrap(err, "failed to get factory's height")
+	}
+	log.L().Info("Restarting blockchain.",
+		zap.Uint64("chainHeight", tipHeight),
+		zap.Uint64("factoryHeight", stateHeight))
 	return nil
 }
 
@@ -322,13 +395,10 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 		return err
 	}
 	// index the block if there's indexer
-	if dao.indexer == nil {
+	if dao.indexer[0] == nil {
 		return nil
 	}
-	if err := dao.indexer.PutBlock(blk); err != nil {
-		return err
-	}
-	return dao.indexer.Commit()
+	return dao.indexer[0].PutBlock(protocol.WithCommitCtx(context.Background(), true), blk)
 }
 
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
@@ -349,8 +419,8 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			return errors.Wrap(err, "failed to get tip block")
 		}
 		// delete block index if there's indexer
-		if dao.indexer != nil {
-			if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+		if dao.indexer[0] != nil {
+			if err := dao.indexer[0].DeleteTipBlock(blk); err != nil {
 				return err
 			}
 		}
@@ -872,6 +942,17 @@ func (dao *blockDAO) openDB(idx uint64) (kvStore db.KVStore, index uint64, err e
 	dao.lifecycle.Add(kvStore)
 	index = idx
 	return
+}
+
+func (dao *blockDAO) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time, gas uint64) context.Context {
+	return protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    height,
+			BlockTimeStamp: timestamp,
+			Producer:       producer,
+			GasLimit:       gas,
+		})
 }
 
 func getFileNameAndDir(p string) (fileName, dir string) {

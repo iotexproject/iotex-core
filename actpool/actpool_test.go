@@ -152,7 +152,7 @@ func TestActPool_validateGenericAction(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	ap.Reset()
 	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -176,7 +176,7 @@ func TestActPool_AddActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr2] = "10"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -345,7 +345,7 @@ func TestActPool_PickActs(t *testing.T) {
 		cfgDefault.Genesis.InitBalanceMap[addr2] = "10"
 		sf, err := factory.NewFactory(cfgDefault, factory.InMemTrieOption())
 		require.NoError(err)
-		dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfgDefault.Chain.CompressBlock, cfgDefault.DB)
+		dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfgDefault.Chain.CompressBlock, cfgDefault.DB, blockdao.FactoryOption(sf))
 		bc := blockchain.NewBlockchain(
 			cfgDefault,
 			dao,
@@ -424,7 +424,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -479,7 +479,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	ap.removeConfirmedActs()
 	require.Equal(0, len(ap.allActions))
 	require.Nil(ap.accountActs[addr1])
@@ -496,7 +496,7 @@ func TestActPool_Reset(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr5] = "20"
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -631,7 +631,7 @@ func TestActPool_Reset(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -741,7 +741,7 @@ func TestActPool_Reset(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	ap2.Reset()
@@ -843,7 +843,7 @@ func TestActPool_Reset(t *testing.T) {
 		AddActions(actionMap2Slice(pickedActs)...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	//Reset
 	ap1.Reset()
 	// Check confirmed nonce, pending nonce, and pending balance after resetting actpool for each account
@@ -867,7 +867,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -920,7 +920,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -969,7 +969,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -1076,7 +1076,7 @@ func TestActPool_GetSize(t *testing.T) {
 	re := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), cfg.Chain.CompressBlock, cfg.DB, blockdao.FactoryOption(sf))
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -1132,7 +1132,7 @@ func TestActPool_GetSize(t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(sf.Commit(ctx, &blk))
+	require.NoError(sf.PutBlock(ctx, &blk))
 	ap.removeConfirmedActs()
 	require.Equal(uint64(0), ap.GetSize())
 	require.Equal(uint64(0), ap.GetGasSize())

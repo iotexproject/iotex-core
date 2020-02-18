@@ -31,6 +31,8 @@ type blockContextKey struct{}
 
 type actionContextKey struct{}
 
+type commitContextKey struct{}
+
 // BlockchainCtx provides blockchain auxiliary information.
 type BlockchainCtx struct {
 	// Genesis is a copy of current genesis
@@ -133,4 +135,15 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 		log.S().Panic("Miss action context")
 	}
 	return ac
+}
+
+// WithCommitCtx add CommitCtx into context.
+func WithCommitCtx(ctx context.Context, commit bool) context.Context {
+	return context.WithValue(ctx, commitContextKey{}, commit)
+}
+
+// GetCommitCtx gets CommitCtx
+func GetCommitCtx(ctx context.Context) (bool, bool) {
+	cc, ok := ctx.Value(commitContextKey{}).(bool)
+	return cc, ok
 }
