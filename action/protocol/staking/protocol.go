@@ -40,14 +40,14 @@ func NewProtocol() *Protocol {
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
-	case *action.Stake:
-		return p.handleStake(ctx, act, sm)
+	case *action.CreateStake:
+		return p.handleCreateStake(ctx, act, sm)
 	case *action.Unstake:
 		return p.handleUnstake(ctx, act, sm)
 	case *action.WithdrawStake:
 		return p.handleWithdrawStake(ctx, act, sm)
-	case *action.SwitchCandidate:
-		return p.handleSwitchCandidate(ctx, act, sm)
+	case *action.ChangeCandidate:
+		return p.handleChangeCandidate(ctx, act, sm)
 	case *action.TransferStake:
 		return p.handleTransferStake(ctx, act, sm)
 	case *action.DepositToStake:
@@ -80,7 +80,7 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
-func (p *Protocol) handleStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleCreateStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
@@ -95,7 +95,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act action.Action, s
 	return nil, nil
 }
 
-func (p *Protocol) handleSwitchCandidate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleChangeCandidate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }

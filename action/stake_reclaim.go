@@ -24,8 +24,8 @@ const (
 	ReclaimStakeBaseIntrinsicGas = uint64(10000)
 )
 
-// ReclaimStake defines the action of stake restake/withdraw
-type ReclaimStake struct {
+// reclaimStake defines the action of stake restake/withdraw
+type reclaimStake struct {
 	AbstractAction
 
 	bucketIndex uint64
@@ -33,18 +33,18 @@ type ReclaimStake struct {
 }
 
 // BucketIndex returns bucket index
-func (sr *ReclaimStake) BucketIndex() uint64 { return sr.bucketIndex }
+func (sr *reclaimStake) BucketIndex() uint64 { return sr.bucketIndex }
 
 // Payload returns the payload bytes
-func (sr *ReclaimStake) Payload() []byte { return sr.payload }
+func (sr *reclaimStake) Payload() []byte { return sr.payload }
 
 // Serialize returns a raw byte stream of the stake reclaim action struct
-func (sr *ReclaimStake) Serialize() []byte {
+func (sr *reclaimStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(sr.Proto()))
 }
 
 // Proto converts to protobuf stake reclaim action struct
-func (sr *ReclaimStake) Proto() *iotextypes.StakeReclaim {
+func (sr *reclaimStake) Proto() *iotextypes.StakeReclaim {
 	act := &iotextypes.StakeReclaim{
 		BucketIndex: sr.bucketIndex,
 		Payload:     sr.payload,
@@ -53,12 +53,12 @@ func (sr *ReclaimStake) Proto() *iotextypes.StakeReclaim {
 	return act
 }
 
-// LoadProto converts a protobuf's Action to ReclaimStake
-func (sr *ReclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
+// LoadProto converts a protobuf's Action to reclaimStake
+func (sr *reclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	sr = &ReclaimStake{}
+	sr = &reclaimStake{}
 
 	sr.bucketIndex = pbAct.GetBucketIndex()
 	sr.payload = pbAct.GetPayload()
@@ -67,7 +67,7 @@ func (sr *ReclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
 
 // Unstake defines the action of unstake
 type Unstake struct {
-	ReclaimStake
+	reclaimStake
 }
 
 // NewUnstake returns a Unstake instance
@@ -79,7 +79,7 @@ func NewUnstake(
 	gasPrice *big.Int,
 ) (*Unstake, error) {
 	return &Unstake{
-		ReclaimStake{
+		reclaimStake{
 			AbstractAction: AbstractAction{
 				version:  version.ProtocolVersion,
 				nonce:    nonce,
@@ -110,7 +110,7 @@ func (su *Unstake) Cost() (*big.Int, error) {
 
 // WithdrawStake defines the action of stake withdraw
 type WithdrawStake struct {
-	ReclaimStake
+	reclaimStake
 }
 
 // NewWithdrawStake returns a WithdrawStake instance
@@ -122,7 +122,7 @@ func NewWithdrawStake(
 	gasPrice *big.Int,
 ) (*WithdrawStake, error) {
 	return &WithdrawStake{
-		ReclaimStake{
+		reclaimStake{
 			AbstractAction: AbstractAction{
 				version:  version.ProtocolVersion,
 				nonce:    nonce,

@@ -24,8 +24,8 @@ const (
 	MoveStakeBaseIntrinsicGas = uint64(10000)
 )
 
-// MoveStake defines the action of changing stake candidate and transfering stake ownership
-type MoveStake struct {
+// moveStake defines the action of changing stake candidate and transfering stake ownership
+type moveStake struct {
 	AbstractAction
 
 	name        string
@@ -34,21 +34,21 @@ type MoveStake struct {
 }
 
 // Name returns the name of recipient
-func (sm *MoveStake) Name() string { return sm.name }
+func (sm *moveStake) Name() string { return sm.name }
 
 // BucketIndex returns bucket index
-func (sm *MoveStake) BucketIndex() uint64 { return sm.bucketIndex }
+func (sm *moveStake) BucketIndex() uint64 { return sm.bucketIndex }
 
 // Payload returns the payload bytes
-func (sm *MoveStake) Payload() []byte { return sm.payload }
+func (sm *moveStake) Payload() []byte { return sm.payload }
 
 // Serialize returns a raw byte stream of the stake move action struct
-func (sm *MoveStake) Serialize() []byte {
+func (sm *moveStake) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(sm.Proto()))
 }
 
 // Proto converts ts Protobuf stake move action struct
-func (sm *MoveStake) Proto() *iotextypes.StakeMove {
+func (sm *moveStake) Proto() *iotextypes.StakeMove {
 	act := &iotextypes.StakeMove{
 		BucketIndex: sm.bucketIndex,
 		Payload:     sm.payload,
@@ -57,34 +57,34 @@ func (sm *MoveStake) Proto() *iotextypes.StakeMove {
 	return act
 }
 
-// LoadProto converts a Protobuf's Action ts MoveStake
-func (sm *MoveStake) LoadProto(pbAct *iotextypes.StakeMove) error {
+// LoadProto converts a Protobuf's Action ts moveStake
+func (sm *moveStake) LoadProto(pbAct *iotextypes.StakeMove) error {
 	if pbAct == nil {
 		return errors.New("empty action Proto ts load")
 	}
-	sm = &MoveStake{}
+	sm = &moveStake{}
 
 	sm.bucketIndex = pbAct.GetBucketIndex()
 	sm.payload = pbAct.GetPayload()
 	return nil
 }
 
-// SwitchCandidate defines the action of changing stake candidate ts the other
-type SwitchCandidate struct {
-	MoveStake
+// ChangeCandidate defines the action of changing stake candidate ts the other
+type ChangeCandidate struct {
+	moveStake
 }
 
-// NewSwitchCandidate returns a SwitchCandidate instance
-func NewSwitchCandidate(
+// NewChangeCandidate returns a ChangeCandidate instance
+func NewChangeCandidate(
 	nonce uint64,
 	candName string,
 	bucketIndex uint64,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
-) (*SwitchCandidate, error) {
-	return &SwitchCandidate{
-		MoveStake{
+) (*ChangeCandidate, error) {
+	return &ChangeCandidate{
+		moveStake{
 			AbstractAction: AbstractAction{
 				version:  version.ProtocolVersion,
 				nonce:    nonce,
@@ -98,25 +98,25 @@ func NewSwitchCandidate(
 	}, nil
 }
 
-// IntrinsicGas returns the intrinsic gas of a SwitchCandidate
-func (sc *SwitchCandidate) IntrinsicGas() (uint64, error) {
-	payloadSize := uint64(len(sc.Payload()))
+// IntrinsicGas returns the intrinsic gas of a ChangeCandidate
+func (cc *ChangeCandidate) IntrinsicGas() (uint64, error) {
+	payloadSize := uint64(len(cc.Payload()))
 	return calculateIntrinsicGas(MoveStakeBaseIntrinsicGas, MoveStakePayloadGas, payloadSize)
 }
 
-// Cost returns the tstal cost of a SwitchCandidate
-func (sc *SwitchCandidate) Cost() (*big.Int, error) {
-	intrinsicGas, err := sc.IntrinsicGas()
+// Cost returns the tstal cost of a ChangeCandidate
+func (cc *ChangeCandidate) Cost() (*big.Int, error) {
+	intrinsicGas, err := cc.IntrinsicGas()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the SwitchCandidate")
+		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the ChangeCandidate")
 	}
-	switchCandidateFee := big.NewInt(0).Mul(sc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return switchCandidateFee, nil
+	changeCandidateFee := big.NewInt(0).Mul(cc.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return changeCandidateFee, nil
 }
 
 // TransferStake defines the action of transfering stake ownership ts the other
 type TransferStake struct {
-	MoveStake
+	moveStake
 }
 
 // NewTransferStake returns a TransferStake instance
@@ -129,7 +129,7 @@ func NewTransferStake(
 	gasPrice *big.Int,
 ) (*TransferStake, error) {
 	return &TransferStake{
-		MoveStake{
+		moveStake{
 			AbstractAction: AbstractAction{
 				version:  version.ProtocolVersion,
 				nonce:    nonce,

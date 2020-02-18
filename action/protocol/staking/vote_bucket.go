@@ -61,7 +61,7 @@ func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time,
 			CreateTime:       createTime,
 			StakeStartTime:   createTime,
 			UnstakeStartTime: unstakeTime,
-			AutoStake:         autoStake,
+			AutoStake:        autoStake,
 			Owner:            owner,
 		},
 	}

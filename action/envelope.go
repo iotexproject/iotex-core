@@ -88,7 +88,7 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_DepositToRewardingFund{DepositToRewardingFund: act.Proto()}
 	case *PutPollResult:
 		actCore.Action = &iotextypes.ActionCore_PutPollResult{PutPollResult: act.Proto()}
-	case *Stake:
+	case *CreateStake:
 		actCore.Action = &iotextypes.ActionCore_StakeCreate{StakeCreate: act.Proto()}
 	case *Unstake:
 		actCore.Action = &iotextypes.ActionCore_StakeUnstake{StakeUnstake: act.Proto()}
@@ -98,7 +98,7 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 		actCore.Action = &iotextypes.ActionCore_StakeAddDeposit{StakeAddDeposit: act.Proto()}
 	case *Restake:
 		actCore.Action = &iotextypes.ActionCore_StakeRestake{StakeRestake: act.Proto()}
-	case *SwitchCandidate:
+	case *ChangeCandidate:
 		actCore.Action = &iotextypes.ActionCore_StakeChangeCandidate{StakeChangeCandidate: act.Proto()}
 	case *TransferStake:
 		actCore.Action = &iotextypes.ActionCore_StakeTransferOwnership{StakeTransferOwnership: act.Proto()}
@@ -162,7 +162,7 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		elp.payload = act
 
 	case pbAct.GetStakeCreate() != nil:
-		act := &Stake{}
+		act := &CreateStake{}
 		if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 			return err
 		}
@@ -192,7 +192,7 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		}
 		elp.payload = act
 	case pbAct.GetStakeChangeCandidate() != nil:
-		act := &SwitchCandidate{}
+		act := &ChangeCandidate{}
 		if err := act.LoadProto(pbAct.GetStakeChangeCandidate()); err != nil {
 			return err
 		}

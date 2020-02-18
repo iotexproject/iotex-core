@@ -92,7 +92,9 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	ds.bucketIndex = pbAct.GetBucketIndex()
 	ds.payload = pbAct.GetPayload()
 	ds.amount = big.NewInt(0)
-	ds.amount.SetString(pbAct.GetAmount(), 10)
+	if len(pbAct.GetAmount()) > 0 {
+		ds.amount.SetString(pbAct.GetAmount(), 10)
+	}
 
 	return nil
 }
