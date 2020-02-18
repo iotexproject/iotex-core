@@ -158,18 +158,18 @@ func New(
 		}
 	}
 	// create BlockDAO
-	var kvstore db.KVStore
+	var kvStore db.KVStore
 	if ops.isTesting {
-		kvstore = db.NewMemKVStore()
+		kvStore = db.NewMemKVStore()
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvstore = db.NewBoltDB(cfg.DB)
+		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvstore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, indexer, cfg.Chain.CompressBlock, cfg.DB)
 	} else {
-		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
@@ -209,8 +209,12 @@ func New(
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
-			func(ctx context.Context, contract string, height uint64, ts time.Time, params []byte) ([]byte, error) {
-				ex, err := action.NewExecution(contract, 1, big.NewInt(0), 1000000, big.NewInt(0), params)
+			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
+				gasLimit := uint64(1000000)
+				if correctGas {
+					gasLimit *= 10
+				}
+				ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
 				if err != nil {
 					return nil, err
 				}

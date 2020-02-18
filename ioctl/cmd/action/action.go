@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/protobuf/proto"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -146,6 +147,12 @@ func gasPriceInRau() (*big.Int, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	request := &iotexapi.SuggestGasPriceRequest{}
 	response, err := cli.SuggestGasPrice(ctx, request)
 	if err != nil {
@@ -171,7 +178,14 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 		},
 		CallerAddress: caller,
 	}
-	res, err := cli.EstimateActionGasConsumption(context.Background(), request)
+
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	res, err := cli.EstimateActionGasConsumption(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -192,6 +206,11 @@ func SendRaw(selp *iotextypes.Action) error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 
 	request := &iotexapi.SendActionRequest{Action: selp}
 	if _, err = cli.SendAction(ctx, request); err != nil {
@@ -325,8 +344,15 @@ func Read(contract address.Address, bytecode []byte) (string, error) {
 		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
+
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
-		context.Background(),
+		ctx,
 		&iotexapi.ReadContractRequest{
 			Execution:     exec.Proto(),
 			CallerAddress: caller,

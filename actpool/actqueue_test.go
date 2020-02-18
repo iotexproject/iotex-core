@@ -17,9 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -126,9 +125,9 @@ func TestActQueuePendingActs(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 	sf := mock_factory.NewMockFactory(ctrl)
-	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(_ hash.Hash160, accountState *state.Account) {
+	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		accountState.Nonce = uint64(1)
-	}).Return(nil).Times(1)
+	}).Return(uint64(0), nil).Times(1)
 	ap, err := NewActPool(sf, cfg.ActPool, EnableExperimentalActions())
 	require.NoError(err)
 	q := NewActQueue(ap.(*actPool), identityset.Address(0).String()).(*actQueue)

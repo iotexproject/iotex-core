@@ -160,7 +160,7 @@ func (p *Protocol) GrantEpochReward(
 	var uqd map[string]bool
 	var err error
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if hu.IsPre(config.English, epochStartHeight) {
+	if hu.IsPre(config.Easter, epochStartHeight) {
 		// Get unqualified delegate list
 		if uqd, err = p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold); err != nil {
 			return nil, err
@@ -422,12 +422,12 @@ func (p *Protocol) splitEpochReward(
 			continue
 		}
 		if _, ok := uqd[candidate.Address]; ok {
-			if hu.IsPre(config.English, epochStartHeight) {
-				// Before English, if not qualified, skip the epoch reward
+			if hu.IsPre(config.Easter, epochStartHeight) {
+				// Before Easter, if not qualified, skip the epoch reward
 				amounts = append(amounts, big.NewInt(0))
 				continue
 			}
-			// After English, if not qualified, split epoch reward according to decreased voting power
+			// After Easter, if not qualified, split epoch reward according to decreased voting power
 			votingPower := new(big.Float).SetInt(candidate.Votes)
 			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
 			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)

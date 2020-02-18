@@ -9,11 +9,14 @@ package util
 import (
 	"bytes"
 	"crypto/tls"
+	"io/ioutil"
 	"math/big"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"google.golang.org/grpc/metadata"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
@@ -28,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 const (
@@ -87,17 +89,12 @@ func StringToRau(amount string, numDecimals int) (*big.Int, error) {
 
 // RauToString converts Rau big int into Iotx string
 func RauToString(amount *big.Int, numDecimals int) string {
-	var targetUnit int64
-	switch numDecimals {
-	case 18:
-		targetUnit = unit.Iotx
-	case 12:
-		targetUnit = unit.Qev
-	default:
-		targetUnit = unit.Rau
+	if numDecimals == 0 {
+		return amount.String()
 	}
+	targetUnit := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(numDecimals)), nil)
 	amountInt, amountDec := big.NewInt(0), big.NewInt(0)
-	amountInt.DivMod(amount, big.NewInt(targetUnit), amountDec)
+	amountInt.DivMod(amount, targetUnit, amountDec)
 	if amountDec.Sign() != 0 {
 		decString := strings.TrimRight(amountDec.String(), "0")
 		zeroString := strings.Repeat("0", numDecimals-len(amountDec.String()))
@@ -125,7 +122,7 @@ func StringToIOTX(amount string) (string, error) {
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
-	return RauToString(amountInt, 18), nil
+	return RauToString(amountInt, IotxDecimalNum), nil
 }
 
 // ReadSecretFromStdin used to safely get password input
@@ -183,4 +180,14 @@ func Address(in string) (string, error) {
 		return addr, nil
 	}
 	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
+}
+
+// JwtAuth used for ioctl set auth and send for every grpc request
+func JwtAuth() (jwt metadata.MD, err error) {
+	jwtFile := os.Getenv("HOME") + "/.config/ioctl/default/auth.jwt"
+	jwtString, err := ioutil.ReadFile(jwtFile)
+	if err != nil {
+		return nil, err
+	}
+	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
 }

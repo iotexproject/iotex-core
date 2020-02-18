@@ -65,6 +65,8 @@ func TestBlockReward(t *testing.T) {
 	testDBPath := testDBFile.Name()
 	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
 	testIndexPath := testIndexFile.Name()
+	testConsensusFile, _ := ioutil.TempFile(os.TempDir(), "cons")
+	testConsensusPath := testConsensusFile.Name()
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
@@ -82,6 +84,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 300 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
+	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Chain.ProducerPrivKey = identityset.PrivateKey(0).HexString()
 	cfg.Chain.TrieDBPath = testTriePath

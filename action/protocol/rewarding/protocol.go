@@ -244,17 +244,20 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 
 func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.State(keyHash, value)
+	_, err := sm.State(value, protocol.LegacyKeyOption(keyHash))
+	return err
 }
 
 func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.PutState(keyHash, value)
+	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
+	return err
 }
 
 func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.DelState(keyHash)
+	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+	return err
 }
 
 func (p *Protocol) settleAction(
