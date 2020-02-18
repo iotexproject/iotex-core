@@ -146,20 +146,6 @@ func (mr *MockKVStoreBatchMockRecorder) SerializeQueue(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockKVStoreBatch)(nil).SerializeQueue), arg0)
 }
 
-// ExcludeEntries mocks base method
-func (m *MockKVStoreBatch) ExcludeEntries(arg0 string, arg1 batch.WriteType) batch.KVStoreBatch {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExcludeEntries", arg0, arg1)
-	ret0, _ := ret[0].(batch.KVStoreBatch)
-	return ret0
-}
-
-// ExcludeEntries indicates an expected call of ExcludeEntries
-func (mr *MockKVStoreBatchMockRecorder) ExcludeEntries(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExcludeEntries", reflect.TypeOf((*MockKVStoreBatch)(nil).ExcludeEntries), arg0, arg1)
-}
-
 // Clear mocks base method
 func (m *MockKVStoreBatch) Clear() {
 	m.ctrl.T.Helper()
@@ -320,20 +306,6 @@ func (m *MockCachedBatch) SerializeQueue(arg0 batch.WriteInfoFilter) []byte {
 func (mr *MockCachedBatchMockRecorder) SerializeQueue(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockCachedBatch)(nil).SerializeQueue), arg0)
-}
-
-// ExcludeEntries mocks base method
-func (m *MockCachedBatch) ExcludeEntries(arg0 string, arg1 batch.WriteType) batch.KVStoreBatch {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExcludeEntries", arg0, arg1)
-	ret0, _ := ret[0].(batch.KVStoreBatch)
-	return ret0
-}
-
-// ExcludeEntries indicates an expected call of ExcludeEntries
-func (mr *MockCachedBatchMockRecorder) ExcludeEntries(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExcludeEntries", reflect.TypeOf((*MockCachedBatch)(nil).ExcludeEntries), arg0, arg1)
 }
 
 // Clear mocks base method

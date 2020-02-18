@@ -38,7 +38,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/enc"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -131,10 +130,12 @@ func testRevert(ws WorkingSet, t *testing.T) {
 
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(10), s.Balance)
-	require.NoError(ws.PutState(sHash, s))
+	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 
 	require.NoError(ws.Revert(s0))
-	require.NoError(ws.State(sHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 }
 
@@ -150,10 +151,12 @@ func testSDBRevert(ws WorkingSet, t *testing.T) {
 
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(10), s.Balance)
-	require.NoError(ws.PutState(sHash, s))
+	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 
 	require.NoError(ws.Revert(s0))
-	require.NoError(ws.State(sHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 }
 
@@ -172,12 +175,14 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	require.Zero(s0)
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(10), s.Balance)
-	require.NoError(ws.PutState(sHash, s))
+	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	s1 := ws.Snapshot()
 	require.Equal(1, s1)
 	s.Balance.Add(s.Balance, big.NewInt(5))
 	require.Equal(big.NewInt(15), s.Balance)
-	require.NoError(ws.PutState(sHash, s))
+	_, err = ws.PutState(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 
 	s, err = accountutil.LoadAccount(ws, tHash)
 	require.NoError(err)
@@ -186,18 +191,23 @@ func testSnapshot(ws WorkingSet, t *testing.T) {
 	require.Equal(2, s2)
 	require.NoError(s.AddBalance(big.NewInt(6)))
 	require.Equal(big.NewInt(13), s.Balance)
-	require.NoError(ws.PutState(tHash, s))
+	_, err = ws.PutState(s, protocol.LegacyKeyOption(tHash))
+	require.NoError(err)
 
 	require.NoError(ws.Revert(s2))
-	require.NoError(ws.State(sHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(15), s.Balance)
-	require.NoError(ws.State(tHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(tHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(7), s.Balance)
 	require.NoError(ws.Revert(s1))
-	require.NoError(ws.State(sHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(10), s.Balance)
 	require.NoError(ws.Revert(s0))
-	require.NoError(ws.State(sHash, s))
+	_, err = ws.State(s, protocol.LegacyKeyOption(sHash))
+	require.NoError(err)
 	require.Equal(big.NewInt(5), s.Balance)
 }
 
@@ -308,32 +318,32 @@ func TestHistoryState(t *testing.T) {
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
-	cfg.Chain.EnableHistoryStateDB = true
+	cfg.Chain.EnableArchiveMode = true
 	sf, err := NewFactory(cfg, DefaultTrieOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using statedb and enable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
-	cfg.Chain.EnableHistoryStateDB = false
+	cfg.Chain.EnableArchiveMode = false
 	sf, err = NewFactory(cfg, DefaultTrieOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, false, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using statedb and disable history
 	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
 	require.NoError(t, err)
-	testHistoryState(sf, t, true, cfg.Chain.EnableHistoryStateDB)
+	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
 
 func TestSDBState(t *testing.T) {
@@ -406,7 +416,7 @@ func testState(sf Factory, t *testing.T) {
 	accountA, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	sHash := hash.BytesToHash160(identityset.Address(28).Bytes())
-	err = sf.State(sHash, &testAccount)
+	_, err = sf.State(&testAccount, protocol.LegacyKeyOption(sHash))
 	require.NoError(t, err)
 	require.Equal(t, accountA, &testAccount)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
@@ -477,15 +487,15 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	if statetx {
 		// statetx not support archive mode
 		_, err = accountutil.AccountStateAtHeight(sf, a, 0)
-		require.True(t, errors.Cause(err) == ErrNotSupported)
+		require.Equal(t, ErrNotSupported, errors.Cause(err))
 		_, err = accountutil.AccountStateAtHeight(sf, b, 0)
-		require.True(t, errors.Cause(err) == ErrNotSupported)
+		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
 			_, err = accountutil.AccountStateAtHeight(sf, a, 0)
-			require.True(t, errors.Cause(err) == ErrNoArchiveData)
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 			_, err = accountutil.AccountStateAtHeight(sf, b, 0)
-			require.True(t, errors.Cause(err) == ErrNoArchiveData)
+			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
 			accountA, err = accountutil.AccountStateAtHeight(sf, a, 0)
 			require.NoError(t, err)
@@ -647,18 +657,34 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(context.Background()))
 	}()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	dao := ws.GetDB()
-	require.NoError(dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)))
+	registry := protocol.NewRegistry()
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: registry,
+	})
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
+	lastBlockHash := hash.ZeroHash256
+	for i := uint64(1); i <= 10; i++ {
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: i,
+			Producer:    identityset.Address(27),
+			GasLimit:    testutil.TestGasLimit,
+		})
+		blk, err := block.NewTestingBuilder().
+			SetHeight(i).
+			SetPrevBlockHash(lastBlockHash).
+			SetTimeStamp(testutil.TimestampNow()).
+			AddActions([]action.SealedEnvelope{}...).
+			SignAndBuild(identityset.PrivateKey(27))
+		require.NoError(err)
+		require.NoError(sf.Commit(ctx, &blk))
 
-	require.NoError(dao.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(10)))
-	height, err = sf.Height()
-	require.NoError(err)
-	require.Equal(uint64(10), height)
+		height, err = sf.Height()
+		require.NoError(err)
+		require.Equal(uint64(i), height)
+	}
 }
 
 func TestRunActions(t *testing.T) {
@@ -973,43 +999,46 @@ func testCachedBatch(ws WorkingSet, t *testing.T) {
 	hashA := hash.BytesToHash160(identityset.Address(28).Bytes())
 	accountA := state.EmptyAccount()
 	accountA.Balance = big.NewInt(70)
-	err := ws.PutState(hashA, accountA)
+	_, err := ws.PutState(accountA, protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 
 	// test State()
 	testAccount := state.EmptyAccount()
-	require.NoError(ws.State(hashA, &testAccount))
+	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	require.NoError(err)
 	require.Equal(accountA, testAccount)
 
 	// test DelState()
-	err = ws.DelState(hashA)
+	_, err = ws.DelState(protocol.LegacyKeyOption(hashA))
 	require.NoError(err)
 
 	// can't state account "alfa" anymore
-	require.Error(ws.State(hashA, &testAccount))
+	_, err = ws.State(&testAccount, protocol.LegacyKeyOption(hashA))
+	require.Error(err)
 }
 
 func TestGetDB(t *testing.T) {
+	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(t, err)
+	require.NoError(err)
 	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
-	testGetDB(ws, t)
+	require.NoError(err)
+	require.Equal(uint64(1), ws.Version())
+	kvStore := ws.GetDB()
+	_, ok := kvStore.(db.KVStoreWithBuffer)
+	require.True(ok)
 }
 
 func TestSTXGetDB(t *testing.T) {
-	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-	require.NoError(t, err)
-	ws, _ := sdb.NewWorkingSet()
-	testGetDB(ws, t)
-}
-
-func testGetDB(ws WorkingSet, t *testing.T) {
 	require := require.New(t)
-	memDB := db.NewMemKVStore()
+	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
+	require.NoError(err)
+	ws, err := sdb.NewWorkingSet()
+	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
-	require.NoError(ws.GetDB().Start(context.Background()))
-	require.Equal(memDB, ws.GetDB())
+	kvStore := ws.GetDB()
+	_, ok := kvStore.(db.KVStoreWithBuffer)
+	require.True(ok)
 }
 
 func TestDeleteAndPutSameKey(t *testing.T) {
@@ -1018,10 +1047,14 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		acc := state.Account{
 			Nonce: 1,
 		}
-		require.NoError(t, ws.PutState(key, acc))
-		require.NoError(t, ws.DelState(key))
-		require.Equal(t, state.ErrStateNotExist, errors.Cause(ws.State(key, &acc)))
-		require.Equal(t, state.ErrStateNotExist, errors.Cause(ws.State(hash.Hash160b([]byte("other")), &acc)))
+		_, err := ws.PutState(acc, protocol.LegacyKeyOption(key))
+		require.NoError(t, err)
+		_, err = ws.DelState(protocol.LegacyKeyOption(key))
+		require.NoError(t, err)
+		_, err = ws.State(&acc, protocol.LegacyKeyOption(key))
+		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
+		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
+		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
@@ -1031,7 +1064,8 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
-		ws := newStateTX(0, db.NewMemKVStore(), false)
+		ws, err := newStateTX(0, db.NewMemKVStore())
+		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 }
