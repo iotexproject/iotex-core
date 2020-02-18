@@ -136,8 +136,8 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.English, nextEpochStartHeight) {
-		// if the block height is the end of epoch and next epoch is after the English height, calculate blacklist for kick-out and write into state DB
+	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
+		// if the block height is the end of epoch and next epoch is after the Easter height, calculate blacklist for kick-out and write into state DB
 		unqualifiedList, err := p.calculateKickoutBlackList(ctx, epochNum+1)
 		if err != nil {
 			return err
@@ -289,7 +289,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochHeight := rp.GetEpochHeight(epochNum)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.English, epochHeight) {
+	if hu.IsPre(config.Easter, epochHeight) {
 		var blockProducers state.CandidateList
 		for i, candidate := range candidates {
 			if uint64(i) >= p.numCandidateDelegates {
@@ -300,7 +300,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 		return blockProducers, nil
 	}
 
-	// After English height, kick-out unqualified delegates based on productivity
+	// After Easter height, kick-out unqualified delegates based on productivity
 	unqualifiedList, err := p.kickoutListByEpoch(p.sr, epochNum)
 	if err != nil {
 		return nil, err
@@ -389,15 +389,15 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 ) (*vote.Blacklist, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	englishEpochNum := rp.GetEpochNum(config.English)
+	easterEpochNum := rp.GetEpochNum(config.Easter)
 
 	nextBlacklist := &vote.Blacklist{
 		IntensityRate: p.kickoutIntensity,
 	}
 	unqualifiedDelegates := make(map[string]uint32)
-	if epochNum <= englishEpochNum+p.kickoutEpochPeriod {
-		// if epoch number is smaller than EnglishHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
-		round := epochNum - englishEpochNum // 0, 1, 2, 3 .. K
+	if epochNum <= easterEpochNum+p.kickoutEpochPeriod {
+		// if epoch number is smaller than EasterHeightEpoch+K(kickout period), calculate it one-by-one (initialize).
+		round := epochNum - easterEpochNum // 0, 1, 2, 3 .. K
 		for {
 			if round == 0 {
 				break

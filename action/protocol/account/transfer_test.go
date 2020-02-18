@@ -41,21 +41,29 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			val, err := cb.Get("state", addrHash[:])
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
-				return state.ErrStateNotExist
+				return 0, err
 			}
-			return state.Deserialize(account, val)
+			val, err := cb.Get("state", cfg.Key)
+			if err != nil {
+				return 0, state.ErrStateNotExist
+			}
+			return 0, state.Deserialize(account, val)
 		}).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
 			ss, err := state.Serialize(account)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			cb.Put("state", addrHash[:], ss, "failed to put state")
-			return nil
+			cb.Put("state", cfg.Key, ss, "failed to put state")
+			return 0, nil
 		}).AnyTimes()
 
 	p := NewProtocol(rewarding.DepositGas)
@@ -104,9 +112,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	pubKeyBravo := hash.BytesToHash160(identityset.Address(29).Bytes())
 	pubKeyCharlie := hash.BytesToHash160(identityset.Address(30).Bytes())
 
-	require.NoError(sm.PutState(pubKeyAlfa, &accountAlfa))
-	require.NoError(sm.PutState(pubKeyBravo, &accountBravo))
-	require.NoError(sm.PutState(pubKeyCharlie, &accountCharlie))
+	_, err := sm.PutState(&accountAlfa, protocol.LegacyKeyOption(pubKeyAlfa))
+	require.NoError(err)
+	_, err = sm.PutState(&accountBravo, protocol.LegacyKeyOption(pubKeyBravo))
+	require.NoError(err)
+	_, err = sm.PutState(&accountCharlie, protocol.LegacyKeyOption(pubKeyCharlie))
+	require.NoError(err)
 
 	transfer, err := action.NewTransfer(
 		uint64(1),
@@ -138,17 +149,20 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 
 	var acct state.Account
-	require.NoError(sm.State(pubKeyAlfa, &acct))
+	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyAlfa))
+	require.NoError(err)
 	require.Equal("40003", acct.Balance.String())
 	require.Equal(uint64(1), acct.Nonce)
-	require.NoError(sm.State(pubKeyBravo, &acct))
+	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyBravo))
+	require.NoError(err)
 	require.Equal("2", acct.Balance.String())
 
 	contractAcct := state.Account{
 		CodeHash: []byte("codeHash"),
 	}
 	contractAddr := hash.BytesToHash160(identityset.Address(32).Bytes())
-	require.NoError(sm.PutState(contractAddr, &contractAcct))
+	_, err = sm.PutState(&contractAcct, protocol.LegacyKeyOption(contractAddr))
+	require.NoError(err)
 	transfer, err = action.NewTransfer(
 		uint64(2),
 		big.NewInt(3),
@@ -162,7 +176,8 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	receipt, err = p.Handle(ctx, transfer, sm)
 	require.NoError(err)
 	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
-	require.NoError(sm.State(pubKeyAlfa, &acct))
+	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyAlfa))
+	require.NoError(err)
 	require.Equal(uint64(2), acct.Nonce)
 	require.Equal("20003", acct.Balance.String())
 }

@@ -155,10 +155,10 @@ func TestIndexer(t *testing.T) {
 		},
 	}
 
-	testIndexer := func(kvstore db.KVStore, t *testing.T) {
+	testIndexer := func(kvStore db.KVStore, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		indexer, err := NewIndexer(kvstore, hash.ZeroHash256)
+		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
 		defer func() {
@@ -250,10 +250,10 @@ func TestIndexer(t *testing.T) {
 		}
 	}
 
-	testDelete := func(kvstore db.KVStore, t *testing.T) {
+	testDelete := func(kvStore db.KVStore, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		indexer, err := NewIndexer(kvstore, hash.ZeroHash256)
+		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
 		defer func() {

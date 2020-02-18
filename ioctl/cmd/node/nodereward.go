@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -85,6 +86,12 @@ func rewardPool() error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
@@ -137,6 +144,12 @@ func reward(arg string) error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("UnclaimedBalance"),

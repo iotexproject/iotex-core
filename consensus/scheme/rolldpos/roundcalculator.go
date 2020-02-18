@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -170,17 +169,7 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	re := protocol.NewRegistry()
-	if err := c.rp.Register(re); err != nil {
-		return nil, err
-	}
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{
-			Registry: re,
-		},
-	)
-	candidatesList, err := c.delegatesByEpochFunc(ctx, epochNum)
+	candidatesList, err := c.delegatesByEpochFunc(context.Background(), epochNum)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
 	}

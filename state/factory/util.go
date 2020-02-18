@@ -118,8 +118,6 @@ func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonc
 
 func runActions(ctx context.Context, ws WorkingSet, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	bcCtx.History = ws.History()
-	ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
 	registry := bcCtx.Registry
 	for _, p := range registry.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {

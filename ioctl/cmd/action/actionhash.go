@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -95,6 +96,11 @@ func getActionByHash(args []string) error {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
 
 	// search action on blockchain
 	requestGetAction := iotexapi.GetActionsRequest{
@@ -190,7 +196,11 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			fmt.Sprintf("  contract: %s %s\n", execution.Contract,
 				Match(execution.Contract, "address"))
 		if execution.Amount != "0" {
-			result += fmt.Sprintf("  amount: %s Rau\n", execution.Amount)
+			amount, err := util.StringToIOTX(execution.Amount)
+			if err != nil {
+				return "", output.NewError(output.ConvertError, "failed to convert string into IOTX amount", err)
+			}
+			result += fmt.Sprintf("  amount: %s IOTX\n", amount)
 		}
 		result += fmt.Sprintf("  data: %x\n", execution.Data) + ">\n"
 	case action.Core.GetPutPollResult() != nil:

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -53,7 +53,8 @@ func defaultConfig() Genesis {
 			BeringBlockHeight:       1512001,
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
-			EnglishBlockHeight:      3363481,
+			DaytonaBlockHeight:      3238921,
+			EasterBlockHeight:       3619801,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -135,8 +136,10 @@ type (
 		CookBlockHeight uint64 `yaml:"cookHeight"`
 		// DardanellesBlockHeight is the start height of 5s block internal
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
-		// EnglishBlockHeight is the start height of kick-out for slashing
-		EnglishBlockHeight uint64 `yaml:englishHeight`
+		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
+		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
+		// EasterBlockHeight is the start height of kick-out for slashing
+		EasterBlockHeight uint64 `yaml:"easterHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
