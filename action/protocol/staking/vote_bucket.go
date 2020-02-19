@@ -34,7 +34,7 @@ type (
 )
 
 // NewVoteBucket creates a new vote bucket
-func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time, nonDecay bool) (*VoteBucket, error) {
+func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
 	if len(name) == 0 {
 		return nil, errors.New("empty candidate name")
 	}
@@ -61,7 +61,7 @@ func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time,
 			CreateTime:       createTime,
 			StakeStartTime:   createTime,
 			UnstakeStartTime: unstakeTime,
-			NonDecay:         nonDecay,
+			AutoStake:        autoStake,
 			Owner:            owner,
 		},
 	}

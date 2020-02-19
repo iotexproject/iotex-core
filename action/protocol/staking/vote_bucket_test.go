@@ -50,7 +50,7 @@ func TestBucket(t *testing.T) {
 	require.Equal(vb.StakeStartTime.Nanos, vb1.StakeStartTime.Nanos)
 	require.Equal(vb.UnstakeStartTime.Seconds, vb1.UnstakeStartTime.Seconds)
 	require.Equal(vb.UnstakeStartTime.Nanos, vb1.UnstakeStartTime.Nanos)
-	require.Equal(vb.NonDecay, vb1.NonDecay)
+	require.Equal(vb.AutoStake, vb1.AutoStake)
 	require.Equal(vb.Owner, vb1.Owner)
 }
 
@@ -121,7 +121,7 @@ func TestGetPutStaking(t *testing.T) {
 			require.Equal(vb.StakeStartTime.Nanos, vb1.StakeStartTime.Nanos)
 			require.Equal(vb.UnstakeStartTime.Seconds, vb1.UnstakeStartTime.Seconds)
 			require.Equal(vb.UnstakeStartTime.Nanos, vb1.UnstakeStartTime.Nanos)
-			require.Equal(vb.NonDecay, vb1.NonDecay)
+			require.Equal(vb.AutoStake, vb1.AutoStake)
 			require.Equal(vb.Owner, vb1.Owner)
 		}
 

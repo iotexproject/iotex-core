@@ -7,7 +7,6 @@
 package action
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -124,11 +123,7 @@ func (tsf *Transfer) LoadProto(pbAct *iotextypes.Transfer) error {
 // IntrinsicGas returns the intrinsic gas of a transfer
 func (tsf *Transfer) IntrinsicGas() (uint64, error) {
 	payloadSize := uint64(len(tsf.Payload()))
-	if (math.MaxUint64-TransferBaseIntrinsicGas)/TransferPayloadGas < payloadSize {
-		return 0, ErrOutOfGas
-	}
-
-	return payloadSize*TransferPayloadGas + TransferBaseIntrinsicGas, nil
+	return calculateIntrinsicGas(TransferBaseIntrinsicGas, TransferPayloadGas, payloadSize)
 }
 
 // Cost returns the total cost of a transfer
