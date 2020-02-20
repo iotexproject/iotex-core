@@ -29,12 +29,14 @@ func TestBucket(t *testing.T) {
 	require := require.New(t)
 
 	vb, err := NewVoteBucket("", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
-	require.Equal("empty candidate name", err.Error())
-	vb, err = NewVoteBucket("testname", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
-	require.Equal("failed to cast amount", err.Error())
-	vb, err = NewVoteBucket("testname", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
 	require.Error(err)
-	vb, err = NewVoteBucket("testname", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
+	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "-2100000000", 21, time.Now(), true)
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
+	require.Error(err)
+	vb, err = NewVoteBucket("testname1234", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
 	require.NoError(err)
 
 	data, err := vb.Serialize()
@@ -91,7 +93,7 @@ func TestGetPutStaking(t *testing.T) {
 			_, err := stakingGetBucket(sf, e.name, e.index)
 			require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
-			vb, err := NewVoteBucket("testname", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
+			vb, err := NewVoteBucket(string(e.name[:]), "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
 			require.NoError(err)
 			ws, err := sf.NewWorkingSet()
 			require.NoError(err)
