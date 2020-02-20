@@ -24,6 +24,9 @@ var InContractTransfer = common.Hash{} // 32 bytes with all zeros
 // IsSystemLog checks whether a log is system log
 // lowerBound chooses the largest system log topic, which is InContractTransfer currently
 func IsSystemLog(l *Log) bool {
+	if len(l.Topics) == 0 {
+		return false
+	}
 	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
 }
 
