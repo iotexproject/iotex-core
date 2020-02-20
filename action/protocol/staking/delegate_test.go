@@ -4,10 +4,41 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
+
+func TestDelegate(t *testing.T) {
+	require := require.New(t)
+
+	d, err := NewDelegate("", "", "", "testname", "a2100000000", "")
+	require.Error(err)
+	d, err = NewDelegate("", "", "", "testname1234", "a2100000000", "")
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	d, err = NewDelegate("", "", "", "testname1234", "-2100000000", "")
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	d, err = NewDelegate("", "", "", "testname1234", "2100000000", "a2100000000")
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	d, err = NewDelegate("", "", "", "testname1234", "2100000000", "-2100000000")
+	require.Equal(ErrInvalidAmount, errors.Cause(err))
+	d, err = NewDelegate("d390*jk jh{}", "", "", "testname1234", "2100000000", "2100000000")
+	require.Error(err)
+	d, err = NewDelegate("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "d390*jk jh{}", "", "testname1234", "2100000000", "2100000000")
+	require.Error(err)
+	d, err = NewDelegate("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "d390*jk jh{}", "testname1234", "2100000000", "2100000000")
+	require.Error(err)
+	d, err = NewDelegate("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "testname1234", "2100000000", "2100000000")
+	require.NoError(err)
+
+	b, err := d.Serialize()
+	require.NoError(err)
+	d1 := &Delegate{}
+	require.NoError(d1.Deserialize(b))
+	require.Equal(d, d1)
+}
 
 func TestCandMap(t *testing.T) {
 	r := require.New(t)
@@ -18,41 +49,45 @@ func TestCandMap(t *testing.T) {
 	}{
 		{
 			&Delegate{
-				Owner:         "io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n",
+				Owner:         hash.Hash160b([]byte("test1")),
 				Address:       identityset.Address(2).String(),
-				Votes:         big.NewInt(2),
 				RewardAddress: "io1066kus4vlyvk0ljql39fzwqw0k22h7j8wmef3n",
 				CanName:       ToCandName([]byte("test1")),
+				Votes:         big.NewInt(2),
+				SelfStake:     big.NewInt(1200000),
 			},
 			2,
 		},
 		{
 			&Delegate{
-				Owner:         "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+				Owner:         hash.Hash160b([]byte("test2")),
 				Address:       identityset.Address(3).String(),
-				Votes:         big.NewInt(3),
 				RewardAddress: "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
 				CanName:       ToCandName([]byte("test2")),
-			},
-			1,
-		},
-		{
-			&Delegate{
-				Owner:         "io1d4c5lp4ea4754wy439g2t99ue7wryu5r2lslh2",
-				Address:       identityset.Address(3).String(),
 				Votes:         big.NewInt(3),
-				RewardAddress: "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
-				CanName:       ToCandName([]byte("test4")),
+				SelfStake:     big.NewInt(1200000),
 			},
 			0,
 		},
 		{
 			&Delegate{
-				Owner:         "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+				Owner:         hash.Hash160b([]byte("test4")),
 				Address:       identityset.Address(3).String(),
-				Votes:         big.NewInt(1),
+				RewardAddress: "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
+				CanName:       ToCandName([]byte("test4")),
+				Votes:         big.NewInt(3),
+				SelfStake:     big.NewInt(1200000),
+			},
+			1,
+		},
+		{
+			&Delegate{
+				Owner:         hash.Hash160b([]byte("test3")),
+				Address:       identityset.Address(3).String(),
 				RewardAddress: "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
 				CanName:       ToCandName([]byte("test3")),
+				Votes:         big.NewInt(1),
+				SelfStake:     big.NewInt(1200000),
 			},
 			3,
 		},
@@ -60,8 +95,8 @@ func TestCandMap(t *testing.T) {
 
 	m := DelegateMap{}
 	for i, v := range tests {
-		m[v.d.CanName] = tests[i].d
-		r.True(m.Contains(v.d.CanName))
+		m[v.d.Owner] = tests[i].d
+		r.True(m.Contains(v.d.Owner))
 	}
 	r.Equal(len(tests), len(m))
 
@@ -70,8 +105,8 @@ func TestCandMap(t *testing.T) {
 	r.NoError(m.Deserialize(d))
 	r.Equal(len(tests), len(m))
 	for _, v := range tests {
-		r.True(m.Contains(v.d.CanName))
-		r.Equal(v.d, m[v.d.CanName])
+		r.True(m.Contains(v.d.Owner))
+		r.Equal(v.d, m[v.d.Owner])
 	}
 
 	// verify the serialization is sorted

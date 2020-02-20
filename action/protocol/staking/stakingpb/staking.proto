@@ -20,11 +20,13 @@ message BucketIndices {
 }
 
 message Delegate {
-    string owner = 1;
+    bytes owner = 1;
     string address = 2;
     string rewardAddress = 3;
     bytes canName = 4;
     bytes votes = 5;
+    bytes selfStake = 6;
+    bool active = 7;
 }
 
 message Delegates {

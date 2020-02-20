@@ -7,7 +7,6 @@
 package staking
 
 import (
-	"errors"
 	"math/big"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -35,12 +35,17 @@ type (
 
 // NewVoteBucket creates a new vote bucket
 func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
-	if len(name) == 0 {
-		return nil, errors.New("empty candidate name")
+	if len(name) == 0 || len(name) != 12 {
+		return nil, errors.Errorf("invalid candidate name length %d, expecting 12", len(name))
 	}
 
-	if _, ok := big.NewInt(0).SetString(amount, 10); !ok {
-		return nil, errors.New("failed to cast amount")
+	vote, ok := big.NewInt(0).SetString(amount, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
+	}
+
+	if vote.Sign() <= 0 {
+		return nil, ErrInvalidAmount
 	}
 
 	if _, err := address.FromString(owner); err != nil {
