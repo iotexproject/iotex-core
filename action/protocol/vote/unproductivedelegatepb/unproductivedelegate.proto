@@ -7,26 +7,15 @@
 // To compile the proto, run:
 //      protoc --go_out=plugins=grpc:. *.proto
 
-syntax = "proto3";
-package stakingpb;
+syntax ="proto3";
+package unproductivedelegatepb;
 
-message BucketIndex {
-    uint64 index = 1;
-    bytes canName = 2;
+message unproductiveDelegate{
+	uint64 cacheSize = 1;
+	uint64 kickoutPeriod = 2;
+	repeated delegatelist delegateList = 3;
 }
 
-message BucketIndices {
-    repeated BucketIndex indices = 1;
-}
-
-message Delegate {
-    string owner = 1;
-    string address = 2;
-    string rewardAddress = 3;
-    bytes canName = 4;
-    bytes votes = 5;
-}
-
-message Delegates {
-    repeated Delegate delegates = 1;
+message delegatelist{
+	repeated string delegates = 1;
 }

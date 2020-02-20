@@ -7,7 +7,6 @@
 package action
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -125,11 +124,7 @@ func (ex *Execution) LoadProto(pbAct *iotextypes.Execution) error {
 // IntrinsicGas returns the intrinsic gas of an execution
 func (ex *Execution) IntrinsicGas() (uint64, error) {
 	dataSize := uint64(len(ex.Data()))
-	if (math.MaxUint64-ExecutionBaseIntrinsicGas)/ExecutionDataGas < dataSize {
-		return 0, ErrOutOfGas
-	}
-
-	return dataSize*ExecutionDataGas + ExecutionBaseIntrinsicGas, nil
+	return calculateIntrinsicGas(ExecutionBaseIntrinsicGas, ExecutionDataGas, dataSize)
 }
 
 // Cost returns the cost of an execution

@@ -35,4 +35,13 @@ func TestBlackListSerializeAndDeserialize(t *testing.T) {
 
 	r.True(blacklist2.IntensityRate == blacklist1.IntensityRate)
 	r.True(blacklist2.IntensityRate == 0.5)
+
+	blacklist3 := &Blacklist{}
+	sbytes, err = blacklist3.Serialize()
+	r.NoError(err)
+	blacklist4 := &Blacklist{}
+	err = blacklist4.Deserialize(sbytes)
+	r.NoError(err)
+
+	r.True(len(blacklist4.BlacklistInfos) == 0)
 }

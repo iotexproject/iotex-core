@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -106,19 +105,31 @@ func NewConsensus(
 			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
-			SetDelegatesByEpochFunc(func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
 				re := protocol.NewRegistry()
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				ctx = protocol.WithBlockchainCtx(
-					ctx,
+				tipHeight := bc.TipHeight()
+				ctx := protocol.WithBlockchainCtx(
+					context.Background(),
 					protocol.BlockchainCtx{
-						Genesis:  cfg.Genesis,
 						Registry: re,
+						Genesis:  cfg.Genesis,
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
 				)
-				return ops.pp.DelegatesByEpoch(ctx, epochNum)
+				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, epochNum)
+				if err != nil {
+					return nil, err
+				}
+				addrs := []string{}
+				for _, candidate := range candidatesList {
+					addrs = append(addrs, candidate.Address)
+				}
+				return addrs, nil
 			}).
 			RegisterProtocol(ops.rp)
 		// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api

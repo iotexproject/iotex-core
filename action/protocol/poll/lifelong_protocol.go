@@ -60,7 +60,7 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
-	return setCandidates(sm, p.delegates, uint64(1))
+	return setCandidates(ctx, sm, p.delegates, uint64(1))
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -76,33 +76,15 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 }
 
 func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	var blockProducerList []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	blockProducerMap := make(map[string]*state.Candidate)
-	delegates := p.delegates
-	if len(p.delegates) > int(rp.NumCandidateDelegates()) {
-		delegates = p.delegates[:rp.NumCandidateDelegates()]
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if tipEpochNum+1 == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
+	} else if tipEpochNum == epochNum {
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 	}
-	for _, bp := range delegates {
-		blockProducerList = append(blockProducerList, bp.Address)
-		blockProducerMap[bp.Address] = bp
-	}
-
-	epochHeight := rp.GetEpochHeight(epochNum)
-	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
-	// TODO: kick-out unqualified delegates based on productivity
-	length := int(rp.NumDelegates())
-	if len(blockProducerList) < length {
-		// TODO: if the number of delegates is smaller than expected, should it return error or not?
-		length = len(blockProducerList)
-	}
-
-	var activeBlockProducers state.CandidateList
-	for i := 0; i < length; i++ {
-		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
-	}
-	return activeBlockProducers, nil
+	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
 }
 
 func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
@@ -144,4 +126,34 @@ func (p *lifeLongDelegatesProtocol) ForceRegister(r *protocol.Registry) error {
 
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 	return p.delegates.Serialize()
+}
+
+func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64, _ bool) (state.CandidateList, error) {
+	var blockProducerList []string
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	blockProducerMap := make(map[string]*state.Candidate)
+	delegates := p.delegates
+	if len(p.delegates) > int(rp.NumCandidateDelegates()) {
+		delegates = p.delegates[:rp.NumCandidateDelegates()]
+	}
+	for _, bp := range delegates {
+		blockProducerList = append(blockProducerList, bp.Address)
+		blockProducerMap[bp.Address] = bp
+	}
+
+	epochHeight := rp.GetEpochHeight(epochNum)
+	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
+	// TODO: kick-out unqualified delegates based on productivity
+	length := int(rp.NumDelegates())
+	if len(blockProducerList) < length {
+		// TODO: if the number of delegates is smaller than expected, should it return error or not?
+		length = len(blockProducerList)
+	}
+
+	var activeBlockProducers state.CandidateList
+	for i := 0; i < length; i++ {
+		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
+	}
+	return activeBlockProducers, nil
 }

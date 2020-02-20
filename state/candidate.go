@@ -29,13 +29,21 @@ var (
 	ErrCandidateList = errors.New("invalid candidate list")
 )
 
-// Candidate indicates the structure of a candidate
-type Candidate struct {
-	Address       string
-	Votes         *big.Int
-	RewardAddress string
-	CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
-}
+type (
+	// Candidate indicates the structure of a candidate
+	Candidate struct {
+		Address       string
+		Votes         *big.Int
+		RewardAddress string
+		CanName       []byte // used as identifier to merge with native staking result, not part of protobuf
+	}
+
+	// CandidateList indicates the list of Candidates which is sortable
+	CandidateList []*Candidate
+
+	// CandidateMap is a map of Candidates using Hash160 as key
+	CandidateMap map[hash.Hash160]*Candidate
+)
 
 // Equal compares two candidate instances
 func (c *Candidate) Equal(d *Candidate) bool {
@@ -64,9 +72,6 @@ func (c *Candidate) Clone() *Candidate {
 		CanName:       name,
 	}
 }
-
-// CandidateList indicates the list of Candidates which is sortable
-type CandidateList []*Candidate
 
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
@@ -143,7 +148,7 @@ func pbToCandidate(candPb *iotextypes.Candidate) (*Candidate, error) {
 }
 
 // MapToCandidates converts a map of cachedCandidates to candidate list
-func MapToCandidates(candidateMap map[hash.Hash160]*Candidate) (CandidateList, error) {
+func MapToCandidates(candidateMap CandidateMap) (CandidateList, error) {
 	candidates := make(CandidateList, 0, len(candidateMap))
 	for _, cand := range candidateMap {
 		candidates = append(candidates, cand)
@@ -152,8 +157,8 @@ func MapToCandidates(candidateMap map[hash.Hash160]*Candidate) (CandidateList, e
 }
 
 // CandidatesToMap converts a candidate list to map of cachedCandidates
-func CandidatesToMap(candidates CandidateList) (map[hash.Hash160]*Candidate, error) {
-	candidateMap := make(map[hash.Hash160]*Candidate)
+func CandidatesToMap(candidates CandidateList) (CandidateMap, error) {
+	candidateMap := make(CandidateMap)
 	for _, candidate := range candidates {
 		if candidate == nil {
 			return nil, errors.Wrap(ErrCandidate, "candidate cannot be nil")

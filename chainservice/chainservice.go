@@ -229,7 +229,9 @@ func New(
 				return data, err
 			},
 			candidatesutil.CandidatesByHeight,
-			candidatesutil.KickoutListByEpoch,
+			candidatesutil.CandidatesFromDB,
+			candidatesutil.KickoutListFromDB,
+			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -256,7 +258,7 @@ func New(
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(
 		cfg.Genesis.KickoutIntensityRate,
-		candidatesutil.KickoutListByEpoch,
+		candidatesutil.KickoutListFromDB,
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		})

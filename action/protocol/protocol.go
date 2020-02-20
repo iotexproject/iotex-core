@@ -19,6 +19,11 @@ var (
 	ErrUnimplemented = errors.New("method is unimplemented")
 )
 
+const (
+	// SystemNamespace is the namespace to store system information such as candidates/blacklist/unproductiveDelegates
+	SystemNamespace = "System"
+)
+
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	ActionValidator

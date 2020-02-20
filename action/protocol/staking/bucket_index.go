@@ -8,14 +8,13 @@ package staking
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 

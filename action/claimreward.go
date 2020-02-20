@@ -7,7 +7,6 @@
 package action
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -66,10 +65,7 @@ func (c *ClaimFromRewardingFund) LoadProto(claim *iotextypes.ClaimFromRewardingF
 // IntrinsicGas returns the intrinsic gas of a claim action
 func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 	dataLen := uint64(len(c.Data()))
-	if (math.MaxUint64-ClaimFromRewardingFundBaseGas)/ClaimFromRewardingFundGasPerByte < dataLen {
-		return 0, ErrOutOfGas
-	}
-	return ClaimFromRewardingFundBaseGas + ClaimFromRewardingFundGasPerByte*dataLen, nil
+	return calculateIntrinsicGas(ClaimFromRewardingFundBaseGas, ClaimFromRewardingFundGasPerByte, dataLen)
 }
 
 // Cost returns the total cost of a claim action
