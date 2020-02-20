@@ -22,9 +22,16 @@ import (
 )
 
 type (
-	// VoteBucket is an alias of proto definition
+	// VoteBucket represents a vote
 	VoteBucket struct {
-		iotextypes.Bucket
+		Candidate        address.Address
+		Owner            address.Address
+		StakedAmount     *big.Int
+		StakedDuration   time.Duration
+		CreateTime       time.Time
+		StakeStartTime   time.Time
+		UnstakeStartTime time.Time
+		AutoStake        bool
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -34,11 +41,7 @@ type (
 )
 
 // NewVoteBucket creates a new vote bucket
-func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
-	if len(name) == 0 || len(name) != 12 {
-		return nil, errors.Errorf("invalid candidate name length %d, expecting 12", len(name))
-	}
-
+func NewVoteBucket(cand, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
 	vote, ok := big.NewInt(0).SetString(amount, 10)
 	if !ok {
 		return nil, ErrInvalidAmount
@@ -48,39 +51,98 @@ func NewVoteBucket(name, owner, amount string, duration uint32, ctime time.Time,
 		return nil, ErrInvalidAmount
 	}
 
-	if _, err := address.FromString(owner); err != nil {
-		return nil, err
-	}
-
-	createTime, err := ptypes.TimestampProto(ctime)
+	candAddr, err := address.FromString(cand)
 	if err != nil {
 		return nil, err
 	}
-	unstakeTime, _ := ptypes.TimestampProto(time.Unix(0, 0))
+
+	ownerAddr, err := address.FromString(owner)
+	if err != nil {
+		return nil, err
+	}
 
 	bucket := VoteBucket{
-		iotextypes.Bucket{
-			CandidateName:    name,
-			StakedAmount:     amount,
-			StakedDuration:   duration,
-			CreateTime:       createTime,
-			StakeStartTime:   createTime,
-			UnstakeStartTime: unstakeTime,
-			AutoStake:        autoStake,
-			Owner:            owner,
-		},
+		Candidate:        candAddr,
+		Owner:            ownerAddr,
+		StakedAmount:     vote,
+		StakedDuration:   time.Duration(duration) * 24 * time.Hour,
+		CreateTime:       ctime.UTC(),
+		StakeStartTime:   ctime.UTC(),
+		UnstakeStartTime: time.Unix(0, 0).UTC(),
+		AutoStake:        autoStake,
 	}
 	return &bucket, nil
 }
 
 // Deserialize deserializes bytes into bucket
-func (vb *VoteBucket) Deserialize(data []byte) error {
-	return proto.Unmarshal(data, vb)
+func (vb *VoteBucket) Deserialize(buf []byte) error {
+	pb := &iotextypes.Bucket{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return errors.Wrap(err, "failed to unmarshal bucket")
+	}
+
+	vote, ok := big.NewInt(0).SetString(pb.StakedAmount, 10)
+	if !ok {
+		return ErrInvalidAmount
+	}
+
+	if vote.Sign() <= 0 {
+		return ErrInvalidAmount
+	}
+
+	candAddr, err := address.FromString(pb.CandidateName)
+	if err != nil {
+		return err
+	}
+	ownerAddr, err := address.FromString(pb.Owner)
+	if err != nil {
+		return err
+	}
+
+	createTime, err := ptypes.Timestamp(pb.CreateTime)
+	if err != nil {
+		return err
+	}
+	stakeTime, err := ptypes.Timestamp(pb.StakeStartTime)
+	if err != nil {
+		return err
+	}
+	unstakeTime, err := ptypes.Timestamp(pb.UnstakeStartTime)
+	if err != nil {
+		return err
+	}
+
+	vb.Candidate = candAddr
+	vb.Owner = ownerAddr
+	vb.StakedAmount = vote
+	vb.StakedDuration = time.Duration(pb.StakedDuration) * 24 * time.Hour
+	vb.CreateTime = createTime
+	vb.StakeStartTime = stakeTime
+	vb.UnstakeStartTime = unstakeTime
+	vb.AutoStake = pb.AutoStake
+	return nil
+}
+
+func (vb *VoteBucket) toProto() *iotextypes.Bucket {
+	createTime, _ := ptypes.TimestampProto(vb.CreateTime)
+	stakeTime, _ := ptypes.TimestampProto(vb.StakeStartTime)
+	unstakeTime, _ := ptypes.TimestampProto(vb.UnstakeStartTime)
+
+	return &iotextypes.Bucket{
+		CandidateName:    vb.Candidate.String(),
+		Owner:            vb.Owner.String(),
+		StakedAmount:     vb.StakedAmount.String(),
+		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),
+		CreateTime:       createTime,
+		StakeStartTime:   stakeTime,
+		UnstakeStartTime: unstakeTime,
+		AutoStake:        vb.AutoStake,
+	}
 }
 
 // Serialize serializes bucket into bytes
 func (vb *VoteBucket) Serialize() ([]byte, error) {
-	return proto.Marshal(vb)
+	return proto.Marshal(vb.toProto())
 }
 
 // Deserialize deserializes bytes into bucket count
@@ -108,18 +170,18 @@ func stakingGetTotalCount(sr protocol.StateReader) (uint64, error) {
 	return tc.count, err
 }
 
-func stakingGetBucket(sr protocol.StateReader, name CandName, index uint64) (*VoteBucket, error) {
+func stakingGetBucket(sr protocol.StateReader, name address.Address, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name, index))); err != nil {
+		protocol.KeyOption(bucketKey(name.Bytes(), index))); err != nil {
 		return nil, err
 	}
 	return &vb, nil
 }
 
-func stakingPutBucket(sm protocol.StateManager, name CandName, bucket *VoteBucket) error {
+func stakingPutBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) error {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
@@ -131,7 +193,7 @@ func stakingPutBucket(sm protocol.StateManager, name CandName, bucket *VoteBucke
 	if _, err := sm.PutState(
 		bucket,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name, tc.Count()))); err != nil {
+		protocol.KeyOption(bucketKey(name.Bytes(), tc.Count()))); err != nil {
 		return err
 	}
 	tc.count++
@@ -142,13 +204,13 @@ func stakingPutBucket(sm protocol.StateManager, name CandName, bucket *VoteBucke
 	return err
 }
 
-func stakingDelBucket(sm protocol.StateManager, name CandName, index uint64) error {
+func stakingDelBucket(sm protocol.StateManager, name address.Address, index uint64) error {
 	_, err := sm.DelState(
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name, index)))
+		protocol.KeyOption(bucketKey(name.Bytes(), index)))
 	return err
 }
 
-func bucketKey(name CandName, index uint64) []byte {
-	return append(name[:], byteutil.Uint64ToBytesBigEndian(index)...)
+func bucketKey(name []byte, index uint64) []byte {
+	return append(name, byteutil.Uint64ToBytesBigEndian(index)...)
 }

@@ -8,7 +8,6 @@ package staking
 
 import (
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
@@ -85,71 +84,54 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func stakingGetBucketIndices(sr protocol.StateReader, voterAddr string) (*BucketIndices, error) {
-	addrHash, err := addrToHash(voterAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get address hash from voter's address")
-	}
+func stakingGetBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
 	var bis BucketIndices
 	if _, err := sr.State(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.LegacyKeyOption(addrHash)); err != nil {
+		protocol.KeyOption(voterAddr.Bytes())); err != nil {
 		return nil, err
 	}
 	return &bis, nil
 }
 
-func stakingPutBucketIndex(sm protocol.StateManager, voterAddr string, bucketIndex *BucketIndex) error {
-	addrHash, err := addrToHash(voterAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get address hash from voter's address")
-	}
+func stakingPutBucketIndex(sm protocol.StateManager, voterAddr address.Address, bucketIndex *BucketIndex) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.LegacyKeyOption(addrHash)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		protocol.KeyOption(voterAddr.Bytes())); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
 	bis.addBucketIndex(bucketIndex)
-	_, err = sm.PutState(
+	_, err := sm.PutState(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.LegacyKeyOption(addrHash))
+		protocol.KeyOption(voterAddr.Bytes()))
 	return err
 }
 
-func stakingDelBucketIndex(sm protocol.StateManager, voterAddr string, index uint64) error {
-	addrHash, err := addrToHash(voterAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get address hash from voter's address")
-	}
+func stakingDelBucketIndex(sm protocol.StateManager, voterAddr address.Address, index uint64) error {
+	key := voterAddr.Bytes()
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.LegacyKeyOption(addrHash)); err != nil {
+		protocol.KeyOption(key)); err != nil {
 		return err
 	}
 	bis.deleteBucketIndex(index)
+
+	var err error
 	if len(bis.GetIndices()) == 0 {
 		_, err = sm.DelState(
 			protocol.NamespaceOption(factory.StakingNameSpace),
-			protocol.LegacyKeyOption(addrHash))
+			protocol.KeyOption(key))
 	} else {
 		_, err = sm.PutState(
 			&bis,
 			protocol.NamespaceOption(factory.StakingNameSpace),
-			protocol.LegacyKeyOption(addrHash))
+			protocol.KeyOption(key))
 	}
 	return err
-}
-
-func addrToHash(encodedAddr string) (hash.Hash160, error) {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return hash.Hash160{}, errors.Wrap(err, "failed to get address public key hash from encoded address")
-	}
-	return hash.BytesToHash160(addr.Bytes()), nil
 }
