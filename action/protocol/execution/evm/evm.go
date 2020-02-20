@@ -19,13 +19,14 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -36,9 +37,6 @@ var (
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
 )
-
-// InContractTransfer is topic for system log of evm transfer
-var InContractTransfer = common.Hash{} // 32 bytes with all zeros
 
 // CanTransfer checks whether the from account has enough balance
 func CanTransfer(db vm.StateDB, fromHash common.Address, balance *big.Int) bool {
@@ -51,7 +49,7 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 
 	db.AddLog(&types.Log{
-		Topics: []common.Hash{InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
+		Topics: []common.Hash{action.InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
 		Data:   amount.Bytes(),
 	})
 }

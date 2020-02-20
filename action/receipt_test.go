@@ -10,15 +10,16 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 func TestConvert(t *testing.T) {
 	require := require.New(t)
 
 	topics := []hash.Hash256{
-		hash.ZeroHash256,
+		hash.Hash256b([]byte("test")),
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}

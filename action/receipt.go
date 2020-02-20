@@ -7,8 +7,9 @@
 package action
 
 import (
-	"math/big"
+	"bytes"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -16,6 +17,19 @@ import (
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
+
+// InContractTransfer is topic for system log of evm transfer
+var InContractTransfer = common.Hash{} // 32 bytes with all zeros
+
+// IsSystemLog checks whether a log is system log
+// lowerBound chooses the largest system log topic, which is InContractTransfer currently
+func IsSystemLog(l *Log) bool {
+	//lowerBound := big.NewInt(0)
+	//bytes.Compare()
+	//topicNum := new(big.Int).SetBytes(l.Topics[0][:])
+
+	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
+}
 
 // Receipt represents the result of a contract
 type Receipt struct {
@@ -49,7 +63,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.Logs {
 		// exclude system log when calculating receipts' hash or storing logs
-		if new(big.Int).SetBytes(l.Topics[0][:]).Cmp(big.NewInt(0)) == 1 {
+		if !IsSystemLog(l) {
 			r.Logs = append(r.Logs, l.ConvertToLogPb())
 		}
 	}
