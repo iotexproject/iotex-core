@@ -74,6 +74,10 @@ func (tr *branchRootTrie) SetRootHash(rootHash []byte) error {
 	return nil
 }
 
+func (tr *branchRootTrie) IsEmpty() bool {
+	return tr.isEmptyRootHash(tr.rootHash)
+}
+
 func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
 	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := tr.checkKeyType(key)
