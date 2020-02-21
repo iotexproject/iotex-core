@@ -37,18 +37,17 @@ type (
 	workingSet struct {
 		height       uint64
 		finalized    bool
-		getStateFunc func(string, []byte, interface{}) error
-		putStateFunc func(string, []byte, interface{}) error
-		delStateFunc func(string, []byte) error
-		snapshotFunc func() int
-		revertFunc   func(int) error
+		commitFunc   func(uint64) error
 		dbFunc       func() db.KVStore
+		delStateFunc func(string, []byte) error
 		digestFunc   func() hash.Hash256
 		finalizeFunc func(uint64) error
-		commitFunc   func(uint64) error
+		getStateFunc func(string, []byte, interface{}) error
+		putStateFunc func(string, []byte, interface{}) error
+		revertFunc   func(int) error
+		snapshotFunc func() int
 	}
 
-	// for unit test purpose
 	workingSetCreator interface {
 		newWorkingSet(context.Context, uint64) (*workingSet, error)
 	}

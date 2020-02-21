@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -338,11 +338,7 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 			if wi.Namespace() != evm.CodeKVNameSpace {
 				return false
 			}
-			// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
-			bcCtx, ok := protocol.GetBlockchainCtx(ctx)
-			if !ok {
-				return false
-			}
+			bcCtx := protocol.MustGetBlockchainCtx(ctx)
 			hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 			return hu.IsPre(config.Easter, height)
 		}),

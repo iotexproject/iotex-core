@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -338,11 +338,7 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 
 func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{}
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
-	if !ok {
-		// TODO: Change to MustGetBlockchainCtx after deleting NewWorkingSet API
-		return opts
-	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Easter, height) {
 		return opts

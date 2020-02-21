@@ -3,8 +3,6 @@ package protocol
 import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db"
 )
 
 // NamespaceOption creates an option for given namesapce
@@ -80,7 +78,5 @@ type (
 		// General state
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
-		// TODO: delete GetDB
-		GetDB() db.KVStore
 	}
 )

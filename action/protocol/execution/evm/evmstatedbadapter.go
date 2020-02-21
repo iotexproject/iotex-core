@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -37,7 +36,7 @@ type (
 	contractMap map[hash.Hash160]Contract
 
 	// preimageMap records the preimage of hash reported by VM
-	preimageMap map[common.Hash][]byte
+	preimageMap map[common.Hash]SerializableBytes
 
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
@@ -56,7 +55,6 @@ type (
 		suicideSnapshot    map[int]deleteAccount // snapshots of suicide accounts
 		preimages          preimageMap
 		preimageSnapshot   map[int]preimageMap
-		dao                db.KVStore
 		notFixTopicCopyBug bool
 	}
 )
@@ -84,7 +82,6 @@ func NewStateDBAdapter(
 		suicideSnapshot:    make(map[int]deleteAccount),
 		preimages:          make(preimageMap),
 		preimageSnapshot:   make(map[int]preimageMap),
-		dao:                sm.GetDB(),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
 	for _, opt := range opts {
@@ -529,14 +526,13 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
 	}
-	// TODO: replace with statedb.State
-	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
-	if err != nil {
+	var code SerializableBytes
+	if _, err = stateDB.sm.State(&code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:])); err != nil {
 		// TODO: Suppress the as it's too much now
 		//log.L().Error("Failed to get code from trie.", zap.Error(err))
 		return nil
 	}
-	return code
+	return code[:]
 }
 
 // GetCodeSize gets the code size saved in hash
@@ -681,7 +677,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		stateDB.dao.Put(PreimageKVNameSpace, h, v)
+		stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
 	}
 	return nil
 }
@@ -699,8 +695,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	// TODO: wrap stateDB as a KVStore
-	contract, err := newContract(addr, account, stateDB.dao)
+	contract, err := newContract(addr, account, stateDB.sm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

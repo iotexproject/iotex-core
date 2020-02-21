@@ -662,32 +662,32 @@ func TestConstantinople(t *testing.T) {
 			},
 			{
 				setHash,
-				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
+				"06c0b7f6aa7accf4c82dfec228ea35d459ab63d255f1b856013072d2aa5b83b5",
 				setTopic,
 			},
 			{
 				shrHash,
-				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
+				"afd1c8bcd37a198bbd6de886a643945fba26ca332798a1dea61630ffa999837f",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
+				"1c26fe8b8053cfeaed542a103029b297fd6562c0c0f7cd8c69371b4a6de0dcd7",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
+				"19768e710b1cd742a25ab809d3fec638107be086e8a0bc645b80772701d2a9f4",
 				sarTopic,
 			},
 			{
 				extHash,
-				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
+				"e9764901f0a4fc0e62300ce822672c8c998ab78e0aed91dfd89f9368a7c89915",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
+				"a6f0a7bb940f62020a54e3cc597bb8806c3ce8494d12b9b2a5afce496bdbae9c",
 				crt2Topic,
 			},
 		}
@@ -1438,7 +1438,8 @@ func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testin
 		trie.KVStoreOption(dbForTrie),
 		trie.KeyLengthOption(len(hash.Hash256{})),
 		trie.HashFuncOption(func(data []byte) []byte {
-			return trie.DefaultHashFunc(append(addrHash[:], data...))
+			h := hash.Hash256b(append(addrHash[:], data...))
+			return h[:]
 		}),
 	}
 	options = append(options, trie.RootHashOption(root[:]))

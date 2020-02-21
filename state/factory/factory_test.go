@@ -665,15 +665,15 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	require.NoError(sf.Start(context.Background()))
-	defer func() {
-		require.NoError(sf.Stop(context.Background()))
-	}()
 	registry := protocol.NewRegistry()
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 		Genesis:  config.Default.Genesis,
 		Registry: registry,
 	})
+	require.NoError(sf.Start(ctx))
+	defer func() {
+		require.NoError(sf.Stop(ctx))
+	}()
 	height, err := sf.Height()
 	require.NoError(err)
 	require.Equal(uint64(0), height)
@@ -992,8 +992,12 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	require.NoError(t, sf.Start(context.Background()))
-	ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 1)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: protocol.NewRegistry(),
+	})
+	require.NoError(t, sf.Start(ctx))
+	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
@@ -1001,8 +1005,12 @@ func TestCachedBatch(t *testing.T) {
 func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
-	require.NoError(t, sdb.Start(context.Background()))
-	ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 1)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: protocol.NewRegistry(),
+	})
+	require.NoError(t, sdb.Start(ctx))
+	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(t, err)
 	testCachedBatch(ws, t)
 }
@@ -1036,7 +1044,11 @@ func TestGetDB(t *testing.T) {
 	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(err)
-	ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 1)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: protocol.NewRegistry(),
+	})
+	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1048,7 +1060,11 @@ func TestSTXGetDB(t *testing.T) {
 	require := require.New(t)
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(err)
-	ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 1)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: protocol.NewRegistry(),
+	})
+	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
 	require.Equal(uint64(1), ws.Version())
 	kvStore := ws.GetDB()
@@ -1071,16 +1087,20 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: protocol.NewRegistry(),
+	})
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
 		require.NoError(t, err)
-		ws, err := sf.(workingSetCreator).newWorkingSet(context.Background(), 0)
+		ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
 	t.Run("stateTx", func(t *testing.T) {
 		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-		ws, err := sdb.(workingSetCreator).newWorkingSet(context.Background(), 0)
+		ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
