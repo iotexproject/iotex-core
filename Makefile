@@ -20,6 +20,7 @@ BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
+BUILD_TARGET_IOMIGRATER=iomigrater
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -206,3 +207,6 @@ recover:
 .PHONY: ioctl
 ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+
+iomigrater:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater

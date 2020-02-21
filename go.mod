@@ -30,6 +30,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rs/zerolog v1.14.3
+	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.4.0
 	go.etcd.io/bbolt v1.3.2
