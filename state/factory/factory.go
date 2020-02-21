@@ -41,6 +41,8 @@ const (
 	AccountKVNamespace = "Account"
 	// StakingNameSpace is the bucket name for staking state
 	StakingNameSpace = "Staking"
+	// DelegateNameSpace is the bucket name for delegate state
+	DelegateNameSpace = "Delegate"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
