@@ -15,6 +15,7 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -38,16 +39,16 @@ import (
 const (
 	// AccountKVNamespace is the bucket name for account
 	AccountKVNamespace = "Account"
-	// AccountTrieNamespace is the bucket for the latest state view
-	AccountTrieNamespace = "AccountTrie"
 	// StakingNameSpace is the bucket name for staking state
 	StakingNameSpace = "Staking"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
 	CurrentHeightKey = "currentHeight"
-	// AccountTrieRootKey indicates the key of accountTrie root hash in underlying DB
-	AccountTrieRootKey = "accountTrieRoot"
+	// ArchiveTrieNamespace is the bucket for the latest state view
+	ArchiveTrieNamespace = "AccountTrie"
+	// ArchiveTrieRootKey indicates the key of accountTrie root hash in underlying DB
+	ArchiveTrieRootKey = "archiveTrieRoot"
 )
 
 var (
@@ -56,20 +57,28 @@ var (
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
 	// TotalBucketKey indicates the total count of staking buckets
-	TotalBucketKey = []byte("totalBucket")
+	TotalBucketKey  = []byte("totalBucket")
+	dbBatchSizelMtc = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "iotex_db_batch_size",
+			Help: "DB batch size",
+		},
+		[]string{},
+	)
 )
+
+func init() {
+	prometheus.MustRegister(dbBatchSizelMtc)
+}
 
 type (
 	// Factory defines an interface for managing states
 	Factory interface {
 		lifecycle.StartStopper
 		protocol.StateReader
-		// TODO : erase this interface
-		NewWorkingSet() (WorkingSet, error)
 		Validate(context.Context, *block.Block) error
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
-		DeleteWorkingSet(*block.Block) error
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -79,8 +88,8 @@ type (
 		cfg                config.Config
 		currentChainHeight uint64
 		saveHistory        bool
-		accountTrie        trie.Trie  // global state trie, this is a read only trie
-		dao                db.KVStore // the underlying DB for account/contract storage
+		twoLayerTrie       *TwoLayerTrie // global state trie, this is a read only trie
+		dao                db.KVStore    // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
 	}
@@ -109,7 +118,6 @@ func DefaultTrieOption() Option {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sf.dao = db.NewBoltDB(cfg.DB)
-		sf.saveHistory = cfg.Chain.EnableArchiveMode
 		return nil
 	}
 }
@@ -122,11 +130,38 @@ func InMemTrieOption() Option {
 	}
 }
 
+func newTwoLayerTrie(rootKey string, dao db.KVStore, create bool) (*TwoLayerTrie, error) {
+	_, err := dao.Get(ArchiveTrieNamespace, []byte(rootKey))
+	switch errors.Cause(err) {
+	case db.ErrNotExist:
+		if !create {
+			return nil, err
+		}
+	case nil:
+		break
+	default:
+		return nil, err
+	}
+	dbForTrie, err := db.NewKVStoreForTrie(ArchiveTrieNamespace, dao)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	tr, err := trie.NewTrie(
+		trie.KVStoreOption(dbForTrie),
+		trie.RootKeyOption(rootKey),
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to generate trie for %s", rootKey)
+	}
+	return &TwoLayerTrie{layerOne: tr}, nil
+}
+
 // NewFactory creates a new state factory
 func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
+		saveHistory:        cfg.Chain.EnableArchiveMode,
 	}
 
 	for _, opt := range opts {
@@ -135,18 +170,6 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 			return nil, err
 		}
 	}
-	// The sf.dao passed into the dbForTrie could be read only
-	dbForTrie, err := db.NewKVStoreForTrie(AccountTrieNamespace, sf.dao)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create db for trie")
-	}
-	if sf.accountTrie, err = trie.NewTrie(
-		trie.KVStoreOption(dbForTrie),
-		trie.RootKeyOption(AccountTrieRootKey),
-	); err != nil {
-		return nil, errors.Wrap(err, "failed to generate accountTrie from config")
-	}
-	sf.lifecycle.Add(sf.accountTrie)
 	timerFactory, err := prometheustimer.New(
 		"iotex_statefactory_perf",
 		"Performance of state factory module",
@@ -167,11 +190,18 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 func (sf *factory) Start(ctx context.Context) error {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if err := sf.dao.Start(ctx); err != nil {
+	err := sf.dao.Start(ctx)
+	if err != nil {
+		return err
+	}
+	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieRootKey, sf.dao, true); err != nil {
+		return errors.Wrap(err, "failed to generate accountTrie from config")
+	}
+	if err := sf.twoLayerTrie.Start(ctx); err != nil {
 		return err
 	}
 	// check factory height
-	_, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	_, err = sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		break
@@ -213,23 +243,96 @@ func (sf *factory) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-// NewWorkingSet returns new working set
-func (sf *factory) NewWorkingSet() (WorkingSet, error) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
+func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	flusher, err := db.NewKVStoreFlusher(sf.dao, batch.NewCachedBatch(), sf.flusherOptions(ctx, height)...)
+	if err != nil {
+		return nil, err
+	}
+	tlt, err := newTwoLayerTrie(ArchiveTrieRootKey, flusher.KVStoreWithBuffer(), true)
+	if err != nil {
+		return nil, err
+	}
+	if err := tlt.Start(ctx); err != nil {
+		return nil, err
+	}
+	finalized := false
+	trieRoots := make(map[int][]byte)
 
-	return newWorkingSet(
-		sf.currentChainHeight+1,
-		sf.dao,
-		sf.rootHash(),
-		sf.flusherOptions(context.Background(), sf.currentChainHeight+1)...,
-	)
+	return &workingSet{
+		height:    height,
+		finalized: false,
+		getStateFunc: func(ns string, key []byte, s interface{}) error {
+			return readState(tlt, ns, key, s)
+		},
+		putStateFunc: func(ns string, key []byte, s interface{}) error {
+			ss, err := state.Serialize(s)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+			}
+			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
+			nsHash := hash.Hash160b([]byte(ns))
+
+			return tlt.Upsert(nsHash[:], key, ss)
+		},
+		delStateFunc: func(ns string, key []byte) error {
+			flusher.KVStoreWithBuffer().MustDelete(ns, key)
+			nsHash := hash.Hash160b([]byte(ns))
+
+			return tlt.Delete(nsHash[:], key)
+		},
+		digestFunc: func() hash.Hash256 {
+			return hash.Hash256b(flusher.SerializeQueue())
+		},
+		finalizeFunc: func(h uint64) error {
+			if finalized {
+				return errors.New("Cannot finalize a working set twice")
+			}
+			finalized = true
+			rootHash := tlt.RootHash()
+			flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
+			flusher.KVStoreWithBuffer().MustPut(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey), rootHash)
+			// Persist the historical accountTrie's root hash
+			flusher.KVStoreWithBuffer().MustPut(
+				ArchiveTrieNamespace,
+				[]byte(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, h)),
+				rootHash,
+			)
+			return nil
+		},
+		commitFunc: func(h uint64) error {
+			dbBatchSizelMtc.WithLabelValues().Set(float64(flusher.KVStoreWithBuffer().Size()))
+			if err := flusher.Flush(); err != nil {
+				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
+			}
+			sf.currentChainHeight = h
+			return sf.twoLayerTrie.SetRootHash(tlt.RootHash())
+		},
+		snapshotFunc: func() int {
+			s := flusher.KVStoreWithBuffer().Snapshot()
+			trieRoots[s] = tlt.RootHash()
+			return s
+		},
+		revertFunc: func(snapshot int) error {
+			if err := flusher.KVStoreWithBuffer().Revert(snapshot); err != nil {
+				return err
+			}
+			root, ok := trieRoots[snapshot]
+			if !ok {
+				// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
+				return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
+			}
+			return tlt.SetRootHash(root[:])
+		},
+		dbFunc: func() db.KVStore {
+			return flusher.KVStoreWithBuffer()
+		},
+	}, nil
 }
 
 func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
-			if wi.Namespace() == AccountTrieNamespace {
+			if wi.Namespace() == ArchiveTrieNamespace {
 				return true
 			}
 			if wi.Namespace() != evm.CodeKVNameSpace {
@@ -288,12 +391,7 @@ func (sf *factory) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
-	ws, err := newWorkingSet(
-		sf.currentChainHeight+1,
-		sf.dao,
-		sf.rootHash(),
-		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
-	)
+	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
@@ -318,12 +416,7 @@ func (sf *factory) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sf.mutex.Lock()
-	ws, err := newWorkingSet(
-		sf.currentChainHeight+1,
-		sf.dao,
-		sf.rootHash(),
-		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
-	)
+	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
@@ -375,31 +468,34 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return sf.commit(ws)
+	return ws.Commit()
 }
 
 // State returns a confirmed state in the state factory
-func (sf *factory) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
+func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	cfg, err := protocol.CreateStateConfig(opts...)
+	archive, height, ns, key, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if cfg.AtHeight {
-		return sf.currentChainHeight, sf.stateAtHeight(cfg.Height, cfg.Key, state)
+	if archive {
+		if height > sf.currentChainHeight {
+			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+		}
+		if height != sf.currentChainHeight {
+			return sf.currentChainHeight, sf.stateAtHeight(height, ns, key, s)
+		}
 	}
-	return sf.currentChainHeight, sf.state(cfg.Key, state)
-}
+	value, err := sf.dao.Get(ns, key)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+		}
+		return sf.currentChainHeight, err
+	}
 
-// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
-func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	sf.workingsets.Remove(key)
-	return nil
+	return sf.currentChainHeight, state.Deserialize(s, value)
 }
 
 //======================================
@@ -407,82 +503,44 @@ func (sf *factory) DeleteWorkingSet(blk *block.Block) error {
 //======================================
 
 func (sf *factory) rootHash() []byte {
-	return sf.accountTrie.RootHash()
+	return sf.twoLayerTrie.RootHash()
 }
 
-func (sf *factory) state(addr []byte, s interface{}) error {
-	data, err := sf.accountTrie.Get(addr)
+func namespaceKey(ns string) []byte {
+	h := hash.Hash160b([]byte(ns))
+	return h[:]
+}
+
+func readState(tlt *TwoLayerTrie, ns string, key []byte, s interface{}) error {
+	data, err := tlt.Get(namespaceKey(ns), key)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
-			return errors.Wrapf(state.ErrStateNotExist, "state of %x doesn't exist", addr)
+			return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
 		}
-		return errors.Wrapf(err, "error when getting the state of %x", addr)
+		return err
 	}
-	if err := state.Deserialize(s, data); err != nil {
-		return errors.Wrapf(err, "error when deserializing state data into %T", s)
-	}
-	return nil
+
+	return state.Deserialize(s, data)
 }
 
-func (sf *factory) stateAtHeight(height uint64, addr []byte, s interface{}) error {
+func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interface{}) error {
 	if !sf.saveHistory {
 		return ErrNoArchiveData
 	}
-	// get root through height
-	rootHash, err := sf.dao.Get(AccountTrieNamespace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
+	tlt, err := newTwoLayerTrie(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), sf.dao, false)
 	if err != nil {
-		return errors.Wrap(err, "failed to get root hash through height")
+		return errors.Wrapf(err, "failed to generate trie for %d", height)
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(AccountTrieNamespace, sf.dao)
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state tire db")
-	}
-	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(rootHash))
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state trie from config")
-	}
-	err = tr.Start(context.Background())
-	if err != nil {
+	if err := tlt.Start(context.Background()); err != nil {
 		return err
 	}
-	defer tr.Stop(context.Background())
-	mstate, err := tr.Get(addr)
-	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", addr)
-	}
-	if err != nil {
-		return errors.Wrapf(err, "failed to get account of %x", addr)
-	}
-	return state.Deserialize(s, mstate)
-}
+	defer tlt.Stop(context.Background())
 
-func (sf *factory) commit(ws WorkingSet) error {
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height and root
-	height, err := ws.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get working set height")
-	}
-	sf.currentChainHeight = height
-	h, err := ws.RootHash()
-	if err != nil {
-		return errors.Wrap(err, "failed to get root hash of working set")
-	}
-	if err := sf.accountTrie.SetRootHash(h[:]); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	return nil
+	return readState(tlt, ns, key, s)
 }
 
 func (sf *factory) createGenesisStates(ctx context.Context) error {
-	ws, err := newWorkingSet(
-		0,
-		sf.dao,
-		sf.rootHash(),
-		sf.flusherOptions(ctx, 0)...,
-	)
+	ws, err := sf.newWorkingSet(ctx, 0)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
@@ -490,36 +548,31 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 	// add Genesis states
-	if err := sf.commit(ws); err != nil {
+	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit Genesis states")
 	}
 	return nil
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
+func (sf *factory) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 	if data, ok := sf.workingsets.Get(key); ok {
-		if ws, ok := data.(WorkingSet); ok {
+		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
 			return ws, true, nil
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	ws, err := newWorkingSet(
-		sf.currentChainHeight+1,
-		sf.dao,
-		sf.rootHash(),
-		sf.flusherOptions(ctx, sf.currentChainHeight+1)...,
-	)
+	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	if err != nil {
 		return nil, false, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 	return ws, false, nil
 }
 
-func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.workingsets.Add(key, ws)

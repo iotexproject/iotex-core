@@ -154,11 +154,64 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
-func (sdb *stateDB) NewWorkingSet() (WorkingSet, error) {
-	sdb.mutex.RLock()
-	defer sdb.mutex.RUnlock()
+func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
+	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
+	if err != nil {
+		return nil, err
+	}
 
-	return newStateTX(sdb.currentChainHeight+1, sdb.dao)
+	return &workingSet{
+		height:    height,
+		finalized: false,
+		getStateFunc: func(ns string, key []byte, s interface{}) error {
+			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
+			if err != nil {
+				if errors.Cause(err) == db.ErrNotExist {
+					return errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+				}
+				return err
+			}
+			return state.Deserialize(s, data)
+		},
+		putStateFunc: func(ns string, key []byte, s interface{}) error {
+			ss, err := state.Serialize(s)
+			if err != nil {
+				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+			}
+			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
+
+			return nil
+		},
+		delStateFunc: func(ns string, key []byte) error {
+			flusher.KVStoreWithBuffer().MustDelete(ns, key)
+
+			return nil
+		},
+		digestFunc: func() hash.Hash256 {
+			return hash.Hash256b(flusher.SerializeQueue())
+		},
+		finalizeFunc: func(h uint64) error {
+			// Persist current chain Height
+			flusher.KVStoreWithBuffer().MustPut(
+				AccountKVNamespace,
+				[]byte(CurrentHeightKey),
+				byteutil.Uint64ToBytes(height),
+			)
+			return nil
+		},
+		commitFunc: func(h uint64) error {
+			if err := flusher.Flush(); err != nil {
+				return err
+			}
+			sdb.currentChainHeight = h
+			return nil
+		},
+		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
+		revertFunc:   flusher.KVStoreWithBuffer().Revert,
+		dbFunc: func() db.KVStore {
+			return flusher.KVStoreWithBuffer()
+		},
+	}, nil
 }
 
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
@@ -184,11 +237,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, err
@@ -213,11 +262,7 @@ func (sdb *stateDB) SimulateExecution(
 	getBlockHash evm.GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	sdb.mutex.Lock()
-	ws, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, nil, err
@@ -268,37 +313,23 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return sdb.commit(ws)
+	return ws.Commit()
 }
 
 // State returns a confirmed state in the state factory
-func (sdb *stateDB) State(state interface{}, opts ...protocol.StateOption) (uint64, error) {
+func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 
-	cfg, err := protocol.CreateStateConfig(opts...)
+	archive, _, ns, key, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if cfg.AtHeight {
+	if archive {
 		return 0, ErrNotSupported
 	}
-	ns := AccountKVNamespace
-	if cfg.Namespace != "" {
-		ns = cfg.Namespace
-	}
 
-	return sdb.currentChainHeight, sdb.state(ns, cfg.Key, state)
-}
-
-// DeleteWorkingSet returns true if it remove ws from workingsets cache successfully
-func (sdb *stateDB) DeleteWorkingSet(blk *block.Block) error {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
-
-	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
-	sdb.workingsets.Remove(key)
-	return nil
+	return sdb.currentChainHeight, sdb.state(ns, key, s)
 }
 
 //======================================
@@ -313,7 +344,7 @@ func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVSt
 		return opts
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.Easter, height) {
+	if hu.IsPost(config.Easter, height) {
 		return opts
 	}
 	return append(
@@ -338,7 +369,7 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) commit(ws WorkingSet) error {
+func (sdb *stateDB) commit(ws *workingSet) error {
 	if err := ws.Commit(); err != nil {
 		return errors.Wrap(err, "failed to commit working set")
 	}
@@ -353,7 +384,7 @@ func (sdb *stateDB) commit(ws WorkingSet) error {
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
-	ws, err := newStateTX(0, sdb.dao, sdb.flusherOptions(ctx, 0)...)
+	ws, err := sdb.newWorkingSet(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -365,26 +396,22 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)
-func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (WorkingSet, bool, error) {
+func (sdb *stateDB) getFromWorkingSets(ctx context.Context, key hash.Hash256) (*workingSet, bool, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
 	if data, ok := sdb.workingsets.Get(key); ok {
-		if ws, ok := data.(WorkingSet); ok {
+		if ws, ok := data.(*workingSet); ok {
 			// if it is already validated, return workingset
 			return ws, true, nil
 		}
 		return nil, false, errors.New("type assertion failed to be WorkingSet")
 	}
-	tx, err := newStateTX(
-		sdb.currentChainHeight+1,
-		sdb.dao,
-		sdb.flusherOptions(ctx, sdb.currentChainHeight+1)...,
-	)
+	tx, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 
 	return tx, false, err
 }
 
-func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws WorkingSet) {
+func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Add(key, ws)

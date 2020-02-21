@@ -28,8 +28,20 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
+func processOptions(opts ...protocol.StateOption) (bool, uint64, string, []byte, error) {
+	cfg, err := protocol.CreateStateConfig(opts...)
+	if err != nil {
+		return false, 0, "", nil, err
+	}
+	ns := AccountKVNamespace
+	if cfg.Namespace != "" {
+		ns = cfg.Namespace
+	}
+	return cfg.AtHeight, cfg.Height, ns, cfg.Key, nil
+}
+
 // createGenesisStates initialize the genesis states
-func createGenesisStates(ctx context.Context, ws WorkingSet) error {
+func createGenesisStates(ctx context.Context, ws *workingSet) error {
 	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
 		for _, p := range bcCtx.Registry.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
@@ -43,7 +55,7 @@ func createGenesisStates(ctx context.Context, ws WorkingSet) error {
 	return ws.Finalize()
 }
 
-func validateWithWorkingset(ctx context.Context, ws WorkingSet, blk *block.Block) error {
+func validateWithWorkingset(ctx context.Context, ws *workingSet, blk *block.Block) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if err := validateNonce(ws, blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
@@ -68,7 +80,7 @@ func validateWithWorkingset(ctx context.Context, ws WorkingSet, blk *block.Block
 	return nil
 }
 
-func validateNonce(ws WorkingSet, blk *block.Block) error {
+func validateNonce(ws *workingSet, blk *block.Block) error {
 	accountNonceMap := make(map[string][]uint64)
 	for _, selp := range blk.Actions {
 		caller, err := address.FromBytes(selp.SrcPubkey().Hash())
@@ -116,7 +128,7 @@ func appendActionIndex(accountNonceMap map[string][]uint64, srcAddr string, nonc
 	accountNonceMap[srcAddr] = append(accountNonceMap[srcAddr], nonce)
 }
 
-func runActions(ctx context.Context, ws WorkingSet, actions []action.SealedEnvelope) ([]*action.Receipt, WorkingSet, error) {
+func runActions(ctx context.Context, ws *workingSet, actions []action.SealedEnvelope) ([]*action.Receipt, *workingSet, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	registry := bcCtx.Registry
 	for _, p := range registry.All() {
@@ -137,7 +149,7 @@ func runActions(ctx context.Context, ws WorkingSet, actions []action.SealedEnvel
 
 func createBuilderWithWorkingset(
 	ctx context.Context,
-	ws WorkingSet,
+	ws *workingSet,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
@@ -177,11 +189,11 @@ func createBuilderWithWorkingset(
 
 func pickAndRunActions(
 	ctx context.Context,
-	ws WorkingSet,
+	ws *workingSet,
 	actionMap map[string][]action.SealedEnvelope,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
-) ([]*action.Receipt, []action.SealedEnvelope, WorkingSet, error) {
+) ([]*action.Receipt, []action.SealedEnvelope, *workingSet, error) {
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
@@ -243,7 +255,7 @@ func pickAndRunActions(
 
 func simulateExecution(
 	ctx context.Context,
-	ws WorkingSet,
+	ws *workingSet,
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,

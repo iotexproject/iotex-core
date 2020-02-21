@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -19,6 +19,19 @@ type TwoLayerTrie struct {
 	layerOne trie.Trie
 }
 
+func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
+	value, err := tlt.layerOne.Get(key)
+	if err != nil {
+		if errors.Cause(err) == trie.ErrNotExist {
+			return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
+		}
+
+		return nil, err
+	}
+
+	return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
+}
+
 // Start starts the layer one trie
 func (tlt *TwoLayerTrie) Start(ctx context.Context) error {
 	return tlt.layerOne.Start(ctx)
@@ -34,16 +47,9 @@ func (tlt *TwoLayerTrie) RootHash() []byte {
 	return tlt.layerOne.RootHash()
 }
 
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
-	value, err := tlt.layerOne.Get(key)
-	switch errors.Cause(err) {
-	case trie.ErrNotExist:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	case nil:
-		return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
-	default:
-		return nil, err
-	}
+// SetRootHash sets root hash for layer one trie
+func (tlt *TwoLayerTrie) SetRootHash(rh []byte) error {
+	return tlt.layerOne.SetRootHash(rh)
 }
 
 // Get returns the layer two value
@@ -93,9 +99,8 @@ func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 		return err
 	}
 
-	if layerTwo.IsEmpty() {
-		return tlt.layerOne.Delete(layerOneKey)
+	if !layerTwo.IsEmpty() {
+		return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
 	}
-
-	return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
+	return tlt.layerOne.Delete(layerOneKey)
 }

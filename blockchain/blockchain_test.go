@@ -1303,7 +1303,7 @@ func TestHistoryForAccount(t *testing.T) {
 
 func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, _ := newChain(t, statetx)
+	bc, sf, _, _ := newChain(t, statetx)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
@@ -1359,7 +1359,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, dao := newChain(t, statetx)
+	bc, sf, kv, dao := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, t)
@@ -1367,7 +1367,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err := accountutil.AccountState(sf, contract)
 	require.NoError(err)
 	// check the original balance
-	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1376,7 +1376,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err = accountutil.AccountState(sf, contract)
 	require.NoError(err)
 	// check the balance after transfer
-	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1388,7 +1388,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	} else {
 		account, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
 		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
@@ -1427,11 +1427,8 @@ func deployXrc20(bc Blockchain, dao blockdao.BlockDAO, t *testing.T) string {
 	return r.ContractAddress
 }
 
-func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *testing.T, root hash.Hash256) *big.Int {
+func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testing.T, root hash.Hash256) *big.Int {
 	require := require.New(t)
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	kv := ws.GetDB()
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
@@ -1462,7 +1459,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 	return big.NewInt(0).SetBytes(ret)
 }
 
-func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao.BlockDAO) {
+func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO) {
 	require := require.New(t)
 	cfg := config.Default
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
@@ -1479,12 +1476,13 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	var sf factory.Factory
+	kv := db.NewMemKVStore()
 	var err error
 	if statetx {
-		sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
 		require.NoError(err)
 	}
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1533,7 +1531,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	)
 	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
-	return bc, sf, dao
+	return bc, sf, kv, dao
 }
 
 func makeTransfer(contract string, bc Blockchain, t *testing.T) *block.Block {

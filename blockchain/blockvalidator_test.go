@@ -120,7 +120,8 @@ func TestWrongNonce(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	kv := db.NewMemKVStore()
+	sf, err := factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
 	require.NoError(err)
 
 	// Create a blockchain from scratch
@@ -147,7 +148,10 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(blk)
 
-	sf.DeleteWorkingSet(blk)
+	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
+	require.NoError(err)
+	val = &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
@@ -179,7 +183,10 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(blk2)
 
-	sf.DeleteWorkingSet(blk2)
+	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
+	require.NoError(err)
+	val = &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
@@ -213,7 +220,10 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(blk3)
 
-	sf.DeleteWorkingSet(blk3)
+	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
+	require.NoError(err)
+	val = &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
@@ -247,7 +257,10 @@ func TestWrongNonce(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(blk4)
 
-	sf.DeleteWorkingSet(blk4)
+	sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
+	require.NoError(err)
+	val = &validator{sf: sf, validatorAddr: ""}
+	val.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
