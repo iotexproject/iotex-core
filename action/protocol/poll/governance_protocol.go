@@ -132,7 +132,8 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Easter, uint64(1)) {
 		if err := setNextEpochBlacklist(sm, &vote.Blacklist{
-			IntensityRate: p.kickoutIntensity,
+			BlacklistInfos: make(map[string]uint32),
+			IntensityRate:  p.kickoutIntensity,
 		}); err != nil {
 			return err
 		}

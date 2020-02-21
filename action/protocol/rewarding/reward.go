@@ -157,7 +157,7 @@ func (p *Protocol) GrantEpochReward(
 		exemptAddrs[addr.String()] = nil
 	}
 
-	var uqd map[string]bool
+	uqd := make(map[string]bool)
 	var err error
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if hu.IsPre(config.Easter, epochStartHeight) {
