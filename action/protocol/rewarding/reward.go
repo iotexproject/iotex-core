@@ -157,7 +157,7 @@ func (p *Protocol) GrantEpochReward(
 		exemptAddrs[addr.String()] = nil
 	}
 
-	uqd := make(map[string]bool)
+	var uqd map[string]bool
 	var err error
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if hu.IsPre(config.Easter, epochStartHeight) {
@@ -167,6 +167,7 @@ func (p *Protocol) GrantEpochReward(
 		}
 	} else {
 		// Get Kick-out List from DB
+		uqd = make(map[string]bool)
 		kickoutList, _, err := p.getKickoutList(sm, false)
 		if err != nil {
 			return nil, err
