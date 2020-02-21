@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -73,7 +72,7 @@ func init() {
 }
 
 // DelegatesByEpochFunc defines a function to overwrite candidates
-type DelegatesByEpochFunc func(context.Context, uint64) (state.CandidateList, error)
+type DelegatesByEpochFunc func(uint64) ([]string, error)
 type rollDPoSCtx struct {
 	consensusfsm.ConsensusConfig
 

@@ -212,10 +212,10 @@ func (mr *MockWorkingSetMockRecorder) Commit() *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockWorkingSet) RootHash() (hash.Hash256, error) {
+func (m *MockWorkingSet) RootHash() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
-	ret0, _ := ret[0].(hash.Hash256)
+	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

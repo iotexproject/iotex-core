@@ -7,6 +7,7 @@
 package action
 
 import (
+	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -108,4 +109,12 @@ func ClassifyActions(actions []SealedEnvelope) ([]*Transfer, []*Execution) {
 		}
 	}
 	return tsfs, exes
+}
+
+func calculateIntrinsicGas(baseIntrinsicGas uint64, payloadGas uint64, payloadSize uint64) (uint64, error) {
+	if (math.MaxUint64-baseIntrinsicGas)/payloadGas < payloadSize {
+		return 0, ErrOutOfGas
+	}
+
+	return payloadSize*payloadGas + baseIntrinsicGas, nil
 }
