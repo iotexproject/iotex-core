@@ -11,10 +11,11 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -28,32 +29,22 @@ const (
 func TestBucket(t *testing.T) {
 	require := require.New(t)
 
-	vb, err := NewVoteBucket("", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
-	require.Error(err)
-	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
+	vb, err := NewVoteBucket("testname1234", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
 	require.Equal(ErrInvalidAmount, errors.Cause(err))
 	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "-2100000000", 21, time.Now(), true)
 	require.Equal(ErrInvalidAmount, errors.Cause(err))
 	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
 	require.Error(err)
-	vb, err = NewVoteBucket("testname1234", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
+	vb, err = NewVoteBucket("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
+	require.Error(err)
+	vb, err = NewVoteBucket("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2", "2100000000", 21, time.Now(), true)
 	require.NoError(err)
 
 	data, err := vb.Serialize()
 	require.NoError(err)
-	vb1 := VoteBucket{}
+	vb1 := &VoteBucket{}
 	require.NoError(vb1.Deserialize(data))
-	require.Equal(vb.CandidateName, vb1.CandidateName)
-	require.Equal(vb.StakedAmount, vb1.StakedAmount)
-	require.Equal(vb.StakedDuration, vb1.StakedDuration)
-	require.Equal(vb.CreateTime.Seconds, vb1.CreateTime.Seconds)
-	require.Equal(vb.CreateTime.Nanos, vb1.CreateTime.Nanos)
-	require.Equal(vb.StakeStartTime.Seconds, vb1.StakeStartTime.Seconds)
-	require.Equal(vb.StakeStartTime.Nanos, vb1.StakeStartTime.Nanos)
-	require.Equal(vb.UnstakeStartTime.Seconds, vb1.UnstakeStartTime.Seconds)
-	require.Equal(vb.UnstakeStartTime.Nanos, vb1.UnstakeStartTime.Nanos)
-	require.Equal(vb.AutoStake, vb1.AutoStake)
-	require.Equal(vb.Owner, vb1.Owner)
+	require.Equal(vb, vb1)
 }
 
 func createKey(opts ...protocol.StateOption) (hash.Hash256, error) {
@@ -131,65 +122,56 @@ func TestGetPutStaking(t *testing.T) {
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.KeyOption(factory.TotalBucketKey),
 	)
+
 	tests := []struct {
-		name  CandName
+		name  hash.Hash160
 		index uint64
 	}{
 		{
-			CandName{1, 2, 3, 4},
+			hash.BytesToHash160([]byte{1, 2, 3, 4}),
 			0,
 		},
 		{
-			CandName{1, 2, 3, 4},
+			hash.BytesToHash160([]byte{1, 2, 3, 4}),
 			1,
 		},
 		{
-			CandName{2, 3, 4, 5},
+			hash.BytesToHash160([]byte{2, 3, 4, 5}),
 			2,
 		},
 		{
-			CandName{2, 3, 4, 5},
+			hash.BytesToHash160([]byte{2, 3, 4, 5}),
 			3,
 		},
 	}
 
 	// put buckets and get
 	for _, e := range tests {
-		_, err := stakingGetBucket(sm, e.name, e.index)
+		addr, _ := address.FromBytes(e.name[:])
+		_, err := stakingGetBucket(sm, addr, e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
-		vb, err := NewVoteBucket("testnameof12", "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21, time.Now(), true)
+		vb, err := NewVoteBucket(addr.String(), "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21*uint32(e.index+1), time.Now(), true)
 		require.NoError(err)
 
 		count, err := stakingGetTotalCount(sm)
 		require.NoError(err)
 		require.Equal(e.index, count)
-		require.NoError(stakingPutBucket(sm, e.name, vb))
+		require.NoError(stakingPutBucket(sm, addr, vb))
 		count, err = stakingGetTotalCount(sm)
 		require.NoError(err)
 		require.Equal(e.index+1, count)
-		vb1, err := stakingGetBucket(sm, e.name, e.index)
+		vb1, err := stakingGetBucket(sm, addr, e.index)
 		require.NoError(err)
-		require.Equal(vb.CandidateName, vb1.CandidateName)
-		require.Equal(vb.StakedAmount, vb1.StakedAmount)
-		require.Equal(vb.StakedDuration, vb1.StakedDuration)
-		require.Equal(vb.CreateTime.Seconds, vb1.CreateTime.Seconds)
-		require.Equal(vb.CreateTime.Nanos, vb1.CreateTime.Nanos)
-		require.Equal(vb.StakeStartTime.Seconds, vb1.StakeStartTime.Seconds)
-		require.Equal(vb.StakeStartTime.Nanos, vb1.StakeStartTime.Nanos)
-		require.Equal(vb.UnstakeStartTime.Seconds, vb1.UnstakeStartTime.Seconds)
-		require.Equal(vb.UnstakeStartTime.Nanos, vb1.UnstakeStartTime.Nanos)
-		require.Equal(vb.AutoStake, vb1.AutoStake)
+		require.Equal(vb, vb1)
 		require.Equal(vb.Owner, vb1.Owner)
 	}
 
 	// delete buckets and get
 	for _, e := range tests {
-		require.NoError(stakingDelBucket(sm, e.name, e.index))
-	}
-
-	for _, e := range tests {
-		_, err := stakingGetBucket(sm, e.name, e.index)
+		addr, _ := address.FromBytes(e.name[:])
+		require.NoError(stakingDelBucket(sm, addr, e.index))
+		_, err := stakingGetBucket(sm, addr, e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }

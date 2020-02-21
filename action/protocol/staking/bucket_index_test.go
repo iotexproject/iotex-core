@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -71,30 +72,31 @@ func TestGetPutBucketIndex(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		sm := newMockStateManager(ctrl)
+
 		tests := []struct {
 			canName   CandName
 			index     uint64
-			voterAddr string
+			voterAddr address.Address
 		}{
 			{
 				fakeCanName(identityset.Address(1).String(), uint64(1)),
 				uint64(1),
-				identityset.Address(1).String(),
+				identityset.Address(1),
 			},
 			{
 				fakeCanName(identityset.Address(2).String(), uint64(2)),
 				uint64(2),
-				identityset.Address(1).String(),
+				identityset.Address(1),
 			},
 			{
 				fakeCanName(identityset.Address(3).String(), uint64(3)),
 				uint64(3),
-				identityset.Address(1).String(),
+				identityset.Address(1),
 			},
 			{
 				fakeCanName(identityset.Address(4).String(), uint64(4)),
 				uint64(4),
-				identityset.Address(1).String(),
+				identityset.Address(1),
 			},
 		}
 
