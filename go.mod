@@ -14,10 +14,9 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/golang-lru v0.5.1
-	github.com/iotexproject/go-ethereum v1.7.3 // indirect
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.12
-	github.com/iotexproject/go-pkgs v0.1.2-0.20200117212133-15c2790a2fb3
+	github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.11
