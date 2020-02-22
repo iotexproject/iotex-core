@@ -7,6 +7,8 @@
 package vote
 
 import (
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -27,12 +29,16 @@ func (bl *Blacklist) Serialize() ([]byte, error) {
 // Proto converts the blacklist to a protobuf message
 func (bl *Blacklist) Proto() *iotextypes.KickoutCandidateList {
 	kickoutListPb := make([]*iotextypes.KickoutInfo, 0, len(bl.BlacklistInfos))
-	for name, count := range bl.BlacklistInfos {
-		kickoutpb := &iotextypes.KickoutInfo{
+	names := make([]string, 0, len(bl.BlacklistInfos))
+	for name := range bl.BlacklistInfos {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		kickoutListPb = append(kickoutListPb, &iotextypes.KickoutInfo{
 			Address: name,
-			Count:   count,
-		}
-		kickoutListPb = append(kickoutListPb, kickoutpb)
+			Count:   bl.BlacklistInfos[name],
+		})
 	}
 	return &iotextypes.KickoutCandidateList{
 		Blacklists:    kickoutListPb,
