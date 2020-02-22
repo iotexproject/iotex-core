@@ -662,32 +662,32 @@ func TestConstantinople(t *testing.T) {
 			},
 			{
 				setHash,
-				"cb0f7895c1fa4f179c0c109835b160d9d1852fce526e12c6b443e86257cadb48",
+				"06c0b7f6aa7accf4c82dfec228ea35d459ab63d255f1b856013072d2aa5b83b5",
 				setTopic,
 			},
 			{
 				shrHash,
-				"c1337e26e157426dd0af058ed37e329d25dd3e34ed606994a6776b59f988f458",
+				"afd1c8bcd37a198bbd6de886a643945fba26ca332798a1dea61630ffa999837f",
 				shrTopic,
 			},
 			{
 				shlHash,
-				"cf5c2050a261fa7eca45f31a184c6cd1dc737c7fc3088a0983f659b08985521c",
+				"1c26fe8b8053cfeaed542a103029b297fd6562c0c0f7cd8c69371b4a6de0dcd7",
 				shlTopic,
 			},
 			{
 				sarHash,
-				"5d76bd9e4be3a60c00761fd141da6bd9c07ab73f472f537845b65679095b0570",
+				"19768e710b1cd742a25ab809d3fec638107be086e8a0bc645b80772701d2a9f4",
 				sarTopic,
 			},
 			{
 				extHash,
-				"c5fd9f372b89265f2423737a6d7b680e9759a4a715b22b04ccf875460c310015",
+				"e9764901f0a4fc0e62300ce822672c8c998ab78e0aed91dfd89f9368a7c89915",
 				extTopic,
 			},
 			{
 				crt2Hash,
-				"53632287a97e4e118302f2d9b54b3f97f62d3533286c4d4eb955627b3602d3b0",
+				"a6f0a7bb940f62020a54e3cc597bb8806c3ce8494d12b9b2a5afce496bdbae9c",
 				crt2Topic,
 			},
 		}
@@ -1303,7 +1303,7 @@ func TestHistoryForAccount(t *testing.T) {
 
 func testHistoryForAccount(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, _ := newChain(t, statetx)
+	bc, sf, _, _ := newChain(t, statetx)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
@@ -1359,7 +1359,7 @@ func TestHistoryForContract(t *testing.T) {
 
 func testHistoryForContract(t *testing.T, statetx bool) {
 	require := require.New(t)
-	bc, sf, dao := newChain(t, statetx)
+	bc, sf, kv, dao := newChain(t, statetx)
 	genesisAccount := identityset.Address(27).String()
 	// deploy and get contract address
 	contract := deployXrc20(bc, dao, t)
@@ -1367,7 +1367,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err := accountutil.AccountState(sf, contract)
 	require.NoError(err)
 	// check the original balance
-	balance := BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	balance := BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 	expect, ok := big.NewInt(0).SetString("2000000000000000000000000000", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1376,7 +1376,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	account, err = accountutil.AccountState(sf, contract)
 	require.NoError(err)
 	// check the balance after transfer
-	balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+	balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 	expect, ok = big.NewInt(0).SetString("1999999999999999999999999999", 10)
 	require.True(ok)
 	require.Equal(expect, balance)
@@ -1388,7 +1388,7 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 	} else {
 		account, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
 		require.NoError(err)
-		balance = BalanceOfContract(contract, genesisAccount, sf, t, account.Root)
+		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)
 		require.True(ok)
 		require.Equal(expect, balance)
@@ -1427,11 +1427,8 @@ func deployXrc20(bc Blockchain, dao blockdao.BlockDAO, t *testing.T) string {
 	return r.ContractAddress
 }
 
-func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *testing.T, root hash.Hash256) *big.Int {
+func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testing.T, root hash.Hash256) *big.Int {
 	require := require.New(t)
-	ws, err := sf.NewWorkingSet()
-	require.NoError(err)
-	kv := ws.GetDB()
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
@@ -1441,7 +1438,8 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 		trie.KVStoreOption(dbForTrie),
 		trie.KeyLengthOption(len(hash.Hash256{})),
 		trie.HashFuncOption(func(data []byte) []byte {
-			return trie.DefaultHashFunc(append(addrHash[:], data...))
+			h := hash.Hash256b(append(addrHash[:], data...))
+			return h[:]
 		}),
 	}
 	options = append(options, trie.RootHashOption(root[:]))
@@ -1462,7 +1460,7 @@ func BalanceOfContract(contract, genesisAccount string, sf factory.Factory, t *t
 	return big.NewInt(0).SetBytes(ret)
 }
 
-func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao.BlockDAO) {
+func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO) {
 	require := require.New(t)
 	cfg := config.Default
 	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
@@ -1479,12 +1477,13 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false
 	var sf factory.Factory
+	kv := db.NewMemKVStore()
 	var err error
 	if statetx {
-		sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
 		require.NoError(err)
 	}
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1533,7 +1532,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, blockdao
 	)
 	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
-	return bc, sf, dao
+	return bc, sf, kv, dao
 }
 
 func makeTransfer(contract string, bc Blockchain, t *testing.T) *block.Block {

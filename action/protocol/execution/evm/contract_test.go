@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -66,11 +65,8 @@ func TestCreateContract(t *testing.T) {
 			return 0, nil
 		}).AnyTimes()
 
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), cb)
-	require.NoError(err)
-	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
 	addr := identityset.Address(28)
-	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
+	_, err := accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
 	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hash.ZeroHash256)
@@ -104,9 +100,9 @@ func TestLoadStoreCommit(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
+		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, flusher.KVStoreWithBuffer())
+		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm)
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -233,16 +229,17 @@ func TestLoadStoreCommit(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
-
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
 	s := &state.Account{
 		Balance: big.NewInt(5),
 	}
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
-	require.NoError(err)
 	c1, err := newContract(
 		hash.BytesToHash160(identityset.Address(28).Bytes()),
 		s,
-		flusher.KVStoreWithBuffer(),
+		sm,
 	)
 	require.NoError(err)
 	require.NoError(c1.SetState(k2b, v2[:]))

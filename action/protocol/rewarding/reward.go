@@ -167,6 +167,7 @@ func (p *Protocol) GrantEpochReward(
 		}
 	} else {
 		// Get Kick-out List from DB
+		uqd = make(map[string]bool)
 		kickoutList, _, err := p.getKickoutList(sm, false)
 		if err != nil {
 			return nil, err

@@ -7,7 +7,6 @@ package mock_chainmanager
 import (
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	db "github.com/iotexproject/iotex-core/db"
 	reflect "reflect"
 )
 
@@ -192,18 +191,4 @@ func (m *MockStateManager) DelState(arg0 ...protocol.StateOption) (uint64, error
 func (mr *MockStateManagerMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManager)(nil).DelState), arg0...)
-}
-
-// GetDB mocks base method
-func (m *MockStateManager) GetDB() db.KVStore {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetDB")
-	ret0, _ := ret[0].(db.KVStore)
-	return ret0
-}
-
-// GetDB indicates an expected call of GetDB
-func (mr *MockStateManagerMockRecorder) GetDB() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDB", reflect.TypeOf((*MockStateManager)(nil).GetDB))
 }

@@ -20,13 +20,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
-func initMockStateManager(ctrl *gomock.Controller) (protocol.StateManager, error) {
+func initMockStateManager(ctrl *gomock.Controller) (*mock_chainmanager.MockStateManager, error) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -35,7 +34,11 @@ func initMockStateManager(ctrl *gomock.Controller) (protocol.StateManager, error
 			if err != nil {
 				return 0, err
 			}
-			val, err := cb.Get("state", cfg.Key)
+			ns := "state"
+			if cfg.Namespace != "" {
+				ns = cfg.Namespace
+			}
+			val, err := cb.Get(ns, cfg.Key)
 			if err != nil {
 				return 0, state.ErrStateNotExist
 			}
@@ -51,14 +54,26 @@ func initMockStateManager(ctrl *gomock.Controller) (protocol.StateManager, error
 			if err != nil {
 				return 0, err
 			}
-			cb.Put("state", cfg.Key, ss, "failed to put state")
+			ns := "state"
+			if cfg.Namespace != "" {
+				ns = cfg.Namespace
+			}
+			cb.Put(ns, cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), cb)
-	if err != nil {
-		return nil, err
-	}
-	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
+		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
+			ns := "state"
+			if cfg.Namespace != "" {
+				ns = cfg.Namespace
+			}
+			cb.Delete(ns, cfg.Key, "failed to delete state")
+			return 0, nil
+		}).AnyTimes()
 	sm.EXPECT().Snapshot().DoAndReturn(
 		func() int {
 			return cb.Snapshot()
@@ -357,7 +372,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			// test preimage
 			for _, e := range test.preimage {
 				v, _ := stateDB.preimages[e.hash]
-				require.Equal(e.v, v)
+				require.Equal(e.v, []byte(v))
 			}
 		}
 
@@ -407,10 +422,6 @@ func TestGetBalanceOnError(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	flusher, err := db.NewKVStoreFlusher(db.NewMemKVStore(), batch.NewCachedBatch())
-	require.NoError(t, err)
-	sm.EXPECT().GetDB().Return(flusher.KVStoreWithBuffer()).AnyTimes()
-
 	errs := []error{
 		state.ErrStateNotExist,
 		errors.New("other error"),
@@ -440,10 +451,14 @@ func TestPreimage(t *testing.T) {
 	stateDB.AddPreimage(common.BytesToHash(v1[:]), []byte("fox"))
 	require.NoError(stateDB.CommitContracts())
 	stateDB.clear()
-	k, _ := stateDB.dao.Get(PreimageKVNameSpace, v1[:])
-	require.Equal([]byte("cat"), k)
-	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v2[:])
-	require.Equal([]byte("dog"), k)
-	k, _ = stateDB.dao.Get(PreimageKVNameSpace, v3[:])
-	require.Equal([]byte("hen"), k)
+	var k SerializableBytes
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v1[:]))
+	require.NoError(err)
+	require.Equal([]byte("cat"), []byte(k))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v2[:]))
+	require.NoError(err)
+	require.Equal([]byte("dog"), []byte(k))
+	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v3[:]))
+	require.NoError(err)
+	require.Equal([]byte("hen"), []byte(k))
 }

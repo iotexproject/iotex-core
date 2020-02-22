@@ -10,6 +10,7 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -28,7 +29,7 @@ const (
 type CreateStake struct {
 	AbstractAction
 
-	candName  string
+	candName  address.Address
 	amount    *big.Int
 	duration  uint32
 	autoStake bool
@@ -38,14 +39,23 @@ type CreateStake struct {
 // NewCreateStake returns a CreateStake instance
 func NewCreateStake(
 	nonce uint64,
-	candName string,
-	amount *big.Int,
+	candName, amount string,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*CreateStake, error) {
+	candAddr, err := address.FromString(candName)
+	if err != nil {
+		return nil, err
+	}
+
+	stake, ok := new(big.Int).SetString(amount, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid amount %s", amount)
+	}
+
 	return &CreateStake{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
@@ -53,8 +63,8 @@ func NewCreateStake(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		candName:  candName,
-		amount:    amount,
+		candName:  candAddr,
+		amount:    stake,
 		duration:  duration,
 		autoStake: autoStake,
 		payload:   payload,
@@ -67,8 +77,8 @@ func (cs *CreateStake) Amount() *big.Int { return cs.amount }
 // Payload returns the payload bytes
 func (cs *CreateStake) Payload() []byte { return cs.payload }
 
-// CandName returns the candidate name
-func (cs *CreateStake) CandName() string { return cs.candName }
+// Candidate returns the candidate name
+func (cs *CreateStake) Candidate() string { return cs.candName.String() }
 
 // Duration returns the CreateStaked duration
 func (cs *CreateStake) Duration() uint32 { return cs.duration }
@@ -83,17 +93,21 @@ func (cs *CreateStake) Serialize() []byte {
 
 // Proto converts to protobuf CreateStake Action
 func (cs *CreateStake) Proto() *iotextypes.StakeCreate {
-	act := &iotextypes.StakeCreate{
-		CandidateName:  cs.candName,
+	act := iotextypes.StakeCreate{
+		CandidateName:  cs.candName.String(),
 		StakedDuration: cs.duration,
 		AutoStake:      cs.autoStake,
-		Payload:        cs.payload,
 	}
 
 	if cs.amount != nil {
 		act.StakedAmount = cs.amount.String()
 	}
-	return act
+
+	if len(cs.payload) > 0 {
+		act.Payload = make([]byte, len(cs.payload))
+		copy(act.Payload, cs.payload)
+	}
+	return &act
 }
 
 // LoadProto converts a protobuf's Action to CreateStake
@@ -101,17 +115,28 @@ func (cs *CreateStake) LoadProto(pbAct *iotextypes.StakeCreate) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	cs = &CreateStake{}
 
-	cs.candName = pbAct.GetCandidateName()
-	cs.duration = pbAct.GetStakedDuration()
-	cs.autoStake = pbAct.GetAutoStake()
-	cs.payload = pbAct.GetPayload()
-	cs.amount = big.NewInt(0)
-	if len(pbAct.GetStakedAmount()) > 0 {
-		cs.amount.SetString(pbAct.GetStakedAmount(), 10)
+	candAddr, err := address.FromString(pbAct.CandidateName)
+	if err != nil {
+		return err
 	}
 
+	cs.candName = candAddr
+	cs.duration = pbAct.StakedDuration
+	cs.autoStake = pbAct.AutoStake
+
+	if len(pbAct.GetStakedAmount()) > 0 {
+		var ok bool
+		if cs.amount, ok = new(big.Int).SetString(pbAct.StakedAmount, 10); !ok {
+			return errors.Errorf("invalid amount %s", pbAct.StakedAmount)
+		}
+	}
+
+	cs.payload = nil
+	if len(pbAct.Payload) > 0 {
+		cs.payload = make([]byte, len(pbAct.Payload))
+		copy(cs.payload, pbAct.Payload)
+	}
 	return nil
 }
 

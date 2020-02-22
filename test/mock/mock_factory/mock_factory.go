@@ -12,7 +12,6 @@ import (
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 )
 
@@ -102,21 +101,6 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
 }
 
-// NewWorkingSet mocks base method
-func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewWorkingSet")
-	ret0, _ := ret[0].(factory.WorkingSet)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewWorkingSet indicates an expected call of NewWorkingSet
-func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
-}
-
 // Validate mocks base method
 func (m *MockFactory) Validate(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()
@@ -159,18 +143,4 @@ func (m *MockFactory) Commit(arg0 context.Context, arg1 *block.Block) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
-}
-
-// DeleteWorkingSet mocks base method
-func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteWorkingSet", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteWorkingSet indicates an expected call of DeleteWorkingSet
-func (mr *MockFactoryMockRecorder) DeleteWorkingSet(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkingSet", reflect.TypeOf((*MockFactory)(nil).DeleteWorkingSet), arg0)
 }

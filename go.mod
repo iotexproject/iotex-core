@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.12
-	github.com/iotexproject/go-pkgs v0.1.2-0.20200117212133-15c2790a2fb3
+	github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.11
@@ -30,6 +30,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rs/zerolog v1.14.3
+	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.4.0
 	go.etcd.io/bbolt v1.3.2

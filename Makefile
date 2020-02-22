@@ -18,8 +18,10 @@ BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
 BUILD_TARGET_IOCTL=ioctl
+BUILD_TARGET_XCTL=xctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
+BUILD_TARGET_IOMIGRATER=iomigrater
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -206,3 +208,11 @@ recover:
 .PHONY: ioctl
 ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+
+.PHONY: xctl
+ioctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/ioctl/xctl
+
+.PHONY: iomigrater
+iomigrater:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOMIGRATER) -v ./tools/iomigrater

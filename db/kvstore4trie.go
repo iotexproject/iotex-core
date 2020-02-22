@@ -33,11 +33,11 @@ func init() {
 type KVStoreForTrie struct {
 	lc     lifecycle.Lifecycle
 	bucket string
-	dao    KVStore
+	dao    KVStoreBasic
 }
 
 // NewKVStoreForTrie creates a new KVStoreForTrie
-func NewKVStoreForTrie(bucket string, dao KVStore) (*KVStoreForTrie, error) {
+func NewKVStoreForTrie(bucket string, dao KVStoreBasic) (*KVStoreForTrie, error) {
 	s := &KVStoreForTrie{
 		bucket: bucket,
 		dao:    dao,

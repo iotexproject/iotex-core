@@ -7,11 +7,13 @@
 package staking
 
 import (
+	"bytes"
 	"math/big"
 	"sort"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
@@ -28,19 +30,70 @@ type (
 
 	// Delegate represents the delegate
 	Delegate struct {
-		Owner         string
+		Owner         hash.Hash160
 		Address       string
 		RewardAddress string
 		CanName       CandName
 		Votes         *big.Int
+		SelfStake     *big.Int
+		Active        bool
 	}
 
 	// DelegateList is a list of delegates which is sortable
 	DelegateList []*Delegate
 
-	// DelegateMap is a map of delegates using [12]byte name as key
-	DelegateMap map[CandName]*Delegate
+	// DelegateMap is a map of delegates using owner's pubkey hash as key
+	DelegateMap map[hash.Hash160]*Delegate
 )
+
+// NewDelegate creates a delegate
+func NewDelegate(owner, addr, reward, name, amount, self string) (*Delegate, error) {
+	if len(name) == 0 || len(name) != 12 {
+		return nil, errors.Errorf("invalid candidate name length %d, expecting 12", len(name))
+	}
+
+	vote, ok := big.NewInt(0).SetString(amount, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
+	}
+
+	if vote.Sign() <= 0 {
+		return nil, ErrInvalidAmount
+	}
+
+	selfStake, ok := big.NewInt(0).SetString(self, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
+	}
+
+	if selfStake.Sign() <= 0 {
+		return nil, ErrInvalidAmount
+	}
+
+	ownerAddr, err := address.FromString(owner)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := address.FromString(addr); err != nil {
+		return nil, err
+	}
+
+	if _, err := address.FromString(reward); err != nil {
+		return nil, err
+	}
+
+	d := Delegate{
+		Owner:         hash.BytesToHash160(ownerAddr.Bytes()),
+		Address:       addr,
+		RewardAddress: reward,
+		CanName:       ToCandName([]byte(name)),
+		Votes:         vote,
+		SelfStake:     selfStake,
+		Active:        true,
+	}
+	return &d, nil
+}
 
 // ToCandName converts byte slice to CandName
 func ToCandName(b []byte) CandName {
@@ -74,28 +127,63 @@ func (d *Delegate) SubVote(amount *big.Int) error {
 	return nil
 }
 
+// Serialize serializes delegate to bytes
+func (d *Delegate) Serialize() ([]byte, error) {
+	return proto.Marshal(d.toProto())
+}
+
+// Deserialize deserializes bytes to delegate
+func (d *Delegate) Deserialize(buf []byte) error {
+	pb := &stakingpb.Delegate{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return errors.Wrap(err, "failed to unmarshal delegate")
+	}
+
+	d.Owner = hash.BytesToHash160(pb.Owner)
+	d.Address = pb.Address
+	d.RewardAddress = pb.RewardAddress
+	d.CanName = ToCandName(pb.CanName)
+	d.Active = pb.Active
+
+	if len(pb.Votes) > 0 {
+		d.Votes = new(big.Int).SetBytes(pb.Votes)
+	}
+
+	if len(pb.SelfStake) > 0 {
+		d.SelfStake = new(big.Int).SetBytes(pb.SelfStake)
+	}
+	return nil
+}
+
 func (d *Delegate) toProto() *stakingpb.Delegate {
 	name := make([]byte, len(d.CanName))
 	copy(name, d.CanName[:])
 	return &stakingpb.Delegate{
-		Owner:         d.Owner,
+		Owner:         d.Owner[:],
 		Address:       d.Address,
 		RewardAddress: d.RewardAddress,
 		CanName:       name,
 		Votes:         d.Votes.Bytes(),
+		SelfStake:     d.SelfStake.Bytes(),
+		Active:        d.Active,
 	}
 }
 
 func fromProto(pb *stakingpb.Delegate) *Delegate {
 	d := Delegate{
-		Owner:         pb.Owner,
+		Owner:         hash.BytesToHash160(pb.Owner),
 		Address:       pb.Address,
 		RewardAddress: pb.RewardAddress,
 		CanName:       ToCandName(pb.CanName),
+		Active:        pb.Active,
 	}
 
 	if len(pb.Votes) > 0 {
 		d.Votes = new(big.Int).SetBytes(pb.Votes)
+	}
+
+	if len(pb.SelfStake) > 0 {
+		d.SelfStake = new(big.Int).SetBytes(pb.SelfStake)
 	}
 	return &d
 }
@@ -106,7 +194,7 @@ func (l DelegateList) Less(i, j int) bool {
 	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
 		return res == 1
 	}
-	return strings.Compare(l[i].Owner, l[j].Owner) == 1
+	return bytes.Compare(l[i].Owner[:], l[j].Owner[:]) == 1
 }
 
 func (l DelegateList) toProto() *stakingpb.Delegates {
@@ -132,7 +220,7 @@ func (l *DelegateList) Deserialize(buf []byte) error {
 }
 
 // Contains returns true if the map contains the name
-func (m DelegateMap) Contains(name CandName) bool {
+func (m DelegateMap) Contains(name hash.Hash160) bool {
 	_, ok := m[name]
 	return ok
 }
@@ -159,7 +247,7 @@ func (m DelegateMap) Deserialize(buf []byte) error {
 	}
 
 	for _, v := range pb.Delegates {
-		m[ToCandName(v.CanName)] = fromProto(v)
+		m[hash.BytesToHash160(v.Owner)] = fromProto(v)
 	}
 	return nil
 }
