@@ -159,13 +159,19 @@ func setCandidates(
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")
 	}
-
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	preEaster := hu.IsPre(config.Easter, height)
 	for _, candidate := range candidates {
 		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)
 		if err != nil {
 			return errors.Wrapf(err, "failed to load or create the account for delegate %s", candidate.Address)
 		}
 		delegate.IsCandidate = true
+		if preEaster {
+			if err := candidatesutil.LoadAndAddCandidates(sm, height, candidate.Address); err != nil {
+				return err
+			}
+		}
 		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
@@ -176,8 +182,7 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.Easter, height) {
+	if preEaster {
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
 		return err
 	}

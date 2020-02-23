@@ -7,11 +7,15 @@
 package candidatesutil
 
 import (
+	"math/big"
+	"sort"
+
 	"go.uber.org/zap"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -155,4 +159,63 @@ func ConstructLegacyKey(height uint64) hash.Hash160 {
 func ConstructKey(key string) hash.Hash256 {
 	bytesKey := []byte(key)
 	return hash.Hash256b(bytesKey)
+}
+
+// LoadAndAddCandidates loads candidates from trie and adds a new candidate	// KickoutListFromDB returns array of kickout list at current epoch
+func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr string) error {
+	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
+	if err != nil {
+		return errors.Wrap(err, "failed to get most recent candidates from trie")
+	}
+	if err := addCandidate(candidateMap, addr); err != nil {
+		return errors.Wrap(err, "failed to add candidate to candidate map")
+	}
+	return storeCandidates(candidateMap, sm, blkHeight)
+}
+
+// GetMostRecentCandidateMap gets the most recent candidateMap from trie
+func GetMostRecentCandidateMap(sm protocol.StateManager, blkHeight uint64) (map[hash.Hash160]*state.Candidate, error) {
+	var sc state.CandidateList
+	for h := int(blkHeight); h >= 0; h-- {
+		candidatesKey := ConstructLegacyKey(uint64(h))
+		var err error
+		if _, err = sm.State(&sc, protocol.LegacyKeyOption(candidatesKey)); err == nil {
+			return state.CandidatesToMap(sc)
+		}
+		if errors.Cause(err) != state.ErrStateNotExist {
+			return nil, errors.Wrap(err, "failed to get most recent state of candidateList")
+		}
+	}
+	if blkHeight == uint64(0) || blkHeight == uint64(1) {
+		return make(map[hash.Hash160]*state.Candidate), nil
+	}
+	return nil, errors.Wrap(state.ErrStateNotExist, "failed to get most recent state of candidateList")
+}
+
+// addCandidate adds a new candidate to candidateMap
+func addCandidate(candidateMap map[hash.Hash160]*state.Candidate, encodedAddr string) error {
+	addr, err := address.FromString(encodedAddr)
+	if err != nil {
+		return errors.Wrap(err, "failed to get public key hash from account address")
+	}
+	addrHash := hash.BytesToHash160(addr.Bytes())
+	if _, ok := candidateMap[addrHash]; !ok {
+		candidateMap[addrHash] = &state.Candidate{
+			Address: encodedAddr,
+			Votes:   big.NewInt(0),
+		}
+	}
+	return nil
+}
+
+// storeCandidates puts updated candidates to trie
+func storeCandidates(candidateMap map[hash.Hash160]*state.Candidate, sm protocol.StateManager, blkHeight uint64) error {
+	candidateList, err := state.MapToCandidates(candidateMap)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert candidate map to candidate list")
+	}
+	sort.Sort(candidateList)
+	candidatesKey := ConstructLegacyKey(blkHeight)
+	_, err = sm.PutState(&candidateList, protocol.LegacyKeyOption(candidatesKey))
+	return err
 }
