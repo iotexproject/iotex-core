@@ -244,6 +244,7 @@ func TestBlockDAO(t *testing.T) {
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	require.NoError(t, testFile.Close())
+
 	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
