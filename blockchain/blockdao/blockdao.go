@@ -48,18 +48,6 @@ const (
 	receiptsNS               = "rpt"
 )
 
-// these NS belong to old DB before migrating to separate index
-// they are left here only for record
-// do NOT use them in the future to avoid potential conflict
-const (
-	blockActionBlockMappingNS        = "a2b"
-	blockAddressActionMappingNS      = "a2a"
-	blockAddressActionCountMappingNS = "a2c"
-	blockActionReceiptMappingNS      = "a2r"
-	numActionsNS                     = "nac"
-	transferAmountNS                 = "tfa"
-)
-
 var (
 	topHeightKey       = []byte("th")
 	topHashKey         = []byte("ts")
@@ -99,7 +87,6 @@ type (
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		GetReceipts(uint64) ([]*action.Receipt, error)
 		PutBlock(*block.Block) error
-		Commit() error
 		DeleteBlockToTarget(uint64) error
 		IndexFile(uint64, []byte) error
 		GetFileIndex(uint64) ([]byte, error)
@@ -114,7 +101,6 @@ type (
 		Stop(ctx context.Context) error
 		PutBlock(blk *block.Block) error
 		DeleteTipBlock(blk *block.Block) error
-		Commit() error
 	}
 
 	blockDAO struct {
@@ -221,10 +207,6 @@ func (dao *blockDAO) initStores() error {
 }
 
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
-
-func (dao *blockDAO) Commit() error {
-	return nil
-}
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return dao.getBlockHash(height)
@@ -333,9 +315,6 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 		if err := indexer.PutBlock(blk); err != nil {
 			return err
 		}
-		if err := indexer.Commit(); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -364,9 +343,6 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 				continue
 			}
 			if err := indexer.DeleteTipBlock(blk); err != nil {
-				return err
-			}
-			if err := indexer.Commit(); err != nil {
 				return err
 			}
 		}
