@@ -27,8 +27,8 @@ import (
  * entire bucket and filter out objects of a certain type
  */
 const (
-	inActiveDel = byte(iota)
-	activeDel   = inActiveDel + 1
+	inactiveDel = byte(iota)
+	activeDel   = inactiveDel + 1
 )
 
 var (
@@ -289,7 +289,7 @@ func stakingGetDelegate(sr protocol.StateReader, name address.Address) (*Delegat
 		return nil, err
 	}
 
-	key[0] = inActiveDel
+	key[0] = inactiveDel
 	if _, err = sr.State(&d, protocol.NamespaceOption(factory.DelegateNameSpace), protocol.KeyOption(key)); err != nil {
 		return nil, err
 	}
@@ -301,7 +301,7 @@ func stakingPutDelegate(sm protocol.StateManager, name address.Address, d *Deleg
 	if d.Active {
 		key[0] = activeDel
 	} else {
-		key[0] = inActiveDel
+		key[0] = inactiveDel
 	}
 	copy(key[1:], name.Bytes())
 
@@ -314,7 +314,7 @@ func stakingDelDelegate(sm protocol.StateManager, name address.Address, active b
 	if active {
 		key[0] = activeDel
 	} else {
-		key[0] = inActiveDel
+		key[0] = inactiveDel
 	}
 	copy(key[1:], name.Bytes())
 
