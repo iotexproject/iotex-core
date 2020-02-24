@@ -115,6 +115,21 @@ func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockFactory)(nil).Validate), arg0, arg1)
 }
 
+// NewBlockBuilder mocks base method
+func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) (*block.Builder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*block.Builder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewBlockBuilder indicates an expected call of NewBlockBuilder
+func (mr *MockFactoryMockRecorder) NewBlockBuilder(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockFactory)(nil).NewBlockBuilder), arg0, arg1, arg2)
+}
+
 // SimulateExecution mocks base method
 func (m *MockFactory) SimulateExecution(arg0 context.Context, arg1 address.Address, arg2 *action.Execution, arg3 evm.GetBlockHash) ([]byte, *action.Receipt, error) {
 	m.ctrl.T.Helper()
