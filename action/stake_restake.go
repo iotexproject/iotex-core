@@ -91,7 +91,6 @@ func (rs *Restake) LoadProto(pbAct *iotextypes.StakeRestake) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	rs = &Restake{}
 
 	rs.bucketIndex = pbAct.GetBucketIndex()
 	rs.payload = pbAct.GetPayload()
