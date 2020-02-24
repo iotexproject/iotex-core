@@ -210,7 +210,7 @@ ioctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
 
 .PHONY: xctl
-ioctl:
+xctl:
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/ioctl/xctl
 
 .PHONY: iomigrater
