@@ -10,9 +10,10 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -29,13 +30,13 @@ const (
 type moveStake struct {
 	AbstractAction
 
-	name        address.Address
+	candAddress address.Address
 	bucketIndex uint64
 	payload     []byte
 }
 
-// Name returns the name of recipient
-func (sm *moveStake) Name() string { return sm.name.String() }
+// Candidate returns the address of recipient
+func (sm *moveStake) Candidate() string { return sm.candAddress.String() }
 
 // BucketIndex returns bucket index
 func (sm *moveStake) BucketIndex() uint64 { return sm.bucketIndex }
@@ -51,9 +52,9 @@ func (sm *moveStake) Serialize() []byte {
 // Proto converts ts Protobuf stake move action struct
 func (sm *moveStake) Proto() *iotextypes.StakeMove {
 	act := &iotextypes.StakeMove{
-		Name:        sm.name.String(),
-		BucketIndex: sm.bucketIndex,
-		Payload:     sm.payload,
+		CandidateAddress: sm.candAddress.String(),
+		BucketIndex:      sm.bucketIndex,
+		Payload:          sm.payload,
 	}
 
 	return act
@@ -65,12 +66,12 @@ func (sm *moveStake) LoadProto(pbAct *iotextypes.StakeMove) error {
 		return errors.New("empty action Proto ts load")
 	}
 
-	candAddr, err := address.FromString(pbAct.GetName())
+	candAddr, err := address.FromString(pbAct.GetCandidateAddress())
 	if err != nil {
 		return err
 	}
 
-	sm.name = candAddr
+	sm.candAddress = candAddr
 	sm.bucketIndex = pbAct.GetBucketIndex()
 	sm.payload = pbAct.GetPayload()
 	return nil
@@ -102,7 +103,7 @@ func NewChangeCandidate(
 				gasLimit: gasLimit,
 				gasPrice: gasPrice,
 			},
-			name:        candAddr,
+			candAddress: candAddr,
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
@@ -151,7 +152,7 @@ func NewTransferStake(
 				gasLimit: gasLimit,
 				gasPrice: gasPrice,
 			},
-			name:        voteAddr,
+			candAddress: voteAddr,
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},

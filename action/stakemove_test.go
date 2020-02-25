@@ -16,7 +16,7 @@ import (
 
 func TestChangeCandidate(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewChangeCandidate(nonce, canName, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
@@ -28,7 +28,7 @@ func TestChangeCandidate(t *testing.T) {
 	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
-	require.Equal(canName, stake.Name())
+	require.Equal(canAddress, stake.Candidate())
 	require.Equal(index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
@@ -42,14 +42,14 @@ func TestChangeCandidate(t *testing.T) {
 	stake2 := &ChangeCandidate{}
 	require.NoError(stake2.LoadProto(proto))
 	require.Equal(payload, stake2.Payload())
-	require.Equal(canName, stake2.Name())
+	require.Equal(canAddress, stake2.Candidate())
 	require.Equal(index, stake2.BucketIndex())
 }
 
 func TestChangeCandidateSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewChangeCandidate(nonce, canName, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
@@ -73,7 +73,7 @@ func TestChangeCandidateSignVerify(t *testing.T) {
 
 func TestStakingTransfer(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewTransferStake(nonce, canName, index, payload, gaslimit, gasprice)
+	stake, err := NewTransferStake(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
@@ -85,7 +85,7 @@ func TestStakingTransfer(t *testing.T) {
 	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
-	require.Equal(canName, stake.Name())
+	require.Equal(canAddress, stake.Candidate())
 	require.Equal(index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
@@ -99,14 +99,14 @@ func TestStakingTransfer(t *testing.T) {
 	stake2 := &TransferStake{}
 	require.NoError(stake2.LoadProto(proto))
 	require.Equal(payload, stake2.Payload())
-	require.Equal(canName, stake2.Name())
+	require.Equal(canAddress, stake2.Candidate())
 	require.Equal(index, stake2.BucketIndex())
 }
 
 func TestStakingTransferSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewTransferStake(nonce, canName, index, payload, gaslimit, gasprice)
+	stake, err := NewTransferStake(nonce, canAddress, index, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
