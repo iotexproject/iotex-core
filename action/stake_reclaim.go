@@ -58,7 +58,6 @@ func (sr *reclaimStake) LoadProto(pbAct *iotextypes.StakeReclaim) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	sr = &reclaimStake{}
 
 	sr.bucketIndex = pbAct.GetBucketIndex()
 	sr.payload = pbAct.GetPayload()

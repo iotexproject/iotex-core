@@ -87,7 +87,6 @@ func (ds *DepositToStake) LoadProto(pbAct *iotextypes.StakeAddDeposit) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	ds = &DepositToStake{}
 
 	ds.bucketIndex = pbAct.GetBucketIndex()
 	ds.payload = pbAct.GetPayload()

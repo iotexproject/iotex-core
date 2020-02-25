@@ -10,11 +10,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -26,24 +26,28 @@ const (
 func TestBucketIndex(t *testing.T) {
 	require := require.New(t)
 
-	bi := NewBucketIndex(uint64(1), fakeCanName(identityset.Address(1).String(), uint64(1)))
+	bi, err := NewBucketIndex(uint64(1), identityset.Address(1).String())
+	require.NoError(err)
 
 	data, err := bi.Serialize()
 	require.NoError(err)
 	bi1 := BucketIndex{}
 	require.NoError(bi1.Deserialize(data))
 	require.Equal(bi.Index, bi1.Index)
-	require.Equal(bi.CanName, bi1.CanName)
+	require.Equal(bi.CandAddress, bi1.CandAddress)
 }
 
 func TestBucketIndices(t *testing.T) {
 	require := require.New(t)
 
-	bis := NewBucketIndices()
+	bis := make(BucketIndices, 0)
 
-	bi1 := NewBucketIndex(uint64(1), fakeCanName(identityset.Address(1).String(), uint64(1)))
-	bi2 := NewBucketIndex(uint64(2), fakeCanName(identityset.Address(2).String(), uint64(2)))
-	bi3 := NewBucketIndex(uint64(3), fakeCanName(identityset.Address(3).String(), uint64(3)))
+	bi1, err := NewBucketIndex(uint64(1), identityset.Address(1).String())
+	require.NoError(err)
+	bi2, err := NewBucketIndex(uint64(2), identityset.Address(2).String())
+	require.NoError(err)
+	bi3, err := NewBucketIndex(uint64(3), identityset.Address(3).String())
+	require.NoError(err)
 
 	bis.addBucketIndex(bi1)
 	bis.addBucketIndex(bi2)
@@ -53,17 +57,16 @@ func TestBucketIndices(t *testing.T) {
 	require.NoError(err)
 	bis1 := BucketIndices{}
 	require.NoError(bis1.Deserialize(data))
-	bucketIndices := bis1.GetIndices()
-	require.Equal(3, len(bucketIndices))
+	require.Equal(3, len(bis1))
 
-	require.Equal(bi1.Index, bucketIndices[0].Index)
-	require.Equal(bi1.CanName, bucketIndices[0].CanName)
+	require.Equal(bi1.Index, bis1[0].Index)
+	require.Equal(bi1.CandAddress, bis1[0].CandAddress)
 
-	require.Equal(bi2.Index, bucketIndices[1].Index)
-	require.Equal(bi2.CanName, bucketIndices[1].CanName)
+	require.Equal(bi2.Index, bis1[1].Index)
+	require.Equal(bi2.CandAddress, bis1[1].CandAddress)
 
-	require.Equal(bi3.Index, bucketIndices[2].Index)
-	require.Equal(bi3.CanName, bucketIndices[2].CanName)
+	require.Equal(bi3.Index, bis1[2].Index)
+	require.Equal(bi3.CandAddress, bis1[2].CandAddress)
 }
 
 func TestGetPutBucketIndex(t *testing.T) {
@@ -74,27 +77,27 @@ func TestGetPutBucketIndex(t *testing.T) {
 		sm := newMockStateManager(ctrl)
 
 		tests := []struct {
-			canName   CandName
-			index     uint64
-			voterAddr address.Address
+			canAddress address.Address
+			index      uint64
+			voterAddr  address.Address
 		}{
 			{
-				fakeCanName(identityset.Address(1).String(), uint64(1)),
+				identityset.Address(2),
 				uint64(1),
 				identityset.Address(1),
 			},
 			{
-				fakeCanName(identityset.Address(2).String(), uint64(2)),
+				identityset.Address(3),
 				uint64(2),
 				identityset.Address(1),
 			},
 			{
-				fakeCanName(identityset.Address(3).String(), uint64(3)),
+				identityset.Address(4),
 				uint64(3),
 				identityset.Address(1),
 			},
 			{
-				fakeCanName(identityset.Address(4).String(), uint64(4)),
+				identityset.Address(5),
 				uint64(4),
 				identityset.Address(1),
 			},
@@ -107,15 +110,15 @@ func TestGetPutBucketIndex(t *testing.T) {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
-			bi := NewBucketIndex(e.index, e.canName)
+			bi, err := NewBucketIndex(e.index, e.canAddress.String())
 
 			require.NoError(stakingPutBucketIndex(sm, e.voterAddr, bi))
 			bis, err := stakingGetBucketIndices(sm, e.voterAddr)
 			require.NoError(err)
-			require.Equal(i+1, len(bis.GetIndices()))
-			indices := bis.GetIndices()
-			require.Equal(indices[i].CanName, e.canName[:])
-			require.Equal(indices[i].Index, e.index)
+			bucketIndices := *bis
+			require.Equal(i+1, len(bucketIndices))
+			require.Equal(bucketIndices[i].CandAddress, e.canAddress)
+			require.Equal(bucketIndices[i].Index, e.index)
 		}
 
 		for i, e := range tests {
@@ -123,7 +126,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 			indices, err := stakingGetBucketIndices(sm, e.voterAddr)
 			if i != len(tests)-1 {
 				require.NoError(err)
-				require.Equal(len(tests)-i-1, len(indices.GetIndices()))
+				require.Equal(len(tests)-i-1, len(*indices))
 				continue
 			}
 			require.Equal(state.ErrStateNotExist, errors.Cause(err))
@@ -131,11 +134,4 @@ func TestGetPutBucketIndex(t *testing.T) {
 	}
 
 	t.Run("test put and get bucket index", testGetPut)
-}
-
-func fakeCanName(addr string, index uint64) CandName {
-	var name CandName
-	copy(name[:4], addr[3:])
-	copy(name[4:], byteutil.Uint64ToBytesBigEndian(index))
-	return name
 }

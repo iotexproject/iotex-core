@@ -12,7 +12,7 @@ package stakingpb;
 
 message BucketIndex {
     uint64 index = 1;
-    bytes canName = 2;
+    string candAddress = 2;
 }
 
 message BucketIndices {
@@ -20,7 +20,7 @@ message BucketIndices {
 }
 
 message Delegate {
-    bytes owner = 1;
+    string owner = 1;
     string address = 2;
     string rewardAddress = 3;
     bytes canName = 4;
