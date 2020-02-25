@@ -7,16 +7,28 @@
 package staking
 
 import (
-	"bytes"
 	"math/big"
 	"sort"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/state/factory"
+)
+
+/*
+ * keys in namespace factory.DelegateNameSpace are prefixed with 1-byte tag
+ * to indicate the type of stored object. This enables to quickly scan the
+ * entire bucket and filter out objects of a certain type
+ */
+const (
+	inactiveDel = byte(iota)
+	activeDel   = inactiveDel + 1
 )
 
 var (
@@ -30,7 +42,7 @@ type (
 
 	// Delegate represents the delegate
 	Delegate struct {
-		Owner         hash.Hash160
+		Owner         address.Address
 		Address       string
 		RewardAddress string
 		CanName       CandName
@@ -42,8 +54,8 @@ type (
 	// DelegateList is a list of delegates which is sortable
 	DelegateList []*Delegate
 
-	// DelegateMap is a map of delegates using owner's pubkey hash as key
-	DelegateMap map[hash.Hash160]*Delegate
+	// DelegateMap is a map of delegates using owner's address as key
+	DelegateMap map[string]*Delegate
 )
 
 // NewDelegate creates a delegate
@@ -84,7 +96,7 @@ func NewDelegate(owner, addr, reward, name, amount, self string) (*Delegate, err
 	}
 
 	d := Delegate{
-		Owner:         hash.BytesToHash160(ownerAddr.Bytes()),
+		Owner:         ownerAddr,
 		Address:       addr,
 		RewardAddress: reward,
 		CanName:       ToCandName([]byte(name)),
@@ -139,7 +151,12 @@ func (d *Delegate) Deserialize(buf []byte) error {
 		return errors.Wrap(err, "failed to unmarshal delegate")
 	}
 
-	d.Owner = hash.BytesToHash160(pb.Owner)
+	ownerAddr, err := address.FromString(pb.Owner)
+	if err != nil {
+		return err
+	}
+
+	d.Owner = ownerAddr
 	d.Address = pb.Address
 	d.RewardAddress = pb.RewardAddress
 	d.CanName = ToCandName(pb.CanName)
@@ -159,7 +176,7 @@ func (d *Delegate) toProto() *stakingpb.Delegate {
 	name := make([]byte, len(d.CanName))
 	copy(name, d.CanName[:])
 	return &stakingpb.Delegate{
-		Owner:         d.Owner[:],
+		Owner:         d.Owner.String(),
 		Address:       d.Address,
 		RewardAddress: d.RewardAddress,
 		CanName:       name,
@@ -170,8 +187,13 @@ func (d *Delegate) toProto() *stakingpb.Delegate {
 }
 
 func fromProto(pb *stakingpb.Delegate) *Delegate {
+	ownerAddr, err := address.FromString(pb.Owner)
+	if err != nil {
+		return nil
+	}
+
 	d := Delegate{
-		Owner:         hash.BytesToHash160(pb.Owner),
+		Owner:         ownerAddr,
 		Address:       pb.Address,
 		RewardAddress: pb.RewardAddress,
 		CanName:       ToCandName(pb.CanName),
@@ -194,7 +216,7 @@ func (l DelegateList) Less(i, j int) bool {
 	if res := l[i].Votes.Cmp(l[j].Votes); res != 0 {
 		return res == 1
 	}
-	return bytes.Compare(l[i].Owner[:], l[j].Owner[:]) == 1
+	return strings.Compare(l[i].Owner.String(), l[j].Owner.String()) == 1
 }
 
 func (l DelegateList) toProto() *stakingpb.Delegates {
@@ -220,8 +242,8 @@ func (l *DelegateList) Deserialize(buf []byte) error {
 }
 
 // Contains returns true if the map contains the name
-func (m DelegateMap) Contains(name hash.Hash160) bool {
-	_, ok := m[name]
+func (m DelegateMap) Contains(name address.Address) bool {
+	_, ok := m[name.String()]
 	return ok
 }
 
@@ -247,7 +269,55 @@ func (m DelegateMap) Deserialize(buf []byte) error {
 	}
 
 	for _, v := range pb.Delegates {
-		m[hash.BytesToHash160(v.Owner)] = fromProto(v)
+		m[v.Owner] = fromProto(v)
 	}
 	return nil
+}
+
+func stakingGetDelegate(sr protocol.StateReader, name address.Address) (*Delegate, error) {
+	key := make([]byte, len(name.Bytes())+1)
+	key[0] = activeDel
+	copy(key[1:], name.Bytes())
+
+	var d Delegate
+	_, err := sr.State(&d, protocol.NamespaceOption(factory.DelegateNameSpace), protocol.KeyOption(key))
+	if err == nil {
+		return &d, nil
+	}
+
+	if errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+
+	key[0] = inactiveDel
+	if _, err = sr.State(&d, protocol.NamespaceOption(factory.DelegateNameSpace), protocol.KeyOption(key)); err != nil {
+		return nil, err
+	}
+	return &d, nil
+}
+
+func stakingPutDelegate(sm protocol.StateManager, name address.Address, d *Delegate) error {
+	key := make([]byte, len(name.Bytes())+1)
+	if d.Active {
+		key[0] = activeDel
+	} else {
+		key[0] = inactiveDel
+	}
+	copy(key[1:], name.Bytes())
+
+	_, err := sm.PutState(d, protocol.NamespaceOption(factory.DelegateNameSpace), protocol.KeyOption(key))
+	return err
+}
+
+func stakingDelDelegate(sm protocol.StateManager, name address.Address, active bool) error {
+	key := make([]byte, len(name.Bytes())+1)
+	if active {
+		key[0] = activeDel
+	} else {
+		key[0] = inactiveDel
+	}
+	copy(key[1:], name.Bytes())
+
+	_, err := sm.DelState(protocol.NamespaceOption(factory.DelegateNameSpace), protocol.KeyOption(key))
+	return err
 }
