@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
@@ -79,6 +80,8 @@ type (
 		lifecycle.StartStopper
 		protocol.StateReader
 		Validate(context.Context, *block.Block) error
+		// NewBlockBuilder creates block builder
+		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
 	}
@@ -208,6 +211,14 @@ func (sf *factory) Start(ctx context.Context) error {
 	case nil:
 		break
 	case db.ErrNotExist:
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight:    0,
+				BlockTimeStamp: time.Unix(sf.cfg.Genesis.Timestamp, 0),
+				Producer:       sf.cfg.ProducerAddress(),
+				GasLimit:       sf.cfg.Genesis.BlockGasLimit,
+			})
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")

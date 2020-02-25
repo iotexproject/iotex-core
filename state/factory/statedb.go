@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
@@ -119,6 +120,14 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
 		break
 	case db.ErrNotExist:
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight:    0,
+				BlockTimeStamp: time.Unix(sdb.cfg.Genesis.Timestamp, 0),
+				Producer:       sdb.cfg.ProducerAddress(),
+				GasLimit:       sdb.cfg.Genesis.BlockGasLimit,
+			})
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")

@@ -279,6 +279,44 @@ func (mr *MockBlockchainMockRecorder) RemoveSubscriber(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSubscriber", reflect.TypeOf((*MockBlockchain)(nil).RemoveSubscriber), arg0)
 }
 
+// MockBlockBuilderFactory is a mock of BlockBuilderFactory interface
+type MockBlockBuilderFactory struct {
+	ctrl     *gomock.Controller
+	recorder *MockBlockBuilderFactoryMockRecorder
+}
+
+// MockBlockBuilderFactoryMockRecorder is the mock recorder for MockBlockBuilderFactory
+type MockBlockBuilderFactoryMockRecorder struct {
+	mock *MockBlockBuilderFactory
+}
+
+// NewMockBlockBuilderFactory creates a new mock instance
+func NewMockBlockBuilderFactory(ctrl *gomock.Controller) *MockBlockBuilderFactory {
+	mock := &MockBlockBuilderFactory{ctrl: ctrl}
+	mock.recorder = &MockBlockBuilderFactoryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockBlockBuilderFactory) EXPECT() *MockBlockBuilderFactoryMockRecorder {
+	return m.recorder
+}
+
+// NewBlockBuilder mocks base method
+func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) (*block.Builder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*block.Builder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewBlockBuilder indicates an expected call of NewBlockBuilder
+func (mr *MockBlockBuilderFactoryMockRecorder) NewBlockBuilder(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockBlockBuilderFactory)(nil).NewBlockBuilder), arg0, arg1, arg2)
+}
+
 // MockActPoolManager is a mock of ActPoolManager interface
 type MockActPoolManager struct {
 	ctrl     *gomock.Controller

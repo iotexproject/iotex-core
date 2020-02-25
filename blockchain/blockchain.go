@@ -53,52 +53,59 @@ func init() {
 	prometheus.MustRegister(blockMtc)
 }
 
-// Blockchain represents the blockchain data structure and hosts the APIs to access it
-type Blockchain interface {
-	lifecycle.StartStopper
+type (
+	// Blockchain represents the blockchain data structure and hosts the APIs to access it
+	Blockchain interface {
+		lifecycle.StartStopper
 
-	// For exposing blockchain states
-	// BlockHeaderByHeight return block header by height
-	BlockHeaderByHeight(height uint64) (*block.Header, error)
-	// BlockFooterByHeight return block footer by height
-	BlockFooterByHeight(height uint64) (*block.Footer, error)
-	// ChainID returns the chain ID
-	ChainID() uint32
-	// ChainAddress returns chain address on parent chain, the root chain return empty.
-	ChainAddress() string
-	// TipHash returns tip block's hash
-	TipHash() hash.Hash256
-	// TipHeight returns tip block's height
-	TipHeight() uint64
-	// Genesis returns the genesis
-	Genesis() genesis.Genesis
-	// Context returns current context
-	Context() (context.Context, error)
+		// For exposing blockchain states
+		// BlockHeaderByHeight return block header by height
+		BlockHeaderByHeight(height uint64) (*block.Header, error)
+		// BlockFooterByHeight return block footer by height
+		BlockFooterByHeight(height uint64) (*block.Footer, error)
+		// ChainID returns the chain ID
+		ChainID() uint32
+		// ChainAddress returns chain address on parent chain, the root chain return empty.
+		ChainAddress() string
+		// TipHash returns tip block's hash
+		TipHash() hash.Hash256
+		// TipHeight returns tip block's height
+		TipHeight() uint64
+		// Genesis returns the genesis
+		Genesis() genesis.Genesis
+		// Context returns current context
+		Context() (context.Context, error)
 
-	// For block operations
-	// MintNewBlock creates a new block with given actions
-	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(
-		actionMap map[string][]action.SealedEnvelope,
-		timestamp time.Time,
-	) (*block.Block, error)
-	// CommitBlock validates and appends a block to the chain
-	CommitBlock(blk *block.Block) error
-	// ValidateBlock validates a new block before adding it to the blockchain
-	ValidateBlock(blk *block.Block) error
+		// For block operations
+		// MintNewBlock creates a new block with given actions
+		// Note: the coinbase transfer will be added to the given transfers when minting a new block
+		MintNewBlock(
+			actionMap map[string][]action.SealedEnvelope,
+			timestamp time.Time,
+		) (*block.Block, error)
+		// CommitBlock validates and appends a block to the chain
+		CommitBlock(blk *block.Block) error
+		// ValidateBlock validates a new block before adding it to the blockchain
+		ValidateBlock(blk *block.Block) error
 
-	// For action operations
-	// Validator returns the current validator object
-	Validator() Validator
-	// SetValidator sets the current validator object
-	SetValidator(val Validator)
+		// For action operations
+		// Validator returns the current validator object
+		Validator() Validator
+		// SetValidator sets the current validator object
+		SetValidator(val Validator)
 
-	// AddSubscriber make you listen to every single produced block
-	AddSubscriber(BlockCreationSubscriber) error
+		// AddSubscriber make you listen to every single produced block
+		AddSubscriber(BlockCreationSubscriber) error
 
-	// RemoveSubscriber make you listen to every single produced block
-	RemoveSubscriber(BlockCreationSubscriber) error
-}
+		// RemoveSubscriber make you listen to every single produced block
+		RemoveSubscriber(BlockCreationSubscriber) error
+	}
+	// BlockBuilderFactory is the factory interface of block builder
+	BlockBuilderFactory interface {
+		// NewBlockBuilder creates block builder
+		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
+	}
+)
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
 func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
@@ -149,6 +156,7 @@ type blockchain struct {
 	timerFactory  *prometheustimer.TimerFactory
 
 	// used by account-based model
+	bbf      BlockBuilderFactory
 	sf       factory.Factory
 	registry *protocol.Registry
 }
@@ -213,11 +221,18 @@ func RegistryOption(registry *protocol.Registry) Option {
 }
 
 // NewBlockchain creates a new blockchain and DB instance
+// TODO: replace sf with blockbuilderfactory
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
+	bbf, ok := sf.(BlockBuilderFactory)
+	if !ok {
+		log.S().Panic("state factory didn't implement BlockBuilderFactory")
+	}
+
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,
 		dao:           dao,
+		bbf:           bbf,
 		sf:            sf,
 		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
@@ -256,10 +271,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 	if chain.sf != nil {
 		chain.lifecycle.Add(chain.sf)
 	}
-	_, ok := chain.sf.(factory.Minter)
-	if !ok {
-		log.S().Panic("state factory didn't implement Minter")
-	}
 	return chain
 }
 
@@ -281,7 +292,6 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), 0, time.Unix(bc.config.Genesis.Timestamp, 0))
 	if err := bc.lifecycle.OnStart(ctx); err != nil {
 		return err
 	}
@@ -424,8 +434,7 @@ func (bc *blockchain) MintNewBlock(
 			}
 		}
 	}
-	minter, _ := bc.sf.(factory.Minter)
-	blockBuilder, err := minter.NewBlockBuilder(ctx, actionMap, postSystemActions)
+	blockBuilder, err := bc.bbf.NewBlockBuilder(ctx, actionMap, postSystemActions)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
 	}

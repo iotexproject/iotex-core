@@ -906,9 +906,7 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 			Registry: registry,
 		})
 
-	minter, ok := factory.(Minter)
-	require.True(ok)
-	blkBuilder, err := minter.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
+	blkBuilder, err := factory.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
 	require.NoError(err)
 	require.NotNil(blkBuilder)
 	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
