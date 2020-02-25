@@ -225,7 +225,7 @@ func RegistryOption(registry *protocol.Registry) Option {
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
 	bbf, ok := sf.(BlockBuilderFactory)
 	if !ok {
-		log.S().Panic("state factory didn't implement Minter")
+		log.S().Panic("state factory didn't implement BlockBuilderFactory")
 	}
 
 	// create the Blockchain
