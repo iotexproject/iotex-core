@@ -90,7 +90,7 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 		return ErrInvalidAmount
 	}
 
-	candAddr, err := address.FromString(pb.CandidateName)
+	candAddr, err := address.FromString(pb.GetCandidateAddress())
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func (vb *VoteBucket) toProto() *iotextypes.Bucket {
 	unstakeTime, _ := ptypes.TimestampProto(vb.UnstakeStartTime)
 
 	return &iotextypes.Bucket{
-		CandidateName:    vb.Candidate.String(),
+		CandidateAddress: vb.Candidate.String(),
 		Owner:            vb.Owner.String(),
 		StakedAmount:     vb.StakedAmount.String(),
 		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),

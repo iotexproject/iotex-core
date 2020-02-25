@@ -18,21 +18,21 @@ import (
 )
 
 var (
-	gaslimit  = uint64(1000000)
-	gasprice  = big.NewInt(10)
-	canName   = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
-	payload   = []byte("payload")
-	amount    = big.NewInt(10)
-	nonce     = uint64(0)
-	duration  = uint32(1000)
-	autoStake = true
-	index     = uint64(10)
-	senderKey = identityset.PrivateKey(27)
+	gaslimit   = uint64(1000000)
+	gasprice   = big.NewInt(10)
+	canAddress = "io1xpq62aw85uqzrccg9y5hnryv8ld2nkpycc3gza"
+	payload    = []byte("payload")
+	amount     = big.NewInt(10)
+	nonce      = uint64(0)
+	duration   = uint32(1000)
+	autoStake  = true
+	index      = uint64(10)
+	senderKey  = identityset.PrivateKey(27)
 )
 
 func TestCreateStake(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewCreateStake(nonce, canName, amount.Text(10), duration, autoStake, payload, gaslimit, gasprice)
+	stake, err := NewCreateStake(nonce, canAddress, amount.Text(10), duration, autoStake, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
@@ -45,7 +45,7 @@ func TestCreateStake(t *testing.T) {
 
 	require.Equal(amount, stake.Amount())
 	require.Equal(payload, stake.Payload())
-	require.Equal(canName, stake.Candidate())
+	require.Equal(canAddress, stake.Candidate())
 	require.Equal(duration, stake.Duration())
 	require.True(stake.AutoStake())
 
@@ -61,7 +61,7 @@ func TestCreateStake(t *testing.T) {
 	require.NoError(cs2.LoadProto(proto))
 	require.Equal(amount, cs2.Amount())
 	require.Equal(payload, cs2.Payload())
-	require.Equal(canName, cs2.Candidate())
+	require.Equal(canAddress, cs2.Candidate())
 	require.Equal(duration, cs2.Duration())
 	require.True(cs2.AutoStake())
 }
@@ -69,7 +69,7 @@ func TestCreateStake(t *testing.T) {
 func TestCreateStakeSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewCreateStake(nonce, canName, amount.Text(10), duration, autoStake, payload, gaslimit, gasprice)
+	stake, err := NewCreateStake(nonce, canAddress, amount.Text(10), duration, autoStake, payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
