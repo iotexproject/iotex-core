@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // Multi-language support
@@ -109,3 +110,37 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	}
 	return response, nil
 }
+
+
+// GetKickoutList gets kickout list
+func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("poll"),
+		MethodName: []byte("KickoutListByEpoch"),
+		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+	}
+	ctx := context.Background()
+
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	response, err := cli.ReadState(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+	}
+	return response, nil
+}
+

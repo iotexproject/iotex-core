@@ -18,8 +18,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+		
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -53,6 +55,7 @@ var (
 	epochNum   uint64
 	nextEpoch  bool
 	nodeStatus map[bool]string
+	kickoutStatus map[bool]string
 )
 
 // nodeDelegateCmd represents the node delegate command
@@ -74,12 +77,13 @@ var nodeDelegateCmd = &cobra.Command{
 }
 
 type delegate struct {
-	Address    string `json:"address"`
-	Rank       int    `json:"rank"`
-	Alias      string `json:"alias"`
-	Active     bool   `json:"active"`
-	Production int    `json:"production"`
-	Votes      string `json:"votes"`
+	Address    		string `json:"address"`
+	Rank       		int    `json:"rank"`
+	Alias      		string `json:"alias"`
+	Active     		bool   `json:"active"`
+	Production 		int    `json:"production"`
+	Votes      		string `json:"votes"`
+	KickoutStatus	bool   `json:"kickoutStatus"`
 }
 
 type delegatesMessage struct {
@@ -99,13 +103,13 @@ func (m *delegatesMessage) String() string {
 		}
 		lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
 			m.Epoch, m.StartBlock, m.TotalBlocks)}
-		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %s"
-		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %s"
+		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
+		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
 		lines = append(lines, fmt.Sprintf(formatTitleString,
-			"Address", "Rank", "Alias", "Status", "Blocks", "Votes"))
+			"Address", "Rank", "Alias", "Status", "Blocks", "KickoutStatus", "Votes"))
 		for _, bp := range m.Delegates {
 			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, nodeStatus[bp.Active], bp.Production, bp.Votes))
+				bp.Alias, nodeStatus[bp.Active], bp.Production, kickoutStatus[bp.KickoutStatus], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
 	}
@@ -148,6 +152,7 @@ func init() {
 	nodeDelegateCmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		config.TranslateInLang(flagNextEpochUsages, config.UILanguage))
 	nodeStatus = map[bool]string{true: "active", false: ""}
+	kickoutStatus = map[bool]string{true: "kicked-out", false: ""}
 }
 
 func delegates() error {
@@ -169,18 +174,35 @@ func delegates() error {
 		StartBlock:  int(epochData.Height),
 		TotalBlocks: int(response.TotalBlocks),
 	}
+	kickoutListRes, err := bc.GetKickoutList(epochNum)
+	if err != nil {
+		return output.NewError(0, "failed to get kickout list", err)
+	}
+	blacklist := &vote.Blacklist{}
+	if err := blacklist.Deserialize(kickoutListRes.Data); err != nil {
+		return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
+	}
+	kickoutIntensityRate := float64(blacklist.IntensityRate) / float64(100)
 	for rank, bp := range response.BlockProducersInfo {
 		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
 		if !ok {
 			return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
 		}
+		isBlacklist := false 
+		if _, ok := blacklist.BlacklistInfos[bp.Address]; ok {
+			// if it exists in blacklist 
+			isBlacklist = true
+			votingPower := new(big.Float).SetInt(votes)
+			votes, _ = votingPower.Mul(votingPower, big.NewFloat(kickoutIntensityRate)).Int(nil)
+		}
 		delegate := delegate{
-			Address:    bp.Address,
-			Rank:       rank + 1,
-			Alias:      aliases[bp.Address],
-			Active:     bp.Active,
-			Production: int(bp.Production),
-			Votes:      util.RauToString(votes, util.IotxDecimalNum),
+			Address:    	bp.Address,
+			Rank:       	rank + 1,
+			Alias:      	aliases[bp.Address],
+			Active:     	bp.Active,
+			Production: 	int(bp.Production),
+			Votes:      	util.RauToString(votes, util.IotxDecimalNum),
+			KickoutStatus:	isBlacklist,
 		}
 		message.Delegates = append(message.Delegates, delegate)
 	}
@@ -188,6 +210,7 @@ func delegates() error {
 	return nil
 }
 
+// deprecated: It won't be able to query next delegate after Easter height, because it will be determined at the end of the epoch.
 func nextDelegates() error {
 	chainMeta, err := bc.GetChainMeta()
 	if err != nil {
