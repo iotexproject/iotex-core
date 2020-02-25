@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -47,25 +49,81 @@ func TestBucket(t *testing.T) {
 	require.Equal(vb, vb1)
 }
 
-func createKey(opts ...protocol.StateOption) (hash.Hash256, error) {
-	cfg, err := protocol.CreateStateConfig(opts...)
-	if err != nil {
-		return hash.ZeroHash256, err
-	}
-	return hash.Hash256b(append([]byte(cfg.Namespace), cfg.Key...)), nil
+func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
+	kv := db.NewMockKVStore(ctrl)
+	kmap := make(map[hash.Hash160][]byte)
+	vmap := make(map[hash.Hash160][]byte)
+
+	kv.EXPECT().Start(gomock.Any()).Return(nil).AnyTimes()
+	kv.EXPECT().Stop(gomock.Any()).DoAndReturn(
+		func(ctx context.Context) error {
+			kmap = nil
+			vmap = nil
+			return nil
+		},
+	).AnyTimes()
+	kv.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns string, k []byte, v []byte) error {
+			h := hash.Hash160b(append([]byte(ns), k...))
+			key := make([]byte, len(k))
+			copy(key, k)
+			value := make([]byte, len(v))
+			copy(value, v)
+			kmap[h] = key
+			vmap[h] = value
+			return nil
+		},
+	).AnyTimes()
+	kv.EXPECT().Get(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns string, k []byte) ([]byte, error) {
+			h := hash.Hash160b(append([]byte(ns), k...))
+			v, ok := vmap[h]
+			if ok {
+				return v, nil
+			}
+			return nil, db.ErrNotExist
+		},
+	).AnyTimes()
+	kv.EXPECT().Delete(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns string, k []byte) error {
+			h := hash.Hash160b(append([]byte(ns), k...))
+			delete(kmap, h)
+			delete(vmap, h)
+			return nil
+		},
+	).AnyTimes()
+	kv.EXPECT().WriteBatch(gomock.Any()).Return(nil).AnyTimes()
+	var fk, fv [][]byte
+	kv.EXPECT().Filter(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns string, cond db.Condition) ([][]byte, [][]byte, error) {
+			for h, k := range kmap {
+				v := vmap[h]
+				if cond(k, v) {
+					key := make([]byte, len(k))
+					copy(key, k)
+					value := make([]byte, len(v))
+					copy(value, v)
+					fk = append(fk, key)
+					fv = append(fv, value)
+				}
+			}
+			return fk, fv, nil
+		},
+	).AnyTimes()
+	return kv
 }
 
 func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	kv := map[hash.Hash256][]byte{}
+	kv := newMockKVStore(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-			key, err := createKey(opts...)
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
 				return 0, err
 			}
-			value, ok := kv[key]
-			if !ok {
+			value, err := kv.Get(cfg.Namespace, cfg.Key)
+			if err != nil {
 				return 0, state.ErrStateNotExist
 			}
 			ss, ok := s.(state.Deserializer)
@@ -77,7 +135,7 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-			key, err := createKey(opts...)
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
 				return 0, err
 			}
@@ -89,22 +147,16 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			if err != nil {
 				return 0, err
 			}
-			kv[key] = value
-			return 0, nil
+			return 0, kv.Put(cfg.Namespace, cfg.Key, value)
 		},
 	).AnyTimes()
 	sm.EXPECT().DelState(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(opts ...protocol.StateOption) (uint64, error) {
-			key, err := createKey(opts...)
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
 				return 0, err
 			}
-			if _, ok := kv[key]; !ok {
-				return 0, state.ErrStateNotExist
-			}
-			delete(kv, key)
-
-			return 0, nil
+			return 0, kv.Delete(cfg.Namespace, cfg.Key)
 		},
 	).AnyTimes()
 

@@ -7,18 +7,19 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/testutil"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -315,7 +316,63 @@ func TestDeleteBucket(t *testing.T) {
 		require.Equal(testV1[0], v)
 	}
 
-	path := "test-cache-kv.bolt"
+	path := "test-delete.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
+	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
+		testFunc(NewBoltDB(cfg), t)
+	})
+}
+
+func TestFilter(t *testing.T) {
+	testFunc := func(kv KVStore, t *testing.T) {
+		require := require.New(t)
+
+		require.NoError(kv.Start(context.Background()))
+		defer func() {
+			require.NoError(kv.Stop(context.Background()))
+		}()
+
+		tests := [][]byte{
+			[]byte("test"),
+			[]byte("come"),
+		}
+
+		// add 100 keys with prefix "test" and "come"
+		b := batch.NewBatch()
+		numKey := 100
+		for i := 0; i < numKey; i++ {
+			k := append(tests[0], byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+			b.Put(bucket1, k, testV1[i%3], "")
+			k = append(tests[1], byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+			b.Put(bucket1, k, testV2[i%3], "")
+		}
+		require.NoError(kv.WriteBatch(b))
+
+		// filter out <k, v> pairs
+		for n, e := range tests {
+			fk, fv, err := kv.Filter(bucket1, func(k, v []byte) bool {
+				return bytes.HasPrefix(k, e)
+			})
+			require.NoError(err)
+			require.Equal(numKey, len(fk))
+			require.Equal(numKey, len(fv))
+			for i := range fk {
+				k := append(e, byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+				require.Equal(fk[i], k)
+				if n == 0 {
+					require.Equal(fv[i], testV1[i%3])
+				} else {
+					require.Equal(fv[i], testV2[i%3])
+				}
+			}
+		}
+	}
+
+	path := "test-filter.bolt"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg.DbPath = testPath

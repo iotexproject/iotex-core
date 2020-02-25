@@ -168,6 +168,10 @@ func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
 }
 
+func (kvb *kvStoreWithBuffer) Filter(ns string, c Condition) ([][]byte, [][]byte, error) {
+	return kvb.store.Filter(ns, c)
+}
+
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {
 	b.Lock()
 	defer func() {
