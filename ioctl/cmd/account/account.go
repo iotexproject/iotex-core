@@ -178,6 +178,7 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	return response.AccountMeta, nil
 }
 
+// IsSignerExist checks whether signer account is existed
 func IsSignerExist(signer string) bool {
 	addr, err := address.FromString(signer)
 	if err != nil {
