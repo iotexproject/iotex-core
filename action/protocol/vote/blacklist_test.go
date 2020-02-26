@@ -21,7 +21,7 @@ func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	blacklist1.BlacklistInfos["addr1"] = 1
 	blacklist1.BlacklistInfos["addr2"] = 2
 	blacklist1.BlacklistInfos["addr3"] = 1
-	blacklist1.IntensityRate = 0.5
+	blacklist1.IntensityRate = 50
 	sbytes, err := blacklist1.Serialize()
 	r.NoError(err)
 
@@ -34,7 +34,7 @@ func TestBlackListSerializeAndDeserialize(t *testing.T) {
 	}
 
 	r.True(blacklist2.IntensityRate == blacklist1.IntensityRate)
-	r.True(blacklist2.IntensityRate == 0.5)
+	r.True(blacklist2.IntensityRate == 50)
 
 	blacklist3 := &Blacklist{}
 	sbytes, err = blacklist3.Serialize()

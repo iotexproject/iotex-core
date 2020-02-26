@@ -36,7 +36,7 @@ import (
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
-	cfg.Genesis.KickoutIntensityRate = 0.1
+	cfg.Genesis.KickoutIntensityRate = 90
 	cfg.Genesis.KickoutEpochPeriod = 2
 	cfg.Genesis.ProductivityThreshold = 85
 	ctx := protocol.WithBlockCtx(
@@ -549,7 +549,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	blackListMap := map[string]uint32{}
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
-		IntensityRate:  0.1,
+		IntensityRate:  90,
 	}
 	require.NoError(setNextEpochBlacklist(sm, blackList))
 
@@ -566,7 +566,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	blackList2 := &vote.Blacklist{
 		BlacklistInfos: blackListMap2,
-		IntensityRate:  0.1,
+		IntensityRate:  90,
 	}
 	require.NoError(setNextEpochBlacklist(sm, blackList2))
 	delegates2, err := p.DelegatesByEpoch(ctx, 2)
@@ -583,7 +583,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	blackList3 := &vote.Blacklist{
 		BlacklistInfos: blackListMap3,
-		IntensityRate:  0.1,
+		IntensityRate:  90,
 	}
 	require.NoError(setNextEpochBlacklist(sm, blackList3))
 
