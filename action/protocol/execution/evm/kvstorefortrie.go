@@ -46,9 +46,8 @@ func (kv *kvStoreForTrie) Put(key []byte, value []byte) error {
 
 func (kv *kvStoreForTrie) Delete(key []byte) error {
 	_, err := kv.sm.DelState(protocol.KeyOption(key), kv.nsOpt)
-	switch errors.Cause(err) {
-	case state.ErrStateNotExist:
-		return errors.Wrapf(db.ErrNotExist, "failed to find key %x", key)
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil
 	}
 	return err
 }

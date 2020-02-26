@@ -291,7 +291,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
 			nsHash := hash.Hash160b([]byte(ns))
 
-			return tlt.Delete(nsHash[:], key)
+			err := tlt.Delete(nsHash[:], key)
+			if errors.Cause(err) == trie.ErrNotExist {
+				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
+			}
+			return err
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
