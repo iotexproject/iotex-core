@@ -46,7 +46,7 @@ type governanceChainCommitteeProtocol struct {
 	productivityByEpoch       ProductivityByEpoch
 	productivityThreshold     uint64
 	kickoutEpochPeriod        uint64
-	kickoutIntensity          float64
+	kickoutIntensity          uint32
 	maxKickoutPeriod          uint64
 }
 
@@ -66,7 +66,7 @@ func NewGovernanceChainCommitteeProtocol(
 	productivityByEpoch ProductivityByEpoch,
 	productivityThreshold uint64,
 	kickoutEpochPeriod uint64,
-	kickoutIntensity float64,
+	kickoutIntensity uint32,
 	maxKickoutPeriod uint64,
 ) (Protocol, error) {
 	if electionCommittee == nil {
@@ -397,12 +397,13 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	// recalculate the voting power for blacklist delegates
 	candidatesMap := make(map[string]*state.Candidate)
 	updatedVotingPower := make(map[string]*big.Int)
+	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
 	for _, cand := range candidates {
 		candidatesMap[cand.Address] = cand
 		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
 			votingPower := new(big.Float).SetInt(cand.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(unqualifiedList.IntensityRate)).Int(nil)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 			updatedVotingPower[cand.Address] = newVotingPower
 		} else {
 			updatedVotingPower[cand.Address] = cand.Votes

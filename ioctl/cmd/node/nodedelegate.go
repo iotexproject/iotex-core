@@ -18,9 +18,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-		
+
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
@@ -52,9 +51,9 @@ var (
 )
 
 var (
-	epochNum   uint64
-	nextEpoch  bool
-	nodeStatus map[bool]string
+	epochNum      uint64
+	nextEpoch     bool
+	nodeStatus    map[bool]string
 	kickoutStatus map[bool]string
 )
 
@@ -77,13 +76,13 @@ var nodeDelegateCmd = &cobra.Command{
 }
 
 type delegate struct {
-	Address    		string `json:"address"`
-	Rank       		int    `json:"rank"`
-	Alias      		string `json:"alias"`
-	Active     		bool   `json:"active"`
-	Production 		int    `json:"production"`
-	Votes      		string `json:"votes"`
-	KickoutStatus	bool   `json:"kickoutStatus"`
+	Address       string `json:"address"`
+	Rank          int    `json:"rank"`
+	Alias         string `json:"alias"`
+	Active        bool   `json:"active"`
+	Production    int    `json:"production"`
+	Votes         string `json:"votes"`
+	KickoutStatus bool   `json:"kickoutStatus"`
 }
 
 type delegatesMessage struct {
@@ -182,27 +181,27 @@ func delegates() error {
 	if err := blacklist.Deserialize(kickoutListRes.Data); err != nil {
 		return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
 	}
-	kickoutIntensityRate := float64(blacklist.IntensityRate) / float64(100)
+	kickoutIntensityRate := float64(uint32(100)-blacklist.IntensityRate) / float64(100)
 	for rank, bp := range response.BlockProducersInfo {
 		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
 		if !ok {
 			return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
 		}
-		isBlacklist := false 
+		isBlacklist := false
 		if _, ok := blacklist.BlacklistInfos[bp.Address]; ok {
-			// if it exists in blacklist 
+			// if it exists in blacklist
 			isBlacklist = true
 			votingPower := new(big.Float).SetInt(votes)
 			votes, _ = votingPower.Mul(votingPower, big.NewFloat(kickoutIntensityRate)).Int(nil)
 		}
 		delegate := delegate{
-			Address:    	bp.Address,
-			Rank:       	rank + 1,
-			Alias:      	aliases[bp.Address],
-			Active:     	bp.Active,
-			Production: 	int(bp.Production),
-			Votes:      	util.RauToString(votes, util.IotxDecimalNum),
-			KickoutStatus:	isBlacklist,
+			Address:       bp.Address,
+			Rank:          rank + 1,
+			Alias:         aliases[bp.Address],
+			Active:        bp.Active,
+			Production:    int(bp.Production),
+			Votes:         util.RauToString(votes, util.IotxDecimalNum),
+			KickoutStatus: isBlacklist,
 		}
 		message.Delegates = append(message.Delegates, delegate)
 	}

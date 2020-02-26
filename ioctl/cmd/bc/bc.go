@@ -111,7 +111,6 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	return response, nil
 }
 
-
 // GetKickoutList gets kickout list
 func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
@@ -143,4 +142,3 @@ func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	}
 	return response, nil
 }
-
