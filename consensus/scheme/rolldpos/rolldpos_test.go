@@ -38,7 +38,6 @@ import (
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/p2p/node"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
@@ -63,7 +62,7 @@ func TestNewRollDPoS(t *testing.T) {
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
 	)
-	delegatesByEpoch := func(context.Context, uint64) (state.CandidateList, error) { return nil, nil }
+	delegatesByEpoch := func(uint64) ([]string, error) { return nil, nil }
 	t.Run("normal", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
 		r, err := NewRollDPoSBuilder().
@@ -219,12 +218,12 @@ func TestValidateBlockFooter(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
-		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
-			return []*state.Candidate{
-				{Address: candidates[0]},
-				{Address: candidates[1]},
-				{Address: candidates[2]},
-				{Address: candidates[3]},
+		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
+			return []string{
+				candidates[0],
+				candidates[1],
+				candidates[2],
+				candidates[3],
 			}, nil
 		}).
 		SetClock(clock).
@@ -299,12 +298,12 @@ func TestRollDPoS_Metrics(t *testing.T) {
 			return nil
 		}).
 		SetClock(clock).
-		SetDelegatesByEpochFunc(func(context.Context, uint64) (state.CandidateList, error) {
-			return []*state.Candidate{
-				{Address: candidates[0]},
-				{Address: candidates[1]},
-				{Address: candidates[2]},
-				{Address: candidates[3]},
+		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
+			return []string{
+				candidates[0],
+				candidates[1],
+				candidates[2],
+				candidates[3],
 			}, nil
 		}).
 		RegisterProtocol(rp).
@@ -399,10 +398,10 @@ func TestRollDPoSConsensus(t *testing.T) {
 			chainAddrs[i] = addressMap[rawAddress]
 		}
 
-		delegatesByEpochFunc := func(ctx context.Context, _ uint64) (state.CandidateList, error) {
-			candidates := make([]*state.Candidate, 0, numNodes)
+		delegatesByEpochFunc := func(_ uint64) ([]string, error) {
+			candidates := make([]string, 0, numNodes)
 			for _, addr := range chainAddrs {
-				candidates = append(candidates, &state.Candidate{Address: addr.encodedAddr})
+				candidates = append(candidates, addr.encodedAddr)
 			}
 			return candidates, nil
 		}

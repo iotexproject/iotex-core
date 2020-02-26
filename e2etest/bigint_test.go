@@ -37,7 +37,6 @@ const (
 )
 
 func TestTransfer_Negative(t *testing.T) {
-	return
 	r := require.New(t)
 	ctx := context.Background()
 	bc, sf := prepareBlockchain(ctx, executor, r)
@@ -47,7 +46,6 @@ func TestTransfer_Negative(t *testing.T) {
 	blk, err := prepareTransfer(bc, sf, r)
 	r.NoError(err)
 	r.Error(bc.ValidateBlock(blk))
-	r.Panics(func() { bc.CommitBlock(blk) })
 	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -64,8 +62,6 @@ func TestAction_Negative(t *testing.T) {
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Error(bc.ValidateBlock(blk))
-	// TODO : need to make it fail
-	// r.Panics(func() { bc.CommitBlock(blk) })
 	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -99,6 +95,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
+	r.NoError(sf.Start(ctx))
 	return bc, sf
 }
 
@@ -138,7 +135,6 @@ func prepare(bc blockchain.Blockchain, sf factory.Factory, elp action.Envelope, 
 		testutil.TimestampNow(),
 	)
 	r.NoError(err)
-	sf.DeleteWorkingSet(blk)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
 	blk.Receipts = nil
 	return blk, nil

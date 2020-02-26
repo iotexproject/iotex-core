@@ -4,17 +4,23 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package factory
+package evm
 
-import (
-	"context"
+// SerializableBytes defines a type of serializable bytes
+type SerializableBytes []byte
 
-	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockchain/block"
-)
+// Serialize copies and return bytes
+func (sb SerializableBytes) Serialize() ([]byte, error) {
+	data := make([]byte, len(sb))
+	copy(data, sb)
 
-// Minter is the interface of block minter
-type Minter interface {
-	// NewBlockBuilder creates block builder
-	NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
+	return data, nil
+}
+
+// Deserialize copies data into bytes
+func (sb *SerializableBytes) Deserialize(data []byte) error {
+	*sb = make([]byte, len(data))
+	copy(*sb, data)
+
+	return nil
 }

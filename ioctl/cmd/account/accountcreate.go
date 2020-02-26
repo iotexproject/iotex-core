@@ -61,15 +61,28 @@ type generatedAccount struct {
 }
 
 func init() {
-	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1, config.TranslateInLang(flagNumUsages, config.UILanguage))
+	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1,
+		config.TranslateInLang(flagNumUsages, config.UILanguage))
+	accountCreateCmd.Flags().BoolVar(&CryptoSm2, "sm2", false,
+		config.TranslateInLang(flagSm2Usage, config.UILanguage))
 }
 
 func accountCreate() error {
+	var err error
+	var private crypto.PrivateKey
 	newAccounts := make([]generatedAccount, 0)
 	for i := 0; i < int(numAccounts); i++ {
-		private, err := crypto.GenerateKey()
-		if err != nil {
-			return output.NewError(output.CryptoError, "failed to generate new private key", err)
+		if !CryptoSm2 {
+			private, err = crypto.GenerateKey()
+			if err != nil {
+				return output.NewError(output.CryptoError, "failed to generate new private key", err)
+			}
+
+		} else {
+			private, err = crypto.GenerateKeySm2()
+			if err != nil {
+				return output.NewError(output.CryptoError, "failed to generate new sm2 private key", err)
+			}
 		}
 		addr, err := address.FromBytes(private.PublicKey().Hash())
 		if err != nil {

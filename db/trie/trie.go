@@ -58,6 +58,8 @@ type Trie interface {
 	RootHash() []byte
 	// SetRootHash sets a new root to trie
 	SetRootHash([]byte) error
+	// IsEmpty returns true is this is an empty trie
+	IsEmpty() bool
 	// DB returns the KVStore storing the node data
 	DB() KVStore
 	// deleteNodeFromDB deletes the data of node from db

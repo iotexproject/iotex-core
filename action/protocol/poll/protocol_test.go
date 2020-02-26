@@ -34,6 +34,8 @@ func TestNewProtocol(t *testing.T) {
 		func(context.Context, string, []byte, bool) ([]byte, error) { return nil, nil },
 		nil,
 		nil,
+		nil,
+		nil,
 		committee,
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		sm,

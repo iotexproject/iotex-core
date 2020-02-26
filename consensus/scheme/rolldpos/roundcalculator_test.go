@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -35,25 +34,25 @@ import (
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
-	ra, err := rc.NewRound(1, time.Second, time.Unix(1562382392, 0), nil)
+	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382522, 0), nil)
 	require.NoError(err)
 
 	// height < round.Height()
-	_, err = rc.UpdateRound(ra, 0, time.Second, time.Unix(1562382492, 0), time.Second)
+	_, err = rc.UpdateRound(ra, 50, time.Second, time.Unix(1562382492, 0), time.Second)
 	require.Error(err)
 
 	// height == round.Height() and now.Before(round.StartTime())
-	_, err = rc.UpdateRound(ra, 1, time.Second, time.Unix(1562382092, 0), time.Second)
+	_, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second)
 	require.NoError(err)
 
 	// height >= round.NextEpochStartHeight() Delegates error
 	_, err = rc.UpdateRound(ra, 500, time.Second, time.Unix(1562382092, 0), time.Second)
 	require.Error(err)
 
-	// (31+120)%24
-	ra, err = rc.UpdateRound(ra, 31, time.Second, time.Unix(1562382522, 0), time.Second)
+	// (51+100)%24
+	ra, err = rc.UpdateRound(ra, 51, time.Second, time.Unix(1562382522, 0), time.Second)
 	require.NoError(err)
-	require.Equal(identityset.Address(7).String(), ra.proposer)
+	require.Equal(identityset.Address(10).String(), ra.proposer)
 }
 
 func TestNewRound(t *testing.T) {
@@ -74,31 +73,31 @@ func TestNewRound(t *testing.T) {
 	require.NoError(err)
 	require.Equal(validDelegates[2], proposer)
 
-	ra, err := rc.NewRound(1, time.Second, time.Unix(1562382392, 0), nil)
+	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
 	require.NoError(err)
-	require.Equal(uint32(19), ra.roundNum)
-	require.Equal(uint64(1), ra.height)
+	require.Equal(uint32(170), ra.roundNum)
+	require.Equal(uint64(51), ra.height)
 	// sorted by address hash
-	require.Equal(identityset.Address(16).String(), ra.proposer)
+	require.Equal(identityset.Address(7).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
-	ra, err = rc.NewRound(1, time.Second, time.Unix(1562382392, 0), nil)
+	ra, err = rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
 	require.NoError(err)
-	require.Equal(uint32(19), ra.roundNum)
-	require.Equal(uint64(1), ra.height)
-	require.Equal(identityset.Address(5).String(), ra.proposer)
+	require.Equal(uint32(170), ra.roundNum)
+	require.Equal(uint64(51), ra.height)
+	require.Equal(identityset.Address(12).String(), ra.proposer)
 }
 
 func TestDelegates(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
 
-	dels, err := rc.Delegates(4)
+	dels, err := rc.Delegates(51)
 	require.NoError(err)
 	require.Equal(rc.rp.NumDelegates(), uint64(len(dels)))
 
-	require.False(rc.IsDelegate(identityset.Address(25).String(), 2))
-	require.True(rc.IsDelegate(identityset.Address(5).String(), 2))
+	require.False(rc.IsDelegate(identityset.Address(25).String(), 51))
+	require.True(rc.IsDelegate(identityset.Address(0).String(), 51))
 }
 
 func TestRoundInfo(t *testing.T) {
@@ -219,20 +218,36 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
 	bc, rp, pp := makeChain(t)
-	return &roundCalculator{bc, true, rp, func(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-		re := protocol.NewRegistry()
-		if err := rp.Register(re); err != nil {
-			return nil, err
-		}
-		ctx = protocol.WithBlockchainCtx(
-			ctx,
-			protocol.BlockchainCtx{
-				Genesis:  config.Default.Genesis,
-				Registry: re,
-			},
-		)
-		return pp.DelegatesByEpoch(ctx, epochNum)
-	},
+	return &roundCalculator{
+		bc,
+		true,
+		rp,
+		func(epochNum uint64) ([]string, error) {
+			re := protocol.NewRegistry()
+			if err := rp.Register(re); err != nil {
+				return nil, err
+			}
+			tipHeight := bc.TipHeight()
+			ctx := protocol.WithBlockchainCtx(
+				context.Background(),
+				protocol.BlockchainCtx{
+					Genesis:  config.Default.Genesis,
+					Registry: re,
+					Tip: protocol.TipInfo{
+						Height: tipHeight,
+					},
+				},
+			)
+			var addrs []string
+			candidatesList, err := pp.DelegatesByEpoch(ctx, epochNum)
+			if err != nil {
+				return nil, err
+			}
+			for _, cand := range candidatesList {
+				addrs = append(addrs, cand.Address)
+			}
+			return addrs, nil
+		},
 		0,
 	}
 }

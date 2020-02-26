@@ -74,6 +74,10 @@ func (tr *branchRootTrie) SetRootHash(rootHash []byte) error {
 	return nil
 }
 
+func (tr *branchRootTrie) IsEmpty() bool {
+	return tr.isEmptyRootHash(tr.rootHash)
+}
+
 func (tr *branchRootTrie) Get(key []byte) ([]byte, error) {
 	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := tr.checkKeyType(key)
@@ -137,6 +141,9 @@ func (tr *branchRootTrie) DB() KVStore {
 }
 
 func (tr *branchRootTrie) deleteNodeFromDB(tn Node) error {
+	if tr.root == tn && bytes.Equal(tr.rootHash, tr.emptyRootHash()) {
+		return nil
+	}
 	return tr.kvStore.Delete(tr.nodeHash(tn))
 }
 

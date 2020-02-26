@@ -108,17 +108,15 @@ func TestBlockReward(t *testing.T) {
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
 	sf := svr.ChainService(1).StateFactory()
-	ws, err := sf.NewWorkingSet()
-	require.NoError(t, err)
 
 	sk, err := crypto.HexStringToPrivateKey(cfg.Chain.ProducerPrivKey)
 	require.NoError(t, err)
 	addr, err := address.FromBytes(sk.PublicKey().Hash())
 	require.NoError(t, err)
 
-	blockReward, err := rp.BlockReward(ctx, ws)
+	blockReward, err := rp.BlockReward(ctx, sf)
 	require.NoError(t, err)
-	balance, err := rp.UnclaimedBalance(ctx, ws, addr)
+	balance, err := rp.UnclaimedBalance(ctx, sf, addr)
 	require.NoError(t, err)
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
@@ -231,7 +229,6 @@ func TestBlockEpochReward(t *testing.T) {
 
 	// Get each server's parameters: rewarding protocol, working set, block chain etc.
 	rps := make([]*rewarding.Protocol, numNodes)
-	wss := make([]factory.WorkingSet, numNodes)
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
 	apis := make([]*api.Server, numNodes)
@@ -252,9 +249,6 @@ func TestBlockEpochReward(t *testing.T) {
 		rps[i] = rp
 
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
-		ws, err := sfs[i].NewWorkingSet()
-		require.NoError(t, err)
-		wss[i] = ws
 
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
@@ -278,11 +272,11 @@ func TestBlockEpochReward(t *testing.T) {
 
 	blocksPerEpoch := configs[0].Genesis.Blockchain.NumDelegates * configs[0].Genesis.Blockchain.NumSubEpochs
 
-	blockReward, err := rps[0].BlockReward(context.Background(), wss[0])
+	blockReward, err := rps[0].BlockReward(context.Background(), sfs[0])
 	require.NoError(t, err)
 
 	//Calculate epoch reward shares for each delegate based on their weight (votes number)
-	epochReward, err := rps[0].EpochReward(context.Background(), wss[0])
+	epochReward, err := rps[0].EpochReward(context.Background(), sfs[0])
 	require.NoError(t, err)
 	epRwdShares := make(map[string]*big.Int, numNodes)
 
@@ -331,7 +325,7 @@ func TestBlockEpochReward(t *testing.T) {
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
 					unClaimedBalances[rewardAddr.String()], err =
-						rps[0].UnclaimedBalance(context.Background(), wss[0], rewardAddr)
+						rps[0].UnclaimedBalance(context.Background(), sfs[0], rewardAddr)
 				}
 
 				if curHigh != chains[0].TipHeight() {
@@ -359,9 +353,9 @@ func TestBlockEpochReward(t *testing.T) {
 							exptUnclaimed[rewardAddrStr] = expectAfterEpoch
 						}
 						//Add foundation bonus
-						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(context.Background(), wss[0])
+						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(context.Background(), sfs[0])
 						require.NoError(t, err)
-						foundationBonus, err := rps[0].FoundationBonus(context.Background(), wss[0])
+						foundationBonus, err := rps[0].FoundationBonus(context.Background(), sfs[0])
 						require.NoError(t, err)
 						if epochNum <= foundationBonusLastEpoch {
 							for i := 0; i < numNodes; i++ {

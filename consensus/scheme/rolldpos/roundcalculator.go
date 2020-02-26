@@ -7,7 +7,6 @@
 package rolldpos
 
 import (
-	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -43,7 +42,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			epochNum = c.rp.GetEpochNum(height)
 			epochStartHeight = c.rp.GetEpochHeight(epochNum)
 			var err error
-			if delegates, err = c.Delegates(epochStartHeight); err != nil {
+			if delegates, err = c.Delegates(height); err != nil {
 				return nil, err
 			}
 		}
@@ -169,16 +168,7 @@ func (c *roundCalculator) roundInfo(
 // Delegates returns list of delegates at given height
 func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 	epochNum := c.rp.GetEpochNum(height)
-	candidatesList, err := c.delegatesByEpochFunc(context.Background(), epochNum)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get delegate by epoch %d", epochNum)
-	}
-	addrs := []string{}
-	for _, candidate := range candidatesList {
-		addrs = append(addrs, candidate.Address)
-	}
-
-	return addrs, nil
+	return c.delegatesByEpochFunc(epochNum)
 }
 
 // NewRoundWithToleration starts new round with tolerated over time
@@ -217,8 +207,8 @@ func (c *roundCalculator) newRound(
 	var roundStartTime time.Time
 	if height != 0 {
 		epochNum = c.rp.GetEpochNum(height)
-		epochStartHeight := c.rp.GetEpochHeight(epochNum)
-		if delegates, err = c.Delegates(epochStartHeight); err != nil {
+		epochStartHeight = c.rp.GetEpochHeight(epochNum)
+		if delegates, err = c.Delegates(height); err != nil {
 			return
 		}
 		if roundNum, roundStartTime, err = c.roundInfo(height, blockInterval, now, toleratedOvertime); err != nil {

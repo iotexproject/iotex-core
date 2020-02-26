@@ -50,7 +50,7 @@ func exportPublic(arg string) error {
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", nil)
 	}
-	prvKey, err := KsAccountToPrivateKey(addr, password)
+	prvKey, err := LocalAccountToPrivateKey(addr, password)
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}

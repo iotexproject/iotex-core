@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -25,6 +26,10 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 	delegates := genesisConfig.Delegates
 	p := NewLifeLongDelegatesProtocol(delegates)
 	registry := protocol.NewRegistry()
+	err := registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20))
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{

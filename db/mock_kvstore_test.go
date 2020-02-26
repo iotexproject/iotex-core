@@ -11,6 +11,100 @@ import (
 	reflect "reflect"
 )
 
+// MockKVStoreBasic is a mock of KVStoreBasic interface
+type MockKVStoreBasic struct {
+	ctrl     *gomock.Controller
+	recorder *MockKVStoreBasicMockRecorder
+}
+
+// MockKVStoreBasicMockRecorder is the mock recorder for MockKVStoreBasic
+type MockKVStoreBasicMockRecorder struct {
+	mock *MockKVStoreBasic
+}
+
+// NewMockKVStoreBasic creates a new mock instance
+func NewMockKVStoreBasic(ctrl *gomock.Controller) *MockKVStoreBasic {
+	mock := &MockKVStoreBasic{ctrl: ctrl}
+	mock.recorder = &MockKVStoreBasicMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockKVStoreBasic) EXPECT() *MockKVStoreBasicMockRecorder {
+	return m.recorder
+}
+
+// Start mocks base method
+func (m *MockKVStoreBasic) Start(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Start indicates an expected call of Start
+func (mr *MockKVStoreBasicMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockKVStoreBasic)(nil).Start), arg0)
+}
+
+// Stop mocks base method
+func (m *MockKVStoreBasic) Stop(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Stop", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Stop indicates an expected call of Stop
+func (mr *MockKVStoreBasicMockRecorder) Stop(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockKVStoreBasic)(nil).Stop), arg0)
+}
+
+// Put mocks base method
+func (m *MockKVStoreBasic) Put(arg0 string, arg1, arg2 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Put", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Put indicates an expected call of Put
+func (mr *MockKVStoreBasicMockRecorder) Put(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockKVStoreBasic)(nil).Put), arg0, arg1, arg2)
+}
+
+// Get mocks base method
+func (m *MockKVStoreBasic) Get(arg0 string, arg1 []byte) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get
+func (mr *MockKVStoreBasicMockRecorder) Get(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockKVStoreBasic)(nil).Get), arg0, arg1)
+}
+
+// Delete mocks base method
+func (m *MockKVStoreBasic) Delete(arg0 string, arg1 []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Delete", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Delete indicates an expected call of Delete
+func (mr *MockKVStoreBasicMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockKVStoreBasic)(nil).Delete), arg0, arg1)
+}
+
 // MockKVStore is a mock of KVStore interface
 type MockKVStore struct {
 	ctrl     *gomock.Controller

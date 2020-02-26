@@ -260,7 +260,7 @@ func SendAction(elp action.Envelope, signer string) error {
 	} else {
 		prvKeyOrPassword = passwordFlag.Value().(string)
 	}
-	prvKey, err = account.KsAccountToPrivateKey(signer, prvKeyOrPassword)
+	prvKey, err = account.LocalAccountToPrivateKey(signer, prvKeyOrPassword)
 	if err != nil {
 		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 	}
