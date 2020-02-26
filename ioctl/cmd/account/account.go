@@ -178,6 +178,25 @@ func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
 	return response.AccountMeta, nil
 }
 
+// IsSignerExist checks whether signer account is existed
+func IsSignerExist(signer string) bool {
+	addr, err := address.FromString(signer)
+	if err != nil {
+		return false
+	}
+	// find the account in keystore
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, ksAccount := range ks.Accounts() {
+		if address.Equal(addr, ksAccount.Address) {
+			return true
+		}
+	}
+	// find the account in pem files
+	_, err = findSm2PemFile(addr)
+	return err == nil
+}
+
 func newAccount(alias string) (string, error) {
 	output.PrintQuery(fmt.Sprintf("#%s: Set password\n", alias))
 	password, err := util.ReadSecretFromStdin()
