@@ -141,9 +141,6 @@ func (tr *branchRootTrie) DB() KVStore {
 }
 
 func (tr *branchRootTrie) deleteNodeFromDB(tn Node) error {
-	if tr.root == tn && bytes.Equal(tr.rootHash, tr.emptyRootHash()) {
-		return nil
-	}
 	return tr.kvStore.Delete(tr.nodeHash(tn))
 }
 
