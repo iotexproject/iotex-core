@@ -13,7 +13,7 @@ type (
 	withBuffer interface {
 		Snapshot() int
 		Revert(int) error
-		SerializeQueue(batch.WriteInfoFilter) []byte
+		SerializeQueue(batch.WriteInfoSerialize, batch.WriteInfoFilter) []byte
 		MustPut(string, []byte, []byte)
 		MustDelete(string, []byte)
 		Size() int
@@ -42,6 +42,7 @@ type (
 	flusher struct {
 		kvb             *kvStoreWithBuffer
 		serializeFilter batch.WriteInfoFilter
+		serialize       batch.WriteInfoSerialize
 		flushTranslate  batch.WriteInfoTranslate
 	}
 
@@ -56,6 +57,18 @@ func SerializeFilterOption(filter batch.WriteInfoFilter) KVStoreFlusherOption {
 			return errors.New("filter cannot be nil")
 		}
 		f.serializeFilter = filter
+
+		return nil
+	}
+}
+
+// SerializeOption sets the serialize function for write queue
+func SerializeOption(wis batch.WriteInfoSerialize) KVStoreFlusherOption {
+	return func(f *flusher) error {
+		if wis == nil {
+			return errors.New("serialize function cannot be nil")
+		}
+		f.serialize = wis
 
 		return nil
 	}
@@ -108,7 +121,7 @@ func (f *flusher) Flush() error {
 }
 
 func (f *flusher) SerializeQueue() []byte {
-	return f.kvb.SerializeQueue(f.serializeFilter)
+	return f.kvb.SerializeQueue(f.serialize, f.serializeFilter)
 }
 
 func (f *flusher) KVStoreWithBuffer() KVStoreWithBuffer {
@@ -131,8 +144,11 @@ func (kvb *kvStoreWithBuffer) Revert(sid int) error {
 	return kvb.buffer.Revert(sid)
 }
 
-func (kvb *kvStoreWithBuffer) SerializeQueue(filter batch.WriteInfoFilter) []byte {
-	return kvb.buffer.SerializeQueue(filter)
+func (kvb *kvStoreWithBuffer) SerializeQueue(
+	serialize batch.WriteInfoSerialize,
+	filter batch.WriteInfoFilter,
+) []byte {
+	return kvb.buffer.SerializeQueue(serialize, filter)
 }
 
 func (kvb *kvStoreWithBuffer) Size() int {

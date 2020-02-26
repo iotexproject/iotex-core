@@ -414,8 +414,11 @@ func TestRollDPoSConsensus(t *testing.T) {
 			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 			require.NoError(t, err)
-			require.NoError(t, sf.Start(ctx))
 			registry := protocol.NewRegistry()
+			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+				Genesis:  config.Default.Genesis,
+				Registry: registry,
+			})))
 			acc := account.NewProtocol(rewarding.DepositGas)
 			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)

@@ -96,7 +96,7 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, 5, kvb.Size())
 		})
 		t.Run("SerializeQueue", func(t *testing.T) {
-			buffer.EXPECT().SerializeQueue(gomock.Any()).Return(value).Times(1)
+			buffer.EXPECT().SerializeQueue(gomock.Any(), gomock.Any()).Return(value).Times(1)
 			require.Equal(t, value, f.SerializeQueue())
 		})
 		t.Run("MustPut", func(t *testing.T) {

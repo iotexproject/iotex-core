@@ -46,7 +46,7 @@ type (
 		// Entry returns the entry at the index
 		Entry(int) (*WriteInfo, error)
 		// SerializeQueue serialize the writes in queue
-		SerializeQueue(WriteInfoFilter) []byte
+		SerializeQueue(WriteInfoSerialize, WriteInfoFilter) []byte
 		// Clear clears entries staged in batch
 		Clear()
 		// Translate clones the batch

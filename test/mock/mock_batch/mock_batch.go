@@ -133,17 +133,17 @@ func (mr *MockKVStoreBatchMockRecorder) Entry(arg0 interface{}) *gomock.Call {
 }
 
 // SerializeQueue mocks base method
-func (m *MockKVStoreBatch) SerializeQueue(arg0 batch.WriteInfoFilter) []byte {
+func (m *MockKVStoreBatch) SerializeQueue(arg0 batch.WriteInfoSerialize, arg1 batch.WriteInfoFilter) []byte {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SerializeQueue", arg0)
+	ret := m.ctrl.Call(m, "SerializeQueue", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
 // SerializeQueue indicates an expected call of SerializeQueue
-func (mr *MockKVStoreBatchMockRecorder) SerializeQueue(arg0 interface{}) *gomock.Call {
+func (mr *MockKVStoreBatchMockRecorder) SerializeQueue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockKVStoreBatch)(nil).SerializeQueue), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockKVStoreBatch)(nil).SerializeQueue), arg0, arg1)
 }
 
 // Clear mocks base method
@@ -295,17 +295,17 @@ func (mr *MockCachedBatchMockRecorder) Entry(arg0 interface{}) *gomock.Call {
 }
 
 // SerializeQueue mocks base method
-func (m *MockCachedBatch) SerializeQueue(arg0 batch.WriteInfoFilter) []byte {
+func (m *MockCachedBatch) SerializeQueue(arg0 batch.WriteInfoSerialize, arg1 batch.WriteInfoFilter) []byte {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SerializeQueue", arg0)
+	ret := m.ctrl.Call(m, "SerializeQueue", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
 	return ret0
 }
 
 // SerializeQueue indicates an expected call of SerializeQueue
-func (mr *MockCachedBatchMockRecorder) SerializeQueue(arg0 interface{}) *gomock.Call {
+func (mr *MockCachedBatchMockRecorder) SerializeQueue(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockCachedBatch)(nil).SerializeQueue), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SerializeQueue", reflect.TypeOf((*MockCachedBatch)(nil).SerializeQueue), arg0, arg1)
 }
 
 // Clear mocks base method
