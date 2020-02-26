@@ -84,6 +84,7 @@ type (
 		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
+		DB() db.KVStore
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -254,6 +255,11 @@ func (sf *factory) Height() (uint64, error) {
 		return 0, errors.Wrap(err, "failed to get factory's height from underlying DB")
 	}
 	return byteutil.BytesToUint64(height), nil
+}
+
+// DB returns factory's DB
+func (sf *factory) DB() db.KVStore {
+	return sf.dao
 }
 
 func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {

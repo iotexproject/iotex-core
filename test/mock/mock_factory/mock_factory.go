@@ -12,6 +12,7 @@ import (
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	db "github.com/iotexproject/iotex-core/db"
 	reflect "reflect"
 )
 
@@ -158,4 +159,18 @@ func (m *MockFactory) Commit(arg0 context.Context, arg1 *block.Block) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
+}
+
+// DB mocks base method
+func (m *MockFactory) DB() db.KVStore {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DB")
+	ret0, _ := ret[0].(db.KVStore)
+	return ret0
+}
+
+// DB indicates an expected call of DB
+func (mr *MockFactoryMockRecorder) DB() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DB", reflect.TypeOf((*MockFactory)(nil).DB))
 }

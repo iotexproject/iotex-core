@@ -163,6 +163,11 @@ func (sdb *stateDB) Height() (uint64, error) {
 	return byteutil.BytesToUint64(height), nil
 }
 
+// DB returns factory's DB
+func (sdb *stateDB) DB() db.KVStore {
+	return sdb.dao
+}
+
 func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingSet, error) {
 	flusher, err := db.NewKVStoreFlusher(sdb.dao, batch.NewCachedBatch(), sdb.flusherOptions(ctx, height)...)
 	if err != nil {

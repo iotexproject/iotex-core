@@ -186,11 +186,7 @@ func New(
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
 		}
 	}
-	ws, err := sf.NewWorkingSet()
-	if err != nil {
-		return nil, err
-	}
-	pb := blockchain.NewCheckPoint(ws.GetDB(), cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs)
+	pb := blockchain.NewCheckPoint(sf.DB(), cfg.Genesis.NumDelegates*cfg.Genesis.NumSubEpochs)
 	if err := chain.AddSubscriber(pb); err != nil {
 		log.L().Warn("Failed to add pb", zap.Error(err))
 	}

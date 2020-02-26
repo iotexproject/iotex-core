@@ -300,11 +300,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	tipHeight := bc.dao.GetTipHeight()
 	if tipHeight == 0 {
 		// if have trie.db,start from trie.db
-		ws, err := bc.sf.NewWorkingSet()
-		if err != nil {
-			return err
-		}
-		blk, err := GetTopBlock(ws.GetDB())
+		blk, err := GetTopBlock(bc.sf.DB())
 		if err == nil {
 			log.L().Info("start from checkpoint:", zap.Uint64("height", blk.Height()))
 			startHeight := uint64(1)
@@ -313,7 +309,7 @@ func (bc *blockchain) Start(ctx context.Context) error {
 			}
 			for i := startHeight; i <= blk.Height(); i++ {
 				heightValue := byteutil.Uint64ToBytes(i)
-				blks, err := GetBlock(ws.GetDB(), heightValue)
+				blks, err := GetBlock(bc.sf.DB(), heightValue)
 				if err == nil {
 					err = bc.dao.PutBlock(blks)
 					if err != nil {
