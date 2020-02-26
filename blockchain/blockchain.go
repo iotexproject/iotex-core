@@ -177,12 +177,7 @@ func BoltDBDaoOption() Option {
 			return nil
 		}
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		bc.dao = blockdao.NewBlockDAO(
-			db.NewBoltDB(cfg.DB),
-			nil,
-			cfg.Chain.CompressBlock,
-			cfg.DB,
-		)
+		bc.dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
 		return nil
 	}
 }
@@ -193,12 +188,7 @@ func InMemDaoOption() Option {
 		if bc.dao != nil {
 			return nil
 		}
-		bc.dao = blockdao.NewBlockDAO(
-			db.NewMemKVStore(),
-			nil,
-			cfg.Chain.CompressBlock,
-			cfg.DB,
-		)
+		bc.dao = blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 		return nil
 	}
 }

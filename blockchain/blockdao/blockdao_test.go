@@ -158,7 +158,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, []BlockIndexer{indexer}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -221,7 +221,7 @@ func TestBlockDAO(t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, indexer, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, []BlockIndexer{indexer}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -293,8 +293,10 @@ func TestBlockDAO(t *testing.T) {
 	path := "test-kv-store"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
+	require.NoError(t, testFile.Close())
 	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
 	indexPath := indexFile.Name()
+	require.NoError(t, indexFile.Close())
 	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -353,7 +355,7 @@ func BenchmarkBlockCache(b *testing.B) {
 
 		db := config.Default.DB
 		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO(store, indexer, false, db)
+		blkDao := NewBlockDAO(store, []BlockIndexer{indexer}, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

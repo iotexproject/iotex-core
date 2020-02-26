@@ -167,7 +167,7 @@ func New(
 	}
 	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvStore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	} else {
 		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
