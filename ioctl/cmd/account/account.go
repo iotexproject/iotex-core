@@ -193,12 +193,8 @@ func IsSignerExist(signer string) bool {
 		}
 	}
 	// find the account in pem files
-	pemFilePath := sm2KeyPath(addr)
-	_, err = os.Stat(pemFilePath)
-	if err == nil {
-		return true
-	}
-	return false
+	_, err = findSm2PemFile(addr)
+	return err == nil
 }
 
 func newAccount(alias string) (string, error) {
