@@ -417,6 +417,7 @@ func (p *Protocol) splitEpochReward(
 	}
 	amounts := make([]*big.Int, 0)
 	var amountPerAddr *big.Int
+	intensityRate := float64(uint32(100)-p.kickoutIntensity) / float64(100)
 	for _, candidate := range candidates {
 		if totalWeight.Cmp(big.NewInt(0)) == 0 {
 			amounts = append(amounts, big.NewInt(0))
@@ -430,7 +431,7 @@ func (p *Protocol) splitEpochReward(
 			}
 			// After Easter, if not qualified, split epoch reward according to decreased voting power
 			votingPower := new(big.Float).SetInt(candidate.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
 		} else {
 			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)

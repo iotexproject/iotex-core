@@ -54,12 +54,12 @@ type Protocol struct {
 	getKickoutList      GetKickoutList
 	keyPrefix           []byte
 	addr                address.Address
-	kickoutIntensity    float64
+	kickoutIntensity    uint32
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
-	kickoutIntensityRate float64,
+	kickoutIntensityRate uint32,
 	getKickoutList GetKickoutList,
 	productivityByEpoch ProductivityByEpoch,
 ) *Protocol {
