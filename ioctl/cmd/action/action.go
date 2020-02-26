@@ -13,7 +13,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
@@ -241,7 +240,7 @@ func SendAction(elp action.Envelope, signer string) error {
 		err              error
 		prvKeyOrPassword string
 	)
-	if !signerIsExist(signer) {
+	if !account.IsSignerExist(signer) {
 		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
 		prvKeyOrPassword, err = util.ReadSecretFromStdin()
 		if err != nil {
@@ -384,20 +383,4 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 		return output.NewError(output.ValidationError, "balance is not enough", nil)
 	}
 	return nil
-}
-
-func signerIsExist(signer string) bool {
-	addr, err := address.FromString(signer)
-	if err != nil {
-		return false
-	}
-	// find the account in keystore
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, ksAccount := range ks.Accounts() {
-		if address.Equal(addr, ksAccount.Address) {
-			return true
-		}
-	}
-	return false
 }
