@@ -18,6 +18,9 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+// CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
+const CandidateUpdateBaseIntrinsicGas = uint64(10000)
+
 // CandidateUpdate is the action to register a candidate
 type CandidateUpdate struct {
 	AbstractAction
@@ -120,10 +123,15 @@ func (cu *CandidateUpdate) LoadProto(pbAct *iotextypes.CandidateBasicInfo) error
 
 // IntrinsicGas returns the intrinsic gas of a CandidateUpdate
 func (cu *CandidateUpdate) IntrinsicGas() (uint64, error) {
-	return 0, nil
+	return CandidateUpdateBaseIntrinsicGas, nil
 }
 
 // Cost returns the total cost of a CandidateUpdate
 func (cu *CandidateUpdate) Cost() (*big.Int, error) {
-	return big.NewInt(0), nil
+	intrinsicGas, err := cu.IntrinsicGas()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the CandidateUpdate")
+	}
+	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
+	return fee, nil
 }
