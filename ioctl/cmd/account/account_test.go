@@ -15,7 +15,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
