@@ -120,7 +120,7 @@ type (
 	blockDAO struct {
 		compressBlock bool
 		kvStore       db.KVStore
-		indexer       []BlockIndexer
+		indexers      []BlockIndexer
 		htf           db.RangeIndex
 		kvStores      sync.Map //store like map[index]db.KVStore,index from 1...N
 		topIndex      atomic.Value

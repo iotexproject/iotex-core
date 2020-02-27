@@ -35,27 +35,15 @@ var (
 	tipBlockHeightKey = []byte("h")
 )
 
-type (
-	// Indexer indexes system logs
-	Indexer interface {
-		Start(ctx context.Context) error
-		Stop(ctx context.Context) error
-		PutBlock(blk *block.Block) error
-		DeleteTipBlock(blk *block.Block) error
-		Commit() error
-		GetEvmTransferByActionHash(hash.Hash256) (*systemlogpb.ActionEvmTransfer, error)
-		GetEvmTransferByBlockHeight(uint64) (*systemlogpb.BlockEvmTransfer, error)
-	}
-	indexer struct {
-		mutex          sync.RWMutex
-		kvStore        db.KVStoreWithRange
-		batch          batch.KVStoreBatch
-		tipBlockHeight uint64
-	}
-)
+type Indexer struct {
+	mutex          sync.RWMutex
+	kvStore        db.KVStoreWithRange
+	batch          batch.KVStoreBatch
+	tipBlockHeight uint64
+}
 
 // NewIndexer creates a new indexer
-func NewIndexer(kv db.KVStore) (Indexer, error) {
+func NewIndexer(kv db.KVStore) (*Indexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
@@ -63,14 +51,14 @@ func NewIndexer(kv db.KVStore) (Indexer, error) {
 	if !ok {
 		return nil, errors.New("indexer can only be created from KVStoreWithRange")
 	}
-	return &indexer{
+	return &Indexer{
 		kvStore: kvRange,
 		batch:   batch.NewBatch(),
 	}, nil
 }
 
 // Start starts the indexer
-func (x *indexer) Start(ctx context.Context) error {
+func (x *Indexer) Start(ctx context.Context) error {
 	if _, err := x.kvStore.Get(indexerStatus, tipBlockHeightKey); err != nil && errors.Cause(err) == db.ErrNotExist {
 		if err := x.kvStore.Put(indexerStatus, tipBlockHeightKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to initialize tip block height")
@@ -86,12 +74,12 @@ func (x *indexer) Start(ctx context.Context) error {
 }
 
 // Stop stops the indexer
-func (x *indexer) Stop(ctx context.Context) error {
+func (x *Indexer) Stop(ctx context.Context) error {
 	return x.kvStore.Stop(ctx)
 }
 
 // Commit writes the batch to DB
-func (x *indexer) Commit() error {
+func (x *Indexer) Commit() error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 	x.batch.Put(indexerStatus, tipBlockHeightKey, byteutil.Uint64ToBytes(x.tipBlockHeight),
@@ -100,7 +88,7 @@ func (x *indexer) Commit() error {
 }
 
 // PutBlock index the block
-func (x *indexer) PutBlock(blk *block.Block) error {
+func (x *Indexer) PutBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -162,7 +150,7 @@ func (x *indexer) PutBlock(blk *block.Block) error {
 }
 
 // DeleteBlock deletes a block's evm transfer
-func (x *indexer) DeleteTipBlock(blk *block.Block) error {
+func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -196,7 +184,7 @@ func (x *indexer) DeleteTipBlock(blk *block.Block) error {
 }
 
 // GetEvmTransferByActionHash queries evm transfers by action hash
-func (x *indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
+func (x *Indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, actionKey(actionHash))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
@@ -211,7 +199,7 @@ func (x *indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlo
 }
 
 // GetEvmTransferByBlockHeight queries evm transfers by block height
-func (x *indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
+func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
