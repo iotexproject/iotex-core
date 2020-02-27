@@ -19,10 +19,12 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-election/util"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
@@ -157,6 +159,7 @@ func (p *Protocol) GrantEpochReward(
 		exemptAddrs[addr.String()] = nil
 	}
 
+	var kickoutList *vote.Blacklist
 	var uqd map[string]bool
 	var err error
 	epochStartHeight := rp.GetEpochHeight(epochNum)
@@ -168,7 +171,7 @@ func (p *Protocol) GrantEpochReward(
 	} else {
 		// Get Kick-out List from DB
 		uqd = make(map[string]bool)
-		kickoutList, _, err := p.getKickoutList(sm, false)
+		kickoutList, _, err = p.getKickoutList(sm, false)
 		if err != nil {
 			return nil, err
 		}
@@ -213,6 +216,10 @@ func (p *Protocol) GrantEpochReward(
 			ActionHash:  actionCtx.ActionHash,
 		})
 		actualTotalReward = big.NewInt(0).Add(actualTotalReward, amounts[i])
+	}
+	if hu.IsPost(config.Easter, epochStartHeight) {
+		// recalculate candidate and return full candidates
+		candidates = p.recalculateCandidates(epochNum, candidates, kickoutList)
 	}
 
 	// Reward additional bootstrap bonus
@@ -485,4 +492,33 @@ func (p *Protocol) assertLastBlockInEpoch(blkHeight uint64, epochNum uint64, rp 
 		return errors.Errorf("current block %d is not the last block of epoch %d", blkHeight, epochNum)
 	}
 	return nil
+}
+
+func (p *Protocol) recalculateCandidates(epochNum uint64, candidates state.CandidateList, kickoutlist *vote.Blacklist) state.CandidateList {
+	// resort based on blacklist
+	intensityRate := float64(uint32(100)-kickoutlist.IntensityRate) / float64(100)
+	candidatesMap := make(map[string]*state.Candidate)
+	updatedVotingPower := make(map[string]*big.Int)
+	for _, cand := range candidates {
+		candidatesMap[cand.Address] = cand
+		if _, ok := kickoutlist.BlacklistInfos[cand.Address]; ok {
+			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
+			if intensityRate == float64(0) {
+				// in case of hard-kickout, to make sure not to be top 36 kick-out
+				delete(updatedVotingPower, cand.Address)
+			}
+			votingPower := new(big.Float).SetInt(cand.Votes)
+			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
+			updatedVotingPower[cand.Address] = newVotingPower
+		} else {
+			updatedVotingPower[cand.Address] = cand.Votes
+		}
+	}
+	// sort again with updated voting power
+	sorted := util.Sort(updatedVotingPower, epochNum)
+	var verifiedCandidates state.CandidateList
+	for _, name := range sorted {
+		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
+	}
+	return verifiedCandidates
 }

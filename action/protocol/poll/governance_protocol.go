@@ -378,7 +378,7 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) || epochNum == 1 {
+	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) {
 		var blockProducers state.CandidateList
 		for i, candidate := range candidates {
 			if uint64(i) >= p.numCandidateDelegates {
@@ -402,6 +402,10 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 		candidatesMap[cand.Address] = cand
 		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
+			if intensityRate == float64(0) {
+				// in case of hard-kickout, to make sure not to be top 36 kick-out
+				delete(updatedVotingPower, cand.Address)
+			}
 			votingPower := new(big.Float).SetInt(cand.Votes)
 			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 			updatedVotingPower[cand.Address] = newVotingPower
