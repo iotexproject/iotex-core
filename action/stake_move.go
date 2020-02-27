@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -30,13 +29,13 @@ const (
 type moveStake struct {
 	AbstractAction
 
-	candAddress address.Address
+	name        string
 	bucketIndex uint64
 	payload     []byte
 }
 
 // Candidate returns the address of recipient
-func (sm *moveStake) Candidate() string { return sm.candAddress.String() }
+func (sm *moveStake) Candidate() string { return sm.name }
 
 // BucketIndex returns bucket index
 func (sm *moveStake) BucketIndex() uint64 { return sm.bucketIndex }
@@ -52,9 +51,9 @@ func (sm *moveStake) Serialize() []byte {
 // Proto converts ts Protobuf stake move action struct
 func (sm *moveStake) Proto() *iotextypes.StakeMove {
 	act := &iotextypes.StakeMove{
-		CandidateAddress: sm.candAddress.String(),
-		BucketIndex:      sm.bucketIndex,
-		Payload:          sm.payload,
+		Name:        sm.name,
+		BucketIndex: sm.bucketIndex,
+		Payload:     sm.payload,
 	}
 
 	return act
@@ -66,12 +65,7 @@ func (sm *moveStake) LoadProto(pbAct *iotextypes.StakeMove) error {
 		return errors.New("empty action Proto ts load")
 	}
 
-	candAddr, err := address.FromString(pbAct.GetCandidateAddress())
-	if err != nil {
-		return err
-	}
-
-	sm.candAddress = candAddr
+	sm.name = pbAct.GetName()
 	sm.bucketIndex = pbAct.GetBucketIndex()
 	sm.payload = pbAct.GetPayload()
 	return nil
@@ -91,10 +85,6 @@ func NewChangeCandidate(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*ChangeCandidate, error) {
-	candAddr, err := address.FromString(candName)
-	if err != nil {
-		return nil, err
-	}
 	return &ChangeCandidate{
 		moveStake{
 			AbstractAction: AbstractAction{
@@ -103,7 +93,7 @@ func NewChangeCandidate(
 				gasLimit: gasLimit,
 				gasPrice: gasPrice,
 			},
-			candAddress: candAddr,
+			name:        candName,
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
@@ -140,10 +130,6 @@ func NewTransferStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*TransferStake, error) {
-	voteAddr, err := address.FromString(voterName)
-	if err != nil {
-		return nil, err
-	}
 	return &TransferStake{
 		moveStake{
 			AbstractAction: AbstractAction{
@@ -152,7 +138,7 @@ func NewTransferStake(
 				gasLimit: gasLimit,
 				gasPrice: gasPrice,
 			},
-			candAddress: voteAddr,
+			name:        voterName,
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
