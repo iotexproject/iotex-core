@@ -35,6 +35,7 @@ var (
 	tipBlockHeightKey = []byte("h")
 )
 
+// Indexer is the indexer for system log
 type Indexer struct {
 	mutex          sync.RWMutex
 	kvStore        db.KVStoreWithRange
@@ -87,7 +88,7 @@ func (x *Indexer) Commit() error {
 	return x.kvStore.WriteBatch(x.batch)
 }
 
-// PutBlock index the block
+// PutBlock indexes the block
 func (x *Indexer) PutBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
@@ -149,7 +150,7 @@ func (x *Indexer) PutBlock(blk *block.Block) error {
 	return nil
 }
 
-// DeleteBlock deletes a block's evm transfer
+// DeleteTipBlock deletes a block's evm transfer
 func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
