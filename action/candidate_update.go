@@ -77,10 +77,8 @@ func (cu *CandidateUpdate) Serialize() []byte {
 
 // Proto converts to protobuf CandidateUpdate Action
 func (cu *CandidateUpdate) Proto() *iotextypes.CandidateBasicInfo {
-	act := &iotextypes.CandidateBasicInfo{}
-
-	if len(cu.name) > 0 {
-		act.Name = cu.name
+	act := &iotextypes.CandidateBasicInfo{
+		Name: cu.name,
 	}
 
 	if cu.operatorAddress != nil {
