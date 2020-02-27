@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -43,24 +42,17 @@ var (
 // ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
 type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
 
-// GetKickoutList returns the current blacklist
-type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, uint64, error)
-
 // Protocol defines the protocol of the rewarding fund and the rewarding process. It allows the admin to config the
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
 	productivityByEpoch ProductivityByEpoch
-	getKickoutList      GetKickoutList
 	keyPrefix           []byte
 	addr                address.Address
-	kickoutIntensity    uint32
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
-	kickoutIntensityRate uint32,
-	getKickoutList GetKickoutList,
 	productivityByEpoch ProductivityByEpoch,
 ) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
@@ -70,10 +62,8 @@ func NewProtocol(
 	}
 	return &Protocol{
 		productivityByEpoch: productivityByEpoch,
-		getKickoutList:      getKickoutList,
 		keyPrefix:           h[:],
 		addr:                addr,
-		kickoutIntensity:    kickoutIntensityRate,
 	}
 }
 
