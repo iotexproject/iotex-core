@@ -504,7 +504,7 @@ func (p *Protocol) recalculateCandidates(epochNum uint64, candidates state.Candi
 		if _, ok := kickoutlist.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
 			if intensityRate == float64(0) {
-				// in case of hard-kickout, to make sure not to be top 36 kick-out
+				// in case of hard kickout, make sure not to be top 36 candidate
 				delete(updatedVotingPower, cand.Address)
 			}
 			votingPower := new(big.Float).SetInt(cand.Votes)
