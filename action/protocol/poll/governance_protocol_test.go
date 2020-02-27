@@ -597,11 +597,28 @@ func TestDelegatesByEpoch(t *testing.T) {
 	// 4: shift kickout list and Delegates()
 	_, err = shiftKickoutList(sm)
 	require.NoError(err)
-	delegates4, err := p.DelegatesByEpoch(ctx, 2)
+	delegates4, err := p.DelegatesByEpoch(ctx, 1)
 	require.NoError(err)
 	require.Equal(len(delegates4), len(delegates3))
 	for i, d := range delegates3 {
 		require.True(d.Equal(delegates4[i]))
 	}
 
+	// 5: test hard kick-out
+	blackListMap5 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 2,
+		identityset.Address(3).String(): 2,
+	}
+	blackList5 := &vote.Blacklist{
+		BlacklistInfos: blackListMap5,
+		IntensityRate:  100, // hard kickout
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList5))
+
+	delegates5, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+
+	require.Equal(1, len(delegates5)) // exclude all of them
+	require.Equal(identityset.Address(4).String(), delegates5[0].Address)
 }

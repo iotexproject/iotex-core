@@ -383,7 +383,7 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 			votingPower := new(big.Float).SetInt(cand.Votes)
 			cand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 		}
-		if cand.Votes.Cmp(big.NewInt(0)) >= 0 {
+		if cand.Votes.Cmp(big.NewInt(0)) > 0 {
 			updatedVotingPower[cand.Address] = cand.Votes
 		}
 		candidatesMap[cand.Address] = cand
