@@ -8,7 +8,6 @@ package staking
 
 import (
 	"math/big"
-	"sort"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -53,9 +52,6 @@ type (
 
 	// DelegateList is a list of delegates which is sortable
 	DelegateList []*Delegate
-
-	// DelegateMap is a map of delegates using owner's address as key
-	DelegateMap map[string]*Delegate
 )
 
 // NewDelegate creates a delegate
@@ -115,6 +111,22 @@ func ToCandName(b []byte) CandName {
 	}
 	copy(c[12-len(b):], b)
 	return c
+}
+
+// Validate checks the validity of the delegate
+func (d *Delegate) Validate() error {
+	if _, err := address.FromString(d.Address); err != nil {
+		return errors.Wrap(err, "invalid operator address")
+	}
+
+	if _, err := address.FromString(d.RewardAddress); err != nil {
+		return errors.Wrap(err, "invalid reward address")
+	}
+
+	if d.Votes.Sign() <= 0 {
+		return ErrInvalidAmount
+	}
+	return nil
 }
 
 // AddVote adds vote
@@ -237,39 +249,6 @@ func (l *DelegateList) Deserialize(buf []byte) error {
 	*l = (*l)[:0]
 	for _, v := range pb.Delegates {
 		*l = append(*l, fromProto(v))
-	}
-	return nil
-}
-
-// Contains returns true if the map contains the name
-func (m DelegateMap) Contains(name address.Address) bool {
-	_, ok := m[name.String()]
-	return ok
-}
-
-// Serialize serializes a DelegateMap to bytes
-func (m DelegateMap) Serialize() ([]byte, error) {
-	l := make(DelegateList, 0, len(m))
-	for _, v := range m {
-		l = append(l, v)
-	}
-	sort.Sort(l)
-	return proto.Marshal(l.toProto())
-}
-
-// Deserialize deserializes bytes to DelegateMap
-func (m DelegateMap) Deserialize(buf []byte) error {
-	pb := &stakingpb.Delegates{}
-	if err := proto.Unmarshal(buf, pb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal delegate list")
-	}
-
-	for k := range m {
-		delete(m, k)
-	}
-
-	for _, v := range pb.Delegates {
-		m[v.Owner] = fromProto(v)
 	}
 	return nil
 }
