@@ -16,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -26,16 +25,17 @@ import (
 )
 
 const (
-	testPath = "kstest"
+	testPath = "ksTest"
 )
 
 func TestAccount(t *testing.T) {
 	r := require.New(t)
 
-	r.NoError(testInit())
+	testWallet, err := ioutil.TempDir(os.TempDir(), testPath)
+	r.NoError(err)
+	config.ReadConfig.Wallet = testWallet
 
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	r.NotNil(ks)
 
 	// create accounts
@@ -63,13 +63,11 @@ func TestAccount(t *testing.T) {
 	r.NoError(err)
 	r.Equal(filePath, path)
 
-	// TODO: fix the bug #1935
-	/*
-		accounts, err := listSm2Account()
-		r.NoError(err)
-		r.Equal(1, len(accounts))
-		r.Equal(addr2.String(), accounts[0])
-	*/
+	accounts, err := listSm2Account()
+	r.NoError(err)
+	r.Equal(1, len(accounts))
+	r.Equal(addr2.String(), accounts[0])
+
 	// test keystore conversion and signing
 	prvKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
 	r.NoError(err)
@@ -93,25 +91,4 @@ func TestAccount(t *testing.T) {
 	account, err = ks.ImportECDSA(p256k1, passwd)
 	r.NoError(err)
 	r.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
-}
-
-func testInit() error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), testPath)
-	config.ConfigDir = testPathd
-
-	var err error
-	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	config.ReadConfig, err = config.LoadConfig()
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	config.ReadConfig.Wallet = config.ConfigDir
-	out, err := yaml.Marshal(&config.ReadConfig)
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return err
-	}
-	return nil
 }
