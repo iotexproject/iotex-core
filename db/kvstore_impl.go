@@ -93,7 +93,7 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 
 // Filter returns <k, v> pair in a bucket that meet the condition
 func (m *memKVStore) Filter(namespace string, c Condition) ([][]byte, [][]byte, error) {
-	return nil, nil, nil
+	return nil, nil, errors.New("in-memory KVStore does not support Filter()")
 }
 
 // WriteBatch commits a batch
