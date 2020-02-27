@@ -140,7 +140,7 @@ func NewBlockDAO(kvStore db.KVStore, indexers []BlockIndexer, compressBlock bool
 	blockDAO := &blockDAO{
 		compressBlock: compressBlock,
 		kvStore:       kvStore,
-		indexer:       indexers,
+		indexers:      indexers,
 		cfg:           cfg,
 	}
 	if cfg.MaxCacheSize > 0 {
@@ -326,7 +326,7 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 		return err
 	}
 	// index the block if there's indexer
-	for _, indexer := range dao.indexer {
+	for _, indexer := range dao.indexers {
 		if err := indexer.PutBlock(blk); err != nil {
 			return err
 		}
@@ -356,7 +356,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			return errors.Wrap(err, "failed to get tip block")
 		}
 		// delete block index if there's indexer
-		for _, indexer := range dao.indexer {
+		for _, indexer := range dao.indexers {
 			if err := indexer.DeleteTipBlock(blk); err != nil {
 				return err
 			}
