@@ -170,10 +170,8 @@ github.com/iotexproject/iotex-election v0.2.11/go.mod h1:y5niif2oeYT1MVS4WOIqNgS
 github.com/iotexproject/iotex-proto v0.2.1-0.20190814190638-f74c55ffedf5/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/iotexproject/iotex-proto v0.2.5 h1:SYdl9Lqb0LYfFf3sfw92fN8GY3bthfCvGmltz+2uvDQ=
 github.com/iotexproject/iotex-proto v0.2.5/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
-github.com/iotexproject/iotex-proto v0.2.6-0.20200218192844-893bb0d92366 h1:xdJE0HX7ieJkIs0Xx3rMeqsn1we0iMm/4fQKuVkgfek=
-github.com/iotexproject/iotex-proto v0.2.6-0.20200218192844-893bb0d92366/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
-github.com/iotexproject/iotex-proto v0.2.6-0.20200225182520-6c53b9073c46 h1:hgu4Gxf7w47uzSVSwuY2qpvz26iaxuC7K3wvKdIqeBc=
-github.com/iotexproject/iotex-proto v0.2.6-0.20200225182520-6c53b9073c46/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
+github.com/iotexproject/iotex-proto v0.2.6-0.20200226195833-c56e703f7b2c h1:t+6hFhMQ4UuS9hM/0HQ71aFF5AncrPcyKtWVkCNgmtw=
+github.com/iotexproject/iotex-proto v0.2.6-0.20200226195833-c56e703f7b2c/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=
