@@ -178,7 +178,7 @@ func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition) ([][]byte, [][]b
 	for i := 0; i < kvb.buffer.Size(); i++ {
 		entry, _ := kvb.buffer.Entry(i)
 		k, v := entry.Key(), entry.Value()
-		if cond(k, v) {
+		if entry.WriteType() == batch.Put && cond(k, v) {
 			fk = append(fk, k)
 			fv = append(fv, v)
 		}
