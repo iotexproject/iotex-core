@@ -327,6 +327,9 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 	}
 	// index the block if there's indexer
 	for _, indexer := range dao.indexers {
+		if indexer == nil {
+			continue
+		}
 		if err := indexer.PutBlock(blk); err != nil {
 			return err
 		}
@@ -357,6 +360,9 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 		}
 		// delete block index if there's indexer
 		for _, indexer := range dao.indexers {
+			if indexer == nil {
+				continue
+			}
 			if err := indexer.DeleteTipBlock(blk); err != nil {
 				return err
 			}
