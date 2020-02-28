@@ -23,7 +23,8 @@ const protocolID = "staking"
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	addr address.Address
+	inMemCandidates CandidateMap
+	addr            address.Address
 }
 
 // NewProtocol instantiates the protocol of staking

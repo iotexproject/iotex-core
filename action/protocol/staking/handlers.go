@@ -48,12 +48,17 @@ func (p *Protocol) handleRestake(ctx context.Context, act action.Action, sm prot
 	return nil, nil
 }
 
-func (p *Protocol) handleCandidateRegister(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
 
-func (p *Protocol) handleCandidateUpdate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
+func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, sm protocol.StateManager) (*action.Receipt, error) {
+	actCtx := protocol.MustGetActionCtx(ctx)
+	c, err := getCandidate(sm, actCtx.Caller)
+	if err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
