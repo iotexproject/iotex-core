@@ -5,18 +5,15 @@ import (
 	"hash/fnv"
 	"io/ioutil"
 	"math/big"
-	"math/rand"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -154,11 +151,11 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testBlockDao := func(kvStore db.KVStore, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, []BlockIndexer{indexer}, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -183,21 +180,11 @@ func TestBlockDAO(t *testing.T) {
 			},
 		}
 
-		height, err := indexer.GetBlockchainHeight()
-		require.NoError(err)
-		require.EqualValues(0, height)
-
 		for i := 0; i < 3; i++ {
 			// test putBlock/Receipt
 			blks[i].Receipts = receipts[i]
 			require.NoError(dao.PutBlock(blks[i]))
-			require.NoError(dao.Commit())
 			blks[i].Receipts = nil
-
-			// test getBlockchainHeight
-			height, err := indexer.GetBlockchainHeight()
-			require.NoError(err)
-			require.Equal(blks[i].Height(), height)
 
 			// test getBlock()
 			blk, err := dao.GetBlock(blks[i].HashBlock())
@@ -217,11 +204,11 @@ func TestBlockDAO(t *testing.T) {
 		}
 	}
 
-	testDeleteDao := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testDeleteDao := func(kvStore db.KVStore, t *testing.T) {
 		require := require.New(t)
 
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, []BlockIndexer{indexer}, false, config.Default.DB)
+		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -231,10 +218,6 @@ func TestBlockDAO(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			require.NoError(dao.PutBlock(blks[i]))
 		}
-		require.NoError(dao.Commit())
-		height, err := indexer.GetBlockchainHeight()
-		require.NoError(err)
-		require.EqualValues(3, height)
 
 		// delete tip block one by one, verify address/action after each deletion
 		for i := range daoTests {
@@ -246,89 +229,42 @@ func TestBlockDAO(t *testing.T) {
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
 			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
-			tipHeight, err := indexer.GetBlockchainHeight()
-			require.NoError(err)
-			require.EqualValues(prevTipHeight-1, tipHeight)
-			tipHeight = dao.GetTipHeight()
-			require.EqualValues(prevTipHeight-1, tipHeight)
-			h, err := indexer.GetBlockHash(tipHeight)
-			require.NoError(err)
+			require.EqualValues(prevTipHeight-1, dao.GetTipHeight())
 			_, err = dao.GetBlockHash(prevTipHeight)
 			require.Error(err)
 			_, err = dao.GetBlockHeight(prevTipHash)
 			require.Error(err)
-			if i <= 2 {
-				require.Equal(blks[2-i].HashBlock(), h)
-			} else {
-				require.Equal(hash.ZeroHash256, h)
-			}
-			total, err := indexer.GetTotalActions()
-			require.NoError(err)
-			require.EqualValues(daoTests[i].total, total)
-			if total > 0 {
-				_, err = indexer.GetActionHashFromIndex(1, total)
-				require.Equal(db.ErrInvalid, errors.Cause(err))
-				actions, err := indexer.GetActionHashFromIndex(0, total)
-				require.NoError(err)
-				require.Equal(actions, daoTests[i].hashTotal)
-			}
-			for j := range daoTests[i].actions {
-				actionCount, err := indexer.GetActionCountByAddress(daoTests[i].actions[j].addr)
-				require.NoError(err)
-				require.EqualValues(len(daoTests[i].actions[j].hashes), actionCount)
-				if actionCount > 0 {
-					actions, err := indexer.GetActionsByAddress(daoTests[i].actions[j].addr, 0, actionCount)
-					require.NoError(err)
-					require.Equal(actions, daoTests[i].actions[j].hashes)
-				}
-			}
 		}
 	}
 
 	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
-		require.NoError(t, err)
-		testBlockDao(db.NewMemKVStore(), indexer, t)
+		testBlockDao(db.NewMemKVStore(), t)
 	})
 	path := "test-kv-store"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	require.NoError(t, testFile.Close())
-	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
-	indexPath := indexFile.Name()
-	require.NoError(t, indexFile.Close())
+
 	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
-		testutil.CleanupPath(t, indexPath)
 		defer func() {
 			testutil.CleanupPath(t, testPath)
-			testutil.CleanupPath(t, indexPath)
 		}()
-		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
-		require.NoError(t, err)
 		cfg.DbPath = testPath
-		testBlockDao(db.NewBoltDB(cfg), indexer, t)
+		testBlockDao(db.NewBoltDB(cfg), t)
 	})
 
 	t.Run("In-memory KV Store deletions", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
-		require.NoError(t, err)
-		testDeleteDao(db.NewMemKVStore(), indexer, t)
+		testDeleteDao(db.NewMemKVStore(), t)
 	})
 	t.Run("Bolt DB deletions", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
-		testutil.CleanupPath(t, indexPath)
 		defer func() {
 			testutil.CleanupPath(t, testPath)
-			testutil.CleanupPath(t, indexPath)
 		}()
-		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
-		require.NoError(t, err)
 		cfg.DbPath = testPath
-		testDeleteDao(db.NewBoltDB(cfg), indexer, t)
+		testDeleteDao(db.NewBoltDB(cfg), t)
 	})
 }
 
@@ -348,20 +284,19 @@ func BenchmarkBlockCache(b *testing.B) {
 			require.NoError(b, os.RemoveAll(indexPath))
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
-		require.NoError(b, err)
 		cfg.DbPath = testPath
 		store := db.NewBoltDB(cfg)
 
 		db := config.Default.DB
 		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO(store, []BlockIndexer{indexer}, false, db)
+		blkDao := NewBlockDAO(store, []BlockIndexer{nil}, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))
 		}()
 		prevHash := hash.ZeroHash256
 		numBlks := 8640
+		var err error
 		for i := 1; i <= numBlks; i++ {
 			actions := make([]action.SealedEnvelope, 10)
 			for j := 0; j < 10; j++ {
@@ -389,12 +324,6 @@ func BenchmarkBlockCache(b *testing.B) {
 			prevHash = blk.HashBlock()
 		}
 		b.ResetTimer()
-		b.StartTimer()
-		for n := 0; n < b.N; n++ {
-			hash, _ := indexer.GetBlockHash(uint64(rand.Intn(numBlks) + 1))
-			_, _ = blkDao.GetBlock(hash)
-		}
-		b.StopTimer()
 	}
 	b.Run("cache", func(b *testing.B) {
 		test(8640, b)

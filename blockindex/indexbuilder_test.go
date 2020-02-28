@@ -1,4 +1,4 @@
-package blockdao
+package blockindex
 
 import (
 	"context"
@@ -13,14 +13,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestIndexer(t *testing.T) {
+func TestIndexBuilder(t *testing.T) {
 
 	blks := getTestBlocks(t)
 
@@ -58,10 +58,10 @@ func TestIndexer(t *testing.T) {
 		},
 	}
 
-	testIndexer := func(kvStore db.KVStore, indexer blockindex.Indexer, t *testing.T) {
+	testIndexer := func(kvStore db.KVStore, indexer Indexer, t *testing.T) {
 		require := require.New(t)
 		ctx := context.Background()
-		dao := NewBlockDAO(kvStore, nil, false, config.Default.DB)
+		dao := blockdao.NewBlockDAO(kvStore, nil, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {
@@ -78,7 +78,6 @@ func TestIndexer(t *testing.T) {
 		// put 2 blocks first
 		require.NoError(dao.PutBlock(blks[0]))
 		require.NoError(dao.PutBlock(blks[1]))
-		require.NoError(dao.Commit())
 		startHeight, err := ib.indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
@@ -93,7 +92,6 @@ func TestIndexer(t *testing.T) {
 
 		// test handle 1 new block
 		require.NoError(dao.PutBlock(blks[2]))
-		require.NoError(dao.Commit())
 		ib.ReceiveBlock(blks[2])
 		time.Sleep(500 * time.Millisecond)
 
@@ -149,7 +147,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	t.Run("In-memory KV indexer", func(t *testing.T) {
-		indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+		indexer, err := NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 		require.NoError(t, err)
 		testIndexer(db.NewMemKVStore(), indexer, t)
 	})
@@ -169,7 +167,7 @@ func TestIndexer(t *testing.T) {
 			testutil.CleanupPath(t, indexPath)
 		}()
 		cfg.DbPath = indexPath
-		indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+		indexer, err := NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
 		require.NoError(t, err)
 		cfg.DbPath = testPath
 		testIndexer(db.NewBoltDB(cfg), indexer, t)
