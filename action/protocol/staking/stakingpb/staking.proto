@@ -36,9 +36,9 @@ message Candidate {
     string ownerAddress = 1;
     string operatorAddress = 2;
     string rewardAddress = 3;
-    bytes name = 4;
-    bytes votes = 5;
-    bytes selfStake = 6;
+    string name = 4;
+    string votes = 5;
+    string selfStake = 6;
 }
 
 message Candidates {

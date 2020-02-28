@@ -17,17 +17,17 @@ import (
 
 type (
 	// CandidateMap is a map of candidates using owner's 12-byte name as key
-	CandidateMap map[CandName]*Candidate
+	CandidateMap map[string]*Candidate
 )
 
 // Contains returns true if the map contains the candidate by name
-func (m CandidateMap) Contains(name CandName) bool {
+func (m CandidateMap) Contains(name string) bool {
 	_, ok := m[name]
 	return ok
 }
 
 // Get returns the candidate by name
-func (m CandidateMap) Get(name CandName) *Candidate {
+func (m CandidateMap) Get(name string) *Candidate {
 	return m[name]
 }
 
@@ -38,7 +38,7 @@ func (m CandidateMap) Put(d *Candidate) error {
 }
 
 // Delete deletes the candidate by name
-func (m CandidateMap) Delete(name CandName) {
+func (m CandidateMap) Delete(name string) {
 	delete(m, name)
 }
 
@@ -68,7 +68,7 @@ func (m CandidateMap) Deserialize(buf []byte) error {
 		if err := c.fromProto(v); err != nil {
 			return err
 		}
-		m[ToCandName(v.Name)] = c
+		m[v.Name] = c
 	}
 	return nil
 }

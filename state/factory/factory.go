@@ -42,7 +42,7 @@ const (
 	AccountKVNamespace = "Account"
 	// StakingNameSpace is the bucket name for staking state
 	StakingNameSpace = "Staking"
-	// CandidateNameSpace is the bucket name for delegate state
+	// CandidateNameSpace is the bucket name for candidate state
 	CandidateNameSpace = "Candidate"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"

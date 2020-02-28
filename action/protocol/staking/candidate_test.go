@@ -39,7 +39,7 @@ var (
 				Owner:     identityset.Address(1),
 				Operator:  identityset.Address(1),
 				Reward:    identityset.Address(1),
-				Name:      ToCandName([]byte("test1")),
+				Name:      "test1",
 				Votes:     big.NewInt(2),
 				SelfStake: big.NewInt(1200000),
 			},
@@ -50,7 +50,7 @@ var (
 				Owner:     identityset.Address(2),
 				Operator:  identityset.Address(2),
 				Reward:    identityset.Address(1),
-				Name:      ToCandName([]byte("test2")),
+				Name:      "test2",
 				Votes:     big.NewInt(3),
 				SelfStake: big.NewInt(1200000),
 			},
@@ -61,7 +61,7 @@ var (
 				Owner:     identityset.Address(3),
 				Operator:  identityset.Address(3),
 				Reward:    identityset.Address(1),
-				Name:      ToCandName([]byte("test4")),
+				Name:      "test3",
 				Votes:     big.NewInt(3),
 				SelfStake: big.NewInt(1200000),
 			},
@@ -72,7 +72,7 @@ var (
 				Owner:     identityset.Address(4),
 				Operator:  identityset.Address(4),
 				Reward:    identityset.Address(1),
-				Name:      ToCandName([]byte("test3")),
+				Name:      "test4",
 				Votes:     big.NewInt(1),
 				SelfStake: big.NewInt(1200000),
 			},
@@ -93,7 +93,7 @@ func TestCandMap(t *testing.T) {
 	r.Equal(len(tests), len(m))
 
 	// test candidate that does not exist
-	noName := ToCandName(make([]byte, 20))
+	noName := "noname"
 	r.False(m.Contains(noName))
 	r.Nil(m.Get(noName))
 	m.Delete(noName)

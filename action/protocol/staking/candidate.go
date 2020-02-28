@@ -21,15 +21,12 @@ import (
 )
 
 type (
-	// CandName is the 12-byte candidate name
-	CandName [12]byte
-
 	// Candidate represents the candidate
 	Candidate struct {
 		Owner     address.Address
 		Operator  address.Address
 		Reward    address.Address
-		Name      CandName
+		Name      string
 		Votes     *big.Int
 		SelfStake *big.Int
 	}
@@ -38,25 +35,16 @@ type (
 	CandidateList []*Candidate
 )
 
+// NewCandidate creates a Candidate instance and set votes to 0.
 func NewCandidate(owner, operator, reward address.Address, name string, selfStake *big.Int) *Candidate {
 	return &Candidate{
 		Owner:     owner,
 		Operator:  operator,
 		Reward:    reward,
-		Name:      ToCandName([]byte(name)),
+		Name:      name,
 		Votes:     big.NewInt(0),
 		SelfStake: selfStake,
 	}
-}
-
-// ToCandName converts byte slice to CandName
-func ToCandName(b []byte) CandName {
-	var c CandName
-	if len(b) > 12 {
-		b = b[len(b)-12:]
-	}
-	copy(c[12-len(b):], b)
-	return c
 }
 
 // AddVote adds vote
@@ -96,16 +84,19 @@ func (d *Candidate) Deserialize(buf []byte) error {
 }
 
 func (d *Candidate) toProto() *stakingpb.Candidate {
-	name := make([]byte, len(d.Name))
-	copy(name, d.Name[:])
-	return &stakingpb.Candidate{
+	pb := &stakingpb.Candidate{
 		OwnerAddress:    d.Owner.String(),
 		OperatorAddress: d.Operator.String(),
 		RewardAddress:   d.Reward.String(),
-		Name:            name,
-		Votes:           d.Votes.Bytes(),
-		SelfStake:       d.SelfStake.Bytes(),
+		Name:            d.Name,
 	}
+	if d.Votes != nil {
+		pb.Votes = d.Votes.String()
+	}
+	if d.SelfStake != nil {
+		pb.SelfStake = d.SelfStake.String()
+	}
+	return pb
 }
 
 func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
@@ -124,11 +115,10 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if err != nil {
 		return err
 	}
-	d.Name = ToCandName(pb.GetName())
+	d.Name = pb.GetName()
 
-	d.Votes = new(big.Int).SetBytes(pb.GetVotes())
-
-	d.SelfStake = new(big.Int).SetBytes(pb.GetSelfStake())
+	d.Votes, _ = new(big.Int).SetString(pb.GetVotes(), 10)
+	d.SelfStake, _ = new(big.Int).SetString(pb.GetSelfStake(), 10)
 	return nil
 }
 
