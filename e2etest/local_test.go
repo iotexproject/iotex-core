@@ -183,7 +183,7 @@ func TestLocalCommit(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate, nil, nil)
+	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))

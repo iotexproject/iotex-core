@@ -1835,8 +1835,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate,
-		nil,
+	r := rewarding.NewProtocol(
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil
 		})

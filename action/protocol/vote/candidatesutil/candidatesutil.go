@@ -72,6 +72,7 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 	candidatesKey := ConstructKey(CurCandidateKey)
 	if epochStartPoint {
 		// if not shifted yet
+		log.L().Debug("Read candidate list with next candidate key")
 		candidatesKey = ConstructKey(NxtCandidateKey)
 	}
 	stateHeight, err := sr.State(
@@ -104,6 +105,7 @@ func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Bla
 	blackListKey := ConstructKey(CurKickoutKey)
 	if epochStartPoint {
 		// if not shifted yet
+		log.L().Debug("Read kick-out list with next kickout key")
 		blackListKey = ConstructKey(NxtKickoutKey)
 	}
 	stateHeight, err := sr.State(

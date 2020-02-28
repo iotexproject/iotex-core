@@ -184,7 +184,6 @@ func delegates() error {
 			return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
 		}
 	}
-	kickoutIntensityRate := float64(uint32(100)-blacklist.IntensityRate) / float64(100)
 	for rank, bp := range response.BlockProducersInfo {
 		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)
 		if !ok {
@@ -194,8 +193,6 @@ func delegates() error {
 		if _, ok := blacklist.BlacklistInfos[bp.Address]; ok {
 			// if it exists in blacklist
 			isBlacklist = true
-			votingPower := new(big.Float).SetInt(votes)
-			votes, _ = votingPower.Mul(votingPower, big.NewFloat(kickoutIntensityRate)).Int(nil)
 		}
 		delegate := delegate{
 			Address:       bp.Address,
