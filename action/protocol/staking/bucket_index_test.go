@@ -105,15 +105,15 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, err := stakingGetBucketIndices(sm, e.voterAddr)
+			_, err := getBucketIndices(sm, e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			bi, err := NewBucketIndex(e.index, e.canAddress.String())
 
-			require.NoError(stakingPutBucketIndex(sm, e.voterAddr, bi))
-			bis, err := stakingGetBucketIndices(sm, e.voterAddr)
+			require.NoError(putBucketIndex(sm, e.voterAddr, bi))
+			bis, err := getBucketIndices(sm, e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(i+1, len(bucketIndices))
@@ -122,8 +122,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 		}
 
 		for i, e := range tests {
-			require.NoError(stakingDelBucketIndex(sm, e.voterAddr, e.index))
-			indices, err := stakingGetBucketIndices(sm, e.voterAddr)
+			require.NoError(delBucketIndex(sm, e.voterAddr, e.index))
+			indices, err := getBucketIndices(sm, e.voterAddr)
 			if i != len(tests)-1 {
 				require.NoError(err)
 				require.Equal(len(tests)-i-1, len(*indices))

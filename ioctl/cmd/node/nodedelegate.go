@@ -173,13 +173,16 @@ func delegates() error {
 		StartBlock:  int(epochData.Height),
 		TotalBlocks: int(response.TotalBlocks),
 	}
+
 	kickoutListRes, err := bc.GetKickoutList(epochNum)
 	if err != nil {
 		return output.NewError(0, "failed to get kickout list", err)
 	}
 	blacklist := &vote.Blacklist{}
-	if err := blacklist.Deserialize(kickoutListRes.Data); err != nil {
-		return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
+	if kickoutListRes != nil {
+		if err := blacklist.Deserialize(kickoutListRes.Data); err != nil {
+			return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
+		}
 	}
 	for rank, bp := range response.BlockProducersInfo {
 		votes, ok := big.NewInt(0).SetString(bp.Votes, 10)

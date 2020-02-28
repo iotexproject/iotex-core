@@ -131,7 +131,7 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func stakingGetBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
+func getBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
 	var bis BucketIndices
 	if _, err := sr.State(
 		&bis,
@@ -142,7 +142,7 @@ func stakingGetBucketIndices(sr protocol.StateReader, voterAddr address.Address)
 	return &bis, nil
 }
 
-func stakingPutBucketIndex(sm protocol.StateManager, voterAddr address.Address, bucketIndex *BucketIndex) error {
+func putBucketIndex(sm protocol.StateManager, voterAddr address.Address, bucketIndex *BucketIndex) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
@@ -158,7 +158,7 @@ func stakingPutBucketIndex(sm protocol.StateManager, voterAddr address.Address, 
 	return err
 }
 
-func stakingDelBucketIndex(sm protocol.StateManager, voterAddr address.Address, index uint64) error {
+func delBucketIndex(sm protocol.StateManager, voterAddr address.Address, index uint64) error {
 	key := voterAddr.Bytes()
 	var bis BucketIndices
 	if _, err := sm.State(
