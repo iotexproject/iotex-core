@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -223,8 +222,8 @@ func newStakingABI() (*stakingABI, error) {
 	}, nil
 }
 
-func fakeCanName(addr string, index uint64) staking.CandName {
-	var name staking.CandName
+func fakeCanName(addr string, index uint64) [12]byte {
+	var name [12]byte
 	copy(name[:4], addr[3:])
 	copy(name[4:], byteutil.Uint64ToBytesBigEndian(index))
 	return name
