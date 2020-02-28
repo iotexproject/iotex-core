@@ -54,6 +54,10 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return p.handleDepositToStake(ctx, act, sm)
 	case *action.Restake:
 		return p.handleRestake(ctx, act, sm)
+	case *action.CandidateRegister:
+		return p.handleCandidateRegister(ctx, act, sm)
+	case *action.CandidateUpdate:
+		return p.handleCandidateUpdate(ctx, act, sm)
 	}
 	return nil, nil
 }
@@ -111,6 +115,16 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act action.Action, 
 }
 
 func (p *Protocol) handleRestake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleCandidateRegister(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// TODO
+	return nil, nil
+}
+
+func (p *Protocol) handleCandidateUpdate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }

@@ -13,10 +13,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -76,7 +76,7 @@ func NewVoteBucket(cand, owner, amount string, duration uint32, ctime time.Time,
 
 // Deserialize deserializes bytes into bucket
 func (vb *VoteBucket) Deserialize(buf []byte) error {
-	pb := &iotextypes.Bucket{}
+	pb := &stakingpb.Bucket{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return errors.Wrap(err, "failed to unmarshal bucket")
 	}
@@ -123,12 +123,12 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (vb *VoteBucket) toProto() *iotextypes.Bucket {
+func (vb *VoteBucket) toProto() *stakingpb.Bucket {
 	createTime, _ := ptypes.TimestampProto(vb.CreateTime)
 	stakeTime, _ := ptypes.TimestampProto(vb.StakeStartTime)
 	unstakeTime, _ := ptypes.TimestampProto(vb.UnstakeStartTime)
 
-	return &iotextypes.Bucket{
+	return &stakingpb.Bucket{
 		CandidateAddress: vb.Candidate.String(),
 		Owner:            vb.Owner.String(),
 		StakedAmount:     vb.StakedAmount.String(),
