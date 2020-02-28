@@ -562,12 +562,32 @@ func TestCandidatesByHeight(t *testing.T) {
 
 	for _, cand := range filteredCandidates {
 		if cand.Address == identityset.Address(1).String() {
-			require.True(cand.Votes.Cmp(big.NewInt(15)) == 0)
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(15)))
 		}
 		if cand.Address == identityset.Address(2).String() {
-			require.True(cand.Votes.Cmp(big.NewInt(11)) == 0)
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(11)))
 		}
 	}
+
+	// change intensity rate to be 0
+	blackList = &vote.Blacklist{
+		BlacklistInfos: blackListMap,
+		IntensityRate:  0,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList))
+	filteredCandidates, err = p.CandidatesByHeight(ctx, 721)
+	require.NoError(err)
+	require.Equal(4, len(filteredCandidates))
+
+	for _, cand := range filteredCandidates {
+		if cand.Address == identityset.Address(1).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(30)))
+		}
+		if cand.Address == identityset.Address(2).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(22)))
+		}
+	}
+
 }
 
 func TestDelegatesByEpoch(t *testing.T) {

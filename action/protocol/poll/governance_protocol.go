@@ -378,15 +378,18 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
 	for _, cand := range candidates {
+		filterCand := cand.Clone()
 		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
-			votingPower := new(big.Float).SetInt(cand.Votes)
-			cand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
+			votingPower := new(big.Float).SetInt(filterCand.Votes)
+			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 		}
-		if cand.Votes.Cmp(big.NewInt(0)) > 0 {
-			updatedVotingPower[cand.Address] = cand.Votes
+		if filterCand.Votes.Cmp(big.NewInt(0)) == 0 {
+			// if the voting power is 0, exclude it (hard kickout)
+			continue
 		}
-		candidatesMap[cand.Address] = cand
+		updatedVotingPower[filterCand.Address] = filterCand.Votes
+		candidatesMap[filterCand.Address] = filterCand
 	}
 	// sort again with updated voting power
 	sorted := util.Sort(updatedVotingPower, epochNum)
