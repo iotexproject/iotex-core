@@ -46,17 +46,19 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		},
 	)
 	registry := protocol.NewRegistry()
-	err := registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20))
+	rp := rolldpos.NewProtocol(36, 36, 20)
+	err := registry.Register("rolldpos", rp)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	epochStartHeight := rp.GetEpochHeight(2)
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
 			Registry: registry,
 			Tip: protocol.TipInfo{
-				Height: 720,
+				Height: epochStartHeight - 1,
 			},
 		},
 	)
@@ -536,6 +538,36 @@ func TestProtocol_Validate(t *testing.T) {
 		},
 	)
 	require.NoError(p6.Validate(ctx6, selp6.Action()))
+}
+
+func TestCandidatesByHeight(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
+	blackListMap := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 1,
+	}
+
+	blackList := &vote.Blacklist{
+		BlacklistInfos: blackListMap,
+		IntensityRate:  50,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList))
+	filteredCandidates, err := p.CandidatesByHeight(ctx, 721)
+	require.NoError(err)
+	require.Equal(4, len(filteredCandidates))
+
+	for _, cand := range filteredCandidates {
+		if cand.Address == identityset.Address(1).String() {
+			require.True(cand.Votes.Cmp(big.NewInt(15)) == 0)
+		}
+		if cand.Address == identityset.Address(2).String() {
+			require.True(cand.Votes.Cmp(big.NewInt(11)) == 0)
+		}
+	}
 }
 
 func TestDelegatesByEpoch(t *testing.T) {
