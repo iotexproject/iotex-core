@@ -347,6 +347,9 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 }
 
 func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	preEaster := hu.IsPre(config.Easter, height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {
@@ -355,9 +358,13 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 			if wi.Namespace() != evm.CodeKVNameSpace {
 				return false
 			}
-			bcCtx := protocol.MustGetBlockchainCtx(ctx)
-			hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-			return hu.IsPre(config.Easter, height)
+			return preEaster
+		}),
+		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
+			if preEaster {
+				return wi.SerializeWithoutWriteType()
+			}
+			return wi.Serialize()
 		}),
 	}
 	if sf.saveHistory {

@@ -30,6 +30,9 @@ type (
 	// WriteInfoFilter filters a write
 	WriteInfoFilter func(wi *WriteInfo) bool
 
+	// WriteInfoSerialize serializes a write to bytes
+	WriteInfoSerialize func(wi *WriteInfo) []byte
+
 	// WriteInfoTranslate translates a write info
 	WriteInfoTranslate func(wi *WriteInfo) *WriteInfo
 )

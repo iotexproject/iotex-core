@@ -83,7 +83,7 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 	return b.writeQueue[index], nil
 }
 
-func (b *baseKVStoreBatch) SerializeQueue(filter WriteInfoFilter) []byte {
+func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. This could be improved by being processed in parallel
@@ -93,7 +93,11 @@ func (b *baseKVStoreBatch) SerializeQueue(filter WriteInfoFilter) []byte {
 		if filter != nil && filter(wi) {
 			continue
 		}
-		bytes = append(bytes, wi.SerializeWithoutWriteType()...)
+		if serialize != nil {
+			bytes = append(bytes, serialize(wi)...)
+		} else {
+			bytes = append(bytes, wi.Serialize()...)
+		}
 	}
 	return bytes
 }
@@ -170,8 +174,8 @@ func (cb *cachedBatch) Entry(i int) (*WriteInfo, error) {
 	return cb.kvStoreBatch.Entry(i)
 }
 
-func (cb *cachedBatch) SerializeQueue(filter WriteInfoFilter) []byte {
-	return cb.kvStoreBatch.SerializeQueue(filter)
+func (cb *cachedBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
+	return cb.kvStoreBatch.SerializeQueue(serialize, filter)
 }
 
 func (cb *cachedBatch) Size() int {

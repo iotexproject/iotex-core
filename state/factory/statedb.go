@@ -346,10 +346,18 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 //======================================
 
 func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	opts := []db.KVStoreFlusherOption{}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Easter, height) {
+	preEaster := hu.IsPre(config.Easter, height)
+	opts := []db.KVStoreFlusherOption{
+		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
+			if preEaster {
+				return wi.SerializeWithoutWriteType()
+			}
+			return wi.Serialize()
+		}),
+	}
+	if !preEaster {
 		return opts
 	}
 	return append(
