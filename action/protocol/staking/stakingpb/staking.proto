@@ -10,6 +10,19 @@
 syntax = "proto3";
 package stakingpb;
 
+import "google/protobuf/timestamp.proto";
+
+message Bucket {
+  string candidateAddress = 1;
+  string stakedAmount = 2;
+  uint32 stakedDuration = 3;
+  google.protobuf.Timestamp createTime = 4;
+  google.protobuf.Timestamp stakeStartTime = 5;
+  google.protobuf.Timestamp unstakeStartTime = 6;
+  bool autoStake = 7;
+  string owner = 8;
+}
+
 message BucketIndex {
     uint64 index = 1;
     string candAddress = 2;
