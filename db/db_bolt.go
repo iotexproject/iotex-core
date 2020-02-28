@@ -106,6 +106,36 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 	return nil, errors.Wrap(ErrIO, err.Error())
 }
 
+// Filter returns <k, v> pair in a bucket that meet the condition
+func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, error) {
+	var fk, fv [][]byte
+	if err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(namespace))
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(namespace))
+		}
+
+		return bucket.ForEach(func(k, v []byte) error {
+			if cond(k, v) {
+				key := make([]byte, len(k))
+				copy(key, k)
+				value := make([]byte, len(v))
+				copy(value, v)
+				fk = append(fk, key)
+				fv = append(fv, value)
+			}
+			return nil
+		})
+	}); err != nil {
+		return nil, nil, err
+	}
+
+	if len(fk) == 0 {
+		return nil, nil, errors.Wrap(ErrNotExist, "filter returns no match")
+	}
+	return fk, fv, nil
+}
+
 // Range retrieves values for a range of keys
 func (b *boltDB) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
 	value := make([][]byte, count)

@@ -247,7 +247,7 @@ type (
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize uint64 `yaml:workingSetCacheSize`
+		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}
 
 	// Consensus is the config struct for consensus package

@@ -57,7 +57,7 @@ type ChainService struct {
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
-	indexBuilder *blockdao.IndexBuilder
+	indexBuilder *blockindex.IndexBuilder
 	registry     *protocol.Registry
 }
 
@@ -167,7 +167,7 @@ func New(
 	}
 	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvStore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	} else {
 		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
@@ -177,9 +177,9 @@ func New(
 		panic("failed to create blockchain")
 	}
 	// config asks for a standalone indexer
-	var indexBuilder *blockdao.IndexBuilder
+	var indexBuilder *blockindex.IndexBuilder
 	if gateway && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
+		if indexBuilder, err = blockindex.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {

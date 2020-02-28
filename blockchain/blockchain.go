@@ -602,9 +602,7 @@ func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	if err = bc.dao.PutBlock(blk); err == nil {
-		err = bc.dao.Commit()
-	}
+	err = bc.dao.PutBlock(blk)
 	putTimer.End()
 	if err != nil {
 		return err

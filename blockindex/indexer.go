@@ -46,8 +46,8 @@ type (
 	Indexer interface {
 		Start(context.Context) error
 		Stop(context.Context) error
-		Commit() error
 		PutBlock(*block.Block) error
+		PutBlocks([]*block.Block) error
 		DeleteTipBlock(*block.Block) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
@@ -118,11 +118,16 @@ func (x *blockIndexer) Stop(ctx context.Context) error {
 	return x.kvStore.Stop(ctx)
 }
 
-// Commit writes the batch to DB
-func (x *blockIndexer) Commit() error {
+// PutBlocks writes the batch to DB
+func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
-
+	for _, blk := range blks {
+		if err := x.putBlock(blk); err != nil {
+			// TODO: Revert changes
+			return err
+		}
+	}
 	return x.commit()
 }
 
@@ -131,39 +136,10 @@ func (x *blockIndexer) PutBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
-	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
-	height := blk.Height()
-	if height != x.tbk.Size() {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	if err := x.putBlock(blk); err != nil {
+		return err
 	}
-	// index hash --> height
-	hash := blk.HashBlock()
-	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
-	// index height --> block hash, number of actions, and total transfer amount
-	bd := &blockIndex{
-		hash:      hash[:],
-		numAction: uint32(len(blk.Actions)),
-		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
-		return errors.Wrapf(err, "failed to put block %d index", height)
-	}
-
-	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	ad := (&actionIndex{
-		blkHeight: blk.Height()}).Serialize()
-	// index actions in the block
-	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
-		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
-		// add to total account index
-		if err := x.tac.Add(actHash[:], true); err != nil {
-			return err
-		}
-		if err := x.indexAction(actHash, selp, true); err != nil {
-			return err
-		}
-	}
-	return nil
+	return x.commit()
 }
 
 // DeleteBlock deletes a block's index
@@ -325,7 +301,43 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	return addr.Range(start, count)
 }
 
-// commit() writes the changes
+func (x *blockIndexer) putBlock(blk *block.Block) error {
+	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
+	height := blk.Height()
+	if height != x.tbk.Size() {
+		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	}
+	// index hash --> height
+	hash := blk.HashBlock()
+	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	// index height --> block hash, number of actions, and total transfer amount
+	bd := &blockIndex{
+		hash:      hash[:],
+		numAction: uint32(len(blk.Actions)),
+		tsfAmount: blk.CalculateTransferAmount()}
+	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
+		return errors.Wrapf(err, "failed to put block %d index", height)
+	}
+
+	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
+	ad := (&actionIndex{
+		blkHeight: blk.Height()}).Serialize()
+	// index actions in the block
+	for _, selp := range blk.Actions {
+		actHash := selp.Hash()
+		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
+		// add to total account index
+		if err := x.tac.Add(actHash[:], true); err != nil {
+			return err
+		}
+		if err := x.indexAction(actHash, selp, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// commit writes the changes
 func (x *blockIndexer) commit() error {
 	var commitErr error
 	for k, v := range x.dirtyAddr {
