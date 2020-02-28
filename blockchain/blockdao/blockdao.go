@@ -18,10 +18,12 @@ import (
 	"sync/atomic"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -35,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -119,7 +120,7 @@ type (
 	blockDAO struct {
 		compressBlock bool
 		kvStore       db.KVStore
-		indexer       BlockIndexer
+		indexers      []BlockIndexer
 		htf           db.RangeIndex
 		kvStores      sync.Map //store like map[index]db.KVStore,index from 1...N
 		topIndex      atomic.Value
@@ -135,11 +136,11 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvStore db.KVStore, indexer BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
+func NewBlockDAO(kvStore db.KVStore, indexers []BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
 		compressBlock: compressBlock,
 		kvStore:       kvStore,
-		indexer:       indexer,
+		indexers:      indexers,
 		cfg:           cfg,
 	}
 	if cfg.MaxCacheSize > 0 {
@@ -158,9 +159,10 @@ func NewBlockDAO(kvStore db.KVStore, indexer BlockIndexer, compressBlock bool, c
 	}
 	blockDAO.timerFactory = timerFactory
 	blockDAO.lifecycle.Add(kvStore)
-	if indexer != nil {
+	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
+
 	return blockDAO
 }
 
@@ -204,7 +206,9 @@ func (dao *blockDAO) initStores() error {
 		if err != nil {
 			continue
 		}
-		dao.openDB(uint64(n))
+		if _, _, err := dao.openDB(uint64(n)); err != nil {
+			return err
+		}
 		if uint64(n) > maxN {
 			maxN = uint64(n)
 		}
@@ -322,13 +326,19 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 		return err
 	}
 	// index the block if there's indexer
-	if dao.indexer == nil {
-		return nil
+	for _, indexer := range dao.indexers {
+		if indexer == nil {
+			continue
+		}
+		if err := indexer.PutBlock(blk); err != nil {
+			return err
+		}
+		if err := indexer.Commit(); err != nil {
+			return err
+		}
 	}
-	if err := dao.indexer.PutBlock(blk); err != nil {
-		return err
-	}
-	return dao.indexer.Commit()
+
+	return nil
 }
 
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
@@ -349,11 +359,18 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			return errors.Wrap(err, "failed to get tip block")
 		}
 		// delete block index if there's indexer
-		if dao.indexer != nil {
-			if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+		for _, indexer := range dao.indexers {
+			if indexer == nil {
+				continue
+			}
+			if err := indexer.DeleteTipBlock(blk); err != nil {
+				return err
+			}
+			if err := indexer.Commit(); err != nil {
 				return err
 			}
 		}
+
 		if err := dao.deleteTipBlock(); err != nil {
 			return err
 		}

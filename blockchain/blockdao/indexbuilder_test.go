@@ -156,8 +156,10 @@ func TestIndexer(t *testing.T) {
 	path := "test-indexer"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
+	require.NoError(t, testFile.Close())
 	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
 	indexPath := indexFile.Name()
+	require.NoError(t, indexFile.Close())
 	cfg := config.Default.DB
 	t.Run("Bolt DB indexer", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
