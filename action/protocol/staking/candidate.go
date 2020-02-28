@@ -22,12 +22,12 @@ import (
 type (
 	// Candidate represents the candidate
 	Candidate struct {
-		Owner     address.Address
-		Operator  address.Address
-		Reward    address.Address
-		Name      string
-		Votes     *big.Int
-		SelfStake *big.Int
+		Owner              address.Address
+		Operator           address.Address
+		Reward             address.Address
+		Name               string
+		Votes              *big.Int
+		SelfStakeBucketIdx uint64
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -35,14 +35,14 @@ type (
 )
 
 // NewCandidate creates a Candidate instance and set votes to 0.
-func NewCandidate(owner, operator, reward address.Address, name string, selfStake *big.Int) *Candidate {
+func NewCandidate(owner, operator, reward address.Address, name string, selfStakeBucketIdx uint64) *Candidate {
 	return &Candidate{
-		Owner:     owner,
-		Operator:  operator,
-		Reward:    reward,
-		Name:      name,
-		Votes:     big.NewInt(0),
-		SelfStake: selfStake,
+		Owner:              owner,
+		Operator:           operator,
+		Reward:             reward,
+		Name:               name,
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: selfStakeBucketIdx,
 	}
 }
 
@@ -88,17 +88,17 @@ func (d *Candidate) Deserialize(buf []byte) error {
 
 func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
-		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
+		len(d.Name) == 0 || d.Votes == nil {
 		return nil, ErrMissingField
 	}
 
 	return &stakingpb.Candidate{
-		OwnerAddress:    d.Owner.String(),
-		OperatorAddress: d.Operator.String(),
-		RewardAddress:   d.Reward.String(),
-		Name:            d.Name,
-		Votes:           d.Votes.String(),
-		SelfStake:       d.SelfStake.String(),
+		OwnerAddress:       d.Owner.String(),
+		OperatorAddress:    d.Operator.String(),
+		RewardAddress:      d.Reward.String(),
+		Name:               d.Name,
+		Votes:              d.Votes.String(),
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
 	}, nil
 }
 
@@ -130,10 +130,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if !ok {
 		return ErrInvalidAmount
 	}
-	d.SelfStake, ok = new(big.Int).SetString(pb.GetSelfStake(), 10)
-	if !ok {
-		return ErrInvalidAmount
-	}
+	d.SelfStakeBucketIdx = pb.GetSelfStakeBucketIdx()
 	return nil
 }
 
