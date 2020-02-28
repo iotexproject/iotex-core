@@ -41,37 +41,17 @@ type (
 )
 
 // NewVoteBucket creates a new vote bucket
-func NewVoteBucket(cand, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
-	vote, ok := big.NewInt(0).SetString(amount, 10)
-	if !ok {
-		return nil, ErrInvalidAmount
-	}
-
-	if vote.Sign() <= 0 {
-		return nil, ErrInvalidAmount
-	}
-
-	candAddr, err := address.FromString(cand)
-	if err != nil {
-		return nil, err
-	}
-
-	ownerAddr, err := address.FromString(owner)
-	if err != nil {
-		return nil, err
-	}
-
-	bucket := VoteBucket{
-		Candidate:        candAddr,
-		Owner:            ownerAddr,
-		StakedAmount:     vote,
+func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
+	return &VoteBucket{
+		Candidate:        cand,
+		Owner:            owner,
+		StakedAmount:     amount,
 		StakedDuration:   time.Duration(duration) * 24 * time.Hour,
 		CreateTime:       ctime.UTC(),
 		StakeStartTime:   ctime.UTC(),
 		UnstakeStartTime: time.Unix(0, 0).UTC(),
 		AutoStake:        autoStake,
 	}
-	return &bucket, nil
 }
 
 // Deserialize deserializes bytes into bucket
@@ -81,7 +61,11 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 		return errors.Wrap(err, "failed to unmarshal bucket")
 	}
 
-	vote, ok := big.NewInt(0).SetString(pb.StakedAmount, 10)
+	return vb.fromProto(pb)
+}
+
+func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
+	vote, ok := big.NewInt(0).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
 		return ErrInvalidAmount
 	}
@@ -94,20 +78,20 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	ownerAddr, err := address.FromString(pb.Owner)
+	ownerAddr, err := address.FromString(pb.GetOwner())
 	if err != nil {
 		return err
 	}
 
-	createTime, err := ptypes.Timestamp(pb.CreateTime)
+	createTime, err := ptypes.Timestamp(pb.GetCreateTime())
 	if err != nil {
 		return err
 	}
-	stakeTime, err := ptypes.Timestamp(pb.StakeStartTime)
+	stakeTime, err := ptypes.Timestamp(pb.GetStakeStartTime())
 	if err != nil {
 		return err
 	}
-	unstakeTime, err := ptypes.Timestamp(pb.UnstakeStartTime)
+	unstakeTime, err := ptypes.Timestamp(pb.GetUnstakeStartTime())
 	if err != nil {
 		return err
 	}
@@ -115,18 +99,30 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	vb.Candidate = candAddr
 	vb.Owner = ownerAddr
 	vb.StakedAmount = vote
-	vb.StakedDuration = time.Duration(pb.StakedDuration) * 24 * time.Hour
+	vb.StakedDuration = time.Duration(pb.GetStakedDuration()) * 24 * time.Hour
 	vb.CreateTime = createTime
 	vb.StakeStartTime = stakeTime
 	vb.UnstakeStartTime = unstakeTime
-	vb.AutoStake = pb.AutoStake
+	vb.AutoStake = pb.GetAutoStake()
 	return nil
 }
 
-func (vb *VoteBucket) toProto() *stakingpb.Bucket {
-	createTime, _ := ptypes.TimestampProto(vb.CreateTime)
-	stakeTime, _ := ptypes.TimestampProto(vb.StakeStartTime)
-	unstakeTime, _ := ptypes.TimestampProto(vb.UnstakeStartTime)
+func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
+	if vb.Candidate == nil || vb.Owner == nil || vb.StakedAmount == nil {
+		return nil, ErrMissingField
+	}
+	createTime, err := ptypes.TimestampProto(vb.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
+	if err != nil {
+		return nil, err
+	}
 
 	return &stakingpb.Bucket{
 		CandidateAddress: vb.Candidate.String(),
@@ -137,12 +133,16 @@ func (vb *VoteBucket) toProto() *stakingpb.Bucket {
 		StakeStartTime:   stakeTime,
 		UnstakeStartTime: unstakeTime,
 		AutoStake:        vb.AutoStake,
-	}
+	}, nil
 }
 
 // Serialize serializes bucket into bytes
 func (vb *VoteBucket) Serialize() ([]byte, error) {
-	return proto.Marshal(vb.toProto())
+	pb, err := vb.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
 }
 
 // Deserialize deserializes bytes into bucket count
@@ -161,7 +161,7 @@ func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
 }
 
-func stakingGetTotalCount(sr protocol.StateReader) (uint64, error) {
+func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 	var tc totalBucketCount
 	_, err := sr.State(
 		&tc,
@@ -170,7 +170,7 @@ func stakingGetTotalCount(sr protocol.StateReader) (uint64, error) {
 	return tc.count, err
 }
 
-func stakingGetBucket(sr protocol.StateReader, name address.Address, index uint64) (*VoteBucket, error) {
+func getBucket(sr protocol.StateReader, name address.Address, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
@@ -181,7 +181,7 @@ func stakingGetBucket(sr protocol.StateReader, name address.Address, index uint6
 	return &vb, nil
 }
 
-func stakingPutBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) error {
+func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) error {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
@@ -204,7 +204,7 @@ func stakingPutBucket(sm protocol.StateManager, name address.Address, bucket *Vo
 	return err
 }
 
-func stakingDelBucket(sm protocol.StateManager, name address.Address, index uint64) error {
+func delBucket(sm protocol.StateManager, name address.Address, index uint64) error {
 	_, err := sm.DelState(
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.KeyOption(bucketKey(name.Bytes(), index)))
