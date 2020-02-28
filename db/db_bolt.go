@@ -112,7 +112,7 @@ func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, e
 	if err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
 		if bucket == nil {
-			return errors.Wrapf(ErrNotExist, "bucket = %x doesn't exist", []byte(namespace))
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(namespace))
 		}
 
 		return bucket.ForEach(func(k, v []byte) error {
@@ -128,6 +128,10 @@ func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, e
 		})
 	}); err != nil {
 		return nil, nil, err
+	}
+
+	if len(fk) == 0 {
+		return nil, nil, errors.Wrap(ErrNotExist, "filter returns no match")
 	}
 	return fk, fv, nil
 }
