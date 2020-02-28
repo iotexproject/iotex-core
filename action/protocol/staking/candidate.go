@@ -126,9 +126,9 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	}
 	d.Name = ToCandName(pb.GetName())
 
-	d.Votes = new(big.Int).SetBytes(pb.Votes)
+	d.Votes = new(big.Int).SetBytes(pb.GetVotes())
 
-	d.SelfStake = new(big.Int).SetBytes(pb.SelfStake)
+	d.SelfStake = new(big.Int).SetBytes(pb.GetSelfStake())
 	return nil
 }
 
