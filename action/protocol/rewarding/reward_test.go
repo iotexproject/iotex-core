@@ -305,8 +305,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 
 	p := NewProtocol(
-		genesis.Default.KickoutIntensityRate,
-		nil,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return uint64(19),
 				map[string]uint64{

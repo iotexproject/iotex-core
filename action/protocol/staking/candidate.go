@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -183,18 +182,7 @@ func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, er
 
 	var d Candidate
 	_, err := sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
-	if err == nil {
-		return &d, nil
-	}
-
-	if errors.Cause(err) != state.ErrStateNotExist {
-		return nil, err
-	}
-
-	if _, err = sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key)); err != nil {
-		return nil, err
-	}
-	return &d, nil
+	return &d, err
 }
 
 func putCandidate(sm protocol.StateManager, name address.Address, d *Candidate) error {

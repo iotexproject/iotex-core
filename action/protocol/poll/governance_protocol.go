@@ -356,10 +356,12 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	epochNum := rp.GetEpochNum(epochStartHeight)
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
-	sc, stateHeight, err := p.getCandidates(p.sr, readFromNext)
+	// After Easter height, kick-out unqualified delegates based on productivity
+	candidates, stateHeight, err := p.getCandidates(p.sr, readFromNext)
 	if err != nil {
 		return nil, err
 	}
@@ -367,29 +369,6 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
 		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
 	}
-	return sc, nil
-}
-
-func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	candidates, err := p.readCandidatesByEpoch(ctx, epochNum, readFromNext)
-	if err != nil {
-		return nil, err
-	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	if hu.IsPre(config.Easter, rp.GetEpochHeight(epochNum)) || epochNum == 1 {
-		var blockProducers state.CandidateList
-		for i, candidate := range candidates {
-			if uint64(i) >= p.numCandidateDelegates {
-				break
-			}
-			blockProducers = append(blockProducers, candidate)
-		}
-		return blockProducers, nil
-	}
-
-	// After Easter height, kick-out unqualified delegates based on productivity
 	unqualifiedList, err := p.readKickoutList(ctx, epochNum, readFromNext)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read kick-out list")
@@ -399,27 +378,42 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	updatedVotingPower := make(map[string]*big.Int)
 	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
 	for _, cand := range candidates {
-		candidatesMap[cand.Address] = cand
+		filterCand := cand.Clone()
 		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
 			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
-			votingPower := new(big.Float).SetInt(cand.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
-			updatedVotingPower[cand.Address] = newVotingPower
-		} else {
-			updatedVotingPower[cand.Address] = cand.Votes
+			votingPower := new(big.Float).SetInt(filterCand.Votes)
+			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 		}
+		if filterCand.Votes.Cmp(big.NewInt(0)) == 0 {
+			// if the voting power is 0, exclude it (hard kickout)
+			continue
+		}
+		updatedVotingPower[filterCand.Address] = filterCand.Votes
+		candidatesMap[filterCand.Address] = filterCand
 	}
 	// sort again with updated voting power
 	sorted := util.Sort(updatedVotingPower, epochNum)
 	var verifiedCandidates state.CandidateList
-	for i, name := range sorted {
-		if uint64(i) >= p.numCandidateDelegates {
-			break
-		}
+	for _, name := range sorted {
 		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
 	}
 
 	return verifiedCandidates, nil
+}
+
+func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
+	candidates, err := p.readCandidatesByEpoch(ctx, epochNum, readFromNext)
+	if err != nil {
+		return nil, err
+	}
+	var blockProducers state.CandidateList
+	for i, candidate := range candidates {
+		if uint64(i) >= p.numCandidateDelegates {
+			break
+		}
+		blockProducers = append(blockProducers, candidate)
+	}
+	return blockProducers, nil
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {

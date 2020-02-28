@@ -188,8 +188,6 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 
 	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(
-		cfg.Genesis.KickoutIntensityRate,
-		nil,
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		},
