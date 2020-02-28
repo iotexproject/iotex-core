@@ -32,16 +32,15 @@ message BucketIndices {
     repeated BucketIndex indices = 1;
 }
 
-message Delegate {
-    string owner = 1;
-    string address = 2;
+message Candidate {
+    string ownerAddress = 1;
+    string operatorAddress = 2;
     string rewardAddress = 3;
-    bytes canName = 4;
-    bytes votes = 5;
-    bytes selfStake = 6;
-    bool active = 7;
+    string name = 4;
+    string votes = 5;
+    string selfStake = 6;
 }
 
-message Delegates {
-    repeated Delegate delegates = 1;
+message Candidates {
+    repeated Candidate candidates = 1;
 }
