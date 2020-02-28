@@ -174,23 +174,14 @@ func TestIndexer(t *testing.T) {
 		err = indexer.PutBlock(blks[2])
 		require.Equal(db.ErrInvalid, errors.Cause(err))
 		require.NoError(indexer.PutBlock(blks[1]))
-		// height still == 0 before Commit()
-		height, err = indexer.GetBlockchainHeight()
-		require.NoError(err)
-		require.EqualValues(0, height)
-		total, err := indexer.GetTotalActions()
-		require.NoError(err)
-		require.EqualValues(0, total)
-		require.NoError(indexer.Commit())
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)
-		total, err = indexer.GetTotalActions()
+		total, err := indexer.GetTotalActions()
 		require.NoError(err)
 		require.EqualValues(6, total)
 
 		require.NoError(indexer.PutBlock(blks[2]))
-		require.NoError(indexer.Commit())
 		height, err = indexer.GetBlockchainHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
@@ -263,7 +254,6 @@ func TestIndexer(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			require.NoError(indexer.PutBlock(blks[i]))
 		}
-		require.NoError(indexer.Commit())
 
 		for i := range indexTests[0].actions {
 			actionCount, err := indexer.GetActionCountByAddress(indexTests[0].actions[i].addr)
