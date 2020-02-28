@@ -71,7 +71,11 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 
 // Serialize serializes candidate to bytes
 func (d *Candidate) Serialize() ([]byte, error) {
-	return proto.Marshal(d.toProto())
+	pb, err := d.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
 }
 
 // Deserialize deserializes bytes to candidate
@@ -83,30 +87,31 @@ func (d *Candidate) Deserialize(buf []byte) error {
 	return d.fromProto(pb)
 }
 
-func (d *Candidate) toProto() *stakingpb.Candidate {
-	pb := &stakingpb.Candidate{
+func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
+	if d.Owner == nil || d.Operator == nil || d.Reward == nil ||
+		len(d.Name) == 0 || d.Votes == nil || d.SelfStake == nil {
+		return nil, ErrMissingField
+	}
+
+	return &stakingpb.Candidate{
 		OwnerAddress:    d.Owner.String(),
 		OperatorAddress: d.Operator.String(),
 		RewardAddress:   d.Reward.String(),
 		Name:            d.Name,
-	}
-	if d.Votes != nil {
-		pb.Votes = d.Votes.String()
-	}
-	if d.SelfStake != nil {
-		pb.SelfStake = d.SelfStake.String()
-	}
-	return pb
+		Votes:           d.Votes.String(),
+		SelfStake:       d.SelfStake.String(),
+	}, nil
 }
 
 func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
+
 	var err error
 	d.Owner, err = address.FromString(pb.GetOwnerAddress())
 	if err != nil {
 		return err
 	}
 
-	d.Operator, err = address.FromString(pb.GetOwnerAddress())
+	d.Operator, err = address.FromString(pb.GetOperatorAddress())
 	if err != nil {
 		return err
 	}
@@ -115,10 +120,21 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if err != nil {
 		return err
 	}
+
+	if len(pb.GetName()) == 0 {
+		return ErrMissingField
+	}
 	d.Name = pb.GetName()
 
-	d.Votes, _ = new(big.Int).SetString(pb.GetVotes(), 10)
-	d.SelfStake, _ = new(big.Int).SetString(pb.GetSelfStake(), 10)
+	var ok bool
+	d.Votes, ok = new(big.Int).SetString(pb.GetVotes(), 10)
+	if !ok {
+		return ErrInvalidAmount
+	}
+	d.SelfStake, ok = new(big.Int).SetString(pb.GetSelfStake(), 10)
+	if !ok {
+		return ErrInvalidAmount
+	}
 	return nil
 }
 
@@ -131,12 +147,16 @@ func (l CandidateList) Less(i, j int) bool {
 	return strings.Compare(l[i].Owner.String(), l[j].Owner.String()) == 1
 }
 
-func (l CandidateList) toProto() *stakingpb.Candidates {
+func (l CandidateList) toProto() (*stakingpb.Candidates, error) {
 	candidatePb := make([]*stakingpb.Candidate, len(l))
 	for i, del := range l {
-		candidatePb[i] = del.toProto()
+		dpb, err := del.toProto()
+		if err != nil {
+			return nil, err
+		}
+		candidatePb[i] = dpb
 	}
-	return &stakingpb.Candidates{Candidates: candidatePb}
+	return &stakingpb.Candidates{Candidates: candidatePb}, nil
 }
 
 // Deserialize deserializes bytes to list of candidates

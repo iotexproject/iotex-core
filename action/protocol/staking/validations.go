@@ -20,6 +20,7 @@ var (
 	ErrNilAction      = errors.New("action is nil")
 	ErrInvalidAmount  = errors.New("invalid staking amount")
 	ErrInvalidCanName = errors.New("invalid candidate name")
+	ErrMissingField   = errors.New("misssing data field")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {

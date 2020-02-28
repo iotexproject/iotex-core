@@ -49,7 +49,11 @@ func (m CandidateMap) Serialize() ([]byte, error) {
 		l = append(l, v)
 	}
 	sort.Sort(l)
-	return proto.Marshal(l.toProto())
+	lpb, err := l.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(lpb)
 }
 
 // Deserialize deserializes bytes to CandidateMap

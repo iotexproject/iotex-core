@@ -61,7 +61,11 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 		return errors.Wrap(err, "failed to unmarshal bucket")
 	}
 
-	vote, ok := big.NewInt(0).SetString(pb.StakedAmount, 10)
+	return vb.fromProto(pb)
+}
+
+func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
+	vote, ok := big.NewInt(0).SetString(pb.GetStakedAmount(), 10)
 	if !ok {
 		return ErrInvalidAmount
 	}
@@ -74,20 +78,20 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	if err != nil {
 		return err
 	}
-	ownerAddr, err := address.FromString(pb.Owner)
+	ownerAddr, err := address.FromString(pb.GetOwner())
 	if err != nil {
 		return err
 	}
 
-	createTime, err := ptypes.Timestamp(pb.CreateTime)
+	createTime, err := ptypes.Timestamp(pb.GetCreateTime())
 	if err != nil {
 		return err
 	}
-	stakeTime, err := ptypes.Timestamp(pb.StakeStartTime)
+	stakeTime, err := ptypes.Timestamp(pb.GetStakeStartTime())
 	if err != nil {
 		return err
 	}
-	unstakeTime, err := ptypes.Timestamp(pb.UnstakeStartTime)
+	unstakeTime, err := ptypes.Timestamp(pb.GetUnstakeStartTime())
 	if err != nil {
 		return err
 	}
@@ -95,18 +99,30 @@ func (vb *VoteBucket) Deserialize(buf []byte) error {
 	vb.Candidate = candAddr
 	vb.Owner = ownerAddr
 	vb.StakedAmount = vote
-	vb.StakedDuration = time.Duration(pb.StakedDuration) * 24 * time.Hour
+	vb.StakedDuration = time.Duration(pb.GetStakedDuration()) * 24 * time.Hour
 	vb.CreateTime = createTime
 	vb.StakeStartTime = stakeTime
 	vb.UnstakeStartTime = unstakeTime
-	vb.AutoStake = pb.AutoStake
+	vb.AutoStake = pb.GetAutoStake()
 	return nil
 }
 
-func (vb *VoteBucket) toProto() *stakingpb.Bucket {
-	createTime, _ := ptypes.TimestampProto(vb.CreateTime)
-	stakeTime, _ := ptypes.TimestampProto(vb.StakeStartTime)
-	unstakeTime, _ := ptypes.TimestampProto(vb.UnstakeStartTime)
+func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
+	if vb.Candidate == nil || vb.Owner == nil || vb.StakedAmount == nil {
+		return nil, ErrMissingField
+	}
+	createTime, err := ptypes.TimestampProto(vb.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
+	if err != nil {
+		return nil, err
+	}
 
 	return &stakingpb.Bucket{
 		CandidateAddress: vb.Candidate.String(),
@@ -117,12 +133,16 @@ func (vb *VoteBucket) toProto() *stakingpb.Bucket {
 		StakeStartTime:   stakeTime,
 		UnstakeStartTime: unstakeTime,
 		AutoStake:        vb.AutoStake,
-	}
+	}, nil
 }
 
 // Serialize serializes bucket into bytes
 func (vb *VoteBucket) Serialize() ([]byte, error) {
-	return proto.Marshal(vb.toProto())
+	pb, err := vb.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
 }
 
 // Deserialize deserializes bytes into bucket count
