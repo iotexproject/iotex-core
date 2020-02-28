@@ -11,6 +11,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -135,7 +136,9 @@ func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	response, err := cli.ReadState(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
-		if ok {
+		if ok && sta.Code() == codes.NotFound {
+			return nil, nil
+		} else if ok {
 			return nil, output.NewError(output.APIError, sta.Message(), nil)
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
