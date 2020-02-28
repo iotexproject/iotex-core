@@ -39,6 +39,7 @@ message Candidate {
     string name = 4;
     string votes = 5;
     string selfStake = 6;
+    uint64 selfStakeIdx = 7;
 }
 
 message Candidates {

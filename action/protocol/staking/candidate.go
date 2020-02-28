@@ -22,12 +22,13 @@ import (
 type (
 	// Candidate represents the candidate
 	Candidate struct {
-		Owner     address.Address
-		Operator  address.Address
-		Reward    address.Address
-		Name      string
-		Votes     *big.Int
-		SelfStake *big.Int
+		Owner        address.Address
+		Operator     address.Address
+		Reward       address.Address
+		Name         string
+		Votes        *big.Int
+		SelfStakeIdx uint64
+		SelfStake    *big.Int
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -35,14 +36,15 @@ type (
 )
 
 // NewCandidate creates a Candidate instance and set votes to 0.
-func NewCandidate(owner, operator, reward address.Address, name string, selfStake *big.Int) *Candidate {
+func NewCandidate(owner, operator, reward address.Address, name string, selfStakeIdx uint64, selfStake *big.Int) *Candidate {
 	return &Candidate{
-		Owner:     owner,
-		Operator:  operator,
-		Reward:    reward,
-		Name:      name,
-		Votes:     big.NewInt(0),
-		SelfStake: selfStake,
+		Owner:        owner,
+		Operator:     operator,
+		Reward:       reward,
+		Name:         name,
+		Votes:        big.NewInt(0),
+		SelfStakeIdx: selfStakeIdx,
+		SelfStake:    selfStake,
 	}
 }
 
@@ -98,6 +100,7 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 		RewardAddress:   d.Reward.String(),
 		Name:            d.Name,
 		Votes:           d.Votes.String(),
+		SelfStakeIdx:    d.SelfStakeIdx,
 		SelfStake:       d.SelfStake.String(),
 	}, nil
 }
@@ -130,6 +133,8 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	if !ok {
 		return ErrInvalidAmount
 	}
+
+	d.SelfStakeIdx = pb.GetSelfStakeIdx()
 	d.SelfStake, ok = new(big.Int).SetString(pb.GetSelfStake(), 10)
 	if !ok {
 		return ErrInvalidAmount

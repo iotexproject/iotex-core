@@ -69,7 +69,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 
-	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), act.Amount())
+	// TODO create self staking bucket
+	bucketIdx := uint64(0)
+
+	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), bucketIdx, act.Amount())
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
@@ -77,8 +80,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	if err := p.inMemCandidates.Put(c); err != nil {
 		return nil, err
 	}
-
-	// TODO create self staking bucket
 
 	return &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
