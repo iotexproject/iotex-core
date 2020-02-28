@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/pkg/errors"
@@ -166,6 +167,35 @@ func (kvb *kvStoreWithBuffer) Delete(ns string, key []byte) error {
 
 func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+}
+
+func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition) ([][]byte, [][]byte, error) {
+	fk, fv, err := kvb.store.Filter(ns, cond)
+	if err != nil {
+		return fk, fv, err
+	}
+
+	// filter the entries in buffer
+	for i := 0; i < kvb.buffer.Size(); i++ {
+		entry, _ := kvb.buffer.Entry(i)
+		k, v := entry.Key(), entry.Value()
+		if cond(k, v) {
+			switch entry.WriteType() {
+			case batch.Put:
+				fk = append(fk, k)
+				fv = append(fv, v)
+			case batch.Delete:
+				for i := range fk {
+					if bytes.Compare(fk[i], k) == 0 {
+						fk = append(fk[:i], fk[i+1:]...)
+						fv = append(fv[:i], fv[i+1:]...)
+						break
+					}
+				}
+			}
+		}
+	}
+	return fk, fv, nil
 }
 
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {

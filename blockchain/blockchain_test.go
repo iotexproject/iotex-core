@@ -629,7 +629,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -791,7 +791,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -1501,7 +1501,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	require.NotNil(dao)
 	bc := NewBlockchain(
 		cfg,
