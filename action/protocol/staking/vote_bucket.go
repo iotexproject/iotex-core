@@ -41,37 +41,17 @@ type (
 )
 
 // NewVoteBucket creates a new vote bucket
-func NewVoteBucket(cand, owner, amount string, duration uint32, ctime time.Time, autoStake bool) (*VoteBucket, error) {
-	vote, ok := big.NewInt(0).SetString(amount, 10)
-	if !ok {
-		return nil, ErrInvalidAmount
-	}
-
-	if vote.Sign() <= 0 {
-		return nil, ErrInvalidAmount
-	}
-
-	candAddr, err := address.FromString(cand)
-	if err != nil {
-		return nil, err
-	}
-
-	ownerAddr, err := address.FromString(owner)
-	if err != nil {
-		return nil, err
-	}
-
-	bucket := VoteBucket{
-		Candidate:        candAddr,
-		Owner:            ownerAddr,
-		StakedAmount:     vote,
+func NewVoteBucket(cand, owner address.Address, amount *big.Int, duration uint32, ctime time.Time, autoStake bool) *VoteBucket {
+	return &VoteBucket{
+		Candidate:        cand,
+		Owner:            owner,
+		StakedAmount:     amount,
 		StakedDuration:   time.Duration(duration) * 24 * time.Hour,
 		CreateTime:       ctime.UTC(),
 		StakeStartTime:   ctime.UTC(),
 		UnstakeStartTime: time.Unix(0, 0).UTC(),
 		AutoStake:        autoStake,
 	}
-	return &bucket, nil
 }
 
 // Deserialize deserializes bytes into bucket

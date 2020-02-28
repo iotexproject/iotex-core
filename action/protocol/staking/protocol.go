@@ -64,7 +64,26 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 // Validate validates a staking message
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	//TODO
+	switch act := act.(type) {
+	case *action.CreateStake:
+		return p.validateCreateStake(ctx, act)
+	case *action.Unstake:
+		return p.validateUnstake(ctx, act)
+	case *action.WithdrawStake:
+		return p.validateWithdrawStake(ctx, act)
+	case *action.ChangeCandidate:
+		return p.validateChangeCandidate(ctx, act)
+	case *action.TransferStake:
+		return p.validateTransferStake(ctx, act)
+	case *action.DepositToStake:
+		return p.validateDepositToStake(ctx, act)
+	case *action.Restake:
+		return p.validateRestake(ctx, act)
+	case *action.CandidateRegister:
+		return p.validateCandidateRegister(ctx, act)
+	case *action.CandidateUpdate:
+		return p.validateCandidateUpdate(ctx, act)
+	}
 	return nil
 }
 
@@ -82,49 +101,4 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
-}
-
-func (p *Protocol) handleCreateStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleUnstake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleWithdrawStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleChangeCandidate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleTransferStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleDepositToStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleRestake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleCandidateRegister(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleCandidateUpdate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
 }

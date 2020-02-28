@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"math/big"
 	"testing"
 	"time"
 
@@ -21,33 +22,13 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 const (
 	stateDBPath = "stateDB.test"
 )
-
-func TestBucket(t *testing.T) {
-	require := require.New(t)
-
-	vb, err := NewVoteBucket("testname1234", "d390*jk jh{}", "a2100000000", 21, time.Now(), true)
-	require.Equal(ErrInvalidAmount, errors.Cause(err))
-	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "-2100000000", 21, time.Now(), true)
-	require.Equal(ErrInvalidAmount, errors.Cause(err))
-	vb, err = NewVoteBucket("testname1234", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
-	require.Error(err)
-	vb, err = NewVoteBucket("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "d390*jk jh{}", "2100000000", 21, time.Now(), true)
-	require.Error(err)
-	vb, err = NewVoteBucket("io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2", "2100000000", 21, time.Now(), true)
-	require.NoError(err)
-
-	data, err := vb.Serialize()
-	require.NoError(err)
-	vb1 := &VoteBucket{}
-	require.NoError(vb1.Deserialize(data))
-	require.Equal(vb, vb1)
-}
 
 func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	kv := db.NewMockKVStore(ctrl)
@@ -203,8 +184,7 @@ func TestGetPutStaking(t *testing.T) {
 		_, err := stakingGetBucket(sm, addr, e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
-		vb, err := NewVoteBucket(addr.String(), "io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks", "2100000000", 21*uint32(e.index+1), time.Now(), true)
-		require.NoError(err)
+		vb := NewVoteBucket(addr, identityset.Address(1), big.NewInt(2100000000), 21*uint32(e.index+1), time.Now(), true)
 
 		count, err := stakingGetTotalCount(sm)
 		require.NoError(err)
