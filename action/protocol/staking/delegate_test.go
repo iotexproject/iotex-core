@@ -102,18 +102,27 @@ func TestCandMap(t *testing.T) {
 
 	m := DelegateMap{}
 	for i, v := range tests {
-		m[v.d.Owner.String()] = tests[i].d
-		r.True(m.Contains(v.d.Owner))
+		r.NoError(m.Put(tests[i].d))
+		r.True(m.Contains(v.d.CanName))
+		r.Equal(v.d, m.Get(v.d.CanName))
 	}
 	r.Equal(len(tests), len(m))
 
+	// test delegate that does not exist
+	noName := ToCandName(make([]byte, 20))
+	r.False(m.Contains(noName))
+	r.Nil(m.Get(noName))
+	m.Delete(noName)
+	r.Equal(len(tests), len(m))
+
+	// test serialize
 	d, err := m.Serialize()
 	r.NoError(err)
 	r.NoError(m.Deserialize(d))
 	r.Equal(len(tests), len(m))
 	for _, v := range tests {
-		r.True(m.Contains(v.d.Owner))
-		r.Equal(v.d, m[v.d.Owner.String()])
+		r.True(m.Contains(v.d.CanName))
+		r.Equal(v.d, m.Get(v.d.CanName))
 	}
 
 	// verify the serialization is sorted
@@ -122,6 +131,13 @@ func TestCandMap(t *testing.T) {
 	r.Equal(len(tests), len(c))
 	for _, v := range tests {
 		r.Equal(v.d, c[v.index])
+	}
+
+	// test delete
+	for i, v := range tests {
+		m.Delete(v.d.CanName)
+		r.False(m.Contains(v.d.CanName))
+		r.Equal(len(tests)-i-1, len(m))
 	}
 }
 
