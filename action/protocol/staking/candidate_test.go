@@ -134,18 +134,18 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// put candidates and get
 	for _, e := range tests {
-		_, err := stakingGetCandidate(sm, e.d.Owner)
+		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
-		require.NoError(stakingPutCandidate(sm, e.d.Owner, e.d))
-		d1, err := stakingGetCandidate(sm, e.d.Owner)
+		require.NoError(putCandidate(sm, e.d.Owner, e.d))
+		d1, err := getCandidate(sm, e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)
 	}
 
 	// delete buckets and get
 	for _, e := range tests {
-		require.NoError(stakingDelCandidate(sm, e.d.Owner))
-		_, err := stakingGetCandidate(sm, e.d.Owner)
+		require.NoError(delCandidate(sm, e.d.Owner))
+		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }

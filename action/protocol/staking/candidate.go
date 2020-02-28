@@ -177,7 +177,7 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 	return nil
 }
 
-func stakingGetCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
+func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
 	key := make([]byte, len(name.Bytes()))
 	copy(key, name.Bytes())
 
@@ -197,7 +197,7 @@ func stakingGetCandidate(sr protocol.StateReader, name address.Address) (*Candid
 	return &d, nil
 }
 
-func stakingPutCandidate(sm protocol.StateManager, name address.Address, d *Candidate) error {
+func putCandidate(sm protocol.StateManager, name address.Address, d *Candidate) error {
 	key := make([]byte, len(name.Bytes()))
 	copy(key, name.Bytes())
 
@@ -205,7 +205,7 @@ func stakingPutCandidate(sm protocol.StateManager, name address.Address, d *Cand
 	return err
 }
 
-func stakingDelCandidate(sm protocol.StateManager, name address.Address) error {
+func delCandidate(sm protocol.StateManager, name address.Address) error {
 	key := make([]byte, len(name.Bytes()))
 	copy(key, name.Bytes())
 

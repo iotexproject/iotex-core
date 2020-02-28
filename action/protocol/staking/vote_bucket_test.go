@@ -181,19 +181,19 @@ func TestGetPutStaking(t *testing.T) {
 	// put buckets and get
 	for _, e := range tests {
 		addr, _ := address.FromBytes(e.name[:])
-		_, err := stakingGetBucket(sm, addr, e.index)
+		_, err := getBucket(sm, addr, e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 
 		vb := NewVoteBucket(addr, identityset.Address(1), big.NewInt(2100000000), 21*uint32(e.index+1), time.Now(), true)
 
-		count, err := stakingGetTotalCount(sm)
+		count, err := getTotalBucketCount(sm)
 		require.NoError(err)
 		require.Equal(e.index, count)
-		require.NoError(stakingPutBucket(sm, addr, vb))
-		count, err = stakingGetTotalCount(sm)
+		require.NoError(putBucket(sm, addr, vb))
+		count, err = getTotalBucketCount(sm)
 		require.NoError(err)
 		require.Equal(e.index+1, count)
-		vb1, err := stakingGetBucket(sm, addr, e.index)
+		vb1, err := getBucket(sm, addr, e.index)
 		require.NoError(err)
 		require.Equal(vb, vb1)
 		require.Equal(vb.Owner, vb1.Owner)
@@ -202,8 +202,8 @@ func TestGetPutStaking(t *testing.T) {
 	// delete buckets and get
 	for _, e := range tests {
 		addr, _ := address.FromBytes(e.name[:])
-		require.NoError(stakingDelBucket(sm, addr, e.index))
-		_, err := stakingGetBucket(sm, addr, e.index)
+		require.NoError(delBucket(sm, addr, e.index))
+		_, err := getBucket(sm, addr, e.index)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }
