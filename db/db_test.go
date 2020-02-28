@@ -7,18 +7,21 @@
 package db
 
 import (
+	"bytes"
 	"context"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/testutil"
-
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -315,7 +318,87 @@ func TestDeleteBucket(t *testing.T) {
 		require.Equal(testV1[0], v)
 	}
 
-	path := "test-cache-kv.bolt"
+	path := "test-delete.bolt"
+	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testPath := testFile.Name()
+	cfg.DbPath = testPath
+	t.Run("Bolt DB", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
+		testFunc(NewBoltDB(cfg), t)
+	})
+}
+
+func TestFilter(t *testing.T) {
+	testFunc := func(kv KVStore, t *testing.T) {
+		require := require.New(t)
+
+		require.NoError(kv.Start(context.Background()))
+		defer func() {
+			require.NoError(kv.Stop(context.Background()))
+		}()
+
+		tests := []struct {
+			ns     string
+			prefix []byte
+		}{
+			{
+				bucket1,
+				[]byte("test"),
+			},
+			{
+				bucket1,
+				[]byte("come"),
+			},
+			{
+				bucket2,
+				[]byte("back"),
+			},
+		}
+
+		// add 100 keys with each prefix
+		b := batch.NewBatch()
+		numKey := 100
+		for _, e := range tests {
+			for i := 0; i < numKey; i++ {
+				k := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+				v := hash.Hash256b(k)
+				b.Put(e.ns, k, v[:], "")
+			}
+		}
+		require.NoError(kv.WriteBatch(b))
+
+		_, _, err := kv.Filter("nonamespace", func(k, v []byte) bool {
+			return bytes.HasPrefix(k, v)
+		})
+		require.Equal(ErrBucketNotExist, errors.Cause(err))
+
+		// filter using func with no match
+		fk, fv, err := kv.Filter(tests[0].ns, func(k, v []byte) bool {
+			return bytes.HasPrefix(k, tests[2].prefix)
+		})
+		require.Nil(fk)
+		require.Nil(fv)
+		require.Equal(ErrNotExist, errors.Cause(err))
+
+		// filter out <k, v> pairs
+		for _, e := range tests {
+			fk, fv, err := kv.Filter(e.ns, func(k, v []byte) bool {
+				return bytes.HasPrefix(k, e.prefix)
+			})
+			require.NoError(err)
+			require.Equal(numKey, len(fk))
+			require.Equal(numKey, len(fv))
+			for i := range fk {
+				k := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+				require.Equal(fk[i], k)
+				v := hash.Hash256b(k)
+				require.Equal(fv[i], v[:])
+			}
+		}
+	}
+
+	path := "test-filter.bolt"
 	testFile, _ := ioutil.TempFile(os.TempDir(), path)
 	testPath := testFile.Name()
 	cfg.DbPath = testPath
