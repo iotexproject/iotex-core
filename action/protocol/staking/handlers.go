@@ -9,11 +9,8 @@ package staking
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -55,13 +52,17 @@ func (p *Protocol) handleRestake(ctx context.Context, act action.Action, sm prot
 func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, sm protocol.StateManager) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	_, err := getCandidate(sm, actCtx.Caller)
-	if err == nil || errors.Cause(err) != state.ErrStateNotExist {
-		return nil, errors.New("already exist")
+
+	if p.inMemCandidates.ContainsName(act.Name()) {
+		return nil, ErrAlreadyExist
 	}
 
-	if p.inMemCandidates.Contains(act.Name()) {
-		return nil, errors.New("name already in use")
+	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
+		return nil, ErrAlreadyExist
+	}
+
+	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+		return nil, ErrAlreadyExist
 	}
 
 	owner := actCtx.Caller

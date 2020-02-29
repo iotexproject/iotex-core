@@ -9,10 +9,10 @@ package staking
 import (
 	"context"
 
-	"go.uber.org/zap"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -22,10 +22,15 @@ import (
 // protocolID is the protocol ID
 const protocolID = "staking"
 
+// Errors
+var (
+	ErrAlreadyExist = errors.New("candidate already exist")
+)
+
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	inMemCandidates CandidateMap
 	addr            address.Address
+	inMemCandidates CandidateCenter
 }
 
 // NewProtocol instantiates the protocol of staking
