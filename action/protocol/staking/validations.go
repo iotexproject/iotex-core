@@ -26,6 +26,7 @@ var (
 	ErrInvalidAmount  = errors.New("invalid staking amount")
 	ErrInvalidCanName = errors.New("invalid candidate name")
 	ErrMissingField   = errors.New("misssing data field")
+	ErrInvalidDuration = errors.New("invalid staking duration")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
@@ -42,7 +43,7 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	if act.Duration()%DurationBase != 0 {
-		return errors.New("invalid staking duration")
+		return ErrInvalidDuration
 	}
 	return nil
 }
@@ -114,7 +115,7 @@ func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) err
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	if act.Duration()%DurationBase != 0 {
-		return errors.New("invalid staking duration")
+		return ErrInvalidDuration
 	}
 	return nil
 }
@@ -137,6 +138,10 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	minSelfStake := unit.ConvertIotxToRau(1200000)
 	if act.Amount() == nil || act.Amount().Cmp(minSelfStake) < 0 {
 		return errors.New("self staking amount is not valid")
+	}
+
+	if act.Duration()%DurationBase != 0 {
+		return ErrInvalidDuration
 	}
 
 	return nil
