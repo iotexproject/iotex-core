@@ -27,6 +27,11 @@ func TestCandidateSerialize(t *testing.T) {
 	d1 := &Candidate{}
 	r.NoError(d1.Deserialize(b))
 	r.Equal(d, d1)
+
+	d2 := d.Clone()
+	r.Equal(d, d2)
+	d.AddVote(big.NewInt(100))
+	r.NotEqual(d, d2)
 }
 
 var (
@@ -92,17 +97,17 @@ func TestCandCenter(t *testing.T) {
 	for i, v := range tests {
 		r.NoError(m.Put(tests[i].d))
 		r.True(m.ContainsName(v.d.Name))
-		r.Equal(v.d, m.Get(v.d.Name))
+		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 	r.Equal(len(tests), m.Size())
 
-	// cannot put existing entry
+	// cannot put existing entry again
 	r.Equal(ErrAlreadyExist, m.Put(tests[0].d))
 
 	// test candidate that does not exist
 	noName := "noname"
 	r.False(m.ContainsName(noName))
-	r.Nil(m.Get(noName))
+	r.Nil(m.GetByName(noName))
 	m.Delete(noName)
 	r.Equal(len(tests), m.Size())
 
@@ -115,7 +120,7 @@ func TestCandCenter(t *testing.T) {
 		r.True(m.ContainsName(v.d.Name))
 		r.True(m.ContainsOwner(v.d.Owner))
 		r.True(m.ContainsOperator(v.d.Operator))
-		r.Equal(v.d, m.Get(v.d.Name))
+		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
 	// verify the serialization is sorted

@@ -57,14 +57,19 @@ func (m CandidateCenter) ContainsOperator(operator address.Address) bool {
 	return ok
 }
 
-// Get returns the candidate by name
-func (m CandidateCenter) Get(name string) *Candidate {
+// GetByName returns the candidate by name
+func (m CandidateCenter) GetByName(name string) *Candidate {
 	return m.nameMap[name]
+}
+
+// GetByOwner returns the candidate by owner
+func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
+	return m.ownerMap[owner]
 }
 
 // Put writes the candidate into map, overwrite an existing entry cause error
 func (m CandidateCenter) Put(d *Candidate) error {
-	if m.ContainsName(d.Name) || m.ContainsOwner(d.Owner) || m.ContainsOperator(d.Operator) {
+	if m.ContainsOwner(d.Owner) {
 		return ErrAlreadyExist
 	}
 
