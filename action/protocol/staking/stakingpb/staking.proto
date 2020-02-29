@@ -38,7 +38,8 @@ message Candidate {
     string rewardAddress = 3;
     string name = 4;
     string votes = 5;
-    string selfStake = 6;
+    uint64 selfStakeBucketIdx = 6;
+    string selfStake = 7;
 }
 
 message Candidates {

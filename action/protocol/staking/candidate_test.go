@@ -20,7 +20,7 @@ import (
 
 func TestCandidateSerialize(t *testing.T) {
 	r := require.New(t)
-	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", big.NewInt(2100000000))
+	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", 0, big.NewInt(2100000000))
 
 	b, err := d.Serialize()
 	r.NoError(err)
@@ -36,45 +36,49 @@ var (
 	}{
 		{
 			&Candidate{
-				Owner:     identityset.Address(1),
-				Operator:  identityset.Address(1),
-				Reward:    identityset.Address(1),
-				Name:      "test1",
-				Votes:     big.NewInt(2),
-				SelfStake: big.NewInt(1200000),
+				Owner:              identityset.Address(1),
+				Operator:           identityset.Address(1),
+				Reward:             identityset.Address(1),
+				Name:               "test1",
+				Votes:              big.NewInt(2),
+				SelfStakeBucketIdx: 1,
+				SelfStake:          big.NewInt(1200000),
 			},
 			2,
 		},
 		{
 			&Candidate{
-				Owner:     identityset.Address(2),
-				Operator:  identityset.Address(2),
-				Reward:    identityset.Address(1),
-				Name:      "test2",
-				Votes:     big.NewInt(3),
-				SelfStake: big.NewInt(1200000),
+				Owner:              identityset.Address(2),
+				Operator:           identityset.Address(2),
+				Reward:             identityset.Address(1),
+				Name:               "test2",
+				Votes:              big.NewInt(3),
+				SelfStakeBucketIdx: 2,
+				SelfStake:          big.NewInt(1200000),
 			},
 			1,
 		},
 		{
 			&Candidate{
-				Owner:     identityset.Address(3),
-				Operator:  identityset.Address(3),
-				Reward:    identityset.Address(1),
-				Name:      "test3",
-				Votes:     big.NewInt(3),
-				SelfStake: big.NewInt(1200000),
+				Owner:              identityset.Address(3),
+				Operator:           identityset.Address(3),
+				Reward:             identityset.Address(1),
+				Name:               "test3",
+				Votes:              big.NewInt(3),
+				SelfStakeBucketIdx: 3,
+				SelfStake:          big.NewInt(1200000),
 			},
 			0,
 		},
 		{
 			&Candidate{
-				Owner:     identityset.Address(4),
-				Operator:  identityset.Address(4),
-				Reward:    identityset.Address(1),
-				Name:      "test4",
-				Votes:     big.NewInt(1),
-				SelfStake: big.NewInt(1200000),
+				Owner:              identityset.Address(4),
+				Operator:           identityset.Address(4),
+				Reward:             identityset.Address(1),
+				Name:               "test4",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 4,
+				SelfStake:          big.NewInt(1200000),
 			},
 			3,
 		},
