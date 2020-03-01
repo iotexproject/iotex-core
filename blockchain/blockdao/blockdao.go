@@ -18,10 +18,12 @@ import (
 	"sync/atomic"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -35,7 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -45,18 +46,6 @@ const (
 	blockBodyNS              = "bbd"
 	blockFooterNS            = "bfr"
 	receiptsNS               = "rpt"
-)
-
-// these NS belong to old DB before migrating to separate index
-// they are left here only for record
-// do NOT use them in the future to avoid potential conflict
-const (
-	blockActionBlockMappingNS        = "a2b"
-	blockAddressActionMappingNS      = "a2a"
-	blockAddressActionCountMappingNS = "a2c"
-	blockActionReceiptMappingNS      = "a2r"
-	numActionsNS                     = "nac"
-	transferAmountNS                 = "tfa"
 )
 
 var (
@@ -98,7 +87,6 @@ type (
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		GetReceipts(uint64) ([]*action.Receipt, error)
 		PutBlock(*block.Block) error
-		Commit() error
 		DeleteBlockToTarget(uint64) error
 		IndexFile(uint64, []byte) error
 		GetFileIndex(uint64) ([]byte, error)
@@ -113,15 +101,14 @@ type (
 		Stop(ctx context.Context) error
 		PutBlock(blk *block.Block) error
 		DeleteTipBlock(blk *block.Block) error
-		Commit() error
 	}
 
 	blockDAO struct {
 		compressBlock bool
-		kvstore       db.KVStore
-		indexer       BlockIndexer
+		kvStore       db.KVStore
+		indexers      []BlockIndexer
 		htf           db.RangeIndex
-		kvstores      sync.Map //store like map[index]db.KVStore,index from 1...N
+		kvStores      sync.Map //store like map[index]db.KVStore,index from 1...N
 		topIndex      atomic.Value
 		timerFactory  *prometheustimer.TimerFactory
 		lifecycle     lifecycle.Lifecycle
@@ -135,11 +122,11 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(kvstore db.KVStore, indexer BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
+func NewBlockDAO(kvStore db.KVStore, indexers []BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
 	blockDAO := &blockDAO{
 		compressBlock: compressBlock,
-		kvstore:       kvstore,
-		indexer:       indexer,
+		kvStore:       kvStore,
+		indexers:      indexers,
 		cfg:           cfg,
 	}
 	if cfg.MaxCacheSize > 0 {
@@ -157,10 +144,11 @@ func NewBlockDAO(kvstore db.KVStore, indexer BlockIndexer, compressBlock bool, c
 		return nil
 	}
 	blockDAO.timerFactory = timerFactory
-	blockDAO.lifecycle.Add(kvstore)
-	if indexer != nil {
+	blockDAO.lifecycle.Add(kvStore)
+	for _, indexer := range indexers {
 		blockDAO.lifecycle.Add(indexer)
 	}
+
 	return blockDAO
 }
 
@@ -171,9 +159,9 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return errors.Wrap(err, "failed to start child services")
 	}
 	// set init height value
-	if _, err = dao.kvstore.Get(blockNS, topHeightKey); err != nil &&
+	if _, err = dao.kvStore.Get(blockNS, topHeightKey); err != nil &&
 		errors.Cause(err) == db.ErrNotExist {
-		if err := dao.kvstore.Put(blockNS, topHeightKey, make([]byte, 8)); err != nil {
+		if err := dao.kvStore.Put(blockNS, topHeightKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
 	}
@@ -204,7 +192,9 @@ func (dao *blockDAO) initStores() error {
 		if err != nil {
 			continue
 		}
-		dao.openDB(uint64(n))
+		if _, _, err := dao.openDB(uint64(n)); err != nil {
+			return err
+		}
 		if uint64(n) > maxN {
 			maxN = uint64(n)
 		}
@@ -217,10 +207,6 @@ func (dao *blockDAO) initStores() error {
 }
 
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
-
-func (dao *blockDAO) Commit() error {
-	return nil
-}
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return dao.getBlockHash(height)
@@ -322,13 +308,16 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 		return err
 	}
 	// index the block if there's indexer
-	if dao.indexer == nil {
-		return nil
+	for _, indexer := range dao.indexers {
+		if indexer == nil {
+			continue
+		}
+		if err := indexer.PutBlock(blk); err != nil {
+			return err
+		}
 	}
-	if err := dao.indexer.PutBlock(blk); err != nil {
-		return err
-	}
-	return dao.indexer.Commit()
+
+	return nil
 }
 
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
@@ -349,11 +338,15 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			return errors.Wrap(err, "failed to get tip block")
 		}
 		// delete block index if there's indexer
-		if dao.indexer != nil {
-			if err := dao.indexer.DeleteTipBlock(blk); err != nil {
+		for _, indexer := range dao.indexers {
+			if indexer == nil {
+				continue
+			}
+			if err := indexer.DeleteTipBlock(blk); err != nil {
 				return err
 			}
 		}
+
 		if err := dao.deleteTipBlock(); err != nil {
 			return err
 		}
@@ -368,7 +361,7 @@ func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
 	defer dao.mutex.Unlock()
 
 	if dao.htf == nil {
-		htf, err := db.NewRangeIndex(dao.kvstore, heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(dao.kvStore, heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return err
 		}
@@ -383,7 +376,7 @@ func (dao *blockDAO) GetFileIndex(height uint64) ([]byte, error) {
 	defer dao.mutex.RUnlock()
 
 	if dao.htf == nil {
-		htf, err := db.NewRangeIndex(dao.kvstore, heightToFileBucket, make([]byte, 8))
+		htf, err := db.NewRangeIndex(dao.kvStore, heightToFileBucket, make([]byte, 8))
 		if err != nil {
 			return nil, err
 		}
@@ -393,7 +386,7 @@ func (dao *blockDAO) GetFileIndex(height uint64) ([]byte, error) {
 }
 
 func (dao *blockDAO) KVStore() db.KVStore {
-	return dao.kvstore
+	return dao.kvStore
 }
 
 // getBlockHash returns the block hash by height
@@ -403,7 +396,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 		return h, nil
 	}
 	key := heightKey(height)
-	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
+	value, err := dao.kvStore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
 		return h, errors.Wrap(err, "failed to get block hash")
 	}
@@ -417,7 +410,7 @@ func (dao *blockDAO) getBlockHash(height uint64) (hash.Hash256, error) {
 // getBlockHeight returns the block height by hash
 func (dao *blockDAO) getBlockHeight(hash hash.Hash256) (uint64, error) {
 	key := hashKey(hash)
-	value, err := dao.kvstore.Get(blockHashHeightMappingNS, key)
+	value, err := dao.kvStore.Get(blockHashHeightMappingNS, key)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -552,7 +545,7 @@ func (dao *blockDAO) footer(h hash.Hash256) (*block.Footer, error) {
 
 // getTipHeight returns the blockchain height
 func (dao *blockDAO) getTipHeight() (uint64, error) {
-	value, err := dao.kvstore.Get(blockNS, topHeightKey)
+	value, err := dao.kvStore.Get(blockNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
@@ -564,7 +557,7 @@ func (dao *blockDAO) getTipHeight() (uint64, error) {
 
 // getTipHash returns the blockchain tip hash
 func (dao *blockDAO) getTipHash() (hash.Hash256, error) {
-	value, err := dao.kvstore.Get(blockNS, topHashKey)
+	value, err := dao.kvStore.Get(blockNS, topHashKey)
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrap(err, "failed to get tip hash")
 	}
@@ -572,11 +565,11 @@ func (dao *blockDAO) getTipHash() (hash.Hash256, error) {
 }
 
 func (dao *blockDAO) getReceipts(blkHeight uint64) ([]*action.Receipt, error) {
-	kvstore, _, err := dao.getDBFromHeight(blkHeight)
+	kvStore, _, err := dao.getDBFromHeight(blkHeight)
 	if err != nil {
 		return nil, err
 	}
-	value, err := kvstore.Get(receiptsNS, byteutil.Uint64ToBytes(blkHeight))
+	value, err := kvStore.Get(receiptsNS, byteutil.Uint64ToBytes(blkHeight))
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts of block %d", blkHeight)
 	}
@@ -667,7 +660,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	b.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
 	heightKey := heightKey(blkHeight)
 	b.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
-	tipHeight, err := dao.kvstore.Get(blockNS, topHeightKey)
+	tipHeight, err := dao.kvStore.Get(blockNS, topHeightKey)
 	if err != nil {
 		return errors.Wrap(err, "failed to get top height")
 	}
@@ -675,7 +668,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 		b.Put(blockNS, topHeightKey, heightValue, "failed to put top height")
 		b.Put(blockNS, topHashKey, hash[:], "failed to put top hash")
 	}
-	return dao.kvstore.WriteBatch(b)
+	return dao.kvStore.WriteBatch(b)
 }
 
 // deleteTipBlock deletes the tip block
@@ -734,7 +727,7 @@ func (dao *blockDAO) deleteTipBlock() error {
 	}
 	b.Put(blockNS, topHashKey, hash2[:], "failed to put top hash")
 
-	if err := dao.kvstore.WriteBatch(b); err != nil {
+	if err := dao.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
 	return whichDB.WriteBatch(batchForBlock)
@@ -749,9 +742,9 @@ func (dao *blockDAO) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
 	return dao.getDBFromHeight(height)
 }
 
-func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
+func (dao *blockDAO) getTopDB(blkHeight uint64) (kvStore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSizeMB == 0 || blkHeight <= dao.cfg.SplitDBHeight {
-		return dao.kvstore, 0, nil
+		return dao.kvStore, 0, nil
 	}
 	topIndex := dao.topIndex.Load().(uint64)
 	file, dir := getFileNameAndDir(dao.cfg.DbPath)
@@ -774,16 +767,16 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	}
 	// file exists,but need create new db
 	if uint64(dat.Size()) > dao.cfg.SplitDBSize() {
-		kvstore, index, err = dao.openDB(topIndex + 1)
+		kvStore, index, err = dao.openDB(topIndex + 1)
 		dao.topIndex.Store(index)
 		// index the height --> file index mapping
 		err = dao.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex))
 		return
 	}
-	// db exist,need load from kvstores
-	kv, ok := dao.kvstores.Load(topIndex)
+	// db exist,need load from kvStores
+	kv, ok := dao.kvStores.Load(topIndex)
 	if ok {
-		kvstore, ok = kv.(db.KVStore)
+		kvStore, ok = kv.(db.KVStore)
 		if !ok {
 			err = errors.New("db convert error")
 		}
@@ -794,12 +787,12 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvstore db.KVStore, index uint6
 	return dao.openDB(topIndex)
 }
 
-func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, index uint64, err error) {
+func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvStore db.KVStore, index uint64, err error) {
 	if dao.cfg.SplitDBSizeMB == 0 {
-		return dao.kvstore, 0, nil
+		return dao.kvStore, 0, nil
 	}
 	if blkHeight <= dao.cfg.SplitDBHeight {
-		return dao.kvstore, 0, nil
+		return dao.kvStore, 0, nil
 	}
 	// get file index
 	value, err := dao.GetFileIndex(blkHeight)
@@ -809,13 +802,13 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvstore db.KVStore, inde
 	return dao.getDBFromIndex(byteutil.BytesToUint64BigEndian(value))
 }
 
-func (dao *blockDAO) getDBFromIndex(idx uint64) (kvstore db.KVStore, index uint64, err error) {
+func (dao *blockDAO) getDBFromIndex(idx uint64) (kvStore db.KVStore, index uint64, err error) {
 	if idx == 0 {
-		return dao.kvstore, 0, nil
+		return dao.kvStore, 0, nil
 	}
-	kv, ok := dao.kvstores.Load(idx)
+	kv, ok := dao.kvStores.Load(idx)
 	if ok {
-		kvstore, ok = kv.(db.KVStore)
+		kvStore, ok = kv.(db.KVStore)
 		if !ok {
 			err = errors.New("db convert error")
 		}
@@ -851,9 +844,9 @@ func (dao *blockDAO) getBlockValue(blockNS string, h hash.Hash256) ([]byte, erro
 }
 
 // openDB open file if exists, or create new file
-func (dao *blockDAO) openDB(idx uint64) (kvstore db.KVStore, index uint64, err error) {
+func (dao *blockDAO) openDB(idx uint64) (kvStore db.KVStore, index uint64, err error) {
 	if idx == 0 {
-		return dao.kvstore, 0, nil
+		return dao.kvStore, 0, nil
 	}
 	dao.mutex.Lock()
 	defer dao.mutex.Unlock()
@@ -863,13 +856,13 @@ func (dao *blockDAO) openDB(idx uint64) (kvstore db.KVStore, index uint64, err e
 
 	// open or create this db file
 	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
-	kvstore = db.NewBoltDB(cfg)
-	dao.kvstores.Store(idx, kvstore)
-	err = kvstore.Start(context.Background())
+	kvStore = db.NewBoltDB(cfg)
+	dao.kvStores.Store(idx, kvStore)
+	err = kvStore.Start(context.Background())
 	if err != nil {
 		return
 	}
-	dao.lifecycle.Add(kvstore)
+	dao.lifecycle.Add(kvStore)
 	index = idx
 	return
 }

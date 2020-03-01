@@ -13,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -62,33 +64,71 @@ func accountUpdate(arg string) error {
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
-			fmt.Printf("#%s: Enter current password\n", account)
+			output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
 			currentPassword, err := util.ReadSecretFromStdin()
 			if err != nil {
 				return output.NewError(output.InputError, "failed to get current password", err)
 			}
 			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
 			if err != nil {
-				return output.NewError(output.KeystoreError, "failed to check current password", err)
+				return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
 			}
-			fmt.Printf("#%s: Enter new password\n", account)
+			output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
 			password, err := util.ReadSecretFromStdin()
 			if err != nil {
-				return output.NewError(output.InputError, "failed to get current password", err)
+				return output.NewError(output.InputError, "failed to get new password", err)
 			}
-			fmt.Printf("#%s: Enter new password again\n", account)
+			output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
 			passwordAgain, err := util.ReadSecretFromStdin()
 			if err != nil {
-				return output.NewError(output.InputError, "failed to get current password", err)
+				return output.NewError(output.InputError, "failed to get new password", err)
 			}
 			if password != passwordAgain {
 				return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 			}
+
 			if err := ks.Update(v, currentPassword, password); err != nil {
 				return output.NewError(output.KeystoreError, "failed to update keystore", err)
 			}
+
 			output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
+			return nil
 		}
 	}
-	return output.NewError(output.KeystoreError, fmt.Sprintf("account #%s not found", account), nil)
+
+	// find the pem file and update
+	filePath, err := findSm2PemFile(addr)
+	if err != nil {
+		return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
+	}
+
+	output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
+	currentPassword, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get current password", err)
+	}
+	_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
+	if err != nil {
+		return output.NewError(output.CryptoError, "error occurs when checking current password", err)
+	}
+	output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
+	password, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get new password", err)
+	}
+	output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
+	passwordAgain, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return output.NewError(output.InputError, "failed to get new password", err)
+	}
+	if password != passwordAgain {
+		return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+	}
+
+	if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, password); err != nil {
+		return output.NewError(output.KeystoreError, "failed to update pem file", err)
+	}
+
+	output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
+	return nil
 }

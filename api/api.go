@@ -9,7 +9,6 @@ package api
 import (
 	"context"
 	"encoding/hex"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"math"
 	"math/big"
 	"net"
@@ -19,11 +18,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -32,8 +26,15 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-election/committee"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -101,7 +102,7 @@ type Server struct {
 	cfg               config.Config
 	registry          *protocol.Registry
 	chainListener     Listener
-	grpcserver        *grpc.Server
+	grpcServer        *grpc.Server
 	hasActionIndex    bool
 	electionCommittee committee.Committee
 }
@@ -149,13 +150,13 @@ func NewServer(
 	if _, ok := cfg.Plugins[config.GatewayPlugin]; ok {
 		svr.hasActionIndex = true
 	}
-	svr.grpcserver = grpc.NewServer(
+	svr.grpcServer = grpc.NewServer(
 		grpc.StreamInterceptor(grpc_prometheus.StreamServerInterceptor),
 		grpc.UnaryInterceptor(grpc_prometheus.UnaryServerInterceptor),
 	)
-	iotexapi.RegisterAPIServiceServer(svr.grpcserver, svr)
-	grpc_prometheus.Register(svr.grpcserver)
-	reflection.Register(svr.grpcserver)
+	iotexapi.RegisterAPIServiceServer(svr.grpcServer, svr)
+	grpc_prometheus.Register(svr.grpcServer)
+	reflection.Register(svr.grpcServer)
 
 	return svr, nil
 }
@@ -488,20 +489,27 @@ func (api *Server) GetEpochMeta(
 	ctx context.Context,
 	in *iotexapi.GetEpochMetaRequest,
 ) (*iotexapi.GetEpochMetaResponse, error) {
-	if in.EpochNumber < 1 {
-		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
-	}
+	// TODO : support archive mode to retrieve historic data, now only support tip epoch number
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
 		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
 	}
-	epochHeight := rp.GetEpochHeight(in.EpochNumber)
+	tipHeight := api.bc.TipHeight()
+	tipEpochNumber := rp.GetEpochNum(tipHeight)
+	if in.EpochNumber > 0 {
+		if in.EpochNumber < tipEpochNumber {
+			return nil, status.Error(codes.InvalidArgument, "old epoch number isn't available with non-archive node")
+		} else if in.EpochNumber > tipEpochNumber {
+			return nil, status.Error(codes.InvalidArgument, "future epoch number is invalid argument")
+		}
+	}
+	epochHeight := rp.GetEpochHeight(tipEpochNumber)
 	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	epochData := &iotextypes.EpochData{
-		Num:                     in.EpochNumber,
+		Num:                     tipEpochNumber,
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
@@ -509,7 +517,7 @@ func (api *Server) GetEpochMeta(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, in.EpochNumber)
+	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, tipEpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -519,7 +527,7 @@ func (api *Server) GetEpochMeta(
 		return nil, status.Error(codes.Internal, "poll protocol is not registered")
 	}
 	methodName := []byte("BlockProducersByEpoch")
-	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
+	arguments := [][]byte{byteutil.Uint64ToBytes(tipEpochNumber)}
 	data, err := api.readState(context.Background(), pp, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -740,7 +748,7 @@ func (api *Server) Start() error {
 	log.L().Info("API server is listening.", zap.String("addr", lis.Addr().String()))
 
 	go func() {
-		if err := api.grpcserver.Serve(lis); err != nil {
+		if err := api.grpcServer.Serve(lis); err != nil {
 			log.L().Fatal("Node failed to serve.", zap.Error(err))
 		}
 	}()
@@ -755,7 +763,7 @@ func (api *Server) Start() error {
 
 // Stop stops the API server
 func (api *Server) Stop() error {
-	api.grpcserver.Stop()
+	api.grpcServer.Stop()
 	if err := api.bc.RemoveSubscriber(api.chainListener); err != nil {
 		return errors.Wrap(err, "failed to unsubscribe blockchain listener")
 	}
@@ -764,12 +772,16 @@ func (api *Server) Stop() error {
 
 func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodName []byte, arguments ...[]byte) ([]byte, error) {
 	// TODO: need to complete the context
+	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: api.bc.TipHeight(),
+		BlockHeight: tipHeight,
 	})
 	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
 		Registry: api.registry,
 		Genesis:  api.cfg.Genesis,
+		Tip: protocol.TipInfo{
+			Height: tipHeight,
+		},
 	})
 
 	// TODO: need to distinguish user error and system error

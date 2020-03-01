@@ -9,9 +9,10 @@ package staking
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -23,7 +24,8 @@ const protocolID = "staking"
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	addr address.Address
+	inMemCandidates CandidateMap
+	addr            address.Address
 }
 
 // NewProtocol instantiates the protocol of staking
@@ -39,13 +41,51 @@ func NewProtocol() *Protocol {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	//TODO
+	switch act := act.(type) {
+	case *action.CreateStake:
+		return p.handleCreateStake(ctx, act, sm)
+	case *action.Unstake:
+		return p.handleUnstake(ctx, act, sm)
+	case *action.WithdrawStake:
+		return p.handleWithdrawStake(ctx, act, sm)
+	case *action.ChangeCandidate:
+		return p.handleChangeCandidate(ctx, act, sm)
+	case *action.TransferStake:
+		return p.handleTransferStake(ctx, act, sm)
+	case *action.DepositToStake:
+		return p.handleDepositToStake(ctx, act, sm)
+	case *action.Restake:
+		return p.handleRestake(ctx, act, sm)
+	case *action.CandidateRegister:
+		return p.handleCandidateRegister(ctx, act, sm)
+	case *action.CandidateUpdate:
+		return p.handleCandidateUpdate(ctx, act, sm)
+	}
 	return nil, nil
 }
 
 // Validate validates a staking message
 func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	//TODO
+	switch act := act.(type) {
+	case *action.CreateStake:
+		return p.validateCreateStake(ctx, act)
+	case *action.Unstake:
+		return p.validateUnstake(ctx, act)
+	case *action.WithdrawStake:
+		return p.validateWithdrawStake(ctx, act)
+	case *action.ChangeCandidate:
+		return p.validateChangeCandidate(ctx, act)
+	case *action.TransferStake:
+		return p.validateTransferStake(ctx, act)
+	case *action.DepositToStake:
+		return p.validateDepositToStake(ctx, act)
+	case *action.Restake:
+		return p.validateRestake(ctx, act)
+	case *action.CandidateRegister:
+		return p.validateCandidateRegister(ctx, act)
+	case *action.CandidateUpdate:
+		return p.validateCandidateUpdate(ctx, act)
+	}
 	return nil
 }
 

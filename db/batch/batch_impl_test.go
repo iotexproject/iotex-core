@@ -7,6 +7,7 @@
 package batch
 
 import (
+	"bytes"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -25,6 +26,46 @@ var (
 	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
 )
 
+func TestBaseKVStoreBatch(t *testing.T) {
+	b := NewBatch()
+	require.Equal(t, 0, b.Size())
+	b.Put("ns", []byte{}, []byte{}, "")
+	require.Equal(t, 1, b.Size())
+	_, err := b.Entry(1)
+	require.Error(t, err)
+	b.Delete("ns", []byte{}, "")
+	require.Equal(t, 2, b.Size())
+	wi, err := b.Entry(1)
+	require.NoError(t, err)
+	require.Equal(t, Delete, wi.WriteType())
+	require.True(t, bytes.Equal([]byte{0, 110, 115, 1, 110, 115}, b.SerializeQueue(nil, nil)))
+	require.True(t, bytes.Equal([]byte{}, b.SerializeQueue(nil, func(wi *WriteInfo) bool {
+		return wi.Namespace() == "ns"
+	})))
+	require.True(t, bytes.Equal([]byte{110, 115, 110, 115}, b.SerializeQueue(func(wi *WriteInfo) []byte {
+		return wi.SerializeWithoutWriteType()
+	}, nil)))
+	newb := b.Translate(func(wi *WriteInfo) *WriteInfo {
+		if wi.WriteType() == Delete {
+			return NewWriteInfo(
+				Put,
+				"to_delete_ns",
+				wi.Key(),
+				wi.Value(),
+				"",
+				nil,
+			)
+		}
+		return wi
+	})
+	newEntry1, err := newb.Entry(1)
+	require.NoError(t, err)
+	require.Equal(t, "to_delete_ns", newEntry1.Namespace())
+	require.Equal(t, Put, newEntry1.WriteType())
+	b.Clear()
+	require.Equal(t, 0, b.Size())
+}
+
 func TestCachedBatch(t *testing.T) {
 	require := require.New(t)
 
@@ -36,6 +77,8 @@ func TestCachedBatch(t *testing.T) {
 	v, err = cb.Get(bucket1, testK2[0])
 	require.Equal(ErrNotExist, err)
 	require.Equal([]byte(nil), v)
+	si := cb.Snapshot()
+	require.Equal(0, si)
 
 	cb.Delete(bucket1, testK2[0], "")
 	cb.Delete(bucket1, testK1[0], "")
@@ -55,15 +98,35 @@ func TestCachedBatch(t *testing.T) {
 	require.Equal(testK1[0], w.key)
 	require.Equal([]byte(nil), w.value)
 	require.Equal(Delete, w.writeType)
-
-	// test ExcludeEntries
-	d := cb.SerializeQueue(nil)
+	require.True(bytes.Equal(
+		[]byte{116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49, 118, 97, 108, 117, 101, 95, 49, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 52, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49},
+		cb.SerializeQueue(func(wi *WriteInfo) []byte {
+			return wi.SerializeWithoutWriteType()
+		}, nil),
+	))
+	require.True(bytes.Equal([]byte{116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49, 118, 97, 108, 117, 101, 95, 49}, cb.SerializeQueue(func(wi *WriteInfo) []byte {
+		return wi.SerializeWithoutWriteType()
+	}, func(wi *WriteInfo) bool {
+		return wi.WriteType() == Delete
+	})))
+	require.True(bytes.Equal(
+		[]byte{0, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49, 118, 97, 108, 117, 101, 95, 49, 1, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 52, 1, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49},
+		cb.SerializeQueue(nil, nil),
+	))
+	require.True(bytes.Equal([]byte{0, 116, 101, 115, 116, 95, 110, 115, 49, 107, 101, 121, 95, 49, 118, 97, 108, 117, 101, 95, 49}, cb.SerializeQueue(nil, func(wi *WriteInfo) bool {
+		return wi.WriteType() == Delete
+	})))
 	require.Equal(3, cb.Size())
-	r := cb.ExcludeEntries(bucket1, Delete)
-	require.Equal(1, r.Size())
-	require.NotEqual(d, r.SerializeQueue(nil))
-	r = cb.ExcludeEntries("", Put)
-	require.Equal(2, r.Size())
+	require.Error(cb.Revert(-1))
+	require.Error(cb.Revert(si + 1))
+	require.NoError(cb.Revert(si))
+	require.Equal(1, cb.Size())
+	require.True(bytes.Equal([]byte{}, cb.Translate(func(wi *WriteInfo) *WriteInfo {
+		if wi.WriteType() != Delete {
+			return nil
+		}
+		return wi
+	}).SerializeQueue(nil, nil)))
 }
 
 func TestSnapshot(t *testing.T) {
@@ -162,7 +225,7 @@ func BenchmarkCachedBatch_Digest(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		b.StartTimer()
-		h := cb.SerializeQueue(nil)
+		h := cb.SerializeQueue(nil, nil)
 		b.StopTimer()
 		require.NotEqual(b, hash.ZeroHash256, h)
 	}

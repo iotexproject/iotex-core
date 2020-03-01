@@ -168,7 +168,7 @@ func (p *Protocol) CreateGenesisStates(
 // BlockReward returns the block reward amount
 func (p *Protocol) BlockReward(
 	_ context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
@@ -180,7 +180,7 @@ func (p *Protocol) BlockReward(
 // EpochReward returns the epoch reward amount
 func (p *Protocol) EpochReward(
 	_ context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
@@ -202,7 +202,7 @@ func (p *Protocol) NumDelegatesForEpochReward(
 }
 
 // FoundationBonus returns the foundation bonus amount
-func (p *Protocol) FoundationBonus(_ context.Context, sm protocol.StateManager) (*big.Int, error) {
+func (p *Protocol) FoundationBonus(_ context.Context, sm protocol.StateReader) (*big.Int, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
@@ -211,7 +211,7 @@ func (p *Protocol) FoundationBonus(_ context.Context, sm protocol.StateManager) 
 }
 
 // FoundationBonusLastEpoch returns the last epoch when the foundation bonus will still be granted
-func (p *Protocol) FoundationBonusLastEpoch(_ context.Context, sm protocol.StateManager) (uint64, error) {
+func (p *Protocol) FoundationBonusLastEpoch(_ context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return 0, err
@@ -220,7 +220,7 @@ func (p *Protocol) FoundationBonusLastEpoch(_ context.Context, sm protocol.State
 }
 
 // NumDelegatesForFoundationBonus returns the number of delegates that will get foundation bonus
-func (p *Protocol) NumDelegatesForFoundationBonus(_ context.Context, sm protocol.StateManager) (uint64, error) {
+func (p *Protocol) NumDelegatesForFoundationBonus(_ context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
 	if err := p.state(sm, adminKey, &a); err != nil {
 		return 0, err

@@ -42,13 +42,6 @@ mockgen -destination=./test/mock/mock_factory/mock_factory.go  \
         -package=mock_factory \
         Factory
 
-mkdir -p ./test/mock/mock_factory
-mockgen -destination=./test/mock/mock_factory/mock_workingset.go  \
-        -source=./state/factory/workingset.go \
-        -imports =github.com/iotexproject/iotex-core/state/factory \
-        -package=mock_factory \
-        WorkingSet
-
 mkdir -p ./test/mock/mock_consensus
 mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -source=./consensus/consensus.go \
@@ -85,7 +78,7 @@ mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -package=protocol \
         Protocol
 
-mockgen -destination=./db/mock_kvstore_test.go  \
+mockgen -destination=./db/mock_kvstore.go  \
         -source=./db/kvstore.go \
         -self_package=github.com/iotexproject/iotex-core/db \
         -package=db \

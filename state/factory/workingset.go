@@ -8,7 +8,6 @@ package factory
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -17,12 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -33,102 +27,63 @@ var (
 		},
 		[]string{"type"},
 	)
-	dbBatchSizelMtc = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "iotex_db_batch_size",
-			Help: "DB batch size",
-		},
-		[]string{},
-	)
 )
 
 func init() {
 	prometheus.MustRegister(stateDBMtc)
-	prometheus.MustRegister(dbBatchSizelMtc)
 }
 
 type (
-	// WorkingSet defines an interface for working set of states changes
-	WorkingSet interface {
-		protocol.StateManager
-		// states and actions
-		RunAction(context.Context, action.SealedEnvelope) (*action.Receipt, error)
-		RunActions(context.Context, []action.SealedEnvelope) ([]*action.Receipt, error)
-		Finalize() error
-		Commit() error
-		RootHash() (hash.Hash256, error)
-		Digest() (hash.Hash256, error)
-		Version() uint64
-		History() bool
+	workingSet struct {
+		height       uint64
+		finalized    bool
+		commitFunc   func(uint64) error
+		dbFunc       func() db.KVStore
+		delStateFunc func(string, []byte) error
+		digestFunc   func() hash.Hash256
+		finalizeFunc func(uint64) error
+		getStateFunc func(string, []byte, interface{}) error
+		putStateFunc func(string, []byte, interface{}) error
+		revertFunc   func(int) error
+		snapshotFunc func() int
 	}
 
-	// workingSet implements WorkingSet interface, tracks pending changes to account/contract in local cache
-	workingSet struct {
-		finalized   bool
-		blockHeight uint64
-		saveHistory bool
-		accountTrie trie.Trie            // global account state trie
-		trieRoots   map[int]hash.Hash256 // root of trie at time of snapshot
-		cb          batch.CachedBatch    // cached batch for pending writes
-		dao         db.KVStore           // the underlying DB for account/contract storage
+	workingSetCreator interface {
+		newWorkingSet(context.Context, uint64) (*workingSet, error)
 	}
 )
 
-// newWorkingSet creates a new working set
-func newWorkingSet(
-	height uint64,
-	kv db.KVStore,
-	root hash.Hash256,
-	saveHistory bool,
-) (WorkingSet, error) {
-	ws := &workingSet{
-		finalized:   false,
-		blockHeight: height,
-		saveHistory: saveHistory,
-		trieRoots:   make(map[int]hash.Hash256),
-		cb:          batch.NewCachedBatch(),
-		dao:         kv,
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(ws.cb))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate state tire db")
-	}
-	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(root[:]))
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to generate state trie from config")
-	}
-	ws.accountTrie = tr
-	if err := ws.accountTrie.Start(context.Background()); err != nil {
-		return nil, errors.Wrapf(err, "failed to load state trie from root = %x", root)
-	}
-	return ws, nil
-}
-
-// RootHash returns the hash of the root node of the accountTrie
-func (ws *workingSet) RootHash() (hash.Hash256, error) {
-	if !ws.finalized {
-		return hash.ZeroHash256, errors.Errorf("working set has not been finalized")
-	}
-	return hash.BytesToHash256(ws.accountTrie.RootHash()), nil
-}
-
 // Digest returns the delta state digest
 func (ws *workingSet) Digest() (hash.Hash256, error) {
-	return hash.ZeroHash256, nil
+	if !ws.finalized {
+		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
+	}
+	return ws.digestFunc(), nil
 }
 
 // Version returns the Version of this working set
 func (ws *workingSet) Version() uint64 {
-	return ws.blockHeight
+	return ws.height
 }
 
 // Height returns the Height of the block being worked on
 func (ws *workingSet) Height() (uint64, error) {
-	return ws.blockHeight, nil
+	return ws.height, nil
 }
 
-func (ws *workingSet) History() bool {
-	return ws.saveHistory
+func (ws *workingSet) validate(ctx context.Context) error {
+	if ws.finalized {
+		return errors.Errorf("cannot run action on a finalized working set")
+	}
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	if blkCtx.BlockHeight != ws.height {
+		return errors.Errorf(
+			"invalid block height %d, %d expected",
+			blkCtx.BlockHeight,
+			ws.height,
+		)
+	}
+	return nil
 }
 
 // RunActions runs actions in the block and track pending changes in working set
@@ -136,6 +91,9 @@ func (ws *workingSet) RunActions(
 	ctx context.Context,
 	elps []action.SealedEnvelope,
 ) ([]*action.Receipt, error) {
+	if err := ws.validate(ctx); err != nil {
+		return nil, err
+	}
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
@@ -155,6 +113,9 @@ func (ws *workingSet) RunAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
+	if err := ws.validate(ctx); err != nil {
+		return nil, err
+	}
 	return ws.runAction(ctx, elp)
 }
 
@@ -162,20 +123,9 @@ func (ws *workingSet) runAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
-	if ws.finalized {
-		return nil, errors.Errorf("cannot run action on a finalized working set")
-	}
 	// Handle action
 	var actionCtx protocol.ActionCtx
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if blkCtx.BlockHeight != ws.blockHeight {
-		return nil, errors.Errorf(
-			"invalid block height %d, %d expected",
-			blkCtx.BlockHeight,
-			ws.blockHeight,
-		)
-	}
 	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
@@ -217,132 +167,69 @@ func (ws *workingSet) Finalize() error {
 	if ws.finalized {
 		return errors.New("Cannot finalize a working set twice")
 	}
+	if err := ws.finalizeFunc(ws.height); err != nil {
+		return err
+	}
 	ws.finalized = true
-	// Persist accountTrie's root hash
-	rootHash := ws.accountTrie.RootHash()
-	ws.cb.Put(protocol.AccountNameSpace, []byte(AccountTrieRootKey), rootHash, "failed to store accountTrie's root hash")
-	// Persist current chain Height
-	h := byteutil.Uint64ToBytes(ws.blockHeight)
-	ws.cb.Put(protocol.AccountNameSpace, []byte(CurrentHeightKey), h, "failed to store accountTrie's current Height")
-	// Persist the historical accountTrie's root hash
-	ws.cb.Put(
-		protocol.AccountNameSpace,
-		[]byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, ws.blockHeight)),
-		rootHash,
-		"failed to store accountTrie's root hash",
-	)
+
 	return nil
 }
 
 func (ws *workingSet) Snapshot() int {
-	s := ws.cb.Snapshot()
-	ws.trieRoots[s] = hash.BytesToHash256(ws.accountTrie.RootHash())
-	return s
+	return ws.snapshotFunc()
 }
 
 func (ws *workingSet) Revert(snapshot int) error {
-	if err := ws.cb.Revert(snapshot); err != nil {
-		return err
-	}
-	root, ok := ws.trieRoots[snapshot]
-	if !ok {
-		// this should not happen, b/c we save the trie root on a successful return of Snapshot(), but check anyway
-		return errors.Wrapf(trie.ErrInvalidTrie, "failed to get trie root for snapshot = %d", snapshot)
-	}
-	return ws.accountTrie.SetRootHash(root[:])
+	return ws.revertFunc(snapshot)
 }
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
-	// Commit all changes in a batch
-	dbBatchSizelMtc.WithLabelValues().Set(float64(ws.cb.Size()))
-	var cb batch.KVStoreBatch
-	if ws.saveHistory {
-		// exclude trie deletion
-		cb = ws.cb.ExcludeEntries("", batch.Delete)
-	} else {
-		cb = ws.cb
-	}
-	if err := ws.dao.WriteBatch(cb); err != nil {
-		return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
-	}
-	ws.clear()
-	return nil
+	return ws.commitFunc(ws.height)
 }
 
 // GetDB returns the underlying DB for account/contract storage
 func (ws *workingSet) GetDB() db.KVStore {
-	return ws.dao
+	return ws.dbFunc()
 }
 
-// GetCachedBatch returns the cached batch for pending writes
-func (ws *workingSet) GetCachedBatch() batch.CachedBatch {
-	return ws.cb
+func (ws *workingSet) processNonArchiveOptions(opts ...protocol.StateOption) (string, []byte, error) {
+	archive, height, ns, key, err := processOptions(opts...)
+	if err != nil {
+		return ns, key, err
+	}
+	if archive && height != ws.height {
+		return ns, key, ErrNotSupported
+	}
+	return ns, key, nil
 }
 
 // State pulls a state from DB
-func (ws *workingSet) State(hash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("get").Inc()
-	mstate, err := ws.accountTrie.Get(hash[:])
-	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
-	}
+	ns, key, err := ws.processNonArchiveOptions(opts...)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get account of %x", hash)
+		return ws.height, err
 	}
-	return state.Deserialize(s, mstate)
-}
-
-// StateAtHeight pulls a state from DB
-func (ws *workingSet) StateAtHeight(height uint64, hash hash.Hash160, s interface{}) error {
-	if !ws.saveHistory {
-		return ErrNoArchiveData
-	}
-	// get root through height
-	rootHash, err := ws.dao.Get(protocol.AccountNameSpace, []byte(fmt.Sprintf("%s-%d", AccountTrieRootKey, height)))
-	if err != nil {
-		return errors.Wrap(err, "failed to get root hash through height")
-	}
-	dbForTrie, err := db.NewKVStoreForTrie(protocol.AccountNameSpace, evm.PruneKVNameSpace, ws.dao, db.CachedBatchOption(batch.NewCachedBatch()))
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state tire db")
-	}
-	tr, err := trie.NewTrie(trie.KVStoreOption(dbForTrie), trie.RootHashOption(rootHash))
-	if err != nil {
-		return errors.Wrap(err, "failed to generate state trie from config")
-	}
-	err = tr.Start(context.Background())
-	if err != nil {
-		return err
-	}
-	defer tr.Stop(context.Background())
-	mstate, err := tr.Get(hash[:])
-	if errors.Cause(err) == trie.ErrNotExist {
-		return errors.Wrapf(state.ErrStateNotExist, "addrHash = %x", hash[:])
-	}
-	if err != nil {
-		return errors.Wrapf(err, "failed to get account of %x", hash)
-	}
-	return state.Deserialize(s, mstate)
+	return ws.height, ws.getStateFunc(ns, key, s)
 }
 
 // PutState puts a state into DB
-func (ws *workingSet) PutState(pkHash hash.Hash160, s interface{}, opts ...protocol.StateOption) error {
+func (ws *workingSet) PutState(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	stateDBMtc.WithLabelValues("put").Inc()
-	ss, err := state.Serialize(s)
+	ns, key, err := ws.processNonArchiveOptions(opts...)
 	if err != nil {
-		return errors.Wrapf(err, "failed to convert account %v to bytes", s)
+		return ws.height, err
 	}
-	return ws.accountTrie.Upsert(pkHash[:], ss)
+	return ws.height, ws.putStateFunc(ns, key, s)
 }
 
 // DelState deletes a state from DB
-func (ws *workingSet) DelState(pkHash hash.Hash160, opts ...protocol.StateOption) error {
-	return ws.accountTrie.Delete(pkHash[:])
-}
-
-// clearCache removes all local changes after committing to trie
-func (ws *workingSet) clear() {
-	ws.trieRoots = nil
-	ws.trieRoots = make(map[int]hash.Hash256)
+func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
+	stateDBMtc.WithLabelValues("delete").Inc()
+	ns, key, err := ws.processNonArchiveOptions(opts...)
+	if err != nil {
+		return ws.height, err
+	}
+	return ws.height, ws.delStateFunc(ns, key)
 }

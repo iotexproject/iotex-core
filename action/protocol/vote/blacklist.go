@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,6 +7,8 @@
 package vote
 
 import (
+	"sort"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
@@ -16,7 +18,7 @@ import (
 //Blacklist defines a map where key is candidate's name and value is the counter which counts the unproductivity during kick-out epoch.
 type Blacklist struct {
 	BlacklistInfos map[string]uint32
-	IntensityRate  float64
+	IntensityRate  uint32
 }
 
 // Serialize serializes map of blacklist to bytes
@@ -27,16 +29,20 @@ func (bl *Blacklist) Serialize() ([]byte, error) {
 // Proto converts the blacklist to a protobuf message
 func (bl *Blacklist) Proto() *iotextypes.KickoutCandidateList {
 	kickoutListPb := make([]*iotextypes.KickoutInfo, 0, len(bl.BlacklistInfos))
-	for name, count := range bl.BlacklistInfos {
-		kickoutpb := &iotextypes.KickoutInfo{
+	names := make([]string, 0, len(bl.BlacklistInfos))
+	for name := range bl.BlacklistInfos {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		kickoutListPb = append(kickoutListPb, &iotextypes.KickoutInfo{
 			Address: name,
-			Count:   count,
-		}
-		kickoutListPb = append(kickoutListPb, kickoutpb)
+			Count:   bl.BlacklistInfos[name],
+		})
 	}
 	return &iotextypes.KickoutCandidateList{
 		Blacklists:    kickoutListPb,
-		IntensityRate: uint32(bl.IntensityRate * 100),
+		IntensityRate: bl.IntensityRate,
 	}
 }
 
@@ -57,7 +63,7 @@ func (bl *Blacklist) LoadProto(blackListpb *iotextypes.KickoutCandidateList) err
 		blackListMap[cand.Address] = cand.Count
 	}
 	bl.BlacklistInfos = blackListMap
-	bl.IntensityRate = float64(blackListpb.IntensityRate) / float64(100)
+	bl.IntensityRate = blackListpb.IntensityRate
 
 	return nil
 }

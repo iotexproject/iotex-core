@@ -15,11 +15,9 @@ import (
 )
 
 func TestKVStoreForTrie_ErrNotExist(t *testing.T) {
-	store, err := NewKVStoreForTrie("test", "prune", NewMemKVStore())
+	store, err := NewKVStoreForTrie("test", NewMemKVStore())
 	require.NoError(t, err)
 	require.NoError(t, store.Put([]byte("key"), []byte("value1")))
-	require.NoError(t, store.Flush())
-	// Once delete, even before flush, it should still return ErrNotExist
 	require.NoError(t, store.Delete([]byte("key")))
 	_, err = store.Get([]byte("key"))
 	require.Equal(t, ErrNotExist, errors.Cause(err))

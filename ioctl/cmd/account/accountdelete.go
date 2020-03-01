@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -18,6 +19,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -62,39 +64,52 @@ func accountDelete(arg string) error {
 		return output.NewError(output.ConvertError, fmt.Sprintf("failed to convert string into address"),
 			nil)
 	}
+
+	var filePath string
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
 		if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-			var confirm string
-			info := fmt.Sprintf("** This is an irreversible action!\n" +
-				"Once an account is deleted, all the assets under this account may be lost!\n" +
-				"Type 'YES' to continue, quit for anything else.")
-			message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
-			fmt.Println(message.String())
-			fmt.Scanf("%s", &confirm)
-			if !strings.EqualFold(confirm, "yes") {
-				output.PrintResult("quit")
-				return nil
-			}
-
-			if err := os.Remove(v.URL.Path); err != nil {
-				return output.NewError(output.WriteFileError, "failed to remove keystore file", err)
-			}
-
-			aliases := alias.GetAliasMap()
-			delete(config.ReadConfig.Aliases, aliases[addr])
-			out, err := yaml.Marshal(&config.ReadConfig)
-			if err != nil {
-				return output.NewError(output.SerializationError, "", err)
-			}
-			if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-				return output.NewError(output.WriteFileError,
-					fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile), err)
-			}
-			output.PrintResult(fmt.Sprintf("Account #%s has been deleted.", addr))
-			return nil
+			filePath = v.URL.Path
 		}
 	}
-	return output.NewError(output.ValidationError, fmt.Sprintf("account #%s not found", addr), nil)
+	if filePath == "" {
+		filePath = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
+	}
+
+	// check whether crypto file exists
+	_, err = os.Stat(filePath)
+	if err != nil {
+		return output.NewError(output.CryptoError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
+	}
+
+	var confirm string
+	info := fmt.Sprintf("** This is an irreversible action!\n" +
+		"Once an account is deleted, all the assets under this account may be lost!\n" +
+		"Type 'YES' to continue, quit for anything else.")
+	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+	fmt.Println(message.String())
+	fmt.Scanf("%s", &confirm)
+	if !strings.EqualFold(confirm, "yes") {
+		output.PrintResult("quit")
+		return nil
+	}
+
+	if err := os.Remove(filePath); err != nil {
+		return output.NewError(output.WriteFileError, "failed to remove keystore or pem file", err)
+	}
+
+	aliases := alias.GetAliasMap()
+	delete(config.ReadConfig.Aliases, aliases[addr])
+	out, err := yaml.Marshal(&config.ReadConfig)
+	if err != nil {
+		return output.NewError(output.SerializationError, "", err)
+	}
+	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("Failed to write to config file %s.", config.DefaultConfigFile), err)
+	}
+
+	output.PrintResult(fmt.Sprintf("Account #%s has been deleted.", addr))
+	return nil
 }

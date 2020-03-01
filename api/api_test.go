@@ -983,6 +983,8 @@ func TestServer_GetChainMeta(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
 				nil,
+				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -996,6 +998,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickoutEpochPeriod,
 				cfg.Genesis.KickoutIntensityRate,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 			)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1250,6 +1253,8 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
+				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1263,6 +1268,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickoutEpochPeriod,
 				cfg.Genesis.KickoutIntensityRate,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1310,6 +1316,8 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
+				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1323,6 +1331,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickoutEpochPeriod,
 				cfg.Genesis.KickoutIntensityRate,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1348,8 +1357,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1372,6 +1381,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
+				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1385,6 +1396,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickoutEpochPeriod,
 				cfg.Genesis.KickoutIntensityRate,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 			)
 		}
 		svr, err := createServer(cfg, false)
@@ -1444,8 +1456,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {
@@ -1491,6 +1503,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 					}, nil
 				},
 				nil,
+				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1504,11 +1518,12 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.KickoutEpochPeriod,
 				cfg.Genesis.KickoutIntensityRate,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 			)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
@@ -1792,7 +1807,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), indexer, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
@@ -1820,8 +1835,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(cfg.Genesis.KickoutIntensityRate,
-		nil,
+	r := rewarding.NewProtocol(
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil
 		})

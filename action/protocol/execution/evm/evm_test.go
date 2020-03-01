@@ -20,8 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
@@ -33,12 +31,8 @@ func TestExecuteContractFailure(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 
 	e, err := action.NewExecution(
@@ -76,10 +70,6 @@ func TestConstantinople(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	store := db.NewMemKVStore()
-	sm.EXPECT().GetDB().Return(store).AnyTimes()
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		Caller: identityset.Address(27),

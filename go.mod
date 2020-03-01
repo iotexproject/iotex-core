@@ -9,18 +9,18 @@ require (
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
-	github.com/golang/mock v1.3.1
+	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.2
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.12
-	github.com/iotexproject/go-pkgs v0.1.2-0.20200117212133-15c2790a2fb3
+	github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.11
-	github.com/iotexproject/iotex-proto v0.2.6-0.20200201013018-9c93f55b41c7
+	github.com/iotexproject/iotex-proto v0.2.6-0.20200227230051-655e61a7efa7
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
@@ -30,6 +30,7 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.0.0
 	github.com/rs/zerolog v1.14.3
+	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.4.0
 	go.etcd.io/bbolt v1.3.2

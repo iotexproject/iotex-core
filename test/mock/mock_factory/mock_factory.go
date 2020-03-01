@@ -7,13 +7,11 @@ package mock_factory
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	hash "github.com/iotexproject/go-pkgs/hash"
 	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	factory "github.com/iotexproject/iotex-core/state/factory"
 	reflect "reflect"
 )
 
@@ -84,51 +82,23 @@ func (mr *MockFactoryMockRecorder) Height() *gomock.Call {
 }
 
 // State mocks base method
-func (m *MockFactory) State(arg0 hash.Hash160, arg1 interface{}, arg2 ...protocol.StateOption) error {
+func (m *MockFactory) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "State", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// State indicates an expected call of State
-func (mr *MockFactoryMockRecorder) State(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
-}
-
-// StateAtHeight mocks base method
-func (m *MockFactory) StateAtHeight(arg0 uint64, arg1 hash.Hash160, arg2 interface{}) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "StateAtHeight", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// StateAtHeight indicates an expected call of StateAtHeight
-func (mr *MockFactoryMockRecorder) StateAtHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateAtHeight", reflect.TypeOf((*MockFactory)(nil).StateAtHeight), arg0, arg1, arg2)
-}
-
-// NewWorkingSet mocks base method
-func (m *MockFactory) NewWorkingSet() (factory.WorkingSet, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewWorkingSet")
-	ret0, _ := ret[0].(factory.WorkingSet)
+	ret0, _ := ret[0].(uint64)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NewWorkingSet indicates an expected call of NewWorkingSet
-func (mr *MockFactoryMockRecorder) NewWorkingSet() *gomock.Call {
+// State indicates an expected call of State
+func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewWorkingSet", reflect.TypeOf((*MockFactory)(nil).NewWorkingSet))
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
 }
 
 // Validate mocks base method
@@ -143,6 +113,21 @@ func (m *MockFactory) Validate(arg0 context.Context, arg1 *block.Block) error {
 func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockFactory)(nil).Validate), arg0, arg1)
+}
+
+// NewBlockBuilder mocks base method
+func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) (*block.Builder, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
+	ret0, _ := ret[0].(*block.Builder)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewBlockBuilder indicates an expected call of NewBlockBuilder
+func (mr *MockFactoryMockRecorder) NewBlockBuilder(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockFactory)(nil).NewBlockBuilder), arg0, arg1, arg2)
 }
 
 // SimulateExecution mocks base method
@@ -173,18 +158,4 @@ func (m *MockFactory) Commit(arg0 context.Context, arg1 *block.Block) error {
 func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
-}
-
-// DeleteWorkingSet mocks base method
-func (m *MockFactory) DeleteWorkingSet(arg0 *block.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteWorkingSet", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// DeleteWorkingSet indicates an expected call of DeleteWorkingSet
-func (mr *MockFactoryMockRecorder) DeleteWorkingSet(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteWorkingSet", reflect.TypeOf((*MockFactory)(nil).DeleteWorkingSet), arg0)
 }

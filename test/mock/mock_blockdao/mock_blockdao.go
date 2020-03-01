@@ -243,20 +243,6 @@ func (mr *MockBlockDAOMockRecorder) PutBlock(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockBlockDAO)(nil).PutBlock), arg0)
 }
 
-// Commit mocks base method
-func (m *MockBlockDAO) Commit() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Commit indicates an expected call of Commit
-func (mr *MockBlockDAOMockRecorder) Commit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBlockDAO)(nil).Commit))
-}
-
 // DeleteBlockToTarget mocks base method
 func (m *MockBlockDAO) DeleteBlockToTarget(arg0 uint64) error {
 	m.ctrl.T.Helper()
@@ -421,18 +407,4 @@ func (m *MockBlockIndexer) DeleteTipBlock(blk *block.Block) error {
 func (mr *MockBlockIndexerMockRecorder) DeleteTipBlock(blk interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBlockIndexer)(nil).DeleteTipBlock), blk)
-}
-
-// Commit mocks base method
-func (m *MockBlockIndexer) Commit() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Commit indicates an expected call of Commit
-func (mr *MockBlockIndexerMockRecorder) Commit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockBlockIndexer)(nil).Commit))
 }

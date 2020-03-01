@@ -35,7 +35,8 @@ import (
 
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
-	cfg.Genesis.EnglishBlockHeight = 1 // set up testing after English Height
+	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
+	cfg.Genesis.KickoutIntensityRate = 90
 	cfg.Genesis.KickoutEpochPeriod = 2
 	cfg.Genesis.ProductivityThreshold = 85
 	ctx := protocol.WithBlockCtx(
@@ -45,15 +46,20 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		},
 	)
 	registry := protocol.NewRegistry()
-	err := registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20))
+	rp := rolldpos.NewProtocol(36, 36, 20)
+	err := registry.Register("rolldpos", rp)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
+	epochStartHeight := rp.GetEpochHeight(2)
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
 			Genesis:  cfg.Genesis,
 			Registry: registry,
+			Tip: protocol.TipInfo{
+				Height: epochStartHeight - 1,
+			},
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -65,23 +71,30 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	committee := mock_committee.NewMockCommittee(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			val, err := cb.Get("state", addrHash[:])
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
-				return state.ErrStateNotExist
+				return 0, err
 			}
-			return state.Deserialize(account, val)
+			val, err := cb.Get(cfg.Namespace, cfg.Key)
+			if err != nil {
+				return 0, state.ErrStateNotExist
+			}
+			return 0, state.Deserialize(account, val)
 		}).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
 			ss, err := state.Serialize(account)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			cb.Put("state", addrHash[:], ss, "failed to put state")
-			return nil
+			cb.Put(cfg.Namespace, cfg.Key, ss, "failed to put state")
+			return 0, nil
 		}).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
@@ -110,7 +123,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		candidatesutil.KickoutListByEpoch,
+		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) { return candidates, 720, nil },
+		candidatesutil.KickoutListFromDB,
+		candidatesutil.UnproductiveDelegateFromDB,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -151,7 +166,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
 		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
+
+	if err := setCandidates(ctx, sm, candidates, 1); err != nil {
+		return nil, nil, nil, nil, err
+	}
 	return p, ctx, sm, r, err
 }
 
@@ -163,7 +183,9 @@ func TestCreateGenesisStates(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var sc state.CandidateList
-	require.NoError(sm.State(candidatesutil.ConstructKey(1), &sc))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm.State(&sc, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	candidates, err := state.CandidatesToMap(sc)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
@@ -234,6 +256,29 @@ func TestCreatePreStates(t *testing.T) {
 	// testing for kick-out slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
+		if epochNum > 1 {
+			epochStartHeight := rp.GetEpochHeight(epochNum)
+			ctx = protocol.WithBlockCtx(
+				ctx,
+				protocol.BlockCtx{
+					BlockHeight: epochStartHeight,
+					Producer:    identityset.Address(1),
+				},
+			)
+			require.NoError(psc.CreatePreStates(ctx, sm)) // shift
+			bl := &vote.Blacklist{}
+			candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+			_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+			require.NoError(err)
+			expected := test[epochNum]
+			require.Equal(len(expected), len(bl.BlacklistInfos))
+			for addr, count := range bl.BlacklistInfos {
+				val, ok := expected[addr]
+				require.True(ok)
+				require.Equal(val, count)
+			}
+		}
+		// at last of epoch, set blacklist into next kickout key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		ctx = protocol.WithBlockCtx(
 			ctx,
@@ -243,8 +288,11 @@ func TestCreatePreStates(t *testing.T) {
 			},
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm))
+
 		bl := &vote.Blacklist{}
-		require.NoError(sm.State(candidatesutil.ConstructBlackListKey(epochNum+1), bl))
+		candKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
 		expected := test[epochNum+1]
 		require.Equal(len(expected), len(bl.BlacklistInfos))
 		for addr, count := range bl.BlacklistInfos {
@@ -285,7 +333,9 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -297,7 +347,9 @@ func TestHandle(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(receipt)
 
-	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	_, err = shiftCandidates(sm2)
+	require.NoError(err)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -334,7 +386,9 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
+	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
+	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -364,7 +418,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 	var sc3 state.CandidateList
-	require.NoError(sm3.State(candidatesutil.ConstructKey(1), &sc3))
+	_, err = sm3.State(&sc3, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act3 := action.NewPutPollResult(1, 1, sc3)
@@ -395,7 +450,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 	var sc4 state.CandidateList
-	require.NoError(sm4.State(candidatesutil.ConstructKey(1), &sc4))
+	_, err = sm4.State(&sc4, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act4 := action.NewPutPollResult(1, 1, sc4)
 	bd4 := &action.EnvelopeBuilder{}
@@ -425,7 +481,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 	var sc5 state.CandidateList
-	require.NoError(sm5.State(candidatesutil.ConstructKey(1), &sc5))
+	_, err = sm5.State(&sc5, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	sc5[0].Votes = big.NewInt(10)
 	act5 := action.NewPutPollResult(1, 1, sc5)
 	bd5 := &action.EnvelopeBuilder{}
@@ -455,7 +512,8 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
 	var sc6 state.CandidateList
-	require.NoError(sm6.State(candidatesutil.ConstructKey(1), &sc6))
+	_, err = sm6.State(&sc6, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	require.NoError(err)
 	act6 := action.NewPutPollResult(1, 1, sc6)
 	bd6 := &action.EnvelopeBuilder{}
 	elp6 := bd6.SetGasLimit(uint64(100000)).
@@ -482,13 +540,12 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p6.Validate(ctx6, selp6.Action()))
 }
 
-func TestDelegatesByEpoch(t *testing.T) {
+func TestCandidatesByHeight(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
-
 	blackListMap := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
@@ -496,15 +553,124 @@ func TestDelegatesByEpoch(t *testing.T) {
 
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
+		IntensityRate:  50,
 	}
-	require.NoError(setKickoutBlackList(sm, blackList, 2))
+	require.NoError(setNextEpochBlacklist(sm, blackList))
+	filteredCandidates, err := p.CandidatesByHeight(ctx, 721)
+	require.NoError(err)
+	require.Equal(4, len(filteredCandidates))
+
+	for _, cand := range filteredCandidates {
+		if cand.Address == identityset.Address(1).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(15)))
+		}
+		if cand.Address == identityset.Address(2).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(11)))
+		}
+	}
+
+	// change intensity rate to be 0
+	blackList = &vote.Blacklist{
+		BlacklistInfos: blackListMap,
+		IntensityRate:  0,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList))
+	filteredCandidates, err = p.CandidatesByHeight(ctx, 721)
+	require.NoError(err)
+	require.Equal(4, len(filteredCandidates))
+
+	for _, cand := range filteredCandidates {
+		if cand.Address == identityset.Address(1).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(30)))
+		}
+		if cand.Address == identityset.Address(2).String() {
+			require.Equal(0, cand.Votes.Cmp(big.NewInt(22)))
+		}
+	}
+
+}
+
+func TestDelegatesByEpoch(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	p, ctx, sm, _, err := initConstruct(ctrl)
+	require.NoError(err)
+
+	// 1: empty blacklist DelegatesByEpoch()
+	blackListMap := map[string]uint32{}
+	blackList := &vote.Blacklist{
+		BlacklistInfos: blackListMap,
+		IntensityRate:  90,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList))
 
 	delegates, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
-
 	require.Equal(2, len(delegates))
-	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
-	require.Equal(identityset.Address(3).String(), delegates[0].Address)
-	require.Equal(identityset.Address(4).String(), delegates[1].Address)
+	require.Equal(identityset.Address(2).String(), delegates[0].Address)
+	require.Equal(identityset.Address(1).String(), delegates[1].Address)
 
+	// 2: not empty blacklist DelegatesByEpoch()
+	blackListMap2 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 1,
+	}
+	blackList2 := &vote.Blacklist{
+		BlacklistInfos: blackListMap2,
+		IntensityRate:  90,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList2))
+	delegates2, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+	require.Equal(2, len(delegates2))
+	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
+	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
+
+	// 3: kickout out with different blacklist
+	blackListMap3 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(3).String(): 2,
+	}
+	blackList3 := &vote.Blacklist{
+		BlacklistInfos: blackListMap3,
+		IntensityRate:  90,
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList3))
+
+	delegates3, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+
+	require.Equal(2, len(delegates3))
+	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
+	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
+
+	// 4: shift kickout list and Delegates()
+	_, err = shiftKickoutList(sm)
+	require.NoError(err)
+	delegates4, err := p.DelegatesByEpoch(ctx, 1)
+	require.NoError(err)
+	require.Equal(len(delegates4), len(delegates3))
+	for i, d := range delegates3 {
+		require.True(d.Equal(delegates4[i]))
+	}
+
+	// 5: test hard kick-out
+	blackListMap5 := map[string]uint32{
+		identityset.Address(1).String(): 1,
+		identityset.Address(2).String(): 2,
+		identityset.Address(3).String(): 2,
+	}
+	blackList5 := &vote.Blacklist{
+		BlacklistInfos: blackListMap5,
+		IntensityRate:  100, // hard kickout
+	}
+	require.NoError(setNextEpochBlacklist(sm, blackList5))
+
+	delegates5, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(err)
+
+	require.Equal(1, len(delegates5)) // exclude all of them
+	require.Equal(identityset.Address(4).String(), delegates5[0].Address)
 }

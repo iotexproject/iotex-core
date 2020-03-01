@@ -16,70 +16,79 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
 const (
-	testPath = "kstest"
+	testPath = "ksTest"
 )
 
 func TestAccount(t *testing.T) {
-	require := require.New(t)
+	r := require.New(t)
 
-	require.NoError(testInit())
+	testWallet, err := ioutil.TempDir(os.TempDir(), testPath)
+	r.NoError(err)
+	config.ReadConfig.Wallet = testWallet
 
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	require.NotNil(ks)
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	r.NotNil(ks)
 
-	// create an account
+	// create accounts
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+
 	account, err := ks.NewAccount(passwd)
-	require.NoError(err)
+	r.NoError(err)
 	addr, err := address.FromBytes(account.Address.Bytes())
-	require.NoError(err)
+	r.NoError(err)
+	r.True(IsSignerExist(addr.String()))
+
+	account2, err := crypto.GenerateKeySm2()
+	r.NoError(err)
+	r.NotNil(account2)
+	addr2, err := address.FromBytes(account2.PublicKey().Hash())
+	r.NoError(err)
+	r.False(IsSignerExist(addr2.String()))
+	filePath := sm2KeyPath(addr2)
+	addrString, err := storeKey(account2.HexString(), config.ReadConfig.Wallet, passwd)
+	r.NoError(err)
+	r.Equal(addr2.String(), addrString)
+	r.True(IsSignerExist(addr2.String()))
+	path, err := findSm2PemFile(addr2)
+	r.NoError(err)
+	r.Equal(filePath, path)
+
+	accounts, err := listSm2Account()
+	r.NoError(err)
+	r.Equal(1, len(accounts))
+	r.Equal(addr2.String(), accounts[0])
 
 	// test keystore conversion and signing
-	prvkey, err := KsAccountToPrivateKey(addr.String(), passwd)
-	require.NoError(err)
+	prvKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
+	r.NoError(err)
 	msg := hash.Hash256b([]byte(nonce))
-	sig, err := prvkey.Sign(msg[:])
-	require.NoError(err)
-	require.True(prvkey.PublicKey().Verify(msg[:], sig))
+	sig, err := prvKey.Sign(msg[:])
+	r.NoError(err)
+	r.True(prvKey.PublicKey().Verify(msg[:], sig))
+
+	prvKey2, err := LocalAccountToPrivateKey(addr2.String(), passwd)
+	r.NoError(err)
+	msg2 := hash.Hash256b([]byte(nonce))
+	sig2, err := prvKey2.Sign(msg2[:])
+	r.NoError(err)
+	r.True(prvKey2.PublicKey().Verify(msg2[:], sig2))
 
 	// test import existing key
 	sk, err := crypto.GenerateKey()
-	require.NoError(err)
+	r.NoError(err)
 	p256k1, ok := sk.EcdsaPrivateKey().(*ecdsa.PrivateKey)
-	require.Equal(true, ok)
+	r.Equal(true, ok)
 	account, err = ks.ImportECDSA(p256k1, passwd)
-	require.NoError(err)
-	require.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
-}
-
-func testInit() error {
-	testPathd, _ := ioutil.TempDir(os.TempDir(), testPath)
-	config.ConfigDir = testPathd
-
-	var err error
-	config.DefaultConfigFile = config.ConfigDir + "/config.default"
-	config.ReadConfig, err = config.LoadConfig()
-	if err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	config.ReadConfig.Wallet = config.ConfigDir
-	out, err := yaml.Marshal(&config.ReadConfig)
-	if err != nil {
-		return err
-	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return err
-	}
-	return nil
+	r.NoError(err)
+	r.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
 }

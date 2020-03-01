@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -44,7 +45,8 @@ var accountListCmd = &cobra.Command{
 }
 
 type listMessage struct {
-	Accounts []account `json:"accounts"`
+	Accounts    []account `json:"accounts"`
+	Sm2Accounts []account `json:"sm2Accounts"`
 }
 
 type account struct {
@@ -55,18 +57,31 @@ type account struct {
 func accountList() error {
 	message := listMessage{}
 	aliases := alias.GetAliasMap()
+
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 		keystore.StandardScryptN, keystore.StandardScryptP)
 	for _, v := range ks.Accounts() {
-		address, err := address.FromBytes(v.Address.Bytes())
+		addr, err := address.FromBytes(v.Address.Bytes())
 		if err != nil {
 			return output.NewError(output.ConvertError, "failed to convert bytes into address", err)
 		}
 		message.Accounts = append(message.Accounts, account{
-			Address: address.String(),
-			Alias:   aliases[address.String()],
+			Address: addr.String(),
+			Alias:   aliases[addr.String()],
 		})
 	}
+
+	sm2Accounts, err := listSm2Account()
+	if err != nil {
+		return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
+	}
+	for _, addr := range sm2Accounts {
+		message.Sm2Accounts = append(message.Sm2Accounts, account{
+			Address: addr,
+			Alias:   aliases[addr],
+		})
+	}
+
 	fmt.Println(message.String())
 	return nil
 }
@@ -76,6 +91,13 @@ func (m *listMessage) String() string {
 		lines := make([]string, 0)
 		for _, account := range m.Accounts {
 			line := account.Address
+			if account.Alias != "" {
+				line += " - " + account.Alias
+			}
+			lines = append(lines, line)
+		}
+		for _, account := range m.Sm2Accounts {
+			line := account.Address + "(sm2)"
 			if account.Alias != "" {
 				line += " - " + account.Alias
 			}

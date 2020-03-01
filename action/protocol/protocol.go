@@ -14,14 +14,14 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 )
 
-const (
-	// AccountNameSpace is the bucket name for account state
-	AccountNameSpace = "Account"
-)
-
 var (
 	// ErrUnimplemented indicates a method is not implemented yet
 	ErrUnimplemented = errors.New("method is unimplemented")
+)
+
+const (
+	// SystemNamespace is the namespace to store system information such as candidates/blacklist/unproductiveDelegates
+	SystemNamespace = "System"
 )
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain

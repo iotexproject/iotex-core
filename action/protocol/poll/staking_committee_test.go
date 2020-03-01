@@ -65,28 +65,37 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee := mock_committee.NewMockCommittee(ctrl)
 	cb := batch.NewCachedBatch()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
-			val, err := cb.Get("state", addrHash[:])
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
 			if err != nil {
-				return state.ErrStateNotExist
+				return 0, err
 			}
-			return state.Deserialize(account, val)
+			val, err := cb.Get("state", cfg.Key)
+			if err != nil {
+				return 0, state.ErrStateNotExist
+			}
+			return 0, state.Deserialize(account, val)
 		}).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(addrHash hash.Hash160, account interface{}) error {
+		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
 			ss, err := state.Serialize(account)
 			if err != nil {
-				return err
+				return 0, err
 			}
-			cb.Put("state", addrHash[:], ss, "failed to put state")
-			return nil
+			cb.Put("state", cfg.Key, ss, "failed to put state")
+			return 0, nil
 		}).AnyTimes()
-	sm.EXPECT().GetCachedBatch().Return(cb).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
+		nil,
+		nil,
 		nil,
 		nil,
 		committee,
@@ -102,6 +111,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
 		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {
@@ -131,7 +141,8 @@ func TestCreateGenesisStates_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
 	var candlist state.CandidateList
-	require.NoError(sm.State(candidatesutil.ConstructKey(1), &candlist))
+	_, err = sm.State(&candlist, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	candidates, err := state.CandidatesToMap(candlist)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
@@ -201,7 +212,8 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
+	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -250,7 +262,8 @@ func TestProtocol_Validate_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
 	var sc2 state.CandidateList
-	require.NoError(sm2.State(candidatesutil.ConstructKey(1), &sc2))
+	_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	act2 := action.NewPutPollResult(1, 1, sc2)
 	elp = bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
@@ -280,7 +293,8 @@ func TestProtocol_Validate_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
 	var sc3 state.CandidateList
-	require.NoError(sm3.State(candidatesutil.ConstructKey(1), &sc3))
+	_, err = sm3.State(&sc3, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act3 := action.NewPutPollResult(1, 1, sc3)
@@ -311,7 +325,8 @@ func TestProtocol_Validate_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
 	var sc4 state.CandidateList
-	require.NoError(sm4.State(candidatesutil.ConstructKey(1), &sc4))
+	_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
 	act4 := action.NewPutPollResult(1, 1, sc4)
 	bd4 := &action.EnvelopeBuilder{}
@@ -341,7 +356,7 @@ func TestProtocol_Validate_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
 	var sc5 state.CandidateList
-	require.NoError(sm5.State(candidatesutil.ConstructKey(1), &sc5))
+	_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 	sc5[0].Votes = big.NewInt(10)
 	act5 := action.NewPutPollResult(1, 1, sc5)
 	bd5 := &action.EnvelopeBuilder{}
@@ -371,7 +386,8 @@ func TestProtocol_Validate_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
 	var sc6 state.CandidateList
-	require.NoError(sm6.State(candidatesutil.ConstructKey(1), &sc6))
+	_, err = sm6.State(&sc6, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
+	require.NoError(err)
 	act6 := action.NewPutPollResult(1, 1, sc6)
 	bd6 := &action.EnvelopeBuilder{}
 	elp6 := bd6.SetGasLimit(uint64(100000)).

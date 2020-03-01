@@ -15,16 +15,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
@@ -38,7 +37,7 @@ type (
 	contractMap map[hash.Hash160]Contract
 
 	// preimageMap records the preimage of hash reported by VM
-	preimageMap map[common.Hash][]byte
+	preimageMap map[common.Hash]SerializableBytes
 
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
@@ -49,7 +48,6 @@ type (
 		logs               []*action.Log
 		err                error
 		blockHeight        uint64
-		saveHistory        bool
 		executionHash      hash.Hash256
 		refund             uint64
 		cachedContract     contractMap
@@ -58,22 +56,12 @@ type (
 		suicideSnapshot    map[int]deleteAccount // snapshots of suicide accounts
 		preimages          preimageMap
 		preimageSnapshot   map[int]preimageMap
-		dao                db.KVStore
-		cb                 batch.CachedBatch
 		notFixTopicCopyBug bool
 	}
 )
 
 // StateDBOption set StateDBAdapter construction param
 type StateDBOption func(*StateDBAdapter) error
-
-// SaveHistoryOption creates StateDBAdapter with history
-func SaveHistoryOption() StateDBOption {
-	return func(s *StateDBAdapter) error {
-		s.saveHistory = true
-		return nil
-	}
-}
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
@@ -95,8 +83,6 @@ func NewStateDBAdapter(
 		suicideSnapshot:    make(map[int]deleteAccount),
 		preimages:          make(preimageMap),
 		preimageSnapshot:   make(map[int]preimageMap),
-		dao:                sm.GetDB(),
-		cb:                 sm.GetCachedBatch(),
 		notFixTopicCopyBug: notFixTopicCopyBug,
 	}
 	for _, opt := range opts {
@@ -301,7 +287,7 @@ func (stateDB *StateDBAdapter) Suicide(evmAddr common.Address) bool {
 	s.Balance = nil
 	s.Balance = big.NewInt(0)
 	addrHash := hash.BytesToHash160(evmAddr.Bytes())
-	if err := stateDB.sm.PutState(addrHash, s); err != nil {
+	if _, err := stateDB.sm.PutState(s, protocol.LegacyKeyOption(addrHash)); err != nil {
 		log.L().Error("Failed to kill contract.", zap.Error(err))
 		stateDB.logError(err)
 		return false
@@ -541,13 +527,13 @@ func (stateDB *StateDBAdapter) GetCode(evmAddr common.Address) []byte {
 		log.L().Error("Failed to load account state for address.", log.Hex("addrHash", addr[:]))
 		return nil
 	}
-	code, err := stateDB.dao.Get(CodeKVNameSpace, account.CodeHash[:])
-	if err != nil {
+	var code SerializableBytes
+	if _, err = stateDB.sm.State(&code, protocol.NamespaceOption(CodeKVNameSpace), protocol.KeyOption(account.CodeHash[:])); err != nil {
 		// TODO: Suppress the as it's too much now
 		//log.L().Error("Failed to get code from trie.", zap.Error(err))
 		return nil
 	}
-	return code
+	return code[:]
 }
 
 // GetCodeSize gets the code size saved in hash
@@ -651,7 +637,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		}
 		state := contract.SelfState()
 		// store the account (with new storage trie root) into account trie
-		if err := stateDB.sm.PutState(addr, state); err != nil {
+		if _, err := stateDB.sm.PutState(state, protocol.LegacyKeyOption(addr)); err != nil {
 			stateDB.logError(err)
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
@@ -670,7 +656,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 			return errors.Wrap(err, "failed to decode address hash")
 		}
 		copy(addr[:], addrBytes)
-		if err := stateDB.sm.DelState(addr); err != nil {
+		if _, err := stateDB.sm.DelState(protocol.LegacyKeyOption(addr)); err != nil {
 			stateDB.logError(err)
 			return errors.Wrapf(err, "failed to delete suicide account/contract %x", addr[:])
 		}
@@ -692,7 +678,7 @@ func (stateDB *StateDBAdapter) CommitContracts() error {
 		v := stateDB.preimages[k]
 		h := make([]byte, len(k))
 		copy(h, k[:])
-		stateDB.cb.Put(PreimageKVNameSpace, h, v, "failed to put hash %x preimage %x", k, v)
+		stateDB.sm.PutState(v, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(h))
 	}
 	return nil
 }
@@ -710,12 +696,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	var contract Contract
-	if stateDB.saveHistory {
-		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb, HistoryRetentionOption(stateDB.blockHeight))
-	} else {
-		contract, err = newContract(addr, account, stateDB.dao, stateDB.cb)
-	}
+	contract, err := newContract(addr, account, stateDB.sm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}

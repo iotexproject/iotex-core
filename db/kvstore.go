@@ -13,8 +13,11 @@ import (
 )
 
 type (
-	// KVStore is the interface of KV store.
-	KVStore interface {
+	// Condition spells the condition for <k, v> to be filtered out
+	Condition func(k, v []byte) bool
+
+	// KVStoreBasic is the interface of basic KV store.
+	KVStoreBasic interface {
 		lifecycle.StartStopper
 
 		// Put insert or update a record identified by (namespace, key)
@@ -23,8 +26,15 @@ type (
 		Get(string, []byte) ([]byte, error)
 		// Delete deletes a record by (namespace, key)
 		Delete(string, []byte) error
+	}
+
+	// KVStore is a KVStore with WriteBatch API
+	KVStore interface {
+		KVStoreBasic
 		// WriteBatch commits a batch
 		WriteBatch(batch.KVStoreBatch) error
+		// Filter returns <k, v> pair in a bucket that meet the condition
+		Filter(string, Condition) ([][]byte, [][]byte, error)
 	}
 
 	// KVStoreWithRange is KVStore with Range() API

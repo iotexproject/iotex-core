@@ -4,20 +4,18 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package blockindex
 
 import (
 	"strconv"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 )
@@ -34,17 +32,27 @@ func init() {
 	prometheus.MustRegister(batchSizeMtc)
 }
 
-type addrIndex map[hash.Hash160]db.CountingIndex
+// these NS belong to old DB before migrating to separate index
+// they are left here only for record
+// do NOT use them in the future to avoid potential conflict
+const (
+	blockActionBlockMappingNS        = "a2b"
+	blockAddressActionMappingNS      = "a2a"
+	blockAddressActionCountMappingNS = "a2c"
+	blockActionReceiptMappingNS      = "a2r"
+	numActionsNS                     = "nac"
+	transferAmountNS                 = "tfa"
+)
 
 // IndexBuilder defines the index builder
 type IndexBuilder struct {
 	timerFactory *prometheustimer.TimerFactory
-	dao          BlockDAO
-	indexer      blockindex.Indexer
+	dao          blockdao.BlockDAO
+	indexer      Indexer
 }
 
 // NewIndexBuilder instantiates an index builder
-func NewIndexBuilder(chainID uint32, dao BlockDAO, indexer blockindex.Indexer) (*IndexBuilder, error) {
+func NewIndexBuilder(chainID uint32, dao blockdao.BlockDAO, indexer Indexer) (*IndexBuilder, error) {
 	timerFactory, err := prometheustimer.New(
 		"iotex_indexer_batch_time",
 		"Indexer batch time",
@@ -79,7 +87,7 @@ func (ib *IndexBuilder) Stop(ctx context.Context) error {
 }
 
 // Indexer returns the indexer
-func (ib *IndexBuilder) Indexer() blockindex.Indexer {
+func (ib *IndexBuilder) Indexer() Indexer {
 	return ib.indexer
 }
 
@@ -89,14 +97,6 @@ func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	if err := ib.indexer.PutBlock(blk); err != nil {
 		log.L().Error(
 			"Error when indexing the block",
-			zap.Uint64("height", blk.Height()),
-			zap.Error(err),
-		)
-		return err
-	}
-	if err := ib.indexer.Commit(); err != nil {
-		log.L().Error(
-			"Error when committing the block index",
 			zap.Uint64("height", blk.Height()),
 			zap.Error(err),
 		)
@@ -129,19 +129,19 @@ func (ib *IndexBuilder) init() error {
 		return err
 	}
 	// update index to latest block
+	blks := make([]*block.Block, 0, 5000)
 	for startHeight++; startHeight <= tipHeight; startHeight++ {
 		blk, err := ib.dao.GetBlockByHeight(startHeight)
 		if err != nil {
 			return err
 		}
-		if err := ib.indexer.PutBlock(blk); err != nil {
-			return err
-		}
+		blks = append(blks, blk)
 		// commit once every 5000 blocks
 		if startHeight%5000 == 0 || startHeight == tipHeight {
-			if err := ib.indexer.Commit(); err != nil {
+			if err := ib.indexer.PutBlocks(blks); err != nil {
 				return err
 			}
+			blks = blks[:0]
 			zap.L().Info("Finished indexing blocks up to", zap.Uint64("height", startHeight))
 		}
 	}

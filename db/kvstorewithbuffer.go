@@ -1,6 +1,7 @@
 package db
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/pkg/errors"
@@ -13,7 +14,7 @@ type (
 	withBuffer interface {
 		Snapshot() int
 		Revert(int) error
-		SerializeQueue(batch.WriteInfoFilter) []byte
+		SerializeQueue(batch.WriteInfoSerialize, batch.WriteInfoFilter) []byte
 		MustPut(string, []byte, []byte)
 		MustDelete(string, []byte)
 		Size() int
@@ -42,6 +43,7 @@ type (
 	flusher struct {
 		kvb             *kvStoreWithBuffer
 		serializeFilter batch.WriteInfoFilter
+		serialize       batch.WriteInfoSerialize
 		flushTranslate  batch.WriteInfoTranslate
 	}
 
@@ -61,6 +63,18 @@ func SerializeFilterOption(filter batch.WriteInfoFilter) KVStoreFlusherOption {
 	}
 }
 
+// SerializeOption sets the serialize function for write queue
+func SerializeOption(wis batch.WriteInfoSerialize) KVStoreFlusherOption {
+	return func(f *flusher) error {
+		if wis == nil {
+			return errors.New("serialize function cannot be nil")
+		}
+		f.serialize = wis
+
+		return nil
+	}
+}
+
 // FlushTranslateOption sets the translate for flush
 func FlushTranslateOption(wit batch.WriteInfoTranslate) KVStoreFlusherOption {
 	return func(f *flusher) error {
@@ -74,28 +88,41 @@ func FlushTranslateOption(wit batch.WriteInfoTranslate) KVStoreFlusherOption {
 }
 
 // NewKVStoreFlusher returns kv store flusher
-func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch) (KVStoreFlusher, error) {
+func NewKVStoreFlusher(store KVStore, buffer batch.CachedBatch, opts ...KVStoreFlusherOption) (KVStoreFlusher, error) {
 	if store == nil {
 		return nil, errors.New("store cannot be nil")
 	}
 	if buffer == nil {
 		return nil, errors.New("buffer cannot be nil")
 	}
-
-	return &flusher{
+	f := &flusher{
 		kvb: &kvStoreWithBuffer{
 			store:  store,
 			buffer: buffer,
 		},
-	}, nil
+	}
+	for _, opt := range opts {
+		if err := opt(f); err != nil {
+			return nil, errors.Wrap(err, "failed to apply option")
+		}
+	}
+
+	return f, nil
 }
 
 func (f *flusher) Flush() error {
-	return f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate))
+	if err := f.kvb.store.WriteBatch(f.kvb.buffer.Translate(f.flushTranslate)); err != nil {
+		return err
+	}
+
+	f.kvb.buffer.Lock()
+	f.kvb.buffer.ClearAndUnlock()
+
+	return nil
 }
 
 func (f *flusher) SerializeQueue() []byte {
-	return f.kvb.SerializeQueue(f.serializeFilter)
+	return f.kvb.SerializeQueue(f.serialize, f.serializeFilter)
 }
 
 func (f *flusher) KVStoreWithBuffer() KVStoreWithBuffer {
@@ -118,8 +145,11 @@ func (kvb *kvStoreWithBuffer) Revert(sid int) error {
 	return kvb.buffer.Revert(sid)
 }
 
-func (kvb *kvStoreWithBuffer) SerializeQueue(filter batch.WriteInfoFilter) []byte {
-	return kvb.buffer.SerializeQueue(filter)
+func (kvb *kvStoreWithBuffer) SerializeQueue(
+	serialize batch.WriteInfoSerialize,
+	filter batch.WriteInfoFilter,
+) []byte {
+	return kvb.buffer.SerializeQueue(serialize, filter)
 }
 
 func (kvb *kvStoreWithBuffer) Size() int {
@@ -153,6 +183,35 @@ func (kvb *kvStoreWithBuffer) Delete(ns string, key []byte) error {
 
 func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
+}
+
+func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition) ([][]byte, [][]byte, error) {
+	fk, fv, err := kvb.store.Filter(ns, cond)
+	if err != nil {
+		return fk, fv, err
+	}
+
+	// filter the entries in buffer
+	for i := 0; i < kvb.buffer.Size(); i++ {
+		entry, _ := kvb.buffer.Entry(i)
+		k, v := entry.Key(), entry.Value()
+		if cond(k, v) {
+			switch entry.WriteType() {
+			case batch.Put:
+				fk = append(fk, k)
+				fv = append(fv, v)
+			case batch.Delete:
+				for i := range fk {
+					if bytes.Compare(fk[i], k) == 0 {
+						fk = append(fk[:i], fk[i+1:]...)
+						fv = append(fv[:i], fv[i+1:]...)
+						break
+					}
+				}
+			}
+		}
+	}
+	return fk, fv, nil
 }
 
 func (kvb *kvStoreWithBuffer) WriteBatch(b batch.KVStoreBatch) (err error) {

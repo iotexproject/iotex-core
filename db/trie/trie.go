@@ -38,7 +38,7 @@ var (
 
 // DefaultHashFunc implements a default hash function
 func DefaultHashFunc(data []byte) []byte {
-	h := hash.Hash256b(data)
+	h := hash.Hash160b(data)
 	return h[:]
 }
 
@@ -58,6 +58,8 @@ type Trie interface {
 	RootHash() []byte
 	// SetRootHash sets a new root to trie
 	SetRootHash([]byte) error
+	// IsEmpty returns true is this is an empty trie
+	IsEmpty() bool
 	// DB returns the KVStore storing the node data
 	DB() KVStore
 	// deleteNodeFromDB deletes the data of node from db
@@ -107,20 +109,6 @@ func RootHashOption(h []byte) Option {
 	}
 }
 
-// HistoryRetentionOption sets the save history option for the trie
-func HistoryRetentionOption(height uint64) Option {
-	return func(tr Trie) error {
-		switch t := tr.(type) {
-		case *branchRootTrie:
-			t.saveNode = true
-			t.height = height
-		default:
-			return errors.New("invalid trie type")
-		}
-		return nil
-	}
-}
-
 // RootKeyOption sets the root key for the trie
 func RootKeyOption(key string) Option {
 	return func(tr Trie) error {
@@ -147,7 +135,7 @@ func HashFuncOption(hashFunc HashFunc) Option {
 	}
 }
 
-// KVStoreOption sets the kvstore for the trie
+// KVStoreOption sets the kvStore for the trie
 func KVStoreOption(kvStore KVStore) Option {
 	return func(tr Trie) error {
 		switch t := tr.(type) {

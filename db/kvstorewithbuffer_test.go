@@ -16,7 +16,7 @@ import (
 func TestFlusher(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	t.Run("create failed with nil kvstore", func(t *testing.T) {
+	t.Run("create failed with nil kvStore", func(t *testing.T) {
 		f, err := NewKVStoreFlusher(nil, nil)
 		require.Nil(t, f)
 		require.Error(t, err)
@@ -39,11 +39,11 @@ func TestFlusher(t *testing.T) {
 		ns := "namespace"
 		key := []byte("key")
 		value := []byte("value")
-		t.Run("fail to start kvstore with buffer", func(t *testing.T) {
+		t.Run("fail to start kvStore with buffer", func(t *testing.T) {
 			store.EXPECT().Start(gomock.Any()).Return(err).Times(1)
 			require.Equal(t, err, kvb.Start(context.Background()))
 		})
-		t.Run("fail to stop kvstore with buffer", func(t *testing.T) {
+		t.Run("fail to stop kvStore with buffer", func(t *testing.T) {
 			err = errors.New("failed to stop")
 			store.EXPECT().Stop(gomock.Any()).Return(err).Times(1)
 			require.Equal(t, err, kvb.Stop(context.Background()))
@@ -62,6 +62,8 @@ func TestFlusher(t *testing.T) {
 		t.Run("flush successfully", func(t *testing.T) {
 			buffer.EXPECT().Translate(gomock.Any()).Return(buffer).Times(1)
 			store.EXPECT().WriteBatch(gomock.Any()).Return(nil).Times(1)
+			buffer.EXPECT().Lock().Times(1)
+			buffer.EXPECT().ClearAndUnlock().Times(1)
 			require.NoError(t, f.Flush())
 		})
 		t.Run("Get", func(t *testing.T) {
@@ -94,7 +96,7 @@ func TestFlusher(t *testing.T) {
 			require.Equal(t, 5, kvb.Size())
 		})
 		t.Run("SerializeQueue", func(t *testing.T) {
-			buffer.EXPECT().SerializeQueue(gomock.Any()).Return(value).Times(1)
+			buffer.EXPECT().SerializeQueue(gomock.Any(), gomock.Any()).Return(value).Times(1)
 			require.Equal(t, value, f.SerializeQueue())
 		})
 		t.Run("MustPut", func(t *testing.T) {

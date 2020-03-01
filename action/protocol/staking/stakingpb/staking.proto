@@ -1,0 +1,47 @@
+// Copyright (c) 2020 IoTeX
+// This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
+// warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
+// permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
+// License 2.0 that can be found in the LICENSE file.
+
+// To compile the proto, run:
+//      protoc --go_out=plugins=grpc:. *.proto
+
+syntax = "proto3";
+package stakingpb;
+
+import "google/protobuf/timestamp.proto";
+
+message Bucket {
+  string candidateAddress = 1;
+  string stakedAmount = 2;
+  uint32 stakedDuration = 3;
+  google.protobuf.Timestamp createTime = 4;
+  google.protobuf.Timestamp stakeStartTime = 5;
+  google.protobuf.Timestamp unstakeStartTime = 6;
+  bool autoStake = 7;
+  string owner = 8;
+}
+
+message BucketIndex {
+    uint64 index = 1;
+    string candAddress = 2;
+}
+
+message BucketIndices {
+    repeated BucketIndex indices = 1;
+}
+
+message Candidate {
+    string ownerAddress = 1;
+    string operatorAddress = 2;
+    string rewardAddress = 3;
+    string name = 4;
+    string votes = 5;
+    uint64 selfStakeBucketIdx = 6;
+    string selfStake = 7;
+}
+
+message Candidates {
+    repeated Candidate candidates = 1;
+}

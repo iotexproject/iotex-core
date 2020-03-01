@@ -46,8 +46,8 @@ type (
 	Indexer interface {
 		Start(context.Context) error
 		Stop(context.Context) error
-		Commit() error
 		PutBlock(*block.Block) error
+		PutBlocks([]*block.Block) error
 		DeleteTipBlock(*block.Block) error
 		GetBlockchainHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
@@ -64,7 +64,7 @@ type (
 	blockIndexer struct {
 		mutex       sync.RWMutex
 		genesisHash hash.Hash256
-		kvstore     db.KVStoreWithRange
+		kvStore     db.KVStoreWithRange
 		batch       batch.KVStoreBatch
 		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
@@ -75,14 +75,14 @@ type (
 // NewIndexer creates a new indexer
 func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	if kv == nil {
-		return nil, errors.New("empty kvstore")
+		return nil, errors.New("empty kvStore")
 	}
 	kvRange, ok := kv.(db.KVStoreWithRange)
 	if !ok {
 		return nil, errors.New("indexer can only be created from KVStoreWithRange")
 	}
 	x := blockIndexer{
-		kvstore:     kvRange,
+		kvStore:     kvRange,
 		batch:       batch.NewBatch(),
 		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,
@@ -92,12 +92,12 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 
 // Start starts the indexer
 func (x *blockIndexer) Start(ctx context.Context) error {
-	if err := x.kvstore.Start(ctx); err != nil {
+	if err := x.kvStore.Start(ctx); err != nil {
 		return err
 	}
 	// create the total block and action index
 	var err error
-	if x.tbk, err = db.NewCountingIndexNX(x.kvstore, totalBlocksBucket); err != nil {
+	if x.tbk, err = db.NewCountingIndexNX(x.kvStore, totalBlocksBucket); err != nil {
 		return err
 	}
 	if x.tbk.Size() == 0 {
@@ -109,20 +109,25 @@ func (x *blockIndexer) Start(ctx context.Context) error {
 			return err
 		}
 	}
-	x.tac, err = db.NewCountingIndexNX(x.kvstore, totalActionsBucket)
+	x.tac, err = db.NewCountingIndexNX(x.kvStore, totalActionsBucket)
 	return err
 }
 
 // Stop stops the indexer
 func (x *blockIndexer) Stop(ctx context.Context) error {
-	return x.kvstore.Stop(ctx)
+	return x.kvStore.Stop(ctx)
 }
 
-// Commit writes the batch to DB
-func (x *blockIndexer) Commit() error {
+// PutBlocks writes the batch to DB
+func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
-
+	for _, blk := range blks {
+		if err := x.putBlock(blk); err != nil {
+			// TODO: Revert changes
+			return err
+		}
+	}
 	return x.commit()
 }
 
@@ -131,39 +136,10 @@ func (x *blockIndexer) PutBlock(blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
-	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
-	height := blk.Height()
-	if height != x.tbk.Size() {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	if err := x.putBlock(blk); err != nil {
+		return err
 	}
-	// index hash --> height
-	hash := blk.HashBlock()
-	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
-	// index height --> block hash, number of actions, and total transfer amount
-	bd := &blockIndex{
-		hash:      hash[:],
-		numAction: uint32(len(blk.Actions)),
-		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
-		return errors.Wrapf(err, "failed to put block %d index", height)
-	}
-
-	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
-	ad := (&actionIndex{
-		blkHeight: blk.Height()}).Serialize()
-	// index actions in the block
-	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
-		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
-		// add to total account index
-		if err := x.tac.Add(actHash[:], true); err != nil {
-			return err
-		}
-		if err := x.indexAction(actHash, selp, true); err != nil {
-			return err
-		}
-	}
-	return nil
+	return x.commit()
 }
 
 // DeleteBlock deletes a block's index
@@ -204,7 +180,7 @@ func (x *blockIndexer) GetBlockchainHeight() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	index, err := db.GetCountingIndex(x.kvstore, totalBlocksBucket)
+	index, err := db.GetCountingIndex(x.kvStore, totalBlocksBucket)
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
 			// counting index does not exist yet
@@ -229,7 +205,7 @@ func (x *blockIndexer) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	value, err := x.kvstore.Get(blockHashToHeightNS, hash[hashOffset:])
+	value, err := x.kvStore.Get(blockHashToHeightNS, hash[hashOffset:])
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
 	}
@@ -260,7 +236,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	v, err := x.kvstore.Get(actionToBlockHashNS, h[hashOffset:])
+	v, err := x.kvStore.Get(actionToBlockHashNS, h[hashOffset:])
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +252,7 @@ func (x *blockIndexer) GetTotalActions() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	total, err := db.GetCountingIndex(x.kvstore, totalActionsBucket)
+	total, err := db.GetCountingIndex(x.kvStore, totalActionsBucket)
 	if err != nil {
 		return 0, err
 	}
@@ -296,7 +272,7 @@ func (x *blockIndexer) GetActionCountByAddress(addrBytes hash.Hash160) (uint64, 
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	addr, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
+	addr, err := db.GetCountingIndex(x.kvStore, addrBytes[:])
 	if err != nil {
 		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
 			return 0, nil
@@ -311,7 +287,7 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	addr, err := db.GetCountingIndex(x.kvstore, addrBytes[:])
+	addr, err := db.GetCountingIndex(x.kvStore, addrBytes[:])
 	if err != nil {
 		return nil, err
 	}
@@ -325,7 +301,43 @@ func (x *blockIndexer) GetActionsByAddress(addrBytes hash.Hash160, start, count 
 	return addr.Range(start, count)
 }
 
-// commit() writes the changes
+func (x *blockIndexer) putBlock(blk *block.Block) error {
+	// the block to be indexed must be exactly current top + 1, otherwise counting index would not work correctly
+	height := blk.Height()
+	if height != x.tbk.Size() {
+		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
+	}
+	// index hash --> height
+	hash := blk.HashBlock()
+	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+	// index height --> block hash, number of actions, and total transfer amount
+	bd := &blockIndex{
+		hash:      hash[:],
+		numAction: uint32(len(blk.Actions)),
+		tsfAmount: blk.CalculateTransferAmount()}
+	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
+		return errors.Wrapf(err, "failed to put block %d index", height)
+	}
+
+	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
+	ad := (&actionIndex{
+		blkHeight: blk.Height()}).Serialize()
+	// index actions in the block
+	for _, selp := range blk.Actions {
+		actHash := selp.Hash()
+		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
+		// add to total account index
+		if err := x.tac.Add(actHash[:], true); err != nil {
+			return err
+		}
+		if err := x.indexAction(actHash, selp, true); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// commit writes the changes
 func (x *blockIndexer) commit() error {
 	var commitErr error
 	for k, v := range x.dirtyAddr {
@@ -346,21 +358,21 @@ func (x *blockIndexer) commit() error {
 	if err := x.tac.Commit(); err != nil {
 		return err
 	}
-	return x.kvstore.WriteBatch(x.batch)
+	return x.kvStore.WriteBatch(x.batch)
 }
 
 // getIndexerForAddr returns the counting indexer for an address
 // if batch is true, the indexer will be placed into a dirty map, to be committed later
 func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIndex, error) {
 	if !batch {
-		return db.NewCountingIndexNX(x.kvstore, addr)
+		return db.NewCountingIndexNX(x.kvStore, addr)
 	}
 	address := hash.BytesToHash160(addr)
 	indexer, ok := x.dirtyAddr[address]
 	if !ok {
 		// create indexer for addr if not exist
 		var err error
-		indexer, err = db.NewCountingIndexNX(x.kvstore, addr)
+		indexer, err = db.NewCountingIndexNX(x.kvStore, addr)
 		if err != nil {
 			return nil, err
 		}

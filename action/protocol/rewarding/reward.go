@@ -157,27 +157,17 @@ func (p *Protocol) GrantEpochReward(
 		exemptAddrs[addr.String()] = nil
 	}
 
-	var uqd map[string]bool
 	var err error
+	uqd := make(map[string]bool)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if hu.IsPre(config.English, epochStartHeight) {
+	if hu.IsPre(config.Easter, epochStartHeight) {
 		// Get unqualified delegate list
 		if uqd, err = p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold); err != nil {
 			return nil, err
 		}
-	} else {
-		// Get Kick-out List from DB
-		kickoutList, err := p.kickoutListByEpoch(sm, epochNum)
-		if err != nil {
-			return nil, err
-		}
-		for addr := range kickoutList.BlacklistInfos {
-			uqd[addr] = true
-		}
 	}
-
 	candidates := bcCtx.Candidates
-	addrs, amounts, err := p.splitEpochReward(ctx, epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
+	addrs, amounts, err := p.splitEpochReward(epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
 	}
@@ -371,7 +361,6 @@ func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, 
 }
 
 func (p *Protocol) splitEpochReward(
-	ctx context.Context,
 	epochStartHeight uint64,
 	sm protocol.StateManager,
 	candidates []*state.Candidate,
@@ -380,9 +369,6 @@ func (p *Protocol) splitEpochReward(
 	exemptAddrs map[string]interface{},
 	uqd map[string]bool,
 ) ([]address.Address, []*big.Int, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-
 	filteredCandidates := make([]*state.Candidate, 0)
 	for _, candidate := range candidates {
 		if _, ok := exemptAddrs[candidate.Address]; ok {
@@ -422,18 +408,11 @@ func (p *Protocol) splitEpochReward(
 			continue
 		}
 		if _, ok := uqd[candidate.Address]; ok {
-			if hu.IsPre(config.English, epochStartHeight) {
-				// Before English, if not qualified, skip the epoch reward
-				amounts = append(amounts, big.NewInt(0))
-				continue
-			}
-			// After English, if not qualified, split epoch reward according to decreased voting power
-			votingPower := new(big.Float).SetInt(candidate.Votes)
-			newVotingPower, _ := votingPower.Mul(votingPower, big.NewFloat(p.kickoutIntensity)).Int(nil)
-			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, newVotingPower), totalWeight)
-		} else {
-			amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
+			// Before Easter, if not qualified, skip the epoch reward
+			amounts = append(amounts, big.NewInt(0))
+			continue
 		}
+		amountPerAddr = big.NewInt(0).Div(big.NewInt(0).Mul(totalAmount, candidate.Votes), totalWeight)
 		amounts = append(amounts, amountPerAddr)
 	}
 	return rewardAddrs, amounts, nil

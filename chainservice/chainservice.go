@@ -57,7 +57,7 @@ type ChainService struct {
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api          *api.Server
-	indexBuilder *blockdao.IndexBuilder
+	indexBuilder *blockindex.IndexBuilder
 	registry     *protocol.Registry
 }
 
@@ -158,18 +158,18 @@ func New(
 		}
 	}
 	// create BlockDAO
-	var kvstore db.KVStore
+	var kvStore db.KVStore
 	if ops.isTesting {
-		kvstore = db.NewMemKVStore()
+		kvStore = db.NewMemKVStore()
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvstore = db.NewBoltDB(cfg.DB)
+		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvstore, indexer, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	} else {
-		dao = blockdao.NewBlockDAO(kvstore, nil, cfg.Chain.CompressBlock, cfg.DB)
+		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
@@ -177,9 +177,9 @@ func New(
 		panic("failed to create blockchain")
 	}
 	// config asks for a standalone indexer
-	var indexBuilder *blockdao.IndexBuilder
+	var indexBuilder *blockindex.IndexBuilder
 	if gateway && cfg.Chain.EnableAsyncIndexWrite {
-		if indexBuilder, err = blockdao.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
+		if indexBuilder, err = blockindex.NewIndexBuilder(chain.ChainID(), dao, indexer); err != nil {
 			return nil, errors.Wrap(err, "failed to create index builder")
 		}
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
@@ -229,7 +229,9 @@ func New(
 				return data, err
 			},
 			candidatesutil.CandidatesByHeight,
-			candidatesutil.KickoutListByEpoch,
+			candidatesutil.CandidatesFromDB,
+			candidatesutil.KickoutListFromDB,
+			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -255,8 +257,6 @@ func New(
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(
-		cfg.Genesis.KickoutIntensityRate,
-		candidatesutil.KickoutListByEpoch,
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		})

@@ -54,15 +54,16 @@ func defaultConfig() Genesis {
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
-			EnglishBlockHeight:      3363481,
+			EasterBlockHeight:       3619801,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			EnableGravityChainVoting: true,
-			KickoutEpochPeriod:       3,
-			KickoutIntensityRate:     0,
+			EnableGravityChainVoting:         true,
+			KickoutEpochPeriod:               3,
+			KickoutIntensityRate:             100,
+			UnproductiveDelegateMaxCacheSize: 20,
 		},
 		Rewarding: Rewarding{
 			InitBalanceStr:                 unit.ConvertIotxToRau(200000000).String(),
@@ -138,8 +139,8 @@ type (
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
 		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
-		// EnglishBlockHeight is the start height of kick-out for slashing
-		EnglishBlockHeight uint64 `yaml:"englishHeight"`
+		// EasterBlockHeight is the start height of kick-out for slashing
+		EasterBlockHeight uint64 `yaml:"easterHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -172,8 +173,10 @@ type (
 		Delegates []Delegate `yaml:"delegates"`
 		// KickoutEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
 		KickoutEpochPeriod uint64 `yaml:"kickoutEpochPeriod"`
-		// KickoutIntensityRate is a intensity rate of kick-out range from [0,1), where 0 is hard-kickout
-		KickoutIntensityRate float64 `yaml:"kickoutIntensityRate"`
+		// KickoutIntensityRate is a intensity rate of kick-out range from [0, 100], where 100 is hard-kickout
+		KickoutIntensityRate uint32 `yaml:"kickoutIntensityRate"`
+		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (kickoutEpochPeriod <= UnproductiveDelegateMaxCacheSize)
+		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`
 	}
 	// Delegate defines a delegate with address and votes
 	Delegate struct {

@@ -8,7 +8,6 @@ package actpool
 
 import (
 	"context"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"math/big"
 	"strings"
 	"testing"
@@ -22,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"

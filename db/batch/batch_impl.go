@@ -9,13 +9,11 @@ package batch
 import (
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 )
 
 type (
-
 	// baseKVStoreBatch is the base implementation of KVStoreBatch
 	baseKVStoreBatch struct {
 		mutex      sync.RWMutex
@@ -85,38 +83,23 @@ func (b *baseKVStoreBatch) Entry(index int) (*WriteInfo, error) {
 	return b.writeQueue[index], nil
 }
 
-func (b *baseKVStoreBatch) SerializeQueue(filter WriteInfoFilter) []byte {
+func (b *baseKVStoreBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	// 1. This could be improved by being processed in parallel
 	// 2. Digest could be replaced by merkle root if we need proof
 	bytes := make([]byte, 0)
-	for i := range b.writeQueue {
-		wi := b.writeQueue[i]
+	for _, wi := range b.writeQueue {
 		if filter != nil && filter(wi) {
 			continue
 		}
-		bytes = append(bytes, wi.serialize()...)
+		if serialize != nil {
+			bytes = append(bytes, serialize(wi)...)
+		} else {
+			bytes = append(bytes, wi.Serialize()...)
+		}
 	}
 	return bytes
-}
-
-// ExcludeEntries returns copy of batch with certain entries excluded
-func (b *baseKVStoreBatch) ExcludeEntries(ns string, writeType WriteType) KVStoreBatch {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	c := baseKVStoreBatch{
-		writeQueue: []*WriteInfo{},
-	}
-	// remove entries
-	for i := range b.writeQueue {
-		if (ns == "" || b.writeQueue[i].namespace == ns) && b.writeQueue[i].writeType == writeType {
-			continue
-		}
-		c.writeQueue = append(c.writeQueue, b.writeQueue[i])
-	}
-	return &c
 }
 
 // Clear clear write queue
@@ -191,12 +174,8 @@ func (cb *cachedBatch) Entry(i int) (*WriteInfo, error) {
 	return cb.kvStoreBatch.Entry(i)
 }
 
-func (cb *cachedBatch) ExcludeEntries(ns string, wt WriteType) KVStoreBatch {
-	return cb.kvStoreBatch.ExcludeEntries(ns, wt)
-}
-
-func (cb *cachedBatch) SerializeQueue(filter WriteInfoFilter) []byte {
-	return cb.kvStoreBatch.SerializeQueue(filter)
+func (cb *cachedBatch) SerializeQueue(serialize WriteInfoSerialize, filter WriteInfoFilter) []byte {
+	return cb.kvStoreBatch.SerializeQueue(serialize, filter)
 }
 
 func (cb *cachedBatch) Size() int {
