@@ -3,7 +3,6 @@ module github.com/iotexproject/iotex-core
 go 1.13
 
 require (
-	bou.ke/monkey v1.0.2
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a

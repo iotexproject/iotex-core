@@ -75,7 +75,7 @@ const (
 type Output struct {
 	MessageType            MessageType            `json:"messageType"`
 	Message                Message                `json:"message"`
-	MessageWithTranslation MessageWithTranslation `json:"MessageWithTranslation"`
+	MessageWithTranslation MessageWithTranslation `json:"messageWithTranslation"`
 }
 
 // Message is the message part of output
