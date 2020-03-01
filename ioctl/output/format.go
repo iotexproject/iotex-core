@@ -73,13 +73,19 @@ const (
 
 // Output is used for format output
 type Output struct {
-	MessageType MessageType `json:"messageType"`
-	Message     Message     `json:"message"`
+	MessageType            MessageType            `json:"messageType"`
+	Message                Message                `json:"message"`
+	MessageWithTranslation MessageWithTranslation `json:"messageWithTranslation"`
 }
 
 // Message is the message part of output
 type Message interface {
 	String() string
+}
+
+// MessageWithTranslation is the message part of output supporting multi languages
+type MessageWithTranslation interface {
+	String(args ...string) string
 }
 
 // ConfirmationMessage is the struct of an Confirmation output
@@ -149,6 +155,18 @@ func FormatString(t MessageType, m Message) string {
 	out := Output{
 		MessageType: t,
 		Message:     m,
+	}
+	switch Format {
+	default: // default is json
+		return JSONString(out)
+	}
+}
+
+// FormatStringWithTrans returns Output as string in certain format supporting multi languages
+func FormatStringWithTrans(t MessageType, m MessageWithTranslation) string {
+	out := Output{
+		MessageType:            t,
+		MessageWithTranslation: m,
 	}
 	switch Format {
 	default: // default is json
