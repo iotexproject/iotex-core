@@ -59,20 +59,22 @@ func (m CandidateCenter) ContainsOperator(operator address.Address) bool {
 
 // GetByName returns the candidate by name
 func (m CandidateCenter) GetByName(name string) *Candidate {
-	return m.nameMap[name]
+	if d, ok := m.nameMap[name]; ok {
+		return d.Clone()
+	}
+	return nil
 }
 
 // GetByOwner returns the candidate by owner
 func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
-	return m.ownerMap[owner]
+	if d, ok := m.ownerMap[owner]; ok {
+		return d.Clone()
+	}
+	return nil
 }
 
-// Put writes the candidate into map, overwrite an existing entry cause error
+// Put writes the candidate into map
 func (m CandidateCenter) Put(d *Candidate) error {
-	if m.ContainsOwner(d.Owner) {
-		return ErrAlreadyExist
-	}
-
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner] = d
 	m.operatorMap[d.Operator] = d
@@ -80,13 +82,13 @@ func (m CandidateCenter) Put(d *Candidate) error {
 }
 
 // Delete deletes the candidate by name
-func (m CandidateCenter) Delete(name string) {
-	d, ok := m.nameMap[name]
+func (m CandidateCenter) Delete(owner address.Address) {
+	d, ok := m.ownerMap[owner]
 	if !ok {
 		return
 	}
 
-	delete(m.nameMap, name)
+	delete(m.nameMap, d.Name)
 	delete(m.ownerMap, d.Owner)
 	delete(m.operatorMap, d.Operator)
 }

@@ -58,9 +58,19 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 
-	// owner address is the unique ID for candidate
+	// cannot collide with existing owner
 	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
 		return nil, ErrAlreadyExist
+	}
+
+	// cannot collide with existing name
+	if p.inMemCandidates.ContainsName(act.Name()) {
+		return nil, ErrInvalidCanName
+	}
+
+	// cannot collide with existing operator address
+	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+		return nil, ErrInvalidOperator
 	}
 
 	// TODO create self staking bucket
@@ -89,44 +99,37 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	// only owner can update candidate
-	if !p.inMemCandidates.ContainsOwner(actCtx.Caller) {
+	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
+	if c == nil {
 		return nil, ErrInvalidOwner
 	}
-	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
 
 	// cannot collide with existing name
-	if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-		return nil, ErrInvalidCanName
+	if len(act.Name()) != 0 {
+		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
+			return nil, ErrInvalidCanName
+		}
+		c.Name = act.Name()
 	}
 
 	// cannot collide with existing operator address
-	if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-		return nil, ErrInvalidOperator
+	if act.OperatorAddress() != nil {
+		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+			return nil, ErrInvalidOperator
+		}
+		c.Operator = act.OperatorAddress()
 	}
 
-	// nothing changes, simply return
-	if act.Name() == c.Name && act.OperatorAddress() == c.Operator && act.RewardAddress() == c.Reward {
-		return &action.Receipt{
-			Status:          uint64(iotextypes.ReceiptStatus_Success),
-			BlockHeight:     blkCtx.BlockHeight,
-			ActionHash:      actCtx.ActionHash,
-			GasConsumed:     actCtx.IntrinsicGas,
-			ContractAddress: p.addr.String(),
-		}, nil
+	if act.RewardAddress() != nil {
+		c.Reward = act.RewardAddress()
 	}
-
-	// keep a copy of current candidate before updating
-	oldCand := c.Clone()
-	c.Name = act.Name()
-	c.Operator = act.OperatorAddress()
-	c.Reward = act.RewardAddress()
 
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
 
 	// delete the current and update new into candidate center
-	p.inMemCandidates.Delete(oldCand.Name)
+	p.inMemCandidates.Delete(c.Owner)
 	if err := p.inMemCandidates.Put(c); err != nil {
 		return nil, err
 	}

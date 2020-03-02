@@ -101,13 +101,9 @@ func TestCandCenter(t *testing.T) {
 	}
 	r.Equal(len(tests), m.Size())
 
-	// cannot put existing entry again
-	r.Equal(ErrAlreadyExist, m.Put(tests[0].d))
-
 	// test candidate that does not exist
-	noName := "noname"
-	r.False(m.ContainsName(noName))
-	r.Nil(m.GetByName(noName))
+	noName := identityset.Address(22)
+	r.False(m.ContainsOwner(noName))
 	m.Delete(noName)
 	r.Equal(len(tests), m.Size())
 
@@ -133,8 +129,10 @@ func TestCandCenter(t *testing.T) {
 
 	// test delete
 	for i, v := range tests {
-		m.Delete(v.d.Name)
+		m.Delete(v.d.Owner)
+		r.False(m.ContainsOwner(v.d.Owner))
 		r.False(m.ContainsName(v.d.Name))
+		r.False(m.ContainsOperator(v.d.Operator))
 		r.Equal(len(tests)-i-1, m.Size())
 	}
 }
