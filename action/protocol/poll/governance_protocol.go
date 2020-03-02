@@ -174,7 +174,6 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 		if prevHeight != afterHeight {
 			return errors.Wrap(ErrInconsistentHeight, "shifting candidate height is not same as shifting kickout height")
 		}
-		return nil
 	}
 	return nil
 }
@@ -244,8 +243,11 @@ func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context,
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
 	} else if tipEpochNum == epochNum {
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
+	} else if tipEpochNum > epochNum {
+		// historic API call
+		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 	}
-	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
+	return nil, errors.Errorf("invalid epochNumber %d to get delegates", epochNum)
 }
 
 func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
@@ -271,40 +273,31 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	tipEpoch := rp.GetEpochNum(blkCtx.BlockHeight)
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
 	switch string(method) {
 	case "CandidatesByEpoch":
 		if len(args) != 0 {
-			inputEpochNum := byteutil.BytesToUint64(args[0])
-			if inputEpochNum != tipEpoch {
-				return nil, errors.New("previous epoch data isn't available with non-archive node")
-			}
+			epochNum = byteutil.BytesToUint64(args[0])
 		}
-		delegates, err := p.readCandidatesByEpoch(ctx, tipEpoch, false)
+		delegates, err := p.readCandidatesByEpoch(ctx, epochNum, false)
 		if err != nil {
 			return nil, err
 		}
 		return delegates.Serialize()
 	case "BlockProducersByEpoch":
 		if len(args) != 0 {
-			inputEpochNum := byteutil.BytesToUint64(args[0])
-			if inputEpochNum != tipEpoch {
-				return nil, errors.New("previous epoch data isn't available with non-archive node")
-			}
+			epochNum = byteutil.BytesToUint64(args[0])
 		}
-		blockProducers, err := p.readBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
+		blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum, false)
 		if err != nil {
 			return nil, err
 		}
 		return blockProducers.Serialize()
 	case "ActiveBlockProducersByEpoch":
 		if len(args) != 0 {
-			inputEpochNum := byteutil.BytesToUint64(args[0])
-			if inputEpochNum != tipEpoch {
-				return nil, errors.New("previous epoch data isn't available with non-archive node")
-			}
+			epochNum = byteutil.BytesToUint64(args[0])
 		}
-		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, byteutil.BytesToUint64(args[0]), false)
+		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 		if err != nil {
 			return nil, err
 		}
@@ -320,12 +313,10 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
 	case "KickoutListByEpoch":
 		if len(args) != 0 {
-			inputEpochNum := byteutil.BytesToUint64(args[0])
-			if inputEpochNum != tipEpoch {
-				return nil, errors.New("previous epoch data isn't available with non-archive node")
-			}
+			epochNum = byteutil.BytesToUint64(args[0])
+
 		}
-		kickoutList, err := p.readKickoutList(ctx, tipEpoch, false)
+		kickoutList, err := p.readKickoutList(ctx, epochNum, false)
 		if err != nil {
 			return nil, err
 		}
@@ -356,19 +347,15 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	epochNum := rp.GetEpochNum(epochStartHeight)
+	candidates, err := p.readCandidates(ctx, epochStartHeight, readFromNext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read candidates")
+	}
 	if hu.IsPre(config.Easter, epochStartHeight) {
-		return p.candidatesByHeight(p.sr, epochStartHeight)
+		return candidates, nil
 	}
 	// After Easter height, kick-out unqualified delegates based on productivity
-	candidates, stateHeight, err := p.getCandidates(p.sr, readFromNext)
-	if err != nil {
-		return nil, err
-	}
-	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
-	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
-		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
-	}
+	epochNum := rp.GetEpochNum(epochStartHeight)
 	unqualifiedList, err := p.readKickoutList(ctx, epochNum, readFromNext)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read kick-out list")
@@ -450,17 +437,63 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 
 	return activeBlockProducers, nil
 }
+func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	if hu.IsPre(config.Easter, epochStartHeight) {
+		return p.candidatesByHeight(p.sr, epochStartHeight)
+	}
+	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
+	var candidates state.CandidateList
+	var stateHeight uint64
+	var err error
+	if epochStartHeight < tipEpochStartHeight {
+		// read historical data
+		candidates, _, err = p.getCandidates(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get old-candidateList at height %d", epochStartHeight)
+		}
+	} else {
+		candidates, stateHeight, err = p.getCandidates(p.sr, readFromNext)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get candidateList at height %d", epochStartHeight)
+		}
+		// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+		if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
+			return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
+		}
+	}
+	return candidates, nil
+}
 
 func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, epochNum uint64, readFromNext bool) (*vote.Blacklist, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	unqualifiedList, stateHeight, err := p.getKickoutList(p.sr, readFromNext)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	if hu.IsPre(config.Easter, epochStartHeight) {
+		return nil, errors.New("Before Easter, there is no blacklist in stateDBs")
 	}
-	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
-	if epochNum < rp.GetEpochNum(stateHeight) {
-		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
+	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
+	var unqualifiedList *vote.Blacklist
+	var stateHeight uint64
+	var err error
+	if epochStartHeight < tipEpochStartHeight {
+		// read historical data
+		unqualifiedList, _, err = p.getKickoutList(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get old-kickout list when reading from state DB in epoch %d", epochNum)
+		}
+	} else {
+		unqualifiedList, stateHeight, err = p.getKickoutList(p.sr, readFromNext)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+		}
+		// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+		if epochNum < rp.GetEpochNum(stateHeight) {
+			return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
+		}
 	}
 	return unqualifiedList, nil
 }
