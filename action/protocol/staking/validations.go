@@ -11,27 +11,42 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
+// DurationBase is the base multiple of staking duration
+const DurationBase = 7
+
 // Errors
 var (
-	ErrNilAction      = errors.New("action is nil")
-	ErrInvalidAmount  = errors.New("invalid staking amount")
-	ErrInvalidCanName = errors.New("invalid candidate name")
-	ErrMissingField   = errors.New("misssing data field")
+	ErrNilAction       = errors.New("action is nil")
+	ErrInvalidAmount   = errors.New("invalid staking amount")
+	ErrInvalidCanName  = errors.New("invalid candidate name")
+	ErrInvalidOwner    = errors.New("invalid owner address")
+	ErrInvalidOperator = errors.New("invalid operator address")
+	ErrMissingField    = errors.New("misssing data field")
+	ErrInvalidDuration = errors.New("invalid staking duration")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-
-	if act.Amount().Sign() <= 0 {
-		return ErrInvalidAmount
+	if !IsValidCandidateName(act.Candidate()) {
+		return ErrInvalidCanName
 	}
-
+	if act.Amount().Sign() <= 0 {
+		return errors.Wrap(ErrInvalidAmount, "negative value")
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
+	if act.Duration()%DurationBase != 0 {
+		return ErrInvalidDuration
+	}
 	return nil
 }
 
@@ -39,7 +54,9 @@ func (p *Protocol) validateUnstake(ctx context.Context, act *action.Unstake) err
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
 	return nil
 }
 
@@ -47,7 +64,9 @@ func (p *Protocol) validateWithdrawStake(ctx context.Context, act *action.Withdr
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
 	return nil
 }
 
@@ -55,7 +74,12 @@ func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.Chan
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if !IsValidCandidateName(act.Candidate()) {
+		return ErrInvalidCanName
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
 	return nil
 }
 
@@ -63,7 +87,12 @@ func (p *Protocol) validateTransferStake(ctx context.Context, act *action.Transf
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if _, err := address.FromString(act.VoterAddress()); err != nil {
+		return errors.Wrap(address.ErrInvalidAddr, "invalid voter address")
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
 	return nil
 }
 
@@ -71,7 +100,12 @@ func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.Depos
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if act.Amount().Sign() <= 0 {
+		return errors.Wrap(ErrInvalidAmount, "negative value")
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
 	return nil
 }
 
@@ -79,13 +113,21 @@ func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) err
 	if act == nil {
 		return ErrNilAction
 	}
-	// TODO
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
+	if act.Duration()%DurationBase != 0 {
+		return ErrInvalidDuration
+	}
 	return nil
 }
 
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
 	if act == nil {
 		return ErrNilAction
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	if !IsValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
@@ -100,12 +142,19 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return errors.New("self staking amount is not valid")
 	}
 
+	if act.Duration()%DurationBase != 0 {
+		return ErrInvalidDuration
+	}
+
 	return nil
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
 	if act == nil {
 		return ErrNilAction
+	}
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 	if len(act.Name()) != 0 {
 		if !IsValidCandidateName(act.Name()) {

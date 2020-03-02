@@ -48,6 +48,8 @@ type (
 		// doing
 		GetAddress(in string) (string, error)
 		// doing
+		Address(in string) (string, error)
+		// doing
 		NewKeyStore(string, int, int) *keystore.KeyStore
 	}
 
@@ -154,6 +156,20 @@ func (c *client) GetAddress(in string) (string, error) {
 		return "", output.NewError(output.AddressError, "", err)
 	}
 	return address(addr)
+}
+
+func (c *client) Address(in string) (string, error) {
+	if len(in) >= validator.IoAddrLen {
+		if err := validator.ValidateAddress(in); err != nil {
+			return "", output.NewError(output.ValidationError, "", err)
+		}
+		return in, nil
+	}
+	addr, ok := config.ReadConfig.Aliases[in]
+	if ok {
+		return addr, nil
+	}
+	return "", output.NewError(output.ConfigError, "cannot find address from "+in, nil)
 }
 
 func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
