@@ -62,6 +62,7 @@ var defaultGasPrice = big.NewInt(unit.Qev)
 var (
 	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 0, "set gas limit")
 	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
+	//gasPriceFlagForaccount.CryptoSm2 = flag.NewStringVarP("gas-price", "p", "0", "xctl doesn't require gas by default")
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
@@ -124,11 +125,8 @@ func nonce(executor string) (uint64, error) {
 	return accountMeta.PendingNonce, nil
 }
 
-func registerWriteCommand(cmd *cobra.Command) {
+func registerWriteCommand(cmd *cobra.Command, sm2 ...bool) {
 	gasLimitFlag.RegisterCommand(cmd)
-	if account.CryptoSm2 {
-		gasPriceFlag = flag.NewStringVarP("gas-price", "p", "0", "xctl doesn't require gas by default")
-	}
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)
 	nonceFlag.RegisterCommand(cmd)
@@ -139,7 +137,8 @@ func registerWriteCommand(cmd *cobra.Command) {
 // gasPriceInRau returns the suggest gas price
 func gasPriceInRau() (*big.Int, error) {
 	gasPrice := gasPriceFlag.Value().(string)
-	if account.CryptoSm2 && gasPrice == "0" {
+	//Todo when xctl user doesn't want to default gasPrice(0), and want to set it as 1, there is a bug.
+	if account.CryptoSm2 && gasPrice == "1" {
 		return new(big.Int).SetUint64(0), nil
 	}
 	if len(gasPrice) != 0 {

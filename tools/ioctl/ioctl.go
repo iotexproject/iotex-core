@@ -8,8 +8,10 @@ package main
 
 import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 )
 
 func main() {
+	account.CryptoSm2 = true
 	cmd.Execute()
 }
