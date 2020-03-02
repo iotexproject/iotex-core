@@ -215,3 +215,8 @@ func delBucket(sm protocol.StateManager, name address.Address, index uint64) err
 func bucketKey(name []byte, index uint64) []byte {
 	return append(name, byteutil.Uint64ToBytesBigEndian(index)...)
 }
+
+func calculateVoteWeight(bucket *VoteBucket, selfStake bool) *big.Int {
+	// TODO implement the right policy
+	return bucket.StakedAmount
+}
