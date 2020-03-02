@@ -126,6 +126,9 @@ func nonce(executor string) (uint64, error) {
 
 func registerWriteCommand(cmd *cobra.Command) {
 	gasLimitFlag.RegisterCommand(cmd)
+	if account.CryptoSm2 {
+		gasPriceFlag = flag.NewStringVarP("gas-price", "p", "0", "xctl doesn't require gas by default")
+	}
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)
 	nonceFlag.RegisterCommand(cmd)
@@ -136,6 +139,9 @@ func registerWriteCommand(cmd *cobra.Command) {
 // gasPriceInRau returns the suggest gas price
 func gasPriceInRau() (*big.Int, error) {
 	gasPrice := gasPriceFlag.Value().(string)
+	if account.CryptoSm2 && gasPrice == "0" {
+		return new(big.Int).SetUint64(0), nil
+	}
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
