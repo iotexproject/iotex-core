@@ -22,10 +22,12 @@ const DurationBase = 7
 
 // Errors
 var (
-	ErrNilAction      = errors.New("action is nil")
-	ErrInvalidAmount  = errors.New("invalid staking amount")
-	ErrInvalidCanName = errors.New("invalid candidate name")
-	ErrMissingField   = errors.New("misssing data field")
+	ErrNilAction       = errors.New("action is nil")
+	ErrInvalidAmount   = errors.New("invalid staking amount")
+	ErrInvalidCanName  = errors.New("invalid candidate name")
+	ErrInvalidOwner    = errors.New("invalid owner address")
+	ErrInvalidOperator = errors.New("invalid operator address")
+	ErrMissingField    = errors.New("misssing data field")
 	ErrInvalidDuration = errors.New("invalid staking duration")
 )
 
