@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"time"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -73,10 +74,15 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return nil, ErrInvalidOperator
 	}
 
-	// TODO create self staking bucket
-	bucketIdx := uint64(0)
+	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), time.Now(), act.AutoStake())
+	bucketIdx, err := putBucket(sm, owner, bucket)
+	if err != nil {
+		return nil, err
+	}
 
 	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), bucketIdx, act.Amount())
+	c.Votes = calculateVoteWeight(bucket, true)
+
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
