@@ -140,6 +140,21 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return 0, kv.Delete(cfg.Namespace, cfg.Key)
 		},
 	).AnyTimes()
+	sm.EXPECT().States(gomock.Any()).DoAndReturn(
+		func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, nil, err
+			}
+			_, fv, err := kv.Filter(cfg.Namespace, func(k, v []byte) bool {
+				return true
+			})
+			if err != nil {
+				return 0, nil, state.ErrStateNotExist
+			}
+			return 0, state.NewIterator(fv), nil
+		},
+	).AnyTimes()
 
 	return sm
 }

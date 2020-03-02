@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // protocolID is the protocol ID
@@ -32,23 +33,49 @@ var (
 // Protocol defines the protocol of handling staking
 type Protocol struct {
 	addr            address.Address
-	inMemCandidates CandidateCenter
+	inMemCandidates *CandidateCenter
 	voteCal         VoteWeightCalConsts
 	depositGas      DepositGas
+	sr              protocol.StateReader
 }
 
 // DepositGas deposits gas to some pool
 type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas) *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, vc VoteWeightCalConsts) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of staking protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr, depositGas: depositGas}
+	return &Protocol{
+		addr:            addr,
+		inMemCandidates: NewCandidateCenter(),
+		voteCal:         vc,
+		depositGas:      depositGas,
+		sr:              sr,
+	}
+}
+
+// Start starts the protocol
+func (p *Protocol) Start(ctx context.Context) error {
+	// read all candidates from stateDB
+	_, iter, err := p.sr.States(protocol.NamespaceOption(factory.CandidateNameSpace))
+	if err != nil {
+		return err
+	}
+
+	// decode the candidate and put into candidate center
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if err := iter.Next(c); err != nil {
+			return errors.Wrapf(err, "failed to deserialize candidate")
+		}
+		p.inMemCandidates.Put(c)
+	}
+	return nil
 }
 
 // Handle handles a staking message
