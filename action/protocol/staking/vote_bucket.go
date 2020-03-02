@@ -181,27 +181,28 @@ func getBucket(sr protocol.StateReader, name address.Address, index uint64) (*Vo
 	return &vb, nil
 }
 
-func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) error {
+func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.KeyOption(factory.TotalBucketKey)); err != nil {
-		return err
+		return 0, err
 	}
 
+	index := tc.Count()
 	if _, err := sm.PutState(
 		bucket,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name.Bytes(), tc.Count()))); err != nil {
-		return err
+		protocol.KeyOption(bucketKey(name.Bytes(), index))); err != nil {
+		return 0, err
 	}
 	tc.count++
 	_, err := sm.PutState(
 		&tc,
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.KeyOption(factory.TotalBucketKey))
-	return err
+	return index, err
 }
 
 func delBucket(sm protocol.StateManager, name address.Address, index uint64) error {
