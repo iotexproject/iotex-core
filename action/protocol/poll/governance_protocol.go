@@ -241,9 +241,11 @@ func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context,
 	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
 	if tipEpochNum+1 == epochNum {
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
-	} else if tipEpochNum == epochNum {
+	}
+	if tipEpochNum == epochNum {
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
-	} else if tipEpochNum > epochNum {
+	}
+	if tipEpochNum > epochNum {
 		// historic API call
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 	}
