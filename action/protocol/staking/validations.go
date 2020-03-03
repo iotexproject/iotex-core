@@ -8,13 +8,13 @@ package staking
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -193,17 +193,13 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	}
 
 	// cannot collide with existing name
-	if len(act.Name()) != 0 {
-		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-			return ErrInvalidCanName
-		}
+	if len(act.Name()) != 0 && act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
+		return ErrInvalidCanName
 	}
 
 	// cannot collide with existing operator address
-	if act.OperatorAddress() != nil {
-		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-			return ErrInvalidOperator
-		}
+	if act.OperatorAddress() != nil && act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+		return ErrInvalidOperator
 	}
 	return nil
 }
