@@ -18,15 +18,13 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-func TestCandidateSerialize(t *testing.T) {
+func TestClone(t *testing.T) {
 	r := require.New(t)
 	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", 0, big.NewInt(2100000000))
-
-	b, err := d.Serialize()
-	r.NoError(err)
-	d1 := &Candidate{}
-	r.NoError(d1.Deserialize(b))
-	r.Equal(d, d1)
+	d2 := d.Clone()
+	r.Equal(d, d2)
+	d.AddVote(big.NewInt(100))
+	r.NotEqual(d, d2)
 }
 
 var (
@@ -37,7 +35,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(1),
-				Operator:           identityset.Address(1),
+				Operator:           identityset.Address(11),
 				Reward:             identityset.Address(1),
 				Name:               "test1",
 				Votes:              big.NewInt(2),
@@ -49,7 +47,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(2),
-				Operator:           identityset.Address(2),
+				Operator:           identityset.Address(12),
 				Reward:             identityset.Address(1),
 				Name:               "test2",
 				Votes:              big.NewInt(3),
@@ -61,7 +59,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(3),
-				Operator:           identityset.Address(3),
+				Operator:           identityset.Address(13),
 				Reward:             identityset.Address(1),
 				Name:               "test3",
 				Votes:              big.NewInt(3),
@@ -73,7 +71,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(4),
-				Operator:           identityset.Address(4),
+				Operator:           identityset.Address(14),
 				Reward:             identityset.Address(1),
 				Name:               "test4",
 				Votes:              big.NewInt(1),
@@ -85,47 +83,40 @@ var (
 	}
 )
 
-func TestCandMap(t *testing.T) {
+func TestCandCenter(t *testing.T) {
 	r := require.New(t)
 
-	m := CandidateMap{}
+	m := NewCandidateCenter()
 	for i, v := range tests {
 		r.NoError(m.Put(tests[i].d))
-		r.True(m.Contains(v.d.Name))
-		r.Equal(v.d, m.Get(v.d.Name))
+		r.True(m.ContainsName(v.d.Name))
+		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
-	r.Equal(len(tests), len(m))
+	r.Equal(len(tests), m.Size())
 
 	// test candidate that does not exist
-	noName := "noname"
-	r.False(m.Contains(noName))
-	r.Nil(m.Get(noName))
+	noName := identityset.Address(22)
+	r.False(m.ContainsOwner(noName))
 	m.Delete(noName)
-	r.Equal(len(tests), len(m))
+	r.Equal(len(tests), m.Size())
 
-	// test serialize
-	d, err := m.Serialize()
-	r.NoError(err)
-	r.NoError(m.Deserialize(d))
-	r.Equal(len(tests), len(m))
+	// test existence
 	for _, v := range tests {
-		r.True(m.Contains(v.d.Name))
-		r.Equal(v.d, m.Get(v.d.Name))
-	}
-
-	// verify the serialization is sorted
-	c := CandidateList{tests[0].d}
-	r.NoError(c.Deserialize(d))
-	r.Equal(len(tests), len(c))
-	for _, v := range tests {
-		r.Equal(v.d, c[v.index])
+		r.True(m.ContainsName(v.d.Name))
+		r.True(m.ContainsOwner(v.d.Owner))
+		r.True(m.ContainsOperator(v.d.Operator))
+		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
+		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
 	// test delete
 	for i, v := range tests {
-		m.Delete(v.d.Name)
-		r.False(m.Contains(v.d.Name))
-		r.Equal(len(tests)-i-1, len(m))
+		m.Delete(v.d.Owner)
+		r.False(m.ContainsOwner(v.d.Owner))
+		r.False(m.ContainsName(v.d.Name))
+		r.False(m.ContainsOperator(v.d.Operator))
+		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
+		r.Equal(len(tests)-i-1, m.Size())
 	}
 }
 

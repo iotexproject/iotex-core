@@ -274,17 +274,6 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		numActions += blk.NumActions
 	}
 
-	rp := rolldpos.FindProtocol(api.registry)
-	if rp == nil {
-		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
-	}
-	epochNum := rp.GetEpochNum(tipHeight)
-	epochHeight := rp.GetEpochHeight(epochNum)
-	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-
 	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
 	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
 	// duration of time difference in milli-seconds
@@ -293,17 +282,26 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	tps := float32(numActions*1000) / float32(timeDiff)
 
 	chainMeta := &iotextypes.ChainMeta{
-		Height: tipHeight,
-		Epoch: &iotextypes.EpochData{
-			Num:                     epochNum,
-			Height:                  epochHeight,
-			GravityChainStartHeight: gravityChainStartHeight,
-		},
+		Height:     tipHeight,
 		NumActions: int64(totalActions),
 		Tps:        int64(math.Ceil(float64(tps))),
 		TpsFloat:   tps,
 	}
 
+	rp := rolldpos.FindProtocol(api.registry)
+	if rp != nil {
+		epochNum := rp.GetEpochNum(tipHeight)
+		epochHeight := rp.GetEpochHeight(epochNum)
+		gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		chainMeta.Epoch = &iotextypes.EpochData{
+			Num:                     epochNum,
+			Height:                  epochHeight,
+			GravityChainStartHeight: gravityChainStartHeight,
+		}
+	}
 	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
 }
 
@@ -492,7 +490,7 @@ func (api *Server) GetEpochMeta(
 	// TODO : support archive mode to retrieve historic data, now only support tip epoch number
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
-		return nil, status.Error(codes.Internal, "rolldpos protocol is not registered")
+		return &iotexapi.GetEpochMetaResponse{}, nil
 	}
 	tipHeight := api.bc.TipHeight()
 	tipEpochNumber := rp.GetEpochNum(tipHeight)

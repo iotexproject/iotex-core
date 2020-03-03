@@ -48,6 +48,22 @@ func NewCandidate(owner, operator, reward address.Address, name string, selfStak
 	}
 }
 
+// Clone returns a copy
+func (d *Candidate) Clone() *Candidate {
+	v := new(big.Int).Set(d.Votes)
+	s := new(big.Int).Set(d.SelfStake)
+
+	return &Candidate{
+		Owner:              d.Owner,
+		Operator:           d.Operator,
+		Reward:             d.Reward,
+		Name:               d.Name,
+		Votes:              v,
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
+		SelfStake:          s,
+	}
+}
+
 // AddVote adds vote
 func (d *Candidate) AddVote(amount *big.Int) error {
 	if amount.Sign() < 0 {
