@@ -66,7 +66,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), bucketIdx, act.Amount())
-	c.Votes = calculateVoteWeight(bucket, true)
+	c.Votes = p.calculateVoteWeight(bucket, true)
 
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
