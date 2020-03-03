@@ -206,9 +206,10 @@ func (sf *factory) Start(ctx context.Context) error {
 		return err
 	}
 	// check factory height
-	_, err = sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
+	h, err := sf.dao.Get(AccountKVNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
+		sf.currentChainHeight = byteutil.BytesToUint64(h)
 		break
 	case db.ErrNotExist:
 		ctx = protocol.WithBlockCtx(
