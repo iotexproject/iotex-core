@@ -6,31 +6,25 @@
 
 package staking
 
-import (
-	"sort"
-
-	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-)
+import "github.com/iotexproject/iotex-address/address"
 
 type (
 	// CandidateCenter is a struct to manage the candidates
 	CandidateCenter struct {
-		nameMap     map[string]*Candidate
-		ownerMap    map[address.Address]*Candidate
-		operatorMap map[address.Address]*Candidate
+		nameMap          map[string]*Candidate
+		ownerMap         map[string]*Candidate
+		operatorMap      map[string]*Candidate
+		selfStkBucketMap map[uint64]*Candidate
 	}
 )
 
 // NewCandidateCenter creates an instance of CandidateCenter
 func NewCandidateCenter() *CandidateCenter {
 	return &CandidateCenter{
-		nameMap:     make(map[string]*Candidate),
-		ownerMap:    make(map[address.Address]*Candidate),
-		operatorMap: make(map[address.Address]*Candidate),
+		nameMap:          make(map[string]*Candidate),
+		ownerMap:         make(map[string]*Candidate),
+		operatorMap:      make(map[string]*Candidate),
+		selfStkBucketMap: make(map[uint64]*Candidate),
 	}
 }
 
@@ -47,13 +41,19 @@ func (m CandidateCenter) ContainsName(name string) bool {
 
 // ContainsOwner returns true if the map contains the candidate by owner
 func (m CandidateCenter) ContainsOwner(owner address.Address) bool {
-	_, ok := m.ownerMap[owner]
+	_, ok := m.ownerMap[owner.String()]
 	return ok
 }
 
 // ContainsOperator returns true if the map contains the candidate by operator
 func (m CandidateCenter) ContainsOperator(operator address.Address) bool {
-	_, ok := m.operatorMap[operator]
+	_, ok := m.operatorMap[operator.String()]
+	return ok
+}
+
+// ContainsSelfStakingBucket returns true if the map contains the self staking bucket index
+func (m CandidateCenter) ContainsSelfStakingBucket(index uint64) bool {
+	_, ok := m.selfStkBucketMap[index]
 	return ok
 }
 
@@ -67,7 +67,7 @@ func (m CandidateCenter) GetByName(name string) *Candidate {
 
 // GetByOwner returns the candidate by owner
 func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
-	if d, ok := m.ownerMap[owner]; ok {
+	if d, ok := m.ownerMap[owner.String()]; ok {
 		return d.Clone()
 	}
 	return nil
@@ -76,59 +76,21 @@ func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
 // Put writes the candidate into map
 func (m CandidateCenter) Put(d *Candidate) error {
 	m.nameMap[d.Name] = d
-	m.ownerMap[d.Owner] = d
-	m.operatorMap[d.Operator] = d
+	m.ownerMap[d.Owner.String()] = d
+	m.operatorMap[d.Operator.String()] = d
+	m.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 	return nil
 }
 
 // Delete deletes the candidate by name
 func (m CandidateCenter) Delete(owner address.Address) {
-	d, ok := m.ownerMap[owner]
+	d, ok := m.ownerMap[owner.String()]
 	if !ok {
 		return
 	}
 
 	delete(m.nameMap, d.Name)
-	delete(m.ownerMap, d.Owner)
-	delete(m.operatorMap, d.Operator)
-}
-
-// Serialize serializes a CandidateCenter to bytes
-func (m CandidateCenter) Serialize() ([]byte, error) {
-	l := make(CandidateList, 0, len(m.nameMap))
-	for _, v := range m.nameMap {
-		l = append(l, v)
-	}
-	sort.Sort(l)
-	lpb, err := l.toProto()
-	if err != nil {
-		return nil, err
-	}
-	return proto.Marshal(lpb)
-}
-
-// Deserialize deserializes bytes to CandidateCenter
-func (m CandidateCenter) Deserialize(buf []byte) error {
-	pb := &stakingpb.Candidates{}
-	if err := proto.Unmarshal(buf, pb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal candidate list")
-	}
-
-	m.nameMap = nil
-	m.ownerMap = nil
-	m.operatorMap = nil
-	m.nameMap = make(map[string]*Candidate)
-	m.ownerMap = make(map[address.Address]*Candidate)
-	m.operatorMap = make(map[address.Address]*Candidate)
-
-	for _, v := range pb.Candidates {
-		c := &Candidate{}
-		if err := c.fromProto(v); err != nil {
-			return err
-		}
-		m.nameMap[c.Name] = c
-		m.ownerMap[c.Owner] = c
-		m.operatorMap[c.Operator] = c
-	}
-	return nil
+	delete(m.ownerMap, d.Owner.String())
+	delete(m.operatorMap, d.Operator.String())
+	delete(m.selfStkBucketMap, d.SelfStakeBucketIdx)
 }

@@ -135,6 +135,9 @@ func registerWriteCommand(cmd *cobra.Command) {
 
 // gasPriceInRau returns the suggest gas price
 func gasPriceInRau() (*big.Int, error) {
+	if account.CryptoSm2 {
+		return big.NewInt(0), nil
+	}
 	gasPrice := gasPriceFlag.Value().(string)
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)

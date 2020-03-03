@@ -18,16 +18,9 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-func TestCandidateSerialize(t *testing.T) {
+func TestClone(t *testing.T) {
 	r := require.New(t)
 	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", 0, big.NewInt(2100000000))
-
-	b, err := d.Serialize()
-	r.NoError(err)
-	d1 := &Candidate{}
-	r.NoError(d1.Deserialize(b))
-	r.Equal(d, d1)
-
 	d2 := d.Clone()
 	r.Equal(d, d2)
 	d.AddVote(big.NewInt(100))
@@ -107,24 +100,13 @@ func TestCandCenter(t *testing.T) {
 	m.Delete(noName)
 	r.Equal(len(tests), m.Size())
 
-	// test serialize
-	d, err := m.Serialize()
-	r.NoError(err)
-	r.NoError(m.Deserialize(d))
-	r.Equal(len(tests), m.Size())
+	// test existence
 	for _, v := range tests {
 		r.True(m.ContainsName(v.d.Name))
 		r.True(m.ContainsOwner(v.d.Owner))
 		r.True(m.ContainsOperator(v.d.Operator))
+		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(v.d, m.GetByName(v.d.Name))
-	}
-
-	// verify the serialization is sorted
-	c := CandidateList{tests[0].d}
-	r.NoError(c.Deserialize(d))
-	r.Equal(len(tests), len(c))
-	for _, v := range tests {
-		r.Equal(v.d, c[v.index])
 	}
 
 	// test delete
@@ -133,6 +115,7 @@ func TestCandCenter(t *testing.T) {
 		r.False(m.ContainsOwner(v.d.Owner))
 		r.False(m.ContainsName(v.d.Name))
 		r.False(m.ContainsOperator(v.d.Operator))
+		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(len(tests)-i-1, m.Size())
 	}
 }
