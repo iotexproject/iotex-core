@@ -82,6 +82,11 @@ func Verify(sealed SealedEnvelope) error {
 	if sealed.SrcPubkey() == nil {
 		return errors.New("empty public key")
 	}
+	// Reject action with insufficient gas limit
+	intrinsicGas, err := sealed.IntrinsicGas()
+	if intrinsicGas > sealed.GasLimit() || err != nil {
+		return errors.Wrap(ErrInsufficientBalanceForGas, "insufficient gas")
+	}
 
 	hash := sealed.Envelope.Hash()
 	if sealed.SrcPubkey().Verify(hash[:], sealed.Signature()) {

@@ -225,32 +225,6 @@ func (mr *MockBlockchainMockRecorder) ValidateBlock(blk interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlock", reflect.TypeOf((*MockBlockchain)(nil).ValidateBlock), blk)
 }
 
-// Validator mocks base method
-func (m *MockBlockchain) Validator() blockchain.Validator {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validator")
-	ret0, _ := ret[0].(blockchain.Validator)
-	return ret0
-}
-
-// Validator indicates an expected call of Validator
-func (mr *MockBlockchainMockRecorder) Validator() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validator", reflect.TypeOf((*MockBlockchain)(nil).Validator))
-}
-
-// SetValidator mocks base method
-func (m *MockBlockchain) SetValidator(val blockchain.Validator) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetValidator", val)
-}
-
-// SetValidator indicates an expected call of SetValidator
-func (mr *MockBlockchainMockRecorder) SetValidator(val interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetValidator", reflect.TypeOf((*MockBlockchain)(nil).SetValidator), val)
-}
-
 // AddSubscriber mocks base method
 func (m *MockBlockchain) AddSubscriber(arg0 blockchain.BlockCreationSubscriber) error {
 	m.ctrl.T.Helper()

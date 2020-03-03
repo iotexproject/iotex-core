@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
+	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
+
 	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
@@ -87,80 +90,37 @@ func TestActPool_NewActPool(t *testing.T) {
 	require.NotPanics(func() { act.AddActionEnvelopeValidators(nil) }, "option is nil")
 }
 
-func TestActPool_validateGenericAction(t *testing.T) {
+func TestValidate(t *testing.T) {
 	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(err)
-	bc := blockchain.NewBlockchain(
-		cfg,
-		nil,
-		sf,
-		blockchain.InMemDaoOption(),
-		blockchain.RegistryOption(re),
-	)
-
-	require.NoError(bc.Start(context.Background()))
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis:  config.Default.Genesis,
+		Registry: re,
+	})
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
+	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
+	mockError := errors.New("mock error")
+	sev.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(mockError).Times(1)
 	apConfig := getActPoolCfg()
 	Ap, err := NewActPool(sf, apConfig, EnableExperimentalActions())
 	require.NoError(err)
 	ap, ok := Ap.(*actPool)
 	require.True(ok)
-	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	validator := ap.actionEnvelopeValidators[0]
-	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{})
-	// Case I: Insufficient gas
+	ap.AddActionEnvelopeValidators(sev)
+	// Case 0: Blacklist
+	tsfFromBL, err := testutil.SignedTransfer(addr6, priKey6, 1, big.NewInt(1), nil, 0, big.NewInt(0))
+	require.NoError(err)
+	require.Equal(action.ErrAddress, errors.Cause(ap.Validate(ctx, tsfFromBL)))
+	// Case I: failed by sealed envelope validator
 	tsf, err := testutil.SignedTransfer(addr1, priKey1, 1, big.NewInt(1), nil, 0, big.NewInt(0))
 	require.NoError(err)
-	err = validator.Validate(ctx, tsf)
-	require.Equal(action.ErrInsufficientBalanceForGas, errors.Cause(err))
-	// Case II: Signature verification fails
-	unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), addr1, []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
-		SetAction(unsignedTsf).
-		SetGasLimit(100000).Build()
-	selp := action.FakeSeal(elp, pubKey1)
-	err = validator.Validate(ctx, selp)
-	require.True(strings.Contains(err.Error(), "failed to verify action signature"))
-	// Case IV: Nonce is too low
-	prevTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(50), []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: re,
-	})
-	require.NoError(ap.Add(ctx, prevTsf))
-	gasLimit := testutil.TestGasLimit
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
-
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SetPrevBlockHash(hash.ZeroHash256).
-		SetTimeStamp(testutil.TimestampNow()).
-		AddActions([]action.SealedEnvelope{prevTsf}...).
-		SignAndBuild(identityset.PrivateKey(27))
-	require.NoError(err)
-
-	require.NoError(sf.Commit(ctx, &blk))
-	ap.Reset()
-	nTsf, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(60), []byte{}, uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller: identityset.Address(28),
-	})
-	err = validator.Validate(ctx, nTsf)
-	require.Equal(action.ErrNonce, errors.Cause(err))
+	require.Equal(mockError, errors.Cause(ap.Validate(ctx, tsf)))
 }
 
 func TestActPool_AddActs(t *testing.T) {

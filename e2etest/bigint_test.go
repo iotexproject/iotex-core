@@ -85,12 +85,15 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 		dao,
 		sf,
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
 	)
 	r.NotNil(bc)
 	reward := rewarding.NewProtocol(nil)
 	r.NoError(reward.Register(registry))
 
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	r.NoError(bc.Start(ctx))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	r.NoError(ep.Register(registry))
