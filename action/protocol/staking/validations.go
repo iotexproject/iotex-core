@@ -18,9 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
-// DurationBase is the base multiple of staking duration
-const DurationBase = 7
-
 // Errors
 var (
 	ErrNilAction       = errors.New("action is nil")
@@ -29,7 +26,6 @@ var (
 	ErrInvalidOwner    = errors.New("invalid owner address")
 	ErrInvalidOperator = errors.New("invalid operator address")
 	ErrMissingField    = errors.New("misssing data field")
-	ErrInvalidDuration = errors.New("invalid staking duration")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
@@ -44,9 +40,6 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	if act.Duration()%DurationBase != 0 {
-		return ErrInvalidDuration
 	}
 	if !p.inMemCandidates.ContainsName(act.Candidate()) {
 		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
@@ -123,9 +116,6 @@ func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) err
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
-	if act.Duration()%DurationBase != 0 {
-		return ErrInvalidDuration
-	}
 	return nil
 }
 
@@ -147,10 +137,6 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	minSelfStake := unit.ConvertIotxToRau(1200000)
 	if act.Amount() == nil || act.Amount().Cmp(minSelfStake) < 0 {
 		return errors.New("self staking amount is not valid")
-	}
-
-	if act.Duration()%DurationBase != 0 {
-		return ErrInvalidDuration
 	}
 
 	// cannot collide with existing owner
