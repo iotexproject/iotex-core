@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/pkg/errors"
 
@@ -47,6 +48,9 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if act.Duration()%DurationBase != 0 {
 		return ErrInvalidDuration
 	}
+	if !p.inMemCandidates.ContainsName(act.Candidate()) {
+		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
+	}
 	return nil
 }
 
@@ -79,6 +83,9 @@ func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.Chan
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
+	}
+	if !p.inMemCandidates.ContainsName(act.Candidate()) {
+		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	return nil
 }
@@ -146,10 +153,27 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return ErrInvalidDuration
 	}
 
+	// cannot collide with existing owner
+	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
+		return ErrAlreadyExist
+	}
+
+	// cannot collide with existing name
+	if p.inMemCandidates.ContainsName(act.Name()) {
+		return ErrInvalidCanName
+	}
+
+	// cannot collide with existing operator address
+	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+		return ErrInvalidOperator
+	}
+
 	return nil
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
+	actCtx := protocol.MustGetActionCtx(ctx)
+
 	if act == nil {
 		return ErrNilAction
 	}
@@ -159,6 +183,26 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	if len(act.Name()) != 0 {
 		if !IsValidCandidateName(act.Name()) {
 			return ErrInvalidCanName
+		}
+	}
+
+	// only owner can update candidate
+	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
+	if c == nil {
+		return ErrInvalidOwner
+	}
+
+	// cannot collide with existing name
+	if len(act.Name()) != 0 {
+		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
+			return ErrInvalidCanName
+		}
+	}
+
+	// cannot collide with existing operator address
+	if act.OperatorAddress() != nil {
+		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+			return ErrInvalidOperator
 		}
 	}
 	return nil

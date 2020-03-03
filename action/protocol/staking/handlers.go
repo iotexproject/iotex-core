@@ -59,21 +59,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 
-	// cannot collide with existing owner
-	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
-		return nil, ErrAlreadyExist
-	}
-
-	// cannot collide with existing name
-	if p.inMemCandidates.ContainsName(act.Name()) {
-		return nil, ErrInvalidCanName
-	}
-
-	// cannot collide with existing operator address
-	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-		return nil, ErrInvalidOperator
-	}
-
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), time.Now(), act.AutoStake())
 	bucketIdx, err := putBucket(sm, owner, bucket)
 	if err != nil {
@@ -112,17 +97,11 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	// cannot collide with existing name
 	if len(act.Name()) != 0 {
-		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-			return nil, ErrInvalidCanName
-		}
 		c.Name = act.Name()
 	}
 
 	// cannot collide with existing operator address
 	if act.OperatorAddress() != nil {
-		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-			return nil, ErrInvalidOperator
-		}
 		c.Operator = act.OperatorAddress()
 	}
 
