@@ -11,13 +11,11 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -268,17 +266,9 @@ func runExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	t := time.Now()
-	if err := bc.ValidateBlock(blk); err != nil {
-		return nil, nil, err
-	}
-	t1 := time.Now()
 	if err := bc.CommitBlock(blk); err != nil {
 		return nil, nil, err
 	}
-	t2 := time.Now()
-	fmt.Println("exec time:", t1.Sub(t))
-	fmt.Println("commit time:", t2.Sub(t1))
 	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blk.Height())
 
 	return nil, receipt, err
@@ -617,7 +607,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
@@ -644,7 +633,6 @@ func TestProtocol_Handle(t *testing.T) {
 			testutil.TimestampNow(),
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 	}
