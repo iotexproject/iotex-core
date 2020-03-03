@@ -260,7 +260,8 @@ func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Contex
 	targetEpochStartHeight := rp.GetEpochHeight(targetEpochNum)
 	if tipEpochNum+1 == targetEpochNum {
 		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, true)
-	} else if tipEpochNum == targetEpochNum {
+	}
+	if tipEpochNum == targetEpochNum {
 		return p.readCandidatesByHeight(ctx, targetEpochStartHeight, false)
 	}
 	return nil, errors.Errorf("wrong epochNumber to get candidatesbyHeight, target epochNumber %d can't be less than tip epoch number %d", targetEpochNum, tipEpochNum)
@@ -447,24 +448,21 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, e
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
 	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
-	var candidates state.CandidateList
-	var stateHeight uint64
-	var err error
 	if epochStartHeight < tipEpochStartHeight {
 		// read historical data
-		candidates, _, err = p.getCandidates(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
+		candidates, _, err := p.getCandidates(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get old-candidateList at height %d", epochStartHeight)
 		}
-	} else {
-		candidates, stateHeight, err = p.getCandidates(p.sr, readFromNext)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get candidateList at height %d", epochStartHeight)
-		}
-		// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
-		if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
-			return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
-		}
+		return candidates, nil
+	}
+	candidates, stateHeight, err := p.getCandidates(p.sr, readFromNext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get candidateList at height %d", epochStartHeight)
+	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+	if epochStartHeight < rp.GetEpochHeight(rp.GetEpochNum(stateHeight)) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory height became larger than target height")
 	}
 	return candidates, nil
 }
@@ -478,24 +476,21 @@ func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, 
 		return nil, errors.New("Before Easter, there is no blacklist in stateDBs")
 	}
 	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
-	var unqualifiedList *vote.Blacklist
-	var stateHeight uint64
-	var err error
 	if epochStartHeight < tipEpochStartHeight {
 		// read historical data
-		unqualifiedList, _, err = p.getKickoutList(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
+		unqualifiedList, _, err := p.getKickoutList(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get old-kickout list when reading from state DB in epoch %d", epochNum)
 		}
-	} else {
-		unqualifiedList, stateHeight, err = p.getKickoutList(p.sr, readFromNext)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
-		}
-		// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
-		if epochNum < rp.GetEpochNum(stateHeight) {
-			return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
-		}
+		return unqualifiedList, nil
+	}
+	unqualifiedList, stateHeight, err := p.getKickoutList(p.sr, readFromNext)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get kickout list when reading from state DB in epoch %d", epochNum)
+	}
+	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
+	if epochNum < rp.GetEpochNum(stateHeight) {
+		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
 	}
 	return unqualifiedList, nil
 }
