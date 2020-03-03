@@ -35,6 +35,7 @@ type (
 		AutoStake        bool
 	}
 
+	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
 	VoteWeightCalConsts struct {
 		DurationLg float64
 		AutoStake  float64
