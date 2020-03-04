@@ -8,6 +8,8 @@ package staking
 
 import (
 	"context"
+	"math/big"
+	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -31,6 +33,7 @@ var (
 type Protocol struct {
 	addr            address.Address
 	inMemCandidates CandidateCenter
+	voteCal         VoteWeightCalConsts
 }
 
 // NewProtocol instantiates the protocol of staking
@@ -108,4 +111,8 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
+}
+
+func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
+	return calculateVoteWeight(p.voteCal, v, selfStake, time.Now())
 }
