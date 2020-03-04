@@ -30,11 +30,7 @@ type (
 )
 
 // NewBucketIndex creates a new bucket index
-func NewBucketIndex(index uint64, candAddress string) (*BucketIndex, error) {
-	addr, err := address.FromString(candAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to derive address from string")
-	}
+func NewBucketIndex(index uint64, addr address.Address) (*BucketIndex, error) {
 	return &BucketIndex{
 		Index:       index,
 		CandAddress: addr,

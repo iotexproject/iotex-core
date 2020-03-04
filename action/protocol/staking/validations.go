@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -123,9 +124,12 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if act == nil {
 		return ErrNilAction
 	}
+
+	actCtx := protocol.MustGetActionCtx(ctx)
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
+
 	if !IsValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
 	}
@@ -139,9 +143,23 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return errors.New("self staking amount is not valid")
 	}
 
-	// cannot collide with existing owner
-	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
-		return ErrAlreadyExist
+	owner := actCtx.Caller
+	if act.OwnerAddress() != nil {
+		owner = act.OwnerAddress()
+	}
+
+	if c := p.inMemCandidates.GetByOwner(owner); c != nil {
+		// an existing owner, but selfstake is 0
+		if c.SelfStake.Cmp(big.NewInt(0)) != 0 {
+			return ErrInvalidOwner
+		}
+		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
+			return ErrInvalidCanName
+		}
+		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+			return ErrInvalidOperator
+		}
+		return nil
 	}
 
 	// cannot collide with existing name
@@ -153,7 +171,6 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 		return ErrInvalidOperator
 	}
-
 	return nil
 }
 
@@ -166,6 +183,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
+
 	if len(act.Name()) != 0 {
 		if !IsValidCandidateName(act.Name()) {
 			return ErrInvalidCanName
