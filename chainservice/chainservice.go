@@ -171,6 +171,23 @@ func New(
 	} else {
 		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
 	}
+	// Create ActPool
+	actOpts := make([]actpool.Option, 0)
+	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create actpool")
+	}
+
+	// Add action validators
+	actPool.AddActionEnvelopeValidators(
+		protocol.NewGenericValidator(sf, accountutil.AccountState),
+	)
+	if !ops.isSubchain {
+		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(block.NewValidator(sf, actPool)))
+	} else {
+		chainOpts = append(chainOpts, blockchain.BlockValidatorOption(sf))
+	}
+
 	// create Blockchain
 	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
 	if chain == nil {
@@ -185,12 +202,6 @@ func New(
 		if err := chain.AddSubscriber(indexBuilder); err != nil {
 			log.L().Warn("Failed to add subscriber: index builder.", zap.Error(err))
 		}
-	}
-	// Create ActPool
-	actOpts := make([]actpool.Option, 0)
-	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create actpool")
 	}
 	copts := []consensus.Option{
 		consensus.WithBroadcast(func(msg proto.Message) error {
@@ -298,21 +309,6 @@ func New(
 	)
 	if err != nil {
 		return nil, err
-	}
-	// Add action validators
-	actPool.
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
-		)
-	chain.Validator().
-		AddActionEnvelopeValidators(
-			protocol.NewGenericValidator(sf, accountutil.AccountState),
-		)
-	if !ops.isSubchain {
-		chain.Validator().
-			SetActPool(
-				actPool,
-			)
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	executionProtocol := execution.NewProtocol(dao.GetBlockHash)

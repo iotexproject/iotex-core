@@ -27,7 +27,7 @@ func TestExecutionSignVerify(t *testing.T) {
 
 	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(0).
-		SetGasLimit(uint64(10)).
+		SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(ex).Build()
 

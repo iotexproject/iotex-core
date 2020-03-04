@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
@@ -320,12 +321,15 @@ func (sct *SmartContractTest) prepareBlockchain(
 		dao,
 		sf,
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
 	)
 	reward := rewarding.NewProtocol(nil)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	execution := NewProtocol(dao.GetBlockHash)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
@@ -498,10 +502,13 @@ func TestProtocol_Handle(t *testing.T) {
 			dao,
 			sf,
 			blockchain.RegistryOption(registry),
+			blockchain.BlockValidatorOption(block.NewValidator(
+				sf,
+				protocol.NewGenericValidator(sf, accountutil.AccountState),
+			)),
 		)
 		exeProtocol := NewProtocol(dao.GetBlockHash)
 		require.NoError(exeProtocol.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
 		defer func() {
