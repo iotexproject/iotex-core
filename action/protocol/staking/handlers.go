@@ -26,24 +26,6 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	staker, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load or create the account of staker %s", actionCtx.Caller.String())
-	}
-
-	// update staker balance
-	if err := staker.SubBalance(act.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actionCtx.Caller.String())
-	}
-	// put updated staker's account state to trie
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), staker); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
-	}
-
-	if err := p.settleAccount(ctx, sm); err != nil {
-		return nil, errors.Wrapf(err, "failed to settle the account of staker %s", actionCtx.Caller.String())
-	}
-
 	// Create new bucket and bucket index
 	candidate := p.inMemCandidates.GetByName(act.Candidate())
 	if candidate == nil {
@@ -66,42 +48,53 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
-		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Name)
+		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String())
 	}
 	if err := putCandidate(sm, candidate.Owner, candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put candidate %s", candidate.Name)
+		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
+	}
+	if err := p.inMemCandidates.Put(candidate); err != nil {
+		return nil, errors.Wrapf(err, "failed to put candidate %s to map", candidate.Owner.String())
 	}
 
-	return &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}, nil
+	staker, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to load or create the account of staker %s", actionCtx.Caller.String())
+	}
+
+	// update staker balance
+	if err := staker.SubBalance(act.Amount()); err != nil {
+		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actionCtx.Caller.String())
+	}
+	// put updated staker's account state to trie
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), staker); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+	}
+
+	return p.settleAction(ctx, sm)
 }
 
 func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	if err := p.settleAccount(ctx, sm); err != nil {
-		return nil, errors.Wrapf(err, "failed to settle the account of unstaker %s", actionCtx.Caller.String())
-	}
-
-	bucket, err := getBucketByVoter(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, isSelfStaking, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get bucket by voter %s", actionCtx.Caller.String())
+		return nil, errors.Wrapf(err, "failed to fetch bucket by address %s", actionCtx.Caller.String())
+	}
+	if isSelfStaking && bucket.Owner != actionCtx.Caller {
+		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
+			bucket.Owner.String(), actionCtx.Caller.String())
 	}
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
 
 	// remove candidate if the bucket is self staking, otherwise update candidate's vote
-	if p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()) {
-		p.inMemCandidates.Delete(bucket.Candidate)
+	if isSelfStaking {
 		if err := delCandidate(sm, bucket.Candidate); err != nil {
 			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
 		}
+		p.inMemCandidates.Delete(bucket.Candidate)
 	} else {
 		candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
 		if candidate == nil {
@@ -110,28 +103,28 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 		weightedVote := p.calculateVoteWeight(bucket, false)
 		candidate.SubVote(weightedVote)
 		if err := putCandidate(sm, bucket.Candidate, candidate); err != nil {
-			return nil, errors.Wrapf(err, "failed to put candidate %s", bucket.Candidate.String())
+			return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+		}
+		if err := p.inMemCandidates.Put(candidate); err != nil {
+			return nil, errors.Wrapf(err, "failed to put candidate %s to map", bucket.Candidate.String())
 		}
 	}
 
-	return &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}, nil
+	return p.settleAction(ctx, sm)
 }
 
 func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	bucket, err := getBucketByVoter(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, isSelfStaking, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get bucket by voter %s", actionCtx.Caller.String())
+		return nil, errors.Wrapf(err, "failed to get bucket by address %s", actionCtx.Caller.String())
 	}
-
+	if isSelfStaking && bucket.Owner != actionCtx.Caller {
+		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
+			bucket.Owner.String(), actionCtx.Caller.String())
+	}
 	// check unstake time
 	if bucket.UnstakeStartTime.Unix() == 0 {
 		return nil, errors.New("bucket has not been unstaked")
@@ -139,6 +132,16 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.voteCal.WithdrawWaitingPeriod)) {
 		return nil, fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
 			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.voteCal.WithdrawWaitingPeriod))
+	}
+
+	// delete bucket and bucket index
+	if err := delBucket(sm, bucket.Candidate, act.BucketIndex()); err != nil {
+		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
+	}
+	if !isSelfStaking {
+		if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
+			return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
+		}
 	}
 
 	withdrawer, err := accountutil.LoadOrCreateAccount(sm, actionCtx.Caller.String())
@@ -154,25 +157,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	if err := p.settleAccount(ctx, sm); err != nil {
-		return nil, errors.Wrapf(err, "failed to settle the account of withdrawer %s", actionCtx.Caller.String())
-	}
-
-	// delete bucket and bucket index
-	if err := delBucket(sm, bucket.Candidate, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
-	}
-	if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
-	}
-
-	return &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}, nil
+	return p.settleAction(ctx, sm)
 }
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, sm protocol.StateManager) (*action.Receipt, error) {
@@ -275,21 +260,30 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 }
 
 // settleAccount deposits gas fee and updates caller's nonce
-func (p *Protocol) settleAccount(
+func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
-) error {
+) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	if blkCtx.GasLimit < actionCtx.IntrinsicGas {
-		return errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	if err := p.depositGas(ctx, sm, gasFee); err != nil {
-		return errors.Wrap(err, "failed to deposit gas")
+		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	return p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce)
+	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
+		return nil, errors.Wrap(err, "failed to update nonce")
+	}
+	return &action.Receipt{
+		Status:          uint64(iotextypes.ReceiptStatus_Success),
+		BlockHeight:     blkCtx.BlockHeight,
+		ActionHash:      actionCtx.ActionHash,
+		GasConsumed:     actionCtx.IntrinsicGas,
+		ContractAddress: p.addr.String(),
+	}, nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
@@ -304,14 +298,23 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
-func getBucketByVoter(sm protocol.StateReader, voter address.Address, index uint64) (*VoteBucket, error) {
-	bucketIndices, err := getBucketIndices(sm, voter)
+func (p *Protocol) fetchBucket(sm protocol.StateReader, voter address.Address, index uint64) (*VoteBucket, bool, error) {
+	var candAddr address.Address
+	var isSelfStaking bool
+	candidate := p.inMemCandidates.GetBySelfStakingIndex(index)
+	if candidate != nil {
+		candAddr = candidate.Owner
+		isSelfStaking = true
+	} else {
+		bucketIndices, err := getBucketIndices(sm, voter)
+		if err != nil {
+			return nil, false, err
+		}
+		candAddr = bucketIndices.findCandidate(index)
+	}
+	bucket, err := getBucket(sm, candAddr, index)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	candAddr := bucketIndices.findCandidate(index)
-	if candAddr == nil {
-		return nil, fmt.Errorf("failed to find candidate address from bucket indices of voter %s", voter.String())
-	}
-	return getBucket(sm, candAddr, index)
+	return bucket, isSelfStaking, nil
 }
