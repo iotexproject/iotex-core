@@ -9,7 +9,6 @@ package staking
 import (
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -119,5 +118,5 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
-	return calculateVoteWeight(p.voteCal, v, selfStake, time.Now())
+	return calculateVoteWeight(p.voteCal, v, selfStake)
 }

@@ -225,10 +225,7 @@ func bucketKey(owner []byte, index uint64) []byte {
 	return append(owner, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
-func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool, now time.Time) *big.Int {
-	if now.Before(v.StakeStartTime) {
-		return big.NewInt(0)
-	}
+func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
 	weight := float64(1)
 	if remainingTime > 0 {
