@@ -37,11 +37,10 @@ type (
 
 	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
 	VoteWeightCalConsts struct {
-		DurationLg float64
-		AutoStake  float64
-		SelfStake  float64
+		DurationLg            float64
+		AutoStake             float64
+		SelfStake             float64
 		WithdrawWaitingPeriod time.Duration
-
 	}
 
 	// totalBucketCount stores the total bucket count
