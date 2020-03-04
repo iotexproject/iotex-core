@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 var (
@@ -212,6 +213,10 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 		return ws.height, err
 	}
 	return ws.height, ws.getStateFunc(ns, key, s)
+}
+
+func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+	return 0, nil, ErrNotSupported
 }
 
 // PutState puts a state into DB
