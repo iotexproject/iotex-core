@@ -37,9 +37,10 @@ type (
 
 	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
 	VoteWeightCalConsts struct {
-		DurationLg float64
-		AutoStake  float64
-		SelfStake  float64
+		DurationLg            float64
+		AutoStake             float64
+		SelfStake             float64
+		WithdrawWaitingPeriod time.Duration
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -178,18 +179,18 @@ func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 	return tc.count, err
 }
 
-func getBucket(sr protocol.StateReader, name address.Address, index uint64) (*VoteBucket, error) {
+func getBucket(sr protocol.StateReader, owner address.Address, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name.Bytes(), index))); err != nil {
+		protocol.KeyOption(bucketKey(owner.Bytes(), index))); err != nil {
 		return nil, err
 	}
 	return &vb, nil
 }
 
-func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucket) (uint64, error) {
+func putBucket(sm protocol.StateManager, owner address.Address, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
@@ -202,7 +203,7 @@ func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucke
 	if _, err := sm.PutState(
 		bucket,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name.Bytes(), index))); err != nil {
+		protocol.KeyOption(bucketKey(owner.Bytes(), index))); err != nil {
 		return 0, err
 	}
 	tc.count++
@@ -213,15 +214,15 @@ func putBucket(sm protocol.StateManager, name address.Address, bucket *VoteBucke
 	return index, err
 }
 
-func delBucket(sm protocol.StateManager, name address.Address, index uint64) error {
+func delBucket(sm protocol.StateManager, owner address.Address, index uint64) error {
 	_, err := sm.DelState(
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(name.Bytes(), index)))
+		protocol.KeyOption(bucketKey(owner.Bytes(), index)))
 	return err
 }
 
-func bucketKey(name []byte, index uint64) []byte {
-	return append(name, byteutil.Uint64ToBytesBigEndian(index)...)
+func bucketKey(owner []byte, index uint64) []byte {
+	return append(owner, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
 func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool, now time.Time) *big.Int {
