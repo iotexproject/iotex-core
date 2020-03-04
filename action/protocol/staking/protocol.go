@@ -8,11 +8,14 @@ package staking
 
 import (
 	"context"
+	"math/big"
+	"time"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -31,17 +34,22 @@ var (
 type Protocol struct {
 	addr            address.Address
 	inMemCandidates CandidateCenter
+	voteCal         VoteWeightCalConsts
+	depositGas      DepositGas
 }
 
+// DepositGas deposits gas to some pool
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+
 // NewProtocol instantiates the protocol of staking
-func NewProtocol() *Protocol {
+func NewProtocol(depositGas DepositGas) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of staking protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr}
+	return &Protocol{addr: addr, depositGas: depositGas}
 }
 
 // Handle handles a staking message
@@ -108,4 +116,8 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
+}
+
+func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
+	return calculateVoteWeight(p.voteCal, v, selfStake, time.Now())
 }

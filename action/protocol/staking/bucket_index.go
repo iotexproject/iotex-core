@@ -131,6 +131,15 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
+func (bis *BucketIndices) findCandidate(index uint64) address.Address {
+	for _, bucketIndex := range *bis {
+		if bucketIndex.Index == index {
+			return bucketIndex.CandAddress
+		}
+	}
+	return nil
+}
+
 func getBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
 	var bis BucketIndices
 	if _, err := sr.State(

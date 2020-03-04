@@ -21,11 +21,10 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/account/util"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -41,6 +40,7 @@ func init() {
 
 // ActPool is the interface of actpool
 type ActPool interface {
+	action.SealedEnvelopeValidator
 	// Reset resets actpool state
 	Reset()
 	// PendingActionMap returns an action map with all accepted actions
@@ -62,7 +62,7 @@ type ActPool interface {
 	// GetGasCapacity returns the act pool gas capacity
 	GetGasCapacity() uint64
 
-	AddActionEnvelopeValidators(...protocol.ActionEnvelopeValidator)
+	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
 
 // SortedActions is a slice of actions that implements sort.Interface to sort by Value.
@@ -87,21 +87,21 @@ func EnableExperimentalActions() Option {
 type actPool struct {
 	mutex                     sync.RWMutex
 	cfg                       config.ActPool
-	sf                        factory.Factory
+	sf                        protocol.StateReader
 	accountActs               map[string]ActQueue
 	accountDesActs            map[string]map[hash.Hash256]action.SealedEnvelope
 	allActions                map[hash.Hash256]action.SealedEnvelope
 	gasInPool                 uint64
-	actionEnvelopeValidators  []protocol.ActionEnvelopeValidator
+	actionEnvelopeValidators  []action.SealedEnvelopeValidator
 	timerFactory              *prometheustimer.TimerFactory
 	enableExperimentalActions bool
 	senderBlackList           map[string]bool
 }
 
 // NewActPool constructs a new actpool
-func NewActPool(sf factory.Factory, cfg config.ActPool, opts ...Option) (ActPool, error) {
+func NewActPool(sf protocol.StateReader, cfg config.ActPool, opts ...Option) (ActPool, error) {
 	if sf == nil {
-		return nil, errors.New("Try to attach a nil state factory")
+		return nil, errors.New("Try to attach a nil state reader")
 	}
 
 	senderBlackList := make(map[string]bool)
@@ -135,7 +135,7 @@ func NewActPool(sf factory.Factory, cfg config.ActPool, opts ...Option) (ActPool
 	return ap, nil
 }
 
-func (ap *actPool) AddActionEnvelopeValidators(fs ...protocol.ActionEnvelopeValidator) {
+func (ap *actPool) AddActionEnvelopeValidators(fs ...action.SealedEnvelopeValidator) {
 	ap.actionEnvelopeValidators = append(ap.actionEnvelopeValidators, fs...)
 }
 
@@ -172,19 +172,7 @@ func (ap *actPool) PendingActionMap() map[string][]action.SealedEnvelope {
 func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 	ap.mutex.Lock()
 	defer ap.mutex.Unlock()
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 
-	// Reject action if action source address is blacklisted
-	pubKeyHash := act.SrcPubkey().Hash()
-	srcAddr, err := address.FromBytes(pubKeyHash)
-	if err != nil {
-		actpoolMtc.WithLabelValues("invalidCallerPk").Inc()
-		return errors.Wrap(err, "failed to get address from bytes")
-	}
-	if _, ok := ap.senderBlackList[srcAddr.String()]; ok {
-		actpoolMtc.WithLabelValues("blacklisted").Inc()
-		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
-	}
 	// Reject action if pool space is full
 	if uint64(len(ap.allActions)) >= ap.cfg.MaxNumActsPerPool {
 		actpoolMtc.WithLabelValues("overMaxNumActsPerPool").Inc()
@@ -215,37 +203,13 @@ func (ap *actPool) Add(ctx context.Context, act action.SealedEnvelope) error {
 			act.GasPrice(),
 		)
 	}
+	if err := ap.validate(ctx, act); err != nil {
+		return err
+	}
 
 	caller, err := address.FromBytes(act.SrcPubkey().Hash())
 	if err != nil {
 		return err
-	}
-
-	// envelope validation
-	for _, validator := range ap.actionEnvelopeValidators {
-		ctx := protocol.WithActionCtx(
-			context.Background(),
-			protocol.ActionCtx{
-				Caller: caller,
-			},
-		)
-		if err := validator.Validate(ctx, act); err != nil {
-			actpoolMtc.WithLabelValues("invalidAction").Inc()
-			return errors.Wrapf(err, "reject invalid action: %x", hash)
-		}
-	}
-	// Reject action if it's invalid
-	for _, validator := range bcCtx.Registry.All() {
-		ctx := protocol.WithActionCtx(
-			context.Background(),
-			protocol.ActionCtx{
-				Caller: caller,
-			},
-		)
-		if err := validator.Validate(ctx, act.Action()); err != nil {
-			actpoolMtc.WithLabelValues("invalidAction").Inc()
-			return errors.Wrapf(err, "reject invalid action: %x", hash)
-		}
 	}
 	return ap.enqueueAction(caller.String(), act, hash, act.Nonce())
 }
@@ -322,6 +286,35 @@ func (ap *actPool) GetGasSize() uint64 {
 // GetGasCapacity returns the act pool gas capacity
 func (ap *actPool) GetGasCapacity() uint64 {
 	return ap.cfg.MaxGasLimitPerPool
+}
+
+func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) error {
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
+	return ap.validate(ctx, selp)
+}
+
+func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
+	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
+	if err != nil {
+		return err
+	}
+	if _, ok := ap.senderBlackList[caller.String()]; ok {
+		actpoolMtc.WithLabelValues("blacklisted").Inc()
+		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
+	}
+	// if already validated
+	if _, ok := ap.allActions[selp.Hash()]; ok {
+		return nil
+	}
+
+	for _, ev := range ap.actionEnvelopeValidators {
+		if err := ev.Validate(ctx, selp); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 //======================================

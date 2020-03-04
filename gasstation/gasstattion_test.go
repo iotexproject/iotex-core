@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -51,9 +52,16 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	bc := blockchain.NewBlockchain(
+		cfg,
+		blkMemDao,
+		sf,
+		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
@@ -126,9 +134,16 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	blkRegistryOption := blockchain.RegistryOption(registry)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf, blkRegistryOption)
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	bc := blockchain.NewBlockchain(
+		cfg,
+		blkMemDao,
+		sf,
+		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)

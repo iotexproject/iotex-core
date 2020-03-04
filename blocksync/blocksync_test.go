@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
+	"github.com/iotexproject/iotex-core/blockchain"
 	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -188,19 +189,20 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap)
+	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,
 		sf,
 		bc.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap)
-	require.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(uint64(1)).Times(1)
@@ -249,19 +251,20 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap1, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap1)
+	require.NoError(err)
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
 		sf,
 		bc.RegistryOption(registry),
+		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NotNil(chain1)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain1.Start(ctx))
-	ap1, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap1)
-	require.NoError(err)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
@@ -273,19 +276,20 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(rp.Register(registry2))
 	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap2)
+	require.NoError(err)
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
 		sf2,
 		bc.RegistryOption(registry2),
+		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NotNil(chain2)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain2.Start(ctx))
-	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap2)
-	require.NoError(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
@@ -349,19 +353,20 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(rolldposProtocol.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap1, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NotNil(ap1)
+	require.NoError(err)
+	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
 		sf,
 		bc.RegistryOption(registry),
+		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
-	chain1.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
-	ap1, err := actpool.NewActPool(sf, cfg.ActPool)
-	require.NotNil(ap1)
-	require.NoError(err)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
@@ -372,19 +377,20 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(rolldposProtocol.Register(registry2))
 	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap2)
+	require.NoError(err)
+	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
 		sf2,
 		bc.RegistryOption(registry2),
+		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
-	chain2.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
-	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap2)
-	require.NoError(err)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
@@ -441,13 +447,20 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	chain := bc.NewBlockchain(cfg, dao, sf, bc.RegistryOption(registry))
-	require.NoError(chain.Start(ctx))
-	require.NotNil(chain)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
 	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	chain := bc.NewBlockchain(
+		cfg,
+		dao,
+		sf,
+		bc.RegistryOption(registry),
+		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
+	)
+	require.NoError(chain.Start(ctx))
+	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
