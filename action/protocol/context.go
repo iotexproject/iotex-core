@@ -35,8 +35,6 @@ type actionContextKey struct{}
 type BlockchainCtx struct {
 	// Genesis is a copy of current genesis
 	Genesis genesis.Genesis
-	// History indicates whether to save account/contract history or not
-	History bool
 	// Registry is the pointer protocol registry
 	Registry *Registry
 	// Tip is the information of tip block
@@ -69,7 +67,6 @@ type ActionCtx struct {
 	IntrinsicGas uint64
 	// Nonce is the nonce of the action
 	Nonce uint64
-	// History indicates whether to save account/contract history or not
 }
 
 // WithBlockchainCtx add BlockchainCtx into context.
