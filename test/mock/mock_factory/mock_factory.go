@@ -12,6 +12,7 @@ import (
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
 )
 
@@ -99,6 +100,26 @@ func (mr *MockFactoryMockRecorder) State(arg0 interface{}, arg1 ...interface{}) 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockFactory)(nil).State), varargs...)
+}
+
+// States mocks base method
+func (m *MockFactory) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States
+func (mr *MockFactoryMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockFactory)(nil).States), arg0...)
 }
 
 // Validate mocks base method

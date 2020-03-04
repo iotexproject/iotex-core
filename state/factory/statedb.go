@@ -341,6 +341,31 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	return sdb.currentChainHeight, sdb.state(ns, key, s)
 }
 
+// State returns a set of states in the state factory
+func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+	sdb.mutex.RLock()
+	defer sdb.mutex.RUnlock()
+	archive, _, ns, key, err := processOptions(opts...)
+	if err != nil {
+		return 0, nil, err
+	}
+	if key != nil {
+		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	if archive {
+		return 0, nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+	}
+	_, values, err := sdb.dao.Filter(ns, nil)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)
+		}
+		return sdb.currentChainHeight, nil, err
+	}
+
+	return sdb.currentChainHeight, state.NewIterator(values), nil
+}
+
 //======================================
 // private trie constructor functions
 //======================================

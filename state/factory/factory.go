@@ -519,6 +519,36 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	return sf.currentChainHeight, state.Deserialize(s, value)
 }
 
+// State returns a set states in the state factory
+func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	archive, height, ns, key, err := processOptions(opts...)
+	if err != nil {
+		return 0, nil, err
+	}
+	if key != nil {
+		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	if archive {
+		if height > sf.currentChainHeight {
+			return sf.currentChainHeight, nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+		}
+		if height != sf.currentChainHeight {
+			return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+		}
+	}
+	_, values, err := sf.dao.Filter(ns, nil)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)
+		}
+		return sf.currentChainHeight, nil, err
+	}
+
+	return sf.currentChainHeight, state.NewIterator(values), nil
+}
+
 //======================================
 // private trie constructor functions
 //======================================

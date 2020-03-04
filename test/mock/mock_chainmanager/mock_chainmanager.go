@@ -7,6 +7,7 @@ package mock_chainmanager
 import (
 	gomock "github.com/golang/mock/gomock"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
+	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
 )
 
@@ -68,6 +69,26 @@ func (mr *MockStateReaderMockRecorder) State(arg0 interface{}, arg1 ...interface
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateReader)(nil).State), varargs...)
 }
 
+// States mocks base method
+func (m *MockStateReader) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States
+func (mr *MockStateReaderMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateReader)(nil).States), arg0...)
+}
+
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller
@@ -124,6 +145,26 @@ func (mr *MockStateManagerMockRecorder) State(arg0 interface{}, arg1 ...interfac
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateManager)(nil).State), varargs...)
+}
+
+// States mocks base method
+func (m *MockStateManager) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States
+func (mr *MockStateManagerMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateManager)(nil).States), arg0...)
 }
 
 // Snapshot mocks base method
