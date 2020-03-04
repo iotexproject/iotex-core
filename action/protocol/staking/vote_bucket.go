@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"math"
 	"math/big"
 	"time"
 
@@ -32,6 +33,13 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 		AutoStake        bool
+	}
+
+	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
+	VoteWeightCalConsts struct {
+		DurationLg float64
+		AutoStake  float64
+		SelfStake  float64
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -216,7 +224,23 @@ func bucketKey(name []byte, index uint64) []byte {
 	return append(name, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
-func calculateVoteWeight(bucket *VoteBucket, selfStake bool) *big.Int {
-	// TODO implement the right policy
-	return bucket.StakedAmount
+func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool, now time.Time) *big.Int {
+	if now.Before(v.StakeStartTime) {
+		return big.NewInt(0)
+	}
+	remainingTime := v.StakedDuration.Seconds()
+	weight := float64(1)
+	if remainingTime > 0 {
+		weight += math.Log(math.Ceil(remainingTime/86400)) / math.Log(c.DurationLg) / 100
+	}
+	if v.AutoStake {
+		weight *= c.AutoStake
+	}
+	if selfStake {
+		weight *= c.SelfStake
+	}
+
+	amount := new(big.Float).SetInt(v.StakedAmount)
+	weightedAmount, _ := amount.Mul(amount, big.NewFloat(weight)).Int(nil)
+	return weightedAmount
 }
