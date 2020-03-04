@@ -90,6 +90,12 @@ mockgen -destination=./test/mock/mock_batch/mock_batch.go  \
         -package=mock_batch \
         CachedBatch
 
+mkdir -p ./test/mock/mock_sealed_envelope_validator
+mockgen -destination=./test/mock/mock_sealed_envelope_validator/mock_sealed_envelope_validator.go  \
+        -source=./action/sealedenvelopevalidator.go \
+        -package=mock_sealed_envelope_validator.go\
+        SealedEnvelopeValidator
+
 mkdir -p ./test/mock/mock_chainmanager
 mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
         -source=./action/protocol/managers.go \

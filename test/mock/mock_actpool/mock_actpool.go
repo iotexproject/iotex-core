@@ -6,11 +6,11 @@ package mock_actpool
 
 import (
 	context "context"
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
-	protocol "github.com/iotexproject/iotex-core/action/protocol"
-	reflect "reflect"
 )
 
 // MockActPool is a mock of ActPool interface
@@ -177,7 +177,7 @@ func (mr *MockActPoolMockRecorder) GetGasCapacity() *gomock.Call {
 }
 
 // AddActionEnvelopeValidators mocks base method
-func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...protocol.ActionEnvelopeValidator) {
+func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...action.SealedEnvelopeValidator) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
@@ -190,4 +190,18 @@ func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...protocol.ActionEnvelop
 func (mr *MockActPoolMockRecorder) AddActionEnvelopeValidators(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionEnvelopeValidators", reflect.TypeOf((*MockActPool)(nil).AddActionEnvelopeValidators), arg0...)
+}
+
+// Validate mocks base method
+func (m *MockActPool) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddActionEnvelopeValidators indicates an expected call of AddActionEnvelopeValidators
+func (mr *MockActPoolMockRecorder) Validate(arg0 interface{}, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActPool)(nil).Validate), arg0, arg1)
 }

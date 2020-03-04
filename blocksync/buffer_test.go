@@ -43,19 +43,20 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap)
+	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		sf,
 		blockchain.InMemDaoOption(),
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
-	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap)
-	require.NoError(err)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)

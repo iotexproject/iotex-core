@@ -47,6 +47,16 @@ var (
 		},
 		[]string{"type"},
 	)
+	// ErrInvalidTipHeight is the error returned when the block height is not valid
+	ErrInvalidTipHeight = errors.New("invalid tip height")
+	// ErrInvalidBlock is the error returned when the block is not valid
+	ErrInvalidBlock = errors.New("failed to validate the block")
+	// ErrActionNonce is the error when the nonce of the action is wrong
+	ErrActionNonce = errors.New("invalid action nonce")
+	// ErrInsufficientGas indicates the error of insufficient gas value for data storage
+	ErrInsufficientGas = errors.New("insufficient intrinsic gas value")
+	// ErrBalance indicates the error of balance
+	ErrBalance = errors.New("invalid balance")
 )
 
 func init() {
@@ -87,12 +97,6 @@ type (
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
 		ValidateBlock(blk *block.Block) error
-
-		// For action operations
-		// Validator returns the current validator object
-		Validator() Validator
-		// SetValidator sets the current validator object
-		SetValidator(val Validator)
 
 		// AddSubscriber make you listen to every single produced block
 		AddSubscriber(BlockCreationSubscriber) error
@@ -146,14 +150,14 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 
 // blockchain implements the Blockchain interface
 type blockchain struct {
-	mu            sync.RWMutex // mutex to protect utk, tipHeight and tipHash
-	dao           blockdao.BlockDAO
-	config        config.Config
-	validator     Validator
-	lifecycle     lifecycle.Lifecycle
-	clk           clock.Clock
-	pubSubManager PubSubManager
-	timerFactory  *prometheustimer.TimerFactory
+	mu             sync.RWMutex // mutex to protect utk, tipHeight and tipHash
+	dao            blockdao.BlockDAO
+	config         config.Config
+	blockValidator block.Validator
+	lifecycle      lifecycle.Lifecycle
+	clk            clock.Clock
+	pubSubManager  PubSubManager
+	timerFactory   *prometheustimer.TimerFactory
 
 	// used by account-based model
 	bbf      BlockBuilderFactory
@@ -169,6 +173,14 @@ type ActPoolManager interface {
 
 // Option sets blockchain construction parameter
 type Option func(*blockchain, config.Config) error
+
+// BlockValidatorOption sets block validator
+func BlockValidatorOption(blockValidator block.Validator) Option {
+	return func(bc *blockchain, cfg config.Config) error {
+		bc.blockValidator = blockValidator
+		return nil
+	}
+}
 
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
 func BoltDBDaoOption() Option {
@@ -256,15 +268,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 	if err != nil {
 		log.L().Panic("Failed to get block producer address.", zap.Error(err))
 	}
-	senderBlackList := make(map[string]bool)
-	for _, bannedSender := range cfg.ActPool.BlackList {
-		senderBlackList[bannedSender] = true
-	}
-	chain.validator = &validator{
-		sf:              chain.sf,
-		validatorAddr:   cfg.ProducerAddress().String(),
-		senderBlackList: senderBlackList,
-	}
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
@@ -349,11 +352,58 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	defer bc.mu.RUnlock()
 	timer := bc.timerFactory.NewTimer("ValidateBlock")
 	defer timer.End()
+	if blk == nil {
+		return ErrInvalidBlock
+	}
+	tip, err := bc.tipInfo()
+	if err != nil {
+		return err
+	}
+	// verify new block has height incremented by 1
+	if blk.Height() != 0 && blk.Height() != tip.Height+1 {
+		return errors.Wrapf(
+			ErrInvalidTipHeight,
+			"wrong block height %d, expecting %d",
+			blk.Height(),
+			tip.Height+1,
+		)
+	}
+	// verify new block has correctly linked to current tip
+	if blk.PrevHash() != tip.Hash {
+		blk.HeaderLogger(log.L()).Error("Previous block hash doesn't match.",
+			log.Hex("expectedBlockHash", tip.Hash[:]))
+		return errors.Wrapf(
+			ErrInvalidBlock,
+			"wrong prev hash %x, expecting %x",
+			blk.PrevHash(),
+			tip.Hash,
+		)
+	}
+	if err := block.VerifyBlock(blk); err != nil {
+		return errors.Wrap(err, "failed to verify block's signature and merkle root")
+	}
+
+	producerAddr, err := address.FromBytes(blk.PublicKey().Hash())
+	if err != nil {
+		return err
+	}
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return err
 	}
-	return bc.validator.Validate(ctx, blk)
+	ctx = protocol.WithBlockCtx(ctx,
+		protocol.BlockCtx{
+			BlockHeight:    blk.Height(),
+			BlockTimeStamp: blk.Timestamp(),
+			GasLimit:       bc.config.Genesis.BlockGasLimit,
+			Producer:       producerAddr,
+		},
+	)
+	if bc.blockValidator == nil {
+		return nil
+	}
+
+	return bc.blockValidator.Validate(ctx, blk)
 }
 
 func (bc *blockchain) Context() (context.Context, error) {
@@ -457,20 +507,6 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 		return err
 	}
 	return bc.commitBlock(ctx, blk)
-}
-
-// SetValidator sets the current validator object
-func (bc *blockchain) SetValidator(val Validator) {
-	bc.mu.Lock()
-	defer bc.mu.Unlock()
-	bc.validator = val
-}
-
-// Validator gets the current validator object
-func (bc *blockchain) Validator() Validator {
-	bc.mu.RLock()
-	defer bc.mu.RUnlock()
-	return bc.validator
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
