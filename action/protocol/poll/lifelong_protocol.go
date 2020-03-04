@@ -76,15 +76,7 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 }
 
 func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
-	if tipEpochNum+1 == epochNum {
-		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
-	} else if tipEpochNum == epochNum {
-		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
-	}
-	return nil, errors.Errorf("wrong epochNumber to get delegates, epochNumber %d can't be less than tip epoch number %d", epochNum, tipEpochNum)
+	return p.readActiveBlockProducersByEpoch(ctx, epochNum)
 }
 
 func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
@@ -128,7 +120,7 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 	return p.delegates.Serialize()
 }
 
-func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64, _ bool) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	var blockProducerList []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
@@ -144,7 +136,6 @@ func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.
 
 	epochHeight := rp.GetEpochHeight(epochNum)
 	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
-	// TODO: kick-out unqualified delegates based on productivity
 	length := int(rp.NumDelegates())
 	if len(blockProducerList) < length {
 		// TODO: if the number of delegates is smaller than expected, should it return error or not?

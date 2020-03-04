@@ -96,6 +96,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			return 0, nil
 		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
+	sm.EXPECT().Height().Return(epochStartHeight-1, nil).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()

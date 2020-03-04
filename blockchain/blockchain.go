@@ -543,16 +543,11 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 	if bc.registry == nil {
 		return nil, nil
 	}
-	tipInfo, err := bc.tipInfo()
-	if err != nil {
-		return nil, err
-	}
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{
 			Registry: bc.registry,
 			Genesis:  bc.config.Genesis,
-			Tip:      *tipInfo,
 		})
 
 	if pp := poll.FindProtocol(bc.registry); pp != nil {
@@ -580,22 +575,9 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		candidateCtx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Registry: bc.registry,
-				Genesis:  bc.config.Genesis,
-				Tip: protocol.TipInfo{
-					Height: i - 1,
-				},
-			},
-		)
-		var candidates state.CandidateList
-		if pp := poll.FindProtocol(bc.registry); pp != nil {
-			candidates, err = pp.CandidatesByHeight(candidateCtx, i)
-			if err != nil {
-				return err
-			}
+		candidates, err := bc.candidatesByHeight(i)
+		if err != nil {
+			return err
 		}
 		ctx = protocol.WithBlockchainCtx(
 			ctx,
