@@ -35,7 +35,7 @@ func TestProtocol(t *testing.T) {
 
 	// write a number of candidates into stateDB
 	for _, e := range testCandidates {
-		r.NoError(putCandidate(sm, e.d.Owner, e.d))
+		r.NoError(putCandidate(sm, e.d))
 	}
 
 	// load candidates from stateDB and verify

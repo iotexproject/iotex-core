@@ -113,6 +113,7 @@ func TestCandCenter(t *testing.T) {
 		r.True(m.ContainsName(v.d.Name))
 		r.True(m.ContainsOwner(v.d.Owner))
 		r.True(m.ContainsOperator(v.d.Operator))
+		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
@@ -122,6 +123,7 @@ func TestCandCenter(t *testing.T) {
 		r.False(m.ContainsOwner(v.d.Owner))
 		r.False(m.ContainsName(v.d.Name))
 		r.False(m.ContainsOperator(v.d.Operator))
+		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(len(testCandidates)-i-1, m.Size())
 	}
 }
@@ -137,7 +139,7 @@ func TestGetPutCandidate(t *testing.T) {
 	for _, e := range testCandidates {
 		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
-		require.NoError(putCandidate(sm, e.d.Owner, e.d))
+		require.NoError(putCandidate(sm, e.d))
 		d1, err := getCandidate(sm, e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)

@@ -74,13 +74,13 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, err := getBucketIndices(sm, e.voterAddr)
+			_, err := getVoterIndices(sm, e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
-			require.NoError(putBucketIndex(sm, e.voterAddr, e.index))
-			bis, err := getBucketIndices(sm, e.voterAddr)
+			require.NoError(putVoterIndex(sm, e.voterAddr, e.index))
+			bis, err := getVoterIndices(sm, e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(i+1, len(bucketIndices))
@@ -88,8 +88,8 @@ func TestGetPutBucketIndex(t *testing.T) {
 		}
 
 		for i, e := range tests {
-			require.NoError(delBucketIndex(sm, e.voterAddr, e.index))
-			indices, err := getBucketIndices(sm, e.voterAddr)
+			require.NoError(delVoterIndex(sm, e.voterAddr, e.index))
+			indices, err := getVoterIndices(sm, e.voterAddr)
 			if i != len(tests)-1 {
 				require.NoError(err)
 				require.Equal(len(tests)-i-1, len(*indices))
