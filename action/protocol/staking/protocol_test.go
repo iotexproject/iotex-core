@@ -46,7 +46,6 @@ func TestProtocol(t *testing.T) {
 		r.True(stk.inMemCandidates.ContainsOwner(e.d.Owner))
 		r.True(stk.inMemCandidates.ContainsName(e.d.Name))
 		r.True(stk.inMemCandidates.ContainsOperator(e.d.Operator))
-		r.True(stk.inMemCandidates.ContainsSelfStakingBucket(e.d.SelfStakeBucketIdx))
 		r.Equal(e.d, stk.inMemCandidates.GetByOwner(e.d.Owner))
 	}
 }
