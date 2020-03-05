@@ -319,14 +319,15 @@ func (p *Protocol) fetchBucket(sm protocol.StateReader, voter address.Address, i
 		candAddr = candidate.Owner
 		isSelfStaking = true
 	} else {
-		bucketIndices, err := getBucketIndices(sm, voter)
-		if err != nil {
-			return nil, false, err
-		}
-		candAddr = bucketIndices.findCandidate(index)
-		if candAddr == nil {
-			return nil, false, fmt.Errorf("failed to find candidate address from bucket indices of voter %s", voter.String())
-		}
+		// TODO: get bucket by index only, wait for getBucketByIndex()
+		//bucketIndices, err := getBucketIndices(sm, voter)
+		//if err != nil {
+		//	return nil, false, err
+		//}
+		//candAddr = bucketIndices.findCandidate(index)
+		//if candAddr == nil {
+		//	return nil, false, fmt.Errorf("failed to find candidate address from bucket indices of voter %s", voter.String())
+		//}
 	}
 	bucket, err := getBucket(sm, candAddr, index)
 	if err != nil {
@@ -341,11 +342,7 @@ func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error)
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	bucketIndex, err := NewBucketIndex(index, bucket.Candidate)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to create new bucket index")
-	}
-	if err := putBucketIndex(sm, bucket.Owner, bucketIndex); err != nil {
+	if err := putBucketIndex(sm, bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
 	}
 	return index, nil
