@@ -85,28 +85,25 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	}
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
+	// TODO: Need to put back the updated bucket to state db
 
-	// remove candidate if the bucket is self staking, otherwise update candidate's vote
-	if p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()) {
-		if err := delCandidate(sm, bucket.Candidate); err != nil {
-			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
-		}
-		p.inMemCandidates.Delete(bucket.Candidate)
-	} else {
-		candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
-		if candidate == nil {
-			return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
-		}
-		weightedVote := p.calculateVoteWeight(bucket, false)
-		if err := candidate.SubVote(weightedVote); err != nil {
-			return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
-		}
-		if err := putCandidate(sm, candidate); err != nil {
-			return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
-		}
-
-		p.inMemCandidates.Put(candidate)
+	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
+	if candidate == nil {
+		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
 	}
+	weightedVote := p.calculateVoteWeight(bucket, false)
+	if err := candidate.SubVote(weightedVote); err != nil {
+		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
+	}
+	// clear candidate's self stake if the bucket is self staking
+	if p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()) {
+		candidate.SelfStake = big.NewInt(0)
+	}
+	if err := putCandidate(sm, candidate); err != nil {
+		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+	}
+	p.inMemCandidates.Delete(candidate.Owner)
+	p.inMemCandidates.Put(candidate)
 
 	return p.settleAction(ctx, sm, gasFee)
 }
