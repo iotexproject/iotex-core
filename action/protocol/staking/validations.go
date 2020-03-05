@@ -138,7 +138,7 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return errors.New("empty addresses")
 	}
 
-	minSelfStake := unit.ConvertIotxToRau(1200000)
+	minSelfStake := unit.ConvertIotxToRau(p.config.Register.MinSelfStake)
 	if act.Amount() == nil || act.Amount().Cmp(minSelfStake) < 0 {
 		return errors.New("self staking amount is not valid")
 	}

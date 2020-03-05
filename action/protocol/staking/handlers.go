@@ -39,17 +39,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	index, err := putBucket(sm, candidate.Owner, bucket)
-	if err != nil {
+	if _, err := persistBucket(sm, bucket); err != nil {
 		return nil, errors.Wrap(err, "failed to put bucket")
-	}
-
-	bucketIndex, err := NewBucketIndex(index, candidate.Owner)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create new bucket index")
-	}
-	if err := putBucketIndex(sm, actionCtx.Caller, bucketIndex); err != nil {
-		return nil, errors.Wrap(err, "failed to put bucket index")
 	}
 
 	// update candidate
@@ -142,9 +133,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if bucket.UnstakeStartTime.Unix() == 0 {
 		return nil, errors.New("bucket has not been unstaked")
 	}
-	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.voteCal.WithdrawWaitingPeriod)) {
+	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
 		return nil, fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
-			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.voteCal.WithdrawWaitingPeriod))
+			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
 	}
 
 	// delete bucket and bucket index
@@ -193,7 +184,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	registrationFee := unit.ConvertIotxToRau(100)
+	registrationFee := unit.ConvertIotxToRau(p.config.Register.Fee)
 
 	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if err != nil {
@@ -205,22 +196,20 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := putBucket(sm, owner, bucket)
+	bucketIdx, err := persistBucket(sm, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to put bucket")
 	}
 
-	bucketIndex, err := NewBucketIndex(bucketIdx, owner)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create new bucket index")
+	c := &Candidate{
+		Owner:              owner,
+		Operator:           act.OperatorAddress(),
+		Reward:             act.RewardAddress(),
+		Name:               act.Name(),
+		Votes:              p.calculateVoteWeight(bucket, true),
+		SelfStakeBucketIdx: bucketIdx,
+		SelfStake:          act.Amount(),
 	}
-	if err := putBucketIndex(sm, owner, bucketIndex); err != nil {
-		return nil, errors.Wrap(err, "failed to put bucket index")
-	}
-
-	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), bucketIdx, act.Amount())
-	c.Votes = p.calculateVoteWeight(bucket, true)
-
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
@@ -344,6 +333,22 @@ func (p *Protocol) fetchBucket(sm protocol.StateReader, voter address.Address, i
 		return nil, false, err
 	}
 	return bucket, isSelfStaking, nil
+}
+
+func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
+	index, err := putBucket(sm, bucket.Candidate, bucket)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to put bucket")
+	}
+
+	bucketIndex, err := NewBucketIndex(index, bucket.Candidate)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to create new bucket index")
+	}
+	if err := putBucketIndex(sm, bucket.Owner, bucketIndex); err != nil {
+		return 0, errors.Wrap(err, "failed to put bucket index")
+	}
+	return index, nil
 }
 
 func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) (*state.Account, *big.Int, error) {
