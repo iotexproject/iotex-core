@@ -30,11 +30,7 @@ type (
 )
 
 // NewBucketIndex creates a new bucket index
-func NewBucketIndex(index uint64, candAddress string) (*BucketIndex, error) {
-	addr, err := address.FromString(candAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to derive address from string")
-	}
+func NewBucketIndex(index uint64, addr address.Address) (*BucketIndex, error) {
 	return &BucketIndex{
 		Index:       index,
 		CandAddress: addr,
@@ -129,6 +125,15 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 			break
 		}
 	}
+}
+
+func (bis *BucketIndices) findCandidate(index uint64) address.Address {
+	for _, bucketIndex := range *bis {
+		if bucketIndex.Index == index {
+			return bucketIndex.CandAddress
+		}
+	}
+	return nil
 }
 
 func getBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {

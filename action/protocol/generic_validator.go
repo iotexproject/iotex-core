@@ -8,8 +8,8 @@ package protocol
 
 import (
 	"context"
-	"sync"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -21,7 +21,6 @@ type (
 	AccountState func(StateReader, string) (*state.Account, error)
 	// GenericValidator is the validator for generic action verification
 	GenericValidator struct {
-		mu           sync.RWMutex
 		accountState AccountState
 		sr           StateReader
 	}
@@ -36,26 +35,41 @@ func NewGenericValidator(sr StateReader, accountState AccountState) *GenericVali
 }
 
 // Validate validates a generic action
-func (v *GenericValidator) Validate(ctx context.Context, act action.SealedEnvelope) error {
-	actionCtx := MustGetActionCtx(ctx)
-	// Reject action with insufficient gas limit
-	intrinsicGas, err := act.IntrinsicGas()
-	if intrinsicGas > act.GasLimit() || err != nil {
-		return errors.Wrap(action.ErrInsufficientBalanceForGas, "insufficient gas")
-	}
+func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvelope) error {
 	// Verify action using action sender's public key
-	if err := action.Verify(act); err != nil {
+	if err := action.Verify(selp); err != nil {
 		return errors.Wrap(err, "failed to verify action signature")
 	}
-	// Reject action if nonce is too low
-	confirmedState, err := v.accountState(v.sr, actionCtx.Caller.String())
+	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
 	if err != nil {
-		return errors.Wrapf(err, "invalid state of account %s", actionCtx.Caller.String())
+		return err
+	}
+	// Reject action if nonce is too low
+	confirmedState, err := v.accountState(v.sr, caller.String())
+	if err != nil {
+		return errors.Wrapf(err, "invalid state of account %s", caller.String())
 	}
 
 	pendingNonce := confirmedState.Nonce + 1
-	if act.Nonce() > 0 && pendingNonce > act.Nonce() {
+	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
+	}
+	intrinsicGas, err := selp.IntrinsicGas()
+	if err != nil {
+		return err
+	}
+	ctx = WithActionCtx(ctx, ActionCtx{
+		Caller:       caller,
+		ActionHash:   selp.Hash(),
+		GasPrice:     selp.GasPrice(),
+		IntrinsicGas: intrinsicGas,
+		Nonce:        selp.Nonce(),
+	})
+	bcCtx := MustGetBlockchainCtx(ctx)
+	for _, validator := range bcCtx.Registry.All() {
+		if err := validator.Validate(ctx, selp.Action()); err != nil {
+			return err
+		}
 	}
 	return nil
 }

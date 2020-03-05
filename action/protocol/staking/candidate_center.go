@@ -73,13 +73,20 @@ func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
 	return nil
 }
 
+// GetBySelfStakingIndex returns the candidate by self-staking index
+func (m CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
+	if d, ok := m.selfStkBucketMap[index]; ok {
+		return d.Clone()
+	}
+	return nil
+}
+
 // Put writes the candidate into map
-func (m CandidateCenter) Put(d *Candidate) error {
+func (m CandidateCenter) Put(d *Candidate) {
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner.String()] = d
 	m.operatorMap[d.Operator.String()] = d
 	m.selfStkBucketMap[d.SelfStakeBucketIdx] = d
-	return nil
 }
 
 // Delete deletes the candidate by name

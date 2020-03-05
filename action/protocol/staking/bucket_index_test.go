@@ -26,7 +26,7 @@ const (
 func TestBucketIndex(t *testing.T) {
 	require := require.New(t)
 
-	bi, err := NewBucketIndex(uint64(1), identityset.Address(1).String())
+	bi, err := NewBucketIndex(uint64(1), identityset.Address(1))
 	require.NoError(err)
 
 	data, err := bi.Serialize()
@@ -42,11 +42,11 @@ func TestBucketIndices(t *testing.T) {
 
 	bis := make(BucketIndices, 0)
 
-	bi1, err := NewBucketIndex(uint64(1), identityset.Address(1).String())
+	bi1, err := NewBucketIndex(uint64(1), identityset.Address(1))
 	require.NoError(err)
-	bi2, err := NewBucketIndex(uint64(2), identityset.Address(2).String())
+	bi2, err := NewBucketIndex(uint64(2), identityset.Address(2))
 	require.NoError(err)
-	bi3, err := NewBucketIndex(uint64(3), identityset.Address(3).String())
+	bi3, err := NewBucketIndex(uint64(3), identityset.Address(3))
 	require.NoError(err)
 
 	bis.addBucketIndex(bi1)
@@ -110,7 +110,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
-			bi, err := NewBucketIndex(e.index, e.canAddress.String())
+			bi, err := NewBucketIndex(e.index, e.canAddress)
 
 			require.NoError(putBucketIndex(sm, e.voterAddr, bi))
 			bis, err := getBucketIndices(sm, e.voterAddr)

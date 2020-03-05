@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -176,6 +177,10 @@ func TestLocalCommit(t *testing.T) {
 		sf2,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf2,
+			protocol.NewGenericValidator(sf2, accountutil.AccountState),
+		)),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -187,7 +192,6 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {

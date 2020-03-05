@@ -88,7 +88,7 @@ func TestCandCenter(t *testing.T) {
 
 	m := NewCandidateCenter()
 	for i, v := range tests {
-		r.NoError(m.Put(tests[i].d))
+		m.Put(tests[i].d)
 		r.True(m.ContainsName(v.d.Name))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -179,6 +180,10 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 		sf,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -197,7 +202,6 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	require.NoError(acc.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(pp.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
