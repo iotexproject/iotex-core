@@ -110,15 +110,11 @@ func NewConsensus(
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				tipHeight := bc.TipHeight()
 				ctx := protocol.WithBlockchainCtx(
 					context.Background(),
 					protocol.BlockchainCtx{
 						Registry: re,
 						Genesis:  cfg.Genesis,
-						Tip: protocol.TipInfo{
-							Height: tipHeight,
-						},
 					},
 				)
 				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, epochNum)
