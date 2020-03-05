@@ -31,6 +31,7 @@ type (
 		SelfStake          *big.Int
 	}
 
+	// RegistrationConsts are the registration fee and min self stake
 	RegistrationConsts struct {
 		Fee          int64
 		MinSelfStake int64

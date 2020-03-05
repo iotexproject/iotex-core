@@ -40,6 +40,7 @@ type Protocol struct {
 	config          Configuration
 }
 
+// Configuration is the staking protocol configuration.
 type Configuration struct {
 	VoteCal               VoteWeightCalConsts
 	Register              RegistrationConsts
