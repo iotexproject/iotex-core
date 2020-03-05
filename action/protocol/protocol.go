@@ -53,11 +53,6 @@ type ActionValidator interface {
 	Validate(context.Context, action.Action) error
 }
 
-// ActionEnvelopeValidator is the interface of validating an SealedEnvelope action
-type ActionEnvelopeValidator interface {
-	Validate(context.Context, action.SealedEnvelope) error
-}
-
 // ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be
 // called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 // decide if it wants to handle this action or not.

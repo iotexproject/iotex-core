@@ -1806,6 +1806,10 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		dao,
 		sf,
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
 	)
 	if bc == nil {
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
@@ -1843,7 +1847,6 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err := p.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	return bc, dao, indexer, sf, registry, nil
 }
@@ -1882,6 +1885,7 @@ func newConfig() config.Config {
 }
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
+	// TODO (zhi): revise
 	bc, dao, indexer, sf, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err

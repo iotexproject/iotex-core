@@ -414,8 +414,16 @@ func TestCreateBlockchain(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	bc := NewBlockchain(
+		cfg,
+		dao,
+		sf,
+		RegistryOption(registry),
+		BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
@@ -448,8 +456,16 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	bc := NewBlockchain(
+		cfg,
+		dao,
+		sf,
+		RegistryOption(registry),
+		BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
@@ -514,14 +530,22 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
-	bc := NewBlockchain(cfg, dao, sf, RegistryOption(registry))
+	bc := NewBlockchain(
+		cfg,
+		dao,
+		sf,
+		RegistryOption(registry),
+		BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
 		require.NoError(t, bc.Stop(ctx))
@@ -615,8 +639,11 @@ func TestConstantinople(t *testing.T) {
 			dao,
 			sf,
 			RegistryOption(registry),
+			BlockValidatorOption(block.NewValidator(
+				sf,
+				protocol.NewGenericValidator(sf, accountutil.AccountState),
+			)),
 		)
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 		ep := execution.NewProtocol(dao.GetBlockHash)
 		require.NoError(ep.Register(registry))
 		rewardingProtocol := rewarding.NewProtocol(nil)
@@ -777,10 +804,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			dao,
 			sf,
 			RegistryOption(registry),
+			BlockValidatorOption(block.NewValidator(
+				sf,
+				protocol.NewGenericValidator(sf, accountutil.AccountState),
+			)),
 		)
 		ep := execution.NewProtocol(dao.GetBlockHash)
 		require.NoError(ep.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 		require.NoError(bc.Start(ctx))
 
 		ms := &MockSubscriber{counter: 0}
@@ -802,6 +832,10 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			dao,
 			sf,
 			RegistryOption(registry),
+			BlockValidatorOption(block.NewValidator(
+				sf,
+				protocol.NewGenericValidator(sf, accountutil.AccountState),
+			)),
 		)
 		rolldposProtocol := rolldpos.NewProtocol(
 			genesis.Default.NumCandidateDelegates,
@@ -811,7 +845,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.NoError(rolldposProtocol.Register(registry))
 		rewardingProtocol := rewarding.NewProtocol(nil)
 		require.NoError(rewardingProtocol.Register(registry))
-		bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 		require.NoError(bc.Start(ctx))
 		defer func() {
 			require.NoError(bc.Stop(ctx))
@@ -1001,28 +1034,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	})
 }
 
-func TestBlockchain_Validator(t *testing.T) {
-	cfg := config.Default
-	// disable account-based testing
-	cfg.Chain.TrieDBPath = ""
-
-	ctx := context.Background()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-	require.NoError(t, err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption())
-	require.NoError(t, bc.Start(ctx))
-	defer func() {
-		err := bc.Stop(ctx)
-		require.NoError(t, err)
-	}()
-	require.NotNil(t, bc)
-
-	val := bc.Validator()
-	require.NotNil(t, bc)
-	bc.SetValidator(val)
-	require.NotNil(t, bc.Validator())
-}
-
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
@@ -1049,6 +1060,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		sf,
 		BoltDBDaoOption(),
 		RegistryOption(registry),
+		BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
@@ -1190,7 +1202,17 @@ func TestActions(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(
+		cfg,
+		nil,
+		sf,
+		BoltDBDaoOption(),
+		RegistryOption(registry),
+		BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1207,7 +1229,6 @@ func TestActions(t *testing.T) {
 			Genesis: cfg.Genesis,
 		})
 
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	actionMap := make(map[string][]action.SealedEnvelope)
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1222,7 +1243,6 @@ func TestActions(t *testing.T) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	val := &validator{sf: sf, validatorAddr: ""}
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
@@ -1233,7 +1253,7 @@ func TestActions(t *testing.T) {
 			},
 		},
 	)
-	require.NoError(val.Validate(ctx, blk))
+	require.NoError(bc.ValidateBlock(blk))
 }
 
 func TestBlockchain_AddSubscriber(t *testing.T) {
@@ -1304,6 +1324,7 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 		actionMap,
 		testutil.TimestampNow(),
 	)
+	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 
 	// check balances after transfer
@@ -1485,11 +1506,14 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 		dao,
 		sf,
 		RegistryOption(registry),
+		BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
 	)
 	require.NotNil(bc)
 	ep := execution.NewProtocol(dao.GetBlockHash)
 	require.NoError(ep.Register(registry))
-	bc.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	require.NoError(bc.Start(context.Background()))
 
 	genesisAccount := identityset.Address(27).String()
@@ -1537,3 +1561,5 @@ func makeTransfer(contract string, bc Blockchain, t *testing.T) *block.Block {
 	require.NoError(bc.CommitBlock(blk))
 	return blk
 }
+
+// TODO: add func TestValidateBlock()

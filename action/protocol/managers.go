@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/pkg/errors"
 )
 
@@ -67,6 +68,7 @@ type (
 	StateReader interface {
 		Height() (uint64, error)
 		State(interface{}, ...StateOption) (uint64, error)
+		States(...StateOption) (uint64, state.Iterator, error)
 	}
 
 	// StateManager defines the stateDB interface atop IoTeX blockchain

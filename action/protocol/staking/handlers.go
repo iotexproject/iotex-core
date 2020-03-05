@@ -8,44 +8,176 @@ package staking
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"math/big"
+
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 )
 
-func (p *Protocol) handleCreateStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	staker, gasFee, err := fetchCaller(ctx, sm, act.Amount())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
+
+	// Create new bucket and bucket index
+	candidate := p.inMemCandidates.GetByName(act.Candidate())
+	if candidate == nil {
+		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
+	}
+	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+	if _, err := persistBucket(sm, bucket); err != nil {
+		return nil, errors.Wrap(err, "failed to put bucket")
+	}
+
+	// TODO: create and put candidate index
+
+	// update candidate
+	weightedVote := p.calculateVoteWeight(bucket, false)
+	if err := candidate.AddVote(weightedVote); err != nil {
+		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String())
+	}
+	if err := putCandidate(sm, candidate.Owner, candidate); err != nil {
+		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
+	}
+
+	p.inMemCandidates.Put(candidate)
+
+	// update staker balance
+	if err := staker.SubBalance(act.Amount()); err != nil {
+		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actionCtx.Caller.String())
+	}
+	// put updated staker's account state to trie
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), staker); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+	}
+
+	return p.settleAction(ctx, sm, gasFee)
+}
+
+func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
+
+	bucket, err := getBucket(sm, act.BucketIndex())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to fetch bucket by address %s", actionCtx.Caller.String())
+	}
+	if bucket.Owner != actionCtx.Caller {
+		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
+			bucket.Owner.String(), actionCtx.Caller.String())
+	}
+	// update bucket
+	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
+
+	// remove candidate if the bucket is self staking, otherwise update candidate's vote
+	if p.inMemCandidates.ContainsOwner(bucket.Owner) {
+		if err := delCandidate(sm, bucket.Candidate); err != nil {
+			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
+		}
+		p.inMemCandidates.Delete(bucket.Candidate)
+	} else {
+		candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
+		if candidate == nil {
+			return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+		}
+		weightedVote := p.calculateVoteWeight(bucket, false)
+		if err := candidate.SubVote(weightedVote); err != nil {
+			return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
+		}
+		if err := putCandidate(sm, bucket.Candidate, candidate); err != nil {
+			return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+		}
+
+		p.inMemCandidates.Put(candidate)
+	}
+
+	return p.settleAction(ctx, sm, gasFee)
+}
+
+func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	bucket, err := getBucket(sm, act.BucketIndex())
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get bucket by address %s", actionCtx.Caller.String())
+	}
+	if bucket.Owner != actionCtx.Caller {
+		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
+			bucket.Owner.String(), actionCtx.Caller.String())
+	}
+
+	withdrawer, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
+
+	// check unstake time
+	if bucket.UnstakeStartTime.Unix() == 0 {
+		return nil, errors.New("bucket has not been unstaked")
+	}
+	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
+		return nil, fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
+			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
+	}
+
+	// delete bucket and bucket index
+	if err := delBucket(sm, act.BucketIndex()); err != nil {
+		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
+	}
+	if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
+		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
+	}
+
+	// TODO: delete candidate index
+
+	// update withdrawer balance
+	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
+		return nil, errors.Wrapf(err, "failed to update the balance of withdrawer %s", actionCtx.Caller.String())
+	}
+	// put updated withdrawer's account state to trie
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), withdrawer); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+	}
+
+	return p.settleAction(ctx, sm, gasFee)
+}
+
+func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
 
-func (p *Protocol) handleUnstake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
 
-func (p *Protocol) handleWithdrawStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
 
-func (p *Protocol) handleChangeCandidate(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleTransferStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleDepositToStake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// TODO
-	return nil, nil
-}
-
-func (p *Protocol) handleRestake(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm protocol.StateManager) (*action.Receipt, error) {
 	// TODO
 	return nil, nil
 }
@@ -54,55 +186,64 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
+	registrationFee := unit.ConvertIotxToRau(p.config.Register.Fee)
+
+	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
+
 	owner := actCtx.Caller
 	if act.OwnerAddress() != nil {
 		owner = act.OwnerAddress()
 	}
-
-	// cannot collide with existing owner
-	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
-		return nil, ErrAlreadyExist
-	}
-
-	// cannot collide with existing name
-	if p.inMemCandidates.ContainsName(act.Name()) {
-		return nil, ErrInvalidCanName
-	}
-
-	// cannot collide with existing operator address
-	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-		return nil, ErrInvalidOperator
-	}
-
-	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), time.Now(), act.AutoStake())
-	bucketIdx, err := putBucket(sm, owner, bucket)
+	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
+	bucketIdx, err := persistBucket(sm, bucket)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to put bucket")
 	}
 
-	c := NewCandidate(owner, act.OperatorAddress(), act.RewardAddress(), act.Name(), bucketIdx, act.Amount())
-	c.Votes = calculateVoteWeight(bucket, true)
+	c := &Candidate{
+		Owner:              owner,
+		Operator:           act.OperatorAddress(),
+		Reward:             act.RewardAddress(),
+		Name:               act.Name(),
+		Votes:              p.calculateVoteWeight(bucket, true),
+		SelfStakeBucketIdx: bucketIdx,
+		SelfStake:          act.Amount(),
+	}
+
+	// TODO: create and put candidate index
 
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
 
-	if err := p.inMemCandidates.Put(c); err != nil {
+	// update caller balance
+	if err := caller.SubBalance(new(big.Int).Add(act.Amount(), registrationFee)); err != nil {
+		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actCtx.Caller.String())
+	}
+	// put updated caller's account state to trie
+	if err := accountutil.StoreAccount(sm, actCtx.Caller.String(), caller); err != nil {
+		return nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
+	}
+	receipt, err := p.settleAction(ctx, sm, gasFee)
+	if err != nil {
 		return nil, err
 	}
 
-	return &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actCtx.ActionHash,
-		GasConsumed:     actCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}, nil
+	p.inMemCandidates.Delete(owner)
+	p.inMemCandidates.Put(c)
+	return receipt, nil
 }
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, sm protocol.StateManager) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	_, gasFee, err := fetchCaller(ctx, sm, new(big.Int))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
 
 	// only owner can update candidate
 	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
@@ -110,19 +251,11 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return nil, ErrInvalidOwner
 	}
 
-	// cannot collide with existing name
 	if len(act.Name()) != 0 {
-		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-			return nil, ErrInvalidCanName
-		}
 		c.Name = act.Name()
 	}
 
-	// cannot collide with existing operator address
 	if act.OperatorAddress() != nil {
-		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-			return nil, ErrInvalidOperator
-		}
 		c.Operator = act.OperatorAddress()
 	}
 
@@ -134,18 +267,84 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return nil, err
 	}
 
-	// delete the current and update new into candidate center
-	p.inMemCandidates.Delete(c.Owner)
-	if err := p.inMemCandidates.Put(c); err != nil {
+	receipt, err := p.settleAction(ctx, sm, gasFee)
+	if err != nil {
 		return nil, err
 	}
 
+	p.inMemCandidates.Delete(c.Owner)
+	p.inMemCandidates.Put(c)
+	return receipt, nil
+}
+
+// settleAccount deposits gas fee and updates caller's nonce
+func (p *Protocol) settleAction(
+	ctx context.Context,
+	sm protocol.StateManager,
+	gasFee *big.Int,
+) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	if blkCtx.GasLimit < actionCtx.IntrinsicGas {
+		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+	}
+	if err := p.depositGas(ctx, sm, gasFee); err != nil {
+		return nil, errors.Wrap(err, "failed to deposit gas")
+	}
+	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
+		return nil, errors.Wrap(err, "failed to update nonce")
+	}
 	return &action.Receipt{
-		Status:      uint64(iotextypes.ReceiptStatus_Success),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		// TODO: update real gas
-		GasConsumed:     actCtx.IntrinsicGas,
+		Status:          uint64(iotextypes.ReceiptStatus_Success),
+		BlockHeight:     blkCtx.BlockHeight,
+		ActionHash:      actionCtx.ActionHash,
+		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}, nil
+}
+
+func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
+	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addr.Bytes()))
+	if err != nil {
+		return err
+	}
+	// TODO: this check shouldn't be necessary
+	if nonce > acc.Nonce {
+		acc.Nonce = nonce
+	}
+	return accountutil.StoreAccount(sm, addr.String(), acc)
+}
+
+func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
+	index, err := putBucket(sm, bucket)
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to put bucket")
+	}
+
+	if err := putBucketIndex(sm, bucket.Owner, index); err != nil {
+		return 0, errors.Wrap(err, "failed to put bucket index")
+	}
+	return index, nil
+}
+
+func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) (*state.Account, *big.Int, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+
+	caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to load or create the account of caller %s", actionCtx.Caller.String())
+	}
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	// check caller's balance
+	if big.NewInt(0).Add(amount, gasFee).Cmp(caller.Balance) == 1 {
+		return nil, nil, errors.Wrapf(
+			state.ErrNotEnoughBalance,
+			"caller %s balance %s, required amount %s",
+			actionCtx.Caller.String(),
+			caller.Balance,
+			big.NewInt(0).Add(amount, gasFee),
+		)
+	}
+	return caller, gasFee, nil
 }

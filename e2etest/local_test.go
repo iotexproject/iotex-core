@@ -11,12 +11,14 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -26,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -36,10 +39,11 @@ import (
 )
 
 const (
-	dBPath    = "db.test"
-	dBPath2   = "db.test2"
-	triePath  = "trie.test"
-	triePath2 = "trie.test2"
+	dBPath     = "db.test"
+	dBPath2    = "db.test2"
+	triePath   = "trie.test"
+	triePath2  = "trie.test2"
+	disabledIP = "169.254."
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -77,7 +81,7 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	p := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -176,6 +180,10 @@ func TestLocalCommit(t *testing.T) {
 		sf2,
 		blockchain.BoltDBDaoOption(),
 		blockchain.RegistryOption(registry),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf2,
+			protocol.NewGenericValidator(sf2, accountutil.AccountState),
+		)),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
@@ -187,7 +195,6 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	chain.Validator().AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	require.NoError(chain.Start(ctx))
 	require.EqualValues(5, chain.TipHeight())
 	defer func() {
@@ -425,7 +432,8 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.IndexDBPath = indexDBPath2
 
 	// Create client
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
+
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.NoError(err)
@@ -592,4 +600,13 @@ func newTestConfig() (config.Config, error) {
 	}
 	cfg.Chain.ProducerPrivKey = sk.HexString()
 	return cfg, nil
+}
+
+func validNetworkAddr(addrs []multiaddr.Multiaddr) (ret string) {
+	for _, addr := range addrs {
+		if !strings.Contains(addr.String(), disabledIP) {
+			return addr.String()
+		}
+	}
+	return
 }

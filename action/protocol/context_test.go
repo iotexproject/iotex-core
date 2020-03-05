@@ -23,7 +23,6 @@ func TestWithBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		History:  false,
 		Registry: nil,
 	}
 	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
@@ -33,28 +32,21 @@ func TestGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		History:  false,
 		Registry: nil,
 	}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
-	ret, ok := GetBlockchainCtx(ctx)
+	_, ok := GetBlockchainCtx(ctx)
 	require.True(ok)
-	require.Equal(false, ret.History)
 }
 
 func TestMustGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
 		Genesis:  config.Default.Genesis,
-		History:  false,
 		Registry: nil,
 	}
-	ctx := WithBlockchainCtx(context.Background(), bcCtx)
-	require.NotNil(ctx)
-	// Case I: Normal
-	ret := MustGetBlockchainCtx(ctx)
-	require.Equal(false, ret.History)
+	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
 	// Case II: Panic
 	require.Panics(func() { MustGetBlockchainCtx(context.Background()) }, "Miss blockchain context")
 }

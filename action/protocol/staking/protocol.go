@@ -8,15 +8,19 @@ package staking
 
 import (
 	"context"
+	"math/big"
+	"time"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // protocolID is the protocol ID
@@ -30,18 +34,56 @@ var (
 // Protocol defines the protocol of handling staking
 type Protocol struct {
 	addr            address.Address
-	inMemCandidates CandidateCenter
+	inMemCandidates *CandidateCenter
+	depositGas      DepositGas
+	sr              protocol.StateReader
+	config          Configuration
 }
 
+// Configuration is the staking protocol configuration.
+type Configuration struct {
+	VoteCal               VoteWeightCalConsts
+	Register              RegistrationConsts
+	WithdrawWaitingPeriod time.Duration
+}
+
+// DepositGas deposits gas to some pool
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+
 // NewProtocol instantiates the protocol of staking
-func NewProtocol() *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg Configuration) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of staking protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr}
+	return &Protocol{
+		addr:            addr,
+		inMemCandidates: NewCandidateCenter(),
+		config:          cfg,
+		depositGas:      depositGas,
+		sr:              sr,
+	}
+}
+
+// Start starts the protocol
+func (p *Protocol) Start(ctx context.Context) error {
+	// read all candidates from stateDB
+	_, iter, err := p.sr.States(protocol.NamespaceOption(factory.CandidateNameSpace))
+	if err != nil {
+		return err
+	}
+
+	// decode the candidate and put into candidate center
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if err := iter.Next(c); err != nil {
+			return errors.Wrapf(err, "failed to deserialize candidate")
+		}
+		p.inMemCandidates.Put(c)
+	}
+	return nil
 }
 
 // Handle handles a staking message
@@ -108,4 +150,8 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
+}
+
+func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
+	return calculateVoteWeight(p.config.VoteCal, v, selfStake)
 }
