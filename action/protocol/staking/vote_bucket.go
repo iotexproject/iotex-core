@@ -189,6 +189,18 @@ func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	return &vb, nil
 }
 
+func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) error {
+	if _, err := getBucket(sm, index); err != nil {
+		return err
+	}
+
+	_, err := sm.PutState(
+		bucket,
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.KeyOption(bucketKey(index)))
+	return err
+}
+
 func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(

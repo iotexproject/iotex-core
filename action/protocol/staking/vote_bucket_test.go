@@ -213,8 +213,16 @@ func TestGetPutStaking(t *testing.T) {
 		vb1, err := getBucket(sm, e.index)
 		require.NoError(err)
 		require.Equal(vb, vb1)
-		require.Equal(vb.Owner, vb1.Owner)
 	}
+
+	vb, err := getBucket(sm, 2)
+	require.NoError(err)
+	vb.AutoStake = false
+	vb.StakedAmount.Sub(vb.StakedAmount, big.NewInt(100))
+	require.NoError(updateBucket(sm, 2, vb))
+	vb1, err := getBucket(sm, 2)
+	require.NoError(err)
+	require.Equal(vb, vb1)
 
 	// delete buckets and get
 	for _, e := range tests {
