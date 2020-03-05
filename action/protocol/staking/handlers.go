@@ -139,7 +139,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if err := delBucket(sm, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
-	if err := delVoterIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
+	if err := delVoterBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
 	}
 
@@ -315,11 +315,11 @@ func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, er
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	if err := putVoterIndex(sm, bucket.Owner, index); err != nil {
+	if err := putVoterBucketIndex(sm, bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
 	}
 
-	if err := putCandidateIndex(sm, bucket.Candidate, index); err != nil {
+	if err := putCandBucketIndex(sm, bucket.Candidate, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put candidate index")
 	}
 	return index, nil
