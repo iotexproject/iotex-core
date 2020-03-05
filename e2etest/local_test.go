@@ -18,6 +18,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -38,10 +39,10 @@ import (
 )
 
 const (
-	dBPath    = "db.test"
-	dBPath2   = "db.test2"
-	triePath  = "trie.test"
-	triePath2 = "trie.test2"
+	dBPath     = "db.test"
+	dBPath2    = "db.test2"
+	triePath   = "trie.test"
+	triePath2  = "trie.test2"
 	disabledIP = "169.254."
 )
 
@@ -80,12 +81,7 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
-	for _, addr := range svr.P2PAgent().Self() {
-		if !strings.Contains(addr.String(), disabledIP) {
-			cfg.Network.BootstrapNodes = []string{addr.String()}
-			break
-		}
-	}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	p := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -436,12 +432,8 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.IndexDBPath = indexDBPath2
 
 	// Create client
-	for _, addr := range svr.P2PAgent().Self() {
-		if !strings.Contains(addr.String(), disabledIP) {
-			cfg.Network.BootstrapNodes = []string{addr.String()}
-			break
-		}
-	}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
+
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.NoError(err)
@@ -608,4 +600,13 @@ func newTestConfig() (config.Config, error) {
 	}
 	cfg.Chain.ProducerPrivKey = sk.HexString()
 	return cfg, nil
+}
+
+func validNetworkAddr(addrs []multiaddr.Multiaddr) (ret string) {
+	for _, addr := range addrs {
+		if !strings.Contains(addr.String(), disabledIP) {
+			return addr.String()
+		}
+	}
+	return
 }
