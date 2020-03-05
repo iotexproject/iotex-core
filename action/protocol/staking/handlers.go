@@ -43,6 +43,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrap(err, "failed to put bucket")
 	}
 
+	// TODO: create and put candidate index
+
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
@@ -75,7 +77,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 		return nil, errors.Wrap(err, "failed to fetch caller")
 	}
 
-	bucket, isSelfStaking, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, err := getBucket(sm, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bucket by address %s", actionCtx.Caller.String())
 	}
@@ -87,7 +89,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
 
 	// remove candidate if the bucket is self staking, otherwise update candidate's vote
-	if isSelfStaking {
+	if p.inMemCandidates.ContainsOwner(bucket.Owner) {
 		if err := delCandidate(sm, bucket.Candidate); err != nil {
 			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
 		}
@@ -115,7 +117,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	bucket, isSelfStaking, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, err := getBucket(sm, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get bucket by address %s", actionCtx.Caller.String())
 	}
@@ -139,14 +141,14 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// delete bucket and bucket index
-	if err := delBucket(sm, bucket.Candidate, act.BucketIndex()); err != nil {
+	if err := delBucket(sm, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
-	if !isSelfStaking {
-		if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
-			return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
-		}
+	if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
+		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
 	}
+
+	// TODO: delete candidate index
 
 	// update withdrawer balance
 	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
@@ -210,6 +212,9 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
 	}
+
+	// TODO: create and put candidate index
+
 	if err := putCandidate(sm, c.Owner, c); err != nil {
 		return nil, err
 	}
@@ -311,33 +316,8 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
-func (p *Protocol) fetchBucket(sm protocol.StateReader, voter address.Address, index uint64) (*VoteBucket, bool, error) {
-	var candAddr address.Address
-	var isSelfStaking bool
-	candidate := p.inMemCandidates.GetBySelfStakingIndex(index)
-	if candidate != nil {
-		candAddr = candidate.Owner
-		isSelfStaking = true
-	} else {
-		// TODO: get bucket by index only, wait for getBucketByIndex()
-		//bucketIndices, err := getBucketIndices(sm, voter)
-		//if err != nil {
-		//	return nil, false, err
-		//}
-		//candAddr = bucketIndices.findCandidate(index)
-		//if candAddr == nil {
-		//	return nil, false, fmt.Errorf("failed to find candidate address from bucket indices of voter %s", voter.String())
-		//}
-	}
-	bucket, err := getBucket(sm, candAddr, index)
-	if err != nil {
-		return nil, false, err
-	}
-	return bucket, isSelfStaking, nil
-}
-
 func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
-	index, err := putBucket(sm, bucket.Candidate, bucket)
+	index, err := putBucket(sm, bucket)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
