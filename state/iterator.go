@@ -6,7 +6,9 @@
 
 package state
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+)
 
 // ErrOutOfBoundary defines an error when the index in the iterator is out of boundary
 var ErrOutOfBoundary = errors.New("index is out of boundary")
@@ -35,7 +37,7 @@ func (it *iterator) Size() int {
 
 func (it *iterator) Next(s interface{}) error {
 	i := it.index
-	if i > len(it.states) {
+	if i >= len(it.states) {
 		return ErrOutOfBoundary
 	}
 	it.index = i + 1

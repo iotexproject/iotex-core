@@ -583,10 +583,10 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		candidateCtx := protocol.WithBlockchainCtx(
 			context.Background(),
 			protocol.BlockchainCtx{
-				Registry: 		bc.registry, 
-				Genesis: 	 	bc.config.Genesis,
-				Tip:	  		protocol.TipInfo {
-					Height: i-1,
+				Registry: bc.registry,
+				Genesis:  bc.config.Genesis,
+				Tip: protocol.TipInfo{
+					Height: i - 1,
 				},
 			},
 		)
@@ -600,10 +600,10 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		ctx = protocol.WithBlockchainCtx(
 			ctx,
 			protocol.BlockchainCtx{
-				Registry: 		bc.registry, 
-				Genesis: 	 	bc.config.Genesis,
-				Tip:	  		protocol.TipInfo {
-					Height: i-1,
+				Registry: bc.registry,
+				Genesis:  bc.config.Genesis,
+				Tip: protocol.TipInfo{
+					Height: i - 1,
 				},
 				Candidates: candidates,
 			},

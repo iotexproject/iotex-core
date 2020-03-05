@@ -60,7 +60,8 @@ var (
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
 	// TotalBucketKey indicates the total count of staking buckets
-	TotalBucketKey  = []byte("totalBucket")
+	TotalBucketKey = []byte("totalBucket")
+
 	dbBatchSizelMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_db_batch_size",
@@ -538,7 +539,9 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 			return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
 		}
 	}
-	_, values, err := sf.dao.Filter(ns, nil)
+	_, values, err := sf.dao.Filter(ns, func(k, v []byte) bool {
+		return true
+	})
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)
