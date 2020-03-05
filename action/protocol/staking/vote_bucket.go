@@ -178,18 +178,18 @@ func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 	return tc.count, err
 }
 
-func getBucket(sr protocol.StateReader, owner address.Address, index uint64) (*VoteBucket, error) {
+func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(owner.Bytes(), index))); err != nil {
+		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
 	}
 	return &vb, nil
 }
 
-func putBucket(sm protocol.StateManager, owner address.Address, bucket *VoteBucket) (uint64, error) {
+func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
@@ -202,7 +202,7 @@ func putBucket(sm protocol.StateManager, owner address.Address, bucket *VoteBuck
 	if _, err := sm.PutState(
 		bucket,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(owner.Bytes(), index))); err != nil {
+		protocol.KeyOption(bucketKey(index))); err != nil {
 		return 0, err
 	}
 	tc.count++
@@ -213,15 +213,15 @@ func putBucket(sm protocol.StateManager, owner address.Address, bucket *VoteBuck
 	return index, err
 }
 
-func delBucket(sm protocol.StateManager, owner address.Address, index uint64) error {
+func delBucket(sm protocol.StateManager, index uint64) error {
 	_, err := sm.DelState(
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(bucketKey(owner.Bytes(), index)))
+		protocol.KeyOption(bucketKey(index)))
 	return err
 }
 
-func bucketKey(owner []byte, index uint64) []byte {
-	return append(owner, byteutil.Uint64ToBytesBigEndian(index)...)
+func bucketKey(index uint64) []byte {
+	return byteutil.Uint64ToBytesBigEndian(index)
 }
 
 func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
