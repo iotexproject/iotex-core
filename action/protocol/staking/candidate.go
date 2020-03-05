@@ -31,22 +31,15 @@ type (
 		SelfStake          *big.Int
 	}
 
+	// RegistrationConsts are the registration fee and min self stake
+	RegistrationConsts struct {
+		Fee          int64
+		MinSelfStake int64
+	}
+
 	// CandidateList is a list of candidates which is sortable
 	CandidateList []*Candidate
 )
-
-// NewCandidate creates a Candidate instance and set votes to 0.
-func NewCandidate(owner, operator, reward address.Address, name string, selfStakeIdx uint64, selfStake *big.Int) *Candidate {
-	return &Candidate{
-		Owner:              owner,
-		Operator:           operator,
-		Reward:             reward,
-		Name:               name,
-		Votes:              big.NewInt(0),
-		SelfStakeBucketIdx: selfStakeIdx,
-		SelfStake:          selfStake,
-	}
-}
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {

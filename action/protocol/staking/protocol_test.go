@@ -22,10 +22,12 @@ func TestProtocol(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, VoteWeightCalConsts{
-		DurationLg: 1.2,
-		AutoStake:  1.05,
-		SelfStake:  1.05,
+	stk := NewProtocol(nil, sm, Configuration{
+		VoteCal: VoteWeightCalConsts{
+			DurationLg: 1.2,
+			AutoStake:  1.05,
+			SelfStake:  1.05,
+		},
 	})
 	r.NotNil(stk)
 	r.NoError(stk.Start(context.Background()))
