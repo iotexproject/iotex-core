@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,7 +47,12 @@ func TestLocalActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	for _, addr := range svr.P2PAgent().Self() {
+		if !strings.Contains(addr.String(), disabledIP) {
+			cfg.Network.BootstrapNodes = []string{addr.String()}
+			break
+		}
+	}
 	cli := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -116,7 +122,12 @@ func TestPressureActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	for _, addr := range svr.P2PAgent().Self() {
+		if !strings.Contains(addr.String(), disabledIP) {
+			cfg.Network.BootstrapNodes = []string{addr.String()}
+			break
+		}
+	}
 	cli := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {

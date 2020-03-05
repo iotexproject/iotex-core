@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ const (
 	dBPath2   = "db.test2"
 	triePath  = "trie.test"
 	triePath2 = "trie.test2"
+	disabledIP = "169.254."
 )
 
 func TestLocalCommit(t *testing.T) {
@@ -78,7 +80,12 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	for _, addr := range svr.P2PAgent().Self() {
+		if !strings.Contains(addr.String(), disabledIP) {
+			cfg.Network.BootstrapNodes = []string{addr.String()}
+			break
+		}
+	}
 	p := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -429,7 +436,12 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.IndexDBPath = indexDBPath2
 
 	// Create client
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	for _, addr := range svr.P2PAgent().Self() {
+		if !strings.Contains(addr.String(), disabledIP) {
+			cfg.Network.BootstrapNodes = []string{addr.String()}
+			break
+		}
+	}
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
 	require.NoError(err)
