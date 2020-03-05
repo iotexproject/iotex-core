@@ -77,7 +77,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 		return nil, errors.Wrap(err, "failed to fetch caller")
 	}
 
-	bucket, isSelfStaking, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, err := getBucket(sm, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bucket by address %s", actionCtx.Caller.String())
 	}
@@ -89,7 +89,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
 
 	// remove candidate if the bucket is self staking, otherwise update candidate's vote
-	if isSelfStaking {
+	if p.inMemCandidates.ContainsOwner(bucket.Owner) {
 		if err := delCandidate(sm, bucket.Candidate); err != nil {
 			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
 		}
@@ -117,7 +117,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	bucket, _, err := p.fetchBucket(sm, actionCtx.Caller, act.BucketIndex())
+	bucket, err := getBucket(sm, act.BucketIndex())
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get bucket by address %s", actionCtx.Caller.String())
 	}
@@ -314,29 +314,6 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 		acc.Nonce = nonce
 	}
 	return accountutil.StoreAccount(sm, addr.String(), acc)
-}
-
-func (p *Protocol) fetchBucket(sm protocol.StateReader, voter address.Address, index uint64) (*VoteBucket, bool, error) {
-	var isSelfStaking bool
-	candidate := p.inMemCandidates.GetBySelfStakingIndex(index)
-	if candidate != nil {
-		isSelfStaking = true
-	} else {
-		// TODO: get bucket by index only, wait for getBucketByIndex()
-		//bucketIndices, err := getBucketIndices(sm, voter)
-		//if err != nil {
-		//	return nil, false, err
-		//}
-		//candAddr = bucketIndices.findCandidate(index)
-		//if candAddr == nil {
-		//	return nil, false, fmt.Errorf("failed to find candidate address from bucket indices of voter %s", voter.String())
-		//}
-	}
-	bucket, err := getBucket(sm, index)
-	if err != nil {
-		return nil, false, err
-	}
-	return bucket, isSelfStaking, nil
 }
 
 func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
