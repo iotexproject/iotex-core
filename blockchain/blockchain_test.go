@@ -88,9 +88,6 @@ func addTestingConstantinopleBlocks(bc Blockchain, dao blockdao.BlockDAO) error 
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -118,9 +115,6 @@ func addTestingConstantinopleBlocks(bc Blockchain, dao blockdao.BlockDAO) error 
 			blockTime,
 		)
 		if err != nil {
-			return hash.ZeroHash256, err
-		}
-		if err := bc.ValidateBlock(blk); err != nil {
 			return hash.ZeroHash256, err
 		}
 		if err := bc.CommitBlock(blk); err != nil {
@@ -199,9 +193,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -261,9 +252,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -319,9 +307,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -358,9 +343,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -410,9 +392,6 @@ func addTestingTsfBlocks(bc Blockchain, dao blockdao.BlockDAO) error {
 		testutil.TimestampNow(),
 	)
 	if err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -1184,7 +1163,6 @@ func TestBlocks(t *testing.T) {
 			actionMap,
 			testutil.TimestampNow(),
 		)
-		require.NoError(bc.ValidateBlock(blk))
 		require.NoError(bc.CommitBlock(blk))
 	}
 }
@@ -1441,7 +1419,6 @@ func deployXrc20(bc Blockchain, dao blockdao.BlockDAO, t *testing.T) string {
 		testutil.TimestampNow(),
 	)
 	require.NoError(err)
-	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 	r, err := dao.GetReceiptByActionHash(selp.Hash(), blk.Height())
 	require.NoError(err)
@@ -1554,7 +1531,6 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 		actionMap,
 		testutil.TimestampNow(),
 	)
-	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 	return bc, sf, kv, dao
 }
@@ -1582,7 +1558,6 @@ func makeTransfer(contract string, bc Blockchain, t *testing.T) *block.Block {
 		testutil.TimestampNow(),
 	)
 	require.NoError(err)
-	require.NoError(bc.ValidateBlock(blk))
 	require.NoError(bc.CommitBlock(blk))
 	return blk
 }
