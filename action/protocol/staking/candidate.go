@@ -199,9 +199,9 @@ func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, er
 	return &d, err
 }
 
-func putCandidate(sm protocol.StateManager, name address.Address, d *Candidate) error {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
+func putCandidate(sm protocol.StateManager, d *Candidate) error {
+	key := make([]byte, len(d.Owner.Bytes()))
+	copy(key, d.Owner.Bytes())
 
 	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
 	return err

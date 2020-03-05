@@ -39,18 +39,16 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	if _, err := persistBucket(sm, bucket); err != nil {
+	if _, err := putBucketAndIndex(sm, bucket); err != nil {
 		return nil, errors.Wrap(err, "failed to put bucket")
 	}
-
-	// TODO: create and put candidate index
 
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
 		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String())
 	}
-	if err := putCandidate(sm, candidate.Owner, candidate); err != nil {
+	if err := putCandidate(sm, candidate); err != nil {
 		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
 	}
 
@@ -89,7 +87,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
 
 	// remove candidate if the bucket is self staking, otherwise update candidate's vote
-	if p.inMemCandidates.ContainsOwner(bucket.Owner) {
+	if p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()) {
 		if err := delCandidate(sm, bucket.Candidate); err != nil {
 			return nil, errors.Wrapf(err, "failed to delete candidate %s", bucket.Candidate.String())
 		}
@@ -103,7 +101,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 		if err := candidate.SubVote(weightedVote); err != nil {
 			return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
 		}
-		if err := putCandidate(sm, bucket.Candidate, candidate); err != nil {
+		if err := putCandidate(sm, candidate); err != nil {
 			return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
 		}
 
@@ -144,7 +142,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	if err := delBucket(sm, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
-	if err := delBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
+	if err := delVoterIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
 	}
 
@@ -198,7 +196,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := persistBucket(sm, bucket)
+	bucketIdx, err := putBucketAndIndex(sm, bucket)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to put bucket")
 	}
@@ -213,9 +211,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		SelfStake:          act.Amount(),
 	}
 
-	// TODO: create and put candidate index
-
-	if err := putCandidate(sm, c.Owner, c); err != nil {
+	if err := putCandidate(sm, c); err != nil {
 		return nil, err
 	}
 
@@ -263,7 +259,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		c.Reward = act.RewardAddress()
 	}
 
-	if err := putCandidate(sm, c.Owner, c); err != nil {
+	if err := putCandidate(sm, c); err != nil {
 		return nil, err
 	}
 
@@ -316,14 +312,18 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	return accountutil.StoreAccount(sm, addr.String(), acc)
 }
 
-func persistBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
+func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	index, err := putBucket(sm, bucket)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	if err := putBucketIndex(sm, bucket.Owner, index); err != nil {
+	if err := putVoterIndex(sm, bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
+	}
+
+	if err := putCandidateIndex(sm, bucket.Candidate, index); err != nil {
+		return 0, errors.Wrap(err, "failed to put candidate index")
 	}
 	return index, nil
 }
@@ -333,7 +333,7 @@ func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) 
 
 	caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to load or create the account of caller %s", actionCtx.Caller.String())
+		return nil, nil, errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String())
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	// check caller's balance
