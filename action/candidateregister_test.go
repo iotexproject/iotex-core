@@ -73,7 +73,6 @@ func TestCandidateRegister(t *testing.T) {
 
 func TestCandidateRegisterSignVerify(t *testing.T) {
 	require := require.New(t)
-	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
 	cr, err := NewCandidateRegister(crNonce, crName, crOperatorAddrStr, crRewardAddrStr, crOwnerAddrStr, crAmountStr, crDuration, crAutoStake, crPayload, crGasLimit, crGasPrice)
 	require.NoError(err)
 
