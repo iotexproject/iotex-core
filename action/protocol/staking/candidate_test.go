@@ -113,7 +113,6 @@ func TestCandCenter(t *testing.T) {
 		r.True(m.ContainsName(v.d.Name))
 		r.True(m.ContainsOwner(v.d.Owner))
 		r.True(m.ContainsOperator(v.d.Operator))
-		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
@@ -123,7 +122,6 @@ func TestCandCenter(t *testing.T) {
 		r.False(m.ContainsOwner(v.d.Owner))
 		r.False(m.ContainsName(v.d.Name))
 		r.False(m.ContainsOperator(v.d.Operator))
-		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(len(testCandidates)-i-1, m.Size())
 	}
 }

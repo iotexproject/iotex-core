@@ -14,7 +14,6 @@ type (
 		nameMap          map[string]*Candidate
 		ownerMap         map[string]*Candidate
 		operatorMap      map[string]*Candidate
-		selfStkBucketMap map[uint64]*Candidate
 	}
 )
 
@@ -24,7 +23,6 @@ func NewCandidateCenter() *CandidateCenter {
 		nameMap:          make(map[string]*Candidate),
 		ownerMap:         make(map[string]*Candidate),
 		operatorMap:      make(map[string]*Candidate),
-		selfStkBucketMap: make(map[uint64]*Candidate),
 	}
 }
 
@@ -51,12 +49,6 @@ func (m CandidateCenter) ContainsOperator(operator address.Address) bool {
 	return ok
 }
 
-// ContainsSelfStakingBucket returns true if the map contains the self staking bucket index
-func (m CandidateCenter) ContainsSelfStakingBucket(index uint64) bool {
-	_, ok := m.selfStkBucketMap[index]
-	return ok
-}
-
 // GetByName returns the candidate by name
 func (m CandidateCenter) GetByName(name string) *Candidate {
 	if d, ok := m.nameMap[name]; ok {
@@ -73,20 +65,11 @@ func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
 	return nil
 }
 
-// GetBySelfStakingIndex returns the candidate by self-staking index
-func (m CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
-	if d, ok := m.selfStkBucketMap[index]; ok {
-		return d.Clone()
-	}
-	return nil
-}
-
 // Put writes the candidate into map
 func (m CandidateCenter) Put(d *Candidate) {
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner.String()] = d
 	m.operatorMap[d.Operator.String()] = d
-	m.selfStkBucketMap[d.SelfStakeBucketIdx] = d
 }
 
 // Delete deletes the candidate by name
@@ -99,5 +82,4 @@ func (m CandidateCenter) Delete(owner address.Address) {
 	delete(m.nameMap, d.Name)
 	delete(m.ownerMap, d.Owner.String())
 	delete(m.operatorMap, d.Operator.String())
-	delete(m.selfStkBucketMap, d.SelfStakeBucketIdx)
 }
