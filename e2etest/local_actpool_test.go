@@ -46,7 +46,7 @@ func TestLocalActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -116,7 +116,7 @@ func TestPressureActPool(t *testing.T) {
 	// create client
 	cfg, err = newActPoolConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{svr.P2PAgent().Self()[0].String()}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {

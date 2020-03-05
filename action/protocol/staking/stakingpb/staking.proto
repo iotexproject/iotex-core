@@ -23,13 +23,8 @@ message Bucket {
   string owner = 8;
 }
 
-message BucketIndex {
-    uint64 index = 1;
-    string candAddress = 2;
-}
-
 message BucketIndices {
-    repeated BucketIndex indices = 1;
+    repeated uint64 indices = 1;
 }
 
 message Candidate {

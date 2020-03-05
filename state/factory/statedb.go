@@ -355,7 +355,9 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if archive {
 		return 0, nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
 	}
-	_, values, err := sdb.dao.Filter(ns, nil)
+	_, values, err := sdb.dao.Filter(ns, func(k, v []byte) bool {
+		return true
+	})
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)

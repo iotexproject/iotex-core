@@ -82,12 +82,11 @@ func (m CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 }
 
 // Put writes the candidate into map
-func (m CandidateCenter) Put(d *Candidate) error {
+func (m CandidateCenter) Put(d *Candidate) {
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner.String()] = d
 	m.operatorMap[d.Operator.String()] = d
 	m.selfStkBucketMap[d.SelfStakeBucketIdx] = d
-	return nil
 }
 
 // Delete deletes the candidate by name

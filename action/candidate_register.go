@@ -124,7 +124,7 @@ func (cr *CandidateRegister) Proto() *iotextypes.CandidateRegister {
 	act := iotextypes.CandidateRegister{
 		Candidate: &iotextypes.CandidateBasicInfo{
 			Name:            cr.name,
-			OperatorAddress: cr.ownerAddress.String(),
+			OperatorAddress: cr.operatorAddress.String(),
 			RewardAddress:   cr.rewardAddress.String(),
 		},
 		StakedDuration: cr.duration,
