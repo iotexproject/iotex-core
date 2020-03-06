@@ -118,14 +118,14 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
-	}
-
 	withdrawer, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch caller")
+	}
+
+	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to fetch bucket")
 	}
 
 	// check unstake time
@@ -234,20 +234,16 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		return nil, errors.Wrap(err, "failed to fetch bucket")
 	}
 
-	voterAddr, err := address.FromString(act.VoterAddress())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load address from string")
-	}
 	// update bucket index
 	if err := delVoterBucketIndex(sm, bucket.Owner, act.BucketIndex()); err != nil {
 		return nil, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
-	if err := putVoterBucketIndex(sm, voterAddr, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", voterAddr.String())
+	if err := putVoterBucketIndex(sm, act.VoterAddress(), act.BucketIndex()); err != nil {
+		return nil, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
 	}
 
 	// update bucket
-	bucket.Owner = voterAddr
+	bucket.Owner = act.VoterAddress()
 	if err := updateBucket(sm, act.BucketIndex(), bucket); err != nil {
 		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
 	}
@@ -267,6 +263,13 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch bucket")
 	}
+	if !bucket.AutoStake {
+		return nil, errors.New("deposit is only allowed on auto-stake bucket")
+	}
+	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
+	if candidate == nil {
+		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
@@ -276,16 +279,17 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	// update candidate
-	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
-	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
-	}
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
 		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", bucket.Candidate.String())
+	}
+	if p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()) {
+		if err := candidate.AddSelfStake(act.Amount()); err != nil {
+			return nil, errors.Wrapf(err, "failed to add self stake for candidate %s", bucket.Candidate.String())
+		}
 	}
 	if err := putCandidate(sm, candidate); err != nil {
 		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
@@ -320,6 +324,11 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 		return nil, errors.Wrap(err, "failed to fetch bucket")
 	}
 
+	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
+	if candidate == nil {
+		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+	}
+
 	prevWeightedVotes := p.calculateVoteWeight(bucket, p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedDuration = time.Duration(act.Duration()) * 24 * time.Hour
@@ -329,10 +338,6 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 	}
 
 	// update candidate
-	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
-	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
-	}
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
 		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
 	}

@@ -79,6 +79,28 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 	return nil
 }
 
+// AddSelfStake adds self stake
+func (d *Candidate) AddSelfStake(amount *big.Int) error {
+	if amount.Sign() < 0 {
+		return ErrInvalidAmount
+	}
+	d.SelfStake.Add(d.SelfStake, amount)
+	return nil
+}
+
+// SubSelfStake subtracts self stake
+func (d *Candidate) SubSelfStake(amount *big.Int) error {
+	if amount.Sign() < 0 {
+		return ErrInvalidAmount
+	}
+
+	if d.Votes.Cmp(amount) == -1 {
+		return ErrInvalidAmount
+	}
+	d.SelfStake.Sub(d.SelfStake, amount)
+	return nil
+}
+
 // Serialize serializes candidate to bytes
 func (d *Candidate) Serialize() ([]byte, error) {
 	pb, err := d.toProto()
