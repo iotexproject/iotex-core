@@ -22,7 +22,7 @@ func TestStakingTransfer(t *testing.T) {
 	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
-	require.Equal(canAddress, stake.VoterAddress())
+	require.Equal(canAddress, stake.VoterAddress().String())
 	require.Equal(index, stake.BucketIndex())
 
 	gas, err := stake.IntrinsicGas()
@@ -36,7 +36,7 @@ func TestStakingTransfer(t *testing.T) {
 	stake2 := &TransferStake{}
 	require.NoError(stake2.LoadProto(proto))
 	require.Equal(payload, stake2.Payload())
-	require.Equal(canAddress, stake2.VoterAddress())
+	require.Equal(canAddress, stake2.VoterAddress().String())
 	require.Equal(index, stake2.BucketIndex())
 }
 
