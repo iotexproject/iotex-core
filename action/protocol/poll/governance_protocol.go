@@ -238,7 +238,11 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	stateTipHeight, err := p.sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	tipEpochNum := rp.GetEpochNum(stateTipHeight)
 	if tipEpochNum+1 == epochNum {
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, true)
 	}
@@ -255,7 +259,11 @@ func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context,
 func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	stateTipHeight, err := p.sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	tipEpochNum := rp.GetEpochNum(stateTipHeight)
 	targetEpochNum := rp.GetEpochNum(height)
 	targetEpochStartHeight := rp.GetEpochHeight(targetEpochNum)
 	if tipEpochNum+1 == targetEpochNum {

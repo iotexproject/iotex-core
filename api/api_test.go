@@ -1458,6 +1458,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(4), nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {
