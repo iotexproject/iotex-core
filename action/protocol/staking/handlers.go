@@ -66,7 +66,9 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
-	p.inMemCandidates.Upsert(candidate)
+	if err := p.inMemCandidates.Upsert(candidate); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -109,7 +111,9 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
-	p.inMemCandidates.Upsert(candidate)
+	if err := p.inMemCandidates.Upsert(candidate); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -215,8 +219,12 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
-	p.inMemCandidates.Upsert(prevCandidate)
-	p.inMemCandidates.Upsert(candidate)
+	if err := p.inMemCandidates.Upsert(prevCandidate); err != nil {
+		return nil, err
+	}
+	if err := p.inMemCandidates.Upsert(candidate); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -305,7 +313,9 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
-	p.inMemCandidates.Upsert(candidate)
+	if err := p.inMemCandidates.Upsert(candidate); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -349,7 +359,9 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
-	p.inMemCandidates.Upsert(candidate)
+	if err := p.inMemCandidates.Upsert(candidate); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -401,7 +413,9 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return nil, err
 	}
 
-	p.inMemCandidates.Upsert(c)
+	if err := p.inMemCandidates.Upsert(c); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 
@@ -440,7 +454,9 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return nil, err
 	}
 
-	p.inMemCandidates.Upsert(c)
+	if err := p.inMemCandidates.Upsert(c); err != nil {
+		return nil, err
+	}
 	return receipt, nil
 }
 

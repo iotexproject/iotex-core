@@ -19,12 +19,13 @@ import (
 
 // Errors
 var (
-	ErrNilAction       = errors.New("action is nil")
-	ErrInvalidAmount   = errors.New("invalid staking amount")
-	ErrInvalidCanName  = errors.New("invalid candidate name")
-	ErrInvalidOwner    = errors.New("invalid owner address")
-	ErrInvalidOperator = errors.New("invalid operator address")
-	ErrMissingField    = errors.New("misssing data field")
+	ErrNilAction           = errors.New("action is nil")
+	ErrInvalidAmount       = errors.New("invalid staking amount")
+	ErrInvalidCanName      = errors.New("invalid candidate name")
+	ErrInvalidOwner        = errors.New("invalid owner address")
+	ErrInvalidOperator     = errors.New("invalid operator address")
+	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
+	ErrMissingField        = errors.New("misssing data field")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {

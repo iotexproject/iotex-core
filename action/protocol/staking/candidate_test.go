@@ -96,7 +96,7 @@ func TestCandCenter(t *testing.T) {
 
 	m := NewCandidateCenter()
 	for i, v := range testCandidates {
-		m.Upsert(testCandidates[i].d)
+		r.NoError(m.Upsert(testCandidates[i].d))
 		r.True(m.ContainsName(v.d.Name))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
@@ -117,14 +117,24 @@ func TestCandCenter(t *testing.T) {
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
-	// test update candidate
+	// cannot insert candidate with conflicting name/operator/self-staking index
 	old := testCandidates[0].d
+	conflict := m.GetByName(old.Name)
+	r.NotNil(conflict)
+	conflict.Owner = identityset.Address(24)
+	r.Equal(ErrInvalidCanName, m.Upsert(conflict))
+	conflict.Name = "xxx"
+	r.Equal(ErrInvalidOperator, m.Upsert(conflict))
+	conflict.Operator = identityset.Address(24)
+	r.Equal(ErrInvalidSelfStkIndex, m.Upsert(conflict))
+
+	// test update candidate
 	d := m.GetByName(old.Name)
 	r.NotNil(d)
 	d.Name = "xxx"
 	d.Operator = identityset.Address(24)
 	d.SelfStakeBucketIdx += 100
-	m.Upsert(d)
+	r.NoError(m.Upsert(d))
 	r.True(m.ContainsName(d.Name))
 	r.True(m.ContainsOperator(d.Operator))
 	r.True(m.ContainsSelfStakingBucket(d.SelfStakeBucketIdx))
