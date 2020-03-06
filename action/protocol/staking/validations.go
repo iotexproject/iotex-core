@@ -12,8 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -87,9 +85,6 @@ func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.Chan
 func (p *Protocol) validateTransferStake(ctx context.Context, act *action.TransferStake) error {
 	if act == nil {
 		return ErrNilAction
-	}
-	if _, err := address.FromString(act.VoterAddress()); err != nil {
-		return errors.Wrap(address.ErrInvalidAddr, "invalid voter address")
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
