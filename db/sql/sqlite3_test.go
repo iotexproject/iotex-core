@@ -11,6 +11,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/config"
 )
 
@@ -20,8 +22,10 @@ const (
 
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(t, err)
 	testPath := testFile.Name()
+	require.NoError(t, testFile.Close())
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}
@@ -32,8 +36,10 @@ func TestSQLite3StorePutGet(t *testing.T) {
 
 func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(t, err)
 	testPath := testFile.Name()
+	require.NoError(t, testFile.Close())
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}

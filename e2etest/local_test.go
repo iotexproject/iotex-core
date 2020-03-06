@@ -16,10 +16,11 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -51,12 +52,18 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	testDBPath := testDBFile.Name()
-	indexDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(testDBFile.Close())
+	indexDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	indexDBPath := indexDBFile.Name()
+	require.NoError(indexDBFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -159,12 +166,18 @@ func TestLocalCommit(t *testing.T) {
 	require.EqualValues(5, bc.TipHeight())
 
 	// create local chain
-	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
+	testTrieFile2, err := ioutil.TempFile(os.TempDir(), triePath2)
+	require.NoError(err)
 	testTriePath2 := testTrieFile2.Name()
-	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(testTrieFile2.Close())
+	testDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(err)
 	testDBPath2 := testDBFile2.Name()
-	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(testDBFile2.Close())
+	indexDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(err)
 	indexDBPath2 := indexDBFile2.Name()
+	require.NoError(indexDBFile2.Close())
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -375,12 +388,18 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	testDBPath := testDBFile.Name()
-	indexDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(testDBFile.Close())
+	indexDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	indexDBPath := indexDBFile.Name()
+	require.NoError(indexDBFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -418,12 +437,18 @@ func TestLocalSync(t *testing.T) {
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
 
-	testDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	testDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(err)
 	testDBPath2 := testDBFile2.Name()
-	testTrieFile2, _ := ioutil.TempFile(os.TempDir(), triePath2)
+	require.NoError(testDBFile2.Close())
+	testTrieFile2, err := ioutil.TempFile(os.TempDir(), triePath2)
+	require.NoError(err)
 	testTriePath2 := testTrieFile2.Name()
-	indexDBFile2, _ := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(testTrieFile2.Close())
+	indexDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	require.NoError(err)
 	indexDBPath2 := indexDBFile2.Name()
+	require.NoError(indexDBFile2.Close())
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
@@ -508,12 +533,18 @@ func TestLocalSync(t *testing.T) {
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	testDBPath := testDBFile.Name()
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(testDBFile.Close())
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(testTrieFile.Close())
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	require.NoError(err)
 	testIndexPath := testIndexFile.Name()
+	require.NoError(testIndexFile.Close())
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath

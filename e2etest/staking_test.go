@@ -18,9 +18,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -35,8 +36,9 @@ import (
 )
 
 func TestStakingContract(t *testing.T) {
+	require := require.New(t)
+
 	testReadContract := func(cfg config.Config, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 
 		// Create a new blockchain

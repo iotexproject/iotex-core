@@ -13,13 +13,14 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -59,14 +60,23 @@ const (
 )
 
 func TestBlockReward(t *testing.T) {
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	r := require.New(t)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	r.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	r.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	r.NoError(err)
 	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	r.NoError(testDBFile.Close())
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	r.NoError(err)
 	testIndexPath := testIndexFile.Name()
-	testConsensusFile, _ := ioutil.TempFile(os.TempDir(), "cons")
+	r.NoError(testIndexFile.Close())
+	testConsensusFile, err := ioutil.TempFile(os.TempDir(), "cons")
+	r.NoError(err)
 	testConsensusPath := testConsensusFile.Name()
+	r.NoError(testConsensusFile.Close())
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme

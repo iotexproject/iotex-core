@@ -18,12 +18,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -61,8 +62,10 @@ func randStringRunes(n int) string {
 
 func TestSnapshot(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -92,8 +95,10 @@ func TestSnapshot(t *testing.T) {
 
 func TestSDBSnapshot(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(err)
 	testStateDBPath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
@@ -315,8 +320,10 @@ func testCandidates(sf Factory, t *testing.T) {
 }
 
 func TestState(t *testing.T) {
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(t, err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(t, testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -326,41 +333,52 @@ func TestState(t *testing.T) {
 }
 
 func TestHistoryState(t *testing.T) {
+	r := require.New(t)
 	// using factory and enable history
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	r.NoError(err)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	r.NoError(testTrieFile.Close())
 	cfg.Chain.EnableArchiveMode = true
 	sf, err := NewFactory(cfg, DefaultTrieOption())
-	require.NoError(t, err)
+	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
-	// using statedb and enable history
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
+	// using stateDB and enable history
+	testTrieFile, err = ioutil.TempFile(os.TempDir(), triePath)
+	r.NoError(err)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	r.NoError(testTrieFile.Close())
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
-	require.NoError(t, err)
+	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
 	// using factory and disable history
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err = ioutil.TempFile(os.TempDir(), triePath)
+	r.NoError(err)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	r.NoError(testTrieFile.Close())
 	cfg.Chain.EnableArchiveMode = false
 	sf, err = NewFactory(cfg, DefaultTrieOption())
-	require.NoError(t, err)
+	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
-	// using statedb and disable history
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), triePath)
+	// using stateDB and disable history
+	testTrieFile, err = ioutil.TempFile(os.TempDir(), triePath)
+	r.NoError(err)
 	cfg.Chain.TrieDBPath = testTrieFile.Name()
+	r.NoError(testTrieFile.Close())
 	sf, err = NewStateDB(cfg, DefaultStateDBOption())
-	require.NoError(t, err)
+	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
 
 func TestSDBState(t *testing.T) {
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(t, err)
 	testDBPath := testDBFile.Name()
+	require.NoError(t, testDBFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -520,8 +538,10 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 }
 
 func TestNonce(t *testing.T) {
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(t, err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(t, testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -530,8 +550,10 @@ func TestNonce(t *testing.T) {
 	testNonce(sf, t)
 }
 func TestSDBNonce(t *testing.T) {
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(t, err)
 	testDBPath := testDBFile.Name()
+	require.NoError(t, testDBFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
@@ -613,52 +635,54 @@ func testNonce(sf Factory, t *testing.T) {
 }
 
 func TestLoadStoreHeight(t *testing.T) {
-	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(t, err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(t, testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, DefaultTrieOption())
-	require.NoError(err)
+	require.NoError(t, err)
 
 	testLoadStoreHeight(statefactory, t)
 }
 
 func TestLoadStoreHeightInMem(t *testing.T) {
-	require := require.New(t)
-
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
 	testTriePath := testTrieFile.Name()
+	require.NoError(t, testTrieFile.Close())
+
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
 	statefactory, err := NewFactory(cfg, InMemTrieOption())
-	require.NoError(err)
+	require.NoError(t, err)
 	testLoadStoreHeight(statefactory, t)
 }
 
 func TestSDBLoadStoreHeight(t *testing.T) {
-	require := require.New(t)
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(t, err)
 	testDBPath := testDBFile.Name()
+	require.NoError(t, testDBFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, DefaultStateDBOption())
-	require.NoError(err)
+	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
 }
 
 func TestSDBLoadStoreHeightInMem(t *testing.T) {
-	require := require.New(t)
-
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testDBFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(t, err)
 	testDBPath := testDBFile.Name()
+	require.NoError(t, testDBFile.Close())
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
 	db, err := NewStateDB(cfg, InMemStateDBOption())
-	require.NoError(err)
+	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
 }
@@ -701,8 +725,10 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 
 func TestRunActions(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -730,8 +756,10 @@ func TestRunActions(t *testing.T) {
 
 func TestSTXRunActions(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(err)
 	testStateDBPath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
@@ -810,8 +838,10 @@ func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
 
 func TestPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -839,8 +869,10 @@ func TestPickAndRunActions(t *testing.T) {
 
 func TestSTXPickAndRunActions(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(err)
 	testStateDBPath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath
@@ -916,8 +948,10 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 
 func TestSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), triePath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
@@ -945,8 +979,10 @@ func TestSimulateExecution(t *testing.T) {
 
 func TestSTXSimulateExecution(t *testing.T) {
 	require := require.New(t)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), stateDBPath)
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), stateDBPath)
+	require.NoError(err)
 	testStateDBPath := testTrieFile.Name()
+	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testStateDBPath

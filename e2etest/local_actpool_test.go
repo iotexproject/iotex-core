@@ -30,7 +30,7 @@ import (
 func TestLocalActPool(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newActPoolConfig()
+	cfg, err := newActPoolConfig(t)
 	require.NoError(err)
 
 	// create server
@@ -44,7 +44,7 @@ func TestLocalActPool(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
-	cfg, err = newActPoolConfig()
+	cfg, err = newActPoolConfig(t)
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
@@ -102,7 +102,7 @@ func TestLocalActPool(t *testing.T) {
 func TestPressureActPool(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newActPoolConfig()
+	cfg, err := newActPoolConfig(t)
 	require.NoError(err)
 
 	// create server
@@ -114,7 +114,7 @@ func TestPressureActPool(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
-	cfg, err = newActPoolConfig()
+	cfg, err = newActPoolConfig(t)
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
@@ -159,15 +159,23 @@ func TestPressureActPool(t *testing.T) {
 	require.NoError(err)
 }
 
-func newActPoolConfig() (config.Config, error) {
+func newActPoolConfig(t *testing.T) (config.Config, error) {
+	r := require.New(t)
+
 	cfg := config.Default
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	r.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	r.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	r.NoError(err)
 	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	r.NoError(testDBFile.Close())
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	r.NoError(err)
 	testIndexPath := testIndexFile.Name()
+	r.NoError(testIndexFile.Close())
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

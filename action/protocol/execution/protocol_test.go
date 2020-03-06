@@ -53,7 +53,7 @@ type ExpectedBalance struct {
 	RawBalance string `json:"rawBalance"`
 }
 
-// GensisBlockHeight defines an gensis blockHeight
+// GenesisBlockHeight defines an genesis blockHeight
 type GenesisBlockHeight struct {
 	IsBering bool `json:"isBering"`
 }
@@ -457,12 +457,18 @@ func TestProtocol_Handle(t *testing.T) {
 			delete(cfg.Plugins, config.GatewayPlugin)
 		}()
 
-		testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+		testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+		require.NoError(err)
 		testTriePath := testTrieFile.Name()
-		testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+		require.NoError(testTrieFile.Close())
+		testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+		require.NoError(err)
 		testDBPath := testDBFile.Name()
-		testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+		require.NoError(testDBFile.Close())
+		testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+		require.NoError(err)
 		testIndexPath := testIndexFile.Name()
+		require.NoError(testIndexFile.Close())
 
 		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath

@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -21,6 +22,7 @@ import (
 )
 
 func TestIndexBuilder(t *testing.T) {
+	require := require.New(t)
 
 	blks := getTestBlocks(t)
 
@@ -59,7 +61,6 @@ func TestIndexBuilder(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, indexer Indexer, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 		dao := blockdao.NewBlockDAO(kvStore, nil, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
@@ -148,16 +149,18 @@ func TestIndexBuilder(t *testing.T) {
 
 	t.Run("In-memory KV indexer", func(t *testing.T) {
 		indexer, err := NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
-		require.NoError(t, err)
+		require.NoError(err)
 		testIndexer(db.NewMemKVStore(), indexer, t)
 	})
 	path := "test-indexer"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
-	indexFile, _ := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(testFile.Close())
+	indexFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	indexPath := indexFile.Name()
-	require.NoError(t, indexFile.Close())
+	require.NoError(indexFile.Close())
 	cfg := config.Default.DB
 	t.Run("Bolt DB indexer", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -168,7 +171,7 @@ func TestIndexBuilder(t *testing.T) {
 		}()
 		cfg.DbPath = indexPath
 		indexer, err := NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
-		require.NoError(t, err)
+		require.NoError(err)
 		cfg.DbPath = testPath
 		testIndexer(db.NewBoltDB(cfg), indexer, t)
 	})

@@ -34,8 +34,10 @@ func TestRangeIndex(t *testing.T) {
 	}
 
 	path := "test-indexer"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	testPath := testFile.Name()
+	require.NoError(testFile.Close())
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
@@ -160,8 +162,10 @@ func TestRangeIndex2(t *testing.T) {
 	require := require.New(t)
 
 	path := "test-ranger"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	testPath := testFile.Name()
+	require.NoError(testFile.Close())
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)

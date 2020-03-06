@@ -13,8 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -139,12 +140,18 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	require := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	require.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	require.NoError(err)
 	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	require.NoError(testDBFile.Close())
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	require.NoError(err)
 	testIndexPath := testIndexFile.Name()
+	require.NoError(testIndexFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

@@ -17,11 +17,12 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -259,12 +260,18 @@ func TestLocalTransfer(t *testing.T) {
 
 	require := require.New(t)
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
+	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	require.NoError(err)
 	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
+	require.NoError(testTrieFile.Close())
+	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	require.NoError(err)
 	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
+	require.NoError(testDBFile.Close())
+	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	require.NoError(err)
 	testIndexPath := testIndexFile.Name()
+	require.NoError(testIndexFile.Close())
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()

@@ -9,8 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -82,6 +83,7 @@ func getTestBlocks(t *testing.T) []*block.Block {
 }
 
 func TestBlockDAO(t *testing.T) {
+	require := require.New(t)
 
 	blks := getTestBlocks(t)
 	t1Hash := blks[0].Actions[0].Hash()
@@ -152,8 +154,6 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testBlockDao := func(kvStore db.KVStore, t *testing.T) {
-		require := require.New(t)
-
 		ctx := context.Background()
 		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
@@ -205,8 +205,6 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testDeleteDao := func(kvStore db.KVStore, t *testing.T) {
-		require := require.New(t)
-
 		ctx := context.Background()
 		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
 		require.NoError(dao.Start(ctx))
@@ -241,9 +239,10 @@ func TestBlockDAO(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
 	path := "test-kv-store"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
+	require.NoError(testFile.Close())
 
 	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
@@ -272,10 +271,14 @@ func BenchmarkBlockCache(b *testing.B) {
 	test := func(cacheSize int, b *testing.B) {
 		b.StopTimer()
 		path := "test-kv-store"
-		testFile, _ := ioutil.TempFile(os.TempDir(), path)
+		testFile, err := ioutil.TempFile(os.TempDir(), path)
+		require.NoError(b, err)
 		testPath := testFile.Name()
-		indexFile, _ := ioutil.TempFile(os.TempDir(), path)
+		require.NoError(b, testFile.Close())
+		indexFile, err := ioutil.TempFile(os.TempDir(), path)
+		require.NoError(b, err)
 		indexPath := indexFile.Name()
+		require.NoError(b, indexFile.Close())
 		cfg := config.DB{
 			NumRetries: 1,
 		}
@@ -296,7 +299,6 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		prevHash := hash.ZeroHash256
 		numBlks := 8640
-		var err error
 		for i := 1; i <= numBlks; i++ {
 			actions := make([]action.SealedEnvelope, 10)
 			for j := 0; j < 10; j++ {

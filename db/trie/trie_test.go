@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -45,8 +46,6 @@ var (
 		[]byte("egg"), []byte("fox"), []byte("cow"), []byte("ant"),
 	}
 )
-
-const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
@@ -425,8 +424,11 @@ func TestHistoryTrie(t *testing.T) {
 	AccountKVNamespace := "Account"
 	AccountTrieRootKey := "accountTrieRoot"
 	path := "test-history-trie.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	require.NoError(err)
 	testPath := testFile.Name()
+	require.NoError(testFile.Close())
+
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{
 		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {
