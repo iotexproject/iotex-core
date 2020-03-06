@@ -31,22 +31,15 @@ type (
 		SelfStake          *big.Int
 	}
 
+	// RegistrationConsts are the registration fee and min self stake
+	RegistrationConsts struct {
+		Fee          int64
+		MinSelfStake int64
+	}
+
 	// CandidateList is a list of candidates which is sortable
 	CandidateList []*Candidate
 )
-
-// NewCandidate creates a Candidate instance and set votes to 0.
-func NewCandidate(owner, operator, reward address.Address, name string, selfStakeIdx uint64, selfStake *big.Int) *Candidate {
-	return &Candidate{
-		Owner:              owner,
-		Operator:           operator,
-		Reward:             reward,
-		Name:               name,
-		Votes:              big.NewInt(0),
-		SelfStakeBucketIdx: selfStakeIdx,
-		SelfStake:          selfStake,
-	}
-}
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
@@ -83,6 +76,28 @@ func (d *Candidate) SubVote(amount *big.Int) error {
 		return ErrInvalidAmount
 	}
 	d.Votes.Sub(d.Votes, amount)
+	return nil
+}
+
+// AddSelfStake adds self stake
+func (d *Candidate) AddSelfStake(amount *big.Int) error {
+	if amount.Sign() < 0 {
+		return ErrInvalidAmount
+	}
+	d.SelfStake.Add(d.SelfStake, amount)
+	return nil
+}
+
+// SubSelfStake subtracts self stake
+func (d *Candidate) SubSelfStake(amount *big.Int) error {
+	if amount.Sign() < 0 {
+		return ErrInvalidAmount
+	}
+
+	if d.Votes.Cmp(amount) == -1 {
+		return ErrInvalidAmount
+	}
+	d.SelfStake.Sub(d.SelfStake, amount)
 	return nil
 }
 
@@ -206,9 +221,9 @@ func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, er
 	return &d, err
 }
 
-func putCandidate(sm protocol.StateManager, name address.Address, d *Candidate) error {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
+func putCandidate(sm protocol.StateManager, d *Candidate) error {
+	key := make([]byte, len(d.Owner.Bytes()))
+	copy(key, d.Owner.Bytes())
 
 	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
 	return err

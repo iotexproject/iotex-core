@@ -22,10 +22,12 @@ func TestProtocol(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, VoteWeightCalConsts{
-		DurationLg: 1.2,
-		AutoStake:  1.05,
-		SelfStake:  1.05,
+	stk := NewProtocol(nil, sm, Configuration{
+		VoteCal: VoteWeightCalConsts{
+			DurationLg: 1.2,
+			AutoStake:  1.05,
+			SelfStake:  1.05,
+		},
 	})
 	r.NotNil(stk)
 	r.NoError(stk.Start(context.Background()))
@@ -33,7 +35,7 @@ func TestProtocol(t *testing.T) {
 
 	// write a number of candidates into stateDB
 	for _, e := range testCandidates {
-		r.NoError(putCandidate(sm, e.d.Owner, e.d))
+		r.NoError(putCandidate(sm, e.d))
 	}
 
 	// load candidates from stateDB and verify
@@ -44,7 +46,6 @@ func TestProtocol(t *testing.T) {
 		r.True(stk.inMemCandidates.ContainsOwner(e.d.Owner))
 		r.True(stk.inMemCandidates.ContainsName(e.d.Name))
 		r.True(stk.inMemCandidates.ContainsOperator(e.d.Operator))
-		r.True(stk.inMemCandidates.ContainsSelfStakingBucket(e.d.SelfStakeBucketIdx))
 		r.Equal(e.d, stk.inMemCandidates.GetByOwner(e.d.Owner))
 	}
 }

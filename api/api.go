@@ -487,27 +487,20 @@ func (api *Server) GetEpochMeta(
 	ctx context.Context,
 	in *iotexapi.GetEpochMetaRequest,
 ) (*iotexapi.GetEpochMetaResponse, error) {
-	// TODO : support archive mode to retrieve historic data, now only support tip epoch number
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
 		return &iotexapi.GetEpochMetaResponse{}, nil
 	}
-	tipHeight := api.bc.TipHeight()
-	tipEpochNumber := rp.GetEpochNum(tipHeight)
-	if in.EpochNumber > 0 {
-		if in.EpochNumber < tipEpochNumber {
-			return nil, status.Error(codes.InvalidArgument, "old epoch number isn't available with non-archive node")
-		} else if in.EpochNumber > tipEpochNumber {
-			return nil, status.Error(codes.InvalidArgument, "future epoch number is invalid argument")
-		}
+	if in.EpochNumber < 1 {
+		return nil, status.Error(codes.InvalidArgument, "epoch number cannot be less than one")
 	}
-	epochHeight := rp.GetEpochHeight(tipEpochNumber)
+	epochHeight := rp.GetEpochHeight(in.EpochNumber)
 	gravityChainStartHeight, err := api.getGravityChainStartHeight(epochHeight)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	epochData := &iotextypes.EpochData{
-		Num:                     tipEpochNumber,
+		Num:                     in.EpochNumber,
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
@@ -515,7 +508,7 @@ func (api *Server) GetEpochMeta(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, tipEpochNumber)
+	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, in.EpochNumber)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -525,7 +518,7 @@ func (api *Server) GetEpochMeta(
 		return nil, status.Error(codes.Internal, "poll protocol is not registered")
 	}
 	methodName := []byte("BlockProducersByEpoch")
-	arguments := [][]byte{byteutil.Uint64ToBytes(tipEpochNumber)}
+	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
 	data, err := api.readState(context.Background(), pp, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())

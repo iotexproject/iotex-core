@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/byteutil"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
@@ -16,7 +17,7 @@ import (
 type TransferStake struct {
 	AbstractAction
 
-	voterAddress string
+	voterAddress address.Address
 	bucketIndex  uint64
 	payload      []byte
 }
@@ -24,12 +25,16 @@ type TransferStake struct {
 // NewTransferStake returns a TransferStake instance
 func NewTransferStake(
 	nonce uint64,
-	voterName string,
+	voterAddress string,
 	bucketIndex uint64,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*TransferStake, error) {
+	voterAddr, err := address.FromString(voterAddress)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load address from string")
+	}
 	return &TransferStake{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
@@ -37,14 +42,14 @@ func NewTransferStake(
 			gasLimit: gasLimit,
 			gasPrice: gasPrice,
 		},
-		voterAddress: voterName,
+		voterAddress: voterAddr,
 		bucketIndex:  bucketIndex,
 		payload:      payload,
 	}, nil
 }
 
 // VoterAddress returns the address of recipient
-func (ts *TransferStake) VoterAddress() string { return ts.voterAddress }
+func (ts *TransferStake) VoterAddress() address.Address { return ts.voterAddress }
 
 // BucketIndex returns bucket index
 func (ts *TransferStake) BucketIndex() uint64 { return ts.bucketIndex }
@@ -60,7 +65,7 @@ func (ts *TransferStake) Serialize() []byte {
 // Proto converts transfer stake to protobuf
 func (ts *TransferStake) Proto() *iotextypes.StakeTransferOwnership {
 	act := &iotextypes.StakeTransferOwnership{
-		VoterAddress: ts.voterAddress,
+		VoterAddress: ts.voterAddress.String(),
 		BucketIndex:  ts.bucketIndex,
 		Payload:      ts.payload,
 	}
@@ -73,8 +78,11 @@ func (ts *TransferStake) LoadProto(pbAct *iotextypes.StakeTransferOwnership) err
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-
-	ts.voterAddress = pbAct.GetVoterAddress()
+	voterAddress, err := address.FromString(pbAct.GetVoterAddress())
+	if err != nil {
+		return errors.Wrap(err, "failed to load address from string")
+	}
+	ts.voterAddress = voterAddress
 	ts.bucketIndex = pbAct.GetBucketIndex()
 	ts.payload = pbAct.GetPayload()
 	return nil

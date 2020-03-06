@@ -1524,7 +1524,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{
@@ -1660,9 +1660,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -1699,9 +1696,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	); err != nil {
 		return err
 	}
-	if err := bc.ValidateBlock(blk); err != nil {
-		return err
-	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
@@ -1712,9 +1706,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		nil,
 		blk1Time.Add(time.Second*2),
 	); err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
@@ -1752,9 +1743,6 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 		actionMap,
 		blk1Time.Add(time.Second*3),
 	); err != nil {
-		return err
-	}
-	if err := bc.ValidateBlock(blk); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)

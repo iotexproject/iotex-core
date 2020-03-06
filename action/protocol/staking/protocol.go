@@ -9,6 +9,7 @@ package staking
 import (
 	"context"
 	"math/big"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -34,16 +35,23 @@ var (
 type Protocol struct {
 	addr            address.Address
 	inMemCandidates *CandidateCenter
-	voteCal         VoteWeightCalConsts
 	depositGas      DepositGas
 	sr              protocol.StateReader
+	config          Configuration
+}
+
+// Configuration is the staking protocol configuration.
+type Configuration struct {
+	VoteCal               VoteWeightCalConsts
+	Register              RegistrationConsts
+	WithdrawWaitingPeriod time.Duration
 }
 
 // DepositGas deposits gas to some pool
 type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, sr protocol.StateReader, vc VoteWeightCalConsts) *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg Configuration) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -53,7 +61,7 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, vc VoteWeightCa
 	return &Protocol{
 		addr:            addr,
 		inMemCandidates: NewCandidateCenter(),
-		voteCal:         vc,
+		config:          cfg,
 		depositGas:      depositGas,
 		sr:              sr,
 	}
@@ -145,5 +153,5 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
-	return calculateVoteWeight(p.voteCal, v, selfStake)
+	return calculateVoteWeight(p.config.VoteCal, v, selfStake)
 }

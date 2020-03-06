@@ -20,7 +20,15 @@ import (
 
 func TestClone(t *testing.T) {
 	r := require.New(t)
-	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", 0, big.NewInt(2100000000))
+	d := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(1),
+		Reward:             identityset.Address(1),
+		Name:               "testname1234",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: 0,
+		SelfStake:          big.NewInt(2100000000),
+	}
 	d2 := d.Clone()
 	r.Equal(d, d2)
 	d.AddVote(big.NewInt(100))
@@ -131,7 +139,7 @@ func TestGetPutCandidate(t *testing.T) {
 	for _, e := range testCandidates {
 		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
-		require.NoError(putCandidate(sm, e.d.Owner, e.d))
+		require.NoError(putCandidate(sm, e.d))
 		d1, err := getCandidate(sm, e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)

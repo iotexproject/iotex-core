@@ -74,7 +74,6 @@ func TestStakingContract(t *testing.T) {
 			fixedTime,
 		)
 		require.NoError(err)
-		require.NoError(bc.ValidateBlock(blk))
 		require.NoError(bc.CommitBlock(blk))
 		r, err := dao.GetReceiptByActionHash(deployHash, 1)
 		require.NoError(err)
@@ -105,7 +104,6 @@ func TestStakingContract(t *testing.T) {
 				fixedTime,
 			)
 			require.NoError(err)
-			require.NoError(bc.ValidateBlock(blk))
 			require.NoError(bc.CommitBlock(blk))
 
 			state0 = hash.BytesToHash160(identityset.Address(i).Bytes())
