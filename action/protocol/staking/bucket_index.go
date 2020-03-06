@@ -18,6 +18,15 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
+const (
+	// keys in the namespace factory.StakingNameSpace are prefixed with 1-byte tag, which serves 2 purposes:
+	// 1. to be able to store multiple objects under the same key (like bucket index for voter and candidate)
+	// 2. can call underlying KVStore's Filter() to retrieve a certain type of objects
+	bucket     = iota
+	voterIndex = bucket + 1
+	candIndex  = voterIndex + 1
+)
+
 type (
 	// BucketIndices defines the array of bucket index for a
 	BucketIndices []uint64
@@ -69,35 +78,34 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getVoterIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
+func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, error) {
 	var bis BucketIndices
 	if _, err := sr.State(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes())); err != nil {
+		protocol.KeyOption(key)); err != nil {
 		return nil, err
 	}
 	return &bis, nil
 }
 
-func putVoterIndex(sm protocol.StateManager, voterAddr address.Address, bucketIndex uint64) error {
+func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes())); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	bis.addBucketIndex(bucketIndex)
+	bis.addBucketIndex(index)
 	_, err := sm.PutState(
 		&bis,
 		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes()))
+		protocol.KeyOption(key))
 	return err
 }
 
-func delVoterIndex(sm protocol.StateManager, voterAddr address.Address, index uint64) error {
-	key := voterAddr.Bytes()
+func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
@@ -121,17 +129,34 @@ func delVoterIndex(sm protocol.StateManager, voterAddr address.Address, index ui
 	return err
 }
 
-func getCandidateIndices(sr protocol.StateReader, candAddr address.Address) (*BucketIndices, error) {
-	// TODO
-	return nil, nil
+func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, voterIndex))
 }
 
-func putCandidateIndex(sm protocol.StateManager, candAddr address.Address, index uint64) error {
-	// TODO
-	return nil
+func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, voterIndex), index)
 }
 
-func delCandidateIndex(sm protocol.StateManager, candAddr address.Address, index uint64) error {
-	// TODO
-	return nil
+func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, voterIndex), index)
+}
+
+func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, candIndex))
+}
+
+func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, candIndex), index)
+}
+
+func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, candIndex), index)
+}
+
+func addrKeyWithPrefix(voterAddr address.Address, prefix byte) []byte {
+	k := voterAddr.Bytes()
+	key := make([]byte, len(k)+1)
+	key[0] = prefix
+	copy(key[1:], k)
+	return key
 }

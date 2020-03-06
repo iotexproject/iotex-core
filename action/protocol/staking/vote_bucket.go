@@ -233,7 +233,8 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 }
 
 func bucketKey(index uint64) []byte {
-	return byteutil.Uint64ToBytesBigEndian(index)
+	key := []byte{bucket}
+	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
 func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
