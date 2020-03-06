@@ -81,8 +81,14 @@ func (m CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
-// Put writes the candidate into map
-func (m CandidateCenter) Put(d *Candidate) {
+// Upsert adds a candidate into map, overwrites if already exist
+func (m CandidateCenter) Upsert(d *Candidate) {
+	if c, ok := m.ownerMap[d.Owner.String()]; ok {
+		delete(m.nameMap, c.Name)
+		delete(m.operatorMap, c.Operator.String())
+		delete(m.selfStkBucketMap, c.SelfStakeBucketIdx)
+	}
+
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner.String()] = d
 	m.operatorMap[d.Operator.String()] = d

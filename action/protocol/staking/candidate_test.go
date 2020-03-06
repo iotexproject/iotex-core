@@ -96,7 +96,7 @@ func TestCandCenter(t *testing.T) {
 
 	m := NewCandidateCenter()
 	for i, v := range testCandidates {
-		m.Put(testCandidates[i].d)
+		m.Upsert(testCandidates[i].d)
 		r.True(m.ContainsName(v.d.Name))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
@@ -116,6 +116,21 @@ func TestCandCenter(t *testing.T) {
 		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
+
+	// test update candidate
+	old := testCandidates[0].d
+	d := m.GetByName(old.Name)
+	r.NotNil(d)
+	d.Name = "xxx"
+	d.Operator = identityset.Address(24)
+	d.SelfStakeBucketIdx += 100
+	m.Upsert(d)
+	r.True(m.ContainsName(d.Name))
+	r.True(m.ContainsOperator(d.Operator))
+	r.True(m.ContainsSelfStakingBucket(d.SelfStakeBucketIdx))
+	r.False(m.ContainsName(old.Name))
+	r.False(m.ContainsOperator(old.Operator))
+	r.False(m.ContainsSelfStakingBucket(old.SelfStakeBucketIdx))
 
 	// test delete
 	for i, v := range testCandidates {

@@ -76,12 +76,16 @@ func (p *Protocol) Start(ctx context.Context) error {
 	}
 
 	// decode the candidate and put into candidate center
+	thres := big.NewInt(p.config.Register.MinSelfStake)
 	for i := 0; i < iter.Size(); i++ {
 		c := &Candidate{}
 		if err := iter.Next(c); err != nil {
 			return errors.Wrapf(err, "failed to deserialize candidate")
 		}
-		p.inMemCandidates.Put(c)
+
+		if c.SelfStake.Cmp(thres) >= 0 {
+			p.inMemCandidates.Upsert(c)
+		}
 	}
 	return nil
 }
