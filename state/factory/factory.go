@@ -490,22 +490,22 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	archive, height, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if archive {
-		if height > sf.currentChainHeight {
-			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	if cfg.AtHeight {
+		if cfg.Height > sf.currentChainHeight {
+			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
 		}
-		if height != sf.currentChainHeight {
-			return sf.currentChainHeight, sf.stateAtHeight(height, ns, key, s)
+		if cfg.Height != sf.currentChainHeight {
+			return sf.currentChainHeight, sf.stateAtHeight(cfg.Height, cfg.Namespace, cfg.Key, s)
 		}
 	}
-	value, err := sf.dao.Get(ns, key)
+	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
 		}
 		return sf.currentChainHeight, err
 	}
@@ -517,27 +517,31 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	archive, height, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
-	if key != nil {
+	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if archive {
-		if height > sf.currentChainHeight {
-			return sf.currentChainHeight, nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	if cfg.AtHeight {
+		if cfg.Height > sf.currentChainHeight {
+			return sf.currentChainHeight, nil, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
 		}
-		if height != sf.currentChainHeight {
+		if cfg.Height != sf.currentChainHeight {
 			return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
 		}
 	}
-	_, values, err := sf.dao.Filter(ns, func(k, v []byte) bool {
-		return true
-	})
+
+	if cfg.Cond == nil {
+		cfg.Cond = func(k, v []byte) bool {
+			return true
+		}
+	}
+	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)
+			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
 		}
 		return sf.currentChainHeight, nil, err
 	}

@@ -185,19 +185,37 @@ func (kvb *kvStoreWithBuffer) MustDelete(ns string, key []byte) {
 	kvb.buffer.Delete(ns, key, "failed to delete %x in %s", key, ns)
 }
 
-func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition) ([][]byte, [][]byte, error) {
-	fk, fv, err := kvb.store.Filter(ns, cond)
+func (kvb *kvStoreWithBuffer) Filter(ns string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
+	fk, fv, err := kvb.store.Filter(ns, cond, minKey, maxKey)
 	if err != nil {
 		return fk, fv, err
 	}
 
 	// filter the entries in buffer
+	checkMin := len(minKey) > 0
+	checkMax := len(maxKey) > 0
 	for i := 0; i < kvb.buffer.Size(); i++ {
 		entry, _ := kvb.buffer.Entry(i)
 		k, v := entry.Key(), entry.Value()
+
+		if checkMin && bytes.Compare(k, minKey) == -1 {
+			continue
+		}
+		if checkMax && bytes.Compare(k, maxKey) == 1 {
+			continue
+		}
+
 		if cond(k, v) {
 			switch entry.WriteType() {
 			case batch.Put:
+				// if DB contains the same key, that should be obsoleted
+				for i := range fk {
+					if bytes.Compare(fk[i], k) == 0 {
+						fk = append(fk[:i], fk[i+1:]...)
+						fv = append(fv[:i], fv[i+1:]...)
+						break
+					}
+				}
 				fk = append(fk, k)
 				fv = append(fv, v)
 			case batch.Delete:

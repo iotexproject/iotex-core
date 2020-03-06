@@ -370,13 +370,13 @@ func TestFilter(t *testing.T) {
 
 		_, _, err := kv.Filter("nonamespace", func(k, v []byte) bool {
 			return bytes.HasPrefix(k, v)
-		})
+		}, nil, nil)
 		require.Equal(ErrBucketNotExist, errors.Cause(err))
 
 		// filter using func with no match
 		fk, fv, err := kv.Filter(tests[0].ns, func(k, v []byte) bool {
 			return bytes.HasPrefix(k, tests[2].prefix)
-		})
+		}, nil, nil)
 		require.Nil(fk)
 		require.Nil(fv)
 		require.Equal(ErrNotExist, errors.Cause(err))
@@ -385,7 +385,7 @@ func TestFilter(t *testing.T) {
 		for _, e := range tests {
 			fk, fv, err := kv.Filter(e.ns, func(k, v []byte) bool {
 				return bytes.HasPrefix(k, e.prefix)
-			})
+			}, nil, nil)
 			require.NoError(err)
 			require.Equal(numKey, len(fk))
 			require.Equal(numKey, len(fv))

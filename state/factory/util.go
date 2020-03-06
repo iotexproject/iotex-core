@@ -28,16 +28,15 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-func processOptions(opts ...protocol.StateOption) (bool, uint64, string, []byte, error) {
+func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error) {
 	cfg, err := protocol.CreateStateConfig(opts...)
 	if err != nil {
-		return false, 0, "", nil, err
+		return nil, err
 	}
-	ns := AccountKVNamespace
-	if cfg.Namespace != "" {
-		ns = cfg.Namespace
+	if len(cfg.Namespace) == 0 {
+		cfg.Namespace = AccountKVNamespace
 	}
-	return cfg.AtHeight, cfg.Height, ns, cfg.Key, nil
+	return cfg, nil
 }
 
 // createGenesisStates initialize the genesis states
