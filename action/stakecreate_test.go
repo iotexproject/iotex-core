@@ -28,6 +28,8 @@ var (
 	autoStake  = true
 	index      = uint64(10)
 	senderKey  = identityset.PrivateKey(27)
+	zero       = "0"
+	negtive    = "-10"
 )
 
 func TestCreateStake(t *testing.T) {
@@ -89,4 +91,12 @@ func TestCreateStakeSignVerify(t *testing.T) {
 	require.Equal("a324d56f5b50e86aab27c0c6d33f9699f36d3ed8e27967a56e644f582bbd5e2d", hex.EncodeToString(hash[:]))
 	// verify signature
 	require.NoError(Verify(selp))
+}
+
+func TestCreateStakeNotPossitive(t *testing.T) {
+	require := require.New(t)
+	_, err := NewCreateStake(nonce, canAddress, zero, duration, autoStake, payload, gaslimit, gasprice)
+	require.Error(err)
+	_, err = NewCreateStake(nonce, canAddress, negtive, duration, autoStake, payload, gaslimit, gasprice)
+	require.Error(err)
 }

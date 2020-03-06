@@ -94,3 +94,12 @@ func TestCandidateRegisterSignVerify(t *testing.T) {
 	// verify signature
 	require.NoError(Verify(selp))
 }
+
+func TestCandidateRegisterNotPossitive(t *testing.T) {
+	require := require.New(t)
+	_, err := NewCandidateRegister(crNonce, crName, crOperatorAddrStr, crRewardAddrStr, crOwnerAddrStr, zero, crDuration, crAutoStake, crPayload, crGasLimit, crGasPrice)
+	require.Error(err)
+
+	_, err = NewCandidateRegister(crNonce, crName, crOperatorAddrStr, crRewardAddrStr, crOwnerAddrStr, negtive, crDuration, crAutoStake, crPayload, crGasLimit, crGasPrice)
+	require.Error(err)
+}

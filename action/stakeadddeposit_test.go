@@ -16,7 +16,7 @@ import (
 
 func TestDeposit(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewDepositToStake(nonce, index, amount, payload, gaslimit, gasprice)
+	stake, err := NewDepositToStake(nonce, index, amount.Text(10), payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	ser := stake.Serialize()
@@ -49,7 +49,7 @@ func TestDeposit(t *testing.T) {
 func TestDepositSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewDepositToStake(nonce, index, amount, payload, gaslimit, gasprice)
+	stake, err := NewDepositToStake(nonce, index, amount.Text(10), payload, gaslimit, gasprice)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
@@ -69,4 +69,13 @@ func TestDepositSignVerify(t *testing.T) {
 	require.Equal("ca8937d6f224a4e4bf93cb5605581de2d26fb0481e1dfc1eef384ee7ccf94b73", hex.EncodeToString(hash[:]))
 	// verify signature
 	require.NoError(Verify(selp))
+}
+
+func TestDepositNotPossitive(t *testing.T) {
+	require := require.New(t)
+	_, err := NewDepositToStake(nonce, index, zero, payload, gaslimit, gasprice)
+	require.Error(err)
+
+	_, err = NewDepositToStake(nonce, index, negtive, payload, gaslimit, gasprice)
+	require.Error(err)
 }

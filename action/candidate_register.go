@@ -60,7 +60,7 @@ func NewCandidateRegister(
 	}
 
 	amount, ok := new(big.Int).SetString(amountStr, 10)
-	if !ok {
+	if !ok || amount.Sign() != 1 {
 		return nil, errors.Errorf("invalid amount %s", amount)
 	}
 
