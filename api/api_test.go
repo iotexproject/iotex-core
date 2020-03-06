@@ -1523,7 +1523,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{

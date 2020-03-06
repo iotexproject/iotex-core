@@ -123,7 +123,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	p, err := NewGovernanceChainCommitteeProtocol(
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) { return candidates, 720, nil },
+		func(protocol.StateReader, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+			return candidates, 720, nil
+		},
 		candidatesutil.KickoutListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		committee,
