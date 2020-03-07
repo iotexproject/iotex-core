@@ -81,7 +81,10 @@ func (p *Protocol) Start(ctx context.Context) error {
 		if err := iter.Next(c); err != nil {
 			return errors.Wrapf(err, "failed to deserialize candidate")
 		}
-		p.inMemCandidates.Put(c)
+
+		if err := p.inMemCandidates.Upsert(c); err != nil {
+			return err
+		}
 	}
 	return nil
 }
