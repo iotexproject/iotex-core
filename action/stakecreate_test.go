@@ -82,28 +82,15 @@ func TestCreateStake(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.Cost, cost.Text(10))
 
-		proto := stake.Proto()
 		cs2 := &CreateStake{}
-		require.NoError(cs2.LoadProto(proto))
+		require.NoError(cs2.LoadProto(stake.Proto()))
 		require.Equal(test.AmountStr, cs2.Amount().String())
 		require.Equal(test.Payload, cs2.Payload())
 		require.Equal(test.CanAddress, cs2.Candidate())
 		require.Equal(test.Duration, cs2.Duration())
 		require.True(cs2.AutoStake())
-	}
 
-}
-
-func TestCreateStakeSignVerify(t *testing.T) {
-	require := require.New(t)
-	for _, test := range stakeCreateTestParams {
-		stake, err := NewCreateStake(test.Nonce, test.CanAddress, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
-		require.Equal(test.Expected, errors.Cause(err))
-
-		if err != nil {
-			continue
-		}
-
+		// verify sign
 		bd := &EnvelopeBuilder{}
 		elp := bd.SetGasLimit(test.GasLimit).
 			SetGasPrice(test.GasPrice).
@@ -114,7 +101,7 @@ func TestCreateStakeSignVerify(t *testing.T) {
 		selp, err := Sign(elp, test.SenderKey)
 		require.NoError(err)
 		require.NotNil(selp)
-		ser, err := proto.Marshal(selp.Proto())
+		ser, err = proto.Marshal(selp.Proto())
 		require.NoError(err)
 		require.Equal(test.Sign, hex.EncodeToString(ser))
 		hash := selp.Hash()

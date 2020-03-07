@@ -78,25 +78,13 @@ func TestDeposit(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.Cost, cost.Text(10))
 
-		proto := stake.Proto()
 		ds2 := &DepositToStake{}
-		require.NoError(ds2.LoadProto(proto))
+		require.NoError(ds2.LoadProto(stake.Proto()))
 		require.Equal(test.Amount, ds2.Amount())
 		require.Equal(test.Payload, ds2.Payload())
 		require.Equal(test.Index, ds2.BucketIndex())
-	}
 
-}
-
-func TestDepositSignVerify(t *testing.T) {
-	require := require.New(t)
-	for _, test := range stakeDepositTestParams {
-		stake, err := NewDepositToStake(test.Nonce, test.Index, test.Amount.String(), test.Payload, test.GasLimit, test.GasPrice)
-		require.Equal(test.Expected, errors.Cause(err))
-
-		if err != nil {
-			continue
-		}
+		// verify sign
 		bd := &EnvelopeBuilder{}
 		elp := bd.SetGasLimit(test.GasLimit).
 			SetGasPrice(test.GasPrice).
@@ -107,7 +95,7 @@ func TestDepositSignVerify(t *testing.T) {
 		selp, err := Sign(elp, test.SenderKey)
 		require.NoError(err)
 		require.NotNil(selp)
-		ser, err := proto.Marshal(selp.Proto())
+		ser, err = proto.Marshal(selp.Proto())
 		require.NoError(err)
 		require.Equal(test.Sign, hex.EncodeToString(ser))
 		hash := selp.Hash()

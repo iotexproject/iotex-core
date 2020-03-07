@@ -87,9 +87,8 @@ func TestCandidateRegister(t *testing.T) {
 		require.NoError(err)
 		require.Equal(test.Cost, cost.Text(10))
 
-		proto := cr.Proto()
 		cr2 := &CandidateRegister{}
-		require.NoError(cr2.LoadProto(proto))
+		require.NoError(cr2.LoadProto(cr.Proto()))
 		require.Equal(test.Name, cr2.Name())
 		require.Equal(test.OperatorAddrStr, cr2.OperatorAddress().String())
 		require.Equal(test.RewardAddrStr, cr2.RewardAddress().String())
@@ -98,19 +97,8 @@ func TestCandidateRegister(t *testing.T) {
 		require.Equal(test.Duration, cr2.Duration())
 		require.Equal(test.AutoStake, cr2.AutoStake())
 		require.Equal(test.Payload, cr2.Payload())
-	}
-}
 
-func TestCandidateRegisterSignVerify(t *testing.T) {
-	require := require.New(t)
-	for _, test := range candidateRegisterTestParams {
-		cr, err := NewCandidateRegister(test.Nonce, test.Name, test.OperatorAddrStr, test.RewardAddrStr, test.OwnerAddrStr, test.AmountStr, test.Duration, test.AutoStake, test.Payload, test.GasLimit, test.GasPrice)
-		require.Equal(test.Expected, errors.Cause(err))
-
-		if err != nil {
-			continue
-		}
-
+		// verify sign
 		bd := &EnvelopeBuilder{}
 		elp := bd.SetGasLimit(test.GasLimit).
 			SetGasPrice(test.GasPrice).

@@ -26,6 +26,7 @@ const (
 )
 
 var (
+	// ErrInvalidAmount represents that amount is 0 or negative
 	ErrInvalidAmount = errors.New("invalid amount")
 )
 
