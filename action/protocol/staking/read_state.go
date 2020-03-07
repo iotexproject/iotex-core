@@ -36,8 +36,6 @@ func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.Stat
 	if err != nil {
 		return nil, err
 	}
-	offset := int(req.GetPagination().GetOffset())
-	limit := int(req.GetPagination().GetLimit())
 	indices, err := getVoterBucketIndices(sr, voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, nil
@@ -49,6 +47,9 @@ func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.Stat
 	if err != nil {
 		return nil, err
 	}
+
+	offset := int(req.GetPagination().GetOffset())
+	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
 	return toIoTexTypesVoteBucketList(buckets)
 }
