@@ -28,8 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
-const candidateName = "candidate"
-
 func TestProtocol_HandleCreateStake(t *testing.T) {
 	require := require.New(t)
 
@@ -47,9 +45,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	p := NewProtocol(depositGas, sm, Configuration{})
 
 	// set up candidate
-	candidateAddr := identityset.Address(0)
-	require.NoError(setupCandidate(p, sm, candidateAddr, candidateName, big.NewInt(0),
-		0, big.NewInt(0)))
+	candidate := testCandidates[0].d.Clone()
+	require.NoError(setupCandidate(p, sm, candidate))
+	candidateName := candidate.Name
+	candidateAddr := candidate.Owner
 
 	stakerAddr := identityset.Address(1)
 	tests := []struct {
@@ -70,9 +69,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		errorCause error
 	}{
 		{
-			0,
+			10,
 			candidateName,
-			"10",
+			"10000000000000000000",
 			1,
 			false,
 			big.NewInt(unit.Qev),
@@ -86,7 +85,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		{
 			100,
 			"notExist",
-			"10",
+			"10000000000000000000",
 			1,
 			false,
 			big.NewInt(unit.Qev),
@@ -178,30 +177,11 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr.String(), account)
 }
 
-func setupCandidate(
-	p *Protocol,
-	sm protocol.StateManager,
-	candAddr address.Address,
-	candName string,
-	votes *big.Int,
-	selfStakeBucketIdx uint64,
-	selfStake *big.Int,
-) error {
-	c := &Candidate{
-		Owner:              candAddr,
-		Operator:           candAddr,
-		Reward:             candAddr,
-		Name:               candName,
-		Votes:              votes,
-		SelfStakeBucketIdx: selfStakeBucketIdx,
-		SelfStake:          selfStake,
-	}
-
-	if err := putCandidate(sm, c); err != nil {
+func setupCandidate(p *Protocol, sm protocol.StateManager, candidate *Candidate) error {
+	if err := putCandidate(sm, candidate); err != nil {
 		return err
 	}
-	p.inMemCandidates.Delete(candAddr)
-	p.inMemCandidates.Put(c)
+	p.inMemCandidates.Upsert(candidate)
 	return nil
 }
 
