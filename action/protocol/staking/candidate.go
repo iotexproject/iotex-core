@@ -238,5 +238,6 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 }
 
 func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
+	// TODO
 	return nil, nil
 }

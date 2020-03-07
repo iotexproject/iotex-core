@@ -260,6 +260,7 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 }
 
 func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
+	// TODO
 	return nil, nil
 }
 
