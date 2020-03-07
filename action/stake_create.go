@@ -48,7 +48,7 @@ func NewCreateStake(
 ) (*CreateStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
 	if !ok || stake.Sign() != 1 {
-		return nil, errors.Errorf("invalid amount %s", amount)
+		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 
 	return &CreateStake{
