@@ -25,7 +25,7 @@ var (
 	ErrInvalidOwner        = errors.New("invalid owner address")
 	ErrInvalidOperator     = errors.New("invalid operator address")
 	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
-	ErrMissingField        = errors.New("misssing data field")
+	ErrMissingField        = errors.New("missing data field")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
@@ -37,6 +37,9 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	}
 	if act.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
+	}
+	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
+		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
