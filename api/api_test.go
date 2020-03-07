@@ -1458,6 +1458,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(4), nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {
@@ -1523,7 +1524,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{

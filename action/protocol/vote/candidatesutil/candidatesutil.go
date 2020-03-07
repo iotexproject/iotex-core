@@ -67,7 +67,7 @@ func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candid
 }
 
 // CandidatesFromDB returns array of Candidates at current epoch
-func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
+func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool, opts ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
 	var candidates state.CandidateList
 	candidatesKey := ConstructKey(CurCandidateKey)
 	if epochStartPoint {
@@ -75,10 +75,10 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 		log.L().Debug("Read candidate list with next candidate key")
 		candidatesKey = ConstructKey(NxtCandidateKey)
 	}
+	opts = append(opts, protocol.KeyOption(candidatesKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	stateHeight, err := sr.State(
 		&candidates,
-		protocol.KeyOption(candidatesKey[:]),
-		protocol.NamespaceOption(protocol.SystemNamespace),
+		opts...,
 	)
 	log.L().Debug(
 		"GetCandidates",
@@ -100,7 +100,7 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 }
 
 // KickoutListFromDB returns array of kickout list at current epoch
-func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, uint64, error) {
+func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool, opts ...protocol.StateOption) (*vote.Blacklist, uint64, error) {
 	blackList := &vote.Blacklist{}
 	blackListKey := ConstructKey(CurKickoutKey)
 	if epochStartPoint {
@@ -108,10 +108,10 @@ func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Bla
 		log.L().Debug("Read kick-out list with next kickout key")
 		blackListKey = ConstructKey(NxtKickoutKey)
 	}
+	opts = append(opts, protocol.KeyOption(blackListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	stateHeight, err := sr.State(
 		blackList,
-		protocol.KeyOption(blackListKey[:]),
-		protocol.NamespaceOption(protocol.SystemNamespace),
+		opts...,
 	)
 	log.L().Debug(
 		"GetKickoutList",

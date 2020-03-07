@@ -43,7 +43,6 @@ type stakingCommittee struct {
 	nativeStaking        *NativeStaking
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
-	stateReader          protocol.StateReader
 	timerFactory         *prometheustimer.TimerFactory
 }
 
@@ -55,7 +54,6 @@ func NewStakingCommittee(
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
 	scoreThreshold *big.Int,
-	sr protocol.StateReader,
 ) (Protocol, error) {
 	var ns *NativeStaking
 	if nativeStakingContractAddress != "" || nativeStakingContractCode != "" {
@@ -83,7 +81,6 @@ func NewStakingCommittee(
 		governanceStaking: gs,
 		nativeStaking:     ns,
 		scoreThreshold:    scoreThreshold,
-		stateReader:       sr,
 	}
 	sc.timerFactory = timerFactory
 
