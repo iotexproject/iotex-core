@@ -236,3 +236,7 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
 	return err
 }
+
+func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
+	return nil, nil
+}
