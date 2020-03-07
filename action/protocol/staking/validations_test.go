@@ -7,9 +7,16 @@
 package staking
 
 import (
+	"context"
+	"math/big"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 func TestIsValidCandidateName(t *testing.T) {
@@ -54,5 +61,107 @@ func TestIsValidCandidateName(t *testing.T) {
 	for _, tt := range tests {
 		output := IsValidCandidateName(tt.input)
 		assert.Equal(t, tt.output, output)
+	}
+}
+
+func TestProtocol_ValidateCreateStake(t *testing.T) {
+	require := require.New(t)
+
+	p := NewProtocol(nil, nil, Configuration{
+		MinStakeAmount: unit.ConvertIotxToRau(100),
+	})
+	candidate := testCandidates[0].d.Clone()
+	require.NoError(p.inMemCandidates.Upsert(candidate))
+	candidateName := candidate.Name
+
+	tests := []struct {
+		// action fields
+		candName  string
+		amount    string
+		duration  uint32
+		autoStake bool
+		gasPrice  *big.Int
+		gasLimit  uint64
+		nonce     uint64
+		// expected results
+		errorCause error
+	}{
+		{
+			"",
+			"100000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidCanName,
+		},
+		{
+			"$$$",
+			"100000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidCanName,
+		},
+		{
+			"123",
+			"200000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidCanName,
+		},
+		{
+			candidateName,
+			"-1000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidAmount,
+		},
+		{
+			candidateName,
+			"1000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidAmount,
+		},
+		{
+			candidateName,
+			"200000000000000000000",
+			1,
+			false,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			action.ErrGasPrice,
+		},
+		{
+			candidateName,
+			"200000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			nil,
+		},
+	}
+
+	for _, test := range tests {
+		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
+			nil, test.gasLimit, test.gasPrice)
+		require.NoError(err)
+		require.Equal(test.errorCause, errors.Cause(p.validateCreateStake(context.Background(), act)))
 	}
 }

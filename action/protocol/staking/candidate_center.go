@@ -81,12 +81,23 @@ func (m CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
-// Put writes the candidate into map
-func (m CandidateCenter) Put(d *Candidate) {
+// Upsert adds a candidate into map, overwrites if already exist
+func (m CandidateCenter) Upsert(d *Candidate) error {
+	if err := m.checkCollision(d); err != nil {
+		return err
+	}
+
+	if c, ok := m.ownerMap[d.Owner.String()]; ok {
+		delete(m.nameMap, c.Name)
+		delete(m.operatorMap, c.Operator.String())
+		delete(m.selfStkBucketMap, c.SelfStakeBucketIdx)
+	}
+
 	m.nameMap[d.Name] = d
 	m.ownerMap[d.Owner.String()] = d
 	m.operatorMap[d.Operator.String()] = d
 	m.selfStkBucketMap[d.SelfStakeBucketIdx] = d
+	return nil
 }
 
 // Delete deletes the candidate by name
@@ -100,4 +111,25 @@ func (m CandidateCenter) Delete(owner address.Address) {
 	delete(m.ownerMap, d.Owner.String())
 	delete(m.operatorMap, d.Operator.String())
 	delete(m.selfStkBucketMap, d.SelfStakeBucketIdx)
+}
+
+func (m CandidateCenter) checkCollision(d *Candidate) error {
+	if c, ok := m.nameMap[d.Name]; ok {
+		if c.Owner.String() != d.Owner.String() {
+			return ErrInvalidCanName
+		}
+	}
+
+	if c, ok := m.operatorMap[d.Operator.String()]; ok {
+		if c.Owner.String() != d.Owner.String() {
+			return ErrInvalidOperator
+		}
+	}
+
+	if c, ok := m.selfStkBucketMap[d.SelfStakeBucketIdx]; ok {
+		if c.Owner.String() != d.Owner.String() {
+			return ErrInvalidSelfStkIndex
+		}
+	}
+	return nil
 }
