@@ -107,6 +107,16 @@ func TestProtocol_ValidateCreateStake(t *testing.T) {
 			ErrInvalidCanName,
 		},
 		{
+			"123",
+			"200000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			ErrInvalidCanName,
+		},
+		{
 			candidateName,
 			"-1000000000000000000",
 			1,
@@ -135,16 +145,6 @@ func TestProtocol_ValidateCreateStake(t *testing.T) {
 			10000,
 			1,
 			action.ErrGasPrice,
-		},
-		{
-			"123",
-			"200000000000000000000",
-			1,
-			false,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			ErrInvalidCanName,
 		},
 		{
 			candidateName,
