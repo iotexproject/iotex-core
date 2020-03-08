@@ -49,6 +49,7 @@ func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie,
 	if err != nil {
 		return nil, err
 	}
+
 	return lt, lt.Start(context.Background())
 }
 
