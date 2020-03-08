@@ -118,16 +118,6 @@ func TestProtocol_ValidateCreateStake(t *testing.T) {
 		},
 		{
 			candidateName,
-			"-1000000000000000000",
-			1,
-			false,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			ErrInvalidAmount,
-		},
-		{
-			candidateName,
 			"1000000000000000000",
 			1,
 			false,

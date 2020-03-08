@@ -25,6 +25,11 @@ const (
 	CandidateRegisterBaseIntrinsicGas = uint64(10000)
 )
 
+var (
+	// ErrInvalidAmount represents that amount is 0 or negative
+	ErrInvalidAmount = errors.New("invalid amount")
+)
+
 // CandidateRegister is the action to register a candidate
 type CandidateRegister struct {
 	AbstractAction
@@ -60,8 +65,8 @@ func NewCandidateRegister(
 	}
 
 	amount, ok := new(big.Int).SetString(amountStr, 10)
-	if !ok {
-		return nil, errors.Errorf("invalid amount %s", amount)
+	if !ok || amount.Sign() != 1 {
+		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 
 	cr := &CandidateRegister{
