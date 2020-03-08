@@ -4,36 +4,53 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package factory
+package trie
 
 import (
 	"context"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db/trie"
 )
 
 // TwoLayerTrie is a trie data structure with two layers
 type TwoLayerTrie struct {
-	layerOne trie.Trie
+	layerOne Trie
+	kvStore  KVStore
+	rootKey  string
 }
 
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
+// NewTwoLayerTrie creates a two layer trie
+func NewTwoLayerTrie(dbForTrie KVStore, rootKey string) *TwoLayerTrie {
+	return &TwoLayerTrie{
+		kvStore: dbForTrie,
+		rootKey: rootKey,
+	}
+}
+
+func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie, error) {
 	value, err := tlt.layerOne.Get(key)
 	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
+		if errors.Cause(err) == ErrNotExist {
+			return NewTrie(KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen))
 		}
 
 		return nil, err
 	}
 
-	return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
+	return NewTrie(KVStoreOption(tlt.kvStore), RootHashOption(value), KeyLengthOption(layerTwoTrieKeyLen))
 }
 
 // Start starts the layer one trie
 func (tlt *TwoLayerTrie) Start(ctx context.Context) error {
+	layerOne, err := NewTrie(
+		KVStoreOption(tlt.kvStore),
+		RootKeyOption(tlt.rootKey),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
+	}
+	tlt.layerOne = layerOne
+
 	return tlt.layerOne.Start(ctx)
 }
 
@@ -76,7 +93,6 @@ func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 		return err
 	}
 	defer layerTwo.Stop(context.Background())
-
 	if err := layerTwo.Upsert(layerTwoKey, value); err != nil {
 		return err
 	}

@@ -4,18 +4,19 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package db
+package trie
 
 import (
 	"testing"
 
 	"github.com/pkg/errors"
-
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/db"
 )
 
-func TestKVStoreForTrie_ErrNotExist(t *testing.T) {
-	store, err := NewKVStoreForTrie("test", NewMemKVStore())
+func TestKVStore_ErrNotExist(t *testing.T) {
+	store, err := NewKVStore("test", db.NewMemKVStore())
 	require.NoError(t, err)
 	require.NoError(t, store.Put([]byte("key"), []byte("value1")))
 	require.NoError(t, store.Delete([]byte("key")))
