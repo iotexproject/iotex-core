@@ -4,34 +4,34 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package merklepatriciatree
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
 
-// ErrEndOfIterator defines an error which will be returned
-var ErrEndOfIterator = errors.New("hit the end of the iterator, no more item")
-
-// Iterator iterates a trie
-type Iterator interface {
-	Next() ([]byte, []byte, error)
-}
+	"github.com/iotexproject/iotex-core/db/trie"
+)
 
 // LeafIterator defines an iterator to go through all the leaves under given node
 type LeafIterator struct {
-	tr    Trie
-	stack []Node
+	mpt   *merklePatriciaTree
+	stack []node
 }
 
 // NewLeafIterator returns a new leaf iterator
-func NewLeafIterator(tr Trie) (Iterator, error) {
-	rootHash := tr.RootHash()
-	root, err := tr.loadNodeFromDB(rootHash)
+func NewLeafIterator(tr trie.Trie) (trie.Iterator, error) {
+	mpt, ok := tr.(*merklePatriciaTree)
+	if !ok {
+		return nil, errors.New("trie is not supported type")
+	}
+	rootHash := mpt.RootHash()
+	root, err := mpt.loadNodeFromDB(rootHash)
 	if err != nil {
 		return nil, err
 	}
-	stack := []Node{root}
+	stack := []node{root}
 
-	return &LeafIterator{tr: tr, stack: stack}, nil
+	return &LeafIterator{mpt: mpt, stack: stack}, nil
 }
 
 // Next moves iterator to next node
@@ -46,12 +46,12 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 
 			return append(key[:0:0], key...), append(value, value...), nil
 		}
-		children, err := node.children(li.tr)
+		children, err := node.children()
 		if err != nil {
 			return nil, nil, err
 		}
 		li.stack = append(li.stack, children...)
 	}
 
-	return nil, nil, ErrEndOfIterator
+	return nil, nil, trie.ErrEndOfIterator
 }

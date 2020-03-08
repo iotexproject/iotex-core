@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package merklepatriciatree
 
 import (
 	"context"
@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -50,10 +51,10 @@ const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
-	tr, err := NewTrie()
+	tr, err := New()
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	require.True(tr.isEmptyRootHash(tr.RootHash()))
+	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 }
 
@@ -61,8 +62,8 @@ func Test2Roots(t *testing.T) {
 	require := require.New(t)
 
 	// first trie
-	trieDB := newInMemKVStore()
-	tr, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
+	trieDB := trie.NewMemKVStore()
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	require.NoError(tr.Upsert(cat, testV[2]))
@@ -81,7 +82,7 @@ func Test2Roots(t *testing.T) {
 	require.NoError(tr.Stop(context.Background()))
 
 	// second trie
-	tr1, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
+	tr1, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr1.Start(context.Background()))
 	require.NoError(tr1.Upsert(dog, testV[3]))
@@ -113,10 +114,10 @@ func Test2Roots(t *testing.T) {
 	require.Equal(testV[4], v)
 	// does not contain dog
 	_, err = tr.Get(dog)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 
 	// create a new one and load second trie's root
-	tr2, err := NewTrie(KVStoreOption(trieDB), KeyLengthOption(8))
+	tr2, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr2.Start(context.Background()))
 	require.NoError(tr2.SetRootHash(root1))
@@ -132,7 +133,7 @@ func Test2Roots(t *testing.T) {
 	require.Equal(testV[5], v)
 	// does not contain cat
 	_, err = tr2.Get(cat)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	require.NoError(tr.Stop(context.Background()))
 	require.NoError(tr2.Stop(context.Background()))
 }
@@ -140,16 +141,15 @@ func Test2Roots(t *testing.T) {
 func TestInsert(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(KVStoreOption(newInMemKVStore()), KeyLengthOption(8))
+	tr, err := New(KVStoreOption(trie.NewMemKVStore()), KeyLengthOption(8))
 	require.NotNil(tr)
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	// this adds one L to root R
 	t.Log("Put[cat]")
 	require.NoError(tr.Upsert(cat, testV[2]))
-	catRoot := tr.RootHash()
-	require.False(tr.isEmptyRootHash(catRoot))
-	root := catRoot
+	require.False(tr.IsEmpty())
+	root := tr.RootHash()
 
 	// this splits L --> E + B + 2L (cat, rat)
 	/*
@@ -220,7 +220,7 @@ func TestInsert(t *testing.T) {
 	require.NoError(err)
 	require.Equal([]byte("rat"), b)
 	_, err = tr.Get(car)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 
 	// this deletes 'dog' and turns B1 into another E2
 	/*
@@ -269,9 +269,9 @@ func TestInsert(t *testing.T) {
 	require.Equal(newRoot, eggRoot)
 	root = newRoot
 	_, err = tr.Get(dog)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(egg)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 
 	// insert 'ham' 'fox' 'cow'
 	t.Log("Put[ham]")
@@ -316,11 +316,11 @@ func TestInsert(t *testing.T) {
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	_, err = tr.Get(fox)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(rat)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(cow)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	b, err = tr.Get(ham)
 	require.NoError(err)
 	require.Equal(testV[0], b)
@@ -346,9 +346,9 @@ func TestInsert(t *testing.T) {
 	newRoot = tr.RootHash()
 	require.NotEqual(newRoot, root)
 	_, err = tr.Get(ham)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(ant)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	b, err = tr.Get(cat)
 	require.NoError(err)
 	require.Equal(testV[2], b)
@@ -356,17 +356,17 @@ func TestInsert(t *testing.T) {
 	// delete "cat"
 	t.Log("Del[cat]")
 	require.NoError(tr.Delete(cat))
-	require.True(tr.isEmptyRootHash(tr.RootHash()))
+	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 }
 
 func TestBatchCommit(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(KeyLengthOption(8))
+	trieDB := trie.NewMemKVStore()
+	tr, err := New(KeyLengthOption(8), KVStoreOption(trieDB))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	trieDB := tr.DB()
 	// insert 3 entries
 	require.NoError(tr.Upsert(cat, testV[2]))
 	require.NoError(tr.Upsert(car, testV[1]))
@@ -382,11 +382,11 @@ func TestBatchCommit(t *testing.T) {
 	require.Equal(testV[4], v)
 	// entries not committed won't exist
 	_, err = tr.Get(dog)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(ham)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 	_, err = tr.Get(fox)
-	require.Equal(ErrNotExist, errors.Cause(err))
+	require.Equal(trie.ErrNotExist, errors.Cause(err))
 
 	// insert 3 entries again
 	require.NoError(tr.Upsert(dog, testV[3]))
@@ -400,7 +400,7 @@ func TestBatchCommit(t *testing.T) {
 	root := tr.RootHash()
 	// commit and reopen
 	require.NoError(tr.Stop(context.Background()))
-	tr, err = NewTrie(KVStoreOption(trieDB), RootHashOption(root), KeyLengthOption(8))
+	tr, err = New(KVStoreOption(trieDB), RootHashOption(root), KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	// all entries should exist now
@@ -454,9 +454,9 @@ func TestHistoryTrie(t *testing.T) {
 	value1 := []byte{1}
 	value2 := []byte{2}
 
-	trieDB, err := NewKVStore(AccountKVNamespace, flusher.KVStoreWithBuffer())
+	trieDB, err := trie.NewKVStore(AccountKVNamespace, flusher.KVStoreWithBuffer())
 	require.NoError(err)
-	tr, err := NewTrie(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
+	tr, err := New(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
 	require.NoError(err)
 	require.NoError(tr.Start(ctx))
 
@@ -486,7 +486,7 @@ func TestHistoryTrie(t *testing.T) {
 func TestCollision(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(KeyLengthOption(8))
+	tr, err := New(KeyLengthOption(8))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	defer func() {
@@ -512,10 +512,10 @@ func TestCollision(t *testing.T) {
 func Test4kEntries(t *testing.T) {
 	require := require.New(t)
 
-	tr, err := NewTrie(KeyLengthOption(4))
+	tr, err := New(KeyLengthOption(4))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	root := tr.emptyRootHash()
+	root := tr.RootHash()
 	seed := time.Now().Nanosecond()
 	// insert 4k entries
 	var k [32]byte
@@ -530,7 +530,7 @@ func Test4kEntries(t *testing.T) {
 		}
 		require.NoError(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
-		require.False(tr.isEmptyRootHash(newRoot))
+		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:4])
@@ -558,11 +558,11 @@ func Test4kEntries(t *testing.T) {
 		d = hash.Hash256b(d[:])
 		require.NoError(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
-		require.False(tr.isEmptyRootHash(newRoot))
+		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		_, err := tr.Get(d[:4])
-		require.Equal(ErrNotExist, errors.Cause(err))
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
 		if i%64 == 0 {
 			t.Logf("Del -- key: %x", d[:4])
 		}
@@ -571,7 +571,7 @@ func Test4kEntries(t *testing.T) {
 	require.NoError(tr.Delete(d2[:4]))
 	require.NoError(tr.Delete(d3[:4]))
 	// trie should fallback to empty
-	require.True(tr.isEmptyRootHash(tr.RootHash()))
+	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 }
 
@@ -582,10 +582,10 @@ func TestPressure(t *testing.T) {
 
 	require := require.New(t)
 
-	tr, err := NewTrie(KeyLengthOption(4))
+	tr, err := New(KeyLengthOption(4))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	root := tr.emptyRootHash()
+	root := tr.RootHash()
 	seed := time.Now().Nanosecond()
 	// insert 128k entries
 	var k [32]byte
@@ -600,7 +600,7 @@ func TestPressure(t *testing.T) {
 		}
 		require.NoError(tr.Upsert(k[:4], v))
 		newRoot := tr.RootHash()
-		require.False(tr.isEmptyRootHash(newRoot))
+		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		b, err := tr.Get(k[:4])
@@ -622,11 +622,11 @@ func TestPressure(t *testing.T) {
 		d = hash.Hash256b(d[:])
 		require.NoError(tr.Delete(d[:4]))
 		newRoot := tr.RootHash()
-		require.False(tr.isEmptyRootHash(newRoot))
+		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
 		_, err := tr.Get(d[:4])
-		require.Equal(ErrNotExist, errors.Cause(err))
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
 		if i%(2<<10) == 0 {
 			t.Logf("Del -- key: %x", d[:4])
 		}
@@ -635,7 +635,7 @@ func TestPressure(t *testing.T) {
 	require.NoError(tr.Delete(d2[:4]))
 	require.NoError(tr.Delete(d3[:4]))
 	// trie should fallback to empty
-	require.True(tr.isEmptyRootHash(tr.RootHash()))
+	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 	t.Logf("Warning: test %d entries", c)
 }

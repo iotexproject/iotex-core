@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/db/trie/merklepatriciatree"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -94,8 +95,8 @@ type (
 		cfg                config.Config
 		currentChainHeight uint64
 		saveHistory        bool
-		twoLayerTrie       *trie.TwoLayerTrie // global state trie, this is a read only trie
-		dao                db.KVStore         // the underlying DB for account/contract storage
+		twoLayerTrie       trie.TwoLayerTrie // global state trie, this is a read only trie
+		dao                db.KVStore        // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
 	}
@@ -136,7 +137,7 @@ func InMemTrieOption() Option {
 	}
 }
 
-func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*trie.TwoLayerTrie, error) {
+func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
 	dbForTrie, err := trie.NewKVStore(ns, dao)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create db for trie")
@@ -152,7 +153,7 @@ func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*t
 	default:
 		return nil, err
 	}
-	return trie.NewTwoLayerTrie(dbForTrie, rootKey), nil
+	return merklepatriciatree.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory
@@ -558,7 +559,7 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt *trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
 	data, err := tlt.Get(namespaceKey(ns), key)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {

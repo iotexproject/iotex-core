@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package merklepatriciatree
 
 type (
 	keyType []byte
@@ -22,9 +22,7 @@ const (
 	EXTENSION
 )
 
-// Node defines the interface of a trie node
-// Note: all the key-value pairs should be of the same length of keys
-type Node interface {
+type node interface {
 	// Type returns the type of a node
 	Type() NodeType
 	// Key returns the key of a node, only leaf has key
@@ -32,10 +30,10 @@ type Node interface {
 	// Value returns the value of a node, only leaf has value
 	Value() []byte
 
-	children(Trie) ([]Node, error)
-	search(Trie, keyType, uint8) Node
-	delete(Trie, keyType, uint8) (Node, error)
-	upsert(Trie, keyType, uint8, []byte) (Node, error)
+	children() ([]node, error)
+	search(keyType, uint8) node
+	delete(keyType, uint8) (node, error)
+	upsert(keyType, uint8, []byte) (node, error)
 
 	serialize() []byte
 }
