@@ -75,8 +75,8 @@ type delegatesMessage struct {
 
 // NewNodeDelegateCmd represents the node delegate command
 func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
-	endpoint := config.ReadConfig.Endpoint
-	insecure := config.ReadConfig.SecureConnect && !config.Insecure
+	var endpoint string
+	var insecure bool
 
 	use, _ := c.SelectTranslation(delegateUses)
 	short, _ := c.SelectTranslation(delegateShorts)

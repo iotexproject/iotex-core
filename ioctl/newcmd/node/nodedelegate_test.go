@@ -24,6 +24,7 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	client := mock_ioctlclient.NewMockClient(ctrl)
 	client.EXPECT().SelectTranslation(gomock.Any()).Return(
 		"mockTranslationString", config.English).AnyTimes()
+	//client.EXPECT().Config().Return(config.ReadConfig).AnyTimes()
 
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
 
@@ -44,8 +45,6 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, result)
 	require.NoError(t, err)
-
-	//Todo add unit test for nextDelegates situation
 
 	cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", true, "query delegate of upcoming epoch")
 	var epochNum uint64
