@@ -38,7 +38,7 @@ var (
 	}
 )
 
-// NewNodeRewardCmd represents the node reward command
+// NewNodeRewardCmd represents the node reward command test
 func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
