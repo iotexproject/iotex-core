@@ -77,6 +77,19 @@ func defaultConfig() Genesis {
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
 		},
+		Staking: Staking{
+			VoteWeightCalConsts: VoteWeightCalConsts{
+				DurationLg: 1.2,
+				AutoStake:  1,
+				SelfStake:  1.05,
+			},
+			RegistrationConsts: RegistrationConsts{
+				Fee:          100,
+				MinSelfStake: 1200000,
+			},
+			WithdrawWaitingPeriod: 14,
+			MinStakeAmount:        100,
+		},
 	}
 }
 
