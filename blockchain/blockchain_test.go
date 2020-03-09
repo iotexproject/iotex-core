@@ -1430,7 +1430,7 @@ func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testin
 	addr, err := address.FromString(contract)
 	require.NoError(err)
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	dbForTrie, err := db.NewKVStoreForTrie(evm.ContractKVNameSpace, kv)
+	dbForTrie, err := trie.NewKVStore(evm.ContractKVNameSpace, kv)
 	require.NoError(err)
 	options := []trie.Option{
 		trie.KVStoreOption(dbForTrie),

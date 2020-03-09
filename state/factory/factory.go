@@ -94,8 +94,8 @@ type (
 		cfg                config.Config
 		currentChainHeight uint64
 		saveHistory        bool
-		twoLayerTrie       *TwoLayerTrie // global state trie, this is a read only trie
-		dao                db.KVStore    // the underlying DB for account/contract storage
+		twoLayerTrie       *trie.TwoLayerTrie // global state trie, this is a read only trie
+		dao                db.KVStore         // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
 	}
@@ -136,10 +136,14 @@ func InMemTrieOption() Option {
 	}
 }
 
-func newTwoLayerTrie(rootKey string, dao db.KVStore, create bool) (*TwoLayerTrie, error) {
-	_, err := dao.Get(ArchiveTrieNamespace, []byte(rootKey))
+func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*trie.TwoLayerTrie, error) {
+	dbForTrie, err := trie.NewKVStore(ns, dao)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	_, err = dbForTrie.Get([]byte(rootKey))
 	switch errors.Cause(err) {
-	case db.ErrNotExist:
+	case trie.ErrNotExist:
 		if !create {
 			return nil, err
 		}
@@ -148,18 +152,7 @@ func newTwoLayerTrie(rootKey string, dao db.KVStore, create bool) (*TwoLayerTrie
 	default:
 		return nil, err
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(ArchiveTrieNamespace, dao)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create db for trie")
-	}
-	tr, err := trie.NewTrie(
-		trie.KVStoreOption(dbForTrie),
-		trie.RootKeyOption(rootKey),
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to generate trie for %s", rootKey)
-	}
-	return &TwoLayerTrie{layerOne: tr}, nil
+	return trie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory
@@ -200,7 +193,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieRootKey, sf.dao, true); err != nil {
+	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, ArchiveTrieRootKey, true); err != nil {
 		return errors.Wrap(err, "failed to generate accountTrie from config")
 	}
 	if err := sf.twoLayerTrie.Start(ctx); err != nil {
@@ -263,7 +256,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieRootKey, flusher.KVStoreWithBuffer(), true)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -565,7 +558,7 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt *TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt *trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
 	data, err := tlt.Get(namespaceKey(ns), key)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -581,7 +574,7 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	if !sf.saveHistory {
 		return ErrNoArchiveData
 	}
-	tlt, err := newTwoLayerTrie(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), sf.dao, false)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %d", height)
 	}

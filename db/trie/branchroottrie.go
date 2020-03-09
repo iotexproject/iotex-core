@@ -14,8 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db"
 )
 
 type (
@@ -39,7 +37,7 @@ func (tr *branchRootTrie) Start(ctx context.Context) error {
 		switch root, err := tr.kvStore.Get([]byte(tr.rootKey)); errors.Cause(err) {
 		case nil:
 			tr.rootHash = root
-		case db.ErrNotExist:
+		case ErrNotExist:
 			tr.rootHash = tr.emptyRootHash()
 		default:
 			return err
