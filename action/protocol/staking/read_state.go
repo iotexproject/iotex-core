@@ -56,16 +56,9 @@ func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.Stat
 
 func (p *Protocol) readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, error) {
-	cands, err := getAllCandidates(sr)
+	c, err := getCandidateByName(sr, req.GetCandName())
 	if err != nil {
 		return nil, err
-	}
-	var c *Candidate
-	for _, cand := range cands {
-		if cand.Name == req.GetCandName() {
-			c = cand
-			break
-		}
 	}
 	if c == nil {
 		return &iotextypes.VoteBucketList{}, nil
