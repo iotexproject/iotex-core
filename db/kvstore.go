@@ -34,7 +34,7 @@ type (
 		// WriteBatch commits a batch
 		WriteBatch(batch.KVStoreBatch) error
 		// Filter returns <k, v> pair in a bucket that meet the condition
-		Filter(string, Condition) ([][]byte, [][]byte, error)
+		Filter(string, Condition, []byte, []byte) ([][]byte, [][]byte, error)
 	}
 
 	// KVStoreWithRange is KVStore with Range() API

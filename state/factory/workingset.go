@@ -195,14 +195,14 @@ func (ws *workingSet) GetDB() db.KVStore {
 }
 
 func (ws *workingSet) processNonArchiveOptions(opts ...protocol.StateOption) (string, []byte, error) {
-	archive, height, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
-		return ns, key, err
+		return "", nil, err
 	}
-	if archive && height != ws.height {
-		return ns, key, ErrNotSupported
+	if cfg.AtHeight && cfg.Height != ws.height {
+		return cfg.Namespace, cfg.Key, ErrNotSupported
 	}
-	return ns, key, nil
+	return cfg.Namespace, cfg.Key, nil
 }
 
 // State pulls a state from DB

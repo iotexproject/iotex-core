@@ -214,9 +214,9 @@ func (mr *MockKVStoreMockRecorder) WriteBatch(arg0 interface{}) *gomock.Call {
 }
 
 // Filter mocks base method
-func (m *MockKVStore) Filter(arg0 string, arg1 Condition) ([][]byte, [][]byte, error) {
+func (m *MockKVStore) Filter(arg0 string, arg1 Condition, arg2, arg3 []byte) ([][]byte, [][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Filter", arg0, arg1)
+	ret := m.ctrl.Call(m, "Filter", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].([][]byte)
 	ret2, _ := ret[2].(error)
@@ -224,9 +224,9 @@ func (m *MockKVStore) Filter(arg0 string, arg1 Condition) ([][]byte, [][]byte, e
 }
 
 // Filter indicates an expected call of Filter
-func (mr *MockKVStoreMockRecorder) Filter(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockKVStoreMockRecorder) Filter(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStore)(nil).Filter), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStore)(nil).Filter), arg0, arg1, arg2, arg3)
 }
 
 // MockKVStoreWithRange is a mock of KVStoreWithRange interface
@@ -338,9 +338,9 @@ func (mr *MockKVStoreWithRangeMockRecorder) WriteBatch(arg0 interface{}) *gomock
 }
 
 // Filter mocks base method
-func (m *MockKVStoreWithRange) Filter(arg0 string, arg1 Condition) ([][]byte, [][]byte, error) {
+func (m *MockKVStoreWithRange) Filter(arg0 string, arg1 Condition, arg2, arg3 []byte) ([][]byte, [][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Filter", arg0, arg1)
+	ret := m.ctrl.Call(m, "Filter", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].([][]byte)
 	ret2, _ := ret[2].(error)
@@ -348,9 +348,9 @@ func (m *MockKVStoreWithRange) Filter(arg0 string, arg1 Condition) ([][]byte, []
 }
 
 // Filter indicates an expected call of Filter
-func (mr *MockKVStoreWithRangeMockRecorder) Filter(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockKVStoreWithRangeMockRecorder) Filter(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreWithRange)(nil).Filter), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreWithRange)(nil).Filter), arg0, arg1, arg2, arg3)
 }
 
 // Range mocks base method
@@ -477,9 +477,9 @@ func (mr *MockKVStoreWithBucketFillPercentMockRecorder) WriteBatch(arg0 interfac
 }
 
 // Filter mocks base method
-func (m *MockKVStoreWithBucketFillPercent) Filter(arg0 string, arg1 Condition) ([][]byte, [][]byte, error) {
+func (m *MockKVStoreWithBucketFillPercent) Filter(arg0 string, arg1 Condition, arg2, arg3 []byte) ([][]byte, [][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Filter", arg0, arg1)
+	ret := m.ctrl.Call(m, "Filter", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].([][]byte)
 	ret2, _ := ret[2].(error)
@@ -487,9 +487,9 @@ func (m *MockKVStoreWithBucketFillPercent) Filter(arg0 string, arg1 Condition) (
 }
 
 // Filter indicates an expected call of Filter
-func (mr *MockKVStoreWithBucketFillPercentMockRecorder) Filter(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockKVStoreWithBucketFillPercentMockRecorder) Filter(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreWithBucketFillPercent)(nil).Filter), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreWithBucketFillPercent)(nil).Filter), arg0, arg1, arg2, arg3)
 }
 
 // SetBucketFillPercent mocks base method
@@ -615,9 +615,9 @@ func (mr *MockKVStoreForRangeIndexMockRecorder) WriteBatch(arg0 interface{}) *go
 }
 
 // Filter mocks base method
-func (m *MockKVStoreForRangeIndex) Filter(arg0 string, arg1 Condition) ([][]byte, [][]byte, error) {
+func (m *MockKVStoreForRangeIndex) Filter(arg0 string, arg1 Condition, arg2, arg3 []byte) ([][]byte, [][]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Filter", arg0, arg1)
+	ret := m.ctrl.Call(m, "Filter", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([][]byte)
 	ret1, _ := ret[1].([][]byte)
 	ret2, _ := ret[2].(error)
@@ -625,9 +625,9 @@ func (m *MockKVStoreForRangeIndex) Filter(arg0 string, arg1 Condition) ([][]byte
 }
 
 // Filter indicates an expected call of Filter
-func (mr *MockKVStoreForRangeIndexMockRecorder) Filter(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockKVStoreForRangeIndexMockRecorder) Filter(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).Filter), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).Filter), arg0, arg1, arg2, arg3)
 }
 
 // Insert mocks base method

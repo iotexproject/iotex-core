@@ -75,8 +75,8 @@ func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	).AnyTimes()
 	kv.EXPECT().WriteBatch(gomock.Any()).Return(nil).AnyTimes()
 	var fk, fv [][]byte
-	kv.EXPECT().Filter(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ns string, cond db.Condition) ([][]byte, [][]byte, error) {
+	kv.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns string, cond db.Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 			for h, k := range kmap {
 				v := vmap[h]
 				if cond(k, v) {
@@ -146,9 +146,12 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			if err != nil {
 				return 0, nil, err
 			}
-			_, fv, err := kv.Filter(cfg.Namespace, func(k, v []byte) bool {
-				return true
-			})
+			if cfg.Cond == nil {
+				cfg.Cond = func(k, v []byte) bool {
+					return true
+				}
+			}
+			_, fv, err := kv.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
 			if err != nil {
 				return 0, nil, state.ErrStateNotExist
 			}
