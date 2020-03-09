@@ -11,11 +11,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -141,9 +143,39 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, error) {
-	//TODO
-	return nil, protocol.ErrUnimplemented
+func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+	m := iotexapi.ReadStakingDataMethod{}
+	if err := proto.Unmarshal(method, &m); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal method name")
+	}
+	if len(args) != 1 {
+		return nil, errors.Errorf("invalid number of arguments %d", len(args))
+	}
+	r := iotexapi.ReadStakingDataRequest{}
+	if err := proto.Unmarshal(args[0], &r); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal request")
+	}
+	var (
+		resp proto.Message
+		err  error
+	)
+	switch m.GetMethod() {
+	case iotexapi.ReadStakingDataMethod_BUCKETS:
+		resp, err = p.readStateBuckets(ctx, sr, r.GetBuckets())
+	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
+		resp, err = p.readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
+		resp, err = p.readStateBucketsByCandidate(ctx, sr, r.GetBucketsByCandidate())
+	case iotexapi.ReadStakingDataMethod_CANDIDATES:
+	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
+	default:
+		err = errors.New("corresponding method isn't found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return proto.Marshal(resp)
 }
 
 // Register registers the protocol with a unique ID

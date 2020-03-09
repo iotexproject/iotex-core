@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -144,6 +145,32 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	}, nil
 }
 
+func (vb *VoteBucket) toIoTexTypes() (*iotextypes.VoteBucket, error) {
+	createTime, err := ptypes.TimestampProto(vb.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &iotextypes.VoteBucket{
+		CandidateAddress: vb.Candidate.String(),
+		Owner:            vb.Owner.String(),
+		StakedAmount:     vb.StakedAmount.String(),
+		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),
+		CreateTime:       createTime,
+		StakeStartTime:   stakeTime,
+		UnstakeStartTime: unstakeTime,
+		AutoStake:        vb.AutoStake,
+	}, nil
+}
+
 // Serialize serializes bucket into bytes
 func (vb *VoteBucket) Serialize() ([]byte, error) {
 	pb, err := vb.toProto()
@@ -230,6 +257,23 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
+}
+
+func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
+	// TODO
+	return nil, nil
+}
+
+func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := getBucket(sr, i)
+		if err != nil {
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
 }
 
 func bucketKey(index uint64) []byte {

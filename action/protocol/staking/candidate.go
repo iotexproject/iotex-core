@@ -236,3 +236,23 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
 	return err
 }
+
+func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
+	// TODO
+	return nil, nil
+}
+
+func getCandidateByName(sr protocol.StateReader, name string) (c *Candidate, err error) {
+	// TODO use current height's candidate center to avoid looping through all candiates.
+	cands, err := getAllCandidates(sr)
+	if err != nil {
+		return nil, err
+	}
+	for _, cand := range cands {
+		if cand.Name == name {
+			c = cand
+			return c, err
+		}
+	}
+	return c, err
+}
