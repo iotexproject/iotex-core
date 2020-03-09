@@ -42,7 +42,7 @@ var (
 	}
 )
 
-// BCCmd represents the bc(block chain) command
+// NewBCCmd represents the bc(block chain) command
 func NewBCCmd(client ioctl.Client) *cobra.Command {
 	bcShorts, _ := client.SelectTranslation(bcCmdShorts)
 	bcUses, _ := client.SelectTranslation(bcCmdUses)
