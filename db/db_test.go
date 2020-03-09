@@ -396,6 +396,26 @@ func TestFilter(t *testing.T) {
 				require.Equal(fv[i], v[:])
 			}
 		}
+
+		// filter with min/max key
+		for _, e := range tests {
+			min := 9
+			max := 91
+			minKey := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(min))...)
+			maxKey := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(max))...)
+			fk, fv, err := kv.Filter(e.ns, func(k, v []byte) bool {
+				return bytes.HasPrefix(k, e.prefix)
+			}, minKey, maxKey)
+			require.NoError(err)
+			require.Equal(max-min+1, len(fk))
+			require.Equal(max-min+1, len(fv))
+			for i := range fk {
+				k := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(i+min))...)
+				require.Equal(fk[i], k)
+				v := hash.Hash256b(k)
+				require.Equal(fv[i], v[:])
+			}
+		}
 	}
 
 	path := "test-filter.bolt"
