@@ -38,7 +38,7 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if act.Amount().Sign() <= 0 {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
-	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
+	if act.Amount().Cmp(unit.ConvertIotxToRau(p.config.MinStakeAmount)) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	if act.GasPrice().Sign() < 0 {

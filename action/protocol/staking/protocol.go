@@ -47,7 +47,7 @@ type Configuration struct {
 	VoteCal               VoteWeightCalConsts
 	Register              RegistrationConsts
 	WithdrawWaitingPeriod time.Duration
-	MinStakeAmount        *big.Int
+	MinStakeAmount        int64
 }
 
 // DepositGas deposits gas to some pool

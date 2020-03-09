@@ -105,6 +105,7 @@ type (
 		Account    `yaml:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
+		Staking    `yaml:"staking"`
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -212,6 +213,26 @@ type (
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
 		// epoch reward
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+	}
+	// Staking contains the configs for staking protocol
+	Staking struct {
+		VoteWeightCalConsts   VoteWeightCalConsts `yaml:"voteWeightCalConsts"`
+		RegistrationConsts    RegistrationConsts  `yaml:"registrationConsts"`
+		WithdrawWaitingPeriod time.Duration       `yaml:"withdrawWaitingPeriod"`
+		MinStakeAmount        int64               `yaml:"minStakeAmount"`
+	}
+
+	// VoteWeightCalConsts contains the configs for calculating vote weight
+	VoteWeightCalConsts struct {
+		DurationLg float64 `yaml:"durationLg"`
+		AutoStake  float64 `yaml:"autoStake"`
+		SelfStake  float64 `yaml:"selfStake"`
+	}
+
+	// RegistrationConsts contains the configs for candidate registration
+	RegistrationConsts struct {
+		Fee          int64 `yaml:"fee"`
+		MinSelfStake int64 `yaml:"minSelfStake"`
 	}
 )
 
