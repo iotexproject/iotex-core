@@ -75,6 +75,7 @@ func (tlt *TwoLayerTrie) Stop(ctx context.Context) error {
 			return err
 		}
 	}
+
 	return tlt.layerOne.Stop(ctx)
 }
 
