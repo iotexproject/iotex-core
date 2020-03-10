@@ -89,6 +89,7 @@ func defaultConfig() Genesis {
 			},
 			WithdrawWaitingPeriod: 14,
 			MinStakeAmount:        100,
+			BootstrapCandidates:   []BootstrapCandidate{},
 		},
 	}
 }
@@ -229,10 +230,11 @@ type (
 	}
 	// Staking contains the configs for staking protocol
 	Staking struct {
-		VoteWeightCalConsts   VoteWeightCalConsts `yaml:"voteWeightCalConsts"`
-		RegistrationConsts    RegistrationConsts  `yaml:"registrationConsts"`
-		WithdrawWaitingPeriod time.Duration       `yaml:"withdrawWaitingPeriod"`
-		MinStakeAmount        int64               `yaml:"minStakeAmount"`
+		VoteWeightCalConsts   VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
+		RegistrationConsts    RegistrationConsts   `yaml:"registrationConsts"`
+		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
+		MinStakeAmount        int64                `yaml:"minStakeAmount"` // in iotex
+		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight
@@ -244,8 +246,17 @@ type (
 
 	// RegistrationConsts contains the configs for candidate registration
 	RegistrationConsts struct {
-		Fee          int64 `yaml:"fee"`
-		MinSelfStake int64 `yaml:"minSelfStake"`
+		Fee          int64 `yaml:"fee"`          // in iotex
+		MinSelfStake int64 `yaml:"minSelfStake"` // in iotex
+	}
+
+	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
+	BootstrapCandidate struct {
+		OwnerAddress      string `yaml:"ownerAddress"`
+		OperatorAddress   string `yaml:"operatorAddress"`
+		RewardAddress     string `yaml:"rewardAddress"`
+		Name              string `yaml:"name"`
+		SelfStakingTokens int64  `yaml:"selfStakingTokens"` // in iotex
 	}
 )
 

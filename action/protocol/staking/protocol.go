@@ -21,7 +21,9 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -40,22 +42,14 @@ type Protocol struct {
 	inMemCandidates *CandidateCenter
 	depositGas      DepositGas
 	sr              protocol.StateReader
-	config          Configuration
-}
-
-// Configuration is the staking protocol configuration.
-type Configuration struct {
-	VoteCal               VoteWeightCalConsts
-	Register              RegistrationConsts
-	WithdrawWaitingPeriod time.Duration
-	MinStakeAmount        int64
+	config          genesis.Staking
 }
 
 // DepositGas deposits gas to some pool
 type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg Configuration) *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -69,6 +63,55 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg Configurati
 		depositGas:      depositGas,
 		sr:              sr,
 	}
+}
+
+// CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
+func (p *Protocol) CreateGenesisStates(
+	ctx context.Context,
+	sm protocol.StateManager,
+) error {
+	for _, bc := range p.config.BootstrapCandidates {
+		owner, err := address.FromString(bc.OwnerAddress)
+		if err != nil {
+			return err
+		}
+
+		operator, err := address.FromString(bc.OperatorAddress)
+		if err != nil {
+			return err
+		}
+
+		reward, err := address.FromString(bc.RewardAddress)
+		if err != nil {
+			return err
+		}
+
+		selfStake := unit.ConvertIotxToRau(bc.SelfStakingTokens)
+		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
+		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		if err != nil {
+			return err
+		}
+		c := &Candidate{
+			Owner:              owner,
+			Operator:           operator,
+			Reward:             reward,
+			Name:               bc.Name,
+			Votes:              p.calculateVoteWeight(bucket, true),
+			SelfStakeBucketIdx: bucketIdx,
+			SelfStake:          selfStake,
+		}
+
+		// put in statedb
+		if err := putCandidate(sm, c); err != nil {
+			return err
+		}
+		// put in mem
+		if err := p.inMemCandidates.Upsert(c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Start starts the protocol
@@ -193,5 +236,5 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
-	return calculateVoteWeight(p.config.VoteCal, v, selfStake)
+	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }

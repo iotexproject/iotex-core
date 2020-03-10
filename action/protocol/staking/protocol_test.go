@@ -12,6 +12,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestProtocol(t *testing.T) {
@@ -22,8 +24,8 @@ func TestProtocol(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, Configuration{
-		VoteCal: VoteWeightCalConsts{
+	stk := NewProtocol(nil, sm, genesis.Staking{
+		VoteWeightCalConsts: genesis.VoteWeightCalConsts{
 			DurationLg: 1.2,
 			AutoStake:  1.05,
 			SelfStake:  1.05,

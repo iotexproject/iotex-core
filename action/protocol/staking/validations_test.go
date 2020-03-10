@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
@@ -67,7 +68,7 @@ func TestIsValidCandidateName(t *testing.T) {
 func TestProtocol_ValidateCreateStake(t *testing.T) {
 	require := require.New(t)
 
-	p := NewProtocol(nil, nil, Configuration{
+	p := NewProtocol(nil, nil, genesis.Staking{
 		MinStakeAmount: 100,
 	})
 	candidate := testCandidates[0].d.Clone()
