@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
@@ -34,13 +35,6 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 		AutoStake        bool
-	}
-
-	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
-	VoteWeightCalConsts struct {
-		DurationLg float64
-		AutoStake  float64
-		SelfStake  float64
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -281,7 +275,7 @@ func bucketKey(index uint64) []byte {
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
-func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
+func calculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
 	weight := float64(1)
 	var m float64

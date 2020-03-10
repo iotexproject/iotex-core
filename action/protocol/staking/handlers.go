@@ -369,7 +369,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	registrationFee := unit.ConvertIotxToRau(p.config.Register.Fee)
+	registrationFee := unit.ConvertIotxToRau(p.config.RegistrationConsts.Fee)
 
 	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if err != nil {
