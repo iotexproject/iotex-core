@@ -250,6 +250,7 @@ type (
 		MinSelfStake int64 `yaml:"minSelfStake"` // in iotex
 	}
 
+	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
 	BootstrapCandidate struct {
 		OwnerAddress      string `yaml:"ownerAddress"`
 		OperatorAddress   string `yaml:"operatorAddress"`

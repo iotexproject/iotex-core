@@ -65,6 +65,7 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}
 }
 
+// CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
 func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
