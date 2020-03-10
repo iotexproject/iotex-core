@@ -17,24 +17,21 @@ import (
 const radix = 256
 
 type branchNode struct {
-	mpt    *merklePatriciaTree
-	hashes map[byte][]byte
-	isRoot bool
-	ser    []byte
+	cacheNode
+	children map[byte]node
+	isRoot   bool
 }
 
 func newBranchNode(
 	mpt *merklePatriciaTree,
 	children map[byte]node,
 ) (*branchNode, error) {
-	bnode := &branchNode{mpt: mpt, hashes: map[byte][]byte{}}
-	for i, n := range children {
-		if n == nil {
-			continue
-		}
-		bnode.hashes[i] = mpt.nodeHash(n)
+	if children == nil {
+		children = make(map[byte]node)
 	}
-	if len(bnode.hashes) != 0 {
+	bnode := &branchNode{cacheNode: cacheNode{mpt: mpt}, children: children}
+	bnode.cacheNode.node = bnode
+	if len(bnode.children) != 0 {
 		if err := mpt.putNode(bnode); err != nil {
 			return nil, err
 		}
@@ -48,44 +45,39 @@ func newBranchNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.BranchPb) *bra
 		panic(err)
 	}
 	for _, n := range pb.Branches {
-		b.hashes[byte(n.Index)] = n.Path
+		b.children[byte(n.Index)] = newHashNode(mpt, n.Path)
 	}
 	return b
 }
 
-func (b *branchNode) markAsRoot() {
+func (b *branchNode) MarkAsRoot() {
 	b.isRoot = true
 }
 
-func (b *branchNode) children() ([]node, error) {
+func (b *branchNode) Children() []node {
 	trieMtc.WithLabelValues("branchNode", "children").Inc()
 	children := []node{}
-	for i := range b.hashes {
-		if c, err := b.child(i); err != nil {
-			return nil, err
-		} else if c != nil {
-			children = append(children, c)
-		}
+	for _, child := range b.children {
+		children = append(children, child)
 	}
-
-	return children, nil
+	return children
 }
 
-func (b *branchNode) delete(key keyType, offset uint8) (node, error) {
+func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("branchNode", "delete").Inc()
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	if err != nil {
 		return nil, err
 	}
-	newChild, err := child.delete(key, offset+1)
+	newChild, err := child.Delete(key, offset+1)
 	if err != nil {
 		return nil, err
 	}
 	if newChild != nil || b.isRoot {
 		return b.updateChild(offsetKey, newChild)
 	}
-	switch len(b.hashes) {
+	switch len(b.children) {
 	case 1:
 		panic("branch shouldn't have 0 child after deleting")
 	case 2:
@@ -94,17 +86,20 @@ func (b *branchNode) delete(key keyType, offset uint8) (node, error) {
 		}
 		var orphan node
 		var orphanKey byte
-		for i, h := range b.hashes {
+		for i, n := range b.children {
 			if i != offsetKey {
 				orphanKey = i
-				if orphan, err = b.mpt.loadNode(h); err != nil {
-					return nil, err
-				}
+				orphan = n
 				break
 			}
 		}
 		if orphan == nil {
 			panic("unexpected branch status")
+		}
+		if hn, ok := orphan.(*hashNode); ok {
+			if orphan, err = b.mpt.loadNode(hn.ha); err != nil {
+				return nil, err
+			}
 		}
 		switch node := orphan.(type) {
 		case *extensionNode:
@@ -121,14 +116,14 @@ func (b *branchNode) delete(key keyType, offset uint8) (node, error) {
 	}
 }
 
-func (b *branchNode) upsert(key keyType, offset uint8, value []byte) (node, error) {
+func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
 	trieMtc.WithLabelValues("branchNode", "upsert").Inc()
 	var newChild node
 	offsetKey := key[offset]
 	child, err := b.child(offsetKey)
 	switch errors.Cause(err) {
 	case nil:
-		newChild, err = child.upsert(key, offset+1, value)
+		newChild, err = child.Upsert(key, offset+1, value)
 	case trie.ErrNotExist:
 		newChild, err = newLeafNode(b.mpt, key, value)
 	}
@@ -139,63 +134,56 @@ func (b *branchNode) upsert(key keyType, offset uint8, value []byte) (node, erro
 	return b.updateChild(offsetKey, newChild)
 }
 
-func (b *branchNode) search(key keyType, offset uint8) node {
+func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("branchNode", "search").Inc()
 	child, err := b.child(key[offset])
-	if errors.Cause(err) == trie.ErrNotExist {
-		return nil
+	if err != nil {
+		return nil, err
 	}
-	return child.search(key, offset+1)
+	return child.Search(key, offset+1)
 }
 
-func (b *branchNode) serialize() []byte {
+func (b *branchNode) Proto() (proto.Message, error) {
 	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
-	if b.ser != nil {
-		return b.ser
-	}
 	nodes := []*triepb.BranchNodePb{}
 	for index := 0; index < radix; index++ {
-		if h, ok := b.hashes[byte(index)]; ok {
+		if c, ok := b.children[byte(index)]; ok {
+			h, err := c.Hash()
+			if err != nil {
+				return nil, err
+			}
 			nodes = append(nodes, &triepb.BranchNodePb{Index: uint32(index), Path: h})
 		}
 	}
-	pb := &triepb.NodePb{
+
+	return &triepb.NodePb{
 		Node: &triepb.NodePb_Branch{
 			Branch: &triepb.BranchPb{Branches: nodes},
 		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal a branch node")
-	}
-	b.ser = ser
-
-	return b.ser
+	}, nil
 }
 
 func (b *branchNode) child(key byte) (node, error) {
-	h, ok := b.hashes[key]
+	c, ok := b.children[key]
 	if !ok {
 		return nil, trie.ErrNotExist
 	}
-	child, err := b.mpt.loadNode(h)
-	if err != nil {
-		return nil, errors.Errorf("failed to fetch node for key %x", h)
-	}
-	return child, nil
+
+	return c, nil
 }
 
 func (b *branchNode) updateChild(key byte, child node) (*branchNode, error) {
-	if err := b.mpt.deleteNode(b); err != nil {
+	err := b.mpt.deleteNode(b)
+	if err != nil {
 		return nil, err
 	}
-	b.ser = nil
+	b.reset()
 	if child == nil {
-		delete(b.hashes, key)
+		delete(b.children, key)
 	} else {
-		b.hashes[key] = b.mpt.nodeHash(child)
+		b.children[key] = child
 	}
-	if !b.isRoot || len(b.hashes) != 0 {
+	if !b.isRoot || len(b.children) != 0 {
 		if err := b.mpt.putNode(b); err != nil {
 			return nil, err
 		}

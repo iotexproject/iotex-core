@@ -16,10 +16,9 @@ import (
 )
 
 type leafNode struct {
-	mpt   *merklePatriciaTree
+	cacheNode
 	key   keyType
 	value []byte
-	ser   []byte
 }
 
 func newLeafNode(
@@ -27,7 +26,8 @@ func newLeafNode(
 	key keyType,
 	value []byte,
 ) (*leafNode, error) {
-	l := &leafNode{mpt: mpt, key: key, value: value}
+	l := &leafNode{cacheNode: cacheNode{mpt: mpt}, key: key, value: value}
+	l.cacheNode.node = l
 	if err := mpt.putNode(l); err != nil {
 		return nil, err
 	}
@@ -35,7 +35,9 @@ func newLeafNode(
 }
 
 func newLeafNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.LeafPb) *leafNode {
-	return &leafNode{mpt: mpt, key: pb.Path, value: pb.Value}
+	l := &leafNode{cacheNode: cacheNode{mpt: mpt}, key: pb.Path, value: pb.Value}
+	l.cacheNode.node = l
+	return l
 }
 
 func (l *leafNode) Key() []byte {
@@ -46,7 +48,7 @@ func (l *leafNode) Value() []byte {
 	return l.value
 }
 
-func (l *leafNode) delete(key keyType, offset uint8) (node, error) {
+func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
@@ -56,7 +58,7 @@ func (l *leafNode) delete(key keyType, offset uint8) (node, error) {
 	return nil, nil
 }
 
-func (l *leafNode) upsert(key keyType, offset uint8, value []byte) (node, error) {
+func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
 	trieMtc.WithLabelValues("leafNode", "upsert").Inc()
 	matched := commonPrefixLength(l.key[offset:], key[offset:])
 	if offset+matched == uint8(len(key)) {
@@ -83,35 +85,25 @@ func (l *leafNode) upsert(key keyType, offset uint8, value []byte) (node, error)
 	return newExtensionNode(l.mpt, l.key[offset:offset+matched], bnode)
 }
 
-func (l *leafNode) search(key keyType, offset uint8) node {
+func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("leafNode", "search").Inc()
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
-		return nil
+		return nil, trie.ErrNotExist
 	}
 
-	return l
+	return l, nil
 }
 
-func (l *leafNode) serialize() []byte {
+func (l *leafNode) Proto() (proto.Message, error) {
 	trieMtc.WithLabelValues("leafNode", "serialize").Inc()
-	if l.ser != nil {
-		return l.ser
-	}
-	pb := &triepb.NodePb{
+	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
 			Leaf: &triepb.LeafPb{
 				Path:  l.key[:],
 				Value: l.value,
 			},
 		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal a leaf node")
-	}
-	l.ser = ser
-
-	return l.ser
+	}, nil
 }
 
 func (l *leafNode) updateValue(value []byte) (*leafNode, error) {
@@ -119,7 +111,7 @@ func (l *leafNode) updateValue(value []byte) (*leafNode, error) {
 		return nil, err
 	}
 	l.value = value
-	l.ser = nil
+	l.reset()
 	if err := l.mpt.putNode(l); err != nil {
 		return nil, err
 	}
