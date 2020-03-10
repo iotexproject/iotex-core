@@ -68,7 +68,7 @@ func TestProtocol_ValidateCreateStake(t *testing.T) {
 	require := require.New(t)
 
 	p := NewProtocol(nil, nil, Configuration{
-		MinStakeAmount: unit.ConvertIotxToRau(100),
+		MinStakeAmount: 100,
 	})
 	candidate := testCandidates[0].d.Clone()
 	require.NoError(p.inMemCandidates.Upsert(candidate))

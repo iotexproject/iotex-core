@@ -284,11 +284,12 @@ func bucketKey(index uint64) []byte {
 func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
 	weight := float64(1)
-	if remainingTime > 0 {
-		weight += math.Log(math.Ceil(remainingTime/86400)) / math.Log(c.DurationLg) / 100
-	}
+	var m float64
 	if v.AutoStake {
-		weight *= c.AutoStake
+		m = c.AutoStake
+	}
+	if remainingTime > 0 {
+		weight += math.Log(math.Ceil(remainingTime/86400)*(1+m)) / math.Log(c.DurationLg) / 100
 	}
 	if selfStake {
 		weight *= c.SelfStake

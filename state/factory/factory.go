@@ -540,7 +540,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	}
 	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
+		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
 			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
 		}
 		return sf.currentChainHeight, nil, err
