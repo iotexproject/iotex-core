@@ -174,7 +174,7 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	return nil
 }
 
-func (d *Candidate) toIoTexTypes() *iotextypes.CandidateV2 {
+func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 	return &iotextypes.CandidateV2{
 		OwnerAddress:       d.Owner.String(),
 		OperatorAddress:    d.Operator.String(),

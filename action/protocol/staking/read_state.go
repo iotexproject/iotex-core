@@ -27,7 +27,7 @@ func (p *Protocol) readStateBuckets(ctx context.Context, sr protocol.StateReader
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets := getPageOfBuckets(all, offset, limit)
-	return toIoTexTypesVoteBucketList(buckets)
+	return toIoTeXTypesVoteBucketList(buckets)
 }
 
 func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
@@ -51,7 +51,7 @@ func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.Stat
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	return toIoTexTypesVoteBucketList(buckets)
+	return toIoTeXTypesVoteBucketList(buckets)
 }
 
 func (p *Protocol) readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
@@ -79,7 +79,7 @@ func (p *Protocol) readStateBucketsByCandidate(ctx context.Context, sr protocol.
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
 	buckets = getPageOfBuckets(buckets, offset, limit)
-	return toIoTexTypesVoteBucketList(buckets)
+	return toIoTeXTypesVoteBucketList(buckets)
 }
 
 func readStateCandidates(ctx context.Context, sr protocol.StateReader,
@@ -93,7 +93,7 @@ func readStateCandidates(ctx context.Context, sr protocol.StateReader,
 	limit := int(req.GetPagination().GetLimit())
 	candidates := getPageOfCandidates(all, offset, limit)
 
-	return toIoTexTypesCandidateListV2(candidates), nil
+	return toIoTeXTypesCandidateListV2(candidates), nil
 }
 
 func readStateCandidateByName(ctx context.Context, sr protocol.StateReader,
@@ -105,21 +105,21 @@ func readStateCandidateByName(ctx context.Context, sr protocol.StateReader,
 	if c == nil {
 		return &iotextypes.CandidateV2{}, nil
 	}
-	return c.toIoTexTypes(), nil
+	return c.toIoTeXTypes(), nil
 }
 
-func toIoTexTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
-	res := &iotextypes.VoteBucketList{
+func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
+	res := iotextypes.VoteBucketList{
 		Buckets: make([]*iotextypes.VoteBucket, 0, len(buckets)),
 	}
 	for _, b := range buckets {
-		typBucket, err := b.toIoTexTypes()
+		typBucket, err := b.toIoTeXTypes()
 		if err != nil {
 			return nil, err
 		}
 		res.Buckets = append(res.Buckets, typBucket)
 	}
-	return res, nil
+	return &res, nil
 }
 
 func getPageOfBuckets(buckets []*VoteBucket, offset, limit int) []*VoteBucket {
@@ -138,15 +138,14 @@ func getPageOfBuckets(buckets []*VoteBucket, offset, limit int) []*VoteBucket {
 	return res
 }
 
-func toIoTexTypesCandidateListV2(candidates CandidateList) *iotextypes.CandidateListV2 {
-	res := &iotextypes.CandidateListV2{
+func toIoTeXTypesCandidateListV2(candidates CandidateList) *iotextypes.CandidateListV2 {
+	res := iotextypes.CandidateListV2{
 		Candidates: make([]*iotextypes.CandidateV2, 0, len(candidates)),
 	}
 	for _, c := range candidates {
-		typCand := c.toIoTexTypes()
-		res.Candidates = append(res.Candidates, typCand)
+		res.Candidates = append(res.Candidates, c.toIoTeXTypes())
 	}
-	return res
+	return &res
 }
 
 func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateList {
