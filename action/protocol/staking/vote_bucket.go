@@ -23,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 type (
@@ -196,8 +195,8 @@ func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 	var tc totalBucketCount
 	_, err := sr.State(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey))
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
 	return tc.count, err
 }
 
@@ -205,7 +204,7 @@ func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
 	}
@@ -219,7 +218,7 @@ func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) er
 
 	_, err := sm.PutState(
 		bucket,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
@@ -228,29 +227,29 @@ func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey)); err != nil {
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil {
 		return 0, err
 	}
 
 	index := tc.Count()
 	if _, err := sm.PutState(
 		bucket,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return 0, err
 	}
 	tc.count++
 	_, err := sm.PutState(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey))
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
 	return index, err
 }
 
 func delBucket(sm protocol.StateManager, index uint64) error {
 	_, err := sm.DelState(
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
@@ -259,7 +258,7 @@ func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
 	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
 	maxKey := []byte{_bucket + 1}
 	_, iter, err := sr.States(
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.FilterOption(func(k, v []byte) bool {
 			return bytes.HasPrefix(k, []byte{_bucket})
 		}, bucketKey(0), maxKey))

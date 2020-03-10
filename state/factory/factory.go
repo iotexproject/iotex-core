@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -40,10 +41,6 @@ import (
 const (
 	// AccountKVNamespace is the bucket name for account
 	AccountKVNamespace = "Account"
-	// StakingNameSpace is the bucket name for staking state
-	StakingNameSpace = "Staking"
-	// CandidateNameSpace is the bucket name for candidate state
-	CandidateNameSpace = "Candidate"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
@@ -59,8 +56,6 @@ var (
 	ErrNotSupported = errors.New("not supported")
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
-	// TotalBucketKey indicates the total count of staking buckets
-	TotalBucketKey = []byte("totalBucket")
 
 	dbBatchSizelMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -221,7 +216,7 @@ func (sf *factory) Start(ctx context.Context) error {
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
-		if err = sf.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+		if err = sf.dao.Put(staking.StakingNameSpace, staking.TotalBucketKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to init factory's total bucket account")
 		}
 	default:
