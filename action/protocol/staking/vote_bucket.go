@@ -257,11 +257,11 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 
 func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
 	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
-	maxKey := []byte{bucket + 1}
+	maxKey := []byte{_bucket + 1}
 	_, iter, err := sr.States(
 		protocol.NamespaceOption(factory.StakingNameSpace),
 		protocol.FilterOption(func(k, v []byte) bool {
-			return bytes.HasPrefix(k, []byte{bucket})
+			return bytes.HasPrefix(k, []byte{_bucket})
 		}, bucketKey(0), maxKey))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return nil, nil
@@ -270,7 +270,7 @@ func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
 		return nil, err
 	}
 
-	var buckets []*VoteBucket
+	buckets := make([]*VoteBucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		vb := &VoteBucket{}
 		if err := iter.Next(vb); err != nil {
@@ -294,7 +294,7 @@ func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*V
 }
 
 func bucketKey(index uint64) []byte {
-	key := []byte{bucket}
+	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 

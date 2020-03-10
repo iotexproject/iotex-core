@@ -87,7 +87,7 @@ func TestProtocol(t *testing.T) {
 	r.Equal(0, stk.inMemCandidates.Size())
 	buckets, err := getAllBuckets(sm)
 	r.NoError(err)
-	r.Nil(buckets)
+	r.Equal(0, len(buckets))
 
 	// write a number of candidates and buckets into stateDB
 	for _, e := range testCandidates {

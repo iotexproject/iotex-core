@@ -221,27 +221,18 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
-
 	var d Candidate
-	_, err := sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return &d, err
 }
 
 func putCandidate(sm protocol.StateManager, d *Candidate) error {
-	key := make([]byte, len(d.Owner.Bytes()))
-	copy(key, d.Owner.Bytes())
-
-	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
 	return err
 }
 
 func delCandidate(sm protocol.StateManager, name address.Address) error {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
-
-	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return err
 }
 
@@ -255,7 +246,7 @@ func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
 		return nil, err
 	}
 
-	var cands CandidateList
+	cands := make(CandidateList, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		c := &Candidate{}
 		if err := iter.Next(c); err != nil {

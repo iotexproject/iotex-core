@@ -22,9 +22,9 @@ const (
 	// keys in the namespace factory.StakingNameSpace are prefixed with 1-byte tag, which serves 2 purposes:
 	// 1. to be able to store multiple objects under the same key (like bucket index for voter and candidate)
 	// 2. can call underlying KVStore's Filter() to retrieve a certain type of objects
-	bucket     = iota
-	voterIndex = bucket + 1
-	candIndex  = voterIndex + 1
+	_bucket     = iota
+	_voterIndex = _bucket + 1
+	_candIndex  = _voterIndex + 1
 )
 
 type (
@@ -130,27 +130,27 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 }
 
 func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, voterIndex))
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
 }
 
 func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, voterIndex), index)
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
 func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, voterIndex), index)
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
 func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, candIndex))
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
 }
 
 func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, candIndex), index)
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
 }
 
 func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, candIndex), index)
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
 }
 
 func addrKeyWithPrefix(voterAddr address.Address, prefix byte) []byte {
