@@ -106,6 +106,7 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
 	cfg config.Config,
+	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
@@ -133,6 +134,7 @@ func NewProtocol(
 	var pollProtocol, governance Protocol
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
+		candidateIndexer,
 		candidatesByHeight,
 		getCandidates,
 		kickoutListByEpoch,

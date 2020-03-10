@@ -153,8 +153,8 @@ func New(
 		indexers       []blockdao.BlockIndexer
 		indexer        blockindex.Indexer
 		systemLogIndex *systemlog.Indexer
+		candidateIndexer *poll.CandidateIndexer
 	)
-
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway {
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -173,6 +173,13 @@ func New(
 			return nil, err
 		}
 		indexers = append(indexers, systemLogIndex)
+
+		// create candidate indexer 
+		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
+		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
+		if err != nil {
+			return nil, err
+		}
 	}
 	// create BlockDAO
 	var kvStore db.KVStore
@@ -247,6 +254,7 @@ func New(
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
+			candidateIndexer,
 			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
 				gasLimit := uint64(1000000)
 				if correctGas {

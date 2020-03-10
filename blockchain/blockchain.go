@@ -112,6 +112,7 @@ type (
 )
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
+// TODO: move to poll protocol and implement reading current epoch meta from state factory -- now only reading current epoch productivity
 func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
@@ -125,6 +126,7 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	if epochNum == currentEpochNum {
 		epochEndHeight = bcCtx.Tip.Height
 	} else {
+		// TODO: delete, won't happen
 		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
@@ -138,6 +140,8 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	for _, bp := range activeConsensusBlockProducers {
 		produce[bp.Address] = 0
 	}
+	// TODO: because now this function is only getting current epoch data, (not history)
+	// change to get from bc indexer before easter and after easter(backward compatiblility), read from state factory(cache layer)
 	for i := uint64(0); i < numBlks; i++ {
 		header, err := bc.BlockHeaderByHeight(epochStartHeight + i)
 		if err != nil {

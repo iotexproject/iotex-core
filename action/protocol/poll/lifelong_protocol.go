@@ -60,11 +60,11 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Creating genesis states for lifelong delegates protocol")
-	return setCandidates(ctx, sm, p.delegates, uint64(1))
+	return setCandidates(ctx, sm, nil, p.delegates, uint64(1))
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm, p.addr.String())
+	return handle(ctx, act, sm, nil, p.addr.String())
 }
 
 func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Action) error {

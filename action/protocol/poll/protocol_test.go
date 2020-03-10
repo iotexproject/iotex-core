@@ -32,6 +32,7 @@ func TestNewProtocol(t *testing.T) {
 	cfg.Genesis.ScoreThreshold = "1200000"
 	p, err := NewProtocol(
 		cfg,
+		nil,
 		func(context.Context, string, []byte, bool) ([]byte, error) { return nil, nil },
 		nil,
 		nil,

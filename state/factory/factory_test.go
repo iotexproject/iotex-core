@@ -261,6 +261,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		nil,
 		nil,
 		nil,
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
