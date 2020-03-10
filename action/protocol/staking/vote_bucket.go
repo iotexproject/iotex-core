@@ -145,7 +145,7 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	}, nil
 }
 
-func (vb *VoteBucket) toIoTexTypes() (*iotextypes.VoteBucket, error) {
+func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
 	createTime, err := ptypes.TimestampProto(vb.CreateTime)
 	if err != nil {
 		return nil, err

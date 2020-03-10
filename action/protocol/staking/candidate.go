@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -171,6 +172,18 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 		return ErrInvalidAmount
 	}
 	return nil
+}
+
+func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
+	return &iotextypes.CandidateV2{
+		OwnerAddress:       d.Owner.String(),
+		OperatorAddress:    d.Operator.String(),
+		RewardAddress:      d.Reward.String(),
+		Name:               d.Name,
+		TotalWeightedVotes: d.Votes.String(),
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
+		SelfStakingTokens:  d.SelfStake.String(),
+	}
 }
 
 func (l CandidateList) Len() int      { return len(l) }
