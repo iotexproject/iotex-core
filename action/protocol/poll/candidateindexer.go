@@ -18,11 +18,15 @@ import (
 )
 
 var (
+	// CandidateNamespace is a namespace to store raw candidate
 	CandidateNamespace = "candidates"
-	KickoutNamespace   = "kickout"
+	// KickoutNamespace is a namespace to store kickoutlist
+	KickoutNamespace = "kickout"
+	// ErrIndexerNotExist is an error that shows not exist in candidate indexer DB
 	ErrIndexerNotExist = errors.New("not exist in DB")
 )
 
+// CandidateIndexer is an indexer to store candidate/blacklist by given height
 type CandidateIndexer struct {
 	mutex   sync.RWMutex
 	kvStore db.KVStore
@@ -39,6 +43,7 @@ func NewCandidateIndexer(kv db.KVStore) (*CandidateIndexer, error) {
 	return &x, nil
 }
 
+// PutCandidate puts candidate list into indexer
 func (cd *CandidateIndexer) PutCandidate(height uint64, candidates *state.CandidateList) error {
 	cd.mutex.Lock()
 	defer cd.mutex.Unlock()
@@ -49,6 +54,7 @@ func (cd *CandidateIndexer) PutCandidate(height uint64, candidates *state.Candid
 	return cd.kvStore.Put(CandidateNamespace, byteutil.Uint64ToBytes(height), candidatesByte)
 }
 
+// PutKickoutList puts kickout list into indexer
 func (cd *CandidateIndexer) PutKickoutList(height uint64, kickoutList *vote.Blacklist) error {
 	cd.mutex.Lock()
 	defer cd.mutex.Unlock()
@@ -59,6 +65,7 @@ func (cd *CandidateIndexer) PutKickoutList(height uint64, kickoutList *vote.Blac
 	return cd.kvStore.Put(KickoutNamespace, byteutil.Uint64ToBytes(height), kickoutListByte)
 }
 
+// GetCandidate gets candidate list from indexer given epoch start height
 func (cd *CandidateIndexer) GetCandidate(height uint64) (state.CandidateList, error) {
 	cd.mutex.RLock()
 	defer cd.mutex.RUnlock()
@@ -76,6 +83,7 @@ func (cd *CandidateIndexer) GetCandidate(height uint64) (state.CandidateList, er
 	return *candidates, nil
 }
 
+// GetKickoutList gets kickout list from indexer given epoch start height
 func (cd *CandidateIndexer) GetKickoutList(height uint64) (*vote.Blacklist, error) {
 	cd.mutex.RLock()
 	defer cd.mutex.RUnlock()
