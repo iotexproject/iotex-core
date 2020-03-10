@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"bytes"
 	"math"
 	"math/big"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -254,8 +256,29 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 }
 
 func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
-	// TODO
-	return nil, nil
+	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
+	maxKey := []byte{_bucket + 1}
+	_, iter, err := sr.States(
+		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			return bytes.HasPrefix(k, []byte{_bucket})
+		}, bucketKey(0), maxKey))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	buckets := make([]*VoteBucket, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		vb := &VoteBucket{}
+		if err := iter.Next(vb); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize bucket")
+		}
+		buckets = append(buckets, vb)
+	}
+	return buckets, nil
 }
 
 func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
@@ -271,7 +294,7 @@ func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*V
 }
 
 func bucketKey(index uint64) []byte {
-	key := []byte{bucket}
+	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
