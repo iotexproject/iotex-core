@@ -5,3 +5,299 @@
 // License 2.0 that can be found in the LICENSE file.
 
 package systemlog
+
+import (
+	"context"
+	"hash/fnv"
+	"io/ioutil"
+	"math/big"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/systemlog/systemlogpb"
+	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
+)
+
+func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*systemlogpb.BlockEvmTransfer) {
+	r := require.New(t)
+
+	contractAddr := identityset.Address(31).String()
+	addr1, err := address.FromBytes(identityset.PrivateKey(28).PublicKey().Hash())
+	r.NoError(err)
+	addr2, err := address.FromBytes(identityset.PrivateKey(29).PublicKey().Hash())
+	r.NoError(err)
+	addr3, err := address.FromBytes(identityset.PrivateKey(30).PublicKey().Hash())
+	r.NoError(err)
+
+	// create testing executions
+	execution1, err := testutil.SignedExecution(contractAddr, identityset.PrivateKey(28),
+		1, big.NewInt(1), 0, big.NewInt(0), nil)
+	r.NoError(err)
+	execution2, err := testutil.SignedExecution(contractAddr, identityset.PrivateKey(29),
+		2, big.NewInt(10), 0, big.NewInt(0), nil)
+	require.NoError(t, err)
+	hash2 := execution2.Hash()
+	execution3, err := testutil.SignedExecution(contractAddr, identityset.PrivateKey(30),
+		3, big.NewInt(20), 0, big.NewInt(0), nil)
+	require.NoError(t, err)
+	hash3 := execution3.Hash()
+	failedExecution, err := testutil.SignedExecution(contractAddr, identityset.PrivateKey(30),
+		4, big.NewInt(0), 0, big.NewInt(0), nil)
+	require.NoError(t, err)
+
+	startHash := hash.Hash256{}
+	fnv.New32().Sum(startHash[:])
+	blk1, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(startHash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(execution1, execution2).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+
+	blk2, err := block.NewTestingBuilder().
+		SetHeight(2).
+		SetPrevBlockHash(blk1.HashBlock()).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(execution3, failedExecution).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+
+	receipt1 := &action.Receipt{
+		Status:          1,
+		BlockHeight:     blk1.Height(),
+		ActionHash:      execution1.Hash(),
+		GasConsumed:     0,
+		ContractAddress: contractAddr,
+	}
+	receipt2 := &action.Receipt{
+		Status:          1,
+		BlockHeight:     blk1.Height(),
+		ActionHash:      execution2.Hash(),
+		GasConsumed:     0,
+		ContractAddress: contractAddr,
+		Logs: []*action.Log{
+			{
+				Address: contractAddr,
+				Topics: []hash.Hash256{
+					hash.BytesToHash256(action.InContractTransfer[:]),
+					hash.BytesToHash256(addr2.Bytes()),
+					hash.BytesToHash256(addr3.Bytes()),
+				},
+				Data:        big.NewInt(3).Bytes(),
+				BlockHeight: blk1.Height(),
+				ActionHash:  execution2.Hash(),
+			},
+			{
+				Address: contractAddr,
+				Topics: []hash.Hash256{
+					hash.BytesToHash256(action.InContractTransfer[:]),
+					hash.BytesToHash256(addr2.Bytes()),
+					hash.BytesToHash256(addr1.Bytes()),
+				},
+				Data:        big.NewInt(7).Bytes(),
+				BlockHeight: blk1.Height(),
+				ActionHash:  execution2.Hash(),
+			},
+		},
+	}
+	blk1.Receipts = []*action.Receipt{receipt1, receipt2}
+	receipt3 := &action.Receipt{
+		Status:          1,
+		BlockHeight:     blk2.Height(),
+		ActionHash:      execution3.Hash(),
+		GasConsumed:     0,
+		ContractAddress: contractAddr,
+		Logs: []*action.Log{
+			{
+				Address: contractAddr,
+				Topics: []hash.Hash256{
+					hash.BytesToHash256(action.InContractTransfer[:]),
+					hash.BytesToHash256(addr3.Bytes()),
+					hash.BytesToHash256(addr2.Bytes()),
+				},
+				Data:        big.NewInt(8).Bytes(),
+				BlockHeight: blk2.Height(),
+				ActionHash:  execution3.Hash(),
+			},
+			{
+				Address: contractAddr,
+				Topics: []hash.Hash256{
+					hash.BytesToHash256(action.InContractTransfer[:]),
+					hash.BytesToHash256(addr3.Bytes()),
+					hash.BytesToHash256(addr1.Bytes()),
+				},
+				Data:        big.NewInt(7).Bytes(),
+				BlockHeight: blk2.Height(),
+				ActionHash:  execution3.Hash(),
+			},
+			// not system log
+			{
+				Address: contractAddr,
+				Topics: []hash.Hash256{
+					hash.Hash256b(startHash[:]),
+					hash.BytesToHash256(addr3.Bytes()),
+					hash.BytesToHash256(addr1.Bytes()),
+				},
+				Data:        big.NewInt(7).Bytes(),
+				BlockHeight: blk2.Height(),
+				ActionHash:  execution3.Hash(),
+			},
+		},
+	}
+	failedReceipt := &action.Receipt{
+		Status:          0,
+		BlockHeight:     blk2.Height(),
+		ActionHash:      failedExecution.Hash(),
+		GasConsumed:     0,
+		ContractAddress: contractAddr,
+	}
+	blk2.Receipts = []*action.Receipt{receipt3, failedReceipt}
+
+	expectedEvmTransfers := []*systemlogpb.BlockEvmTransfer{
+		{
+			BlockHeight:    blk1.Height(),
+			NumEvmTransfer: 2,
+			ActionEvmTransferList: []*systemlogpb.ActionEvmTransfer{
+				{
+					ActionHash:     hash2[:],
+					NumEvmTransfer: 2,
+					EvmTransferList: []*systemlogpb.EvmTransfer{
+						{
+							Amount: big.NewInt(3).Bytes(),
+							From:   addr2.String(),
+							To:     addr3.String(),
+						},
+						{
+							Amount: big.NewInt(7).Bytes(),
+							From:   addr2.String(),
+							To:     addr1.String(),
+						},
+					},
+				},
+			},
+		},
+		{
+			BlockHeight:    blk2.Height(),
+			NumEvmTransfer: 2,
+			ActionEvmTransferList: []*systemlogpb.ActionEvmTransfer{
+				{
+					ActionHash:     hash3[:],
+					NumEvmTransfer: 2,
+					EvmTransferList: []*systemlogpb.EvmTransfer{
+						{
+							Amount: big.NewInt(8).Bytes(),
+							From:   addr3.String(),
+							To:     addr2.String(),
+						},
+						{
+							Amount: big.NewInt(7).Bytes(),
+							From:   addr3.String(),
+							To:     addr1.String(),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return []*block.Block{&blk1, &blk2}, expectedEvmTransfers
+}
+
+func TestSystemLogIndexer(t *testing.T) {
+	r := require.New(t)
+
+	testIndexer := func(kv db.KVStore, t *testing.T) {
+		ctx := context.Background()
+		indexer, err := NewIndexer(kv)
+		r.NoError(err)
+		r.NoError(indexer.Start(ctx))
+		r.Equal(uint64(0), indexer.tipBlockHeight)
+
+		blocks, expectedList := getTestBlocksAndExpected(t)
+		for _, blk := range blocks {
+			r.NoError(indexer.PutBlock(blk))
+		}
+		r.Equal(blocks[1].Height(), indexer.tipBlockHeight)
+
+		for _, expectedBlock := range expectedList {
+			actualBlock, err := indexer.GetEvmTransferByBlockHeight(expectedBlock.BlockHeight)
+			r.NoError(err)
+			checkBlockEvmTransfers(t, expectedBlock, actualBlock)
+			for _, expectedAction := range expectedBlock.ActionEvmTransferList {
+				actualAction, err := indexer.GetEvmTransferByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
+				r.NoError(err)
+				checkActionEvmTransfers(t, expectedAction, actualAction)
+			}
+		}
+
+		r.NoError(indexer.DeleteTipBlock(blocks[1]))
+		r.Equal(blocks[0].Height(), indexer.tipBlockHeight)
+
+		_, err = indexer.GetEvmTransferByBlockHeight(blocks[1].Height())
+		r.Error(err)
+		for _, act := range expectedList[1].ActionEvmTransferList {
+			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+			r.Error(err)
+		}
+
+		_, err = indexer.GetEvmTransferByBlockHeight(blocks[0].Height())
+		r.NoError(err)
+		for _, act := range expectedList[0].ActionEvmTransferList {
+			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+			r.NoError(err)
+		}
+
+		r.NoError(indexer.Stop(ctx))
+	}
+
+	path := "systemlog.test"
+	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	r.NoError(err)
+	testPath := testFile.Name()
+	r.NoError(testFile.Close())
+
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+
+	t.Run("Bolt DB indexer", func(t *testing.T) {
+		testutil.CleanupPath(t, testPath)
+		defer testutil.CleanupPath(t, testPath)
+		testIndexer(db.NewBoltDB(cfg), t)
+	})
+
+	t.Run("In-memory KV indexer", func(t *testing.T) {
+		testIndexer(db.NewMemKVStore(), t)
+	})
+}
+
+func checkActionEvmTransfers(t *testing.T, expect *systemlogpb.ActionEvmTransfer, actual *systemlogpb.ActionEvmTransfer) {
+	r := require.New(t)
+	r.Equal(expect.ActionHash, actual.ActionHash)
+	r.Equal(expect.NumEvmTransfer, actual.NumEvmTransfer)
+	for i, exp := range expect.EvmTransferList {
+		r.Equal(exp.From, actual.EvmTransferList[i].From)
+		r.Equal(exp.To, actual.EvmTransferList[i].To)
+		r.Equal(exp.Amount, actual.EvmTransferList[i].Amount)
+	}
+}
+
+func checkBlockEvmTransfers(t *testing.T, expect *systemlogpb.BlockEvmTransfer, actual *systemlogpb.BlockEvmTransfer) {
+	r := require.New(t)
+	r.Equal(expect.BlockHeight, actual.BlockHeight)
+	r.Equal(expect.NumEvmTransfer, actual.NumEvmTransfer)
+	for i, exp := range expect.ActionEvmTransferList {
+		r.Equal(exp.ActionHash, actual.ActionEvmTransferList[i].ActionHash)
+		checkActionEvmTransfers(t, exp, actual.ActionEvmTransferList[i])
+	}
+}

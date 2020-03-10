@@ -176,6 +176,7 @@ var (
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
+			SystemLogDBPath:       "./systemlog.db",
 		},
 		DB: DB{
 			NumRetries:   3,
@@ -319,6 +320,7 @@ type (
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
+		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
 	}
 
 	// ActPool is the actpool config
