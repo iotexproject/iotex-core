@@ -11,8 +11,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func TestProtocol(t *testing.T) {
