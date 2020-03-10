@@ -22,8 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 // protocolID is the protocol ID
@@ -73,22 +71,13 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg Configurati
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context) error {
-	// read all candidates from stateDB
-	_, iter, err := p.sr.States(protocol.NamespaceOption(factory.CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil
-	}
+	cands, err := getAllCandidates(p.sr)
 	if err != nil {
 		return err
 	}
 
-	// decode the candidate and put into candidate center
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return errors.Wrapf(err, "failed to deserialize candidate")
-		}
-
+	// populate into candidate center
+	for _, c := range cands {
 		if err := p.inMemCandidates.Upsert(c); err != nil {
 			return err
 		}

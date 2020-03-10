@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
@@ -238,11 +239,27 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 }
 
 func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
-	// TODO
-	return nil, nil
+	// TODO: load from current height's candidate center
+	_, iter, err := sr.States(protocol.NamespaceOption(factory.CandidateNameSpace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var cands CandidateList
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if err := iter.Next(c); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize candidate")
+		}
+		cands = append(cands, c)
+	}
+	return cands, nil
 }
 
-func getCandidateByName(sr protocol.StateReader, name string) (c *Candidate, err error) {
+func getCandidateByName(sr protocol.StateReader, name string) (*Candidate, error) {
 	// TODO use current height's candidate center to avoid looping through all candiates.
 	cands, err := getAllCandidates(sr)
 	if err != nil {
@@ -250,9 +267,8 @@ func getCandidateByName(sr protocol.StateReader, name string) (c *Candidate, err
 	}
 	for _, cand := range cands {
 		if cand.Name == name {
-			c = cand
-			return c, err
+			return cand, nil
 		}
 	}
-	return c, err
+	return nil, nil
 }
