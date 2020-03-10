@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -129,7 +130,7 @@ func NewBlockDAO(kvStore db.KVStore, indexers []BlockIndexer, compressBlock bool
 		cfg:           cfg,
 	}
 	for _, indexer := range indexers {
-		if indexer != nil {
+		if indexer != nil && !reflect.ValueOf(indexer).IsNil() {
 			blockDAO.indexers = append(blockDAO.indexers, indexer)
 			blockDAO.lifecycle.Add(indexer)
 		}

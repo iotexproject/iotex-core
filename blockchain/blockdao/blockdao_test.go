@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/systemlog"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -331,4 +332,10 @@ func BenchmarkBlockCache(b *testing.B) {
 	b.Run("no-cache", func(b *testing.B) {
 		test(0, b)
 	})
+}
+
+func TestNilIndexer(t *testing.T) {
+	var nilPointer *systemlog.Indexer
+	blkDao := NewBlockDAO(nil, []BlockIndexer{nil, nilPointer}, false, config.DB{})
+	require.Equal(t, 0, len(blkDao.(*blockDAO).indexers))
 }
