@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
@@ -32,8 +33,8 @@ const (
 
 func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	kv := db.NewMockKVStore(ctrl)
-	kmap := make(map[hash.Hash160][]byte)
-	vmap := make(map[hash.Hash160][]byte)
+	kmap := make(map[string]map[hash.Hash160][]byte)
+	vmap := make(map[string]map[hash.Hash160][]byte)
 
 	kv.EXPECT().Start(gomock.Any()).Return(nil).AnyTimes()
 	kv.EXPECT().Stop(gomock.Any()).DoAndReturn(
@@ -45,20 +46,33 @@ func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	).AnyTimes()
 	kv.EXPECT().Put(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns string, k []byte, v []byte) error {
-			h := hash.Hash160b(append([]byte(ns), k...))
+			kns, ok := kmap[ns]
+			if !ok {
+				kns = make(map[hash.Hash160][]byte)
+				kmap[ns] = kns
+			}
+			vns, ok := vmap[ns]
+			if !ok {
+				vns = make(map[hash.Hash160][]byte)
+				vmap[ns] = vns
+			}
+			h := hash.Hash160b(k)
 			key := make([]byte, len(k))
 			copy(key, k)
 			value := make([]byte, len(v))
 			copy(value, v)
-			kmap[h] = key
-			vmap[h] = value
+			kns[h] = key
+			vns[h] = value
 			return nil
 		},
 	).AnyTimes()
 	kv.EXPECT().Get(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns string, k []byte) ([]byte, error) {
-			h := hash.Hash160b(append([]byte(ns), k...))
-			v, ok := vmap[h]
+			vns, ok := vmap[ns]
+			if !ok {
+				return nil, db.ErrBucketNotExist
+			}
+			v, ok := vns[hash.Hash160b(k)]
 			if ok {
 				return v, nil
 			}
@@ -67,9 +81,14 @@ func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	).AnyTimes()
 	kv.EXPECT().Delete(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns string, k []byte) error {
-			h := hash.Hash160b(append([]byte(ns), k...))
-			delete(kmap, h)
-			delete(vmap, h)
+			kns, ok := kmap[ns]
+			if !ok {
+				return db.ErrBucketNotExist
+			}
+			vns, _ := vmap[ns]
+			h := hash.Hash160b(k)
+			delete(kns, h)
+			delete(vns, h)
 			return nil
 		},
 	).AnyTimes()
@@ -77,8 +96,24 @@ func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	var fk, fv [][]byte
 	kv.EXPECT().Filter(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ns string, cond db.Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
-			for h, k := range kmap {
-				v := vmap[h]
+			// clear filter result
+			fk = fk[:0]
+			fv = fv[:0]
+			kns, ok := kmap[ns]
+			if !ok {
+				return nil, nil, db.ErrBucketNotExist
+			}
+			vns, _ := vmap[ns]
+			checkMin := len(minKey) > 0
+			checkMax := len(maxKey) > 0
+			for h, k := range kns {
+				if checkMin && bytes.Compare(k, minKey) == -1 {
+					continue
+				}
+				if checkMax && bytes.Compare(k, maxKey) == 1 {
+					continue
+				}
+				v := vns[h]
 				if cond(k, v) {
 					key := make([]byte, len(k))
 					copy(key, k)
