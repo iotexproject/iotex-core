@@ -401,13 +401,19 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// update caller balance
-	if err := caller.SubBalance(new(big.Int).Add(act.Amount(), registrationFee)); err != nil {
+	if err := caller.SubBalance(act.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actCtx.Caller.String())
 	}
 	// put updated caller's account state to trie
 	if err := accountutil.StoreAccount(sm, actCtx.Caller.String(), caller); err != nil {
 		return nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
+
+	// put registrationFee to reward pool
+	if err := p.depositGas(ctx, sm, registrationFee); err != nil {
+		return nil, errors.Wrap(err, "failed to deposit gas")
+	}
+
 	receipt, err := p.settleAction(ctx, sm, gasFee)
 	if err != nil {
 		return nil, err
