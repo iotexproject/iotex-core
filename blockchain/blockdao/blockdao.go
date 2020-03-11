@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -128,12 +127,10 @@ func NewBlockDAO(kvStore db.KVStore, indexers []BlockIndexer, compressBlock bool
 		compressBlock: compressBlock,
 		kvStore:       kvStore,
 		cfg:           cfg,
+		indexers:      indexers,
 	}
 	for _, indexer := range indexers {
-		if indexer != nil && !reflect.ValueOf(indexer).IsNil() {
-			blockDAO.indexers = append(blockDAO.indexers, indexer)
-			blockDAO.lifecycle.Add(indexer)
-		}
+		blockDAO.lifecycle.Add(indexer)
 	}
 	if cfg.MaxCacheSize > 0 {
 		blockDAO.headerCache = cache.NewThreadSafeLruCache(cfg.MaxCacheSize)
