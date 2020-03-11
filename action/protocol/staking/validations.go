@@ -12,6 +12,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -34,9 +36,6 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	}
 	if !IsValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
-	}
-	if act.Amount().Sign() <= 0 {
-		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 	if act.Amount().Cmp(unit.ConvertIotxToRau(p.config.MinStakeAmount)) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
@@ -100,9 +99,6 @@ func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.Depos
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.Amount().Sign() <= 0 {
-		return errors.Wrap(ErrInvalidAmount, "negative value")
-	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
@@ -133,13 +129,9 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return ErrInvalidCanName
 	}
 
-	if act.OperatorAddress() == nil || act.RewardAddress() == nil {
-		return errors.New("empty addresses")
-	}
-
 	minSelfStake := unit.ConvertIotxToRau(p.config.RegistrationConsts.MinSelfStake)
-	if act.Amount() == nil || act.Amount().Cmp(minSelfStake) < 0 {
-		return errors.New("self staking amount is not valid")
+	if act.Amount().Cmp(minSelfStake) < 0 {
+		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
 
 	owner := actCtx.Caller
@@ -155,7 +147,7 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
 			return ErrInvalidCanName
 		}
-		if act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+		if !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 			return ErrInvalidOperator
 		}
 		return nil
@@ -201,7 +193,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	}
 
 	// cannot collide with existing operator address
-	if act.OperatorAddress() != nil && act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+	if act.OperatorAddress() != nil && !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 		return ErrInvalidOperator
 	}
 	return nil
