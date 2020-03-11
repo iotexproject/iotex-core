@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
@@ -205,8 +204,8 @@ func TestGetPutStaking(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 	sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey),
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey),
 	)
 
 	tests := []struct {

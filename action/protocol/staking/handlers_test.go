@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -37,8 +36,8 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey),
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
 

@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 type (
@@ -222,23 +221,23 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 
 func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
 	var d Candidate
-	_, err := sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(name.Bytes()))
+	_, err := sr.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return &d, err
 }
 
 func putCandidate(sm protocol.StateManager, d *Candidate) error {
-	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	_, err := sm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
 	return err
 }
 
 func delCandidate(sm protocol.StateManager, name address.Address) error {
-	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(name.Bytes()))
+	_, err := sm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return err
 }
 
 func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
 	// TODO: load from current height's candidate center
-	_, iter, err := sr.States(protocol.NamespaceOption(factory.CandidateNameSpace))
+	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return nil, nil
 	}

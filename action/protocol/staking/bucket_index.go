@@ -15,16 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
-)
-
-const (
-	// keys in the namespace factory.StakingNameSpace are prefixed with 1-byte tag, which serves 2 purposes:
-	// 1. to be able to store multiple objects under the same key (like bucket index for voter and candidate)
-	// 2. can call underlying KVStore's Filter() to retrieve a certain type of objects
-	_bucket     = iota
-	_voterIndex = _bucket + 1
-	_candIndex  = _voterIndex + 1
 )
 
 type (
@@ -82,7 +72,7 @@ func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, erro
 	var bis BucketIndices
 	if _, err := sr.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil {
 		return nil, err
 	}
@@ -93,14 +83,14 @@ func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
 	bis.addBucketIndex(index)
 	_, err := sm.PutState(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key))
 	return err
 }
@@ -109,7 +99,7 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil {
 		return err
 	}
@@ -118,12 +108,12 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var err error
 	if len(bis) == 0 {
 		_, err = sm.DelState(
-			protocol.NamespaceOption(factory.StakingNameSpace),
+			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	} else {
 		_, err = sm.PutState(
 			&bis,
-			protocol.NamespaceOption(factory.StakingNameSpace),
+			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	}
 	return err
@@ -153,8 +143,8 @@ func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index ui
 	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
 }
 
-func addrKeyWithPrefix(voterAddr address.Address, prefix byte) []byte {
-	k := voterAddr.Bytes()
+func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
+	k := addr.Bytes()
 	key := make([]byte, len(k)+1)
 	key[0] = prefix
 	copy(key[1:], k)
