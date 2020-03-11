@@ -8,16 +8,15 @@ package e2etest
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -164,18 +163,12 @@ func newActPoolConfig(t *testing.T) (config.Config, error) {
 
 	cfg := config.Default
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
-	testTriePath := testTrieFile.Name()
-	r.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	r.NoError(err)
-	testDBPath := testDBFile.Name()
-	r.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	r.NoError(testIndexFile.Close())
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

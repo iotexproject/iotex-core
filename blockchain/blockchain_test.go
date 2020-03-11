@@ -10,9 +10,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -746,18 +744,12 @@ func TestConstantinople(t *testing.T) {
 	}
 
 	cfg := config.Default
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
@@ -993,18 +985,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		}
 	}
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
@@ -1022,18 +1008,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
 
-	testTrieFile, err = ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath2, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath2 := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err = ioutil.TempFile(os.TempDir(), "db")
+	testDBPath2, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath2 := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile2, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath2, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath2 := testIndexFile2.Name()
-	require.NoError(testIndexFile2.Close())
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
@@ -1061,18 +1041,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -1141,18 +1115,12 @@ func TestBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -1219,18 +1187,12 @@ func TestActions(t *testing.T) {
 		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -1506,18 +1468,12 @@ func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVSto
 	require := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

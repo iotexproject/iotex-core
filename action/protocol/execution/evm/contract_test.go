@@ -7,9 +7,7 @@
 package evm
 
 import (
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,10 +31,8 @@ func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -206,10 +202,8 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 	}
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 	}()
@@ -220,10 +214,8 @@ func TestLoadStoreCommit(t *testing.T) {
 		testLoadStoreCommit(cfg, t)
 	})
 
-	testTrieFile, err = ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath2, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath2 := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
 	}()

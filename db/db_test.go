@@ -9,8 +9,6 @@ package db
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -63,10 +61,8 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -117,10 +113,8 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -235,10 +229,8 @@ func TestDBBatch(t *testing.T) {
 	}
 
 	path := "test-batch-commit.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -289,10 +281,8 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path := "test-cache-kv.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -328,10 +318,8 @@ func TestDeleteBucket(t *testing.T) {
 	}
 
 	path := "test-delete.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -430,10 +418,8 @@ func TestFilter(t *testing.T) {
 	}
 
 	path := "test-filter.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testPath := testFile.Name()
-	require.NoError(testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)

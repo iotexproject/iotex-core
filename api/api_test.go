@@ -9,9 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -1868,18 +1866,12 @@ func newConfig(t *testing.T) config.Config {
 	r := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
-	testTriePath := testTrieFile.Name()
-	r.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	r.NoError(err)
-	testDBPath := testDBFile.Name()
-	r.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	r.NoError(testIndexFile.Close())
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath

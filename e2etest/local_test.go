@@ -8,9 +8,7 @@ package e2etest
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -52,18 +50,12 @@ func TestLocalCommit(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	indexDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	indexDBPath := indexDBFile.Name()
-	require.NoError(indexDBFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -166,18 +158,12 @@ func TestLocalCommit(t *testing.T) {
 	require.EqualValues(5, bc.TipHeight())
 
 	// create local chain
-	testTrieFile2, err := ioutil.TempFile(os.TempDir(), triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(triePath2)
 	require.NoError(err)
-	testTriePath2 := testTrieFile2.Name()
-	require.NoError(testTrieFile2.Close())
-	testDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
-	testDBPath2 := testDBFile2.Name()
-	require.NoError(testDBFile2.Close())
-	indexDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
-	indexDBPath2 := indexDBFile2.Name()
-	require.NoError(indexDBFile2.Close())
 	cfg.Chain.TrieDBPath = testTriePath2
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
@@ -388,18 +374,12 @@ func TestLocalSync(t *testing.T) {
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	indexDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	indexDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	indexDBPath := indexDBFile.Name()
-	require.NoError(indexDBFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
@@ -437,18 +417,12 @@ func TestLocalSync(t *testing.T) {
 	hash5 := blk.HashBlock()
 	require.NotNil(svr.P2PAgent())
 
-	testDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	testDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
-	testDBPath2 := testDBFile2.Name()
-	require.NoError(testDBFile2.Close())
-	testTrieFile2, err := ioutil.TempFile(os.TempDir(), triePath2)
+	testTriePath2, err := testutil.PathOfTempFile(triePath2)
 	require.NoError(err)
-	testTriePath2 := testTrieFile2.Name()
-	require.NoError(testTrieFile2.Close())
-	indexDBFile2, err := ioutil.TempFile(os.TempDir(), dBPath2)
+	indexDBPath2, err := testutil.PathOfTempFile(dBPath2)
 	require.NoError(err)
-	indexDBPath2 := indexDBFile2.Name()
-	require.NoError(indexDBFile2.Close())
 
 	cfg, err = newTestConfig()
 	require.NoError(err)
@@ -533,18 +507,12 @@ func TestLocalSync(t *testing.T) {
 func TestStartExistingBlockchain(t *testing.T) {
 	require := require.New(t)
 	ctx := context.Background()
-	testDBFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	testDBPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), triePath)
+	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), dBPath)
+	testIndexPath, err := testutil.PathOfTempFile(dBPath)
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 	// Disable block reward to make bookkeeping easier
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -567,31 +535,38 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	defer func() {
 		require.NoError(svr.Stop(ctx))
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexPath)
 	}()
 
 	require.NoError(addTestingTsfBlocks(bc))
 	require.Equal(uint64(5), bc.TipHeight())
 
+	require.NoError(svr.Stop(ctx))
 	// Delete state db and recover to tip
 	testutil.CleanupPath(t, testTriePath)
-	require.NoError(svr.Stop(ctx))
+
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Start(ctx))
 	height, _ := svr.ChainService(cfg.Chain.ID).StateFactory().Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(5), height)
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))
+
+	// Recover to height 3 from empty state DB
+	testutil.CleanupPath(t, testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
 	dao = svr.ChainService(chainID).BlockDAO()
-	// Recover to height 3 from empty state DB
-	testutil.CleanupPath(t, testTriePath)
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(svr.Stop(ctx))
+
+	// Build states from height 1 to 3
+	testutil.CleanupPath(t, testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
-	// Build states from height 1 to 3
 	require.NoError(svr.Start(ctx))
 	bc = svr.ChainService(chainID).Blockchain()
 	sf = svr.ChainService(chainID).StateFactory()
@@ -601,9 +576,9 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.Equal(uint64(3), height)
 
 	// Recover to height 2 from an existing state DB with Height 3
-	testutil.CleanupPath(t, testTriePath)
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(svr.Stop(ctx))
+	testutil.CleanupPath(t, testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
 	// Build states from height 1 to 2

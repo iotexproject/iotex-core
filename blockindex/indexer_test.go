@@ -9,9 +9,7 @@ package blockindex
 import (
 	"context"
 	"hash/fnv"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -315,10 +313,8 @@ func TestIndexer(t *testing.T) {
 		testIndexer(db.NewMemKVStore(), t)
 	})
 	path := "test-indexer"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testPath := testFile.Name()
-	require.NoError(testFile.Close())
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 

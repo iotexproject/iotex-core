@@ -8,8 +8,6 @@ package rolldpos
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -140,18 +138,12 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	require := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

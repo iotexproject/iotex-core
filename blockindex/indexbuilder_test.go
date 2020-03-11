@@ -2,9 +2,7 @@ package blockindex
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -153,14 +151,10 @@ func TestIndexBuilder(t *testing.T) {
 		testIndexer(db.NewMemKVStore(), indexer, t)
 	})
 	path := "test-indexer"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testPath := testFile.Name()
-	require.NoError(testFile.Close())
-	indexFile, err := ioutil.TempFile(os.TempDir(), path)
+	indexPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	indexPath := indexFile.Name()
-	require.NoError(indexFile.Close())
 	cfg := config.Default.DB
 	t.Run("Bolt DB indexer", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)

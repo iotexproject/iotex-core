@@ -9,8 +9,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strconv"
 	"testing"
 
@@ -140,10 +138,8 @@ func TestCountingIndex(t *testing.T) {
 	})
 
 	path := "test-iterate.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
-	testPath := testFile.Name()
-	require.NoError(t, testFile.Close())
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)

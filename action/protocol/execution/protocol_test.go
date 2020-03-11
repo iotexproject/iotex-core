@@ -457,18 +457,12 @@ func TestProtocol_Handle(t *testing.T) {
 			delete(cfg.Plugins, config.GatewayPlugin)
 		}()
 
-		testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+		testTriePath, err := testutil.PathOfTempFile("trie")
 		require.NoError(err)
-		testTriePath := testTrieFile.Name()
-		require.NoError(testTrieFile.Close())
-		testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+		testDBPath, err := testutil.PathOfTempFile("db")
 		require.NoError(err)
-		testDBPath := testDBFile.Name()
-		require.NoError(testDBFile.Close())
-		testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+		testIndexPath, err := testutil.PathOfTempFile("index")
 		require.NoError(err)
-		testIndexPath := testIndexFile.Name()
-		require.NoError(testIndexFile.Close())
 
 		cfg.Plugins[config.GatewayPlugin] = true
 		cfg.Chain.TrieDBPath = testTriePath

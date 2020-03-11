@@ -8,11 +8,11 @@ package trie
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iotexproject/iotex-core/testutil"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -424,10 +424,8 @@ func TestHistoryTrie(t *testing.T) {
 	AccountKVNamespace := "Account"
 	AccountTrieRootKey := "accountTrieRoot"
 	path := "test-history-trie.bolt"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testPath := testFile.Name()
-	require.NoError(testFile.Close())
 
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{

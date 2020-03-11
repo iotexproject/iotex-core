@@ -3,7 +3,6 @@ package e2etest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -21,6 +20,8 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -36,8 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type claimTestCaseID int
@@ -61,22 +60,14 @@ const (
 
 func TestBlockReward(t *testing.T) {
 	r := require.New(t)
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	r.NoError(err)
-	testTriePath := testTrieFile.Name()
-	r.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	r.NoError(err)
-	testDBPath := testDBFile.Name()
-	r.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	r.NoError(testIndexFile.Close())
-	testConsensusFile, err := ioutil.TempFile(os.TempDir(), "cons")
+	testConsensusPath, err := testutil.PathOfTempFile("cons")
 	r.NoError(err)
-	testConsensusPath := testConsensusFile.Name()
-	r.NoError(testConsensusFile.Close())
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme

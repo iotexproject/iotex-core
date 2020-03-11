@@ -3,7 +3,6 @@ package blockdao
 import (
 	"context"
 	"hash/fnv"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"testing"
@@ -239,10 +238,8 @@ func TestBlockDAO(t *testing.T) {
 		testBlockDao(db.NewMemKVStore(), t)
 	})
 	path := "test-kv-store"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	testPath := testFile.Name()
-	require.NoError(testFile.Close())
 
 	cfg := config.Default.DB
 	t.Run("Bolt DB for blocks", func(t *testing.T) {
@@ -271,14 +268,10 @@ func BenchmarkBlockCache(b *testing.B) {
 	test := func(cacheSize int, b *testing.B) {
 		b.StopTimer()
 		path := "test-kv-store"
-		testFile, err := ioutil.TempFile(os.TempDir(), path)
+		testPath, err := testutil.PathOfTempFile(path)
 		require.NoError(b, err)
-		testPath := testFile.Name()
-		require.NoError(b, testFile.Close())
-		indexFile, err := ioutil.TempFile(os.TempDir(), path)
+		indexPath, err := testutil.PathOfTempFile(path)
 		require.NoError(b, err)
-		indexPath := indexFile.Name()
-		require.NoError(b, indexFile.Close())
 		cfg := config.DB{
 			NumRetries: 1,
 		}

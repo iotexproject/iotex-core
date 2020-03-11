@@ -9,10 +9,8 @@ package e2etest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -260,18 +258,12 @@ func TestLocalTransfer(t *testing.T) {
 
 	require := require.New(t)
 
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	require.NoError(err)
-	testTriePath := testTrieFile.Name()
-	require.NoError(testTrieFile.Close())
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	require.NoError(err)
-	testDBPath := testDBFile.Name()
-	require.NoError(testDBFile.Close())
-	testIndexFile, err := ioutil.TempFile(os.TempDir(), "index")
+	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testIndexPath := testIndexFile.Name()
-	require.NoError(testIndexFile.Close())
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
