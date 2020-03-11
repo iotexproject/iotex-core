@@ -95,7 +95,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	if candidate == nil {
 		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
 	}
-	weightedVote := p.calculateVoteWeight(bucket, false)
+	weightedVote := p.calculateVoteWeight(bucket, p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.SubVote(weightedVote); err != nil {
 		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
 	}
@@ -517,7 +517,7 @@ func (p *Protocol) fetchBucket(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bucket by index %d", index)
 	}
-	if checkOwner && bucket.Owner != actionCtx.Caller {
+	if checkOwner && !address.Equal(bucket.Owner, actionCtx.Caller) {
 		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
 			bucket.Owner.String(), actionCtx.Caller.String())
 	}
