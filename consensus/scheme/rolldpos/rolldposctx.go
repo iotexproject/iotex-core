@@ -590,7 +590,7 @@ func (ctx *rollDPoSCtx) Active() bool {
 
 func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	actionMap := ctx.actPool.PendingActionMap()
-	ctx.logger().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
+	ctx.logger().Info("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
 	blk, err := ctx.chain.MintNewBlock(
 		actionMap,
 		ctx.round.StartTime(),
