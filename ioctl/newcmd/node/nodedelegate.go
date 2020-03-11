@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -80,6 +81,8 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 
 	use, _ := c.SelectTranslation(delegateUses)
 	short, _ := c.SelectTranslation(delegateShorts)
+	flagEpochNumUsage, _ := c.SelectTranslation(flagEpochNumUsages)
+	flagNextEpochUsage, _ := c.SelectTranslation(flagEpochNumUsages)
 
 	nd := &cobra.Command{
 		Use:   use,
@@ -98,12 +101,10 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				if err != nil {
 					return err
 				}
-				//chainMeta, err := bc.GetChainMeta()
-				chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+				chainMeta, err := bc.GetChainMeta(c)
 				if err != nil {
 					return output.NewError(0, "failed to get chain meta", err)
 				}
-				chainMeta := chainMetaResponse.ChainMeta
 				epochNum = chainMeta.Epoch.Num + 1
 				message := nextDelegatesMessage{Epoch: int(epochNum)}
 
@@ -171,22 +172,15 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 				}
 				fmt.Println(message.String())
 			} else {
-				apiServiceClient, err := c.APIServiceClient(ioctl.APIServiceConfig{
-					Endpoint: endpoint,
-					Insecure: insecure,
-				})
-				if err != nil {
-					return err
-				}
 				if epochNum == 0 {
-					chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+					chainMeta, err := bc.GetChainMeta(c)
 					if err != nil {
 						return output.NewError(0, "failed to get chain meta", err)
 					}
-					epochNum = chainMetaResponse.ChainMeta.Epoch.Num
+					epochNum = chainMeta.Epoch.Num
 				}
 
-				response, err := apiServiceClient.GetEpochMeta(context.Background(), &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum})
+				response, err := bc.GetEpochMeta(epochNum, c)
 
 				if err != nil {
 					return output.NewError(0, "failed to get epoch meta", err)
@@ -198,12 +192,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-
-				kickoutListRes, err := apiServiceClient.ReadState(context.Background(), &iotexapi.ReadStateRequest{
-					ProtocolID: []byte("poll"),
-					MethodName: []byte("KickoutListByEpoch"),
-					Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
-				})
+				kickoutListRes, err := bc.GetKickoutList(epochNum, c)
 				if err != nil {
 					return output.NewError(0, "failed to get kickout list", err)
 				}
@@ -240,7 +229,12 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 			return output.PrintError(err)
 		},
 	}
-
+	nd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
+		flagEpochNumUsage)
+	nd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
+		flagNextEpochUsage)
+	nodeStatus = map[bool]string{true: "active", false: ""}
+	kickoutStatus = map[bool]string{true: "kicked-out", false: ""}
 	return nd
 }
 
