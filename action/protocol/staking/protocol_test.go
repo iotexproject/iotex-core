@@ -24,6 +24,12 @@ import (
 func TestProtocol(t *testing.T) {
 	r := require.New(t)
 
+	// make sure the prefix stays constant, they affect the key to store objects to DB
+	r.Equal(byte(0), _const)
+	r.Equal(byte(1), _bucket)
+	r.Equal(byte(2), _voterIndex)
+	r.Equal(byte(3), _candIndex)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := newMockStateManager(ctrl)
