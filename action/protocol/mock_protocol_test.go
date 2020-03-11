@@ -260,43 +260,6 @@ func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1)
 }
 
-// MockActionEnvelopeValidator is a mock of ActionEnvelopeValidator interface
-type MockActionEnvelopeValidator struct {
-	ctrl     *gomock.Controller
-	recorder *MockActionEnvelopeValidatorMockRecorder
-}
-
-// MockActionEnvelopeValidatorMockRecorder is the mock recorder for MockActionEnvelopeValidator
-type MockActionEnvelopeValidatorMockRecorder struct {
-	mock *MockActionEnvelopeValidator
-}
-
-// NewMockActionEnvelopeValidator creates a new mock instance
-func NewMockActionEnvelopeValidator(ctrl *gomock.Controller) *MockActionEnvelopeValidator {
-	mock := &MockActionEnvelopeValidator{ctrl: ctrl}
-	mock.recorder = &MockActionEnvelopeValidatorMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockActionEnvelopeValidator) EXPECT() *MockActionEnvelopeValidatorMockRecorder {
-	return m.recorder
-}
-
-// Validate mocks base method
-func (m *MockActionEnvelopeValidator) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Validate indicates an expected call of Validate
-func (mr *MockActionEnvelopeValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionEnvelopeValidator)(nil).Validate), arg0, arg1)
-}
-
 // MockActionHandler is a mock of ActionHandler interface
 type MockActionHandler struct {
 	ctrl     *gomock.Controller

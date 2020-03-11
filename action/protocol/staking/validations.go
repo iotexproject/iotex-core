@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -20,12 +21,13 @@ import (
 
 // Errors
 var (
-	ErrNilAction       = errors.New("action is nil")
-	ErrInvalidAmount   = errors.New("invalid staking amount")
-	ErrInvalidCanName  = errors.New("invalid candidate name")
-	ErrInvalidOwner    = errors.New("invalid owner address")
-	ErrInvalidOperator = errors.New("invalid operator address")
-	ErrMissingField    = errors.New("misssing data field")
+	ErrNilAction           = errors.New("action is nil")
+	ErrInvalidAmount       = errors.New("invalid staking amount")
+	ErrInvalidCanName      = errors.New("invalid candidate name")
+	ErrInvalidOwner        = errors.New("invalid owner address")
+	ErrInvalidOperator     = errors.New("invalid operator address")
+	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
+	ErrMissingField        = errors.New("missing data field")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
@@ -35,8 +37,8 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if !IsValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	if act.Amount().Sign() <= 0 {
-		return errors.Wrap(ErrInvalidAmount, "negative value")
+	if act.Amount().Cmp(unit.ConvertIotxToRau(p.config.MinStakeAmount)) == -1 {
+		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
@@ -87,9 +89,6 @@ func (p *Protocol) validateTransferStake(ctx context.Context, act *action.Transf
 	if act == nil {
 		return ErrNilAction
 	}
-	if _, err := address.FromString(act.VoterAddress()); err != nil {
-		return errors.Wrap(address.ErrInvalidAddr, "invalid voter address")
-	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
@@ -99,9 +98,6 @@ func (p *Protocol) validateTransferStake(ctx context.Context, act *action.Transf
 func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.DepositToStake) error {
 	if act == nil {
 		return ErrNilAction
-	}
-	if act.Amount().Sign() <= 0 {
-		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
@@ -123,25 +119,38 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if act == nil {
 		return ErrNilAction
 	}
+
+	actCtx := protocol.MustGetActionCtx(ctx)
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
+
 	if !IsValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
 	}
 
-	if act.OperatorAddress() == nil || act.RewardAddress() == nil {
-		return errors.New("empty addresses")
+	minSelfStake := unit.ConvertIotxToRau(p.config.RegistrationConsts.MinSelfStake)
+	if act.Amount().Cmp(minSelfStake) < 0 {
+		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
 
-	minSelfStake := unit.ConvertIotxToRau(1200000)
-	if act.Amount() == nil || act.Amount().Cmp(minSelfStake) < 0 {
-		return errors.New("self staking amount is not valid")
+	owner := actCtx.Caller
+	if act.OwnerAddress() != nil {
+		owner = act.OwnerAddress()
 	}
 
-	// cannot collide with existing owner
-	if p.inMemCandidates.ContainsOwner(act.OwnerAddress()) {
-		return ErrAlreadyExist
+	if c := p.inMemCandidates.GetByOwner(owner); c != nil {
+		// an existing owner, but selfstake is 0
+		if c.SelfStake.Cmp(big.NewInt(0)) != 0 {
+			return ErrInvalidOwner
+		}
+		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
+			return ErrInvalidCanName
+		}
+		if !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+			return ErrInvalidOperator
+		}
+		return nil
 	}
 
 	// cannot collide with existing name
@@ -153,7 +162,6 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 		return ErrInvalidOperator
 	}
-
 	return nil
 }
 
@@ -166,6 +174,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
+
 	if len(act.Name()) != 0 {
 		if !IsValidCandidateName(act.Name()) {
 			return ErrInvalidCanName
@@ -184,7 +193,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	}
 
 	// cannot collide with existing operator address
-	if act.OperatorAddress() != nil && act.OperatorAddress() != c.Operator && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+	if act.OperatorAddress() != nil && !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 		return ErrInvalidOperator
 	}
 	return nil

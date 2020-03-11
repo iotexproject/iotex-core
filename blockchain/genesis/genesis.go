@@ -77,6 +77,20 @@ func defaultConfig() Genesis {
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
 		},
+		Staking: Staking{
+			VoteWeightCalConsts: VoteWeightCalConsts{
+				DurationLg: 1.2,
+				AutoStake:  1,
+				SelfStake:  1.05,
+			},
+			RegistrationConsts: RegistrationConsts{
+				Fee:          100,
+				MinSelfStake: 1200000,
+			},
+			WithdrawWaitingPeriod: 14,
+			MinStakeAmount:        100,
+			BootstrapCandidates:   []BootstrapCandidate{},
+		},
 	}
 }
 
@@ -105,6 +119,7 @@ type (
 		Account    `yaml:"account"`
 		Poll       `yaml:"poll"`
 		Rewarding  `yaml:"rewarding"`
+		Staking    `yaml:"staking"`
 	}
 	// Blockchain contains blockchain level configs
 	Blockchain struct {
@@ -212,6 +227,36 @@ type (
 		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
 		// epoch reward
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
+	}
+	// Staking contains the configs for staking protocol
+	Staking struct {
+		VoteWeightCalConsts   VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
+		RegistrationConsts    RegistrationConsts   `yaml:"registrationConsts"`
+		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
+		MinStakeAmount        int64                `yaml:"minStakeAmount"` // in iotex
+		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
+	}
+
+	// VoteWeightCalConsts contains the configs for calculating vote weight
+	VoteWeightCalConsts struct {
+		DurationLg float64 `yaml:"durationLg"`
+		AutoStake  float64 `yaml:"autoStake"`
+		SelfStake  float64 `yaml:"selfStake"`
+	}
+
+	// RegistrationConsts contains the configs for candidate registration
+	RegistrationConsts struct {
+		Fee          int64 `yaml:"fee"`          // in iotex
+		MinSelfStake int64 `yaml:"minSelfStake"` // in iotex
+	}
+
+	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
+	BootstrapCandidate struct {
+		OwnerAddress      string `yaml:"ownerAddress"`
+		OperatorAddress   string `yaml:"operatorAddress"`
+		RewardAddress     string `yaml:"rewardAddress"`
+		Name              string `yaml:"name"`
+		SelfStakingTokens int64  `yaml:"selfStakingTokens"` // in iotex
 	}
 )
 

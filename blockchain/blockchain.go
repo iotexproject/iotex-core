@@ -502,7 +502,7 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
-	ctx, err := bc.context(context.Background(), false, false)
+	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return err
 	}
@@ -543,16 +543,11 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 	if bc.registry == nil {
 		return nil, nil
 	}
-	tipInfo, err := bc.tipInfo()
-	if err != nil {
-		return nil, err
-	}
 	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
 		protocol.BlockchainCtx{
 			Registry: bc.registry,
 			Genesis:  bc.config.Genesis,
-			Tip:      *tipInfo,
 		})
 
 	if pp := poll.FindProtocol(bc.registry); pp != nil {
@@ -580,6 +575,21 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		candidates, err := bc.candidatesByHeight(i)
+		if err != nil {
+			return err
+		}
+		ctx = protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Registry: bc.registry,
+				Genesis:  bc.config.Genesis,
+				Tip: protocol.TipInfo{
+					Height: i - 1,
+				},
+				Candidates: candidates,
+			},
+		)
 		producer, err := address.FromBytes(blk.PublicKey().Hash())
 		if err != nil {
 			return err

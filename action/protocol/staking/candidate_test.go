@@ -20,7 +20,15 @@ import (
 
 func TestClone(t *testing.T) {
 	r := require.New(t)
-	d := NewCandidate(identityset.Address(1), identityset.Address(1), identityset.Address(1), "testname1234", 0, big.NewInt(2100000000))
+	d := &Candidate{
+		Owner:              identityset.Address(1),
+		Operator:           identityset.Address(1),
+		Reward:             identityset.Address(1),
+		Name:               "testname1234",
+		Votes:              big.NewInt(0),
+		SelfStakeBucketIdx: 0,
+		SelfStake:          big.NewInt(2100000000),
+	}
 	d2 := d.Clone()
 	r.Equal(d, d2)
 	d.AddVote(big.NewInt(100))
@@ -28,7 +36,7 @@ func TestClone(t *testing.T) {
 }
 
 var (
-	tests = []struct {
+	testCandidates = []struct {
 		d     *Candidate
 		index int
 	}{
@@ -87,21 +95,21 @@ func TestCandCenter(t *testing.T) {
 	r := require.New(t)
 
 	m := NewCandidateCenter()
-	for i, v := range tests {
-		r.NoError(m.Put(tests[i].d))
+	for i, v := range testCandidates {
+		r.NoError(m.Upsert(testCandidates[i].d))
 		r.True(m.ContainsName(v.d.Name))
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
-	r.Equal(len(tests), m.Size())
+	r.Equal(len(testCandidates), m.Size())
 
 	// test candidate that does not exist
 	noName := identityset.Address(22)
 	r.False(m.ContainsOwner(noName))
 	m.Delete(noName)
-	r.Equal(len(tests), m.Size())
+	r.Equal(len(testCandidates), m.Size())
 
 	// test existence
-	for _, v := range tests {
+	for _, v := range testCandidates {
 		r.True(m.ContainsName(v.d.Name))
 		r.True(m.ContainsOwner(v.d.Owner))
 		r.True(m.ContainsOperator(v.d.Operator))
@@ -109,14 +117,39 @@ func TestCandCenter(t *testing.T) {
 		r.Equal(v.d, m.GetByName(v.d.Name))
 	}
 
+	// cannot insert candidate with conflicting name/operator/self-staking index
+	old := testCandidates[0].d
+	conflict := m.GetByName(old.Name)
+	r.NotNil(conflict)
+	conflict.Owner = identityset.Address(24)
+	r.Equal(ErrInvalidCanName, m.Upsert(conflict))
+	conflict.Name = "xxx"
+	r.Equal(ErrInvalidOperator, m.Upsert(conflict))
+	conflict.Operator = identityset.Address(24)
+	r.Equal(ErrInvalidSelfStkIndex, m.Upsert(conflict))
+
+	// test update candidate
+	d := m.GetByName(old.Name)
+	r.NotNil(d)
+	d.Name = "xxx"
+	d.Operator = identityset.Address(24)
+	d.SelfStakeBucketIdx += 100
+	r.NoError(m.Upsert(d))
+	r.True(m.ContainsName(d.Name))
+	r.True(m.ContainsOperator(d.Operator))
+	r.True(m.ContainsSelfStakingBucket(d.SelfStakeBucketIdx))
+	r.False(m.ContainsName(old.Name))
+	r.False(m.ContainsOperator(old.Operator))
+	r.False(m.ContainsSelfStakingBucket(old.SelfStakeBucketIdx))
+
 	// test delete
-	for i, v := range tests {
+	for i, v := range testCandidates {
 		m.Delete(v.d.Owner)
 		r.False(m.ContainsOwner(v.d.Owner))
 		r.False(m.ContainsName(v.d.Name))
 		r.False(m.ContainsOperator(v.d.Operator))
 		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
-		r.Equal(len(tests)-i-1, m.Size())
+		r.Equal(len(testCandidates)-i-1, m.Size())
 	}
 }
 
@@ -128,17 +161,17 @@ func TestGetPutCandidate(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 
 	// put candidates and get
-	for _, e := range tests {
+	for _, e := range testCandidates {
 		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
-		require.NoError(putCandidate(sm, e.d.Owner, e.d))
+		require.NoError(putCandidate(sm, e.d))
 		d1, err := getCandidate(sm, e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)
 	}
 
 	// delete buckets and get
-	for _, e := range tests {
+	for _, e := range testCandidates {
 		require.NoError(delCandidate(sm, e.d.Owner))
 		_, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))

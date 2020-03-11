@@ -15,91 +15,28 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 type (
-	// BucketIndex is an alias of proto definition
-	BucketIndex struct {
-		Index       uint64
-		CandAddress address.Address
-	}
-
-	// BucketIndices is an alias of proto definition
-	BucketIndices []*BucketIndex
+	// BucketIndices defines the array of bucket index for a
+	BucketIndices []uint64
 )
-
-// NewBucketIndex creates a new bucket index
-func NewBucketIndex(index uint64, candAddress string) (*BucketIndex, error) {
-	addr, err := address.FromString(candAddress)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to derive address from string")
-	}
-	return &BucketIndex{
-		Index:       index,
-		CandAddress: addr,
-	}, nil
-}
-
-// Proto converts bucket index to protobuf
-func (bi *BucketIndex) Proto() *stakingpb.BucketIndex {
-	return &stakingpb.BucketIndex{
-		Index:       bi.Index,
-		CandAddress: bi.CandAddress.String(),
-	}
-}
-
-// LoadProto converts proto to bucket index
-func (bi *BucketIndex) LoadProto(bucketIndexPb *stakingpb.BucketIndex) error {
-	if bucketIndexPb == nil {
-		return errors.New("bucket index protobuf cannot be nil")
-	}
-	addr, err := address.FromString(bucketIndexPb.CandAddress)
-	if err != nil {
-		return errors.Wrap(err, "failed to derive address from string")
-	}
-	*bi = BucketIndex{
-		Index:       bucketIndexPb.Index,
-		CandAddress: addr,
-	}
-	return nil
-}
-
-// Deserialize deserializes bytes into bucket index
-func (bi *BucketIndex) Deserialize(data []byte) error {
-	bucketIndexPb := &stakingpb.BucketIndex{}
-	if err := proto.Unmarshal(data, bucketIndexPb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal bucket index")
-	}
-	return bi.LoadProto(bucketIndexPb)
-}
-
-// Serialize serializes bucket index into bytes
-func (bi *BucketIndex) Serialize() ([]byte, error) {
-	return proto.Marshal(bi.Proto())
-}
 
 // Proto converts bucket indices to protobuf
 func (bis *BucketIndices) Proto() *stakingpb.BucketIndices {
-	bucketIndicesPb := make([]*stakingpb.BucketIndex, 0, len(*bis))
+	bucketIndicesPb := make([]uint64, 0, len(*bis))
 	for _, bi := range *bis {
-		bucketIndicesPb = append(bucketIndicesPb, bi.Proto())
+		bucketIndicesPb = append(bucketIndicesPb, bi)
 	}
 	return &stakingpb.BucketIndices{Indices: bucketIndicesPb}
 }
 
 // LoadProto converts protobuf to bucket indices
 func (bis *BucketIndices) LoadProto(bucketIndicesPb *stakingpb.BucketIndices) error {
-	bucketIndices := make(BucketIndices, 0)
-	bisPb := bucketIndicesPb.Indices
-	for _, biPb := range bisPb {
-		bi := &BucketIndex{}
-		if err := bi.LoadProto(biPb); err != nil {
-			return errors.Wrap(err, "failed to load proto to bucket index")
-		}
-		bucketIndices = append(bucketIndices, bi)
+	if bucketIndicesPb == nil {
+		return errors.New("bucket indices protobuf cannot be nil")
 	}
-	*bis = bucketIndices
+	*bis = bucketIndicesPb.Indices
 	return nil
 }
 
@@ -117,53 +54,52 @@ func (bis *BucketIndices) Serialize() ([]byte, error) {
 	return proto.Marshal(bis.Proto())
 }
 
-func (bis *BucketIndices) addBucketIndex(bucketIndex *BucketIndex) {
-	*bis = append(*bis, bucketIndex)
+func (bis *BucketIndices) addBucketIndex(index uint64) {
+	*bis = append(*bis, index)
 }
 
 func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	oldBis := *bis
 	for i, bucketIndex := range oldBis {
-		if bucketIndex.Index == index {
+		if bucketIndex == index {
 			*bis = append(oldBis[:i], oldBis[i+1:]...)
 			break
 		}
 	}
 }
 
-func getBucketIndices(sr protocol.StateReader, voterAddr address.Address) (*BucketIndices, error) {
+func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, error) {
 	var bis BucketIndices
 	if _, err := sr.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes())); err != nil {
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key)); err != nil {
 		return nil, err
 	}
 	return &bis, nil
 }
 
-func putBucketIndex(sm protocol.StateManager, voterAddr address.Address, bucketIndex *BucketIndex) error {
+func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes())); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
-	bis.addBucketIndex(bucketIndex)
+	bis.addBucketIndex(index)
 	_, err := sm.PutState(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(voterAddr.Bytes()))
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key))
 	return err
 }
 
-func delBucketIndex(sm protocol.StateManager, voterAddr address.Address, index uint64) error {
-	key := voterAddr.Bytes()
+func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil {
 		return err
 	}
@@ -172,13 +108,45 @@ func delBucketIndex(sm protocol.StateManager, voterAddr address.Address, index u
 	var err error
 	if len(bis) == 0 {
 		_, err = sm.DelState(
-			protocol.NamespaceOption(factory.StakingNameSpace),
+			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	} else {
 		_, err = sm.PutState(
 			&bis,
-			protocol.NamespaceOption(factory.StakingNameSpace),
+			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	}
 	return err
+}
+
+func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
+}
+
+func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+}
+
+func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+}
+
+func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
+}
+
+func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
+}
+
+func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
+}
+
+func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
+	k := addr.Bytes()
+	key := make([]byte, len(k)+1)
+	key[0] = prefix
+	copy(key[1:], k)
+	return key
 }

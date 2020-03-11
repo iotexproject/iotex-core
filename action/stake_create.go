@@ -47,8 +47,8 @@ func NewCreateStake(
 	gasPrice *big.Int,
 ) (*CreateStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
-	if !ok {
-		return nil, errors.Errorf("invalid amount %s", amount)
+	if !ok || stake.Sign() != 1 {
+		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 
 	return &CreateStake{

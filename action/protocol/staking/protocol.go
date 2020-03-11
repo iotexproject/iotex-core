@@ -11,40 +11,140 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
-// protocolID is the protocol ID
-const protocolID = "staking"
+const (
+	// protocolID is the protocol ID
+	protocolID = "staking"
+
+	// StakingNameSpace is the bucket name for staking state
+	StakingNameSpace = "Staking"
+
+	// CandidateNameSpace is the bucket name for candidate state
+	CandidateNameSpace = "Candidate"
+)
+
+const (
+	// keys in the namespace StakingNameSpace are prefixed with 1-byte tag, which serves 2 purposes:
+	// 1. to be able to store multiple objects under the same key (like bucket index for voter and candidate)
+	// 2. can call underlying KVStore's Filter() to retrieve a certain type of objects
+	_const = byte(iota)
+	_bucket
+	_voterIndex
+	_candIndex
+)
 
 // Errors
 var (
 	ErrAlreadyExist = errors.New("candidate already exist")
+	TotalBucketKey  = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
 	addr            address.Address
-	inMemCandidates CandidateCenter
-	voteCal         VoteWeightCalConsts
+	inMemCandidates *CandidateCenter
+	depositGas      DepositGas
+	sr              protocol.StateReader
+	config          genesis.Staking
 }
 
+// DepositGas deposits gas to some pool
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+
 // NewProtocol instantiates the protocol of staking
-func NewProtocol() *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of staking protocol", zap.Error(err))
 	}
 
-	return &Protocol{addr: addr}
+	return &Protocol{
+		addr:            addr,
+		inMemCandidates: NewCandidateCenter(),
+		config:          cfg,
+		depositGas:      depositGas,
+		sr:              sr,
+	}
+}
+
+// CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
+func (p *Protocol) CreateGenesisStates(
+	ctx context.Context,
+	sm protocol.StateManager,
+) error {
+	for _, bc := range p.config.BootstrapCandidates {
+		owner, err := address.FromString(bc.OwnerAddress)
+		if err != nil {
+			return err
+		}
+
+		operator, err := address.FromString(bc.OperatorAddress)
+		if err != nil {
+			return err
+		}
+
+		reward, err := address.FromString(bc.RewardAddress)
+		if err != nil {
+			return err
+		}
+
+		selfStake := unit.ConvertIotxToRau(bc.SelfStakingTokens)
+		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
+		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		if err != nil {
+			return err
+		}
+		c := &Candidate{
+			Owner:              owner,
+			Operator:           operator,
+			Reward:             reward,
+			Name:               bc.Name,
+			Votes:              p.calculateVoteWeight(bucket, true),
+			SelfStakeBucketIdx: bucketIdx,
+			SelfStake:          selfStake,
+		}
+
+		// put in statedb
+		if err := putCandidate(sm, c); err != nil {
+			return err
+		}
+		// put in mem
+		if err := p.inMemCandidates.Upsert(c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Start starts the protocol
+func (p *Protocol) Start(ctx context.Context) error {
+	cands, err := getAllCandidates(p.sr)
+	if err != nil {
+		return err
+	}
+
+	// populate into candidate center
+	for _, c := range cands {
+		if err := p.inMemCandidates.Upsert(c); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Handle handles a staking message
@@ -98,9 +198,39 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, error) {
-	//TODO
-	return nil, protocol.ErrUnimplemented
+func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+	m := iotexapi.ReadStakingDataMethod{}
+	if err := proto.Unmarshal(method, &m); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal method name")
+	}
+	if len(args) != 1 {
+		return nil, errors.Errorf("invalid number of arguments %d", len(args))
+	}
+	r := iotexapi.ReadStakingDataRequest{}
+	if err := proto.Unmarshal(args[0], &r); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal request")
+	}
+	var (
+		resp proto.Message
+		err  error
+	)
+	switch m.GetMethod() {
+	case iotexapi.ReadStakingDataMethod_BUCKETS:
+		resp, err = p.readStateBuckets(ctx, sr, r.GetBuckets())
+	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
+		resp, err = p.readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
+		resp, err = p.readStateBucketsByCandidate(ctx, sr, r.GetBucketsByCandidate())
+	case iotexapi.ReadStakingDataMethod_CANDIDATES:
+	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
+	default:
+		err = errors.New("corresponding method isn't found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return proto.Marshal(resp)
 }
 
 // Register registers the protocol with a unique ID
@@ -114,5 +244,5 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 }
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
-	return calculateVoteWeight(p.voteCal, v, selfStake, time.Now())
+	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }

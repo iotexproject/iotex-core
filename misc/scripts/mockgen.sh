@@ -93,7 +93,7 @@ mockgen -destination=./test/mock/mock_batch/mock_batch.go  \
 mkdir -p ./test/mock/mock_sealed_envelope_validator
 mockgen -destination=./test/mock/mock_sealed_envelope_validator/mock_sealed_envelope_validator.go  \
         -source=./action/sealedenvelopevalidator.go \
-        -package=mock_sealed_envelope_validator.go\
+        -package=mock_sealed_envelope_validator \
         SealedEnvelopeValidator
 
 mkdir -p ./test/mock/mock_chainmanager

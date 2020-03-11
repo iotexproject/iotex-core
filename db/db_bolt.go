@@ -107,7 +107,7 @@ func (b *boltDB) Get(namespace string, key []byte) ([]byte, error) {
 }
 
 // Filter returns <k, v> pair in a bucket that meet the condition
-func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, error) {
+func (b *boltDB) Filter(namespace string, cond Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 	var fk, fv [][]byte
 	if err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(namespace))
@@ -115,7 +115,23 @@ func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, e
 			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", []byte(namespace))
 		}
 
-		return bucket.ForEach(func(k, v []byte) error {
+		var k, v []byte
+		c := bucket.Cursor()
+		if len(minKey) > 0 {
+			k, v = c.Seek(minKey)
+		} else {
+			k, v = c.First()
+		}
+
+		if k == nil {
+			return nil
+		}
+
+		checkMax := len(maxKey) > 0
+		for ; k != nil; k, v = c.Next() {
+			if checkMax && bytes.Compare(k, maxKey) == 1 {
+				return nil
+			}
 			if cond(k, v) {
 				key := make([]byte, len(k))
 				copy(key, k)
@@ -124,8 +140,8 @@ func (b *boltDB) Filter(namespace string, cond Condition) ([][]byte, [][]byte, e
 				fk = append(fk, key)
 				fv = append(fv, value)
 			}
-			return nil
-		})
+		}
+		return nil
 	}); err != nil {
 		return nil, nil, err
 	}

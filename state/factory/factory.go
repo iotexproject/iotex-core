@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -40,10 +41,6 @@ import (
 const (
 	// AccountKVNamespace is the bucket name for account
 	AccountKVNamespace = "Account"
-	// StakingNameSpace is the bucket name for staking state
-	StakingNameSpace = "Staking"
-	// CandidateNameSpace is the bucket name for candidate state
-	CandidateNameSpace = "Candidate"
 	// ArchiveNamespacePrefix is the prefix of the buckets storing history data
 	ArchiveNamespacePrefix = "Archive"
 	// CurrentHeightKey indicates the key of current factory height in underlying DB
@@ -59,8 +56,7 @@ var (
 	ErrNotSupported = errors.New("not supported")
 	// ErrNoArchiveData is the error that the node have no archive data
 	ErrNoArchiveData = errors.New("no archive data")
-	// TotalBucketKey indicates the total count of staking buckets
-	TotalBucketKey  = []byte("totalBucket")
+
 	dbBatchSizelMtc = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "iotex_db_batch_size",
@@ -93,8 +89,8 @@ type (
 		cfg                config.Config
 		currentChainHeight uint64
 		saveHistory        bool
-		twoLayerTrie       *TwoLayerTrie // global state trie, this is a read only trie
-		dao                db.KVStore    // the underlying DB for account/contract storage
+		twoLayerTrie       *trie.TwoLayerTrie // global state trie, this is a read only trie
+		dao                db.KVStore         // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
 	}
@@ -135,10 +131,14 @@ func InMemTrieOption() Option {
 	}
 }
 
-func newTwoLayerTrie(rootKey string, dao db.KVStore, create bool) (*TwoLayerTrie, error) {
-	_, err := dao.Get(ArchiveTrieNamespace, []byte(rootKey))
+func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*trie.TwoLayerTrie, error) {
+	dbForTrie, err := trie.NewKVStore(ns, dao)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create db for trie")
+	}
+	_, err = dbForTrie.Get([]byte(rootKey))
 	switch errors.Cause(err) {
-	case db.ErrNotExist:
+	case trie.ErrNotExist:
 		if !create {
 			return nil, err
 		}
@@ -147,18 +147,7 @@ func newTwoLayerTrie(rootKey string, dao db.KVStore, create bool) (*TwoLayerTrie
 	default:
 		return nil, err
 	}
-	dbForTrie, err := db.NewKVStoreForTrie(ArchiveTrieNamespace, dao)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create db for trie")
-	}
-	tr, err := trie.NewTrie(
-		trie.KVStoreOption(dbForTrie),
-		trie.RootKeyOption(rootKey),
-	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to generate trie for %s", rootKey)
-	}
-	return &TwoLayerTrie{layerOne: tr}, nil
+	return trie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory
@@ -199,7 +188,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieRootKey, sf.dao, true); err != nil {
+	if sf.twoLayerTrie, err = newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, ArchiveTrieRootKey, true); err != nil {
 		return errors.Wrap(err, "failed to generate accountTrie from config")
 	}
 	if err := sf.twoLayerTrie.Start(ctx); err != nil {
@@ -227,7 +216,7 @@ func (sf *factory) Start(ctx context.Context) error {
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
-		if err = sf.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+		if err = sf.dao.Put(staking.StakingNameSpace, staking.TotalBucketKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to init factory's total bucket account")
 		}
 	default:
@@ -262,7 +251,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	if err != nil {
 		return nil, err
 	}
-	tlt, err := newTwoLayerTrie(ArchiveTrieRootKey, flusher.KVStoreWithBuffer(), true)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, flusher.KVStoreWithBuffer(), ArchiveTrieRootKey, true)
 	if err != nil {
 		return nil, err
 	}
@@ -496,27 +485,63 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	archive, height, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if archive {
-		if height > sf.currentChainHeight {
-			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	if cfg.AtHeight {
+		if cfg.Height > sf.currentChainHeight {
+			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
 		}
-		if height != sf.currentChainHeight {
-			return sf.currentChainHeight, sf.stateAtHeight(height, ns, key, s)
+		if cfg.Height != sf.currentChainHeight {
+			return sf.currentChainHeight, sf.stateAtHeight(cfg.Height, cfg.Namespace, cfg.Key, s)
 		}
 	}
-	value, err := sf.dao.Get(ns, key)
+	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", ns, key)
+			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
 		}
 		return sf.currentChainHeight, err
 	}
 
 	return sf.currentChainHeight, state.Deserialize(s, value)
+}
+
+// State returns a set states in the state factory
+func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return 0, nil, err
+	}
+	if cfg.Key != nil {
+		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
+	}
+	if cfg.AtHeight {
+		if cfg.Height > sf.currentChainHeight {
+			return sf.currentChainHeight, nil, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
+		}
+		if cfg.Height != sf.currentChainHeight {
+			return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+		}
+	}
+
+	if cfg.Cond == nil {
+		cfg.Cond = func(k, v []byte) bool {
+			return true
+		}
+	}
+	_, values, err := sf.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+			return sf.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
+		}
+		return sf.currentChainHeight, nil, err
+	}
+
+	return sf.currentChainHeight, state.NewIterator(values), nil
 }
 
 //======================================
@@ -532,7 +557,7 @@ func namespaceKey(ns string) []byte {
 	return h[:]
 }
 
-func readState(tlt *TwoLayerTrie, ns string, key []byte, s interface{}) error {
+func readState(tlt *trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
 	data, err := tlt.Get(namespaceKey(ns), key)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -548,7 +573,7 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	if !sf.saveHistory {
 		return ErrNoArchiveData
 	}
-	tlt, err := newTwoLayerTrie(fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), sf.dao, false)
+	tlt, err := newTwoLayerTrie(ArchiveTrieNamespace, sf.dao, fmt.Sprintf("%s-%d", ArchiveTrieRootKey, height), false)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %d", height)
 	}

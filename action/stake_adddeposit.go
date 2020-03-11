@@ -38,11 +38,15 @@ type DepositToStake struct {
 func NewDepositToStake(
 	nonce uint64,
 	index uint64,
-	amount *big.Int,
+	amount string,
 	payload []byte,
 	gasLimit uint64,
 	gasPrice *big.Int,
 ) (*DepositToStake, error) {
+	stake, ok := new(big.Int).SetString(amount, 10)
+	if !ok || stake.Sign() != 1 {
+		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
+	}
 	return &DepositToStake{
 		AbstractAction: AbstractAction{
 			version:  version.ProtocolVersion,
@@ -51,7 +55,7 @@ func NewDepositToStake(
 			gasPrice: gasPrice,
 		},
 		bucketIndex: index,
-		amount:      amount,
+		amount:      stake,
 		payload:     payload,
 	}, nil
 }

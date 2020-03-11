@@ -370,13 +370,13 @@ func TestFilter(t *testing.T) {
 
 		_, _, err := kv.Filter("nonamespace", func(k, v []byte) bool {
 			return bytes.HasPrefix(k, v)
-		})
+		}, nil, nil)
 		require.Equal(ErrBucketNotExist, errors.Cause(err))
 
 		// filter using func with no match
 		fk, fv, err := kv.Filter(tests[0].ns, func(k, v []byte) bool {
 			return bytes.HasPrefix(k, tests[2].prefix)
-		})
+		}, nil, nil)
 		require.Nil(fk)
 		require.Nil(fv)
 		require.Equal(ErrNotExist, errors.Cause(err))
@@ -385,12 +385,32 @@ func TestFilter(t *testing.T) {
 		for _, e := range tests {
 			fk, fv, err := kv.Filter(e.ns, func(k, v []byte) bool {
 				return bytes.HasPrefix(k, e.prefix)
-			})
+			}, nil, nil)
 			require.NoError(err)
 			require.Equal(numKey, len(fk))
 			require.Equal(numKey, len(fv))
 			for i := range fk {
 				k := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(i))...)
+				require.Equal(fk[i], k)
+				v := hash.Hash256b(k)
+				require.Equal(fv[i], v[:])
+			}
+		}
+
+		// filter with min/max key
+		for _, e := range tests {
+			min := 9
+			max := 91
+			minKey := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(min))...)
+			maxKey := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(max))...)
+			fk, fv, err := kv.Filter(e.ns, func(k, v []byte) bool {
+				return bytes.HasPrefix(k, e.prefix)
+			}, minKey, maxKey)
+			require.NoError(err)
+			require.Equal(max-min+1, len(fk))
+			require.Equal(max-min+1, len(fv))
+			for i := range fk {
+				k := append(e.prefix, byteutil.Uint64ToBytesBigEndian(uint64(i+min))...)
 				require.Equal(fk[i], k)
 				v := hash.Hash256b(k)
 				require.Equal(fv[i], v[:])

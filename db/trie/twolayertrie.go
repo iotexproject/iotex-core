@@ -4,41 +4,76 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package factory
+package trie
 
 import (
 	"context"
+	"encoding/hex"
 
 	"github.com/pkg/errors"
-
-	"github.com/iotexproject/iotex-core/db/trie"
 )
 
 // TwoLayerTrie is a trie data structure with two layers
 type TwoLayerTrie struct {
-	layerOne trie.Trie
+	layerOne Trie
+	layerTwo map[string]Trie
+	kvStore  KVStore
+	rootKey  string
 }
 
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
-	value, err := tlt.layerOne.Get(key)
-	if err != nil {
-		if errors.Cause(err) == trie.ErrNotExist {
-			return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.KeyLengthOption(layerTwoTrieKeyLen))
-		}
+// NewTwoLayerTrie creates a two layer trie
+func NewTwoLayerTrie(dbForTrie KVStore, rootKey string) *TwoLayerTrie {
+	return &TwoLayerTrie{
+		kvStore: dbForTrie,
+		rootKey: rootKey,
+	}
+}
 
+func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie, error) {
+	hk := hex.EncodeToString(key)
+	if lt, ok := tlt.layerTwo[hk]; ok {
+		return lt, nil
+	}
+	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen)}
+	value, err := tlt.layerOne.Get(key)
+	switch errors.Cause(err) {
+	case ErrNotExist:
+		// start an empty trie
+	case nil:
+		opts = append(opts, RootHashOption(value))
+	default:
 		return nil, err
 	}
 
-	return trie.NewTrie(trie.KVStoreOption(tlt.layerOne.DB()), trie.RootHashOption(value), trie.KeyLengthOption(layerTwoTrieKeyLen))
+	lt, err := NewTrie(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return lt, lt.Start(context.Background())
 }
 
 // Start starts the layer one trie
 func (tlt *TwoLayerTrie) Start(ctx context.Context) error {
+	layerOne, err := NewTrie(
+		KVStoreOption(tlt.kvStore),
+		RootKeyOption(tlt.rootKey),
+	)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
+	}
+	tlt.layerOne = layerOne
+	tlt.layerTwo = make(map[string]Trie)
+
 	return tlt.layerOne.Start(ctx)
 }
 
 // Stop stops the layer one trie
 func (tlt *TwoLayerTrie) Stop(ctx context.Context) error {
+	for _, lt := range tlt.layerTwo {
+		if err := lt.Stop(ctx); err != nil {
+			return err
+		}
+	}
 	return tlt.layerOne.Stop(ctx)
 }
 
@@ -58,10 +93,6 @@ func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, er
 	if err != nil {
 		return nil, err
 	}
-	if err := layerTwo.Start(context.Background()); err != nil {
-		return nil, err
-	}
-	defer layerTwo.Stop(context.Background())
 
 	return layerTwo.Get(layerTwoKey)
 }
@@ -72,11 +103,6 @@ func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 	if err != nil {
 		return err
 	}
-	if err := layerTwo.Start(context.Background()); err != nil {
-		return err
-	}
-	defer layerTwo.Stop(context.Background())
-
 	if err := layerTwo.Upsert(layerTwoKey, value); err != nil {
 		return err
 	}
@@ -90,11 +116,6 @@ func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 	if err != nil {
 		return err
 	}
-	if err := layerTwo.Start(context.Background()); err != nil {
-		return err
-	}
-	defer layerTwo.Stop(context.Background())
-
 	if err := layerTwo.Delete(layerTwoKey); err != nil {
 		return err
 	}
