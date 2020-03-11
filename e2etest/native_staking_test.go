@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
@@ -63,6 +64,7 @@ func TestNativeStaking(t *testing.T) {
 		chainID := cfg.Chain.ID
 		bc := svr.ChainService(chainID).Blockchain()
 		sf := svr.ChainService(chainID).StateFactory()
+		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
 
 		// Create two candidates
@@ -120,19 +122,17 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, cs1, false, initBalance, voter1Addr))
 		require.NoError(checkAccountState(cfg, sf, cs2, false, initBalance, voter2Addr))
 
-		// TODO: we should get bucket index through receipt
-		var bis staking.BucketIndices
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(voter1Addr, _voterIndex)))
+		// get bucket index from receipts
+		r1, err := dao.GetReceiptByActionHash(cs1.Hash(), 3)
 		require.NoError(err)
-		require.Equal(1, len(bis))
-		voter1BucketIndex := bis[0]
+		require.Equal(1, len(r1.Logs))
 
-		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
-			protocol.KeyOption(addrKeyWithPrefix(voter2Addr, _voterIndex)))
+		r2, err := dao.GetReceiptByActionHash(cs2.Hash(), 3)
 		require.NoError(err)
-		require.Equal(1, len(bis))
-		voter2BucketIndex := bis[0]
+		require.Equal(1, len(r2.Logs))
+
+		voter1BucketIndex := byteutil.BytesToUint64(r1.Logs[0].Data)
+		voter2BucketIndex := byteutil.BytesToUint64(r2.Logs[0].Data)
 
 		// change candidate
 		cc, err := testutil.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
@@ -153,6 +153,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(createAndCommitBlock(bc, []address.Address{voter1Addr}, []action.SealedEnvelope{ts}, fixedTime))
 
 		// check buckets
+		var bis staking.BucketIndices
 		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
 			protocol.KeyOption(addrKeyWithPrefix(voter1Addr, _voterIndex)))
 		require.Error(err)

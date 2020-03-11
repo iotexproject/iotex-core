@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -39,7 +40,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	if _, err := putBucketAndIndex(sm, bucket); err != nil {
+	bucketIdx, err := putBucketAndIndex(sm, bucket)
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to put bucket")
 	}
 
@@ -61,7 +63,15 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        byteutil.Uint64ToBytes(bucketIdx),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+	}
+
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -413,7 +423,15 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := &action.Log{
+		Address:     p.addr.String(),
+		Topics:      nil,
+		Data:        byteutil.Uint64ToBytes(bucketIdx),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actCtx.ActionHash,
+	}
+
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, err
 	}
@@ -470,6 +488,7 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	gasFee *big.Int,
+	logs ...*action.Log,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -489,6 +508,7 @@ func (p *Protocol) settleAction(
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
+		Logs:            logs,
 	}, nil
 }
 
