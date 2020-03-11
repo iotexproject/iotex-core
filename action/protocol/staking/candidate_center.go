@@ -67,6 +67,9 @@ func (m CandidateCenter) GetByName(name string) *Candidate {
 
 // GetByOwner returns the candidate by owner
 func (m CandidateCenter) GetByOwner(owner address.Address) *Candidate {
+	if owner == nil {
+		return nil
+	}
 	if d, ok := m.ownerMap[owner.String()]; ok {
 		return d.Clone()
 	}

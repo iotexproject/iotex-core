@@ -12,11 +12,12 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -29,12 +30,6 @@ type (
 		Votes              *big.Int
 		SelfStakeBucketIdx uint64
 		SelfStake          *big.Int
-	}
-
-	// RegistrationConsts are the registration fee and min self stake
-	RegistrationConsts struct {
-		Fee          int64
-		MinSelfStake int64
 	}
 
 	// CandidateList is a list of candidates which is sortable
@@ -173,6 +168,18 @@ func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
 	return nil
 }
 
+func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
+	return &iotextypes.CandidateV2{
+		OwnerAddress:       d.Owner.String(),
+		OperatorAddress:    d.Operator.String(),
+		RewardAddress:      d.Reward.String(),
+		Name:               d.Name,
+		TotalWeightedVotes: d.Votes.String(),
+		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
+		SelfStakingTokens:  d.SelfStake.String(),
+	}
+}
+
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
@@ -213,26 +220,52 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 }
 
 func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
-
 	var d Candidate
-	_, err := sr.State(&d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sr.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return &d, err
 }
 
 func putCandidate(sm protocol.StateManager, d *Candidate) error {
-	key := make([]byte, len(d.Owner.Bytes()))
-	copy(key, d.Owner.Bytes())
-
-	_, err := sm.PutState(d, protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
 	return err
 }
 
 func delCandidate(sm protocol.StateManager, name address.Address) error {
-	key := make([]byte, len(name.Bytes()))
-	copy(key, name.Bytes())
-
-	_, err := sm.DelState(protocol.NamespaceOption(factory.CandidateNameSpace), protocol.KeyOption(key))
+	_, err := sm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return err
+}
+
+func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
+	// TODO: load from current height's candidate center
+	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	cands := make(CandidateList, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		c := &Candidate{}
+		if err := iter.Next(c); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize candidate")
+		}
+		cands = append(cands, c)
+	}
+	return cands, nil
+}
+
+func getCandidateByName(sr protocol.StateReader, name string) (*Candidate, error) {
+	// TODO use current height's candidate center to avoid looping through all candiates.
+	cands, err := getAllCandidates(sr)
+	if err != nil {
+		return nil, err
+	}
+	for _, cand := range cands {
+		if cand.Name == name {
+			return cand, nil
+		}
+	}
+	return nil, nil
 }

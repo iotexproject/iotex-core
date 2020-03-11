@@ -22,9 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -36,13 +36,13 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	sm := newMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey),
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey),
 	)
 	require.NoError(err)
 
 	// create protocol
-	p := NewProtocol(depositGas, sm, Configuration{})
+	p := NewProtocol(depositGas, sm, genesis.Staking{})
 
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()

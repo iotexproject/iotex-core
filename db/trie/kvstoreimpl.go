@@ -4,13 +4,15 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package db
+package trie
 
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
@@ -28,17 +30,17 @@ func init() {
 	prometheus.MustRegister(trieKeystoreMtc)
 }
 
-// KVStoreForTrie defines a kvStore with fixed bucket and cache layer for trie.
+// kvStoreImpl defines a kvStore with fixed bucket and cache layer for trie.
 // It may be used in other cases as well
-type KVStoreForTrie struct {
+type kvStoreImpl struct {
 	lc     lifecycle.Lifecycle
 	bucket string
-	dao    KVStoreBasic
+	dao    db.KVStoreBasic
 }
 
-// NewKVStoreForTrie creates a new KVStoreForTrie
-func NewKVStoreForTrie(bucket string, dao KVStoreBasic) (*KVStoreForTrie, error) {
-	s := &KVStoreForTrie{
+// NewKVStore creates a new KVStore
+func NewKVStore(bucket string, dao db.KVStoreBasic) (KVStore, error) {
+	s := &kvStoreImpl{
 		bucket: bucket,
 		dao:    dao,
 	}
@@ -48,31 +50,40 @@ func NewKVStoreForTrie(bucket string, dao KVStoreBasic) (*KVStoreForTrie, error)
 }
 
 // Start starts the kv store
-func (s *KVStoreForTrie) Start(ctx context.Context) error {
+func (s *kvStoreImpl) Start(ctx context.Context) error {
 	return s.lc.OnStart(ctx)
 }
 
 // Stop stops the kv store
-func (s *KVStoreForTrie) Stop(ctx context.Context) error {
+func (s *kvStoreImpl) Stop(ctx context.Context) error {
 	return s.lc.OnStop(ctx)
 }
 
 // Delete deletes key
-func (s *KVStoreForTrie) Delete(key []byte) error {
+func (s *kvStoreImpl) Delete(key []byte) error {
 	trieKeystoreMtc.WithLabelValues("delete").Inc()
-	// TODO: bug, need to mark key as deleted
 
-	return s.dao.Delete(s.bucket, key)
+	err := s.dao.Delete(s.bucket, key)
+	if errors.Cause(err) == db.ErrNotExist {
+		return errors.Wrap(ErrNotExist, err.Error())
+	}
+
+	return err
 }
 
 // Put puts value for key
-func (s *KVStoreForTrie) Put(key, value []byte) error {
+func (s *kvStoreImpl) Put(key, value []byte) error {
 	trieKeystoreMtc.WithLabelValues("put").Inc()
 	return s.dao.Put(s.bucket, key, value)
 }
 
 // Get gets value of key
-func (s *KVStoreForTrie) Get(key []byte) ([]byte, error) {
+func (s *kvStoreImpl) Get(key []byte) ([]byte, error) {
 	trieKeystoreMtc.WithLabelValues("get").Inc()
-	return s.dao.Get(s.bucket, key)
+	value, err := s.dao.Get(s.bucket, key)
+	if errors.Cause(err) == db.ErrNotExist {
+		return nil, errors.Wrapf(ErrNotExist, err.Error())
+	}
+
+	return value, err
 }

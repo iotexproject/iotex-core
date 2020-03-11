@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -135,7 +136,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
-		if err = sdb.dao.Put(StakingNameSpace, TotalBucketKey[:], make([]byte, 8)); err != nil {
+		if err = sdb.dao.Put(staking.StakingNameSpace, staking.TotalBucketKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's total bucket account")
 		}
 	default:
@@ -330,37 +331,41 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 
-	archive, _, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
 	}
-	if archive {
+	if cfg.AtHeight {
 		return 0, ErrNotSupported
 	}
 
-	return sdb.currentChainHeight, sdb.state(ns, key, s)
+	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
 
 // State returns a set of states in the state factory
 func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 	sdb.mutex.RLock()
 	defer sdb.mutex.RUnlock()
-	archive, _, ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, nil, err
 	}
-	if key != nil {
+	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if archive {
+	if cfg.AtHeight {
 		return 0, nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
 	}
-	_, values, err := sdb.dao.Filter(ns, func(k, v []byte) bool {
-		return true
-	})
+
+	if cfg.Cond == nil {
+		cfg.Cond = func(k, v []byte) bool {
+			return true
+		}
+	}
+	_, values, err := sdb.dao.Filter(cfg.Namespace, cfg.Cond, cfg.MinKey, cfg.MaxKey)
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", ns)
+		if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+			return sdb.currentChainHeight, nil, errors.Wrapf(state.ErrStateNotExist, "failed to get states of ns = %x", cfg.Namespace)
 		}
 		return sdb.currentChainHeight, nil, err
 	}

@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"bytes"
 	"math"
 	"math/big"
 	"time"
@@ -14,12 +15,14 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -33,13 +36,6 @@ type (
 		StakeStartTime   time.Time
 		UnstakeStartTime time.Time
 		AutoStake        bool
-	}
-
-	// VoteWeightCalConsts is a group of const which used in vote weight calculation.
-	VoteWeightCalConsts struct {
-		DurationLg float64
-		AutoStake  float64
-		SelfStake  float64
 	}
 
 	// totalBucketCount stores the total bucket count
@@ -144,6 +140,32 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	}, nil
 }
 
+func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
+	createTime, err := ptypes.TimestampProto(vb.CreateTime)
+	if err != nil {
+		return nil, err
+	}
+	stakeTime, err := ptypes.TimestampProto(vb.StakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+	unstakeTime, err := ptypes.TimestampProto(vb.UnstakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+
+	return &iotextypes.VoteBucket{
+		CandidateAddress: vb.Candidate.String(),
+		Owner:            vb.Owner.String(),
+		StakedAmount:     vb.StakedAmount.String(),
+		StakedDuration:   uint32(vb.StakedDuration / 24 / time.Hour),
+		CreateTime:       createTime,
+		StakeStartTime:   stakeTime,
+		UnstakeStartTime: unstakeTime,
+		AutoStake:        vb.AutoStake,
+	}, nil
+}
+
 // Serialize serializes bucket into bytes
 func (vb *VoteBucket) Serialize() ([]byte, error) {
 	pb, err := vb.toProto()
@@ -173,8 +195,8 @@ func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 	var tc totalBucketCount
 	_, err := sr.State(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey))
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
 	return tc.count, err
 }
 
@@ -182,7 +204,7 @@ func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	if _, err := sr.State(
 		&vb,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
 	}
@@ -196,7 +218,7 @@ func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) er
 
 	_, err := sm.PutState(
 		bucket,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
@@ -205,46 +227,85 @@ func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
 	if _, err := sm.State(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey)); err != nil {
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil {
 		return 0, err
 	}
 
 	index := tc.Count()
 	if _, err := sm.PutState(
 		bucket,
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return 0, err
 	}
 	tc.count++
 	_, err := sm.PutState(
 		&tc,
-		protocol.NamespaceOption(factory.StakingNameSpace),
-		protocol.KeyOption(factory.TotalBucketKey))
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
 	return index, err
 }
 
 func delBucket(sm protocol.StateManager, index uint64) error {
 	_, err := sm.DelState(
-		protocol.NamespaceOption(factory.StakingNameSpace),
+		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
 
+func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
+	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
+	maxKey := []byte{_bucket + 1}
+	_, iter, err := sr.States(
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			return bytes.HasPrefix(k, []byte{_bucket})
+		}, bucketKey(0), maxKey))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	buckets := make([]*VoteBucket, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		vb := &VoteBucket{}
+		if err := iter.Next(vb); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize bucket")
+		}
+		buckets = append(buckets, vb)
+	}
+	return buckets, nil
+}
+
+func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := getBucket(sr, i)
+		if err != nil {
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
+}
+
 func bucketKey(index uint64) []byte {
-	key := []byte{bucket}
+	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
 }
 
-func calculateVoteWeight(c VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
+func calculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
 	remainingTime := v.StakedDuration.Seconds()
 	weight := float64(1)
-	if remainingTime > 0 {
-		weight += math.Log(math.Ceil(remainingTime/86400)) / math.Log(c.DurationLg) / 100
-	}
+	var m float64
 	if v.AutoStake {
-		weight *= c.AutoStake
+		m = c.AutoStake
+	}
+	if remainingTime > 0 {
+		weight += math.Log(math.Ceil(remainingTime/86400)*(1+m)) / math.Log(c.DurationLg) / 100
 	}
 	if selfStake {
 		weight *= c.SelfStake

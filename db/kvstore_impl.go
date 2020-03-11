@@ -92,7 +92,7 @@ func (m *memKVStore) Delete(namespace string, key []byte) error {
 }
 
 // Filter returns <k, v> pair in a bucket that meet the condition
-func (m *memKVStore) Filter(namespace string, c Condition) ([][]byte, [][]byte, error) {
+func (m *memKVStore) Filter(namespace string, c Condition, minKey, maxKey []byte) ([][]byte, [][]byte, error) {
 	// TODO: implement filter for memKVStore
 	return nil, nil, errors.New("in-memory KVStore does not support Filter()")
 }

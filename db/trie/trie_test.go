@@ -454,7 +454,7 @@ func TestHistoryTrie(t *testing.T) {
 	value1 := []byte{1}
 	value2 := []byte{2}
 
-	trieDB, err := db.NewKVStoreForTrie(AccountKVNamespace, flusher.KVStoreWithBuffer())
+	trieDB, err := NewKVStore(AccountKVNamespace, flusher.KVStoreWithBuffer())
 	require.NoError(err)
 	tr, err := NewTrie(KVStoreOption(trieDB), RootKeyOption(AccountTrieRootKey))
 	require.NoError(err)
