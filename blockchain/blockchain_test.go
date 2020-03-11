@@ -788,16 +788,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		var indexer blockindex.Indexer
+		var indexers []blockdao.BlockIndexer
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
 			indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 			require.NoError(err)
+			indexers = append(indexers, indexer)
 		}
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexers, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -1490,16 +1492,18 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	var indexer blockindex.Indexer
+	var indexers []blockdao.BlockIndexer
 	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 		require.NoError(err)
+		indexers = append(indexers, indexer)
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexers, cfg.Chain.CompressBlock, cfg.DB)
 	require.NotNil(dao)
 	bc := NewBlockchain(
 		cfg,

@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -60,6 +61,9 @@ func NewIndexer(kv db.KVStore) (*Indexer, error) {
 
 // Start starts the indexer
 func (x *Indexer) Start(ctx context.Context) error {
+	if err := x.kvStore.Start(ctx); err != nil {
+		return err
+	}
 	if _, err := x.kvStore.Get(indexerStatus, tipBlockHeightKey); err != nil && errors.Cause(err) == db.ErrNotExist {
 		if err := x.kvStore.Put(indexerStatus, tipBlockHeightKey, make([]byte, 8)); err != nil {
 			return errors.Wrap(err, "failed to initialize tip block height")
@@ -71,21 +75,12 @@ func (x *Indexer) Start(ctx context.Context) error {
 	}
 	x.tipBlockHeight = byteutil.BytesToUint64(value)
 
-	return x.kvStore.Start(ctx)
+	return nil
 }
 
 // Stop stops the indexer
 func (x *Indexer) Stop(ctx context.Context) error {
 	return x.kvStore.Stop(ctx)
-}
-
-// Commit writes the batch to DB
-func (x *Indexer) Commit() error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-	x.batch.Put(indexerStatus, tipBlockHeightKey, byteutil.Uint64ToBytes(x.tipBlockHeight),
-		"failed to update tip block height")
-	return x.kvStore.WriteBatch(x.batch)
 }
 
 // PutBlock indexes the block
@@ -101,15 +96,19 @@ func (x *Indexer) PutBlock(blk *block.Block) error {
 
 	actionHashList := &systemlogpb.ActionHashList{}
 	for _, receipt := range blk.Receipts {
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Failure) {
+			continue
+		}
+
 		evmTransferList := &systemlogpb.EvmTransferList{}
 		for _, l := range receipt.Logs {
 			if action.IsSystemLog(l) {
 				// TODO: switch different kinds of system log
-				fromAddr, err := address.FromBytes(l.Topics[1][:])
+				fromAddr, err := address.FromBytes(l.Topics[1][12:])
 				if err != nil {
 					return errors.Wrap(err, "failed to convert IoTeX address")
 				}
-				toAddr, err := address.FromBytes(l.Topics[2][:])
+				toAddr, err := address.FromBytes(l.Topics[2][12:])
 				if err != nil {
 					return errors.Wrap(err, "failed to convert IoTeX address")
 				}
@@ -147,7 +146,7 @@ func (x *Indexer) PutBlock(blk *block.Block) error {
 
 	x.tipBlockHeight++
 
-	return nil
+	return x.commit()
 }
 
 // DeleteTipBlock deletes a block's evm transfer
@@ -181,7 +180,7 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 
 	x.tipBlockHeight--
 
-	return nil
+	return x.commit()
 }
 
 // GetEvmTransferByActionHash queries evm transfers by action hash
@@ -191,9 +190,14 @@ func (x *Indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlo
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
 	}
 
-	pb := &systemlogpb.ActionEvmTransfer{}
-	if err := proto.UnmarshalMerge(data, pb); err != nil {
+	etl := &systemlogpb.EvmTransferList{}
+	if err := proto.UnmarshalMerge(data, etl); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize ActionEvmTransfer")
+	}
+	pb := &systemlogpb.ActionEvmTransfer{
+		ActionHash:      actionHash[:],
+		NumEvmTransfer:  int32(len(etl.EvmTransferList)),
+		EvmTransferList: etl.EvmTransferList,
 	}
 
 	return pb, nil
@@ -218,16 +222,27 @@ func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.
 			return nil, errors.Wrap(err, "failed to get evm transfer by action hash")
 		}
 
-		apb := &systemlogpb.ActionEvmTransfer{}
-		if err := proto.Unmarshal(data, apb); err != nil {
+		etl := &systemlogpb.EvmTransferList{}
+		if err := proto.Unmarshal(data, etl); err != nil {
 			return nil, errors.Wrap(err, "failed to deserialize ActionEvmTransfer")
 		}
 
-		pb.ActionEvmTransferList = append(pb.ActionEvmTransferList, apb)
-		pb.NumEvmTransfer += apb.NumEvmTransfer
+		pb.ActionEvmTransferList = append(pb.ActionEvmTransferList, &systemlogpb.ActionEvmTransfer{
+			ActionHash:      actionHash,
+			NumEvmTransfer:  int32(len(etl.EvmTransferList)),
+			EvmTransferList: etl.EvmTransferList,
+		})
+
+		pb.NumEvmTransfer += int32(len(etl.EvmTransferList))
 	}
 
 	return pb, nil
+}
+
+func (x *Indexer) commit() error {
+	x.batch.Put(indexerStatus, tipBlockHeightKey, byteutil.Uint64ToBytes(x.tipBlockHeight),
+		"failed to update tip block height")
+	return x.kvStore.WriteBatch(x.batch)
 }
 
 func blockKey(height uint64) []byte {
