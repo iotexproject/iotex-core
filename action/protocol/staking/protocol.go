@@ -35,14 +35,16 @@ const (
 
 	// CandidateNameSpace is the bucket name for candidate state
 	CandidateNameSpace = "Candidate"
+)
 
+const (
 	// keys in the namespace StakingNameSpace are prefixed with 1-byte tag, which serves 2 purposes:
 	// 1. to be able to store multiple objects under the same key (like bucket index for voter and candidate)
 	// 2. can call underlying KVStore's Filter() to retrieve a certain type of objects
-	_const      = iota
-	_bucket     = _const + 1
-	_voterIndex = _bucket + 1
-	_candIndex  = _voterIndex + 1
+	_const = byte(iota)
+	_bucket
+	_voterIndex
+	_candIndex
 )
 
 // Errors
