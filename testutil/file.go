@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
+// PathOfTempFile returns path of a new temporary file
 func PathOfTempFile(dirName string) (string, error) {
 	tempFile, err := ioutil.TempFile(os.TempDir(), dirName)
 	if err != nil {
