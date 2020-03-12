@@ -82,7 +82,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 	use, _ := c.SelectTranslation(delegateUses)
 	short, _ := c.SelectTranslation(delegateShorts)
 	flagEpochNumUsage, _ := c.SelectTranslation(flagEpochNumUsages)
-	flagNextEpochUsage, _ := c.SelectTranslation(flagEpochNumUsages)
+	flagNextEpochUsage, _ := c.SelectTranslation(flagNextEpochUsages)
 
 	nd := &cobra.Command{
 		Use:   use,

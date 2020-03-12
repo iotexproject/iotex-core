@@ -81,30 +81,4 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	result, err := util.ExecuteCmd(cmd)
 	require.NotNil(t, result)
 	require.NoError(t, err)
-
-	//nextDelegates case couldn't be tested because nextEpoch value defaults false
-
-	//cmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", true, "query delegate of upcoming epoch")
-	//var epochNum uint64
-	//epochNum = 7000
-	//apiServiceClient.EXPECT().ReadState(
-	//	gomock.Any(), &iotexapi.ReadStateRequest{
-	//		ProtocolID: []byte("poll"),
-	//		MethodName: []byte("ActiveBlockProducersByEpoch"),
-	//		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
-	//	}).Return(&iotexapi.ReadStateResponse{
-	//	Data: []byte("0")},
-	//	nil).AnyTimes()
-	//
-	//apiServiceClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
-	//	ProtocolID: []byte("poll"),
-	//	MethodName: []byte("BlockProducersByEpoch"),
-	//	Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
-	//}).Return(&iotexapi.ReadStateResponse{
-	//	Data: []byte("0")},
-	//	nil).AnyTimes()
-	//result, err = util.ExecuteCmd(cmd)
-	//require.NotNil(t, result)
-	//require.NoError(t, err)
-
 }
