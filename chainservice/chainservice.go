@@ -150,9 +150,9 @@ func New(
 	}
 	// create indexers
 	var (
-		indexers       []blockdao.BlockIndexer
-		indexer        blockindex.Indexer
-		systemLogIndex *systemlog.Indexer
+		indexers         []blockdao.BlockIndexer
+		indexer          blockindex.Indexer
+		systemLogIndex   *systemlog.Indexer
 		candidateIndexer *poll.CandidateIndexer
 	)
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
@@ -174,7 +174,7 @@ func New(
 		}
 		indexers = append(indexers, systemLogIndex)
 
-		// create candidate indexer 
+		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
 		if err != nil {

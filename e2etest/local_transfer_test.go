@@ -266,6 +266,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
+	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateIndex")
+	require.NoError(err)
 
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
@@ -276,7 +278,7 @@ func TestLocalTransfer(t *testing.T) {
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testSystemLogPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -497,8 +499,9 @@ func getLocalKey(i int) crypto.PrivateKey {
 func newTransferConfig(
 	chainDBPath,
 	trieDBPath,
-	indexDBPath,
+	indexDBPath string,
 	systemLogDBPath string,
+	candidateIndexDBPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -511,6 +514,7 @@ func newTransferConfig(
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
 	cfg.System.SystemLogDBPath = systemLogDBPath
+	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme

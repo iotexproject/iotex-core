@@ -184,7 +184,7 @@ func setCandidates(
 		)
 	}
 	if indexer != nil {
-		if err := indexer.PutCandidate(height, &candidates); err != nil {
+		if err := indexer.PutCandidateList(height, &candidates); err != nil {
 			return err
 		}
 	}
