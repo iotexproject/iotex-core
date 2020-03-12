@@ -7,9 +7,11 @@
 package sql
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/testutil"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
 )
@@ -20,8 +22,8 @@ const (
 
 func TestSQLite3StorePutGet(t *testing.T) {
 	testRDSStorePutGet := TestStorePutGet
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}
@@ -32,8 +34,8 @@ func TestSQLite3StorePutGet(t *testing.T) {
 
 func TestSQLite3StoreTransaction(t *testing.T) {
 	testSQLite3StoreTransaction := TestStoreTransaction
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg := config.SQLITE3{
 		SQLite3File: testPath,
 	}

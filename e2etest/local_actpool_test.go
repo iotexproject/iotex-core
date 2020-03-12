@@ -8,16 +8,15 @@ package e2etest
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/crypto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/config"
@@ -30,7 +29,7 @@ import (
 func TestLocalActPool(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newActPoolConfig()
+	cfg, err := newActPoolConfig(t)
 	require.NoError(err)
 
 	// create server
@@ -44,7 +43,7 @@ func TestLocalActPool(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
-	cfg, err = newActPoolConfig()
+	cfg, err = newActPoolConfig(t)
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
@@ -102,7 +101,7 @@ func TestLocalActPool(t *testing.T) {
 func TestPressureActPool(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := newActPoolConfig()
+	cfg, err := newActPoolConfig(t)
 	require.NoError(err)
 
 	// create server
@@ -114,7 +113,7 @@ func TestPressureActPool(t *testing.T) {
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
-	cfg, err = newActPoolConfig()
+	cfg, err = newActPoolConfig(t)
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
 	cli := p2p.NewAgent(
@@ -159,15 +158,17 @@ func TestPressureActPool(t *testing.T) {
 	require.NoError(err)
 }
 
-func newActPoolConfig() (config.Config, error) {
+func newActPoolConfig(t *testing.T) (config.Config, error) {
+	r := require.New(t)
+
 	cfg := config.Default
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	r.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	r.NoError(err)
 
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath

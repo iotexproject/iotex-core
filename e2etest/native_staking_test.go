@@ -2,9 +2,7 @@ package e2etest
 
 import (
 	"context"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -50,8 +48,9 @@ var (
 )
 
 func TestNativeStaking(t *testing.T) {
+	require := require.New(t)
+
 	testNativeStaking := func(cfg config.Config, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 
 		// Create a new blockchain
@@ -245,16 +244,19 @@ func TestNativeStaking(t *testing.T) {
 	}
 
 	cfg := config.Default
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(t, testSystemLogPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -262,6 +264,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false
 

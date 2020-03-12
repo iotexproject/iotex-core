@@ -9,14 +9,13 @@ package blockindex
 import (
 	"context"
 	"hash/fnv"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -87,6 +86,8 @@ func getTestBlocks(t *testing.T) []*block.Block {
 }
 
 func TestIndexer(t *testing.T) {
+	require := require.New(t)
+
 	blks := getTestBlocks(t)
 	t1Hash := blks[0].Actions[0].Hash()
 	t4Hash := blks[0].Actions[1].Hash()
@@ -156,7 +157,6 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
@@ -242,7 +242,6 @@ func TestIndexer(t *testing.T) {
 	}
 
 	testDelete := func(kvStore db.KVStore, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 		indexer, err := NewIndexer(kvStore, hash.ZeroHash256)
 		require.NoError(err)
@@ -314,8 +313,8 @@ func TestIndexer(t *testing.T) {
 		testIndexer(db.NewMemKVStore(), t)
 	})
 	path := "test-indexer"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 
