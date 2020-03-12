@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
@@ -228,6 +229,15 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 		return p.validateCandidateUpdate(ctx, act)
 	}
 	return nil
+}
+
+// AllCandidates returns all candidates in candidate center
+func (p *Protocol) AllCandidates(context.Context) (state.CandidateList, error) {
+	list, err := p.inMemCandidates.All()
+	if err != nil {
+		return nil, err
+	}
+	return list.toStateCandidateList()
 }
 
 // ReadState read the state on blockchain via protocol

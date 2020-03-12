@@ -222,8 +222,21 @@ func New(
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
 	}
-	var rDPoSProtocol *rolldpos.Protocol
-	var pollProtocol poll.Protocol
+	var (
+		rDPoSProtocol   *rolldpos.Protocol
+		pollProtocol    poll.Protocol
+		stakingProtocol *staking.Protocol
+	)
+	if cfg.Chain.EnableStakingProtocol {
+		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
+		if err != nil {
+			return nil, err
+		}
+		if err = stakingProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
 		rDPoSProtocol = rolldpos.NewProtocol(
 			cfg.Genesis.NumCandidateDelegates,
@@ -258,6 +271,8 @@ func New(
 			candidatesutil.KickoutListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
+			cfg.Chain.EnableStakingProtocol,
+			stakingProtocol,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
 				if err != nil {
@@ -326,18 +341,6 @@ func New(
 		return nil, err
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
-
-	if cfg.Chain.EnableStakingProtocol {
-		stakingProtocol, err := staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
-		if err != nil {
-			return nil, err
-		}
-		if err = stakingProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-
 	if accountProtocol != nil {
 		if err = accountProtocol.Register(registry); err != nil {
 			return nil, err
@@ -353,6 +356,7 @@ func New(
 			return nil, err
 		}
 	}
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {
 			return nil, err

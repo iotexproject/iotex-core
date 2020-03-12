@@ -27,23 +27,23 @@ import (
 
 const (
 	// HandleCreateStake is the handler name of createStake
-	HandleCreateStake       = "createStake"
+	HandleCreateStake = "createStake"
 	// HandleUnstake is the handler name of unstake
-	HandleUnstake           = "unstake"
+	HandleUnstake = "unstake"
 	// HandleWithdrawStake is the handler name of withdrawStake
-	HandleWithdrawStake     = "withdrawStake"
+	HandleWithdrawStake = "withdrawStake"
 	// HandleChangeCandidate is the handler name of changeCandidate
-	HandleChangeCandidate   = "changeCandidate"
+	HandleChangeCandidate = "changeCandidate"
 	// HandleTransferStake is the handler name of transferStake
-	HandleTransferStake     = "transferStake"
+	HandleTransferStake = "transferStake"
 	// HandleDepositToStake is the handler name of depositToStake
-	HandleDepositToStake    = "depositToStake"
+	HandleDepositToStake = "depositToStake"
 	// HandleRestake is the handler name of restake
-	HandleRestake           = "restake"
+	HandleRestake = "restake"
 	// HandleCandidateRegister is the handler name of candidateRegister
 	HandleCandidateRegister = "candidateRegister"
 	// HandleCandidateUpdate is the handler name of candidateUpdate
-	HandleCandidateUpdate   = "candidateUpdate"
+	HandleCandidateUpdate = "candidateUpdate"
 )
 
 func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, sm protocol.StateManager) (*action.Receipt, error) {

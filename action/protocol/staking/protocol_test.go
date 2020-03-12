@@ -113,6 +113,11 @@ func TestProtocol(t *testing.T) {
 	buckets, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
+	// delete one bucket
+	r.NoError(delBucket(sm, 1))
+	buckets, err = getAllBuckets(sm)
+	r.NoError(err)
+	r.Equal(len(tests)-1, len(buckets))
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {
