@@ -36,7 +36,7 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 		node := li.stack[size-1]
 		li.stack = li.stack[:size-1]
 		if hn, ok := node.(*hashNode); ok {
-			node, err := li.mpt.loadNode(hn.ha)
+			node, err := hn.LoadNode()
 			if err != nil {
 				return nil, nil, err
 			}

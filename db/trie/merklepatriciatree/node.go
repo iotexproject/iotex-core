@@ -21,8 +21,14 @@ type (
 		Delete(keyType, uint8) (node, error)
 		Upsert(keyType, uint8, []byte) (node, error)
 		Hash() ([]byte, error)
-		Serialize() ([]byte, error)
-		Proto() (proto.Message, error)
+	}
+
+	serializable interface {
+		node
+		hash() ([]byte, error)
+		proto() (proto.Message, error)
+		delete() error
+		store() error
 	}
 
 	leaf interface {
@@ -44,11 +50,8 @@ type (
 		MarkAsRoot()
 	}
 
-	serializable interface {
-	}
-
 	cacheNode struct {
-		node
+		serializable
 		//serializable
 		mpt *merklePatriciaTree
 		ha  []byte
@@ -57,18 +60,48 @@ type (
 )
 
 func (cn *cacheNode) Hash() ([]byte, error) {
+	return cn.hash()
+}
+
+func (cn *cacheNode) hash() ([]byte, error) {
 	if cn.ha != nil {
 		return cn.ha, nil
 	}
-	if err := cn.serialize(); err != nil {
+	if err := cn.calculateCache(); err != nil {
 		return nil, err
 	}
 
 	return cn.ha, nil
 }
 
-func (cn *cacheNode) serialize() error {
-	pb, err := cn.Proto()
+func (cn *cacheNode) delete() error {
+	h, err := cn.hash()
+	if err != nil {
+		return err
+	}
+	if err := cn.mpt.deleteNode(h); err != nil {
+		return err
+	}
+	cn.ha = nil
+	cn.ser = nil
+
+	return nil
+}
+
+func (cn *cacheNode) store() error {
+	ser, err := cn.serialize()
+	if err != nil {
+		return err
+	}
+	h, err := cn.hash()
+	if err != nil {
+		return err
+	}
+	return cn.mpt.putNode(h, ser)
+}
+
+func (cn *cacheNode) calculateCache() error {
+	pb, err := cn.proto()
 	if err != nil {
 		return err
 	}
@@ -81,20 +114,15 @@ func (cn *cacheNode) serialize() error {
 	return nil
 }
 
-func (cn *cacheNode) Serialize() ([]byte, error) {
+func (cn *cacheNode) serialize() ([]byte, error) {
 	if cn.ser != nil {
 		return cn.ser, nil
 	}
-	if err := cn.serialize(); err != nil {
+	if err := cn.calculateCache(); err != nil {
 		return nil, err
 	}
 
 	return cn.ser, nil
-}
-
-func (cn *cacheNode) reset() {
-	cn.ha = nil
-	cn.ser = nil
 }
 
 // key1 should not be longer than key2

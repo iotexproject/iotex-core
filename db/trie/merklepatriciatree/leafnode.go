@@ -10,7 +10,6 @@ import (
 	"bytes"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
@@ -21,23 +20,35 @@ type leafNode struct {
 	value []byte
 }
 
-func newLeafNode(
+func newLeafHashNode(
 	mpt *merklePatriciaTree,
 	key keyType,
 	value []byte,
-) (*leafNode, error) {
+) (*hashNode, error) {
 	l := &leafNode{cacheNode: cacheNode{mpt: mpt}, key: key, value: value}
-	l.cacheNode.node = l
-	if err := mpt.putNode(l); err != nil {
+	l.cacheNode.serializable = l
+	if err := l.store(); err != nil {
 		return nil, err
 	}
-	return l, nil
+	return l.ToHashNode()
 }
 
 func newLeafNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.LeafPb) *leafNode {
 	l := &leafNode{cacheNode: cacheNode{mpt: mpt}, key: pb.Path, value: pb.Value}
-	l.cacheNode.node = l
+	l.cacheNode.serializable = l
 	return l
+}
+
+func (l *leafNode) ToHashNode() (*hashNode, error) {
+	return l.toHashNode()
+}
+
+func (l *leafNode) toHashNode() (*hashNode, error) {
+	h, err := l.hash()
+	if err != nil {
+		return nil, err
+	}
+	return newHashNode(l.mpt, h), nil
 }
 
 func (l *leafNode) Key() []byte {
@@ -52,7 +63,7 @@ func (l *leafNode) Delete(key keyType, offset uint8) (node, error) {
 	if !bytes.Equal(l.key[offset:], key[offset:]) {
 		return nil, trie.ErrNotExist
 	}
-	if err := l.mpt.deleteNode(l); err != nil {
+	if err := l.delete(); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -64,7 +75,11 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	if offset+matched == uint8(len(key)) {
 		return l.updateValue(value)
 	}
-	newl, err := newLeafNode(l.mpt, key, value)
+	newl, err := newLeafHashNode(l.mpt, key, value)
+	if err != nil {
+		return nil, err
+	}
+	hn, err := l.toHashNode()
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +87,7 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 		l.mpt,
 		map[byte]node{
 			key[offset+matched]:   newl,
-			l.key[offset+matched]: l,
+			l.key[offset+matched]: hn,
 		},
 	)
 	if err != nil {
@@ -94,7 +109,7 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	return l, nil
 }
 
-func (l *leafNode) Proto() (proto.Message, error) {
+func (l *leafNode) proto() (proto.Message, error) {
 	trieMtc.WithLabelValues("leafNode", "serialize").Inc()
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
@@ -106,15 +121,13 @@ func (l *leafNode) Proto() (proto.Message, error) {
 	}, nil
 }
 
-func (l *leafNode) updateValue(value []byte) (*leafNode, error) {
-	if err := l.mpt.deleteNode(l); err != nil {
+func (l *leafNode) updateValue(value []byte) (node, error) {
+	if err := l.delete(); err != nil {
 		return nil, err
 	}
 	l.value = value
-	l.reset()
-	if err := l.mpt.putNode(l); err != nil {
+	if err := l.store(); err != nil {
 		return nil, err
 	}
-
-	return l, nil
+	return l.toHashNode()
 }

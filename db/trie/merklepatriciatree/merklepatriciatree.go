@@ -138,15 +138,15 @@ func (mpt *merklePatriciaTree) SetRootHash(rootHash []byte) error {
 }
 
 func (mpt *merklePatriciaTree) IsEmpty() bool {
-	mpt.mutex.Lock()
-	defer mpt.mutex.Unlock()
+	mpt.mutex.RLock()
+	defer mpt.mutex.RUnlock()
 
 	return mpt.isEmptyRootHash(mpt.rootHash)
 }
 
 func (mpt *merklePatriciaTree) Get(key []byte) ([]byte, error) {
-	mpt.mutex.Lock()
-	defer mpt.mutex.Unlock()
+	mpt.mutex.RLock()
+	defer mpt.mutex.RUnlock()
 
 	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := mpt.checkKeyType(key)
@@ -180,9 +180,8 @@ func (mpt *merklePatriciaTree) Delete(key []byte) error {
 	if !ok {
 		panic("unexpected new root")
 	}
-	mpt.resetRoot(bn)
 
-	return nil
+	return mpt.resetRoot(bn)
 }
 
 func (mpt *merklePatriciaTree) Upsert(key []byte, value []byte) error {
@@ -276,24 +275,12 @@ func (mpt *merklePatriciaTree) emptyRoot() branch {
 	return bn
 }
 
-func (mpt *merklePatriciaTree) deleteNode(tn node) error {
-	h, err := tn.Hash()
-	if err != nil {
-		return err
-	}
-	return mpt.kvStore.Delete(h)
+func (mpt *merklePatriciaTree) deleteNode(key []byte) error {
+	return mpt.kvStore.Delete(key)
 }
 
-func (mpt *merklePatriciaTree) putNode(tn node) error {
-	h, err := tn.Hash()
-	if err != nil {
-		return err
-	}
-	s, err := tn.Serialize()
-	if err != nil {
-		return err
-	}
-	return mpt.kvStore.Put(h, s)
+func (mpt *merklePatriciaTree) putNode(key []byte, value []byte) error {
+	return mpt.kvStore.Put(key, value)
 }
 
 func (mpt *merklePatriciaTree) loadNode(key []byte) (node, error) {

@@ -26,8 +26,8 @@ func newExtensionNode(
 	child node,
 ) (*extensionNode, error) {
 	e := &extensionNode{cacheNode: cacheNode{mpt: mpt}, path: path, child: child}
-	e.cacheNode.node = e
-	if err := mpt.putNode(e); err != nil {
+	e.cacheNode.serializable = e
+	if err := e.store(); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -35,7 +35,7 @@ func newExtensionNode(
 
 func newExtensionNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.ExtendPb) *extensionNode {
 	e := &extensionNode{cacheNode: cacheNode{mpt: mpt}, path: pb.Path, child: newHashNode(mpt, pb.Value)}
-	e.cacheNode.node = e
+	e.cacheNode.serializable = e
 	return e
 }
 
@@ -50,21 +50,18 @@ func (e *extensionNode) Delete(key keyType, offset uint8) (node, error) {
 		return nil, err
 	}
 	if newChild == nil {
-		return nil, e.mpt.deleteNode(e)
+		return nil, e.delete()
 	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		if err := e.mpt.deleteNode(e); err != nil {
-			return nil, err
-		}
 		return node.updatePath(append(e.path, node.path...))
-	case *leafNode:
-		if err := e.mpt.deleteNode(e); err != nil {
+	case *branchNode:
+		return e.updateChild(node)
+	default:
+		if err := e.delete(); err != nil {
 			return nil, err
 		}
 		return node, nil
-	default:
-		return e.updateChild(node)
 	}
 }
 
@@ -83,7 +80,7 @@ func (e *extensionNode) Upsert(key keyType, offset uint8, value []byte) (node, e
 	if err != nil {
 		return nil, err
 	}
-	lnode, err := newLeafNode(e.mpt, key, value)
+	lnode, err := newLeafHashNode(e.mpt, key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +110,7 @@ func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 	return e.child.Search(key, offset+matched)
 }
 
-func (e *extensionNode) Proto() (proto.Message, error) {
+func (e *extensionNode) proto() (proto.Message, error) {
 	trieMtc.WithLabelValues("extensionNode", "serialize").Inc()
 	h, err := e.child.Hash()
 	if err != nil {
@@ -139,25 +136,23 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 }
 
 func (e *extensionNode) updatePath(path []byte) (*extensionNode, error) {
-	if err := e.mpt.deleteNode(e); err != nil {
+	if err := e.delete(); err != nil {
 		return nil, err
 	}
 	e.path = path
-	e.reset()
-	if err := e.mpt.putNode(e); err != nil {
+	if err := e.store(); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
 func (e *extensionNode) updateChild(newChild node) (*extensionNode, error) {
-	err := e.mpt.deleteNode(e)
+	err := e.delete()
 	if err != nil {
 		return nil, err
 	}
 	e.child = newChild
-	e.reset()
-	if err := e.mpt.putNode(e); err != nil {
+	if err := e.store(); err != nil {
 		return nil, err
 	}
 	return e, nil
