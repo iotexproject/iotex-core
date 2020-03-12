@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -52,13 +54,15 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	staker, gasFee, err := fetchCaller(ctx, sm, act.Amount())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// Create new bucket and bucket index
 	candidate := p.inMemCandidates.GetByName(act.Candidate())
 	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
+		log.L().Debug("Error when finding candidate in candidate center", zap.Error(ErrInvalidCanName))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := putBucketAndIndex(sm, bucket)
@@ -85,7 +89,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	}
 
 	log := p.createLog(ctx, HandleCreateStake, candidate.Owner, actionCtx.Caller, byteutil.Uint64ToBytes(bucketIdx))
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -101,12 +105,14 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// update bucket
@@ -132,7 +138,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	}
 
 	log := p.createLog(ctx, HandleUnstake, nil, actionCtx.Caller, nil)
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -148,21 +154,27 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	withdrawer, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// check unstake time
 	if bucket.UnstakeStartTime.Unix() == 0 {
-		return nil, errors.New("bucket has not been unstaked")
+		err := errors.New("bucket has not been unstaked")
+		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
-		return nil, fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
+		err := fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
 			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
+		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// delete bucket and bucket index
@@ -186,7 +198,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log := p.createLog(ctx, HandleWithdrawStake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, sm, gasFee, log)
+	return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 }
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, sm protocol.StateManager) (*action.Receipt, error) {
@@ -199,12 +211,14 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	prevCandidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
@@ -244,7 +258,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	log := p.createLog(ctx, HandleChangeCandidate, candidate.Owner, actionCtx.Caller, nil)
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -262,12 +276,14 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// update bucket index
@@ -285,7 +301,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	log := p.createLog(ctx, HandleTransferStake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, sm, gasFee, log)
+	return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 }
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, sm protocol.StateManager) (*action.Receipt, error) {
@@ -293,15 +309,19 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	depositor, gasFee, err := fetchCaller(ctx, sm, act.Amount())
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), false, true)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 	if !bucket.AutoStake {
-		return nil, errors.New("deposit is only allowed on auto-stake bucket")
+		err := errors.New("deposit is only allowed on auto-stake bucket")
+		log.L().Debug("Error when depositing to stake", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
 	if candidate == nil {
@@ -342,7 +362,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	log := p.createLog(ctx, HandleDepositToStake, nil, actionCtx.Caller, nil)
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -357,12 +377,14 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch bucket")
+		log.L().Debug("Error when fetching bucket", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
@@ -391,7 +413,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 	}
 
 	log := p.createLog(ctx, HandleRestake, nil, actionCtx.Caller, nil)
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -409,7 +431,8 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	owner := actCtx.Caller
@@ -451,7 +474,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	log := p.createLog(ctx, HandleCandidateRegister, owner, actCtx.Caller, byteutil.Uint64ToBytes(bucketIdx))
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, err
 	}
@@ -467,13 +490,15 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	_, gasFee, err := fetchCaller(ctx, sm, new(big.Int))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch caller")
+		log.L().Debug("Error when fetching caller", zap.Error(err))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	// only owner can update candidate
 	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
 	if c == nil {
-		return nil, ErrInvalidOwner
+		log.L().Debug("Error when updating candidate", zap.Error(ErrInvalidOwner))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
 	}
 
 	if len(act.Name()) != 0 {
@@ -493,7 +518,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	log := p.createLog(ctx, HandleCandidateUpdate, nil, actCtx.Caller, nil)
-	receipt, err := p.settleAction(ctx, sm, gasFee, log)
+	receipt, err := p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
 	if err != nil {
 		return nil, err
 	}
@@ -508,6 +533,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
+	status uint64,
 	gasFee *big.Int,
 	logs ...*action.Log,
 ) (*action.Receipt, error) {
@@ -524,7 +550,7 @@ func (p *Protocol) settleAction(
 		return nil, errors.Wrap(err, "failed to update nonce")
 	}
 	return &action.Receipt{
-		Status:          uint64(iotextypes.ReceiptStatus_Success),
+		Status:          status,
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
