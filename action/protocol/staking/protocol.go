@@ -237,7 +237,7 @@ func (p *Protocol) AllCandidates(context.Context) (state.CandidateList, error) {
 	if err != nil {
 		return nil, err
 	}
-	return list.toCandidateListV1()
+	return list.toStateCandidateList()
 }
 
 // ReadState read the state on blockchain via protocol

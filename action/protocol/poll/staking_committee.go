@@ -42,7 +42,8 @@ type stakingCommittee struct {
 	electionCommittee    committee.Committee
 	governanceStaking    Protocol
 	nativeStaking        *NativeStaking
-	nativeStaking2       *staking.Protocol
+	enableStakingV2      bool
+	nativeStakingV2      *staking.Protocol
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
 	timerFactory         *prometheustimer.TimerFactory
@@ -52,7 +53,8 @@ type stakingCommittee struct {
 func NewStakingCommittee(
 	ec committee.Committee,
 	gs Protocol,
-	stk *staking.Protocol,
+	enableV2 bool,
+	stakingV2 *staking.Protocol,
 	readContract ReadContract,
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
@@ -83,7 +85,8 @@ func NewStakingCommittee(
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
-		nativeStaking2:    stk,
+		enableStakingV2:   enableV2,
+		nativeStakingV2:   stakingV2,
 		scoreThreshold:    scoreThreshold,
 	}
 	sc.timerFactory = timerFactory
@@ -203,14 +206,14 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 		cand state.CandidateList
 		err  error
 	)
-	if hu.IsPre(config.Fairbank, height) {
+	if !sc.enableStakingV2 || hu.IsPre(config.Fairbank, height) {
 		cand, err = sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	} else {
 		// native staking V2 starts from Fairbank
-		if sc.nativeStaking2 == nil {
+		if sc.nativeStakingV2 == nil {
 			return nil, errors.New("native staking V2 was not set after fairbank height")
 		}
-		cand, err = sc.nativeStaking2.AllCandidates(ctx)
+		cand, err = sc.nativeStakingV2.AllCandidates(ctx)
 	}
 	if err != nil {
 		return nil, err

@@ -34,7 +34,7 @@ func TestClone(t *testing.T) {
 	d.AddVote(big.NewInt(100))
 	r.NotEqual(d, d2)
 
-	c := d.toCandidateV1()
+	c := d.toStateCandidate()
 	r.Equal(d.Owner.String(), c.Address)
 	r.Equal(d.Reward.String(), c.RewardAddress)
 	r.Equal(d.Votes, c.Votes)

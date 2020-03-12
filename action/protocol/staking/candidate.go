@@ -185,7 +185,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 	}
 }
 
-func (d *Candidate) toCandidateV1() *state.Candidate {
+func (d *Candidate) toStateCandidate() *state.Candidate {
 	return &state.Candidate{
 		Address:       d.Owner.String(),
 		Votes:         new(big.Int).Set(d.Votes),
@@ -233,10 +233,10 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 	return nil
 }
 
-func (l CandidateList) toCandidateListV1() (state.CandidateList, error) {
+func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	list := make(state.CandidateList, 0, len(l))
 	for _, c := range l {
-		list = append(list, c.toCandidateV1())
+		list = append(list, c.toStateCandidate())
 	}
 	return list, nil
 }

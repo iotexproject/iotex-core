@@ -271,6 +271,7 @@ func New(
 			candidatesutil.KickoutListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
+			cfg.Chain.EnableStakingProtocol,
 			stakingProtocol,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
