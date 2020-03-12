@@ -14,8 +14,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/testutil"
-
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 const (
