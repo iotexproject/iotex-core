@@ -138,7 +138,6 @@ func (d *Candidate) toProto() (*stakingpb.Candidate, error) {
 }
 
 func (d *Candidate) fromProto(pb *stakingpb.Candidate) error {
-
 	var err error
 	d.Owner, err = address.FromString(pb.GetOwnerAddress())
 	if err != nil {
@@ -186,6 +185,15 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 	}
 }
 
+func (d *Candidate) toCandidateV1() *state.Candidate {
+	return &state.Candidate{
+		Address:       d.Owner.String(),
+		Votes:         new(big.Int).Set(d.Votes),
+		RewardAddress: d.Reward.String(),
+		CanName:       []byte(d.Name),
+	}
+}
+
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
@@ -223,6 +231,14 @@ func (l *CandidateList) Deserialize(buf []byte) error {
 		*l = append(*l, c)
 	}
 	return nil
+}
+
+func (l CandidateList) toCandidateListV1() (state.CandidateList, error) {
+	list := make(state.CandidateList, 0, len(l))
+	for _, c := range l {
+		list = append(list, c.toCandidateV1())
+	}
+	return list, nil
 }
 
 func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {

@@ -6,7 +6,9 @@
 
 package staking
 
-import "github.com/iotexproject/iotex-address/address"
+import (
+	"github.com/iotexproject/iotex-address/address"
+)
 
 type (
 	// CandidateCenter is a struct to manage the candidates
@@ -31,6 +33,15 @@ func NewCandidateCenter() *CandidateCenter {
 // Size returns number of candidates
 func (m CandidateCenter) Size() int {
 	return len(m.nameMap)
+}
+
+// All returns all candidates in candidate center
+func (m CandidateCenter) All() (CandidateList, error) {
+	list := make(CandidateList, 0, m.Size())
+	for _, c := range m.nameMap {
+		list = append(list, c)
+	}
+	return list, nil
 }
 
 // ContainsName returns true if the map contains the candidate by name

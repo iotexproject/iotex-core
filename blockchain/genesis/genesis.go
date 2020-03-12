@@ -55,6 +55,7 @@ func defaultConfig() Genesis {
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
 			EasterBlockHeight:       3619801,
+			FairbankBlockHeight:     4339081,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -156,6 +157,8 @@ type (
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
 		// EasterBlockHeight is the start height of kick-out for slashing
 		EasterBlockHeight uint64 `yaml:"easterHeight"`
+		// FairbankBlockHeight is the start height to switch to native staking V2
+		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
