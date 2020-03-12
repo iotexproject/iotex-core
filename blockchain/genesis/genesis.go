@@ -84,11 +84,11 @@ func defaultConfig() Genesis {
 				SelfStake:  1.05,
 			},
 			RegistrationConsts: RegistrationConsts{
-				Fee:          100,
-				MinSelfStake: 1200000,
+				Fee:          unit.ConvertIotxToRau(100).String(),
+				MinSelfStake: unit.ConvertIotxToRau(1200000).String(),
 			},
-			WithdrawWaitingPeriod: 14,
-			MinStakeAmount:        100,
+			WithdrawWaitingPeriod: 14 * 24 * time.Hour,
+			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
 		},
 	}
@@ -233,7 +233,7 @@ type (
 		VoteWeightCalConsts   VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
 		RegistrationConsts    RegistrationConsts   `yaml:"registrationConsts"`
 		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
-		MinStakeAmount        int64                `yaml:"minStakeAmount"` // in iotex
+		MinStakeAmount        string               `yaml:"minStakeAmount"`
 		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
 	}
 
@@ -246,8 +246,8 @@ type (
 
 	// RegistrationConsts contains the configs for candidate registration
 	RegistrationConsts struct {
-		Fee          int64 `yaml:"fee"`          // in iotex
-		MinSelfStake int64 `yaml:"minSelfStake"` // in iotex
+		Fee          string `yaml:"fee"`
+		MinSelfStake string `yaml:"minSelfStake"`
 	}
 
 	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
@@ -256,7 +256,7 @@ type (
 		OperatorAddress   string `yaml:"operatorAddress"`
 		RewardAddress     string `yaml:"rewardAddress"`
 		Name              string `yaml:"name"`
-		SelfStakingTokens int64  `yaml:"selfStakingTokens"` // in iotex
+		SelfStakingTokens string `yaml:"selfStakingTokens"`
 	}
 )
 

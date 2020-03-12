@@ -42,7 +42,8 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p := NewProtocol(depositGas, sm, genesis.Staking{})
+	p, err := NewProtocol(depositGas, sm, genesis.Default.Staking)
+	require.NoError(err)
 
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()

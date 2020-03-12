@@ -123,6 +123,7 @@ var (
 			PollInitialCandidatesInterval: 10 * time.Second,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
+			EnableStakingProtocol:         true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -248,7 +249,8 @@ type (
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
+		WorkingSetCacheSize   uint64 `yaml:"workingSetCacheSize"`
+		EnableStakingProtocol bool   `yaml: "enableStakingProtocol"`
 	}
 
 	// Consensus is the config struct for consensus package

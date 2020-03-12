@@ -183,7 +183,7 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
-	testSystemLogPath,err:=testutil.PathOfTempFile("systemlog")
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)

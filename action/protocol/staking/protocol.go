@@ -13,7 +13,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -22,8 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 const (
@@ -59,27 +56,60 @@ type Protocol struct {
 	inMemCandidates *CandidateCenter
 	depositGas      DepositGas
 	sr              protocol.StateReader
-	config          genesis.Staking
+	config          Configuration
+}
+
+// Configuration is the staking protocol configuration.
+type Configuration struct {
+	VoteWeightCalConsts   genesis.VoteWeightCalConsts
+	RegistrationConsts    RegistrationConsts
+	WithdrawWaitingPeriod time.Duration
+	MinStakeAmount        *big.Int
+	BootstrapCandidates   []genesis.BootstrapCandidate
 }
 
 // DepositGas deposits gas to some pool
 type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) *Protocol {
+func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
-		log.L().Panic("Error when constructing the address of staking protocol", zap.Error(err))
+		return nil, err
+	}
+
+	minStakeAmount, ok := new(big.Int).SetString(cfg.MinStakeAmount, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
+	}
+
+	regFee, ok := new(big.Int).SetString(cfg.RegistrationConsts.Fee, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
+	}
+
+	minSelfStake, ok := new(big.Int).SetString(cfg.RegistrationConsts.MinSelfStake, 10)
+	if !ok {
+		return nil, ErrInvalidAmount
 	}
 
 	return &Protocol{
 		addr:            addr,
 		inMemCandidates: NewCandidateCenter(),
-		config:          cfg,
-		depositGas:      depositGas,
-		sr:              sr,
-	}
+		config: Configuration{
+			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
+			RegistrationConsts: RegistrationConsts{
+				Fee:          regFee,
+				MinSelfStake: minSelfStake,
+			},
+			WithdrawWaitingPeriod: cfg.WithdrawWaitingPeriod,
+			MinStakeAmount:        minStakeAmount,
+			BootstrapCandidates:   cfg.BootstrapCandidates,
+		},
+		depositGas: depositGas,
+		sr:         sr,
+	}, nil
 }
 
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
@@ -103,7 +133,10 @@ func (p *Protocol) CreateGenesisStates(
 			return err
 		}
 
-		selfStake := unit.ConvertIotxToRau(bc.SelfStakingTokens)
+		selfStake, ok := new(big.Int).SetString(bc.SelfStakingTokens, 10)
+		if !ok {
+			return ErrInvalidAmount
+		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
 		bucketIdx, err := putBucketAndIndex(sm, bucket)
 		if err != nil {
