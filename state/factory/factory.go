@@ -511,14 +511,14 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
-	ns, key, err := processOptions(opts...)
+	cfg, err := processOptions(opts...)
 	if err != nil {
 		return err
 	}
 	if height > sf.currentChainHeight {
 		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
 	}
-	return sf.stateAtHeight(height, ns, key, s)
+	return sf.stateAtHeight(height, cfg.Namespace, cfg.Key, s)
 }
 
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
