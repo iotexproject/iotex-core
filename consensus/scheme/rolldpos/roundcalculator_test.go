@@ -134,7 +134,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -193,7 +193,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+			return blockchain.ProductivityByEpoch(ctx, chain, sf, epochNum)
 		},
 	)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -214,11 +214,11 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, rolldposProtocol, pp
+	return chain, sf, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, rp, pp := makeChain(t)
+	bc, sf, rp, pp := makeChain(t)
 	return &roundCalculator{
 		bc,
 		true,
@@ -240,7 +240,7 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, epochNum)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochNum)
 			if err != nil {
 				return nil, err
 			}

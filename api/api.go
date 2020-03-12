@@ -446,7 +446,7 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	if !ok {
 		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
 	}
-	data, err := api.readState(ctx, p, in.MethodName, in.Arguments...)
+	data, err := api.readState(ctx, p, in.GetHeight(), in.MethodName, in.Arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -517,7 +517,8 @@ func (api *Server) GetEpochMeta(
 
 	methodName := []byte("ActiveBlockProducersByEpoch")
 	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
-	data, err := api.readState(context.Background(), pp, methodName, arguments...)
+	height := strconv.FormatUint(epochHeight, 10)
+	data, err := api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -538,7 +539,7 @@ func (api *Server) GetEpochMeta(
 
 	methodName = []byte("BlockProducersByEpoch")
 	arguments = [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
-	data, err = api.readState(context.Background(), pp, methodName, arguments...)
+	data, err = api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -796,7 +797,7 @@ func (api *Server) Stop() error {
 	return api.chainListener.Stop()
 }
 
-func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodName []byte, arguments ...[]byte) ([]byte, error) {
+func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, error) {
 	// TODO: need to complete the context
 	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -806,6 +807,24 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, methodNam
 		Registry: api.registry,
 		Genesis:  api.cfg.Genesis,
 	})
+
+	rp := rolldpos.FindProtocol(api.registry)
+	if rp == nil {
+		return nil, errors.New("rolldpos is not registered")
+	}
+
+	tipEpochNum := rp.GetEpochNum(tipHeight)
+	if height != "" {
+		inputHeight, err := strconv.ParseUint(height, 0, 64)
+		if err != nil {
+			return nil, err
+		}
+		inputEpochNum := rp.GetEpochNum(inputHeight)
+		if inputEpochNum < tipEpochNum {
+			// old data, wrap to history state reader
+			return p.ReadState(ctx, factory.NewHistoryStateReader(api.sf, rp.GetEpochHeight(inputEpochNum)), methodName, arguments...)
+		}
+	}
 
 	// TODO: need to distinguish user error and system error
 	return p.ReadState(ctx, api.sf, methodName, arguments...)
@@ -1180,7 +1199,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	if pp := poll.FindProtocol(api.registry); pp != nil {
 		methodName := []byte("GetGravityChainStartHeight")
 		arguments := [][]byte{byteutil.Uint64ToBytes(epochHeight)}
-		data, err := api.readState(context.Background(), pp, methodName, arguments...)
+		data, err := api.readState(context.Background(), pp, "", methodName, arguments...)
 		if err != nil {
 			return 0, err
 		}

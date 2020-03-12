@@ -75,11 +75,11 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, sr protocol.StateReader, epochNum uint64) (state.CandidateList, error) {
 	return p.readActiveBlockProducersByEpoch(ctx, epochNum)
 }
 
-func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 

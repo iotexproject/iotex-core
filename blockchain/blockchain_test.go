@@ -1343,14 +1343,14 @@ func testHistoryForAccount(t *testing.T, statetx bool) {
 
 	// check history account's balance
 	if statetx {
-		_, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.Equal(factory.ErrNotSupported, errors.Cause(err))
 	} else {
-		AccountA, err = accountutil.AccountStateAtHeight(sf, a, bc.TipHeight()-1)
+		AccountA, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), a)
 		require.NoError(err)
-		AccountB, err = accountutil.AccountStateAtHeight(sf, b, bc.TipHeight()-1)
+		AccountB, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), b)
 		require.NoError(err)
 		require.Equal(big.NewInt(100), AccountA.Balance)
 		require.Equal(big.NewInt(100), AccountB.Balance)
@@ -1388,10 +1388,10 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 
 	// check the the original balance again
 	if statetx {
-		_, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
+		_, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
 		require.True(errors.Cause(err) == factory.ErrNotSupported)
 	} else {
-		account, err = accountutil.AccountStateAtHeight(sf, contract, bc.TipHeight()-1)
+		account, err = accountutil.AccountState(factory.NewHistoryStateReader(sf, bc.TipHeight()-1), contract)
 		require.NoError(err)
 		balance = BalanceOfContract(contract, genesisAccount, kv, t, account.Root)
 		expect, ok = big.NewInt(0).SetString("2000000000000000000000000000", 10)

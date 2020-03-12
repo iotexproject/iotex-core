@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -82,6 +83,7 @@ func WithPollProtocol(pp poll.Protocol) Option {
 func NewConsensus(
 	cfg config.Config,
 	bc blockchain.Blockchain,
+	sf factory.Factory,
 	ap actpool.ActPool,
 	opts ...Option,
 ) (Consensus, error) {
@@ -117,7 +119,7 @@ func NewConsensus(
 						Genesis:  cfg.Genesis,
 					},
 				)
-				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, epochNum)
+				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, sf, epochNum)
 				if err != nil {
 					return nil, err
 				}

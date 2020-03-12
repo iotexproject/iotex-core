@@ -107,21 +107,3 @@ func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, 
 	}
 	return &account, nil
 }
-
-// AccountStateAtHeight returns the confirmed account state on the chain
-func AccountStateAtHeight(sr protocol.StateReader, encodedAddr string, height uint64) (*state.Account, error) {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
-	}
-	pkHash := hash.BytesToHash160(addr.Bytes())
-	var account state.Account
-	if _, err := sr.State(&account, protocol.BlockHeightOption(height), protocol.LegacyKeyOption(pkHash)); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			account = state.EmptyAccount()
-			return &account, nil
-		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
-	}
-	return &account, nil
-}

@@ -501,20 +501,20 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	// check archive data
 	if statetx {
 		// statetx not support archive mode
-		_, err = accountutil.AccountStateAtHeight(sf, a, 0)
+		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
-		_, err = accountutil.AccountStateAtHeight(sf, b, 0)
+		_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 		require.Equal(t, ErrNotSupported, errors.Cause(err))
 	} else {
 		if !archive {
-			_, err = accountutil.AccountStateAtHeight(sf, a, 0)
+			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
-			_, err = accountutil.AccountStateAtHeight(sf, b, 0)
+			_, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 			require.Equal(t, ErrNoArchiveData, errors.Cause(err))
 		} else {
-			accountA, err = accountutil.AccountStateAtHeight(sf, a, 0)
+			accountA, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), a)
 			require.NoError(t, err)
-			accountB, err = accountutil.AccountStateAtHeight(sf, b, 0)
+			accountB, err = accountutil.AccountState(NewHistoryStateReader(sf, 0), b)
 			require.NoError(t, err)
 			require.Equal(t, big.NewInt(100), accountA.Balance)
 			require.Equal(t, big.NewInt(0), accountB.Balance)

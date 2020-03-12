@@ -32,7 +32,7 @@ func TestRollDPoSCtx(t *testing.T) {
 	cfg := config.Default
 	dbConfig := config.Default.DB
 	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
-	b, _, _ := makeChain(t)
+	b, _, _, _ := makeChain(t)
 
 	t.Run("case 1:panic because of chain is nil", func(t *testing.T) {
 		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, nil, nil, nil, nil, dummyCandidatesByHeightFunc, "", nil, nil, 0)
@@ -82,7 +82,7 @@ func TestRollDPoSCtx(t *testing.T) {
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, _, pp := makeChain(t)
+	b, sf, _, pp := makeChain(t)
 	rp := rolldpos.NewProtocol(
 		config.Default.Genesis.NumCandidateDelegates,
 		config.Default.Genesis.NumDelegates,
@@ -117,7 +117,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, epochnum)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochnum)
 			if err != nil {
 				return nil, err
 			}
@@ -149,7 +149,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 func TestCheckBlockProposer(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, rp, pp := makeChain(t)
+	b, sf, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
@@ -179,7 +179,7 @@ func TestCheckBlockProposer(t *testing.T) {
 				},
 			)
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, epochnum)
+			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochnum)
 			if err != nil {
 				return nil, err
 			}

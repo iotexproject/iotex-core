@@ -130,7 +130,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	p, err := NewGovernanceChainCommitteeProtocol(
 		indexer,
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
 			return candidates, 720, nil
 		},
 		candidatesutil.KickoutListFromDB,
@@ -565,7 +565,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		IntensityRate:  50,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
-	filteredCandidates, err := p.CandidatesByHeight(ctx, 721)
+	filteredCandidates, err := p.CandidatesByHeight(ctx, sm, 721)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
 
@@ -584,7 +584,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		IntensityRate:  0,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
-	filteredCandidates, err = p.CandidatesByHeight(ctx, 721)
+	filteredCandidates, err = p.CandidatesByHeight(ctx, sm, 721)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
 
@@ -614,7 +614,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 
-	delegates, err := p.DelegatesByEpoch(ctx, 2)
+	delegates, err := p.DelegatesByEpoch(ctx, sm, 2)
 	require.NoError(err)
 	require.Equal(2, len(delegates))
 	require.Equal(identityset.Address(2).String(), delegates[0].Address)
@@ -630,7 +630,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		IntensityRate:  90,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList2))
-	delegates2, err := p.DelegatesByEpoch(ctx, 2)
+	delegates2, err := p.DelegatesByEpoch(ctx, sm, 2)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
 	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
@@ -648,7 +648,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList3))
 
-	delegates3, err := p.DelegatesByEpoch(ctx, 2)
+	delegates3, err := p.DelegatesByEpoch(ctx, sm, 2)
 	require.NoError(err)
 
 	require.Equal(2, len(delegates3))
@@ -658,7 +658,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	// 4: shift kickout list and Delegates()
 	_, err = shiftKickoutList(sm)
 	require.NoError(err)
-	delegates4, err := p.DelegatesByEpoch(ctx, 1)
+	delegates4, err := p.DelegatesByEpoch(ctx, sm, 1)
 	require.NoError(err)
 	require.Equal(len(delegates4), len(delegates3))
 	for i, d := range delegates3 {
@@ -677,7 +677,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList5))
 
-	delegates5, err := p.DelegatesByEpoch(ctx, 2)
+	delegates5, err := p.DelegatesByEpoch(ctx, sm, 2)
 	require.NoError(err)
 
 	require.Equal(1, len(delegates5)) // exclude all of them

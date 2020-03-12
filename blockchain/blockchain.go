@@ -113,7 +113,7 @@ type (
 
 // ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
 // TODO: move to poll protocol and implement reading current epoch meta from state factory -- now only reading current epoch productivity
-func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
+func ProductivityByEpoch(ctx context.Context, bc Blockchain, sr protocol.StateReader, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
@@ -131,7 +131,7 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum)
+	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, sr, epochNum)
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -570,7 +570,7 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 		})
 
 	if pp := poll.FindProtocol(bc.registry); pp != nil {
-		return pp.CandidatesByHeight(ctx, height)
+		return pp.CandidatesByHeight(ctx, bc.sf, height)
 	}
 	return nil, nil
 }
