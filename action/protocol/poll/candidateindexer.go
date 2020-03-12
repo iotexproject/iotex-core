@@ -7,6 +7,7 @@
 package poll
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -41,6 +42,16 @@ func NewCandidateIndexer(kv db.KVStore) (*CandidateIndexer, error) {
 		kvStore: kv,
 	}
 	return &x, nil
+}
+
+// Start starts the indexer
+func (cd *CandidateIndexer) Start(ctx context.Context) error {
+	return cd.kvStore.Start(ctx)
+}
+
+// Stop stops the indexer
+func (cd *CandidateIndexer) Stop(ctx context.Context) error {
+	return cd.kvStore.Stop(ctx)
 }
 
 // PutCandidateList puts candidate list into indexer

@@ -58,9 +58,10 @@ type ChainService struct {
 	blockdao          blockdao.BlockDAO
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	api          *api.Server
-	indexBuilder *blockindex.IndexBuilder
-	registry     *protocol.Registry
+	api              *api.Server
+	indexBuilder     *blockindex.IndexBuilder
+	candidateIndexer *poll.CandidateIndexer
+	registry         *protocol.Registry
 }
 
 type optionParams struct {
@@ -385,6 +386,7 @@ func New(
 		consensus:         consensus,
 		electionCommittee: electionCommittee,
 		indexBuilder:      indexBuilder,
+		candidateIndexer:  candidateIndexer,
 		api:               apiSvr,
 		registry:          registry,
 	}, nil
@@ -395,6 +397,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if cs.electionCommittee != nil {
 		if err := cs.electionCommittee.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting election committee")
+		}
+	}
+	if cs.candidateIndexer != nil {
+		if err := cs.candidateIndexer.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting candidate indexer")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
