@@ -48,21 +48,26 @@ const (
 	HandleCandidateUpdate = "candidateUpdate"
 )
 
+type fetchError struct {
+	err           error
+	failureStatus iotextypes.ReceiptStatus
+}
+
 func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	staker, gasFee, err := fetchCaller(ctx, sm, act.Amount())
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	staker, gasFee, fetchErr := fetchCaller(ctx, sm, act.Amount())
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	// Create new bucket and bucket index
 	candidate := p.inMemCandidates.GetByName(act.Candidate())
 	if candidate == nil {
 		log.L().Debug("Error when finding candidate in candidate center", zap.Error(ErrInvalidCanName))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := putBucketAndIndex(sm, bucket)
@@ -103,16 +108,16 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	// update bucket
@@ -152,29 +157,29 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	withdrawer, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	withdrawer, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	// check unstake time
 	if bucket.UnstakeStartTime.Unix() == 0 {
 		err := errors.New("bucket has not been unstaked")
 		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake), gasFee)
 	}
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
 		err := fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
 			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
 		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity), gasFee)
 	}
 
 	// delete bucket and bucket index
@@ -204,21 +209,22 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
+	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
+	}
+
 	candidate := p.inMemCandidates.GetByName(act.Candidate())
 	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
+		log.L().Debug("Error when finding candidate in candidate center", zap.Error(ErrInvalidCanName))
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
-	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
-	}
-
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	prevCandidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
@@ -274,16 +280,16 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	// update bucket index
@@ -307,21 +313,21 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	depositor, gasFee, err := fetchCaller(ctx, sm, act.Amount())
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	depositor, gasFee, fetchErr := fetchCaller(ctx, sm, act.Amount())
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), false, true)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), false, true)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 	if !bucket.AutoStake {
 		err := errors.New("deposit is only allowed on auto-stake bucket")
 		log.L().Debug("Error when depositing to stake", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
 	}
 	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
 	if candidate == nil {
@@ -375,16 +381,16 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
-	bucket, err := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
-	if err != nil {
-		log.L().Debug("Error when fetching bucket", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	candidate := p.inMemCandidates.GetByOwner(bucket.Candidate)
@@ -429,10 +435,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
-	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	caller, gasFee, fetchErr := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	owner := actCtx.Caller
@@ -488,17 +494,17 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, sm protocol.StateManager) (*action.Receipt, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, err := fetchCaller(ctx, sm, new(big.Int))
-	if err != nil {
-		log.L().Debug("Error when fetching caller", zap.Error(err))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+	_, gasFee, fetchErr := fetchCaller(ctx, sm, new(big.Int))
+	if fetchErr != nil {
+		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
+		return p.settleAction(ctx, sm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
 	// only owner can update candidate
 	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
 	if c == nil {
 		log.L().Debug("Error when updating candidate", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), gasFee)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
 	if len(act.Name()) != 0 {
@@ -577,18 +583,30 @@ func (p *Protocol) fetchBucket(
 	index uint64,
 	checkOwner bool,
 	allowSelfStaking bool,
-) (*VoteBucket, error) {
+) (*VoteBucket, *fetchError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	bucket, err := getBucket(sr, index)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to fetch bucket by index %d", index)
+		fetchErr := &fetchError{
+			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
+		}
+		return nil, fetchErr
 	}
 	if checkOwner && !address.Equal(bucket.Owner, actionCtx.Caller) {
-		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
-			bucket.Owner.String(), actionCtx.Caller.String())
+		fetchErr := &fetchError{
+			err: fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
+				bucket.Owner.String(), actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		}
+		return nil, fetchErr
 	}
 	if !allowSelfStaking && p.inMemCandidates.ContainsSelfStakingBucket(index) {
-		return nil, errors.New("self staking bucket cannot be processed")
+		fetchErr := &fetchError{
+			err:           errors.New("self staking bucket cannot be processed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+		return nil, fetchErr
 	}
 	return bucket, nil
 }
@@ -634,23 +652,31 @@ func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, er
 	return index, nil
 }
 
-func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) (*state.Account, *big.Int, error) {
+func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) (*state.Account, *big.Int, *fetchError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
 	caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
-		return nil, nil, errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String())
+		fetchErr := &fetchError{
+			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrLoadAccount,
+		}
+		return nil, nil, fetchErr
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	// check caller's balance
 	if big.NewInt(0).Add(amount, gasFee).Cmp(caller.Balance) == 1 {
-		return nil, nil, errors.Wrapf(
-			state.ErrNotEnoughBalance,
-			"caller %s balance %s, required amount %s",
-			actionCtx.Caller.String(),
-			caller.Balance,
-			big.NewInt(0).Add(amount, gasFee),
-		)
+		fetchErr := &fetchError{
+			err: errors.Wrapf(
+				state.ErrNotEnoughBalance,
+				"caller %s balance %s, required amount %s",
+				actionCtx.Caller.String(),
+				caller.Balance,
+				big.NewInt(0).Add(amount, gasFee),
+			),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
+		return nil, nil, fetchErr
 	}
 	return caller, gasFee, nil
 }
