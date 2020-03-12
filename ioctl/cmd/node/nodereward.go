@@ -32,6 +32,10 @@ var (
 		config.English: "Query rewards",
 		config.Chinese: "查询奖励",
 	}
+	rewardPoolLong = map[config.Language]string{
+		config.English: "ioctl node reward returns unclaimed and available Rewards in fund pool. TotalUnclaimedRewards is the amount of all delegates that have been issued but are not claimed; TotalAvailableRewards is the amount of balance that has not been issued to anyone.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
+		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimedRewards是所有代表已被发放但未支取的奖励的总和; TotalAvailableRewards 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
+	}
 )
 
 // nodeRewardCmd represents the node reward command
@@ -39,6 +43,7 @@ var nodeRewardCmd = &cobra.Command{
 	Use:   config.TranslateInLang(rewardCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(rewardCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
+	Long:  config.TranslateInLang(rewardPoolLong, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error
@@ -51,15 +56,18 @@ var nodeRewardCmd = &cobra.Command{
 	},
 }
 
+// TotalAvailableRewards == Rewards in the pool that has not been issued to anyone
+// TotalUnclaimedRewards == Rewards in the pool that has been issued to a delegate but are not claimed yet
 type rewardPoolMessage struct {
-	AvailableReward string `json:"availableReward"`
-	TotalReward     string `json:"totalReward"`
+	//rewardPoolMessageDescription string `json:rewardPoolMessageDescription`
+	TotalUnclaimedRewards string `json:"TotalUnclaimedRewards"`
+	TotalAvailableRewards string `json:"TotalAvailableRewards"`
 }
 
 func (m *rewardPoolMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("Available Reward: %s IOTX   Total Reward: %s IOTX",
-			m.AvailableReward, m.TotalReward)
+		message := fmt.Sprintf("TotalUnclaimedRewards: %s IOTX   TotalAvailableRewards: %s IOTX",
+			m.TotalUnclaimedRewards, m.TotalAvailableRewards)
 		return message
 	}
 	return output.FormatString(output.Result, m)
@@ -91,7 +99,7 @@ func rewardPool() error {
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-
+	// AvailableBalance == Rewards in the pool that has been issued and unclaimed
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
@@ -108,6 +116,7 @@ func rewardPool() error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
+	// TotalBalance == Rewards in the pool that has not been issued to anyone
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
@@ -125,8 +134,8 @@ func rewardPool() error {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
 	message := rewardPoolMessage{
-		AvailableReward: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-		TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		TotalUnclaimedRewards: util.RauToString(availableRewardRau, util.IotxDecimalNum),
+		TotalAvailableRewards: util.RauToString(totalRewardRau, util.IotxDecimalNum),
 	}
 	fmt.Println(message.String())
 	return nil
