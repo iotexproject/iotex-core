@@ -78,14 +78,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, genesis.Staking{
-		VoteWeightCalConsts: genesis.VoteWeightCalConsts{
-			DurationLg: 1.2,
-			AutoStake:  1.05,
-			SelfStake:  1.05,
-		},
-	})
+	stk, err := NewProtocol(nil, sm, genesis.Default.Staking)
 	r.NotNil(stk)
+	r.NoError(err)
 
 	ctx := context.Background()
 	r.NoError(stk.Start(ctx))

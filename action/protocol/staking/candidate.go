@@ -34,6 +34,12 @@ type (
 
 	// CandidateList is a list of candidates which is sortable
 	CandidateList []*Candidate
+
+	// RegistrationConsts are the registration fee and min self stake
+	RegistrationConsts struct {
+		Fee          *big.Int
+		MinSelfStake *big.Int
+	}
 )
 
 // Clone returns a copy

@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -369,7 +368,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	registrationFee := unit.ConvertIotxToRau(p.config.RegistrationConsts.Fee)
+	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
 	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if err != nil {

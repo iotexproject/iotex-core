@@ -327,7 +327,17 @@ func New(
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
 	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
-	stakingProtocol := staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
+
+	if cfg.Chain.EnableStakingProtocol {
+		stakingProtocol, err := staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
+		if err != nil {
+			return nil, err
+		}
+		if err = stakingProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+
 	if accountProtocol != nil {
 		if err = accountProtocol.Register(registry); err != nil {
 			return nil, err
@@ -350,11 +360,6 @@ func New(
 	}
 	if rewardingProtocol != nil {
 		if err = rewardingProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if stakingProtocol != nil {
-		if err = stakingProtocol.Register(registry); err != nil {
 			return nil, err
 		}
 	}

@@ -19,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -238,7 +237,8 @@ func TestNativeStaking(t *testing.T) {
 
 		// check candidate account state
 		candidateBalance, _ := big.NewInt(0).SetString(initBalance, 10)
-		registrationFee := unit.ConvertIotxToRau(cfg.Genesis.RegistrationConsts.Fee)
+		registrationFee, ok := new(big.Int).SetString(cfg.Genesis.RegistrationConsts.Fee, 10)
+		require.True(ok)
 		candidateBalance.Sub(candidateBalance, registrationFee)
 		require.NoError(checkAccountState(cfg, sf, ws, false, candidateBalance.String(), cand1Addr))
 	}
@@ -322,7 +322,8 @@ func checkAccountState(
 		return err
 	}
 	if registrationFee {
-		cost.Add(cost, unit.ConvertIotxToRau(cfg.Genesis.RegistrationConsts.Fee))
+		regFee, _ := new(big.Int).SetString(cfg.Genesis.RegistrationConsts.Fee, 10)
+		cost.Add(cost, regFee)
 	}
 	acct1, err := accountutil.LoadAccount(sr, hash.BytesToHash160(accountAddr.Bytes()))
 	if err != nil {
