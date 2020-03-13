@@ -95,12 +95,6 @@ type (
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
 	}
-
-	// historyStateReader implements state reader interface, wrap factory with archive height 
-	historyStateReader struct {
-		height uint64
-		sf     Factory
-	}
 )
 
 // Option sets Factory construction parameter
@@ -155,33 +149,6 @@ func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*t
 		return nil, err
 	}
 	return trie.NewTwoLayerTrie(dbForTrie, rootKey), nil
-}
-
-// NewHistoryStateReader creates new history state reader by given state factory and height 
-func NewHistoryStateReader(sf Factory, h uint64) protocol.StateReader {
-	return &historyStateReader{
-		sf:     sf,
-		height: h,
-	}
-}
-
-// Height returns archive height 
-func (hReader *historyStateReader) Height() (uint64, error) {
-	return hReader.height, nil
-}
-
-// State returns history state in the archive mode state factory 
-func (hReader *historyStateReader) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
-	return hReader.height, hReader.sf.StateAtHeight(hReader.height, s, opts...)
-}
-
-// States returns history states in the archive mode state factory 
-func (hReader *historyStateReader) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	iterator, err := hReader.sf.StatesAtHeight(hReader.height, opts...)
-	if err != nil {
-		return 0, nil, err
-	}
-	return hReader.height, iterator, nil
 }
 
 // NewFactory creates a new state factory
