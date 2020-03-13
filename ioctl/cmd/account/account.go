@@ -356,7 +356,7 @@ func listSm2Account() ([]string, error) {
 	for _, f := range files {
 		if !f.IsDir() {
 			if strings.HasSuffix(f.Name(), ".pem") {
-				addr := strings.TrimRight(strings.TrimLeft(f.Name(), "sm2sk-"), ".pem")
+				addr := strings.TrimSuffix(strings.TrimPrefix(f.Name(), "sm2sk-"), ".pem")
 				if err := validator.ValidateAddress(addr); err == nil {
 					sm2Accounts = append(sm2Accounts, addr)
 				}
