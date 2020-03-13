@@ -71,6 +71,10 @@ func NewStakingCommittee(
 		}
 	}
 
+	if enableV2 && stakingV2 == nil {
+		return nil, errors.New("native staking V2 protocol cannot be empty when enabled")
+	}
+
 	timerFactory, err := prometheustimer.New(
 		"iotex_staking_perf",
 		"Performance of staking module",
@@ -209,10 +213,6 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	if !sc.enableStakingV2 || hu.IsPre(config.Fairbank, height) {
 		cand, err = sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	} else {
-		// native staking V2 starts from Fairbank
-		if sc.nativeStakingV2 == nil {
-			return nil, errors.New("native staking V2 was not set after fairbank height")
-		}
 		cand, err = sc.nativeStakingV2.AllCandidates(ctx)
 	}
 	if err != nil {
