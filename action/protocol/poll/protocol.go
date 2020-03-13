@@ -122,7 +122,8 @@ func NewProtocol(
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
-	if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil || genesisConfig.GravityChainStartHeight == 0 {
+
+	if !genesisConfig.EnableGravityChainVoting || (electionCommittee == nil && stakingV2 == nil) {
 		delegates := genesisConfig.Delegates
 		if uint64(len(delegates)) < genesisConfig.NumDelegates {
 			return nil, errors.New("invalid delegate address in genesis block")

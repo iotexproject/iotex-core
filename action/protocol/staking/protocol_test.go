@@ -109,6 +109,21 @@ func TestProtocol(t *testing.T) {
 		r.Equal(e.d, stk.inMemCandidates.GetByOwner(e.d.Owner))
 	}
 
+	// active list should filter out 2 cands with not enough self-stake
+	cand, err := stk.ActiveCandidates(ctx)
+	r.NoError(err)
+	r.Equal(len(testCandidates)-2, len(cand))
+	for _, e := range cand {
+		for _, v := range testCandidates {
+			if e.Address == v.d.Owner.String() {
+				r.Equal(e.Votes, v.d.Votes)
+				r.Equal(e.RewardAddress, v.d.Reward.String())
+				r.Equal(string(e.CanName), v.d.Name)
+				break
+			}
+		}
+	}
+
 	// load buckets from stateDB and verify
 	buckets, err = getAllBuckets(sm)
 	r.NoError(err)
