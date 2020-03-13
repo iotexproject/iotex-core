@@ -13,14 +13,15 @@ package stakingpb;
 import "google/protobuf/timestamp.proto";
 
 message Bucket {
-  string candidateAddress = 1;
-  string stakedAmount = 2;
-  uint32 stakedDuration = 3;
-  google.protobuf.Timestamp createTime = 4;
-  google.protobuf.Timestamp stakeStartTime = 5;
-  google.protobuf.Timestamp unstakeStartTime = 6;
-  bool autoStake = 7;
-  string owner = 8;
+  uint64 index = 1;
+  string candidateAddress = 2;
+  string stakedAmount = 3;
+  uint32 stakedDuration = 4;
+  google.protobuf.Timestamp createTime = 5;
+  google.protobuf.Timestamp stakeStartTime = 6;
+  google.protobuf.Timestamp unstakeStartTime = 7;
+  bool autoStake = 8;
+  string owner = 9;
 }
 
 message BucketIndices {

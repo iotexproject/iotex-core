@@ -249,6 +249,7 @@ func TestGetPutStaking(t *testing.T) {
 		require.Equal(e.index+1, count)
 		vb1, err := getBucket(sm, e.index)
 		require.NoError(err)
+		require.Equal(e.index, vb1.Index)
 		require.Equal(vb, vb1)
 	}
 
