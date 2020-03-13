@@ -8,7 +8,6 @@ package chainservice
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -193,7 +192,6 @@ func New(
 		kvStore = db.NewMemKVStore()
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		fmt.Println("blockdao db path", cfg.DB.DbPath)
 		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO
@@ -458,6 +456,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	if err := cs.chain.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping blockchain")
+	}
+	if cs.candidateIndexer != nil {
+		if err := cs.candidateIndexer.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping candidate indexer")
+		}
 	}
 	return nil
 }
