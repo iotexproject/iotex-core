@@ -3,7 +3,6 @@ package e2etest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -13,13 +12,16 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -35,8 +37,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 type claimTestCaseID int
@@ -59,14 +59,15 @@ const (
 )
 
 func TestBlockReward(t *testing.T) {
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
-	testConsensusFile, _ := ioutil.TempFile(os.TempDir(), "cons")
-	testConsensusPath := testConsensusFile.Name()
+	r := require.New(t)
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	r.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	r.NoError(err)
+	testConsensusPath, err := testutil.PathOfTempFile("cons")
+	r.NoError(err)
 
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme

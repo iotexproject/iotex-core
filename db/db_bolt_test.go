@@ -8,21 +8,21 @@ package db
 
 import (
 	"context"
-	"io/ioutil"
 	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func BenchmarkBoltDB_Get(b *testing.B) {
 	runBenchmark := func(b *testing.B, size int) {
-		path, err := ioutil.TempFile("", "boltdb")
+		path, err := testutil.PathOfTempFile("boltdb")
 		require.NoError(b, err)
 		db := boltDB{
-			path:   path.Name(),
+			path:   path,
 			config: config.Default.DB,
 		}
 		db.Start(context.Background())

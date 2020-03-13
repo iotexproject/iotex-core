@@ -45,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/systemlog"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -147,16 +148,31 @@ func New(
 			}
 		}
 	}
-	// create indexer
-	var indexer blockindex.Indexer
+	// create indexers
+	var (
+		indexers       []blockdao.BlockIndexer
+		indexer        blockindex.Indexer
+		systemLogIndex *systemlog.Indexer
+	)
+
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway {
-		var err error
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 		if err != nil {
 			return nil, err
 		}
+		if !cfg.Chain.EnableAsyncIndexWrite {
+			indexers = append(indexers, indexer)
+		}
+
+		// create system log indexer
+		cfg.DB.DbPath = cfg.System.SystemLogDBPath
+		systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))
+		if err != nil {
+			return nil, err
+		}
+		indexers = append(indexers, systemLogIndex)
 	}
 	// create BlockDAO
 	var kvStore db.KVStore
@@ -167,11 +183,8 @@ func New(
 		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO
-	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		dao = blockdao.NewBlockDAO(kvStore, []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
-	} else {
-		dao = blockdao.NewBlockDAO(kvStore, nil, cfg.Chain.CompressBlock, cfg.DB)
-	}
+	dao = blockdao.NewBlockDAO(kvStore, indexers, cfg.Chain.CompressBlock, cfg.DB)
+
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
 	actPool, err := actpool.NewActPool(sf, cfg.ActPool, actOpts...)
@@ -209,8 +222,21 @@ func New(
 			return p2pAgent.BroadcastOutbound(p2p.WitContext(context.Background(), p2p.Context{ChainID: chain.ChainID()}), msg)
 		}),
 	}
-	var rDPoSProtocol *rolldpos.Protocol
-	var pollProtocol poll.Protocol
+	var (
+		rDPoSProtocol   *rolldpos.Protocol
+		pollProtocol    poll.Protocol
+		stakingProtocol *staking.Protocol
+	)
+	if cfg.Chain.EnableStakingProtocol {
+		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
+		if err != nil {
+			return nil, err
+		}
+		if err = stakingProtocol.Register(registry); err != nil {
+			return nil, err
+		}
+	}
+
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
 		rDPoSProtocol = rolldpos.NewProtocol(
 			cfg.Genesis.NumCandidateDelegates,
@@ -245,6 +271,8 @@ func New(
 			candidatesutil.KickoutListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
+			cfg.Chain.EnableStakingProtocol,
+			stakingProtocol,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
 				if err != nil {
@@ -300,6 +328,7 @@ func New(
 		sf,
 		dao,
 		indexer,
+		systemLogIndex,
 		actPool,
 		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
@@ -312,8 +341,6 @@ func New(
 		return nil, err
 	}
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
-	stakingProtocol := staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
 	if accountProtocol != nil {
 		if err = accountProtocol.Register(registry); err != nil {
 			return nil, err
@@ -329,6 +356,7 @@ func New(
 			return nil, err
 		}
 	}
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {
 			return nil, err
@@ -336,11 +364,6 @@ func New(
 	}
 	if rewardingProtocol != nil {
 		if err = rewardingProtocol.Register(registry); err != nil {
-			return nil, err
-		}
-	}
-	if stakingProtocol != nil {
-		if err = stakingProtocol.Register(registry); err != nil {
 			return nil, err
 		}
 	}

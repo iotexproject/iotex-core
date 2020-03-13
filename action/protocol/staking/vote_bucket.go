@@ -228,7 +228,7 @@ func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	if _, err := sm.State(
 		&tc,
 		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey)); err != nil {
+		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return 0, err
 	}
 

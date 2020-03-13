@@ -7,11 +7,21 @@
 package testutil
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
+
+// PathOfTempFile returns path of a new temporary file
+func PathOfTempFile(dirName string) (string, error) {
+	tempFile, err := ioutil.TempFile(os.TempDir(), dirName)
+	if err != nil {
+		return "", err
+	}
+	return tempFile.Name(), tempFile.Close()
+}
 
 // CleanupPath detects the existence of test DB file and removes it if found
 func CleanupPath(t *testing.T, path string) {

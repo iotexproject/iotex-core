@@ -9,14 +9,13 @@ package db
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -62,8 +61,8 @@ func TestKVStorePutGet(t *testing.T) {
 	})
 
 	path := "test-kv-store.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -114,8 +113,8 @@ func TestBatchRollback(t *testing.T) {
 	}
 
 	path := "test-batch-rollback.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -230,8 +229,8 @@ func TestDBBatch(t *testing.T) {
 	}
 
 	path := "test-batch-commit.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -282,8 +281,8 @@ func TestCacheKV(t *testing.T) {
 	})
 
 	path := "test-cache-kv.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -319,8 +318,8 @@ func TestDeleteBucket(t *testing.T) {
 	}
 
 	path := "test-delete.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -330,9 +329,9 @@ func TestDeleteBucket(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	testFunc := func(kv KVStore, t *testing.T) {
-		require := require.New(t)
+	require := require.New(t)
 
+	testFunc := func(kv KVStore, t *testing.T) {
 		require.NoError(kv.Start(context.Background()))
 		defer func() {
 			require.NoError(kv.Stop(context.Background()))
@@ -419,8 +418,8 @@ func TestFilter(t *testing.T) {
 	}
 
 	path := "test-filter.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)

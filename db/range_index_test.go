@@ -8,9 +8,7 @@ package db
 
 import (
 	"context"
-	"io/ioutil"
 	"math/rand"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -34,8 +32,8 @@ func TestRangeIndex(t *testing.T) {
 	}
 
 	path := "test-indexer"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
@@ -160,8 +158,8 @@ func TestRangeIndex2(t *testing.T) {
 	require := require.New(t)
 
 	path := "test-ranger"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)

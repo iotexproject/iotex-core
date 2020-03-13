@@ -28,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -41,6 +42,8 @@ type stakingCommittee struct {
 	electionCommittee    committee.Committee
 	governanceStaking    Protocol
 	nativeStaking        *NativeStaking
+	enableStakingV2      bool
+	nativeStakingV2      *staking.Protocol
 	scoreThreshold       *big.Int
 	currentNativeBuckets []*types.Bucket
 	timerFactory         *prometheustimer.TimerFactory
@@ -50,6 +53,8 @@ type stakingCommittee struct {
 func NewStakingCommittee(
 	ec committee.Committee,
 	gs Protocol,
+	enableV2 bool,
+	stakingV2 *staking.Protocol,
 	readContract ReadContract,
 	nativeStakingContractAddress string,
 	nativeStakingContractCode string,
@@ -80,6 +85,8 @@ func NewStakingCommittee(
 		electionCommittee: ec,
 		governanceStaking: gs,
 		nativeStaking:     ns,
+		enableStakingV2:   enableV2,
+		nativeStakingV2:   stakingV2,
 		scoreThreshold:    scoreThreshold,
 	}
 	sc.timerFactory = timerFactory
@@ -192,16 +199,29 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
 func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	timer := sc.timerFactory.NewTimer("Governance")
-	cand, err := sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
+	var (
+		cand state.CandidateList
+		err  error
+	)
+	if !sc.enableStakingV2 || hu.IsPre(config.Fairbank, height) {
+		cand, err = sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
+	} else {
+		// native staking V2 starts from Fairbank
+		if sc.nativeStakingV2 == nil {
+			return nil, errors.New("native staking V2 was not set after fairbank height")
+		}
+		cand, err = sc.nativeStakingV2.AllCandidates(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
 	timer.End()
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+
 	// convert to epoch start height
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}

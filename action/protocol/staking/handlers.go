@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -21,8 +22,28 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
+)
+
+const (
+	// HandleCreateStake is the handler name of createStake
+	HandleCreateStake = "createStake"
+	// HandleUnstake is the handler name of unstake
+	HandleUnstake = "unstake"
+	// HandleWithdrawStake is the handler name of withdrawStake
+	HandleWithdrawStake = "withdrawStake"
+	// HandleChangeCandidate is the handler name of changeCandidate
+	HandleChangeCandidate = "changeCandidate"
+	// HandleTransferStake is the handler name of transferStake
+	HandleTransferStake = "transferStake"
+	// HandleDepositToStake is the handler name of depositToStake
+	HandleDepositToStake = "depositToStake"
+	// HandleRestake is the handler name of restake
+	HandleRestake = "restake"
+	// HandleCandidateRegister is the handler name of candidateRegister
+	HandleCandidateRegister = "candidateRegister"
+	// HandleCandidateUpdate is the handler name of candidateUpdate
+	HandleCandidateUpdate = "candidateUpdate"
 )
 
 func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, sm protocol.StateManager) (*action.Receipt, error) {
@@ -40,7 +61,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	if _, err := putBucketAndIndex(sm, bucket); err != nil {
+	bucketIdx, err := putBucketAndIndex(sm, bucket)
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to put bucket")
 	}
 
@@ -62,7 +84,8 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleCreateStake, candidate.Owner, actionCtx.Caller, byteutil.Uint64ToBytes(bucketIdx))
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -73,6 +96,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 }
 
 func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
@@ -95,7 +119,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 	if candidate == nil {
 		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
 	}
-	weightedVote := p.calculateVoteWeight(bucket, false)
+	weightedVote := p.calculateVoteWeight(bucket, p.inMemCandidates.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.SubVote(weightedVote); err != nil {
 		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
 	}
@@ -107,7 +131,8 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleUnstake, nil, actionCtx.Caller, nil)
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -160,10 +185,13 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	return p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleWithdrawStake, nil, actionCtx.Caller, nil)
+	return p.settleAction(ctx, sm, gasFee, log)
 }
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+
 	candidate := p.inMemCandidates.GetByName(act.Candidate())
 	if candidate == nil {
 		return nil, errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
@@ -215,7 +243,8 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleChangeCandidate, candidate.Owner, actionCtx.Caller, nil)
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -229,6 +258,8 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 }
 
 func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch caller")
@@ -253,7 +284,8 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
 	}
 
-	return p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleTransferStake, nil, actionCtx.Caller, nil)
+	return p.settleAction(ctx, sm, gasFee, log)
 }
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, sm protocol.StateManager) (*action.Receipt, error) {
@@ -309,7 +341,8 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleDepositToStake, nil, actionCtx.Caller, nil)
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -320,6 +353,8 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 }
 
 func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm protocol.StateManager) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+
 	_, gasFee, err := fetchCaller(ctx, sm, big.NewInt(0))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to fetch caller")
@@ -355,7 +390,8 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleRestake, nil, actionCtx.Caller, nil)
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to settle action")
 	}
@@ -369,7 +405,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	registrationFee := unit.ConvertIotxToRau(p.config.RegistrationConsts.Fee)
+	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
 	caller, gasFee, err := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if err != nil {
@@ -401,14 +437,21 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// update caller balance
-	if err := caller.SubBalance(new(big.Int).Add(act.Amount(), registrationFee)); err != nil {
+	if err := caller.SubBalance(act.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actCtx.Caller.String())
 	}
 	// put updated caller's account state to trie
 	if err := accountutil.StoreAccount(sm, actCtx.Caller.String(), caller); err != nil {
 		return nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+
+	// put registrationFee to reward pool
+	if err := p.depositGas(ctx, sm, registrationFee); err != nil {
+		return nil, errors.Wrap(err, "failed to deposit gas")
+	}
+
+	log := p.createLog(ctx, HandleCandidateRegister, owner, actCtx.Caller, byteutil.Uint64ToBytes(bucketIdx))
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, err
 	}
@@ -449,7 +492,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 		return nil, err
 	}
 
-	receipt, err := p.settleAction(ctx, sm, gasFee)
+	log := p.createLog(ctx, HandleCandidateUpdate, nil, actCtx.Caller, nil)
+	receipt, err := p.settleAction(ctx, sm, gasFee, log)
 	if err != nil {
 		return nil, err
 	}
@@ -465,6 +509,7 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	gasFee *big.Int,
+	logs ...*action.Log,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -484,6 +529,7 @@ func (p *Protocol) settleAction(
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
+		Logs:            logs,
 	}, nil
 }
 
@@ -511,7 +557,7 @@ func (p *Protocol) fetchBucket(
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch bucket by index %d", index)
 	}
-	if checkOwner && bucket.Owner != actionCtx.Caller {
+	if checkOwner && !address.Equal(bucket.Owner, actionCtx.Caller) {
 		return nil, fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
 			bucket.Owner.String(), actionCtx.Caller.String())
 	}
@@ -519,6 +565,31 @@ func (p *Protocol) fetchBucket(
 		return nil, errors.New("self staking bucket cannot be processed")
 	}
 	return bucket, nil
+}
+
+func (p *Protocol) createLog(
+	ctx context.Context,
+	handlerName string,
+	candidateAddr,
+	voterAddr address.Address,
+	data []byte,
+) *action.Log {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+
+	topics := []hash.Hash256{hash.Hash256b([]byte(handlerName))}
+	if candidateAddr != nil {
+		topics = append(topics, hash.Hash256b(candidateAddr.Bytes()))
+	}
+	topics = append(topics, hash.Hash256b(voterAddr.Bytes()))
+
+	return &action.Log{
+		Address:     p.addr.String(),
+		Topics:      topics,
+		Data:        data,
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+	}
 }
 
 func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {

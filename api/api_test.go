@@ -9,19 +9,21 @@ package api
 import (
 	"context"
 	"encoding/hex"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -49,9 +51,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const lld = "lifeLongDelegates"
@@ -710,7 +709,7 @@ var (
 
 func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -734,7 +733,7 @@ func TestServer_GetAccount(t *testing.T) {
 
 func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -760,7 +759,7 @@ func TestServer_GetActions(t *testing.T) {
 
 func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -798,7 +797,7 @@ func TestServer_GetAction(t *testing.T) {
 
 func TestServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -846,7 +845,7 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 
 func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, true)
 	require.NoError(err)
@@ -874,7 +873,7 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 
 func TestServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -905,7 +904,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 
 func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -939,7 +938,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 
 func TestServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -975,7 +974,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 
 	var pol poll.Protocol
 	for _, test := range getChainMetaTests {
-		cfg := newConfig()
+		cfg := newConfig(t)
 		if test.pollProtocolType == lld {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
@@ -1054,7 +1053,7 @@ func TestServer_SendAction(t *testing.T) {
 
 func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1072,7 +1071,7 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 
 func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1097,7 +1096,7 @@ func TestServer_ReadContract(t *testing.T) {
 
 func TestServer_SuggestGasPrice(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
@@ -1111,7 +1110,7 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 
 func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1133,7 +1132,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 
 func TestServer_EstimateActionGasConsumption(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
@@ -1168,7 +1167,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 }
 
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
-	cfg := newConfig()
+	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
@@ -1191,7 +1190,7 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 }
 
 func TestServer_TotalBalance(t *testing.T) {
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
@@ -1208,7 +1207,7 @@ func TestServer_TotalBalance(t *testing.T) {
 }
 
 func TestServer_AvailableBalance(t *testing.T) {
-	cfg := newConfig()
+	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	svr, err := createServer(cfg, false)
 	require.NoError(t, err)
@@ -1226,7 +1225,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 
 func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1289,7 +1288,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 
 func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1351,7 +1350,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 
 func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1417,7 +1416,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 
 func TestServer_ReadRollDPoSMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	for _, test := range readRollDPoSMetaTests {
 		svr, err := createServer(cfg, false)
@@ -1433,7 +1432,7 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 
 func TestServer_ReadEpochCtx(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	for _, test := range readEpochCtxTests {
 		svr, err := createServer(cfg, false)
@@ -1450,7 +1449,7 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 
 func TestServer_GetEpochMeta(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1581,7 +1580,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 
 func TestServer_GetRawBlocks(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1609,7 +1608,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 
 func TestServer_GetLogs(t *testing.T) {
 	require := require.New(t)
-	cfg := newConfig()
+	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1863,15 +1862,16 @@ func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, erro
 	return ap, nil
 }
 
-func newConfig() config.Config {
+func newConfig(t *testing.T) config.Config {
+	r := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	r.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	r.NoError(err)
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath

@@ -10,20 +10,19 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -614,8 +613,8 @@ func (ms *MockSubscriber) Counter() int {
 }
 
 func TestConstantinople(t *testing.T) {
+	require := require.New(t)
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 
 		// Create a blockchain from scratch
@@ -745,12 +744,13 @@ func TestConstantinople(t *testing.T) {
 	}
 
 	cfg := config.Default
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
@@ -775,8 +775,8 @@ func TestConstantinople(t *testing.T) {
 }
 
 func TestLoadBlockchainfromDB(t *testing.T) {
+	require := require.New(t)
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
-		require := require.New(t)
 		ctx := context.Background()
 
 		// Create a blockchain from scratch
@@ -788,16 +788,18 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		var indexer blockindex.Indexer
+		var indexers []blockdao.BlockIndexer
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
 			indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 			require.NoError(err)
+			indexers = append(indexers, indexer)
 		}
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexers, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -983,12 +985,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		}
 	}
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
@@ -1005,12 +1008,13 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		testValidateBlockchain(cfg, t)
 	})
 
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath2 := testTrieFile.Name()
-	testDBFile, _ = ioutil.TempFile(os.TempDir(), "db")
-	testDBPath2 := testDBFile.Name()
-	testIndexFile2, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath2 := testIndexFile2.Name()
+	testTriePath2, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath2, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath2, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
 		testutil.CleanupPath(t, testDBPath2)
@@ -1037,12 +1041,12 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 func TestBlockchainInitialCandidate(t *testing.T) {
 	require := require.New(t)
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -1111,12 +1115,13 @@ func TestBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	c := identityset.Address(29).String()
@@ -1181,12 +1186,13 @@ func TestActions(t *testing.T) {
 		context.Background(),
 		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
 	)
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
 
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -1458,15 +1464,17 @@ func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testin
 	return big.NewInt(0).SetBytes(ret)
 }
 
-func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO) {
+func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVStore, blockdao.BlockDAO) {
 	require := require.New(t)
 	cfg := config.Default
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -1476,8 +1484,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 	cfg.Genesis.EnableGravityChainVoting = false
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
-	var err error
-	if statetx {
+	if stateTX {
 		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv))
 		require.NoError(err)
 	} else {
@@ -1490,16 +1497,18 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	var indexer blockindex.Indexer
+	var indexers []blockdao.BlockIndexer
 	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
 		indexer, err = blockindex.NewIndexer(db.NewBoltDB(cfg.DB), cfg.Genesis.Hash())
 		require.NoError(err)
+		indexers = append(indexers, indexer)
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), indexers, cfg.Chain.CompressBlock, cfg.DB)
 	require.NotNil(dao)
 	bc := NewBlockchain(
 		cfg,
@@ -1520,7 +1529,7 @@ func newChain(t *testing.T, statetx bool) (Blockchain, factory.Factory, db.KVSto
 	genesisPriKey := identityset.PrivateKey(27)
 	a := identityset.Address(28).String()
 	b := identityset.Address(29).String()
-	// make a transfer from genesisAccount to a and b,because statetx cannot store data in height 0
+	// make a transfer from genesisAccount to a and b,because stateTX cannot store data in height 0
 	tsf, err := testutil.SignedTransfer(a, genesisPriKey, 1, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	tsf2, err := testutil.SignedTransfer(b, genesisPriKey, 2, big.NewInt(100), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))

@@ -8,8 +8,6 @@ package blocksync
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -496,16 +494,14 @@ func TestBlockSyncerSync(t *testing.T) {
 }
 
 func newTestConfig() (config.Config, error) {
-	testTrieFile, err := ioutil.TempFile(os.TempDir(), "trie")
+	testTriePath, err := testutil.PathOfTempFile("trie")
 	if err != nil {
 		return config.Config{}, err
 	}
-	testTriePath := testTrieFile.Name()
-	testDBFile, err := ioutil.TempFile(os.TempDir(), "db")
+	testDBPath, err := testutil.PathOfTempFile("db")
 	if err != nil {
 		return config.Config{}, err
 	}
-	testDBPath := testDBFile.Name()
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath

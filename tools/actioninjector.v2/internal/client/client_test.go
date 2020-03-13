@@ -8,8 +8,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/systemlog"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -62,7 +64,9 @@ func TestClient(t *testing.T) {
 	})
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, ap, nil, newOption)
+	systemLogIndexer, err := systemlog.NewIndexer(db.NewMemKVStore())
+	require.NoError(err)
+	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, systemLogIndexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

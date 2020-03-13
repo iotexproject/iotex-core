@@ -25,7 +25,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -215,9 +214,6 @@ func (sf *factory) Start(ctx context.Context) error {
 		}
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
-		}
-		if err = sf.dao.Put(staking.StakingNameSpace, staking.TotalBucketKey, make([]byte, 8)); err != nil {
-			return errors.Wrap(err, "failed to init factory's total bucket account")
 		}
 	default:
 		return err

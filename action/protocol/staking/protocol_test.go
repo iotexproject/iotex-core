@@ -78,14 +78,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, genesis.Staking{
-		VoteWeightCalConsts: genesis.VoteWeightCalConsts{
-			DurationLg: 1.2,
-			AutoStake:  1.05,
-			SelfStake:  1.05,
-		},
-	})
+	stk, err := NewProtocol(nil, sm, genesis.Default.Staking)
 	r.NotNil(stk)
+	r.NoError(err)
 
 	ctx := context.Background()
 	r.NoError(stk.Start(ctx))
@@ -118,6 +113,11 @@ func TestProtocol(t *testing.T) {
 	buckets, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
+	// delete one bucket
+	r.NoError(delBucket(sm, 1))
+	buckets, err = getAllBuckets(sm)
+	r.NoError(err)
+	r.Equal(len(tests)-1, len(buckets))
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {

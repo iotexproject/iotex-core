@@ -9,15 +9,15 @@ package db
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
 	"strconv"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -138,8 +138,8 @@ func TestCountingIndex(t *testing.T) {
 	})
 
 	path := "test-iterate.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(t, err)
 	cfg.DbPath = testPath
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
@@ -178,7 +178,7 @@ func TestBulk(t *testing.T) {
 			}
 			require.NoError(tenant.Commit())
 			tenant.Close()
-			fmt.Printf("write tenant %d:\n", i)
+			log.L().Info(fmt.Sprintf("write tenant %d:\n", i))
 		}
 	}
 
@@ -217,7 +217,7 @@ func TestCheckBulk(t *testing.T) {
 				h := hash.Hash160b([]byte(strconv.Itoa(i)))
 				require.Equal(h[:], value[i])
 			}
-			fmt.Printf("verify tenant: %d\n", i)
+			log.L().Info(fmt.Sprintf("verify tenant: %d\n", i))
 		}
 	}
 

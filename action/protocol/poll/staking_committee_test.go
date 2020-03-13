@@ -121,6 +121,8 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	p, err := NewStakingCommittee(
 		committee,
 		gs,
+		false,
+		nil,
 		func(context.Context, string, []byte, bool) ([]byte, error) {
 			return nil, nil
 		},
