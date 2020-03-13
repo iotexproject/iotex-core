@@ -25,16 +25,16 @@ import (
 // Multi-language support
 var (
 	rewardCmdUses = map[config.Language]string{
-		config.English: "reward [ALIAS|DELEGATE_ADDRESS]",
-		config.Chinese: "reward [别名|委托地址]",
+		config.English: "reward unclaimed|pool [ALIAS|DELEGATE_ADDRESS]",
+		config.Chinese: "reward 未支取|奖金池 [别名|委托地址]",
 	}
 	rewardCmdShorts = map[config.Language]string{
 		config.English: "Query rewards",
 		config.Chinese: "查询奖励",
 	}
 	rewardPoolLong = map[config.Language]string{
-		config.English: "ioctl node reward returns unclaimed and available Rewards in fund pool. TotalUnclaimedRewards is the amount of all delegates that have been issued but are not claimed; TotalAvailableRewards is the amount of balance that has not been issued to anyone.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
-		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimedRewards是所有代表已被发放但未支取的奖励的总和; TotalAvailableRewards 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
+		config.English: "ioctl node reward returns unclaimed and available Rewards in fund pool. TotalUnclaimed is the amount of all delegates that have been issued but are not claimed; TotalAvailable is the amount of balance that has not been issued to anyone.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
+		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimed是所有代表已被发放但未支取的奖励的总和; TotalAvailable 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
 	}
 )
 
@@ -42,32 +42,38 @@ var (
 var nodeRewardCmd = &cobra.Command{
 	Use:   config.TranslateInLang(rewardCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(rewardCmdShorts, config.UILanguage),
-	Args:  cobra.MaximumNArgs(1),
+	Args:  cobra.MaximumNArgs(2),
 	Long:  config.TranslateInLang(rewardPoolLong, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error
 		if len(args) == 0 {
+			return output.PrintError(err)
+		}
+		switch args[0] {
+		case "pool":
 			err = rewardPool()
-		} else {
-			err = reward(args[0])
+		case "unclaimed":
+			err = reward(args[1])
+		default:
+			return output.PrintError(err)
 		}
 		return output.PrintError(err)
 	},
 }
 
-// TotalAvailableRewards == Rewards in the pool that has not been issued to anyone
-// TotalUnclaimedRewards == Rewards in the pool that has been issued to a delegate but are not claimed yet
+// TotalAvailable == Rewards in the pool that has not been issued to anyone
+// TotalUnclaimed == Rewards in the pool that has been issued to a delegate but are not claimed yet
 type rewardPoolMessage struct {
 	//rewardPoolMessageDescription string `json:rewardPoolMessageDescription`
-	TotalUnclaimedRewards string `json:"TotalUnclaimedRewards"`
-	TotalAvailableRewards string `json:"TotalAvailableRewards"`
+	TotalUnclaimed string `json:"TotalUnclaimed"`
+	TotalAvailable string `json:"TotalAvailable"`
 }
 
 func (m *rewardPoolMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("TotalUnclaimedRewards: %s IOTX   TotalAvailableRewards: %s IOTX",
-			m.TotalUnclaimedRewards, m.TotalAvailableRewards)
+		message := fmt.Sprintf("TotalUnclaimed: %s IOTX   TotalAvailable: %s IOTX",
+			m.TotalUnclaimed, m.TotalAvailable)
 		return message
 	}
 	return output.FormatString(output.Result, m)
@@ -134,8 +140,8 @@ func rewardPool() error {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
 	message := rewardPoolMessage{
-		TotalUnclaimedRewards: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-		TotalAvailableRewards: util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		TotalUnclaimed: util.RauToString(availableRewardRau, util.IotxDecimalNum),
+		TotalAvailable: util.RauToString(totalRewardRau, util.IotxDecimalNum),
 	}
 	fmt.Println(message.String())
 	return nil
