@@ -8,6 +8,7 @@ package chainservice
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -174,7 +175,10 @@ func New(
 			return nil, err
 		}
 		indexers = append(indexers, systemLogIndex)
+	}
 
+	_, candidateGateway := cfg.Plugins[config.CandidateGatewayPlugin]
+	if candidateGateway {
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
@@ -182,12 +186,14 @@ func New(
 			return nil, err
 		}
 	}
+
 	// create BlockDAO
 	var kvStore db.KVStore
 	if ops.isTesting {
 		kvStore = db.NewMemKVStore()
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
+		fmt.Println("blockdao db path", cfg.DB.DbPath)
 		kvStore = db.NewBoltDB(cfg.DB)
 	}
 	var dao blockdao.BlockDAO

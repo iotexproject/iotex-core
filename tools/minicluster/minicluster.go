@@ -92,7 +92,7 @@ func main() {
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
-		candidateIndexDBPath := fmt.Sprintf("./candidateIndex%d.db", i+1)
+		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i

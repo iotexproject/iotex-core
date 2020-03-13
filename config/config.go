@@ -58,6 +58,8 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	// CandidateGatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users related to candidate/delegate info
+	CandidateGatewayPlugin
 )
 
 type strs []string
@@ -441,6 +443,8 @@ func New(validates ...Validate) (Config, error) {
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "candidategateway":
+			cfg.Plugins[CandidateGatewayPlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
