@@ -213,19 +213,22 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	if !sc.enableStakingV2 || hu.IsPre(config.Fairbank, height) {
 		cand, err = sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	} else {
+		// starting Fairbank height all candidates come from native staking V2
 		cand, err = sc.nativeStakingV2.AllCandidates(ctx)
+		timer.End()
+		return cand, err
 	}
+	timer.End()
 	if err != nil {
 		return nil, err
 	}
-	timer.End()
 
 	// convert to epoch start height
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
-	// native staking starts from Cook
+	// native staking using contract starts from Cook
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}
