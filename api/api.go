@@ -50,6 +50,8 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/systemlog"
+	"github.com/iotexproject/iotex-core/systemlog/systemlogpb"
 )
 
 var (
@@ -96,6 +98,7 @@ type Server struct {
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
+	systemLogIndexer  *systemlog.Indexer
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -114,6 +117,7 @@ func NewServer(
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
+	systemLogIndexer *systemlog.Indexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
@@ -139,6 +143,7 @@ func NewServer(
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
+		systemLogIndexer:  systemLogIndexer,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
@@ -726,6 +731,22 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 
 	selp, _, _, err := api.getActionByActionHash(h)
 	return selp, err
+}
+
+// GetEvmTransferByActionHash returns evm transfers by action hash
+func (api *Server) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
+	if !api.hasActionIndex || api.systemLogIndexer == nil {
+		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+	}
+	return api.systemLogIndexer.GetEvmTransferByActionHash(actionHash)
+}
+
+// GetEvmTransferByBlockHeight returns evm transfers by block height
+func (api *Server) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
+	if !api.hasActionIndex || api.systemLogIndexer == nil {
+		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+	}
+	return api.systemLogIndexer.GetEvmTransferByBlockHeight(blockHeight)
 }
 
 // Start starts the API server

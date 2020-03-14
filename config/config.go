@@ -123,6 +123,7 @@ var (
 			PollInitialCandidatesInterval: 10 * time.Second,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
+			EnableStakingProtocol:         true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -176,6 +177,7 @@ var (
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
+			SystemLogDBPath:       "./systemlog.db",
 		},
 		DB: DB{
 			NumRetries:   3,
@@ -247,7 +249,8 @@ type (
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
+		WorkingSetCacheSize   uint64 `yaml:"workingSetCacheSize"`
+		EnableStakingProtocol bool   `yaml: "enableStakingProtocol"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -319,6 +322,7 @@ type (
 		HTTPAdminPort         int           `yaml:"httpAdminPort"`
 		HTTPStatsPort         int           `yaml:"httpStatsPort"`
 		StartSubChainInterval time.Duration `yaml:"startSubChainInterval"`
+		SystemLogDBPath       string        `yaml:"systemLogDBPath"`
 	}
 
 	// ActPool is the actpool config

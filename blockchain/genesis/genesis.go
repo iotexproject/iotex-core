@@ -55,6 +55,7 @@ func defaultConfig() Genesis {
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
 			EasterBlockHeight:       3619801,
+			FairbankBlockHeight:     4339081,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -84,11 +85,11 @@ func defaultConfig() Genesis {
 				SelfStake:  1.05,
 			},
 			RegistrationConsts: RegistrationConsts{
-				Fee:          100,
-				MinSelfStake: 1200000,
+				Fee:          unit.ConvertIotxToRau(100).String(),
+				MinSelfStake: unit.ConvertIotxToRau(1200000).String(),
 			},
-			WithdrawWaitingPeriod: 14,
-			MinStakeAmount:        100,
+			WithdrawWaitingPeriod: 14 * 24 * time.Hour,
+			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
 		},
 	}
@@ -156,6 +157,8 @@ type (
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
 		// EasterBlockHeight is the start height of kick-out for slashing
 		EasterBlockHeight uint64 `yaml:"easterHeight"`
+		// FairbankBlockHeight is the start height to switch to native staking V2
+		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -233,7 +236,7 @@ type (
 		VoteWeightCalConsts   VoteWeightCalConsts  `yaml:"voteWeightCalConsts"`
 		RegistrationConsts    RegistrationConsts   `yaml:"registrationConsts"`
 		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
-		MinStakeAmount        int64                `yaml:"minStakeAmount"` // in iotex
+		MinStakeAmount        string               `yaml:"minStakeAmount"`
 		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
 	}
 
@@ -246,8 +249,8 @@ type (
 
 	// RegistrationConsts contains the configs for candidate registration
 	RegistrationConsts struct {
-		Fee          int64 `yaml:"fee"`          // in iotex
-		MinSelfStake int64 `yaml:"minSelfStake"` // in iotex
+		Fee          string `yaml:"fee"`
+		MinSelfStake string `yaml:"minSelfStake"`
 	}
 
 	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
@@ -256,7 +259,7 @@ type (
 		OperatorAddress   string `yaml:"operatorAddress"`
 		RewardAddress     string `yaml:"rewardAddress"`
 		Name              string `yaml:"name"`
-		SelfStakingTokens int64  `yaml:"selfStakingTokens"` // in iotex
+		SelfStakingTokens string `yaml:"selfStakingTokens"`
 	}
 )
 

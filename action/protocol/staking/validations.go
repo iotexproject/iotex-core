@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // Errors
@@ -37,7 +36,7 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if !IsValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	if act.Amount().Cmp(unit.ConvertIotxToRau(p.config.MinStakeAmount)) == -1 {
+	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	if act.GasPrice().Sign() < 0 {
@@ -129,8 +128,7 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return ErrInvalidCanName
 	}
 
-	minSelfStake := unit.ConvertIotxToRau(p.config.RegistrationConsts.MinSelfStake)
-	if act.Amount().Cmp(minSelfStake) < 0 {
+	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
 

@@ -8,16 +8,17 @@ package trie
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iotexproject/iotex-core/testutil"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -45,8 +46,6 @@ var (
 		[]byte("egg"), []byte("fox"), []byte("cow"), []byte("ant"),
 	}
 )
-
-const testTriePath = "trie.test"
 
 func TestEmptyTrie(t *testing.T) {
 	require := require.New(t)
@@ -425,8 +424,9 @@ func TestHistoryTrie(t *testing.T) {
 	AccountKVNamespace := "Account"
 	AccountTrieRootKey := "accountTrieRoot"
 	path := "test-history-trie.bolt"
-	testFile, _ := ioutil.TempFile(os.TempDir(), path)
-	testPath := testFile.Name()
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
+
 	cfg.DbPath = testPath
 	opts := []db.KVStoreFlusherOption{
 		db.FlushTranslateOption(func(wi *batch.WriteInfo) *batch.WriteInfo {

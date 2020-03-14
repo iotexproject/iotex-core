@@ -21,6 +21,7 @@ const (
 	Dardanelles
 	Daytona
 	Easter
+	Fairbank
 )
 
 type (
@@ -41,6 +42,7 @@ type (
 		dardanellesHeight uint64
 		daytonaHeight     uint64
 		easterHeight      uint64
+		fairbankHeight    uint64
 	}
 )
 
@@ -54,6 +56,7 @@ func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 		cfg.DardanellesBlockHeight,
 		cfg.DaytonaBlockHeight,
 		cfg.EasterBlockHeight,
+		cfg.FairbankBlockHeight,
 	}
 }
 
@@ -75,6 +78,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.daytonaHeight
 	case Easter:
 		h = hu.easterHeight
+	case Fairbank:
+		h = hu.fairbankHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -106,3 +111,6 @@ func (hu *HeightUpgrade) DaytonaBlockHeight() uint64 { return hu.daytonaHeight }
 
 // EasterBlockHeight returns the easter height
 func (hu *HeightUpgrade) EasterBlockHeight() uint64 { return hu.easterHeight }
+
+// FairbankBlockHeight returns the fairbank height
+func (hu *HeightUpgrade) FairbankBlockHeight() uint64 { return hu.fairbankHeight }

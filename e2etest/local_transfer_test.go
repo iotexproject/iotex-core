@@ -9,19 +9,18 @@ package e2etest
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/cenkalti/backoff"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 
 	"github.com/iotexproject/iotex-core/action"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -259,16 +258,25 @@ func TestLocalTransfer(t *testing.T) {
 
 	require := require.New(t)
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
-	testDBFile, _ := ioutil.TempFile(os.TempDir(), "db")
-	testDBPath := testDBFile.Name()
-	testIndexFile, _ := ioutil.TempFile(os.TempDir(), "index")
-	testIndexPath := testIndexFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	require.NoError(err)
+
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(t, testSystemLogPath)
+	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testSystemLogPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -489,7 +497,8 @@ func getLocalKey(i int) crypto.PrivateKey {
 func newTransferConfig(
 	chainDBPath,
 	trieDBPath,
-	indexDBPath string,
+	indexDBPath,
+	systemLogDBPath string,
 	networkPort,
 	apiPort int,
 ) (config.Config, error) {
@@ -501,6 +510,7 @@ func newTransferConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.StandaloneScheme

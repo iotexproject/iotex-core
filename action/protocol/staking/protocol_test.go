@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -78,14 +79,9 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk := NewProtocol(nil, sm, genesis.Staking{
-		VoteWeightCalConsts: genesis.VoteWeightCalConsts{
-			DurationLg: 1.2,
-			AutoStake:  1.05,
-			SelfStake:  1.05,
-		},
-	})
+	stk, err := NewProtocol(nil, sm, genesis.Default.Staking)
 	r.NotNil(stk)
+	r.NoError(err)
 
 	ctx := context.Background()
 	r.NoError(stk.Start(ctx))
@@ -114,10 +110,33 @@ func TestProtocol(t *testing.T) {
 		r.Equal(e.d, stk.inMemCandidates.GetByOwner(e.d.Owner))
 	}
 
+	// active list should filter out 2 cands with not enough self-stake
+	cand, err := stk.ActiveCandidates(ctx)
+	r.NoError(err)
+	r.Equal(len(testCandidates)-2, len(cand))
+	for i, e := range cand {
+		for _, v := range testCandidates {
+			if e.Address == v.d.Owner.String() {
+				r.Equal(e.Votes, v.d.Votes)
+				r.Equal(e.RewardAddress, v.d.Reward.String())
+				r.Equal(string(e.CanName), v.d.Name)
+				r.True(v.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
+				// v.index is the order of sorted list
+				r.Equal(i, v.index)
+				break
+			}
+		}
+	}
+
 	// load buckets from stateDB and verify
 	buckets, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
+	// delete one bucket
+	r.NoError(delBucket(sm, 1))
+	buckets, err = getAllBuckets(sm)
+	r.NoError(err)
+	r.Equal(len(tests)-1, len(buckets))
 	for _, e := range tests {
 		for i := range buckets {
 			if buckets[i].StakedAmount == e.amount {

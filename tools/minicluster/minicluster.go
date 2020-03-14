@@ -90,6 +90,8 @@ func main() {
 		dbFilePaths = append(dbFilePaths, indexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
+		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort)
@@ -97,6 +99,7 @@ func main() {
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
+		config.System.SystemLogDBPath = systemLogDBPath
 		if i == 0 {
 			config.Network.BootstrapNodes = []string{}
 			config.Network.MasterKey = "bootnode"
@@ -413,6 +416,6 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
-	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg
 }

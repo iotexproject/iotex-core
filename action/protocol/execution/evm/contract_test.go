@@ -7,16 +7,15 @@
 package evm
 
 import (
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -32,8 +31,8 @@ func TestCreateContract(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
@@ -66,7 +65,7 @@ func TestCreateContract(t *testing.T) {
 		}).AnyTimes()
 
 	addr := identityset.Address(28)
-	_, err := accountutil.LoadOrCreateAccount(sm, addr.String())
+	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
 	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hash.ZeroHash256)
@@ -96,8 +95,9 @@ func TestCreateContract(t *testing.T) {
 }
 
 func TestLoadStoreCommit(t *testing.T) {
+	require := require.New(t)
+
 	testLoadStoreCommit := func(cfg config.Config, t *testing.T) {
-		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		sm, err := initMockStateManager(ctrl)
@@ -202,8 +202,8 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 	}
 
-	testTrieFile, _ := ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath := testTrieFile.Name()
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 	}()
@@ -214,8 +214,8 @@ func TestLoadStoreCommit(t *testing.T) {
 		testLoadStoreCommit(cfg, t)
 	})
 
-	testTrieFile, _ = ioutil.TempFile(os.TempDir(), "trie")
-	testTriePath2 := testTrieFile.Name()
+	testTriePath2, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath2)
 	}()

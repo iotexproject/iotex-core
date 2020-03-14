@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -22,8 +23,8 @@ func TestClone(t *testing.T) {
 	r := require.New(t)
 	d := &Candidate{
 		Owner:              identityset.Address(1),
-		Operator:           identityset.Address(1),
-		Reward:             identityset.Address(1),
+		Operator:           identityset.Address(2),
+		Reward:             identityset.Address(3),
 		Name:               "testname1234",
 		Votes:              big.NewInt(0),
 		SelfStakeBucketIdx: 0,
@@ -33,6 +34,12 @@ func TestClone(t *testing.T) {
 	r.Equal(d, d2)
 	d.AddVote(big.NewInt(100))
 	r.NotEqual(d, d2)
+
+	c := d.toStateCandidate()
+	r.Equal(d.Owner.String(), c.Address)
+	r.Equal(d.Reward.String(), c.RewardAddress)
+	r.Equal(d.Votes, c.Votes)
+	r.Equal(d.Name, string(c.CanName))
 }
 
 var (
@@ -48,7 +55,7 @@ var (
 				Name:               "test1",
 				Votes:              big.NewInt(2),
 				SelfStakeBucketIdx: 1,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			2,
 		},
@@ -60,7 +67,7 @@ var (
 				Name:               "test2",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 2,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			1,
 		},
@@ -72,7 +79,7 @@ var (
 				Name:               "test3",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 3,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			0,
 		},
@@ -84,9 +91,33 @@ var (
 				Name:               "test4",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 4,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			3,
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(5),
+				Operator:           identityset.Address(15),
+				Reward:             identityset.Address(2),
+				Name:               "test5",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 5,
+				SelfStake:          unit.ConvertIotxToRau(1199999),
+			},
+			5,
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(16),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 6,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			6,
 		},
 	}
 )
@@ -115,6 +146,19 @@ func TestCandCenter(t *testing.T) {
 		r.True(m.ContainsOperator(v.d.Operator))
 		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
 		r.Equal(v.d, m.GetByName(v.d.Name))
+	}
+
+	// test convert to list
+	list, err := m.All()
+	r.NoError(err)
+	r.Equal(m.Size(), len(list))
+	for _, v := range m.ownerMap {
+		for i := range list {
+			if list[i].Name == v.Name {
+				r.Equal(v, list[i])
+				break
+			}
+		}
 	}
 
 	// cannot insert candidate with conflicting name/operator/self-staking index

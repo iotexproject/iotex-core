@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -111,6 +112,8 @@ func NewProtocol(
 	kickoutListByEpoch GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
+	enableV2 bool,
+	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	sr protocol.StateReader,
 	productivityByEpoch ProductivityByEpoch,
@@ -119,7 +122,8 @@ func NewProtocol(
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
-	if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil || genesisConfig.GravityChainStartHeight == 0 {
+
+	if !genesisConfig.EnableGravityChainVoting || (electionCommittee == nil && stakingV2 == nil) {
 		delegates := genesisConfig.Delegates
 		if uint64(len(delegates)) < genesisConfig.NumDelegates {
 			return nil, errors.New("invalid delegate address in genesis block")
@@ -155,6 +159,8 @@ func NewProtocol(
 	if pollProtocol, err = NewStakingCommittee(
 		electionCommittee,
 		governance,
+		enableV2,
+		stakingV2,
 		readContract,
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
