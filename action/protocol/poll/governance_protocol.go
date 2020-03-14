@@ -382,10 +382,6 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 			votingPower := new(big.Float).SetInt(filterCand.Votes)
 			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 		}
-		if filterCand.Votes.Cmp(big.NewInt(0)) == 0 {
-			// if the voting power is 0, exclude it (hard kickout)
-			continue
-		}
 		updatedVotingPower[filterCand.Address] = filterCand.Votes
 		candidatesMap[filterCand.Address] = filterCand
 	}
@@ -408,6 +404,10 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	for i, candidate := range candidates {
 		if uint64(i) >= p.numCandidateDelegates {
 			break
+		}
+		if candidate.Votes.Cmp(big.NewInt(0)) == 0 {
+			// if the voting power is 0, exclude from being a block producer(hard kickout)
+			continue
 		}
 		blockProducers = append(blockProducers, candidate)
 	}
