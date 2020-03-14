@@ -91,7 +91,17 @@ func (tlt *twoLayerTrie) RootHash() []byte {
 }
 
 func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
-	return tlt.layerOne.SetRootHash(rh)
+	for key, lt := range tlt.layerTwo {
+		if err := lt.Stop(context.Background()); err != nil {
+			return err
+		}
+		delete(tlt.layerTwo, key)
+	}
+	if err := tlt.layerOne.SetRootHash(rh); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (tlt *twoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
