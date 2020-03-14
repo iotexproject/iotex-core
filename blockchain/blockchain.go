@@ -8,6 +8,7 @@ package blockchain
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -465,6 +466,7 @@ func (bc *blockchain) MintNewBlock(
 	defer mintNewBlockTimer.End()
 	tipHeight := bc.dao.GetTipHeight()
 	newblockHeight := tipHeight + 1
+	fmt.Println("MintNewBlock", newblockHeight)
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
 		return nil, err

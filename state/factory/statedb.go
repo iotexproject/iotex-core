@@ -210,6 +210,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 				return err
 			}
 			sdb.currentChainHeight = h
+			fmt.Println("Commit Block and Set Current Chain Height", h)
 			return nil
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
@@ -243,6 +244,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions []action.SealedEnvelope,
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
+	fmt.Println("NewBlockBuilder", sdb.currentChainHeight+1)
 	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
