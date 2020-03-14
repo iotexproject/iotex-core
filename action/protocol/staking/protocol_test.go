@@ -18,6 +18,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -113,12 +114,15 @@ func TestProtocol(t *testing.T) {
 	cand, err := stk.ActiveCandidates(ctx)
 	r.NoError(err)
 	r.Equal(len(testCandidates)-2, len(cand))
-	for _, e := range cand {
+	for i, e := range cand {
 		for _, v := range testCandidates {
 			if e.Address == v.d.Owner.String() {
 				r.Equal(e.Votes, v.d.Votes)
 				r.Equal(e.RewardAddress, v.d.Reward.String())
 				r.Equal(string(e.CanName), v.d.Name)
+				r.True(v.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
+				// v.index is the order of sorted list
+				r.Equal(i, v.index)
 				break
 			}
 		}
