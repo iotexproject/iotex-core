@@ -8,6 +8,7 @@ package staking
 
 import (
 	"math/big"
+	"sort"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -238,6 +239,7 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 	for _, c := range l {
 		list = append(list, c.toStateCandidate())
 	}
+	sort.Sort(list)
 	return list, nil
 }
 
