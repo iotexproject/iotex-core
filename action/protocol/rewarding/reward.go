@@ -210,6 +210,10 @@ func (p *Protocol) GrantEpochReward(
 			if _, ok := exemptAddrs[candidates[i].Address]; ok {
 				continue
 			}
+			if candidates[i].Votes.Cmp(big.NewInt(0)) == 0 {
+				// hard kick-out 
+				continue
+			}
 			count++
 			// If reward address doesn't exist, do nothing
 			if candidates[i].RewardAddress == "" {
