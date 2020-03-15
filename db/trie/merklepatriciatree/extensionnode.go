@@ -24,13 +24,11 @@ func newExtensionNode(
 	mpt *merklePatriciaTree,
 	path []byte,
 	child node,
-) (*extensionNode, error) {
+) (node, error) {
 	e := &extensionNode{cacheNode: cacheNode{mpt: mpt}, path: path, child: child}
 	e.cacheNode.serializable = e
-	if err := e.store(); err != nil {
-		return nil, err
-	}
-	return e, nil
+
+	return e.store()
 }
 
 func newExtensionNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.ExtendPb) *extensionNode {
@@ -52,11 +50,16 @@ func (e *extensionNode) Delete(key keyType, offset uint8) (node, error) {
 	if newChild == nil {
 		return nil, e.delete()
 	}
+	if hn, ok := newChild.(*hashNode); ok {
+		if newChild, err = hn.LoadNode(); err != nil {
+			return nil, err
+		}
+	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		return node.updatePath(append(e.path, node.path...))
+		return node.updatePath(append(e.path, node.path...), false)
 	case *branchNode:
-		return e.updateChild(node)
+		return e.updateChild(node, false)
 	default:
 		if err := e.delete(); err != nil {
 			return nil, err
@@ -73,14 +76,14 @@ func (e *extensionNode) Upsert(key keyType, offset uint8, value []byte) (node, e
 		if err != nil {
 			return nil, err
 		}
-		return e.updateChild(newChild)
+		return e.updateChild(newChild, true)
 	}
 	eb := e.path[matched]
-	enode, err := e.updatePath(e.path[matched+1:])
+	enode, err := e.updatePath(e.path[matched+1:], true)
 	if err != nil {
 		return nil, err
 	}
-	lnode, err := newLeafHashNode(e.mpt, key, value)
+	lnode, err := newLeafNode(e.mpt, key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -135,25 +138,35 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 	return commonPrefixLength(e.path, key)
 }
 
-func (e *extensionNode) updatePath(path []byte) (*extensionNode, error) {
+func (e *extensionNode) updatePath(path []byte, h bool) (node, error) {
 	if err := e.delete(); err != nil {
 		return nil, err
 	}
 	e.path = path
-	if err := e.store(); err != nil {
+
+	hn, err := e.store()
+	if err != nil {
 		return nil, err
+	}
+	if h {
+		return hn, nil
 	}
 	return e, nil
 }
 
-func (e *extensionNode) updateChild(newChild node) (*extensionNode, error) {
+func (e *extensionNode) updateChild(newChild node, h bool) (node, error) {
 	err := e.delete()
 	if err != nil {
 		return nil, err
 	}
 	e.child = newChild
-	if err := e.store(); err != nil {
+
+	hn, err := e.store()
+	if err != nil {
 		return nil, err
+	}
+	if h {
+		return hn, nil
 	}
 	return e, nil
 }

@@ -25,18 +25,23 @@ type branchNode struct {
 func newBranchNode(
 	mpt *merklePatriciaTree,
 	children map[byte]node,
-) (*branchNode, error) {
-	if children == nil {
-		children = make(map[byte]node)
+) (node, error) {
+	if children == nil || len(children) == 0 {
+		return nil, errors.New("branch node children cannot be empty")
 	}
 	bnode := &branchNode{cacheNode: cacheNode{mpt: mpt}, children: children}
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
-		if err := bnode.store(); err != nil {
-			return nil, err
-		}
+		return bnode.store()
 	}
 	return bnode, nil
+}
+
+func newEmptyRootBranchNode(mpt *merklePatriciaTree) *branchNode {
+	bnode := &branchNode{cacheNode: cacheNode{mpt: mpt}, children: make(map[byte]node), isRoot: true}
+	bnode.cacheNode.serializable = bnode
+
+	return bnode
 }
 
 func newBranchNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.BranchPb) *branchNode {
@@ -73,7 +78,7 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 		return nil, err
 	}
 	if newChild != nil || b.isRoot {
-		return b.updateChild(offsetKey, newChild)
+		return b.updateChild(offsetKey, newChild, false)
 	}
 	switch len(b.children) {
 	case 1:
@@ -103,6 +108,7 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 		case *extensionNode:
 			return node.updatePath(
 				append([]byte{orphanKey}, node.path...),
+				false,
 			)
 		case *leafNode:
 			return node, nil
@@ -110,7 +116,7 @@ func (b *branchNode) Delete(key keyType, offset uint8) (node, error) {
 			return newExtensionNode(b.mpt, []byte{orphanKey}, node)
 		}
 	default:
-		return b.updateChild(offsetKey, newChild)
+		return b.updateChild(offsetKey, newChild, false)
 	}
 }
 
@@ -123,13 +129,13 @@ func (b *branchNode) Upsert(key keyType, offset uint8, value []byte) (node, erro
 	case nil:
 		newChild, err = child.Upsert(key, offset+1, value)
 	case trie.ErrNotExist:
-		newChild, err = newLeafHashNode(b.mpt, key, value)
+		newChild, err = newLeafNode(b.mpt, key, value)
 	}
 	if err != nil {
 		return nil, err
 	}
 
-	return b.updateChild(offsetKey, newChild)
+	return b.updateChild(offsetKey, newChild, true)
 }
 
 func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
@@ -170,7 +176,7 @@ func (b *branchNode) child(key byte) (node, error) {
 	return c, nil
 }
 
-func (b *branchNode) updateChild(key byte, child node) (*branchNode, error) {
+func (b *branchNode) updateChild(key byte, child node, h bool) (node, error) {
 	if err := b.delete(); err != nil {
 		return nil, err
 	}
@@ -180,7 +186,15 @@ func (b *branchNode) updateChild(key byte, child node) (*branchNode, error) {
 		b.children[key] = child
 	}
 	if len(b.children) != 0 {
-		if err := b.store(); err != nil {
+		hn, err := b.store()
+		if err != nil {
+			return nil, err
+		}
+		if !b.isRoot && h {
+			return hn, nil
+		}
+	} else {
+		if err := b.calculateCache(); err != nil {
 			return nil, err
 		}
 	}

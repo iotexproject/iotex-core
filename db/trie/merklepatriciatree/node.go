@@ -28,7 +28,7 @@ type (
 		hash() ([]byte, error)
 		proto() (proto.Message, error)
 		delete() error
-		store() error
+		store() (node, error)
 	}
 
 	leaf interface {
@@ -88,16 +88,19 @@ func (cn *cacheNode) delete() error {
 	return nil
 }
 
-func (cn *cacheNode) store() error {
+func (cn *cacheNode) store() (node, error) {
 	ser, err := cn.serialize()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	h, err := cn.hash()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return cn.mpt.putNode(h, ser)
+	if err := cn.mpt.putNode(h, ser); err != nil {
+		return nil, err
+	}
+	return newHashNode(cn.mpt, h), nil
 }
 
 func (cn *cacheNode) calculateCache() error {

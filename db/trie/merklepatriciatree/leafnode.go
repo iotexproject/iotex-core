@@ -20,17 +20,14 @@ type leafNode struct {
 	value []byte
 }
 
-func newLeafHashNode(
+func newLeafNode(
 	mpt *merklePatriciaTree,
 	key keyType,
 	value []byte,
-) (*hashNode, error) {
+) (node, error) {
 	l := &leafNode{cacheNode: cacheNode{mpt: mpt}, key: key, value: value}
 	l.cacheNode.serializable = l
-	if err := l.store(); err != nil {
-		return nil, err
-	}
-	return l.ToHashNode()
+	return l.store()
 }
 
 func newLeafNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.LeafPb) *leafNode {
@@ -75,7 +72,7 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	if offset+matched == uint8(len(key)) {
 		return l.updateValue(value)
 	}
-	newl, err := newLeafHashNode(l.mpt, key, value)
+	newl, err := newLeafNode(l.mpt, key, value)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +123,5 @@ func (l *leafNode) updateValue(value []byte) (node, error) {
 		return nil, err
 	}
 	l.value = value
-	if err := l.store(); err != nil {
-		return nil, err
-	}
-	return l.toHashNode()
+	return l.store()
 }
