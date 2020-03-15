@@ -16,13 +16,14 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -192,13 +193,13 @@ func (p *Protocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
-	case "AvailableBalance":
+	case "TotalUnclaimedBalance":
 		balance, err := p.AvailableBalance(ctx, sm)
 		if err != nil {
 			return nil, err
 		}
 		return []byte(balance.String()), nil
-	case "TotalBalance":
+	case "TotalAvailableBalance":
 		balance, err := p.TotalBalance(ctx, sm)
 		if err != nil {
 			return nil, err

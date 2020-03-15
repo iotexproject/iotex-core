@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
@@ -21,6 +22,8 @@ import (
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
 // equal to the unclaimed balance in all reward accounts
+// totalBalance is Rewards in the rewarding fund that has not been issued to anyone
+// unclaimedBalance is Rewards in the rewarding fund that has been issued and unclaimed
 type fund struct {
 	totalBalance     *big.Int
 	unclaimedBalance *big.Int

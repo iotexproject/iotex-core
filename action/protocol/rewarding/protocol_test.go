@@ -395,11 +395,11 @@ func TestProtocol_Handle(t *testing.T) {
 		expect []byte
 	}{
 		{
-			input:  "AvailableBalance",
+			input:  "TotalUnclaimedBalance",
 			expect: []byte{49, 57, 57, 57, 57, 57, 48},
 		},
 		{
-			input:  "TotalBalance",
+			input:  "TotalAvailableBalance",
 			expect: []byte{49, 48, 48, 48, 48, 48, 48},
 		},
 		{

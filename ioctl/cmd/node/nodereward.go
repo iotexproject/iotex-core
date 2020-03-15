@@ -65,7 +65,6 @@ var nodeRewardCmd = &cobra.Command{
 // TotalAvailable == Rewards in the pool that has not been issued to anyone
 // TotalUnclaimed == Rewards in the pool that has been issued to a delegate but are not claimed yet
 type rewardPoolMessage struct {
-	//rewardPoolMessageDescription string `json:rewardPoolMessageDescription`
 	TotalUnclaimed string `json:"TotalUnclaimed"`
 	TotalAvailable string `json:"TotalAvailable"`
 }
@@ -105,10 +104,10 @@ func rewardPool() error {
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-	// AvailableBalance == Rewards in the pool that has been issued and unclaimed
+	// TotalUnclaimedBalance == Rewards in the pool that has been issued and unclaimed
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("AvailableBalance"),
+		MethodName: []byte("TotalUnclaimedBalance"),
 	}
 	response, err := cli.ReadState(ctx, request)
 	if err != nil {
@@ -118,14 +117,14 @@ func rewardPool() error {
 		}
 		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 	}
-	availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+	totalUnclaimedRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
-	// TotalBalance == Rewards in the pool that has not been issued to anyone
+	// TotalAvailableBalance == Rewards in the pool that has not been issued to anyone
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("TotalBalance"),
+		MethodName: []byte("TotalAvailableBalance"),
 	}
 	response, err = cli.ReadState(ctx, request)
 	if err != nil {
@@ -135,13 +134,13 @@ func rewardPool() error {
 		}
 		return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 	}
-	totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+	totalAvailableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
 	message := rewardPoolMessage{
-		TotalUnclaimed: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-		TotalAvailable: util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		TotalUnclaimed: util.RauToString(totalUnclaimedRewardRau, util.IotxDecimalNum),
+		TotalAvailable: util.RauToString(totalAvailableRewardRau, util.IotxDecimalNum),
 	}
 	fmt.Println(message.String())
 	return nil
