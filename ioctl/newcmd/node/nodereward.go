@@ -36,6 +36,10 @@ var (
 		config.English: "Available Reward: %s IOTX   Total Reward: %s IOTX",
 		config.Chinese: "可用奖金: %s IOTX   总奖金: %s IOTX",
 	}
+	rewardPoolLong = map[config.Language]string{
+		config.English: "ioctl node reward returns unclaimed and available Rewards in fund pool. TotalUnclaimed is the amount of all delegates that have been issued but are not claimed; TotalAvailable is the amount of balance that has not been issued to anyone.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
+		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimed是所有代表已被发放但未支取的奖励的总和; TotalAvailable 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
+	}
 )
 
 // NewNodeRewardCmd represents the node reward command
@@ -46,25 +50,30 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 	use, _ := c.SelectTranslation(rewardUses)
 	short, _ := c.SelectTranslation(rewardShorts)
 	rewardPoolMessageTranslation, _ := c.SelectTranslation(rewardPoolMessageTranslations)
+	rewardPoolLongTranslation, _ := c.SelectTranslation(rewardPoolLong)
 	nc := &cobra.Command{
 		Use:   use,
 		Short: short,
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.MaximumNArgs(2),
+		Long:  rewardPoolLongTranslation,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var err error
 			if len(args) == 0 {
+				return output.PrintError(err)
+			}
+			if args[0] == "pool" {
 
 				apiClient, err := c.APIServiceClient(ioctl.APIServiceConfig{Endpoint: endpoint, Insecure: insecure})
 				if err != nil {
 					return err
 				}
-
+				// TotalUnclaimedBalance == Rewards in the pool that has been issued and unclaimed
 				response, err := apiClient.ReadState(
 					context.Background(),
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("rewarding"),
-						MethodName: []byte("AvailableBalance"),
+						MethodName: []byte("TotalUnclaimedBalance"),
 					},
 				)
 
@@ -76,16 +85,16 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 				}
 
-				availableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				totalUnclaimedRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
 				if !ok {
 					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 				}
-
+				// TotalAvailableBalance == Rewards in the pool that has not been issued to anyone
 				response, err = apiClient.ReadState(
 					context.Background(),
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("rewarding"),
-						MethodName: []byte("TotalBalance"),
+						MethodName: []byte("TotalAvailableBalance"),
 					},
 				)
 				if err != nil {
@@ -95,19 +104,20 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 					}
 					return output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 				}
-				totalRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
+				totalAvailableRewardRau, ok := big.NewInt(0).SetString(string(response.Data), 10)
 				if !ok {
 					return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 				}
 
 				message := rewardPoolMessage{
-					AvailableReward: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-					TotalReward:     util.RauToString(totalRewardRau, util.IotxDecimalNum),
+					TotalUnclaimed: util.RauToString(totalUnclaimedRewardRau, util.IotxDecimalNum),
+					TotalAvailable: util.RauToString(totalAvailableRewardRau, util.IotxDecimalNum),
 				}
 				fmt.Println(message.String(rewardPoolMessageTranslation))
 
-			} else {
-				arg := args[0]
+			}
+			if args[0] == "unclaimed" {
+				arg := args[1]
 				address, err := c.Address(arg)
 				if err != nil {
 					return output.NewError(output.AddressError, "failed to get address", err)
@@ -149,16 +159,18 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 	return nc
 }
 
+// TotalAvailable == Rewards in the pool that has not been issued to anyone
+// TotalUnclaimed == Rewards in the pool that has been issued to a delegate but are not claimed yet
 type rewardPoolMessage struct {
-	AvailableReward string `json:"availableReward"`
-	TotalReward     string `json:"totalReward"`
+	TotalUnclaimed string `json:"TotalUnclaimed"`
+	TotalAvailable string `json:"TotalAvailable"`
 }
 
 func (m *rewardPoolMessage) String(trans ...string) string {
 
 	if output.Format == "" {
 		message := fmt.Sprintf(trans[0],
-			m.AvailableReward, m.TotalReward)
+			m.TotalAvailable, m.TotalAvailable)
 		return message
 	}
 	return output.FormatStringWithTrans(output.Result, m)

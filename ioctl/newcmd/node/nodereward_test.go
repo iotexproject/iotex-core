@@ -42,14 +42,14 @@ func TestNewNodeRewardCmd(t *testing.T) {
 
 	apiClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("AvailableBalance"),
+		MethodName: []byte("TotalUnclaimedBalance"),
 	}).Return(&iotexapi.ReadStateResponse{
 		Data: []byte("24361490367906930338205776")},
 		nil)
 
 	apiClient.EXPECT().ReadState(gomock.Any(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("TotalBalance"),
+		MethodName: []byte("TotalAvailableBalance"),
 	}).Return(&iotexapi.ReadStateResponse{
 		Data: []byte("52331682309272536203174665")},
 		nil)
@@ -64,11 +64,11 @@ func TestNewNodeRewardCmd(t *testing.T) {
 
 	cmd := NewNodeRewardCmd(client)
 
-	result, err := util.ExecuteCmd(cmd, "test")
+	result, err := util.ExecuteCmd(cmd, "pool")
 	require.NotNil(t, result)
 	require.NoError(t, err)
 
-	result, err = util.ExecuteCmd(cmd)
+	result, err = util.ExecuteCmd(cmd, "unclaimed", "test")
 	require.NotNil(t, result)
 	require.NoError(t, err)
 
