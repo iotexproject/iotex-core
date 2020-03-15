@@ -176,7 +176,7 @@ func New(
 		indexers = append(indexers, systemLogIndex)
 	}
 
-	_, candidateGateway := cfg.Plugins[config.CandidateGatewayPlugin]
+	_, candidateGateway := cfg.Plugins[config.HistoricalCandidatePlugin]
 	if candidateGateway {
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
