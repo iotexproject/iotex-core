@@ -1197,7 +1197,7 @@ func TestServer_TotalBalance(t *testing.T) {
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("TotalBalance"),
+		MethodName: []byte("TotalAvailableBalance"),
 		Arguments:  nil,
 	})
 	require.NoError(t, err)
@@ -1214,7 +1214,7 @@ func TestServer_AvailableBalance(t *testing.T) {
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
-		MethodName: []byte("AvailableBalance"),
+		MethodName: []byte("TotalUnclaimedBalance"),
 		Arguments:  nil,
 	})
 	require.NoError(t, err)
