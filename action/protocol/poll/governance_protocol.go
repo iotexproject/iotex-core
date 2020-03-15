@@ -48,10 +48,12 @@ type governanceChainCommitteeProtocol struct {
 	kickoutEpochPeriod        uint64
 	kickoutIntensity          uint32
 	maxKickoutPeriod          uint64
+	indexer                   *CandidateIndexer
 }
 
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
+	candidatesIndexer *CandidateIndexer,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
 	getKickoutList GetKickoutList,
@@ -82,6 +84,7 @@ func NewGovernanceChainCommitteeProtocol(
 		log.L().Panic("Error when constructing the address of poll protocol", zap.Error(err))
 	}
 	return &governanceChainCommitteeProtocol{
+		indexer:                   candidatesIndexer,
 		candidatesByHeight:        candidatesByHeight,
 		getCandidates:             getCandidates,
 		getKickoutList:            getKickoutList,
@@ -131,14 +134,17 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Easter, uint64(1)) {
-		if err := setNextEpochBlacklist(sm, &vote.Blacklist{
-			BlacklistInfos: make(map[string]uint32),
-			IntensityRate:  p.kickoutIntensity,
-		}); err != nil {
+		if err := setNextEpochBlacklist(sm,
+			p.indexer,
+			uint64(1),
+			&vote.Blacklist{
+				BlacklistInfos: make(map[string]uint32),
+				IntensityRate:  p.kickoutIntensity,
+			}); err != nil {
 			return err
 		}
 	}
-	return setCandidates(ctx, sm, ds, uint64(1))
+	return setCandidates(ctx, sm, p.indexer, ds, uint64(1))
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
@@ -160,7 +166,7 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 		if err != nil {
 			return err
 		}
-		return setNextEpochBlacklist(sm, unqualifiedList)
+		return setNextEpochBlacklist(sm, p.indexer, nextEpochStartHeight, unqualifiedList)
 	}
 	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
 		prevHeight, err := shiftCandidates(sm)
@@ -179,7 +185,7 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	return handle(ctx, act, sm, p.addr.String())
+	return handle(ctx, act, sm, p.indexer, p.addr.String())
 }
 
 func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action) error {
@@ -249,10 +255,6 @@ func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context,
 	if tipEpochNum == epochNum {
 		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 	}
-	if tipEpochNum > epochNum {
-		// historic API call
-		return p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
-	}
 	return nil, errors.Errorf("invalid epochNumber %d to get delegates", epochNum)
 }
 
@@ -285,19 +287,44 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
+	epochStartHeight := rp.GetEpochHeight(epochNum)
 	switch string(method) {
 	case "CandidatesByEpoch":
 		if len(args) != 0 {
 			epochNum = byteutil.BytesToUint64(args[0])
+			epochStartHeight = rp.GetEpochHeight(epochNum)
 		}
-		delegates, err := p.readCandidatesByEpoch(ctx, epochNum, false)
+		if p.indexer != nil {
+			candidates, err := p.readCandidatesFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return candidates.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
+		}
+		candidates, err := p.readCandidatesByEpoch(ctx, epochNum, false)
 		if err != nil {
 			return nil, err
 		}
-		return delegates.Serialize()
+		return candidates.Serialize()
 	case "BlockProducersByEpoch":
 		if len(args) != 0 {
 			epochNum = byteutil.BytesToUint64(args[0])
+			epochStartHeight = rp.GetEpochHeight(epochNum)
+		}
+		if p.indexer != nil {
+			blockProducers, err := p.readBPFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return blockProducers.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
 		}
 		blockProducers, err := p.readBlockProducersByEpoch(ctx, epochNum, false)
 		if err != nil {
@@ -307,6 +334,18 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	case "ActiveBlockProducersByEpoch":
 		if len(args) != 0 {
 			epochNum = byteutil.BytesToUint64(args[0])
+			epochStartHeight = rp.GetEpochHeight(epochNum)
+		}
+		if p.indexer != nil {
+			activeBlockProducers, err := p.readABPFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return activeBlockProducers.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
 		}
 		activeBlockProducers, err := p.readActiveBlockProducersByEpoch(ctx, epochNum, false)
 		if err != nil {
@@ -325,7 +364,18 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	case "KickoutListByEpoch":
 		if len(args) != 0 {
 			epochNum = byteutil.BytesToUint64(args[0])
-
+			epochStartHeight = rp.GetEpochHeight(epochNum)
+		}
+		if p.indexer != nil {
+			kickoutList, err := p.indexer.KickoutList(epochStartHeight)
+			if err == nil {
+				return kickoutList.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
 		}
 		kickoutList, err := p.readKickoutList(ctx, epochNum, false)
 		if err != nil {
@@ -372,27 +422,26 @@ func (p *governanceChainCommitteeProtocol) readCandidatesByHeight(ctx context.Co
 		return nil, errors.Wrap(err, "failed to read kick-out list")
 	}
 	// recalculate the voting power for blacklist delegates
-	candidatesMap := make(map[string]*state.Candidate)
-	updatedVotingPower := make(map[string]*big.Int)
-	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
-	for _, cand := range candidates {
-		filterCand := cand.Clone()
-		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
-			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
-			votingPower := new(big.Float).SetInt(filterCand.Votes)
-			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
-		}
-		updatedVotingPower[filterCand.Address] = filterCand.Votes
-		candidatesMap[filterCand.Address] = filterCand
-	}
-	// sort again with updated voting power
-	sorted := util.Sort(updatedVotingPower, epochNum)
-	var verifiedCandidates state.CandidateList
-	for _, name := range sorted {
-		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
-	}
+	return filterCandidates(candidates, unqualifiedList, epochStartHeight)
+}
 
-	return verifiedCandidates, nil
+func (p *governanceChainCommitteeProtocol) readCandidatesFromIndexer(ctx context.Context, epochStartHeight uint64) (state.CandidateList, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	candidates, err := p.indexer.CandidateList(epochStartHeight)
+	if err != nil {
+		return nil, err
+	}
+	if hu.IsPre(config.Easter, epochStartHeight) {
+		return candidates, nil
+	}
+	// After Easter height, kick-out unqualified delegates based on productivity
+	kickoutList, err := p.indexer.KickoutList(epochStartHeight)
+	if err != nil {
+		return nil, err
+	}
+	// recalculate the voting power for blacklist delegates
+	return filterCandidates(candidates, kickoutList, epochStartHeight)
 }
 
 func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
@@ -400,18 +449,15 @@ func (p *governanceChainCommitteeProtocol) readBlockProducersByEpoch(ctx context
 	if err != nil {
 		return nil, err
 	}
-	var blockProducers state.CandidateList
-	for i, candidate := range candidates {
-		if uint64(i) >= p.numCandidateDelegates {
-			break
-		}
-		if candidate.Votes.Cmp(big.NewInt(0)) == 0 {
-			// if the voting power is 0, exclude from being a block producer(hard kickout)
-			continue
-		}
-		blockProducers = append(blockProducers, candidate)
+	return p.calculateBlockProducer(candidates)
+}
+
+func (p *governanceChainCommitteeProtocol) readBPFromIndexer(ctx context.Context, epochStartHeight uint64) (state.CandidateList, error) {
+	candidates, err := p.readCandidatesFromIndexer(ctx, epochStartHeight)
+	if err != nil {
+		return nil, err
 	}
-	return blockProducers, nil
+	return p.calculateBlockProducer(candidates)
 }
 
 func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64, readFromNext bool) (state.CandidateList, error) {
@@ -419,35 +465,20 @@ func (p *governanceChainCommitteeProtocol) readActiveBlockProducersByEpoch(ctx c
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get candidates in epoch %d", epochNum)
 	}
-
-	var blockProducerList []string
-	blockProducerMap := make(map[string]*state.Candidate)
-	for _, bp := range blockProducers {
-		blockProducerList = append(blockProducerList, bp.Address)
-		blockProducerMap[bp.Address] = bp
-	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochHeight := rp.GetEpochHeight(epochNum)
-	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
-
-	length := int(p.numDelegates)
-	if len(blockProducerList) < length {
-		// TODO: if the number of delegates is smaller than expected, should it return error or not?
-		length = len(blockProducerList)
-		log.L().Warn(
-			"the number of block producer is less than expected",
-			zap.Int("actual block producer", len(blockProducerList)),
-			zap.Uint64("expected", p.numDelegates),
-		)
-	}
-	var activeBlockProducers state.CandidateList
-	for i := 0; i < length; i++ {
-		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
-	}
-
-	return activeBlockProducers, nil
+	return p.calculateActiveBlockProducer(ctx, blockProducers, epochHeight)
 }
+
+func (p *governanceChainCommitteeProtocol) readABPFromIndexer(ctx context.Context, epochStartHeight uint64) (state.CandidateList, error) {
+	blockProducers, err := p.readBPFromIndexer(ctx, epochStartHeight)
+	if err != nil {
+		return nil, err
+	}
+	return p.calculateActiveBlockProducer(ctx, blockProducers, epochStartHeight)
+}
+
 func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, epochStartHeight uint64, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
@@ -645,4 +676,83 @@ func (p *governanceChainCommitteeProtocol) calculateUnproductiveDelegatesByEpoch
 	}
 
 	return unqualified, nil
+}
+
+// filterCandidates returns filtered candidate list by given raw candidate/ kick-out list
+func filterCandidates(
+	candidates state.CandidateList,
+	unqualifiedList *vote.Blacklist,
+	epochStartHeight uint64,
+) (state.CandidateList, error) {
+	candidatesMap := make(map[string]*state.Candidate)
+	updatedVotingPower := make(map[string]*big.Int)
+	intensityRate := float64(uint32(100)-unqualifiedList.IntensityRate) / float64(100)
+	for _, cand := range candidates {
+		filterCand := cand.Clone()
+		if _, ok := unqualifiedList.BlacklistInfos[cand.Address]; ok {
+			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
+			votingPower := new(big.Float).SetInt(filterCand.Votes)
+			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
+		}
+		updatedVotingPower[filterCand.Address] = filterCand.Votes
+		candidatesMap[filterCand.Address] = filterCand
+	}
+	// sort again with updated voting power
+	sorted := util.Sort(updatedVotingPower, epochStartHeight)
+	var verifiedCandidates state.CandidateList
+	for _, name := range sorted {
+		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
+	}
+
+	return verifiedCandidates, nil
+}
+
+// calculateBlockProducer calculates block producer by given candidate list
+func (p *governanceChainCommitteeProtocol) calculateBlockProducer(
+	candidates state.CandidateList,
+) (state.CandidateList, error) {
+	var blockProducers state.CandidateList
+	for i, candidate := range candidates {
+		if uint64(i) >= p.numCandidateDelegates {
+			break
+		}
+		if candidate.Votes.Cmp(big.NewInt(0)) == 0 {
+			// if the voting power is 0, exclude from being a block producer(hard kickout)
+			continue
+		}
+		blockProducers = append(blockProducers, candidate)
+	}
+	return blockProducers, nil
+}
+
+// calculateActiveBlockProducer calculates active block producer by given block producer list
+func (p *governanceChainCommitteeProtocol) calculateActiveBlockProducer(
+	ctx context.Context,
+	blockProducers state.CandidateList,
+	epochStartHeight uint64,
+) (state.CandidateList, error) {
+	var blockProducerList []string
+	blockProducerMap := make(map[string]*state.Candidate)
+	for _, bp := range blockProducers {
+		blockProducerList = append(blockProducerList, bp.Address)
+		blockProducerMap[bp.Address] = bp
+	}
+	crypto.SortCandidates(blockProducerList, epochStartHeight, crypto.CryptoSeed)
+
+	length := int(p.numDelegates)
+	if len(blockProducerList) < length {
+		// TODO: if the number of delegates is smaller than expected, should it return error or not?
+		length = len(blockProducerList)
+		log.L().Warn(
+			"the number of block producer is less than expected",
+			zap.Int("actual block producer", len(blockProducerList)),
+			zap.Uint64("expected", p.numDelegates),
+		)
+	}
+	var activeBlockProducers state.CandidateList
+	for i := 0; i < length; i++ {
+		activeBlockProducers = append(activeBlockProducers, blockProducerMap[blockProducerList[i]])
+	}
+
+	return activeBlockProducers, nil
 }

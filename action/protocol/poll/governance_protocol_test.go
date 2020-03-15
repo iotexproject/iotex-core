@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -122,7 +123,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			RewardAddress: "rewardAddress4",
 		},
 	}
+	indexer, err := NewCandidateIndexer(db.NewMemKVStore())
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	p, err := NewGovernanceChainCommitteeProtocol(
+		indexer,
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 		func(protocol.StateReader, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
 			return candidates, 720, nil
@@ -172,7 +178,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
 	)
 
-	if err := setCandidates(ctx, sm, candidates, 1); err != nil {
+	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
 	return p, ctx, sm, r, err
@@ -558,7 +564,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		BlacklistInfos: blackListMap,
 		IntensityRate:  50,
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 	filteredCandidates, err := p.CandidatesByHeight(ctx, 721)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
@@ -577,7 +583,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		BlacklistInfos: blackListMap,
 		IntensityRate:  0,
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 	filteredCandidates, err = p.CandidatesByHeight(ctx, 721)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
@@ -606,7 +612,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		BlacklistInfos: blackListMap,
 		IntensityRate:  90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 
 	delegates, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
@@ -623,7 +629,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		BlacklistInfos: blackListMap2,
 		IntensityRate:  90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList2))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList2))
 	delegates2, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
@@ -640,7 +646,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		BlacklistInfos: blackListMap3,
 		IntensityRate:  90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList3))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList3))
 
 	delegates3, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
@@ -669,7 +675,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		BlacklistInfos: blackListMap5,
 		IntensityRate:  100, // hard kickout
 	}
-	require.NoError(setNextEpochBlacklist(sm, blackList5))
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList5))
 
 	delegates5, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)

@@ -58,9 +58,10 @@ type ChainService struct {
 	blockdao          blockdao.BlockDAO
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	api          *api.Server
-	indexBuilder *blockindex.IndexBuilder
-	registry     *protocol.Registry
+	api              *api.Server
+	indexBuilder     *blockindex.IndexBuilder
+	candidateIndexer *poll.CandidateIndexer
+	registry         *protocol.Registry
 }
 
 type optionParams struct {
@@ -150,11 +151,11 @@ func New(
 	}
 	// create indexers
 	var (
-		indexers       []blockdao.BlockIndexer
-		indexer        blockindex.Indexer
-		systemLogIndex *systemlog.Indexer
+		indexers         []blockdao.BlockIndexer
+		indexer          blockindex.Indexer
+		systemLogIndex   *systemlog.Indexer
+		candidateIndexer *poll.CandidateIndexer
 	)
-
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway {
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -174,6 +175,17 @@ func New(
 		}
 		indexers = append(indexers, systemLogIndex)
 	}
+
+	_, candidateGateway := cfg.Plugins[config.HistoricalCandidatePlugin]
+	if candidateGateway {
+		// create candidate indexer
+		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
+		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// create BlockDAO
 	var kvStore db.KVStore
 	if ops.isTesting {
@@ -247,6 +259,7 @@ func New(
 		copts = append(copts, consensus.WithRollDPoSProtocol(rDPoSProtocol))
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
+			candidateIndexer,
 			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
 				gasLimit := uint64(1000000)
 				if correctGas {
@@ -377,6 +390,7 @@ func New(
 		consensus:         consensus,
 		electionCommittee: electionCommittee,
 		indexBuilder:      indexBuilder,
+		candidateIndexer:  candidateIndexer,
 		api:               apiSvr,
 		registry:          registry,
 	}, nil
@@ -387,6 +401,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if cs.electionCommittee != nil {
 		if err := cs.electionCommittee.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting election committee")
+		}
+	}
+	if cs.candidateIndexer != nil {
+		if err := cs.candidateIndexer.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting candidate indexer")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
@@ -437,6 +456,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	if err := cs.chain.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping blockchain")
+	}
+	if cs.candidateIndexer != nil {
+		if err := cs.candidateIndexer.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping candidate indexer")
+		}
 	}
 	return nil
 }

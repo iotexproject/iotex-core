@@ -92,12 +92,15 @@ func main() {
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
 		systemLogDBPath := fmt.Sprintf("./systemlog%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
+		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
+		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		config.System.SystemLogDBPath = systemLogDBPath
 		if i == 0 {
