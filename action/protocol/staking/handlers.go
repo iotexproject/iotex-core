@@ -59,7 +59,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	staker, gasFee, fetchErr := fetchCaller(ctx, sm, act.Amount())
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -113,7 +113,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 
 	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -122,7 +122,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, sm pr
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -168,7 +168,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	withdrawer, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -177,7 +177,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -226,7 +226,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -241,7 +241,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -303,7 +303,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 
 	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -312,7 +312,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -342,7 +342,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	depositor, gasFee, fetchErr := fetchCaller(ctx, sm, act.Amount())
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -351,7 +351,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), false, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -416,7 +416,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 
 	_, gasFee, fetchErr := fetchCaller(ctx, sm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -425,7 +425,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, sm pr
 
 	bucket, fetchErr := p.fetchBucket(ctx, sm, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
@@ -476,7 +476,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	caller, gasFee, fetchErr := fetchCaller(ctx, sm, new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -538,7 +538,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 
 	_, gasFee, fetchErr := fetchCaller(ctx, sm, new(big.Int))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == 0 {
+		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
 			return nil, fetchErr.err
 		}
 		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
@@ -633,9 +633,10 @@ func (p *Protocol) fetchBucket(
 	bucket, err := getBucket(sr, index)
 	if err != nil {
 		fetchErr := &fetchError{
-			err: errors.Wrapf(err, "failed to fetch bucket by index %d", index),
+			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
+			failureStatus: iotextypes.ReceiptStatus_Failure,
 		}
-		if errors.Cause(err) != state.ErrStateNotExist {
+		if errors.Cause(err) == state.ErrStateNotExist {
 			fetchErr.failureStatus = iotextypes.ReceiptStatus_ErrInvalidBucketIndex
 		}
 		return nil, fetchErr
@@ -705,7 +706,8 @@ func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) 
 	caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
 		return nil, nil, &fetchError{
-			err: errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),
+			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_Failure,
 		}
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
