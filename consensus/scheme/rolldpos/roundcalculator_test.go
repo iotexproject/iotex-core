@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -26,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -193,7 +195,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			return blockchain.ProductivityByEpoch(ctx, chain, sf, epochNum)
+			return blockchain.CurrentEpochProductivity(ctx, chain, sf, epochNum)
 		},
 	)
 	require.NoError(rewardingProtocol.Register(registry))
@@ -239,8 +241,18 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 					},
 				},
 			)
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochNum)
+			var err error
+			switch epochNum {
+			case tipEpochNum:
+				candidatesList, err = pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+			}
 			if err != nil {
 				return nil, err
 			}

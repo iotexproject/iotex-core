@@ -241,39 +241,20 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 	return p.candidatesByGravityChainHeight(gravityHeight)
 }
 
-func (p *governanceChainCommitteeProtocol) DelegatesByEpoch(ctx context.Context, sr protocol.StateReader, epochNum uint64) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	stateTipHeight, err := sr.Height()
-	if err != nil {
-		return nil, err
-	}
-	tipEpochNum := rp.GetEpochNum(stateTipHeight)
-	if tipEpochNum+1 == epochNum {
-		return p.readActiveBlockProducers(ctx, sr, true)
-	}
-	if tipEpochNum == epochNum {
-		return p.readActiveBlockProducers(ctx, sr, false)
-	}
-	return nil, errors.Errorf("invalid epochNumber %d to get delegates", epochNum)
+func (p *governanceChainCommitteeProtocol) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readActiveBlockProducers(ctx, sr, false)
 }
 
-func (p *governanceChainCommitteeProtocol) CandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	stateTipHeight, err := sr.Height()
-	if err != nil {
-		return nil, err
-	}
-	tipEpochNum := rp.GetEpochNum(stateTipHeight)
-	targetEpochNum := rp.GetEpochNum(height)
-	if tipEpochNum+1 == targetEpochNum {
-		return p.readCandidates(ctx, sr, true)
-	}
-	if tipEpochNum == targetEpochNum {
-		return p.readCandidates(ctx, sr, false)
-	}
-	return nil, errors.Errorf("wrong epochNumber to get candidatesbyHeight, target epochNumber %d can't be less than tip epoch number %d", targetEpochNum, tipEpochNum)
+func (p *governanceChainCommitteeProtocol) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readActiveBlockProducers(ctx, sr, true)
+}
+
+func (p *governanceChainCommitteeProtocol) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readCandidates(ctx, sr, false)
+}
+
+func (p *governanceChainCommitteeProtocol) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readCandidates(ctx, sr, true)
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(

@@ -549,7 +549,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.NoError(p6.Validate(ctx6, selp6.Action()))
 }
 
-func TestCandidatesByHeight(t *testing.T) {
+func TestNextCandidates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -565,7 +565,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		IntensityRate:  50,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
-	filteredCandidates, err := p.CandidatesByHeight(ctx, sm, 721)
+	filteredCandidates, err := p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
 
@@ -584,7 +584,7 @@ func TestCandidatesByHeight(t *testing.T) {
 		IntensityRate:  0,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
-	filteredCandidates, err = p.CandidatesByHeight(ctx, sm, 721)
+	filteredCandidates, err = p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(4, len(filteredCandidates))
 
@@ -599,14 +599,14 @@ func TestCandidatesByHeight(t *testing.T) {
 
 }
 
-func TestDelegatesByEpoch(t *testing.T) {
+func TestDelegatesAndNextDelegates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
-	// 1: empty blacklist DelegatesByEpoch()
+	// 1: empty blacklist NextDelegates()
 	blackListMap := map[string]uint32{}
 	blackList := &vote.Blacklist{
 		BlacklistInfos: blackListMap,
@@ -614,13 +614,13 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 
-	delegates, err := p.DelegatesByEpoch(ctx, sm, 2)
+	delegates, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates))
 	require.Equal(identityset.Address(2).String(), delegates[0].Address)
 	require.Equal(identityset.Address(1).String(), delegates[1].Address)
 
-	// 2: not empty blacklist DelegatesByEpoch()
+	// 2: not empty blacklist NextDelegates()
 	blackListMap2 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
@@ -630,7 +630,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 		IntensityRate:  90,
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList2))
-	delegates2, err := p.DelegatesByEpoch(ctx, sm, 2)
+	delegates2, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
 	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
@@ -648,7 +648,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList3))
 
-	delegates3, err := p.DelegatesByEpoch(ctx, sm, 2)
+	delegates3, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 
 	require.Equal(2, len(delegates3))
@@ -658,7 +658,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	// 4: shift kickout list and Delegates()
 	_, err = shiftKickoutList(sm)
 	require.NoError(err)
-	delegates4, err := p.DelegatesByEpoch(ctx, sm, 1)
+	delegates4, err := p.Delegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(len(delegates4), len(delegates3))
 	for i, d := range delegates3 {
@@ -677,7 +677,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	}
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList5))
 
-	delegates5, err := p.DelegatesByEpoch(ctx, sm, 2)
+	delegates5, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 
 	require.Equal(1, len(delegates5)) // exclude all of them

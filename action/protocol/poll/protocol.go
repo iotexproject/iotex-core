@@ -63,8 +63,10 @@ type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint6
 type Protocol interface {
 	protocol.Protocol
 	protocol.GenesisStateCreator
-	DelegatesByEpoch(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
-	CandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
+	Delegates(context.Context, protocol.StateReader) (state.CandidateList, error)
+	NextDelegates(context.Context, protocol.StateReader) (state.CandidateList, error)
+	Candidates(context.Context, protocol.StateReader) (state.CandidateList, error)
+	NextCandidates(context.Context, protocol.StateReader) (state.CandidateList, error)
 	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
 }

@@ -227,14 +227,20 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	return sc.mergeCandidates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
 }
 
-// DelegatesByEpoch returns exact number of delegates according to epoch number
-func (sc *stakingCommittee) DelegatesByEpoch(ctx context.Context, sr protocol.StateReader, epochNum uint64) (state.CandidateList, error) {
-	return sc.governanceStaking.DelegatesByEpoch(ctx, sr, epochNum)
+func (sc *stakingCommittee) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return sc.governanceStaking.Delegates(ctx, sr)
 }
 
-// CandidatesByHeight returns candidate list from state factory according to height
-func (sc *stakingCommittee) CandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	return sc.governanceStaking.CandidatesByHeight(ctx, sr, height)
+func (sc *stakingCommittee) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return sc.governanceStaking.NextDelegates(ctx, sr)
+}
+
+func (sc *stakingCommittee) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return sc.governanceStaking.Candidates(ctx, sr)
+}
+
+func (sc *stakingCommittee) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return sc.governanceStaking.NextCandidates(ctx, sr)
 }
 
 func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {

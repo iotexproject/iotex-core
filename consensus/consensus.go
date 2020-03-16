@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
@@ -119,7 +120,18 @@ func NewConsensus(
 						Genesis:  cfg.Genesis,
 					},
 				)
-				candidatesList, err := ops.pp.DelegatesByEpoch(ctx, sf, epochNum)
+				tipHeight := bc.TipHeight()
+				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
+				var candidatesList state.CandidateList
+				var err error
+				switch epochNum {
+				case tipEpochNum:
+					candidatesList, err = ops.pp.Delegates(ctx, sf)
+				case tipEpochNum + 1:
+					candidatesList, err = ops.pp.NextDelegates(ctx, sf)
+				default:
+					err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+				}
 				if err != nil {
 					return nil, err
 				}

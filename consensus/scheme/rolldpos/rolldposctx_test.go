@@ -14,6 +14,7 @@ import (
 	"github.com/facebookgo/clock"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/endorsement"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -116,8 +118,18 @@ func TestCheckVoteEndorser(t *testing.T) {
 					},
 				},
 			)
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochnum)
+			var err error
+			switch epochnum {
+			case tipEpochNum:
+				candidatesList, err = pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochnum, tipEpochNum)
+			}
 			if err != nil {
 				return nil, err
 			}
@@ -178,8 +190,18 @@ func TestCheckBlockProposer(t *testing.T) {
 					},
 				},
 			)
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, sf, epochnum)
+			var err error
+			switch epochnum {
+			case tipEpochNum:
+				candidatesList, err = pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochnum, tipEpochNum)
+			}
 			if err != nil {
 				return nil, err
 			}
