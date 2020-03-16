@@ -125,18 +125,18 @@ func (mr *MockBlockDAOMockRecorder) GetBlockByHeight(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHeight", reflect.TypeOf((*MockBlockDAO)(nil).GetBlockByHeight), arg0)
 }
 
-// GetTipHeight mocks base method
-func (m *MockBlockDAO) GetTipHeight() uint64 {
+// TipHeight mocks base method
+func (m *MockBlockDAO) TipHeight() uint64 {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTipHeight")
+	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
 	return ret0
 }
 
-// GetTipHeight indicates an expected call of GetTipHeight
-func (mr *MockBlockDAOMockRecorder) GetTipHeight() *gomock.Call {
+// TipHeight indicates an expected call of TipHeight
+func (mr *MockBlockDAOMockRecorder) TipHeight() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTipHeight", reflect.TypeOf((*MockBlockDAO)(nil).GetTipHeight))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockDAO)(nil).TipHeight))
 }
 
 // Header mocks base method
@@ -379,6 +379,21 @@ func (m *MockBlockIndexer) Stop(ctx context.Context) error {
 func (mr *MockBlockIndexerMockRecorder) Stop(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockIndexer)(nil).Stop), ctx)
+}
+
+// TipHeight mocks base method
+func (m *MockBlockIndexer) TipHeight() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TipHeight")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TipHeight indicates an expected call of TipHeight
+func (mr *MockBlockIndexerMockRecorder) TipHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHeight", reflect.TypeOf((*MockBlockIndexer)(nil).TipHeight))
 }
 
 // PutBlock mocks base method

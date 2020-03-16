@@ -135,7 +135,8 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 		ns.SetContract(r.ContractAddress)
 
-		height := dao.GetTipHeight()
+		height, err := dao.TipHeight()
+		require.NoError(err)
 		blk, err = dao.GetBlockByHeight(height)
 		require.NoError(err)
 		ctx = protocol.WithBlockchainCtx(ctx,

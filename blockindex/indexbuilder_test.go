@@ -77,15 +77,16 @@ func TestIndexBuilder(t *testing.T) {
 		// put 2 blocks first
 		require.NoError(dao.PutBlock(blks[0]))
 		require.NoError(dao.PutBlock(blks[1]))
-		startHeight, err := ib.indexer.GetBlockchainHeight()
+		startHeight, err := ib.indexer.TipHeight()
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
-		tipHeight := dao.GetTipHeight()
+		tipHeight, err := dao.TipHeight()
+		require.NoError(err)
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
 		require.NoError(ib.init())
-		height, err := ib.indexer.GetBlockchainHeight()
+		height, err := ib.indexer.TipHeight()
 		require.NoError(err)
 		require.EqualValues(2, height)
 
@@ -94,7 +95,7 @@ func TestIndexBuilder(t *testing.T) {
 		ib.ReceiveBlock(blks[2])
 		time.Sleep(500 * time.Millisecond)
 
-		height, err = ib.indexer.GetBlockchainHeight()
+		height, err = ib.indexer.TipHeight()
 		require.NoError(err)
 		require.EqualValues(3, height)
 
