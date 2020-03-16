@@ -9,9 +9,7 @@ package systemlog
 import (
 	"context"
 	"hash/fnv"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -262,10 +260,8 @@ func TestSystemLogIndexer(t *testing.T) {
 	}
 
 	path := "systemlog.test"
-	testFile, err := ioutil.TempFile(os.TempDir(), path)
+	testPath, err := testutil.PathOfTempFile(path)
 	r.NoError(err)
-	testPath := testFile.Name()
-	r.NoError(testFile.Close())
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
