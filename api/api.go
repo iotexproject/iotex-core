@@ -509,22 +509,36 @@ func (api *Server) GetEpochMeta(
 		Height:                  epochHeight,
 		GravityChainStartHeight: gravityChainStartHeight,
 	}
-	bcCtx, err := api.bc.Context()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	numBlks, produce, err := blockchain.ProductivityByEpoch(bcCtx, api.bc, in.EpochNumber)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
 
 	pp := poll.FindProtocol(api.registry)
 	if pp == nil {
 		return nil, status.Error(codes.Internal, "poll protocol is not registered")
 	}
-	methodName := []byte("BlockProducersByEpoch")
+
+	methodName := []byte("ActiveBlockProducersByEpoch")
 	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
 	data, err := api.readState(context.Background(), pp, methodName, arguments...)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	var activeConsensusBlockProducers state.CandidateList
+	if err := activeConsensusBlockProducers.Deserialize(data); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	numBlks, produce, err := api.getProductivityByEpoch(bcCtx, in.EpochNumber, activeConsensusBlockProducers)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+
+	methodName = []byte("BlockProducersByEpoch")
+	arguments = [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
+	data, err = api.readState(context.Background(), pp, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -1392,4 +1406,39 @@ func (api *Server) isGasLimitEnough(
 		return false, err
 	}
 	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), nil
+}
+
+func (api *Server) getProductivityByEpoch(
+	ctx context.Context,
+	epochNum uint64,
+	abp state.CandidateList,
+) (uint64, map[string]uint64, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+
+	var epochEndHeight uint64
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
+	}
+	if epochNum == currentEpochNum {
+		epochEndHeight = bcCtx.Tip.Height
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
+	}
+	numBlks := epochEndHeight - epochStartHeight + 1
+
+	produce := make(map[string]uint64)
+	for _, bp := range abp {
+		produce[bp.Address] = 0
+	}
+	for i := uint64(0); i < numBlks; i++ {
+		header, err := api.bc.BlockHeaderByHeight(epochStartHeight + i)
+		if err != nil {
+			return 0, nil, err
+		}
+		produce[header.ProducerAddress()]++
+	}
+	return numBlks, produce, nil
 }

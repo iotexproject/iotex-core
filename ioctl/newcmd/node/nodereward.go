@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -19,16 +20,15 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
 var (
-	uses = map[config.Language]string{
+	rewardUses = map[config.Language]string{
 		config.English: "reward [ALIAS|DELEGATE_ADDRESS]",
 		config.Chinese: "reward [别名|委托地址]",
 	}
-	shorts = map[config.Language]string{
+	rewardShorts = map[config.Language]string{
 		config.English: "Query rewards",
 		config.Chinese: "查询奖励",
 	}
@@ -43,8 +43,8 @@ func NewNodeRewardCmd(c ioctl.Client) *cobra.Command {
 	var endpoint string
 	var insecure bool
 
-	use, _ := c.SelectTranslation(uses)
-	short, _ := c.SelectTranslation(shorts)
+	use, _ := c.SelectTranslation(rewardUses)
+	short, _ := c.SelectTranslation(rewardShorts)
 	rewardPoolMessageTranslation, _ := c.SelectTranslation(rewardPoolMessageTranslations)
 	nc := &cobra.Command{
 		Use:   use,

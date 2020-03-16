@@ -45,7 +45,7 @@ func validateDelegates(cs state.CandidateList) error {
 	return nil
 }
 
-func handle(ctx context.Context, act action.Action, sm protocol.StateManager, protocolAddr string) (*action.Receipt, error) {
+func handle(ctx context.Context, act action.Action, sm protocol.StateManager, indexer *CandidateIndexer, protocolAddr string) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
@@ -55,7 +55,7 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, pr
 	}
 	zap.L().Debug("Handle PutPollResult Action", zap.Uint64("height", r.Height()))
 
-	if err := setCandidates(ctx, sm, r.Candidates(), r.Height()); err != nil {
+	if err := setCandidates(ctx, sm, indexer, r.Candidates(), r.Height()); err != nil {
 		return nil, errors.Wrap(err, "failed to set candidates")
 	}
 	return &action.Receipt{
@@ -150,6 +150,7 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 func setCandidates(
 	ctx context.Context,
 	sm protocol.StateManager,
+	indexer *CandidateIndexer,
 	candidates state.CandidateList,
 	height uint64, // epoch start height
 ) error {
@@ -182,6 +183,11 @@ func setCandidates(
 			zap.String("score", candidate.Votes.String()),
 		)
 	}
+	if indexer != nil {
+		if err := indexer.PutCandidateList(height, &candidates); err != nil {
+			return err
+		}
+	}
 	if preEaster {
 		_, err := sm.PutState(&candidates, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(height)))
 		return err
@@ -194,8 +200,15 @@ func setCandidates(
 // setNextEpochBlacklist sets the blacklist for kick-out with next key
 func setNextEpochBlacklist(
 	sm protocol.StateManager,
+	indexer *CandidateIndexer,
+	height uint64,
 	blackList *vote.Blacklist,
 ) error {
+	if indexer != nil {
+		if err := indexer.PutKickoutList(height, blackList); err != nil {
+			return err
+		}
+	}
 	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
 	_, err := sm.PutState(blackList, protocol.KeyOption(blackListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err

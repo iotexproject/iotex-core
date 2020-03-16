@@ -58,6 +58,8 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
+	// HistoricalCandidatePlugin is the plugin of accepting user API requests and serving blockchain data to users related to candidate/delegate info
+	HistoricalCandidatePlugin
 )
 
 type strs []string
@@ -103,15 +105,16 @@ var (
 			PrivateNetworkPSK: "",
 		},
 		Chain: Chain{
-			ChainDBPath:     "./chain.db",
-			TrieDBPath:      "./trie.db",
-			IndexDBPath:     "./index.db",
-			ID:              1,
-			Address:         "",
-			ProducerPrivKey: generateRandomKey(SigP256k1),
-			SignatureScheme: []string{SigP256k1},
-			EmptyGenesis:    false,
-			GravityChainDB:  DB{DbPath: "./poll.db", NumRetries: 10},
+			ChainDBPath:          "./chain.db",
+			TrieDBPath:           "./trie.db",
+			IndexDBPath:          "./index.db",
+			CandidateIndexDBPath: "./candidate.index.db",
+			ID:                   1,
+			Address:              "",
+			ProducerPrivKey:      generateRandomKey(SigP256k1),
+			SignatureScheme:      []string{SigP256k1},
+			EmptyGenesis:         false,
+			GravityChainDB:       DB{DbPath: "./poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -224,16 +227,17 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath     string           `yaml:"chainDBPath"`
-		TrieDBPath      string           `yaml:"trieDBPath"`
-		IndexDBPath     string           `yaml:"indexDBPath"`
-		ID              uint32           `yaml:"id"`
-		Address         string           `yaml:"address"`
-		ProducerPrivKey string           `yaml:"producerPrivKey"`
-		SignatureScheme []string         `yaml:"signatureScheme"`
-		EmptyGenesis    bool             `yaml:"emptyGenesis"`
-		GravityChainDB  DB               `yaml:"gravityChainDB"`
-		Committee       committee.Config `yaml:"committee"`
+		ChainDBPath          string           `yaml:"chainDBPath"`
+		TrieDBPath           string           `yaml:"trieDBPath"`
+		IndexDBPath          string           `yaml:"indexDBPath"`
+		CandidateIndexDBPath string           `yaml:"candidateIndexDBPath"`
+		ID                   uint32           `yaml:"id"`
+		Address              string           `yaml:"address"`
+		ProducerPrivKey      string           `yaml:"producerPrivKey"`
+		SignatureScheme      []string         `yaml:"signatureScheme"`
+		EmptyGenesis         bool             `yaml:"emptyGenesis"`
+		GravityChainDB       DB               `yaml:"gravityChainDB"`
+		Committee            committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
@@ -439,6 +443,8 @@ func New(validates ...Validate) (Config, error) {
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
+		case "candidategateway":
+			cfg.Plugins[HistoricalCandidatePlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}

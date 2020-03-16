@@ -984,6 +984,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1249,7 +1250,10 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
+			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
+			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
@@ -1312,7 +1316,10 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
+			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
+			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
@@ -1377,7 +1384,10 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			cfg.Genesis.Delegates = delegates
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else {
+			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
+			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
@@ -1467,7 +1477,10 @@ func TestServer_GetEpochMeta(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
+			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
+			require.NoError(err)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
 						{
@@ -1523,7 +1536,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(2)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
 			ctx := protocol.WithBlockchainCtx(
 				context.Background(),
 				protocol.BlockchainCtx{

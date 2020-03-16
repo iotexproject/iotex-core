@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -54,7 +55,7 @@ var (
 				Name:               "test1",
 				Votes:              big.NewInt(2),
 				SelfStakeBucketIdx: 1,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			2,
 		},
@@ -66,7 +67,7 @@ var (
 				Name:               "test2",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 2,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			1,
 		},
@@ -78,7 +79,7 @@ var (
 				Name:               "test3",
 				Votes:              big.NewInt(3),
 				SelfStakeBucketIdx: 3,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			0,
 		},
@@ -90,9 +91,33 @@ var (
 				Name:               "test4",
 				Votes:              big.NewInt(1),
 				SelfStakeBucketIdx: 4,
-				SelfStake:          big.NewInt(1200000),
+				SelfStake:          unit.ConvertIotxToRau(1200000),
 			},
 			3,
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(5),
+				Operator:           identityset.Address(15),
+				Reward:             identityset.Address(2),
+				Name:               "test5",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 5,
+				SelfStake:          unit.ConvertIotxToRau(1199999),
+			},
+			5,
+		},
+		{
+			&Candidate{
+				Owner:              identityset.Address(6),
+				Operator:           identityset.Address(16),
+				Reward:             identityset.Address(2),
+				Name:               "test6",
+				Votes:              big.NewInt(1),
+				SelfStakeBucketIdx: 6,
+				SelfStake:          unit.ConvertIotxToRau(1100000),
+			},
+			6,
 		},
 	}
 )

@@ -231,13 +231,20 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 	return nil
 }
 
-// AllCandidates returns all candidates in candidate center
-func (p *Protocol) AllCandidates(context.Context) (state.CandidateList, error) {
+// ActiveCandidates returns all active candidates in candidate center
+func (p *Protocol) ActiveCandidates(context.Context) (state.CandidateList, error) {
 	list, err := p.inMemCandidates.All()
 	if err != nil {
 		return nil, err
 	}
-	return list.toStateCandidateList()
+
+	cand := make(CandidateList, 0, len(list))
+	for i := range list {
+		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
+			cand = append(cand, list[i])
+		}
+	}
+	return cand.toStateCandidateList()
 }
 
 // ReadState read the state on blockchain via protocol

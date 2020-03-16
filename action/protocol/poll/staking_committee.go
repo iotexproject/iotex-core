@@ -71,6 +71,10 @@ func NewStakingCommittee(
 		}
 	}
 
+	if enableV2 && stakingV2 == nil {
+		return nil, errors.New("native staking V2 protocol cannot be empty when enabled")
+	}
+
 	timerFactory, err := prometheustimer.New(
 		"iotex_staking_perf",
 		"Performance of staking module",
@@ -209,23 +213,22 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	if !sc.enableStakingV2 || hu.IsPre(config.Fairbank, height) {
 		cand, err = sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
 	} else {
-		// native staking V2 starts from Fairbank
-		if sc.nativeStakingV2 == nil {
-			return nil, errors.New("native staking V2 was not set after fairbank height")
-		}
-		cand, err = sc.nativeStakingV2.AllCandidates(ctx)
+		// starting Fairbank height all candidates come from native staking V2
+		cand, err = sc.nativeStakingV2.ActiveCandidates(ctx)
+		timer.End()
+		return cand, err
 	}
+	timer.End()
 	if err != nil {
 		return nil, err
 	}
-	timer.End()
 
 	// convert to epoch start height
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
-	// native staking starts from Cook
+	// native staking using contract starts from Cook
 	if sc.nativeStaking == nil {
 		return nil, errors.New("native staking was not set after cook height")
 	}

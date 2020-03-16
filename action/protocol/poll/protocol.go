@@ -106,6 +106,7 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
 	cfg config.Config,
+	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
@@ -122,7 +123,8 @@ func NewProtocol(
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
-	if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil || genesisConfig.GravityChainStartHeight == 0 {
+
+	if !genesisConfig.EnableGravityChainVoting || (electionCommittee == nil && stakingV2 == nil) {
 		delegates := genesisConfig.Delegates
 		if uint64(len(delegates)) < genesisConfig.NumDelegates {
 			return nil, errors.New("invalid delegate address in genesis block")
@@ -132,6 +134,7 @@ func NewProtocol(
 	var pollProtocol, governance Protocol
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
+		candidateIndexer,
 		candidatesByHeight,
 		getCandidates,
 		kickoutListByEpoch,

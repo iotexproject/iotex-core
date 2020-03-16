@@ -29,8 +29,10 @@ func TestNewProtocol(t *testing.T) {
 	committee := mock_committee.NewMockCommittee(ctrl)
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Genesis.ScoreThreshold = "1200000"
 	p, err := NewProtocol(
 		cfg,
+		nil,
 		func(context.Context, string, []byte, bool) ([]byte, error) { return nil, nil },
 		nil,
 		nil,
