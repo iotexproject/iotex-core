@@ -247,7 +247,6 @@ func New(
 			return nil, err
 		}
 	}
-	
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
 		rDPoSProtocol = rolldpos.NewProtocol(
 			cfg.Genesis.NumCandidateDelegates,
@@ -283,6 +282,7 @@ func New(
 			candidatesutil.KickoutListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
+			stakingProtocol,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
 				if err != nil {
