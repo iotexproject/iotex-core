@@ -556,8 +556,9 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 	epochNum uint64,
 ) (*vote.Blacklist, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	easterEpochNum := rp.GetEpochNum(config.Easter)
+	easterEpochNum := rp.GetEpochNum(hu.EasterBlockHeight())
 
 	nextBlacklist := &vote.Blacklist{
 		IntensityRate: p.kickoutIntensity,
