@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (p *Protocol) readStateBuckets(ctx context.Context, sr protocol.StateReader,
+func readStateBuckets(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, error) {
 	all, err := getAllBuckets(sr)
 	if err != nil {
@@ -30,7 +30,7 @@ func (p *Protocol) readStateBuckets(ctx context.Context, sr protocol.StateReader
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
+func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, error) {
 	voter, err := address.FromString(req.GetVoterAddress())
 	if err != nil {
@@ -54,7 +54,7 @@ func (p *Protocol) readStateBucketsByVoter(ctx context.Context, sr protocol.Stat
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func (p *Protocol) readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
+func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, error) {
 	c, err := getCandidateByName(sr, req.GetCandName())
 	if err != nil {
