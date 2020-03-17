@@ -49,7 +49,7 @@ type (
 		PutBlock(*block.Block) error
 		PutBlocks([]*block.Block) error
 		DeleteTipBlock(*block.Block) error
-		GetBlockchainHeight() (uint64, error)
+		TipHeight() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
 		GetBlockIndex(uint64) (*blockIndex, error)
@@ -175,8 +175,8 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	return x.commit()
 }
 
-// GetBlockchainHeight return the blockchain height
-func (x *blockIndexer) GetBlockchainHeight() (uint64, error) {
+// TipBlockHeight return the blockchain height
+func (x *blockIndexer) TipHeight() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 

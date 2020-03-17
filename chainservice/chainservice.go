@@ -166,7 +166,6 @@ func New(
 		if !cfg.Chain.EnableAsyncIndexWrite {
 			indexers = append(indexers, indexer)
 		}
-
 		// create system log indexer
 		cfg.DB.DbPath = cfg.System.SystemLogDBPath
 		systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))

@@ -66,8 +66,13 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	if err := blockDao.Start(ctx); err != nil {
 		return uint64(0), err
 	}
-	height := blockDao.GetTipHeight()
-	blockDao.Stop(ctx)
+	height, err := blockDao.TipHeight()
+	if err != nil {
+		return uint64(0), err
+	}
+	if err := blockDao.Stop(ctx); err != nil {
+		return uint64(0), err
+	}
 
 	return height, nil
 }

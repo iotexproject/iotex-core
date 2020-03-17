@@ -79,7 +79,7 @@ type (
 		GetBlockHeight(hash.Hash256) (uint64, error)
 		GetBlock(hash.Hash256) (*block.Block, error)
 		GetBlockByHeight(uint64) (*block.Block, error)
-		GetTipHeight() uint64
+		TipHeight() (uint64, error)
 		Header(hash.Hash256) (*block.Header, error)
 		Body(hash.Hash256) (*block.Body, error)
 		Footer(hash.Hash256) (*block.Footer, error)
@@ -99,6 +99,7 @@ type (
 	BlockIndexer interface {
 		Start(ctx context.Context) error
 		Stop(ctx context.Context) error
+		TipHeight() (uint64, error)
 		PutBlock(blk *block.Block) error
 		DeleteTipBlock(blk *block.Block) error
 	}
@@ -170,7 +171,10 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, tipHeight)
-	return dao.initStores()
+	if err := dao.initStores(); err != nil {
+		return err
+	}
+	return dao.checkIndexers()
 }
 
 func (dao *blockDAO) initStores() error {
@@ -206,6 +210,29 @@ func (dao *blockDAO) initStores() error {
 	return nil
 }
 
+func (dao *blockDAO) checkIndexers() error {
+	for _, indexer := range dao.indexers {
+		tipHeight, err := indexer.TipHeight()
+		if err != nil {
+			return err
+		}
+		if tipHeight > dao.tipHeight {
+			// TODO: delete block
+			return errors.New("indexer tip height cannot by higher than dao tip height")
+		}
+		for i := tipHeight; i < dao.tipHeight; i++ {
+			blk, err := dao.getBlockByHeight(i)
+			if err != nil {
+				return err
+			}
+			if err := indexer.PutBlock(blk); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
 func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
@@ -221,6 +248,10 @@ func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 }
 
 func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
+	return dao.getBlockByHeight(height)
+}
+
+func (dao *blockDAO) getBlockByHeight(height uint64) (*block.Block, error) {
 	hash, err := dao.getBlockHash(height)
 	if err != nil {
 		return nil, err
@@ -244,8 +275,8 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	return dao.footer(hash)
 }
 
-func (dao *blockDAO) GetTipHeight() uint64 {
-	return atomic.LoadUint64(&dao.tipHeight)
+func (dao *blockDAO) TipHeight() (uint64, error) {
+	return atomic.LoadUint64(&dao.tipHeight), nil
 }
 
 func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {

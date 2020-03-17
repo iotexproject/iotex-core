@@ -303,7 +303,10 @@ func (bc *blockchain) Start(ctx context.Context) error {
 		return err
 	}
 	// get blockchain tip height
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return err
+	}
 	if tipHeight == 0 {
 		return nil
 	}
@@ -337,7 +340,10 @@ func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) 
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return hash.ZeroHash256
+	}
 	tipHash, err := bc.dao.GetBlockHash(tipHeight)
 	if err != nil {
 		return hash.ZeroHash256
@@ -347,7 +353,11 @@ func (bc *blockchain) TipHash() hash.Hash256 {
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	return bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		log.L().Panic("failed to get tip height", zap.Error(err))
+	}
+	return tipHeight
 }
 
 // ValidateBlock validates a new block before adding it to the blockchain
@@ -431,9 +441,11 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bool) (context.Context, error) {
 	var candidates state.CandidateList
 	var tip protocol.TipInfo
-	var err error
 	if candidateFlag {
-		tipHeight := bc.dao.GetTipHeight()
+		tipHeight, err := bc.dao.TipHeight()
+		if err != nil {
+			return nil, err
+		}
 		if candidates, err = bc.candidatesByHeight(tipHeight + 1); err != nil {
 			return nil, err
 		}
@@ -463,7 +475,10 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return nil, err
+	}
 	newblockHeight := tipHeight + 1
 	ctx, err := bc.context(context.Background(), true, true)
 	if err != nil {
@@ -569,7 +584,10 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return err
+	}
 	if stateHeight > tipHeight {
 		return errors.New("factory is higher than blockchain")
 	}
@@ -614,7 +632,10 @@ func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
 }
 
 func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return nil, err
+	}
 	if tipHeight == 0 {
 		return &protocol.TipInfo{
 			Height:    0,
@@ -666,7 +687,10 @@ func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		log.L().Panic("Error when committing states.", zap.Error(err))
 	}
-	tipHeight := bc.dao.GetTipHeight()
+	tipHeight, err := bc.dao.TipHeight()
+	if err != nil {
+		return err
+	}
 	tipHash, err := bc.dao.GetBlockHash(tipHeight)
 	if err != nil {
 		return err
