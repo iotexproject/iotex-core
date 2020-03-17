@@ -247,7 +247,6 @@ func New(
 			return nil, err
 		}
 	}
-
 	if cfg.Consensus.Scheme == config.RollDPoSScheme {
 		rDPoSProtocol = rolldpos.NewProtocol(
 			cfg.Genesis.NumCandidateDelegates,
@@ -283,7 +282,6 @@ func New(
 			candidatesutil.KickoutListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
-			cfg.Chain.EnableStakingProtocol,
 			stakingProtocol,
 			func(height uint64) (time.Time, error) {
 				header, err := chain.BlockHeaderByHeight(height)
@@ -368,6 +366,7 @@ func New(
 			return nil, err
 		}
 	}
+
 	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {

@@ -113,7 +113,6 @@ func NewProtocol(
 	kickoutListByEpoch GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
-	enableV2 bool,
 	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	sr protocol.StateReader,
@@ -123,15 +122,14 @@ func NewProtocol(
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
-
-	if !genesisConfig.EnableGravityChainVoting || (electionCommittee == nil && stakingV2 == nil) {
+	if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
 		delegates := genesisConfig.Delegates
 		if uint64(len(delegates)) < genesisConfig.NumDelegates {
 			return nil, errors.New("invalid delegate address in genesis block")
 		}
 		return NewLifeLongDelegatesProtocol(delegates), nil
 	}
-	var pollProtocol, governance Protocol
+	var pollProtocol, governance, stakingV1 Protocol
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidateIndexer,
@@ -158,16 +156,17 @@ func NewProtocol(
 	if !ok {
 		return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
 	}
-	if pollProtocol, err = NewStakingCommittee(
+	if stakingV1, err = NewStakingCommittee(
 		electionCommittee,
 		governance,
-		enableV2,
-		stakingV2,
 		readContract,
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
 	); err != nil {
+		return nil, err
+	}
+	if pollProtocol, err = NewStakingCommand(config.NewHeightUpgrade(&cfg.Genesis), candidateIndexer, stakingV1, stakingV2); err != nil {
 		return nil, err
 	}
 	return pollProtocol, nil
