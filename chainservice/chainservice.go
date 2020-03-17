@@ -166,17 +166,15 @@ func New(
 		if !cfg.Chain.EnableAsyncIndexWrite {
 			indexers = append(indexers, indexer)
 		}
-		// create system log indexer
-		cfg.DB.DbPath = cfg.System.SystemLogDBPath
-		systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))
-		if err != nil {
-			return nil, err
+		if cfg.Chain.EnableSystemLogIndexer {
+			// create system log indexer
+			cfg.DB.DbPath = cfg.System.SystemLogDBPath
+			systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))
+			if err != nil {
+				return nil, err
+			}
+			indexers = append(indexers, systemLogIndex)
 		}
-		indexers = append(indexers, systemLogIndex)
-	}
-
-	_, candidateGateway := cfg.Plugins[config.HistoricalCandidatePlugin]
-	if candidateGateway {
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
