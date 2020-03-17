@@ -120,13 +120,13 @@ var (
 			},
 			EnableTrielessStateDB:         true,
 			EnableAsyncIndexWrite:         true,
+			EnableStakingProtocol:         true,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
-			EnableStakingProtocol:         true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -244,6 +244,8 @@ type (
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// EnableStakingProtocol enables staking protocol
+		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`
 		// CompressBlock enables gzip compression on block data
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
@@ -253,8 +255,7 @@ type (
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize   uint64 `yaml:"workingSetCacheSize"`
-		EnableStakingProtocol bool   `yaml: "enableStakingProtocol"`
+		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}
 
 	// Consensus is the config struct for consensus package
