@@ -54,7 +54,7 @@ func defaultConfig() Genesis {
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
-			EasterBlockHeight:       3619801,
+			EasterBlockHeight:       4200841,
 			FairbankBlockHeight:     4339081,
 		},
 		Account: Account{
@@ -62,8 +62,8 @@ func defaultConfig() Genesis {
 		},
 		Poll: Poll{
 			EnableGravityChainVoting:         true,
-			KickoutEpochPeriod:               3,
-			KickoutIntensityRate:             100,
+			KickoutEpochPeriod:               6,
+			KickoutIntensityRate:             90,
 			UnproductiveDelegateMaxCacheSize: 20,
 		},
 		Rewarding: Rewarding{
