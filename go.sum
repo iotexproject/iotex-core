@@ -172,6 +172,8 @@ github.com/iotexproject/iotex-proto v0.2.5 h1:SYdl9Lqb0LYfFf3sfw92fN8GY3bthfCvGm
 github.com/iotexproject/iotex-proto v0.2.5/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/iotexproject/iotex-proto v0.2.6-0.20200306214729-9d64d56a711f h1:1L0/Y1BhYZGy3OhkLLDCpSG1Y+BIy63RqKuydo1g3G4=
 github.com/iotexproject/iotex-proto v0.2.6-0.20200306214729-9d64d56a711f/go.mod h1:xKA4yUbg208k1j3+t10Pe7IzT6uHcP+/4rsDanF4Q58=
+github.com/iotexproject/iotex-proto v0.2.6-0.20200312232008-bb0b9014aa27 h1:9fQHGkfHm/DpEw7hO0zsAbNNLz6va4m9Btcm6JDZtq4=
+github.com/iotexproject/iotex-proto v0.2.6-0.20200312232008-bb0b9014aa27/go.mod h1:xKA4yUbg208k1j3+t10Pe7IzT6uHcP+/4rsDanF4Q58=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=

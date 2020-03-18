@@ -18,13 +18,13 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -67,7 +67,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		blkTimestamp time.Time
 		blkGasLimit  uint64
 		// expected result
-		errorCause error
+		status iotextypes.ReceiptStatus
 	}{
 		{
 			10,
@@ -81,7 +81,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			state.ErrNotEnoughBalance,
+			iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		},
 		{
 			100,
@@ -95,7 +95,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		{
 			100,
@@ -109,7 +109,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
-			nil,
+			iotextypes.ReceiptStatus_Success,
 		},
 	}
 
@@ -129,10 +129,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		_, err = p.handleCreateStake(ctx, act, sm)
-		require.Equal(test.errorCause, errors.Cause(err))
+		r, err := p.handleCreateStake(ctx, act, sm)
+		require.Equal(uint64(test.status), r.Status)
 
-		if test.errorCause == nil {
+		if test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidateAddr)
 			require.NoError(err)
