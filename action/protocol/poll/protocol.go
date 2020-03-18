@@ -129,7 +129,7 @@ func NewProtocol(
 		}
 		return NewLifeLongDelegatesProtocol(delegates), nil
 	}
-	var pollProtocol, governance, stakingV1 Protocol
+	var pollProtocol, governance Protocol
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidateIndexer,
@@ -156,7 +156,7 @@ func NewProtocol(
 	if !ok {
 		return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
 	}
-	if stakingV1, err = NewStakingCommittee(
+	if pollProtocol, err = NewStakingCommittee(
 		electionCommittee,
 		governance,
 		readContract,
@@ -164,9 +164,6 @@ func NewProtocol(
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
 	); err != nil {
-		return nil, err
-	}
-	if pollProtocol, err = NewStakingCommand(config.NewHeightUpgrade(&cfg.Genesis), candidateIndexer, stakingV1, stakingV2); err != nil {
 		return nil, err
 	}
 	return pollProtocol, nil
