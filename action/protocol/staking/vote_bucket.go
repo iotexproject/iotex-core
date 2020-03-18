@@ -28,6 +28,7 @@ import (
 type (
 	// VoteBucket represents a vote
 	VoteBucket struct {
+		Index            uint64
 		Candidate        address.Address
 		Owner            address.Address
 		StakedAmount     *big.Int
@@ -100,6 +101,7 @@ func (vb *VoteBucket) fromProto(pb *stakingpb.Bucket) error {
 		return err
 	}
 
+	vb.Index = pb.GetIndex()
 	vb.Candidate = candAddr
 	vb.Owner = ownerAddr
 	vb.StakedAmount = vote
@@ -129,6 +131,7 @@ func (vb *VoteBucket) toProto() (*stakingpb.Bucket, error) {
 	}
 
 	return &stakingpb.Bucket{
+		Index:            vb.Index,
 		CandidateAddress: vb.Candidate.String(),
 		Owner:            vb.Owner.String(),
 		StakedAmount:     vb.StakedAmount.String(),
@@ -155,6 +158,7 @@ func (vb *VoteBucket) toIoTeXTypes() (*iotextypes.VoteBucket, error) {
 	}
 
 	return &iotextypes.VoteBucket{
+		Index:            vb.Index,
 		CandidateAddress: vb.Candidate.String(),
 		Owner:            vb.Owner.String(),
 		StakedAmount:     vb.StakedAmount.String(),
@@ -233,6 +237,8 @@ func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	}
 
 	index := tc.Count()
+	// Add index inside bucket
+	bucket.Index = index
 	if _, err := sm.PutState(
 		bucket,
 		protocol.NamespaceOption(StakingNameSpace),
