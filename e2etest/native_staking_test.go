@@ -3,7 +3,6 @@ package e2etest
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -169,9 +169,10 @@ func TestNativeStaking(t *testing.T) {
 		// deposit to stake
 		ds, err := testutil.SignedDepositToStake(3, voter2BucketIndex, vote, nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		err = createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{ds}, fixedTime)
-		require.Error(err)
-		require.True(strings.Contains(err.Error(), "deposit is only allowed on auto-stake bucket"))
+		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{ds}, fixedTime))
+		r, err := dao.GetReceiptByActionHash(ds.Hash(), 6)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), r.Status)
 
 		// restake
 		rs, err := testutil.SignedRestake(3, voter2BucketIndex, 1, true, nil,
@@ -219,9 +220,10 @@ func TestNativeStaking(t *testing.T) {
 		// withdraw stake
 		ws, err := testutil.SignedReclaimStake(true, 3, 0, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		err = createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime)
-		require.Error(err)
-		require.True(strings.Contains(err.Error(), "stake is not ready to withdraw"))
+		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime))
+		r, err = dao.GetReceiptByActionHash(ws.Hash(), 11)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity), r.Status)
 
 		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 

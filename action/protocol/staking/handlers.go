@@ -723,7 +723,10 @@ func fetchCaller(ctx context.Context, sm protocol.StateReader, amount *big.Int) 
 			),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
-		return nil, nil, fetchErr
+		if gasFee.Cmp(caller.Balance) == 1 {
+			gasFee = caller.Balance
+		}
+		return nil, gasFee, fetchErr
 	}
 	return caller, gasFee, nil
 }
