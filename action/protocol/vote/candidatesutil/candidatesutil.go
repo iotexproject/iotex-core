@@ -163,7 +163,7 @@ func ConstructKey(key string) hash.Hash256 {
 	return hash.Hash256b(bytesKey)
 }
 
-// LoadAndAddCandidates loads candidates from trie and adds a new candidate	// KickoutListFromDB returns array of kickout list at current epoch
+// LoadAndAddCandidates loads candidates from trie and adds a new candidate
 func LoadAndAddCandidates(sm protocol.StateManager, blkHeight uint64, addr string) error {
 	candidateMap, err := GetMostRecentCandidateMap(sm, blkHeight)
 	if err != nil {
