@@ -56,9 +56,13 @@ func TestExecuteContractFailure(t *testing.T) {
 		Genesis: config.Default.Genesis,
 	})
 
-	retval, receipt, err := ExecuteContract(ctx, sm, e, func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	})
+	retval, receipt, err := ExecuteContract(ctx, sm, e,
+		func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
+		},
+		func(context.Context, protocol.StateManager, *big.Int) error {
+			return nil
+		})
 	require.Nil(t, retval)
 	require.Nil(t, receipt)
 	require.Error(t, err)

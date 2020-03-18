@@ -128,7 +128,9 @@ func TestStakingContract(t *testing.T) {
 				return nil, err
 			}
 
-			data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+			data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash, func(context.Context, protocol.StateManager, *big.Int) error {
+				return nil
+			})
 
 			return data, err
 		})

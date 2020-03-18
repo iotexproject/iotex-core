@@ -258,6 +258,7 @@ func simulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
+	depositGas evm.DepositGas,
 ) ([]byte, *action.Receipt, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	ctx = protocol.WithActionCtx(
@@ -285,6 +286,7 @@ func simulateExecution(
 		ws,
 		ex,
 		getBlockHash,
+		depositGas,
 	)
 }
 

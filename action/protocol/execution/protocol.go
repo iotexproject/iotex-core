@@ -30,17 +30,18 @@ const (
 // Protocol defines the protocol of handling executions
 type Protocol struct {
 	getBlockHash evm.GetBlockHash
+	depositGas   evm.DepositGas
 	addr         address.Address
 }
 
 // NewProtocol instantiates the protocol of exeuction
-func NewProtocol(getBlockHash evm.GetBlockHash) *Protocol {
+func NewProtocol(getBlockHash evm.GetBlockHash, depostGas evm.DepositGas) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		log.L().Panic("Error when constructing the address of vote protocol", zap.Error(err))
 	}
-	return &Protocol{getBlockHash: getBlockHash, addr: addr}
+	return &Protocol{getBlockHash: getBlockHash, depositGas: depostGas, addr: addr}
 }
 
 // FindProtocol finds the registered protocol from registry
@@ -65,7 +66,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash)
+	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute contract")

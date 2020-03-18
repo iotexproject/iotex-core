@@ -981,6 +981,8 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 
 	_, _, err = sf.SimulateExecution(ctx, addr, ex, func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
+	}, func(context.Context, protocol.StateManager, *big.Int) error {
+		return nil
 	})
 	require.NoError(err)
 }

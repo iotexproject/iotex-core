@@ -77,7 +77,7 @@ type (
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
-		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
+		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash, evm.DepositGas) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
@@ -422,6 +422,7 @@ func (sf *factory) SimulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
+	depositGas evm.DepositGas,
 ) ([]byte, *action.Receipt, error) {
 	sf.mutex.Lock()
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
@@ -430,7 +431,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash, depositGas)
 }
 
 // Commit persists all changes in RunActions() into the DB

@@ -271,7 +271,7 @@ func New(
 					return nil, err
 				}
 
-				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
+				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash, rewarding.DepositGas)
 
 				return data, err
 			},
@@ -293,7 +293,7 @@ func New(
 			},
 			sf,
 			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-				return blockchain.CurrentEpochProductivity(ctx, chain, sf, epochNum)
+				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 			},
 		)
 		if err != nil {
@@ -306,7 +306,7 @@ func New(
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			return blockchain.CurrentEpochProductivity(ctx, chain, sf, epochNum)
+			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
@@ -364,8 +364,7 @@ func New(
 			return nil, err
 		}
 	}
-
-	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {
 			return nil, err

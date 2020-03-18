@@ -169,7 +169,7 @@ func TestActPool_AddActs(t *testing.T) {
 	tsf8, err := testutil.SignedTransfer(addr2, priKey2, uint64(4), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 
 	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
@@ -341,7 +341,7 @@ func TestActPool_PickActs(t *testing.T) {
 		tsf10, err := testutil.SignedTransfer(addr2, priKey2, uint64(5), big.NewInt(5), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 
-		ep := execution.NewProtocol(dao.GetBlockHash)
+		ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 		require.NoError(ep.Register(registry))
 
 		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
@@ -393,7 +393,7 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -465,7 +465,7 @@ func TestActPool_Reset(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 
@@ -836,7 +836,7 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -889,7 +889,7 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -938,7 +938,7 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(registry))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -1045,7 +1045,7 @@ func TestActPool_GetSize(t *testing.T) {
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
-	ep := execution.NewProtocol(dao.GetBlockHash)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(ep.Register(re))
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool

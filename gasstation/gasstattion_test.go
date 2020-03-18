@@ -62,7 +62,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(t, rewardingProtocol.Register(registry))
@@ -141,7 +141,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	ep := execution.NewProtocol(blkMemDao.GetBlockHash)
+	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(nil)
 	require.NoError(t, rewardingProtocol.Register(registry))

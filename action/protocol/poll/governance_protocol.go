@@ -392,7 +392,8 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, s
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
 	if hu.IsPre(config.Easter, targetEpochStartHeight) {
-		return p.candidatesByHeight(sr, targetEpochStartHeight)
+		candidates, err := p.candidatesByHeight(sr, targetEpochStartHeight)
+		return candidates, err
 	}
 	// After Easter height, kick-out unqualified delegates based on productivity
 	candidates, stateHeight, err := p.getCandidates(sr, readFromNext)
@@ -560,7 +561,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 			}
 		}
 		// calculate upd of epochNum-1 (latest)
-		uq, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
+		uq, err := p.calculateUnproductiveDelegatesByEpoch(ctx, sm, epochNum-1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
@@ -599,7 +600,7 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 		}
 		blacklistMap[addr]--
 	}
-	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, epochNum-1)
+	addList, err := p.calculateUnproductiveDelegatesByEpoch(ctx, sm, epochNum-1)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 	}
@@ -625,17 +626,31 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 
 func (p *governanceChainCommitteeProtocol) calculateUnproductiveDelegatesByEpoch(
 	ctx context.Context,
+	sm protocol.StateManager,
 	epochNum uint64,
 ) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	delegates, err := p.readActiveBlockProducers(ctx, sm, false)
+	if err != nil {
+		return nil, err
+	}
 	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
-	// The current block is not included, so that we need to add it to the stats
+	// The current block is not included, so add it
 	numBlks++
-	produce[blkCtx.Producer.String()]++
+	if _, ok := produce[blkCtx.Producer.String()]; ok {
+		produce[blkCtx.Producer.String()]++
+	} else {
+		produce[blkCtx.Producer.String()] = 1
+	}
 
+	for _, abp := range delegates {
+		if _, ok := produce[abp.Address]; !ok {
+			produce[abp.Address] = 0
+		}
+	}
 	unqualified := make([]string, 0)
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {

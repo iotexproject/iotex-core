@@ -195,7 +195,7 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	require.NoError(rolldposProtocol.Register(registry))
 	rewardingProtocol := rewarding.NewProtocol(
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			return blockchain.CurrentEpochProductivity(ctx, chain, sf, epochNum)
+			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		},
 	)
 	require.NoError(rewardingProtocol.Register(registry))

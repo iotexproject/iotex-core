@@ -109,36 +109,37 @@ type (
 	}
 )
 
-// CurrentEpochProductivity returns the map of the number of blocks produced per delegate in current epoch
+// ProductivityByEpoch returns the map of the number of blocks produced per delegate in given epoch
 // TODO: implement reading current epoch meta from state factory
-func CurrentEpochProductivity(ctx context.Context, bc Blockchain, sr protocol.StateReader, epochNum uint64) (uint64, map[string]uint64, error) {
+func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	if epochNum != rp.GetEpochNum(bcCtx.Tip.Height) {
-		return 0, nil, errors.New("Invalid epoch number, it's not current epoch number")
+	var epochEndHeight uint64
+
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
 	}
-	epochEndHeight := bcCtx.Tip.Height
-	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(epochEndHeight))
+	if epochNum == currentEpochNum {
+		epochEndHeight = bcCtx.Tip.Height
+	} else {
+		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
+	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	// because this function is only called at the end of the epoch, no need to check nextDelegates()
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).Delegates(ctx, sr)
-	if err != nil {
-		return 0, nil, errors.Wrap(err, "failed to get current delegates")
-	}
-
 	produce := make(map[string]uint64)
-	for _, bp := range activeConsensusBlockProducers {
-		produce[bp.Address] = 0
-	}
-	// TODO: because now this function is only getting current epoch data,
-	// change to get from bc indexer before easter/ after easter,read from state factory
 	for i := uint64(0); i < numBlks; i++ {
 		header, err := bc.BlockHeaderByHeight(epochStartHeight + i)
 		if err != nil {
 			return 0, nil, err
 		}
-		produce[header.ProducerAddress()]++
+		producer := header.ProducerAddress()
+		if _, ok := produce[producer]; ok {
+			produce[producer]++
+		} else {
+			produce[producer] = 1
+		}
 	}
 	return numBlks, produce, nil
 }
@@ -559,7 +560,7 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 			Registry: bc.registry,
 			Genesis:  bc.config.Genesis,
 		})
-	
+
 	stateTipHeight, err := bc.sf.Height()
 	if err != nil {
 		return nil, err

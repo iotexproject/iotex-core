@@ -140,6 +140,9 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
+			return nil
+		},
 	)
 	if err != nil {
 		return err

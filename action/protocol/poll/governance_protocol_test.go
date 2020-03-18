@@ -122,6 +122,16 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			Votes:         big.NewInt(10),
 			RewardAddress: "rewardAddress4",
 		},
+		{
+			Address:       identityset.Address(5).String(),
+			Votes:         big.NewInt(5),
+			RewardAddress: "rewardAddress5",
+		},
+		{
+			Address:       identityset.Address(6).String(),
+			Votes:         big.NewInt(3),
+			RewardAddress: "rewardAddress6",
+		},
 	}
 	indexer, err := NewCandidateIndexer(db.NewMemKVStore())
 	if err != nil {
@@ -145,26 +155,32 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			switch epochNum {
 			case 1:
-				return uint64(16),
+				return uint64(18),
 					map[string]uint64{ // [A, B, C]
 						identityset.Address(1).String(): 1, // underperformance
 						identityset.Address(2).String(): 1, // underperformance
 						identityset.Address(3).String(): 1, // underperformance
-						identityset.Address(4).String(): 13,
+						identityset.Address(4).String(): 5,
+						identityset.Address(5).String(): 5,
+						identityset.Address(6).String(): 5,
 					}, nil
 			case 2:
-				return uint64(12),
+				return uint64(20),
 					map[string]uint64{ // [B, D]
-						identityset.Address(1).String(): 7,
+						identityset.Address(1).String(): 5,
 						identityset.Address(2).String(): 1, // underperformance
-						identityset.Address(3).String(): 3,
+						identityset.Address(3).String(): 5,
 						identityset.Address(4).String(): 1, // underperformance
+						identityset.Address(5).String(): 4,
+						identityset.Address(6).String(): 4,
 					}, nil
 			case 3:
-				return uint64(12),
+				return uint64(22),
 					map[string]uint64{ // [E, F]
 						identityset.Address(1).String(): 5,
 						identityset.Address(2).String(): 5,
+						identityset.Address(3).String(): 5,
+						identityset.Address(4).String(): 5,
 						identityset.Address(5).String(): 1, // underperformance
 						identityset.Address(6).String(): 1, // underperformance
 					}, nil
@@ -261,32 +277,32 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(5).String(): 1,
 		identityset.Address(6).String(): 1,
 	}
+	require.NoError(p.CreateGenesisStates(ctx, sm))
 
 	// testing for kick-out slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
-		if epochNum > 1 {
-			epochStartHeight := rp.GetEpochHeight(epochNum)
-			ctx = protocol.WithBlockCtx(
-				ctx,
-				protocol.BlockCtx{
-					BlockHeight: epochStartHeight,
-					Producer:    identityset.Address(1),
-				},
-			)
-			require.NoError(psc.CreatePreStates(ctx, sm)) // shift
-			bl := &vote.Blacklist{}
-			candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
-			_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-			require.NoError(err)
-			expected := test[epochNum]
-			require.Equal(len(expected), len(bl.BlacklistInfos))
-			for addr, count := range bl.BlacklistInfos {
-				val, ok := expected[addr]
-				require.True(ok)
-				require.Equal(val, count)
-			}
+		epochStartHeight := rp.GetEpochHeight(epochNum)
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight: epochStartHeight,
+				Producer:    identityset.Address(1),
+			},
+		)
+		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
+		bl := &vote.Blacklist{}
+		candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+		_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		expected := test[epochNum]
+		require.Equal(len(expected), len(bl.BlacklistInfos))
+		for addr, count := range bl.BlacklistInfos {
+			val, ok := expected[addr]
+			require.True(ok)
+			require.Equal(val, count)
 		}
+
 		// at last of epoch, set blacklist into next kickout key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		ctx = protocol.WithBlockCtx(
@@ -298,11 +314,11 @@ func TestCreatePreStates(t *testing.T) {
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm))
 
-		bl := &vote.Blacklist{}
-		candKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+		bl = &vote.Blacklist{}
+		candKey = candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
 		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
-		expected := test[epochNum+1]
+		expected = test[epochNum+1]
 		require.Equal(len(expected), len(bl.BlacklistInfos))
 		for addr, count := range bl.BlacklistInfos {
 			val, ok := expected[addr]
@@ -567,7 +583,7 @@ func TestNextCandidates(t *testing.T) {
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 	filteredCandidates, err := p.NextCandidates(ctx, sm)
 	require.NoError(err)
-	require.Equal(4, len(filteredCandidates))
+	require.Equal(6, len(filteredCandidates))
 
 	for _, cand := range filteredCandidates {
 		if cand.Address == identityset.Address(1).String() {
@@ -586,7 +602,7 @@ func TestNextCandidates(t *testing.T) {
 	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
 	filteredCandidates, err = p.NextCandidates(ctx, sm)
 	require.NoError(err)
-	require.Equal(4, len(filteredCandidates))
+	require.Equal(6, len(filteredCandidates))
 
 	for _, cand := range filteredCandidates {
 		if cand.Address == identityset.Address(1).String() {
@@ -670,6 +686,8 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 2,
+		identityset.Address(4).String(): 2,
+		identityset.Address(5).String(): 2,
 	}
 	blackList5 := &vote.Blacklist{
 		BlacklistInfos: blackListMap5,
@@ -681,5 +699,5 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.NoError(err)
 
 	require.Equal(1, len(delegates5)) // exclude all of them
-	require.Equal(identityset.Address(4).String(), delegates5[0].Address)
+	require.Equal(identityset.Address(6).String(), delegates5[0].Address)
 }

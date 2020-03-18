@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
@@ -162,7 +163,7 @@ func (p *Protocol) GrantEpochReward(
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		// Get unqualified delegate list
-		if uqd, err = p.unqualifiedDelegates(ctx, blkCtx.Producer, epochNum, a.productivityThreshold); err != nil {
+		if uqd, err = p.unqualifiedDelegates(ctx, sm, epochNum, a.productivityThreshold); err != nil {
 			return nil, err
 		}
 	}
@@ -424,19 +425,33 @@ func (p *Protocol) splitEpochReward(
 
 func (p *Protocol) unqualifiedDelegates(
 	ctx context.Context,
-	producer address.Address,
+	sm protocol.StateManager,
 	epochNum uint64,
 	productivityThreshold uint64,
 ) (map[string]bool, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	delegates, err := poll.MustGetProtocol(bcCtx.Registry).Delegates(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
 	unqualifiedDelegates := make(map[string]bool, 0)
 	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
 	if err != nil {
 		return nil, err
 	}
-	// The current block is not included, so that we need to add it to the stats
+	// The current block is not included, so add it
 	numBlks++
-	produce[producer.String()]++
-
+	if _, ok := produce[blkCtx.Producer.String()]; ok {
+		produce[blkCtx.Producer.String()]++
+	} else {
+		produce[blkCtx.Producer.String()] = 1
+	}
+	for _, abp := range delegates {
+		if _, ok := produce[abp.Address]; !ok {
+			produce[abp.Address] = 0
+		}
+	}
 	expectedNumBlks := numBlks / uint64(len(produce))
 	for addr, actualNumBlks := range produce {
 		if actualNumBlks*100/expectedNumBlks < productivityThreshold {

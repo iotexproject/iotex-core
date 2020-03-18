@@ -36,6 +36,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -430,7 +431,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err != nil {
 		return nil, err
 	}
-	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash, rewarding.DepositGas)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1360,7 +1361,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err != nil {
 		return nil, err
 	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
+	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash, rewarding.DepositGas)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -1420,7 +1421,7 @@ func (api *Server) isGasLimitEnough(
 	if err != nil {
 		return false, err
 	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
+	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash, rewarding.DepositGas)
 	if err != nil {
 		return false, err
 	}
@@ -1430,34 +1431,17 @@ func (api *Server) isGasLimitEnough(
 func (api *Server) getProductivityByEpoch(
 	ctx context.Context,
 	epochNum uint64,
-	abp state.CandidateList,
+	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-
-	var epochEndHeight uint64
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
-	if epochNum > currentEpochNum {
-		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
+	numBlks, produce, err := blockchain.ProductivityByEpoch(ctx, api.bc, epochNum)
+	if err != nil {
+		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
-	if epochNum == currentEpochNum {
-		epochEndHeight = bcCtx.Tip.Height
-	} else {
-		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
-	}
-	numBlks := epochEndHeight - epochStartHeight + 1
-
-	produce := make(map[string]uint64)
-	for _, bp := range abp {
-		produce[bp.Address] = 0
-	}
-	for i := uint64(0); i < numBlks; i++ {
-		header, err := api.bc.BlockHeaderByHeight(epochStartHeight + i)
-		if err != nil {
-			return 0, nil, err
+	// check if there is any active block producer who didn't prodcue any block
+	for _, abp := range abps {
+		if _, ok := produce[abp.Address]; !ok {
+			produce[abp.Address] = 0
 		}
-		produce[header.ProducerAddress()]++
 	}
 	return numBlks, produce, nil
 }

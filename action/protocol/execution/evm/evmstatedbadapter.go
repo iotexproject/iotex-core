@@ -8,6 +8,7 @@ package evm
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -41,6 +42,9 @@ type (
 
 	// GetBlockHash gets block hash by height
 	GetBlockHash func(uint64) (hash.Hash256, error)
+
+	// DepositGas deposits gas
+	DepositGas func(context.Context, protocol.StateManager, *big.Int) error
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
