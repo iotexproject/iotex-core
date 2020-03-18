@@ -392,8 +392,7 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, s
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
 	if hu.IsPre(config.Easter, targetEpochStartHeight) {
-		candidates, err := p.candidatesByHeight(sr, targetEpochStartHeight)
-		return candidates, err
+		return p.candidatesByHeight(sr, targetEpochStartHeight)
 	}
 	// After Easter height, kick-out unqualified delegates based on productivity
 	candidates, stateHeight, err := p.getCandidates(sr, readFromNext)
