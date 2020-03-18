@@ -58,8 +58,6 @@ const (
 const (
 	// GatewayPlugin is the plugin of accepting user API requests and serving blockchain data to users
 	GatewayPlugin = iota
-	// HistoricalCandidatePlugin is the plugin of accepting user API requests and serving blockchain data to users related to candidate/delegate info
-	HistoricalCandidatePlugin
 )
 
 type strs []string
@@ -120,13 +118,14 @@ var (
 			},
 			EnableTrielessStateDB:         true,
 			EnableAsyncIndexWrite:         true,
+			EnableSystemLogIndexer:        false,
+			EnableStakingProtocol:         true,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
-			EnableStakingProtocol:         true,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -244,6 +243,10 @@ type (
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
+		// EnableSystemLogIndexer enables system log indexer
+		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
+		// EnableStakingProtocol enables staking protocol
+		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`
 		// CompressBlock enables gzip compression on block data
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
@@ -253,8 +256,7 @@ type (
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
-		WorkingSetCacheSize   uint64 `yaml:"workingSetCacheSize"`
-		EnableStakingProtocol bool   `yaml: "enableStakingProtocol"`
+		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -443,8 +445,6 @@ func New(validates ...Validate) (Config, error) {
 		switch strings.ToLower(plugin) {
 		case "gateway":
 			cfg.Plugins[GatewayPlugin] = nil
-		case "candidategateway":
-			cfg.Plugins[HistoricalCandidatePlugin] = nil
 		default:
 			return Config{}, errors.Errorf("Plugin %s is not supported", plugin)
 		}
