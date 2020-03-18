@@ -40,8 +40,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(hu.IsPost(Dardanelles, uint64(1816201)))
 	require.True(hu.IsPre(Daytona, uint64(3238920)))
 	require.True(hu.IsPost(Daytona, uint64(3238921)))
-	require.True(hu.IsPre(Easter, uint64(3619800)))
-	require.True(hu.IsPost(Easter, uint64(3619801)))
+	require.True(hu.IsPre(Easter, uint64(420084)))
+	require.True(hu.IsPost(Easter, uint64(4200841)))
 	require.True(hu.IsPre(Fairbank, uint64(4339080)))
 	require.True(hu.IsPost(Fairbank, uint64(4339081)))
 	require.Panics(func() {
@@ -54,6 +54,6 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(hu.CookBlockHeight(), uint64(1641601))
 	require.Equal(hu.DardanellesBlockHeight(), uint64(1816201))
 	require.Equal(hu.DaytonaBlockHeight(), uint64(3238921))
-	require.Equal(hu.EasterBlockHeight(), uint64(3619801))
+	require.Equal(hu.EasterBlockHeight(), uint64(4200841))
 	require.Equal(hu.FairbankBlockHeight(), uint64(4339081))
 }
