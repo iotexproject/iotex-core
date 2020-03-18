@@ -180,7 +180,7 @@ reboot:
 run:
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway -plugin=candidategateway
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway 
 
 .PHONY: docker
 docker:
