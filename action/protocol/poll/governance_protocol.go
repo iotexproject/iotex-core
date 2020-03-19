@@ -486,7 +486,11 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, e
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		return p.candidatesByHeight(p.sr, epochStartHeight)
 	}
-	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
+	stateTipHeight, err := p.sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(stateTipHeight))
 	if epochStartHeight < tipEpochStartHeight {
 		// read historical data
 		candidates, _, err := p.getCandidates(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
@@ -514,7 +518,11 @@ func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, 
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		return nil, errors.New("Before Easter, there is no blacklist in stateDBs")
 	}
-	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(bcCtx.Tip.Height))
+	stateTipHeight, err := p.sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(stateTipHeight))
 	if epochStartHeight < tipEpochStartHeight {
 		// read historical data
 		unqualifiedList, _, err := p.getKickoutList(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))

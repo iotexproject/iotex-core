@@ -185,7 +185,7 @@ func setCandidates(
 	}
 	if indexer != nil {
 		if err := indexer.PutCandidateList(height, &candidates); err != nil {
-			return err
+			return errors.Wrapf(err, "failed to put candidatelist into indexer at height %d", height)
 		}
 	}
 	if preEaster {
@@ -206,7 +206,7 @@ func setNextEpochBlacklist(
 ) error {
 	if indexer != nil {
 		if err := indexer.PutKickoutList(height, blackList); err != nil {
-			return err
+			return errors.Wrapf(err, "failed to put kickoutlist into indexer at height %d", height)
 		}
 	}
 	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
