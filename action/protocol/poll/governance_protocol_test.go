@@ -39,7 +39,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
 	cfg.Genesis.KickoutIntensityRate = 90
 	cfg.Genesis.KickoutEpochPeriod = 2
-	cfg.Genesis.ProductivityThreshold = 85
+	cfg.Genesis.ProductivityThreshold = 75
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
 		protocol.BlockCtx{
@@ -47,7 +47,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		},
 	)
 	registry := protocol.NewRegistry()
-	rp := rolldpos.NewProtocol(36, 36, 20)
+	rp := rolldpos.NewProtocol(36, 6, 5)
 	err := registry.Register("rolldpos", rp)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -139,45 +139,42 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	slasher, err := NewSlasher(
 		&cfg.Genesis,
-		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			switch epochNum {
+		func(start, end uint64) (map[string]uint64, error) {
+			switch start {
 			case 1:
-				return uint64(18),
-					map[string]uint64{ // [A, B, C]
-						identityset.Address(1).String(): 1, // underperformance
-						identityset.Address(2).String(): 1, // underperformance
-						identityset.Address(3).String(): 1, // underperformance
-						identityset.Address(4).String(): 5,
-						identityset.Address(5).String(): 5,
-						identityset.Address(6).String(): 5,
-					}, nil
-			case 2:
-				return uint64(20),
-					map[string]uint64{ // [B, D]
-						identityset.Address(1).String(): 5,
-						identityset.Address(2).String(): 1, // underperformance
-						identityset.Address(3).String(): 5,
-						identityset.Address(4).String(): 1, // underperformance
-						identityset.Address(5).String(): 4,
-						identityset.Address(6).String(): 4,
-					}, nil
-			case 3:
-				return uint64(22),
-					map[string]uint64{ // [E, F]
-						identityset.Address(1).String(): 5,
-						identityset.Address(2).String(): 5,
-						identityset.Address(3).String(): 5,
-						identityset.Address(4).String(): 5,
-						identityset.Address(5).String(): 1, // underperformance
-						identityset.Address(6).String(): 1, // underperformance
-					}, nil
+				return map[string]uint64{ // [A, B, C]
+					identityset.Address(1).String(): 1, // underperformance
+					identityset.Address(2).String(): 1, // underperformance
+					identityset.Address(3).String(): 1, // underperformance
+					identityset.Address(4).String(): 5,
+					identityset.Address(5).String(): 5,
+					identityset.Address(6).String(): 5,
+				}, nil
+			case 31:
+				return map[string]uint64{ // [B, D]
+					identityset.Address(1).String(): 5,
+					identityset.Address(2).String(): 1, // underperformance
+					identityset.Address(3).String(): 5,
+					identityset.Address(4).String(): 1, // underperformance
+					identityset.Address(5).String(): 4,
+					identityset.Address(6).String(): 4,
+				}, nil
+			case 61:
+				return map[string]uint64{ // [E, F]
+					identityset.Address(1).String(): 5,
+					identityset.Address(2).String(): 5,
+					identityset.Address(3).String(): 5,
+					identityset.Address(4).String(): 5,
+					identityset.Address(5).String(): 1, // underperformance
+					identityset.Address(6).String(): 1, // underperformance
+				}, nil
 			default:
-				return 0, nil, nil
+				return nil, nil
 			}
 		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
-			return candidates, 720, nil
+			return candidates, 30, nil
 		},
 		candidatesutil.KickoutListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
@@ -285,11 +282,12 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(6).String(): 1,
 	}
 	require.NoError(p.CreateGenesisStates(ctx, sm))
-
 	// testing for kick-out slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
 		epochStartHeight := rp.GetEpochHeight(epochNum)
+		bcCtx.Tip.Height = epochStartHeight - 1
+		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -312,6 +310,8 @@ func TestCreatePreStates(t *testing.T) {
 
 		// at last of epoch, set blacklist into next kickout key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
+		bcCtx.Tip.Height = epochLastHeight - 1
+		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -635,13 +635,13 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 		BlacklistInfos: blackListMap,
 		IntensityRate:  90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
+	require.NoError(setNextEpochBlacklist(sm, nil, 31, blackList))
 
 	delegates, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates))
-	require.Equal(identityset.Address(2).String(), delegates[0].Address)
-	require.Equal(identityset.Address(1).String(), delegates[1].Address)
+	require.Equal(identityset.Address(1).String(), delegates[0].Address)
+	require.Equal(identityset.Address(2).String(), delegates[1].Address)
 
 	// 2: not empty blacklist NextDelegates()
 	blackListMap2 := map[string]uint32{

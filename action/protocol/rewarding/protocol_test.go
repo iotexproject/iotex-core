@@ -76,9 +76,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		genesis.Default.NumSubEpochs,
 	)
 	p := NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return uint64(19),
-				map[string]uint64{
+		func(uint64, uint64) (map[string]uint64, error) {
+			return map[string]uint64{
 					identityset.Address(27).String(): 3,
 					identityset.Address(28).String(): 7,
 					identityset.Address(29).String(): 1,
@@ -150,8 +149,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		&cfg.Genesis,
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 			return abps, nil
@@ -236,6 +235,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Genesis:    ge,
 			Registry:   registry,
 			Candidates: candidates,
+			Tip: protocol.TipInfo{
+				Height: 20,
+			},
 		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
@@ -310,8 +312,8 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 	require.NoError(t, rp.Register(registry))
 	p := NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		})
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister

@@ -27,7 +27,7 @@ import (
 // Slasher is the module to slash candidates
 type Slasher struct {
 	hu                    config.HeightUpgrade
-	prodByEpoch           ProductivityByEpoch
+	productivity          Productivity
 	candByHeight          CandidatesByHeight
 	getCandidates         GetCandidates
 	getKickoutList        GetKickoutList
@@ -44,7 +44,7 @@ type Slasher struct {
 // NewSlasher returns a new Slasher
 func NewSlasher(
 	gen *genesis.Genesis,
-	productivityByEpoch ProductivityByEpoch,
+	productivity Productivity,
 	candByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
 	getKickoutList GetKickoutList,
@@ -55,7 +55,7 @@ func NewSlasher(
 ) (*Slasher, error) {
 	return &Slasher{
 		hu:                    config.NewHeightUpgrade(gen),
-		prodByEpoch:           productivityByEpoch,
+		productivity:          productivity,
 		candByHeight:          candByHeight,
 		getCandidates:         getCandidates,
 		getKickoutList:        getKickoutList,
@@ -71,7 +71,7 @@ func NewSlasher(
 }
 
 // EmptyBlacklist returns an empty Blacklist
-func (sh *Slasher) EmptyBlacklist() *vote.Blacklist{
+func (sh *Slasher) EmptyBlacklist() *vote.Blacklist {
 	return vote.NewBlacklist(sh.kickoutIntensity)
 }
 
@@ -245,7 +245,7 @@ func (sh *Slasher) CalculateKickoutList(
 			}
 		}
 		// calculate upd of epochNum-1 (latest)
-		uq, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, epochNum-1)
+		uq, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
@@ -284,7 +284,7 @@ func (sh *Slasher) CalculateKickoutList(
 		}
 		blacklistMap[addr]--
 	}
-	addList, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, epochNum-1)
+	addList, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 	}
@@ -308,13 +308,14 @@ func (sh *Slasher) CalculateKickoutList(
 	return nextBlacklist, setUnproductiveDelegates(sm, upd)
 }
 
-func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr protocol.StateReader, epochNum uint64) ([]string, error) {
+func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr protocol.StateReader, rp *rolldpos.Protocol, epochNum uint64) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	delegates, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}
-	numBlks, produce, err := sh.prodByEpoch(ctx, epochNum)
+	numBlks, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, sh.productivity)
 	if err != nil {
 		return nil, err
 	}

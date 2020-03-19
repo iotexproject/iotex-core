@@ -109,39 +109,24 @@ type (
 	}
 )
 
-// ProductivityByEpoch returns the map of the number of blocks produced per delegate in given epoch
+// Productivity returns the map of the number of blocks produced per delegate in given epoch
 // TODO: implement reading current epoch meta from state factory
-func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	var epochEndHeight uint64
-
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
-	if epochNum > currentEpochNum {
-		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
-	}
-	if epochNum == currentEpochNum {
-		epochEndHeight = bcCtx.Tip.Height
-	} else {
-		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
-	}
-	numBlks := epochEndHeight - epochStartHeight + 1
-
-	produce := make(map[string]uint64)
-	for i := uint64(0); i < numBlks; i++ {
-		header, err := bc.BlockHeaderByHeight(epochStartHeight + i)
+func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[string]uint64, error) {
+	stats := make(map[string]uint64)
+	for i := startHeight; i <= endHeight; i++ {
+		header, err := bc.BlockHeaderByHeight(i)
 		if err != nil {
-			return 0, nil, err
+			return nil, err
 		}
 		producer := header.ProducerAddress()
-		if _, ok := produce[producer]; ok {
-			produce[producer]++
+		if _, ok := stats[producer]; ok {
+			stats[producer]++
 		} else {
-			produce[producer] = 1
+			stats[producer] = 1
 		}
 	}
-	return numBlks, produce, nil
+
+	return stats, nil
 }
 
 // blockchain implements the Blockchain interface

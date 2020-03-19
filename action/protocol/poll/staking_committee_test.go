@@ -95,8 +95,8 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	slasher, err := NewSlasher(
 		&cfg.Genesis,
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		},
 		nil,
 		nil,

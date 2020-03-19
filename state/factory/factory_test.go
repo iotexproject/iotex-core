@@ -259,8 +259,8 @@ func testCandidates(sf Factory, t *testing.T) {
 	cfg := config.Default
 	slasher, err := poll.NewSlasher(
 		&cfg.Genesis,
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		},
 		nil,
 		nil,
