@@ -124,7 +124,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	cc.contract = receipt.ContractAddress
 
-	cands, err := cc.readCandidates(ctx)
+	cands, err := cc.readDelegates(ctx)
 	if err != nil {
 		return err
 	}
@@ -168,18 +168,18 @@ func (cc *consortiumCommittee) ForceRegister(r *protocol.Registry) error {
 }
 
 func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	return cc.readCandidates(ctx)
+	return cc.readDelegates(ctx)
 }
 
 func (cc *consortiumCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return cc.readCandidates(ctx)
+	return cc.readDelegates(ctx)
 }
 
 func (cc *consortiumCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	return cc.readCandidates(ctx)
+	return cc.readDelegates(ctx)
 }
 
-func (cc *consortiumCommittee) readCandidates(ctx context.Context) (state.CandidateList, error) {
+func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if cc.bufferHeight == bcCtx.Tip.Height && cc.bufferResult != nil {
 		return cc.bufferResult, nil
