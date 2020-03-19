@@ -21,6 +21,11 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	consortiumCommitteeContractCreator = address.ZeroAddress
+	consortiumCommitteeContractNonce   = uint64(0)
+)
+
 type consortiumCommittee struct {
 	readContract ReadContract
 	contract     string
@@ -38,7 +43,7 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 	}
 
 	if readContract == nil {
-		return nil, errors.New("failed to create native staking: empty read contract callback")
+		return nil, errors.New("failed to create consortium committee: empty read contract callback")
 	}
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
@@ -54,13 +59,13 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 }
 
 func (cc *consortiumCommittee) Start(ctx context.Context) error {
-	//bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	//if bcCtx.Genesis.ConsortiumCommitteeContractCode == "" {
-	//return errors.New("cannot find consortium committee contract in gensis")
-	//}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	if bcCtx.Genesis.ConsortiumCommitteeContractCode == "" {
+		return errors.New("cannot find consortium committee contract in gensis")
+	}
 
-	caller, _ := address.FromString(nativeStakingContractCreator)
-	ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
+	caller, _ := address.FromString(consortiumCommitteeContractCreator)
+	ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), consortiumCommitteeContractNonce)
 	iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
 	cc.contract = iotxAddr.String()
 	log.L().Info("Loaded consortium committee contract", zap.String("address", iotxAddr.String()))
@@ -71,15 +76,15 @@ func (cc *consortiumCommittee) Start(ctx context.Context) error {
 func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
+	blkCtx.Producer, _ = address.FromString(consortiumCommitteeContractCreator)
 	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(bcCtx.Genesis.NativeStakingContractCode)
+	bytes, err := hexutil.Decode(bcCtx.Genesis.ConsortiumCommitteeContractCode)
 	if err != nil {
 		return err
 	}
 	execution, err := action.NewExecution(
 		"",
-		nativeStakingContractNonce,
+		consortiumCommitteeContractNonce,
 		big.NewInt(0),
 		bcCtx.Genesis.BlockGasLimit,
 		big.NewInt(0),
@@ -89,11 +94,11 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		return err
 	}
 	actionCtx := protocol.ActionCtx{}
-	actionCtx.Caller, err = address.FromString(nativeStakingContractCreator)
+	actionCtx.Caller, err = address.FromString(consortiumCommitteeContractCreator)
 	if err != nil {
 		return err
 	}
-	actionCtx.Nonce = nativeStakingContractNonce
+	actionCtx.Nonce = consortiumCommitteeContractNonce
 	actionCtx.ActionHash = execution.Hash()
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
@@ -102,7 +107,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	ctx = protocol.WithBlockCtx(ctx, blkCtx)
-	// deploy native staking contract
+	// deploy consortiumCommittee contract
 	_, receipt, err := evm.ExecuteContract(
 		ctx,
 		sm,
@@ -115,7 +120,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		return err
 	}
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return errors.Errorf("error when deploying native staking contract, status=%d", receipt.Status)
+		return errors.Errorf("error when deploying consortiumCommittee contract, status=%d", receipt.Status)
 	}
 	cc.contract = receipt.ContractAddress
 
@@ -196,7 +201,11 @@ func (cc *consortiumCommittee) readCandidates(ctx context.Context) (state.Candid
 
 	candidates := make([]*state.Candidate, 0, len(res))
 	for _, ethAddr := range res {
-		addr, err := toIoAddress(ethAddr)
+		pkhash, err := hexutil.Decode(ethAddr.String())
+		if err != nil {
+			return nil, err
+		}
+		addr, err := address.FromBytes(pkhash)
 		if err != nil {
 			return nil, err
 		}
@@ -207,12 +216,4 @@ func (cc *consortiumCommittee) readCandidates(ctx context.Context) (state.Candid
 	cc.bufferHeight = bcCtx.Tip.Height
 	cc.bufferResult = candidates
 	return candidates, nil
-}
-
-func toIoAddress(addr common.Address) (address.Address, error) {
-	pkhash, err := hexutil.Decode(addr.String())
-	if err != nil {
-		return nil, err
-	}
-	return address.FromBytes(pkhash)
 }
