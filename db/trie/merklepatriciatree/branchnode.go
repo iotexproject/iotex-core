@@ -29,10 +29,12 @@ func newBranchNode(
 	if children == nil || len(children) == 0 {
 		return nil, errors.New("branch node children cannot be empty")
 	}
-	bnode := &branchNode{cacheNode: cacheNode{mpt: mpt}, children: children}
+	bnode := &branchNode{cacheNode: cacheNode{mpt: mpt, dirty: true}, children: children}
 	bnode.cacheNode.serializable = bnode
 	if len(bnode.children) != 0 {
-		return bnode.store()
+		if !mpt.async {
+			return bnode.store()
+		}
 	}
 	return bnode, nil
 }
@@ -147,11 +149,20 @@ func (b *branchNode) Search(key keyType, offset uint8) (node, error) {
 	return child.Search(key, offset+1)
 }
 
-func (b *branchNode) proto() (proto.Message, error) {
+func (b *branchNode) proto(flush bool) (proto.Message, error) {
 	trieMtc.WithLabelValues("branchNode", "serialize").Inc()
 	nodes := []*triepb.BranchNodePb{}
 	for index := 0; index < radix; index++ {
 		if c, ok := b.children[byte(index)]; ok {
+			if flush {
+				if sn, ok := c.(serializable); ok {
+					var err error
+					c, err = sn.store()
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 			h, err := c.Hash()
 			if err != nil {
 				return nil, err
@@ -176,6 +187,16 @@ func (b *branchNode) child(key byte) (node, error) {
 	return c, nil
 }
 
+func (b *branchNode) Flush() error {
+	for _, c := range b.children {
+		if err := c.Flush(); err != nil {
+			return err
+		}
+	}
+	_, err := b.store()
+	return err
+}
+
 func (b *branchNode) updateChild(key byte, child node, h bool) (node, error) {
 	if err := b.delete(); err != nil {
 		return nil, err
@@ -185,16 +206,19 @@ func (b *branchNode) updateChild(key byte, child node, h bool) (node, error) {
 	} else {
 		b.children[key] = child
 	}
+	b.dirty = true
 	if len(b.children) != 0 {
-		hn, err := b.store()
-		if err != nil {
-			return nil, err
-		}
-		if !b.isRoot && h {
-			return hn, nil
+		if !b.mpt.async {
+			hn, err := b.store()
+			if err != nil {
+				return nil, err
+			}
+			if !b.isRoot && h {
+				return hn, nil
+			}
 		}
 	} else {
-		if err := b.calculateCache(); err != nil {
+		if _, err := b.hash(false); err != nil {
 			return nil, err
 		}
 	}

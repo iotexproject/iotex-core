@@ -21,12 +21,13 @@ type (
 		Delete(keyType, uint8) (node, error)
 		Upsert(keyType, uint8, []byte) (node, error)
 		Hash() ([]byte, error)
+		Flush() error
 	}
 
 	serializable interface {
 		node
-		hash() ([]byte, error)
-		proto() (proto.Message, error)
+		hash(flush bool) ([]byte, error)
+		proto(flush bool) (proto.Message, error)
 		delete() error
 		store() (node, error)
 	}
@@ -51,6 +52,7 @@ type (
 	}
 
 	cacheNode struct {
+		dirty bool
 		serializable
 		//serializable
 		mpt *merklePatriciaTree
@@ -60,27 +62,36 @@ type (
 )
 
 func (cn *cacheNode) Hash() ([]byte, error) {
-	return cn.hash()
+	return cn.hash(false)
 }
 
-func (cn *cacheNode) hash() ([]byte, error) {
+func (cn *cacheNode) hash(flush bool) ([]byte, error) {
 	if cn.ha != nil {
 		return cn.ha, nil
 	}
-	if err := cn.calculateCache(); err != nil {
+	pb, err := cn.proto(flush)
+	if err != nil {
 		return nil, err
 	}
+	ser, err := proto.Marshal(pb)
+	if err != nil {
+		return nil, err
+	}
+	cn.ser = ser
+	cn.ha = cn.mpt.hashFunc(ser)
 
 	return cn.ha, nil
 }
 
 func (cn *cacheNode) delete() error {
-	h, err := cn.hash()
+	h, err := cn.hash(false)
 	if err != nil {
 		return err
 	}
-	if err := cn.mpt.deleteNode(h); err != nil {
-		return err
+	if !cn.dirty {
+		if err := cn.mpt.deleteNode(h); err != nil {
+			return err
+		}
 	}
 	cn.ha = nil
 	cn.ser = nil
@@ -89,43 +100,17 @@ func (cn *cacheNode) delete() error {
 }
 
 func (cn *cacheNode) store() (node, error) {
-	ser, err := cn.serialize()
+	h, err := cn.hash(true)
 	if err != nil {
 		return nil, err
 	}
-	h, err := cn.hash()
-	if err != nil {
-		return nil, err
-	}
-	if err := cn.mpt.putNode(h, ser); err != nil {
-		return nil, err
+	if cn.dirty {
+		if err := cn.mpt.putNode(h, cn.ser); err != nil {
+			return nil, err
+		}
+		cn.dirty = false
 	}
 	return newHashNode(cn.mpt, h), nil
-}
-
-func (cn *cacheNode) calculateCache() error {
-	pb, err := cn.proto()
-	if err != nil {
-		return err
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		return err
-	}
-	cn.ser = ser
-	cn.ha = cn.mpt.hashFunc(ser)
-	return nil
-}
-
-func (cn *cacheNode) serialize() ([]byte, error) {
-	if cn.ser != nil {
-		return cn.ser, nil
-	}
-	if err := cn.calculateCache(); err != nil {
-		return nil, err
-	}
-
-	return cn.ser, nil
 }
 
 // key1 should not be longer than key2

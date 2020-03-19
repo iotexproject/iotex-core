@@ -86,9 +86,17 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	}
 	c.dirtyState = true
 	err := c.trie.Upsert(key[:], value)
+	if err != nil {
+		return err
+	}
+	rh, err := c.trie.RootHash()
+	if err != nil {
+		return err
+	}
 	// TODO (zhi): confirm whether we should update the root on err
-	c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
-	return err
+	c.Account.Root = hash.BytesToHash256(rh)
+
+	return nil
 }
 
 // GetCode gets the contract's byte-code
@@ -119,8 +127,12 @@ func (c *contract) SelfState() *state.Account {
 // Commit writes the changes into underlying trie
 func (c *contract) Commit() error {
 	if c.dirtyState {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			return err
+		}
 		// record the new root hash, global account trie will Commit all pending writes to DB
-		c.Account.Root = hash.BytesToHash256(c.trie.RootHash())
+		c.Account.Root = hash.BytesToHash256(rh)
 		c.dirtyState = false
 		// purge the committed value cache
 		c.committed = nil

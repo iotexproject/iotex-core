@@ -526,7 +526,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]), zap.Int("number of actions", len(blk.Actions)))
+	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
 
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)

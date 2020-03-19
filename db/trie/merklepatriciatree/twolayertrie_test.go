@@ -19,12 +19,10 @@ func TestTwoLayerTrie(t *testing.T) {
 	tlt := NewTwoLayerTrie(trie.NewMemKVStore(), "rootKey")
 	require.NoError(t, tlt.Start(context.Background()))
 	defer require.NoError(t, tlt.Stop(context.Background()))
-	require.True(t, tlt.IsEmpty())
 	_, err := tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))
 	require.Error(t, err)
 	require.Error(t, tlt.Delete([]byte("layerOneKey111111111"), []byte("layerTwoKey1")))
 	require.NoError(t, tlt.Upsert([]byte("layerOneKey111111111"), []byte("layerTwoKey1"), []byte("value")))
-	require.False(t, tlt.IsEmpty())
 	_, err = tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey2"))
 	require.Error(t, err)
 	value, err := tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))
@@ -34,5 +32,4 @@ func TestTwoLayerTrie(t *testing.T) {
 	require.NoError(t, tlt.Delete([]byte("layerOneKey111111111"), []byte("layerTwoKey1")))
 	value, err = tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))
 	require.Error(t, err)
-	require.True(t, tlt.IsEmpty())
 }

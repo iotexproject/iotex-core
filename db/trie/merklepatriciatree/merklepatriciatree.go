@@ -13,10 +13,11 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/triepb"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
 
 var (
@@ -45,6 +46,7 @@ type (
 		rootKey       string
 		kvStore       trie.KVStore
 		hashFunc      HashFunc
+		async         bool
 		emptyRootHash []byte
 	}
 )
@@ -94,19 +96,25 @@ func KVStoreOption(kvStore trie.KVStore) Option {
 	}
 }
 
+// AsyncOption enables async commit
+func AsyncOption() Option {
+	return func(mpt *merklePatriciaTree) error {
+		mpt.async = true
+		return nil
+	}
+}
+
 // New creates a trie with DB filename
 func New(options ...Option) (trie.Trie, error) {
 	t := &merklePatriciaTree{
 		keyLength: 20,
 		hashFunc:  DefaultHashFunc,
+		kvStore:   trie.NewMemKVStore(),
 	}
 	for _, opt := range options {
 		if err := opt(t); err != nil {
 			return nil, err
 		}
-	}
-	if t.kvStore == nil {
-		t.kvStore = trie.NewMemKVStore()
 	}
 
 	return t, nil
@@ -132,8 +140,19 @@ func (mpt *merklePatriciaTree) Stop(_ context.Context) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) RootHash() []byte {
-	return mpt.rootHash
+func (mpt *merklePatriciaTree) RootHash() ([]byte, error) {
+	if mpt.async {
+		if err := mpt.root.Flush(); err != nil {
+			return nil, err
+		}
+		h, err := mpt.root.Hash()
+		if err != nil {
+			return nil, err
+		}
+		mpt.rootHash = h
+	}
+
+	return mpt.rootHash, nil
 }
 
 func (mpt *merklePatriciaTree) SetRootHash(rootHash []byte) error {
@@ -187,7 +206,7 @@ func (mpt *merklePatriciaTree) Delete(key []byte) error {
 		panic("unexpected new root")
 	}
 
-	return mpt.resetRoot(bn)
+	return mpt.resetRoot(bn, nil)
 }
 
 func (mpt *merklePatriciaTree) Upsert(key []byte, value []byte) error {
@@ -208,7 +227,7 @@ func (mpt *merklePatriciaTree) Upsert(key []byte, value []byte) error {
 		panic("unexpected new root")
 	}
 
-	return mpt.resetRoot(bn)
+	return mpt.resetRoot(bn, nil)
 }
 
 func (mpt *merklePatriciaTree) isEmptyRootHash(h []byte) bool {
@@ -218,7 +237,7 @@ func (mpt *merklePatriciaTree) isEmptyRootHash(h []byte) bool {
 func (mpt *merklePatriciaTree) setRootHash(rootHash []byte) error {
 	if len(rootHash) == 0 || mpt.isEmptyRootHash(rootHash) {
 		emptyRoot := newEmptyRootBranchNode(mpt)
-		mpt.resetRoot(emptyRoot)
+		mpt.resetRoot(emptyRoot, mpt.emptyRootHash)
 		return nil
 	}
 	node, err := mpt.loadNode(rootHash)
@@ -230,19 +249,25 @@ func (mpt *merklePatriciaTree) setRootHash(rootHash []byte) error {
 		return errors.Wrapf(trie.ErrInvalidTrie, "root should be a branch")
 	}
 	root.MarkAsRoot()
-	mpt.resetRoot(root)
+	mpt.resetRoot(root, rootHash)
 
 	return nil
 }
 
-func (mpt *merklePatriciaTree) resetRoot(newRoot branch) error {
+func (mpt *merklePatriciaTree) resetRoot(newRoot branch, rootHash []byte) error {
 	mpt.root = newRoot
-	h, err := newRoot.Hash()
-	if err != nil {
-		return err
+	if mpt.async {
+		return nil
 	}
-	mpt.rootHash = make([]byte, len(h))
-	copy(mpt.rootHash, h)
+	if rootHash == nil {
+		var err error
+		rootHash, err = newRoot.Hash()
+		if err != nil {
+			return err
+		}
+	}
+	mpt.rootHash = make([]byte, len(rootHash))
+	copy(mpt.rootHash, rootHash)
 
 	return nil
 }

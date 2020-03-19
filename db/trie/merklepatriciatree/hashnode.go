@@ -16,17 +16,17 @@ func newHashNode(mpt *merklePatriciaTree, ha []byte) *hashNode {
 	return &hashNode{mpt: mpt, ha: ha}
 }
 
+func (h *hashNode) Flush() error {
+	return nil
+}
+
 func (h *hashNode) Delete(key keyType, offset uint8) (node, error) {
 	n, err := h.loadNode()
 	if err != nil {
 		return nil, err
 	}
 
-	if n, err = n.Delete(key, offset); err != nil {
-		return nil, err
-	}
-
-	return h.toHashNode(n)
+	return n.Delete(key, offset)
 }
 
 func (h *hashNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
@@ -35,11 +35,7 @@ func (h *hashNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 		return nil, err
 	}
 
-	if n, err = n.Upsert(key, offset, value); err != nil {
-		return nil, err
-	}
-
-	return h.toHashNode(n)
+	return n.Upsert(key, offset, value)
 }
 
 func (h *hashNode) Search(key keyType, offset uint8) (node, error) {
@@ -57,13 +53,6 @@ func (h *hashNode) LoadNode() (node, error) {
 
 func (h *hashNode) loadNode() (node, error) {
 	return h.mpt.loadNode(h.ha)
-}
-
-func (h *hashNode) toHashNode(n node) (node, error) {
-	if ln, ok := n.(*leafNode); ok {
-		return ln.ToHashNode()
-	}
-	return n, nil
 }
 
 func (h *hashNode) Hash() ([]byte, error) {
