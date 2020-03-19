@@ -19,8 +19,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -111,13 +109,13 @@ type (
 	}
 )
 
-// ProductivityByEpoch returns the map of the number of blocks produced per delegate in an epoch
-// TODO: move to poll protocol and implement reading current epoch meta from state factory -- now only reading current epoch productivity
+// ProductivityByEpoch returns the map of the number of blocks produced per delegate in given epoch
+// TODO: implement reading current epoch meta from state factory
 func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-
 	var epochEndHeight uint64
+
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	currentEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
 	if epochNum > currentEpochNum {
@@ -126,28 +124,22 @@ func ProductivityByEpoch(ctx context.Context, bc Blockchain, epochNum uint64) (u
 	if epochNum == currentEpochNum {
 		epochEndHeight = bcCtx.Tip.Height
 	} else {
-		// TODO: delete, won't happen
 		epochEndHeight = rp.GetEpochLastBlockHeight(epochNum)
 	}
 	numBlks := epochEndHeight - epochStartHeight + 1
 
-	activeConsensusBlockProducers, err := poll.MustGetProtocol(bcCtx.Registry).DelegatesByEpoch(ctx, epochNum)
-	if err != nil {
-		return 0, nil, status.Error(codes.NotFound, err.Error())
-	}
-
 	produce := make(map[string]uint64)
-	for _, bp := range activeConsensusBlockProducers {
-		produce[bp.Address] = 0
-	}
-	// TODO: because now this function is only getting current epoch data, (not history)
-	// change to get from bc indexer before easter and after easter(backward compatiblility), read from state factory(cache layer)
 	for i := uint64(0); i < numBlks; i++ {
 		header, err := bc.BlockHeaderByHeight(epochStartHeight + i)
 		if err != nil {
 			return 0, nil, err
 		}
-		produce[header.ProducerAddress()]++
+		producer := header.ProducerAddress()
+		if _, ok := produce[producer]; ok {
+			produce[producer]++
+		} else {
+			produce[producer] = 1
+		}
 	}
 	return numBlks, produce, nil
 }
@@ -569,8 +561,27 @@ func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, er
 			Genesis:  bc.config.Genesis,
 		})
 
-	if pp := poll.FindProtocol(bc.registry); pp != nil {
-		return pp.CandidatesByHeight(ctx, height)
+	stateTipHeight, err := bc.sf.Height()
+	if err != nil {
+		return nil, err
+	}
+	rp := rolldpos.FindProtocol(bc.registry)
+	if rp == nil {
+		return nil, nil
+	}
+	tipEpochNum := rp.GetEpochNum(stateTipHeight)
+	epochNum := rp.GetEpochNum(height)
+	pp := poll.FindProtocol(bc.registry)
+	if pp == nil {
+		return nil, nil
+	}
+	switch epochNum {
+	case tipEpochNum + 1:
+		return pp.NextCandidates(ctx, bc.sf)
+	case tipEpochNum:
+		return pp.Candidates(ctx, bc.sf)
+	default:
+		return nil, errors.New("invalid height to get candidate list")
 	}
 	return nil, nil
 }

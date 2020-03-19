@@ -320,7 +320,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
-	execution := NewProtocol(dao.GetBlockHash)
+	execution := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
@@ -497,7 +497,7 @@ func TestProtocol_Handle(t *testing.T) {
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		exeProtocol := NewProtocol(dao.GetBlockHash)
+		exeProtocol := NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 		require.NoError(exeProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		require.NotNil(bc)
@@ -781,7 +781,7 @@ func TestProtocol_Validate(t *testing.T) {
 
 	protocol := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
-	})
+	}, rewarding.DepositGas)
 	// Case I: Oversized data
 	tmpPayload := [32769]byte{}
 	data := tmpPayload[:]

@@ -15,15 +15,6 @@ func NamespaceOption(ns string) StateOption {
 	}
 }
 
-// BlockHeightOption creates an option for given namesapce
-func BlockHeightOption(height uint64) StateOption {
-	return func(sc *StateConfig) error {
-		sc.AtHeight = true
-		sc.Height = height
-		return nil
-	}
-}
-
 // KeyOption sets the key for call
 func KeyOption(key []byte) StateOption {
 	return func(cfg *StateConfig) error {
@@ -56,7 +47,7 @@ func FilterOption(cond db.Condition, minKey, maxKey []byte) StateOption {
 
 // CreateStateConfig creates a config for accessing stateDB
 func CreateStateConfig(opts ...StateOption) (*StateConfig, error) {
-	cfg := StateConfig{AtHeight: false}
+	cfg := StateConfig{}
 	for _, opt := range opts {
 		if err := opt(&cfg); err != nil {
 			return nil, errors.Wrap(err, "failed to execute state option")
@@ -69,8 +60,6 @@ type (
 	// StateConfig is the config for accessing stateDB
 	StateConfig struct {
 		Namespace string // namespace used by state's storage
-		AtHeight  bool
-		Height    uint64
 		Key       []byte
 		MinKey    []byte
 		MaxKey    []byte

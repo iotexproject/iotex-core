@@ -331,9 +331,6 @@ func (sdb *stateDB) State(s interface{}, opts ...protocol.StateOption) (uint64, 
 	if err != nil {
 		return 0, err
 	}
-	if cfg.AtHeight {
-		return 0, ErrNotSupported
-	}
 
 	return sdb.currentChainHeight, sdb.state(cfg.Namespace, cfg.Key, s)
 }
@@ -349,10 +346,6 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	if cfg.Key != nil {
 		return sdb.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.AtHeight {
-		return 0, nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
-	}
-
 	if cfg.Cond == nil {
 		cfg.Cond = func(k, v []byte) bool {
 			return true
@@ -367,6 +360,16 @@ func (sdb *stateDB) States(opts ...protocol.StateOption) (uint64, state.Iterator
 	}
 
 	return sdb.currentChainHeight, state.NewIterator(values), nil
+}
+
+// StateAtHeight returns a confirmed state at height -- archive mode
+func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
+	return ErrNotSupported
+}
+
+// StatesAtHeight returns a set states in the state factory at height -- archive mode
+func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
+	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
 }
 
 //======================================

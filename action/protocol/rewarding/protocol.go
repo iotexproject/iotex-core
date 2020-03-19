@@ -187,19 +187,19 @@ func (p *Protocol) Validate(
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(
 	ctx context.Context,
-	sm protocol.StateReader,
+	sr protocol.StateReader,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
 	switch string(method) {
 	case "AvailableBalance":
-		balance, err := p.AvailableBalance(ctx, sm)
+		balance, err := p.AvailableBalance(ctx, sr)
 		if err != nil {
 			return nil, err
 		}
 		return []byte(balance.String()), nil
 	case "TotalBalance":
-		balance, err := p.TotalBalance(ctx, sm)
+		balance, err := p.TotalBalance(ctx, sr)
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +212,7 @@ func (p *Protocol) ReadState(
 		if err != nil {
 			return nil, err
 		}
-		balance, err := p.UnclaimedBalance(ctx, sm, addr)
+		balance, err := p.UnclaimedBalance(ctx, sr, addr)
 		if err != nil {
 			return nil, err
 		}

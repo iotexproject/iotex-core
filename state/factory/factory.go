@@ -79,6 +79,8 @@ type (
 		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		Commit(context.Context, *block.Block) error
+		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
+		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
@@ -477,6 +479,30 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	return ws.Commit()
 }
 
+// StateAtHeight returns a confirmed state at height -- archive mode
+func (sf *factory) StateAtHeight(height uint64, s interface{}, opts ...protocol.StateOption) error {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return err
+	}
+	if height > sf.currentChainHeight {
+		return errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	}
+	return sf.stateAtHeight(height, cfg.Namespace, cfg.Key, s)
+}
+
+// StatesAtHeight returns a set states in the state factory at height -- archive mode
+func (sf *factory) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
+	sf.mutex.RLock()
+	defer sf.mutex.RUnlock()
+	if height > sf.currentChainHeight {
+		return nil, errors.Errorf("query height %d is higher than tip height %d", height, sf.currentChainHeight)
+	}
+	return nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
+}
+
 // State returns a confirmed state in the state factory
 func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 	sf.mutex.RLock()
@@ -484,14 +510,6 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	cfg, err := processOptions(opts...)
 	if err != nil {
 		return 0, err
-	}
-	if cfg.AtHeight {
-		if cfg.Height > sf.currentChainHeight {
-			return sf.currentChainHeight, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
-		}
-		if cfg.Height != sf.currentChainHeight {
-			return sf.currentChainHeight, sf.stateAtHeight(cfg.Height, cfg.Namespace, cfg.Key, s)
-		}
 	}
 	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
 	if err != nil {
@@ -515,15 +533,6 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	if cfg.Key != nil {
 		return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read states with key option has not been implemented yet")
 	}
-	if cfg.AtHeight {
-		if cfg.Height > sf.currentChainHeight {
-			return sf.currentChainHeight, nil, errors.Errorf("query height %d is higher than tip height %d", cfg.Height, sf.currentChainHeight)
-		}
-		if cfg.Height != sf.currentChainHeight {
-			return sf.currentChainHeight, nil, errors.Wrap(ErrNotSupported, "Read historical states has not been implemented yet")
-		}
-	}
-
 	if cfg.Cond == nil {
 		cfg.Cond = func(k, v []byte) bool {
 			return true

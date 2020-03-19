@@ -309,7 +309,7 @@ func New(
 			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 		})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	consensus, err := consensus.NewConsensus(cfg, chain, actPool, copts...)
+	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
@@ -364,8 +364,7 @@ func New(
 			return nil, err
 		}
 	}
-
-	executionProtocol := execution.NewProtocol(dao.GetBlockHash)
+	executionProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {
 			return nil, err

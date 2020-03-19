@@ -10,17 +10,20 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -65,6 +68,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			return 0, nil
 		}).AnyTimes()
 
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -82,9 +87,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 				},
 				nil
 		})
-	require.NoError(t, rp.Register(registry))
-	require.NoError(t, p.Register(registry))
-
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -117,6 +119,61 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			RewardAddress: identityset.Address(32).String(),
 		},
 	}
+	abps := []*state.Candidate{
+		{
+			Address:       identityset.Address(27).String(),
+			Votes:         unit.ConvertIotxToRau(4000000),
+			RewardAddress: identityset.Address(0).String(),
+		},
+		{
+			Address:       identityset.Address(28).String(),
+			Votes:         unit.ConvertIotxToRau(3000000),
+			RewardAddress: identityset.Address(28).String(),
+		},
+		{
+			Address:       identityset.Address(29).String(),
+			Votes:         unit.ConvertIotxToRau(2000000),
+			RewardAddress: identityset.Address(29).String(),
+		},
+		{
+			Address:       identityset.Address(30).String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: identityset.Address(30).String(),
+		},
+		{
+			Address:       identityset.Address(31).String(),
+			Votes:         unit.ConvertIotxToRau(500000),
+			RewardAddress: identityset.Address(31).String(),
+		},
+	}
+	cfg := config.Default
+	committee := mock_committee.NewMockCommittee(ctrl)
+	pp, err := poll.NewGovernanceChainCommitteeProtocol(
+		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+			return abps, nil
+		},
+		nil,
+		nil,
+		nil,
+		committee,
+		uint64(123456),
+		func(uint64) (time.Time, error) { return time.Now(), nil },
+		5,
+		5,
+		cfg.Chain.PollInitialCandidatesInterval,
+		sm,
+		nil,
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+	)
+	require.NoError(t, err)
+	require.NoError(t, rp.Register(registry))
+	require.NoError(t, p.Register(registry))
+	require.NoError(t, pp.Register(registry))
+
 	ge := config.Default.Genesis
 	// Create a test account with 1000 token
 	ge.InitBalanceMap[identityset.Address(28).String()] = "1000"

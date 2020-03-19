@@ -10,21 +10,23 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/iotexproject/iotex-core/action/protocol/account"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
-	"github.com/iotexproject/iotex-core/config"
-
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -190,7 +192,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
-		// The 6-th candidate can get the foundation bonus because it's still within the rage after excluding 5-th one
+		// The 6-th candidate can get the foundation bonus because it's still within the range after excluding 5-th one
 		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
@@ -303,6 +305,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			cb.Put("state", cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	p := NewProtocol(
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
@@ -318,8 +321,45 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		genesis.Default.NumDelegates,
 		genesis.Default.NumSubEpochs,
 	)
-	require.NoError(t, p.Register(registry))
+	abps := []*state.Candidate{
+		{
+			Address:       identityset.Address(0).String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: "",
+		},
+		{
+			Address:       identityset.Address(1).String(),
+			Votes:         unit.ConvertIotxToRau(1000000),
+			RewardAddress: identityset.Address(1).String(),
+		},
+	}
+	cfg := config.Default
+	committee := mock_committee.NewMockCommittee(ctrl)
+	pp, err := poll.NewGovernanceChainCommitteeProtocol(
+		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+			return abps, nil
+		},
+		nil,
+		nil,
+		nil,
+		committee,
+		uint64(123456),
+		func(uint64) (time.Time, error) { return time.Now(), nil },
+		2,
+		2,
+		cfg.Chain.PollInitialCandidatesInterval,
+		sm,
+		nil,
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.KickoutIntensityRate,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+	)
+	require.NoError(t, err)
 	require.NoError(t, rp.Register(registry))
+	require.NoError(t, p.Register(registry))
+	require.NoError(t, pp.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"
@@ -354,20 +394,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: ge,
-			Candidates: []*state.Candidate{
-				{
-					Address:       identityset.Address(0).String(),
-					Votes:         unit.ConvertIotxToRau(1000000),
-					RewardAddress: "",
-				},
-				{
-					Address:       identityset.Address(1).String(),
-					Votes:         unit.ConvertIotxToRau(1000000),
-					RewardAddress: identityset.Address(1).String(),
-				},
-			},
-			Registry: registry,
+			Genesis:    ge,
+			Candidates: abps,
+			Registry:   registry,
 		},
 	)
 

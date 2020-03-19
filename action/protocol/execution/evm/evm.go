@@ -23,7 +23,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -150,6 +149,7 @@ func ExecuteContract(
 	sm protocol.StateManager,
 	execution *action.Execution,
 	getBlockHash GetBlockHash,
+	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
@@ -188,7 +188,7 @@ func ExecuteContract(
 	}
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		if err := rewarding.DepositGas(ctx, sm, gasValue); err != nil {
+		if err := depositGasFunc(ctx, sm, gasValue); err != nil {
 			return nil, nil, err
 		}
 	}

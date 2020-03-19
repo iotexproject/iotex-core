@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -26,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -134,7 +136,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -214,11 +216,11 @@ func makeChain(t *testing.T) (blockchain.Blockchain, *rolldpos.Protocol, poll.Pr
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, rolldposProtocol, pp
+	return chain, sf, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, rp, pp := makeChain(t)
+	bc, sf, rp, pp := makeChain(t)
 	return &roundCalculator{
 		bc,
 		true,
@@ -239,8 +241,18 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 					},
 				},
 			)
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
 			var addrs []string
-			candidatesList, err := pp.DelegatesByEpoch(ctx, epochNum)
+			var err error
+			switch epochNum {
+			case tipEpochNum:
+				candidatesList, err = pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochNum, tipEpochNum)
+			}
 			if err != nil {
 				return nil, err
 			}

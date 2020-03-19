@@ -75,11 +75,19 @@ func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Cont
 	return p.delegates, nil
 }
 
-func (p *lifeLongDelegatesProtocol) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
-	return p.readActiveBlockProducersByEpoch(ctx, epochNum)
+func (p *lifeLongDelegatesProtocol) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readActiveBlockProducers(ctx, sr, false)
 }
 
-func (p *lifeLongDelegatesProtocol) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.readActiveBlockProducers(ctx, sr, true)
+}
+
+func (p *lifeLongDelegatesProtocol) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
+	return p.delegates, nil
+}
+
+func (p *lifeLongDelegatesProtocol) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 
@@ -120,7 +128,7 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 	return p.delegates.Serialize()
 }
 
-func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) readActiveBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
 	var blockProducerList []string
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
@@ -133,9 +141,17 @@ func (p *lifeLongDelegatesProtocol) readActiveBlockProducersByEpoch(ctx context.
 		blockProducerList = append(blockProducerList, bp.Address)
 		blockProducerMap[bp.Address] = bp
 	}
-
-	epochHeight := rp.GetEpochHeight(epochNum)
-	crypto.SortCandidates(blockProducerList, epochHeight, crypto.CryptoSeed)
+	targetHeight, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	// make sure it's epochStartHeight
+	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(targetHeight))
+	if readFromNext {
+		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
+		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
+	}
+	crypto.SortCandidates(blockProducerList, targetEpochStartHeight, crypto.CryptoSeed)
 	length := int(rp.NumDelegates())
 	if len(blockProducerList) < length {
 		// TODO: if the number of delegates is smaller than expected, should it return error or not?

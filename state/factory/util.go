@@ -8,6 +8,7 @@ package factory
 
 import (
 	"context"
+	"math/big"
 	"sort"
 	"time"
 
@@ -285,6 +286,9 @@ func simulateExecution(
 		ws,
 		ex,
 		getBlockHash,
+		func(context.Context, protocol.StateManager, *big.Int) error {
+			return nil
+		},
 	)
 }
 
