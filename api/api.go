@@ -36,7 +36,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
@@ -431,7 +430,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err != nil {
 		return nil, err
 	}
-	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash, rewarding.DepositGas)
+	retval, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1361,7 +1360,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 	if err != nil {
 		return nil, err
 	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash, rewarding.DepositGas)
+	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
 
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -1421,7 +1420,7 @@ func (api *Server) isGasLimitEnough(
 	if err != nil {
 		return false, err
 	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash, rewarding.DepositGas)
+	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, err
 	}

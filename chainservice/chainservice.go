@@ -271,7 +271,7 @@ func New(
 					return nil, err
 				}
 
-				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash, rewarding.DepositGas)
+				data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
 
 				return data, err
 			},

@@ -266,7 +266,6 @@ func (sdb *stateDB) SimulateExecution(
 	caller address.Address,
 	ex *action.Execution,
 	getBlockHash evm.GetBlockHash,
-	depositGas evm.DepositGas,
 ) ([]byte, *action.Receipt, error) {
 	sdb.mutex.Lock()
 	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
@@ -275,7 +274,7 @@ func (sdb *stateDB) SimulateExecution(
 		return nil, nil, err
 	}
 
-	return simulateExecution(ctx, ws, caller, ex, getBlockHash, depositGas)
+	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB

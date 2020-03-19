@@ -126,11 +126,12 @@ func (mr *MockBlockDAOMockRecorder) GetBlockByHeight(arg0 interface{}) *gomock.C
 }
 
 // TipHeight mocks base method
-func (m *MockBlockDAO) TipHeight() uint64 {
+func (m *MockBlockDAO) TipHeight() (uint64, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TipHeight")
 	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // TipHeight indicates an expected call of TipHeight

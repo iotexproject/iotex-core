@@ -16,7 +16,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
-	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -30,7 +29,7 @@ type BlockDAO interface {
 }
 
 // SimulateFunc is function that simulate execution
-type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.GetBlockHash, evm.DepositGas) ([]byte, *action.Receipt, error)
+type SimulateFunc func(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 
 // GasStation provide gas related api
 type GasStation struct {
@@ -123,7 +122,7 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		if err != nil {
 			return 0, err
 		}
-		_, receipt, err := gs.simulator(ctx, callerAddr, sc, gs.dao.GetBlockHash, rewarding.DepositGas)
+		_, receipt, err := gs.simulator(ctx, callerAddr, sc, gs.dao.GetBlockHash)
 		if err != nil {
 			return 0, err
 		}

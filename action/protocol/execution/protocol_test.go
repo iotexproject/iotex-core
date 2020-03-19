@@ -246,7 +246,7 @@ func runExecution(
 			return nil, nil, err
 		}
 
-		return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash, rewarding.DepositGas)
+		return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash)
 	}
 	builder := &action.EnvelopeBuilder{}
 	elp := builder.SetAction(exec).
