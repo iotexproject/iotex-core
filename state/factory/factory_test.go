@@ -595,7 +595,7 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	_, err = ws.RunAction(ctx, selp)
+	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
