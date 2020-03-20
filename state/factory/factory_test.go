@@ -269,7 +269,6 @@ func testCandidates(sf Factory, t *testing.T) {
 		config.Default.Genesis.NumDelegates,
 		config.Default.Chain.PollInitialCandidatesInterval,
 		nil,
-		nil,
 		config.Default.Genesis.ProductivityThreshold,
 		config.Default.Genesis.KickoutEpochPeriod,
 		config.Default.Genesis.KickoutIntensityRate,

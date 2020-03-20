@@ -42,7 +42,6 @@ type governanceChainCommitteeProtocol struct {
 	numDelegates              uint64
 	addr                      address.Address
 	initialCandidatesInterval time.Duration
-	sr                        protocol.StateReader
 	productivityByEpoch       ProductivityByEpoch
 	productivityThreshold     uint64
 	kickoutEpochPeriod        uint64
@@ -64,7 +63,6 @@ func NewGovernanceChainCommitteeProtocol(
 	numCandidateDelegates uint64,
 	numDelegates uint64,
 	initialCandidatesInterval time.Duration,
-	sr protocol.StateReader,
 	productivityByEpoch ProductivityByEpoch,
 	productivityThreshold uint64,
 	kickoutEpochPeriod uint64,
@@ -96,7 +94,6 @@ func NewGovernanceChainCommitteeProtocol(
 		numDelegates:              numDelegates,
 		addr:                      addr,
 		initialCandidatesInterval: initialCandidatesInterval,
-		sr:                        sr,
 		productivityByEpoch:       productivityByEpoch,
 		productivityThreshold:     productivityThreshold,
 		kickoutEpochPeriod:        kickoutEpochPeriod,
@@ -491,7 +488,7 @@ func (p *governanceChainCommitteeProtocol) readKickoutList(ctx context.Context, 
 	if hu.IsPre(config.Easter, targetEpochStartHeight) {
 		return nil, errors.New("Before Easter, there is no blacklist in stateDB")
 	}
-	unqualifiedList, stateHeight, err := p.getKickoutList(p.sr, readFromNext)
+	unqualifiedList, stateHeight, err := p.getKickoutList(sr, readFromNext)
 	if err != nil {
 		return nil, err
 	}
