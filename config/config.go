@@ -179,7 +179,7 @@ var (
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
-			SystemLogDBPath:       "/var/log/systemlog.db",
+			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
 		DB: DB{
 			NumRetries:   3,
