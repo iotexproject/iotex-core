@@ -28,7 +28,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -177,7 +179,7 @@ func TestLocalCommit(t *testing.T) {
 		cfg,
 		nil,
 		sf2,
-		blockchain.BoltDBDaoOption(),
+		blockchain.BoltDBDaoOption(sf2),
 		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
@@ -534,7 +536,6 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NotNil(dao)
 
 	defer func() {
-		require.NoError(svr.Stop(ctx))
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
@@ -554,14 +555,14 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.NoError(svr.ChainService(cfg.Chain.ID).Blockchain().Stop(ctx))
 
 	// Recover to height 3 from empty state DB
-	testutil.CleanupPath(t, testTriePath)
-	svr, err = itx.NewServer(cfg)
-	require.NoError(err)
-	require.NoError(svr.Start(ctx))
-	bc = svr.ChainService(chainID).Blockchain()
-	dao = svr.ChainService(chainID).BlockDAO()
+	cfg.DB.DbPath = cfg.Chain.ChainDBPath
+	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
+		})))
 	require.NoError(dao.DeleteBlockToTarget(3))
-	require.NoError(svr.Stop(ctx))
+	require.NoError(dao.Stop(ctx))
 
 	// Build states from height 1 to 3
 	testutil.CleanupPath(t, testTriePath)
@@ -576,8 +577,15 @@ func TestStartExistingBlockchain(t *testing.T) {
 	require.Equal(uint64(3), height)
 
 	// Recover to height 2 from an existing state DB with Height 3
-	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(svr.Stop(ctx))
+	cfg.DB.DbPath = cfg.Chain.ChainDBPath
+	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
+		})))
+	require.NoError(dao.DeleteBlockToTarget(2))
+	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)
 	svr, err = itx.NewServer(cfg)
 	require.NoError(err)
@@ -588,6 +596,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	height, _ = sf.Height()
 	require.Equal(bc.TipHeight(), height)
 	require.Equal(uint64(2), height)
+	require.NoError(svr.Stop(ctx))
 }
 
 func newTestConfig() (config.Config, error) {

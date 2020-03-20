@@ -220,15 +220,15 @@ func TestSystemLogIndexer(t *testing.T) {
 		indexer, err := NewIndexer(kv)
 		r.NoError(err)
 		r.NoError(indexer.Start(ctx))
-		tipHeight, err := indexer.TipHeight()
+		tipHeight, err := indexer.Height()
 		r.NoError(err)
 		r.Equal(uint64(0), tipHeight)
 
 		blocks, expectedList := getTestBlocksAndExpected(t)
 		for _, blk := range blocks {
-			r.NoError(indexer.PutBlock(blk))
+			r.NoError(indexer.PutBlock(ctx, blk))
 		}
-		tipHeight, err = indexer.TipHeight()
+		tipHeight, err = indexer.Height()
 		r.NoError(err)
 		r.Equal(blocks[1].Height(), tipHeight)
 
@@ -244,7 +244,7 @@ func TestSystemLogIndexer(t *testing.T) {
 		}
 
 		r.NoError(indexer.DeleteTipBlock(blocks[1]))
-		tipHeight, err = indexer.TipHeight()
+		tipHeight, err = indexer.Height()
 		r.NoError(err)
 		r.Equal(blocks[0].Height(), tipHeight)
 

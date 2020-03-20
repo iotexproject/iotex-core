@@ -304,7 +304,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		AddActions([]action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, sf.Commit(protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+	require.NoError(t, sf.PutBlock(protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 		Genesis:  cfg.Genesis,
 		Registry: registry,
 	}), protocol.BlockCtx{
@@ -431,7 +431,7 @@ func testState(sf Factory, t *testing.T) {
 		AddActions([]action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, sf.Commit(ctx, &blk))
+	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	//test AccountState() & State()
 	var testAccount state.Account
@@ -495,7 +495,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 		AddActions([]action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, sf.Commit(ctx, &blk))
+	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	// check latest balance
 	accountA, err := accountutil.AccountState(sf, a)
@@ -616,7 +616,7 @@ func testNonce(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
-	require.NoError(t, sf.Commit(ctx, &blk))
+	require.NoError(t, sf.PutBlock(ctx, &blk))
 	state, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
@@ -696,7 +696,7 @@ func testLoadStoreHeight(sf Factory, t *testing.T) {
 			AddActions([]action.SealedEnvelope{}...).
 			SignAndBuild(identityset.PrivateKey(27))
 		require.NoError(err)
-		require.NoError(sf.Commit(ctx, &blk))
+		require.NoError(sf.PutBlock(ctx, &blk))
 
 		height, err = sf.Height()
 		require.NoError(err)
@@ -810,7 +810,7 @@ func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
 
-	require.NoError(factory.Commit(ctx, &blk))
+	require.NoError(factory.PutBlock(ctx, &blk))
 }
 
 func TestPickAndRunActions(t *testing.T) {
@@ -916,7 +916,7 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 	require.NotNil(blkBuilder)
 	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(err)
-	require.NoError(factory.Commit(ctx, &blk))
+	require.NoError(factory.PutBlock(ctx, &blk))
 }
 
 func TestSimulateExecution(t *testing.T) {
@@ -1254,7 +1254,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 			SignAndBuild(identityset.PrivateKey(27))
 		b.Fatal(err)
 
-		if err := sf.Commit(zctx, &blk); err != nil {
+		if err := sf.PutBlock(zctx, &blk); err != nil {
 			b.Fatal(err)
 		}
 	}

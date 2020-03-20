@@ -165,24 +165,24 @@ func TestIndexer(t *testing.T) {
 			require.NoError(indexer.Stop(ctx))
 		}()
 
-		height, err := indexer.TipHeight()
+		height, err := indexer.Height()
 		require.NoError(err)
 		require.EqualValues(0, height)
 
-		require.NoError(indexer.PutBlock(blks[0]))
+		require.NoError(indexer.PutBlock(context.Background(), blks[0]))
 		// cannot skip block when indexing
-		err = indexer.PutBlock(blks[2])
+		err = indexer.PutBlock(context.Background(), blks[2])
 		require.Equal(db.ErrInvalid, errors.Cause(err))
-		require.NoError(indexer.PutBlock(blks[1]))
-		height, err = indexer.TipHeight()
+		require.NoError(indexer.PutBlock(context.Background(), blks[1]))
+		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
 		total, err := indexer.GetTotalActions()
 		require.NoError(err)
 		require.EqualValues(6, total)
 
-		require.NoError(indexer.PutBlock(blks[2]))
-		height, err = indexer.TipHeight()
+		require.NoError(indexer.PutBlock(context.Background(), blks[2]))
+		height, err = indexer.Height()
 		require.NoError(err)
 		require.EqualValues(3, height)
 
@@ -251,7 +251,7 @@ func TestIndexer(t *testing.T) {
 		}()
 
 		for i := 0; i < 3; i++ {
-			require.NoError(indexer.PutBlock(blks[i]))
+			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
 		}
 
 		for i := range indexTests[0].actions {
@@ -268,7 +268,7 @@ func TestIndexer(t *testing.T) {
 			}
 
 			require.NoError(indexer.DeleteTipBlock(blks[3-i]))
-			tipHeight, err := indexer.TipHeight()
+			tipHeight, err := indexer.Height()
 			require.NoError(err)
 			require.EqualValues(uint64(3-i), tipHeight)
 			h, err := indexer.GetBlockHash(tipHeight)
@@ -301,7 +301,7 @@ func TestIndexer(t *testing.T) {
 			}
 		}
 
-		tipHeight, err := indexer.TipHeight()
+		tipHeight, err := indexer.Height()
 		require.NoError(err)
 		require.EqualValues(0, tipHeight)
 		total, err := indexer.GetTotalActions()

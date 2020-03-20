@@ -46,10 +46,10 @@ type (
 	Indexer interface {
 		Start(context.Context) error
 		Stop(context.Context) error
-		PutBlock(*block.Block) error
+		PutBlock(context.Context, *block.Block) error
 		PutBlocks([]*block.Block) error
 		DeleteTipBlock(*block.Block) error
-		TipHeight() (uint64, error)
+		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
 		GetBlockIndex(uint64) (*blockIndex, error)
@@ -132,7 +132,7 @@ func (x *blockIndexer) PutBlocks(blks []*block.Block) error {
 }
 
 // PutBlock index the block
-func (x *blockIndexer) PutBlock(blk *block.Block) error {
+func (x *blockIndexer) PutBlock(_ context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 
@@ -175,8 +175,8 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	return x.commit()
 }
 
-// TipBlockHeight return the blockchain height
-func (x *blockIndexer) TipHeight() (uint64, error) {
+// Height return the blockchain height
+func (x *blockIndexer) Height() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 

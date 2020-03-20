@@ -77,6 +77,12 @@ mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -self_package=github.com/iotexproject/iotex-core/action/protocol \
         -package=protocol \
         Protocol
+        
+mkdir -p ./test/mock/mock_poll
+mockgen -destination=./test/mock/mock_poll/mock_poll.go  \
+        -source=./action/protocol/poll/protocol.go \
+        -package=mock_poll \
+        Poll
 
 mockgen -destination=./db/mock_kvstore.go  \
         -source=./db/kvstore.go \

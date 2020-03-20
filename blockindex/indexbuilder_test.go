@@ -12,6 +12,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -59,8 +60,13 @@ func TestIndexBuilder(t *testing.T) {
 	}
 
 	testIndexer := func(kvStore db.KVStore, indexer Indexer, t *testing.T) {
-		ctx := context.Background()
 		dao := blockdao.NewBlockDAO(kvStore, nil, false, config.Default.DB)
+		ctx := protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: config.Default.Genesis,
+			},
+		)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {
@@ -75,27 +81,27 @@ func TestIndexBuilder(t *testing.T) {
 		defer ib.Stop(context.Background())
 
 		// put 2 blocks first
-		require.NoError(dao.PutBlock(blks[0]))
-		require.NoError(dao.PutBlock(blks[1]))
-		startHeight, err := ib.indexer.TipHeight()
+		require.NoError(dao.PutBlock(ctx, blks[0]))
+		require.NoError(dao.PutBlock(ctx, blks[1]))
+		startHeight, err := ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(0, startHeight)
-		tipHeight, err := dao.TipHeight()
+		tipHeight, err := dao.Height()
 		require.NoError(err)
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
 		require.NoError(ib.init())
-		height, err := ib.indexer.TipHeight()
+		height, err := ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)
 
 		// test handle 1 new block
-		require.NoError(dao.PutBlock(blks[2]))
+		require.NoError(dao.PutBlock(ctx, blks[2]))
 		ib.ReceiveBlock(blks[2])
 		time.Sleep(500 * time.Millisecond)
 
-		height, err = ib.indexer.TipHeight()
+		height, err = ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(3, height)
 
