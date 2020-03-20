@@ -66,15 +66,18 @@ func accountDelete(arg string) error {
 	}
 
 	var filePath string
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, v := range ks.Accounts() {
-		if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-			filePath = v.URL.Path
+	if CryptoSm2 {
+		if filePath == "" {
+			filePath = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
 		}
-	}
-	if filePath == "" {
-		filePath = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
+	} else {
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, v := range ks.Accounts() {
+			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+				filePath = v.URL.Path
+			}
+		}
 	}
 
 	// check whether crypto file exists

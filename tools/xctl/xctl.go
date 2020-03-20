@@ -7,12 +7,19 @@
 package main
 
 import (
+	"os"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
 )
 
 func main() {
-	// TODO: change usages
+	rootCmd := cmd.NewXctl()
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func init() {
 	account.CryptoSm2 = true
-	cmd.Execute()
 }

@@ -132,20 +132,22 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 		return nil, fmt.Errorf("failed to convert bytes into address")
 	}
 
-	// find the account in keystore
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, account := range ks.Accounts() {
-		if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
-			return crypto.KeystoreToPrivateKey(account, password)
+	if CryptoSm2 {
+		// find the account in pem files
+		pemFilePath := sm2KeyPath(addr)
+		prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
+		if err == nil {
+			return prvKey, nil
 		}
-	}
-
-	// find the account in pem files
-	pemFilePath := sm2KeyPath(addr)
-	prvKey, err := crypto.ReadPrivateKeyFromPem(pemFilePath, password)
-	if err == nil {
-		return prvKey, nil
+	} else {
+		// find the account in keystore
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, account := range ks.Accounts() {
+			if bytes.Equal(addr.Bytes(), account.Address.Bytes()) {
+				return crypto.KeystoreToPrivateKey(account, password)
+			}
+		}
 	}
 
 	return nil, fmt.Errorf("account #%s does not match all local keys", signer)
@@ -184,17 +186,22 @@ func IsSignerExist(signer string) bool {
 	if err != nil {
 		return false
 	}
-	// find the account in keystore
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, ksAccount := range ks.Accounts() {
-		if address.Equal(addr, ksAccount.Address) {
-			return true
+
+	if CryptoSm2 {
+		// find the account in pem files
+		_, err = findSm2PemFile(addr)
+		return err == nil
+	} else {
+		// find the account in keystore
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, ksAccount := range ks.Accounts() {
+			if address.Equal(addr, ksAccount.Address) {
+				return true
+			}
 		}
 	}
-	// find the account in pem files
-	_, err = findSm2PemFile(addr)
-	return err == nil
+	return false
 }
 
 func newAccount(alias string) (string, error) {
