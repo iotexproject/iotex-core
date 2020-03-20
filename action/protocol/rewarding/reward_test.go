@@ -349,7 +349,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		2,
 		2,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sm,
 		nil,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,

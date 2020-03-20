@@ -18,14 +18,12 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func TestNewProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)
 	cfg := config.Default
 	cfg.Consensus.Scheme = config.RollDPoSScheme
@@ -41,7 +39,6 @@ func TestNewProtocol(t *testing.T) {
 		committee,
 		nil,
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		sm,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil
 		},

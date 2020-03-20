@@ -117,7 +117,6 @@ func NewProtocol(
 	electionCommittee committee.Committee,
 	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
-	sr protocol.StateReader,
 	productivityByEpoch ProductivityByEpoch,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
@@ -145,7 +144,6 @@ func NewProtocol(
 		genesisConfig.NumCandidateDelegates,
 		genesisConfig.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sr,
 		productivityByEpoch,
 		genesisConfig.ProductivityThreshold,
 		genesisConfig.KickoutEpochPeriod,
