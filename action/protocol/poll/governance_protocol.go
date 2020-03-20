@@ -622,11 +622,11 @@ func (p *governanceChainCommitteeProtocol) calculateKickoutBlackList(
 
 func (p *governanceChainCommitteeProtocol) calculateUnproductiveDelegatesByEpoch(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sr protocol.StateReader,
 	epochNum uint64,
 ) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	delegates, err := p.readActiveBlockProducers(ctx, sm, false)
+	delegates, err := p.readActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}
