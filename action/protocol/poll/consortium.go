@@ -36,7 +36,8 @@ type consortiumCommittee struct {
 	addr         address.Address
 }
 
-func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract) (*consortiumCommittee, error) {
+// NewConsortiumCommittee creates a committee for consorium chain
+func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract) (Protocol, error) {
 	abi, err := abi.JSON(strings.NewReader(ConsortiumManagementABI))
 	if err != nil {
 		return nil, err
@@ -115,6 +116,9 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
+		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
+			return nil
+		},
 	)
 	if err != nil {
 		return err
@@ -171,11 +175,19 @@ func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, 
 	return cc.readDelegates(ctx)
 }
 
-func (cc *consortiumCommittee) DelegatesByEpoch(ctx context.Context, epochNum uint64) (state.CandidateList, error) {
+func (cc *consortiumCommittee) Delegates(ctx context.Context, _ protocol.StateReader) (state.CandidateList, error) {
 	return cc.readDelegates(ctx)
 }
 
-func (cc *consortiumCommittee) CandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (cc *consortiumCommittee) NextDelegates(ctx context.Context, _ protocol.StateReader) (state.CandidateList, error) {
+	return cc.readDelegates(ctx)
+}
+
+func (cc *consortiumCommittee) Candidates(ctx context.Context, _ protocol.StateReader) (state.CandidateList, error) {
+	return cc.readDelegates(ctx)
+}
+
+func (cc *consortiumCommittee) NextCandidates(ctx context.Context, _ protocol.StateReader) (state.CandidateList, error) {
 	return cc.readDelegates(ctx)
 }
 
