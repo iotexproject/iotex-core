@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -153,8 +154,13 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testBlockDao := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
 		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
+		ctx := protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: config.Default.Genesis,
+			},
+		)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -182,7 +188,7 @@ func TestBlockDAO(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			// test putBlock/Receipt
 			blks[i].Receipts = receipts[i]
-			require.NoError(dao.PutBlock(blks[i]))
+			require.NoError(dao.PutBlock(ctx, blks[i]))
 			blks[i].Receipts = nil
 
 			// test getBlock()
@@ -204,8 +210,13 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testDeleteDao := func(kvStore db.KVStore, t *testing.T) {
-		ctx := context.Background()
 		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
+		ctx := protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: config.Default.Genesis,
+			},
+		)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -213,7 +224,7 @@ func TestBlockDAO(t *testing.T) {
 
 		// put blocks
 		for i := 0; i < 3; i++ {
-			require.NoError(dao.PutBlock(blks[i]))
+			require.NoError(dao.PutBlock(ctx, blks[i]))
 		}
 
 		// delete tip block one by one, verify address/action after each deletion
@@ -222,12 +233,12 @@ func TestBlockDAO(t *testing.T) {
 				// tests[0] is the whole address/action data at block height 3
 				continue
 			}
-			prevTipHeight, err := dao.TipHeight()
+			prevTipHeight, err := dao.Height()
 			require.NoError(err)
 			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
 			require.NoError(err)
 			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
-			tipHeight, err := dao.TipHeight()
+			tipHeight, err := dao.Height()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
 			_, err = dao.GetBlockHash(prevTipHeight)
@@ -317,7 +328,7 @@ func BenchmarkBlockCache(b *testing.B) {
 				AddActions(actions...).
 				SignAndBuild(identityset.PrivateKey(0))
 			require.NoError(b, err)
-			err = blkDao.PutBlock(&blk)
+			err = blkDao.PutBlock(context.Background(), &blk)
 			require.NoError(b, err)
 			prevHash = blk.HashBlock()
 		}

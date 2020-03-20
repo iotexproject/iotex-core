@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 // TipInfo contains the tip block information
@@ -39,8 +38,6 @@ type BlockchainCtx struct {
 	Registry *Registry
 	// Tip is the information of tip block
 	Tip TipInfo
-	// Candidates is a list of candidates of current round
-	Candidates []*state.Candidate
 }
 
 // BlockCtx provides block auxiliary information.

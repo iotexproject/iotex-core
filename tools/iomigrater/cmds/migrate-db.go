@@ -156,7 +156,7 @@ func migrateDbFile() error {
 		if err != nil {
 			return fmt.Errorf("Failed to get block on height %d: %v", i, err)
 		}
-		if err := newDAO.PutBlock(blk); err != nil {
+		if err := newDAO.PutBlock(ctx, blk); err != nil {
 			return fmt.Errorf("Failed to migrate block on height %d: %v", i, err)
 		}
 

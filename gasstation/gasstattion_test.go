@@ -51,7 +51,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
@@ -130,7 +130,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
@@ -185,9 +185,9 @@ func TestEstimateGasForAction(t *testing.T) {
 	act := getAction()
 	require.NotNil(act)
 	cfg := config.Default
-	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
