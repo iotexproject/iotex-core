@@ -151,7 +151,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		2,
 		2,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sm,
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			switch epochNum {
 			case 1:

@@ -49,7 +49,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -991,7 +990,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1264,7 +1262,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1330,7 +1327,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1362,9 +1358,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1398,7 +1391,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				sm,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1464,10 +1456,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	sm.EXPECT().Height().Return(uint64(4), nil).AnyTimes()
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 	for _, test := range getEpochMetaTests {
@@ -1524,7 +1512,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				sm,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
