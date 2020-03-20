@@ -112,7 +112,7 @@ var (
 			ProducerPrivKey:      generateRandomKey(SigP256k1),
 			SignatureScheme:      []string{SigP256k1},
 			EmptyGenesis:         false,
-			GravityChainDB:       DB{DbPath: "./poll.db", NumRetries: 10},
+			GravityChainDB:       DB{DbPath: "/var/data/poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -149,7 +149,7 @@ var (
 				},
 				ToleratedOvertime: 2 * time.Second,
 				Delay:             5 * time.Second,
-				ConsensusDBPath:   "./consensus.db",
+				ConsensusDBPath:   "/var/data/consensus.db",
 			},
 		},
 		BlockSync: BlockSync{
@@ -179,7 +179,7 @@ var (
 			HTTPStatsPort:         8080,
 			HTTPAdminPort:         9009,
 			StartSubChainInterval: 10 * time.Second,
-			SystemLogDBPath:       "./systemlog.db",
+			SystemLogDBPath:       "/var/log/systemlog.db",
 		},
 		DB: DB{
 			NumRetries:   3,

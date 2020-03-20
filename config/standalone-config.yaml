@@ -1,0 +1,11 @@
+chain:
+  # If you are a delegate, make sure producerPrivKey is the key for the operator address you have registered.
+  # producerPrivKey: SET YOUR PRIVATE KEY HERE (e.g., 96f0aa5e8523d6a28dc35c927274be4e931e74eaa720b418735debfcbfe712b8)
+  chainDBPath: chain.db
+  trieDBPath: trie.db
+  indexDBPath: index.db
+  candidateIndexDBPath: candidate.index.db
+  gravityChainDB:
+    dbPath: poll.db
+system:
+  systemLogDBPath: systemlog.db
