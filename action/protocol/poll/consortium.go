@@ -211,6 +211,7 @@ func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.Candida
 		}
 		candidates = append(candidates, &state.Candidate{
 			Address: addr.String(),
+			Votes:   big.NewInt(100),
 		})
 	}
 	cc.bufferHeight = bcCtx.Tip.Height
