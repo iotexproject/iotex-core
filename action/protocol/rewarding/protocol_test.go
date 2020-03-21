@@ -162,7 +162,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		5,
 		5,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sm,
 		nil,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
