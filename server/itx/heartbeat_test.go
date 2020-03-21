@@ -22,6 +22,8 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
+	cfg.Chain.ChainDBPath = "chain.db"
+	cfg.Chain.TrieDBPath = "trie.db"
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true
