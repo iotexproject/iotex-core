@@ -73,6 +73,27 @@ func (c *Candidate) Clone() *Candidate {
 	}
 }
 
+// Serialize serializes candidate to bytes
+func (c *Candidate) Serialize() ([]byte, error) {
+	return proto.Marshal(candidateToPb(c))
+}
+
+// Deserialize deserializes bytes to candidate
+func (c *Candidate) Deserialize(buf []byte) error {
+	pb := &iotextypes.Candidate{}
+	if err := proto.Unmarshal(buf, pb); err != nil {
+		return errors.Wrap(err, "failed to unmarshal candidate")
+	}
+
+	cand, err := pbToCandidate(pb)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert protobuf's candidate message to candidate")
+	}
+	*c = *cand
+
+	return nil
+}
+
 func (l CandidateList) Len() int      { return len(l) }
 func (l CandidateList) Swap(i, j int) { l[i], l[j] = l[j], l[i] }
 func (l CandidateList) Less(i, j int) bool {
