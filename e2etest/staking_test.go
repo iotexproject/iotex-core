@@ -184,12 +184,15 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
+	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(t, testCandidateIndexPath)
 		testutil.CleanupPath(t, testSystemLogPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -198,6 +201,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
 	cfg.Consensus.Scheme = config.NOOPScheme

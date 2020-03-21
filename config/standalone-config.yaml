@@ -1,0 +1,9 @@
+chain:
+  chainDBPath: chain.db
+  trieDBPath: trie.db
+  indexDBPath: index.db
+  candidateIndexDBPath: candidate.index.db
+  gravityChainDB:
+    dbPath: poll.db
+system:
+  systemLogDBPath: systemlog.db
