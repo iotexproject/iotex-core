@@ -169,6 +169,9 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 	}
 	//ioctl action should display IOTX unit instead Raul
 	gasPriceUnitIOTX, err := util.StringToIOTX(action.Core.GasPrice)
+	if err != nil {
+		return "", output.NewError(output.ConfigError, "failed to convert string to IOTX", err)
+	}
 	result := fmt.Sprintf("\nversion: %d  ", action.Core.GetVersion()) +
 		fmt.Sprintf("nonce: %d  ", action.Core.GetNonce()) +
 		fmt.Sprintf("gasLimit: %d  ", action.Core.GasLimit) +
