@@ -278,6 +278,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 
 	sk1 := identityset.PrivateKey(1)
 	cfg := config.Default
+	cfg.Consensus.RollDPoS.ConsensusDBPath = "consensus.db"
 	cfg.Genesis.NumDelegates = 4
 	cfg.Genesis.NumSubEpochs = 1
 	cfg.Genesis.BlockInterval = 10 * time.Second
