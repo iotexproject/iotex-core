@@ -97,13 +97,7 @@ func (m *listMessage) String() string {
 			}
 			lines = append(lines, line)
 		}
-		for _, account := range m.Sm2Accounts {
-			line := account.Address + "(sm2)"
-			if account.Alias != "" {
-				line += " - " + account.Alias
-			}
-			lines = append(lines, line)
-		}
+
 		return strings.Join(lines, "\n")
 	}
 	return output.FormatString(output.Result, m)

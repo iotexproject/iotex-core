@@ -77,7 +77,7 @@ func NewIoctl() *cobra.Command {
 	return rootCmd
 }
 
-// NewXctl returns ioctl root cmd
+// NewXctl returns xctl root cmd
 func NewXctl() *cobra.Command {
 	var rootCmd = &cobra.Command{
 		Use:   config.TranslateInLang(xctlRootCmdUses, config.UILanguage),

@@ -191,16 +191,17 @@ func IsSignerExist(signer string) bool {
 		// find the account in pem files
 		_, err = findSm2PemFile(addr)
 		return err == nil
-	} else {
-		// find the account in keystore
-		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-			keystore.StandardScryptN, keystore.StandardScryptP)
-		for _, ksAccount := range ks.Accounts() {
-			if address.Equal(addr, ksAccount.Address) {
-				return true
-			}
+	}
+
+	// find the account in keystore
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+		keystore.StandardScryptN, keystore.StandardScryptP)
+	for _, ksAccount := range ks.Accounts() {
+		if address.Equal(addr, ksAccount.Address) {
+			return true
 		}
 	}
+
 	return false
 }
 
