@@ -93,25 +93,29 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
+	slasher, err := NewSlasher(
+		&cfg.Genesis,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+		cfg.Genesis.KickoutIntensityRate)
 	gs, err := NewGovernanceChainCommitteeProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
 		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		cfg.Genesis.NumCandidateDelegates,
-		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
-		},
-		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
-		cfg.Genesis.KickoutIntensityRate,
-		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+		slasher,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)
 	if !ok {

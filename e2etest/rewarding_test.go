@@ -92,6 +92,7 @@ func TestBlockReward(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Network.Port = testutil.RandomPort()
+	cfg.Genesis.PollMode = "lifeLong"
 
 	svr, err := itx.NewServer(cfg)
 	require.NoError(t, err)
