@@ -24,6 +24,7 @@ func TestCandidateIndexer(t *testing.T) {
 	indexer, err := NewCandidateIndexer(db.NewMemKVStore())
 	require.NoError(err)
 	require.NoError(indexer.Start(context.Background()))
+	// PutCandidates and Candidates with height 1
 	candidates := state.CandidateList{
 		{
 			Address:       identityset.Address(1).String(),
@@ -47,12 +48,44 @@ func TestCandidateIndexer(t *testing.T) {
 		},
 	}
 	require.NoError(indexer.PutCandidateList(uint64(1), &candidates))
-	candidates2, err := indexer.CandidateList(uint64(1))
+	candidatesFromDB, err := indexer.CandidateList(uint64(1))
 	require.NoError(err)
+	require.Equal(len(candidatesFromDB), len(candidates))
 	for i, cand := range candidates {
-		require.True(cand.Equal(candidates2[i]))
+		require.True(cand.Equal(candidatesFromDB[i]))
 	}
 
+	// try to put again
+	require.NoError(indexer.PutCandidateList(uint64(1), &candidates))
+	candidatesFromDB, err = indexer.CandidateList(uint64(1))
+	require.NoError(err)
+	require.Equal(len(candidatesFromDB), len(candidates))
+	for i, cand := range candidates {
+		require.True(cand.Equal(candidatesFromDB[i]))
+	}
+
+	// PutCandidates and Candidates with height 2
+	candidates2 := state.CandidateList{
+		{
+			Address:       identityset.Address(1).String(),
+			Votes:         big.NewInt(30),
+			RewardAddress: "rewardAddress1",
+		},
+		{
+			Address:       identityset.Address(2).String(),
+			Votes:         big.NewInt(22),
+			RewardAddress: "rewardAddress2",
+		},
+	}
+	require.NoError(indexer.PutCandidateList(uint64(2), &candidates2))
+	candidatesFromDB, err = indexer.CandidateList(uint64(2))
+	require.NoError(err)
+	require.Equal(len(candidatesFromDB), len(candidates2))
+	for i, cand := range candidates2 {
+		require.True(cand.Equal(candidatesFromDB[i]))
+	}
+
+	// PutKickoutList and KickoutList with height 1
 	blackListMap := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
