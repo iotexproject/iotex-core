@@ -277,7 +277,7 @@ func (m *MockBlockBuilderFactory) EXPECT() *MockBlockBuilderFactoryMockRecorder 
 }
 
 // NewBlockBuilder mocks base method
-func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 []action.SealedEnvelope) (*block.Builder, error) {
+func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*block.Builder)

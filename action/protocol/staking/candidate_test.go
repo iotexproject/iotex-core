@@ -19,8 +19,49 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
+func TestSer(t *testing.T) {
+	r := require.New(t)
+
+	l := &CandidateList{
+		&Candidate{
+			Owner:              identityset.Address(1),
+			Operator:           identityset.Address(2),
+			Reward:             identityset.Address(3),
+			Name:               "testname1",
+			Votes:              big.NewInt(100),
+			SelfStakeBucketIdx: 0,
+			SelfStake:          big.NewInt(1100000000),
+		},
+		&Candidate{
+			Owner:              identityset.Address(4),
+			Operator:           identityset.Address(5),
+			Reward:             identityset.Address(6),
+			Name:               "testname2",
+			Votes:              big.NewInt(20),
+			SelfStakeBucketIdx: 1,
+			SelfStake:          big.NewInt(2100000000),
+		},
+		&Candidate{
+			Owner:              identityset.Address(7),
+			Operator:           identityset.Address(8),
+			Reward:             identityset.Address(9),
+			Name:               "testname3",
+			Votes:              big.NewInt(3000),
+			SelfStakeBucketIdx: 2,
+			SelfStake:          big.NewInt(3100000000),
+		},
+	}
+
+	ser, err := l.Serialize()
+	r.NoError(err)
+	l1 := &CandidateList{}
+	r.NoError(l1.Deserialize(ser))
+	r.Equal(l, l1)
+}
+
 func TestClone(t *testing.T) {
 	r := require.New(t)
+
 	d := &Candidate{
 		Owner:              identityset.Address(1),
 		Operator:           identityset.Address(2),
@@ -30,10 +71,21 @@ func TestClone(t *testing.T) {
 		SelfStakeBucketIdx: 0,
 		SelfStake:          big.NewInt(2100000000),
 	}
+	r.NoError(d.Validate())
+
 	d2 := d.Clone()
-	r.Equal(d, d2)
+	r.True(d.Equal(d2))
 	d.AddVote(big.NewInt(100))
-	r.NotEqual(d, d2)
+	r.False(d.Equal(d2))
+	r.NoError(d.Collision(d2))
+	d.Owner = identityset.Address(0)
+	r.Equal(ErrInvalidCanName, d.Collision(d2))
+	d.Name = "noconflict"
+	r.Equal(ErrInvalidOperator, d.Collision(d2))
+	d.Operator = identityset.Address(0)
+	r.Equal(ErrInvalidSelfStkIndex, d.Collision(d2))
+	d.SelfStakeBucketIdx++
+	r.NoError(d.Collision(d2))
 
 	c := d.toStateCandidate()
 	r.Equal(d.Owner.String(), c.Address)
@@ -50,7 +102,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(1),
-				Operator:           identityset.Address(11),
+				Operator:           identityset.Address(7),
 				Reward:             identityset.Address(1),
 				Name:               "test1",
 				Votes:              big.NewInt(2),
@@ -62,7 +114,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(2),
-				Operator:           identityset.Address(12),
+				Operator:           identityset.Address(8),
 				Reward:             identityset.Address(1),
 				Name:               "test2",
 				Votes:              big.NewInt(3),
@@ -74,7 +126,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(3),
-				Operator:           identityset.Address(13),
+				Operator:           identityset.Address(9),
 				Reward:             identityset.Address(1),
 				Name:               "test3",
 				Votes:              big.NewInt(3),
@@ -86,7 +138,7 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(4),
-				Operator:           identityset.Address(14),
+				Operator:           identityset.Address(10),
 				Reward:             identityset.Address(1),
 				Name:               "test4",
 				Votes:              big.NewInt(1),
@@ -95,10 +147,11 @@ var (
 			},
 			3,
 		},
+		// the below 2 will be filtered out in ActiveCandidates() due to insufficient self-stake
 		{
 			&Candidate{
 				Owner:              identityset.Address(5),
-				Operator:           identityset.Address(15),
+				Operator:           identityset.Address(11),
 				Reward:             identityset.Address(2),
 				Name:               "test5",
 				Votes:              big.NewInt(1),
@@ -110,92 +163,17 @@ var (
 		{
 			&Candidate{
 				Owner:              identityset.Address(6),
-				Operator:           identityset.Address(16),
+				Operator:           identityset.Address(12),
 				Reward:             identityset.Address(2),
 				Name:               "test6",
 				Votes:              big.NewInt(1),
-				SelfStakeBucketIdx: 6,
+				SelfStakeBucketIdx: 0,
 				SelfStake:          unit.ConvertIotxToRau(1100000),
 			},
 			6,
 		},
 	}
 )
-
-func TestCandCenter(t *testing.T) {
-	r := require.New(t)
-
-	m := NewCandidateCenter()
-	for i, v := range testCandidates {
-		r.NoError(m.Upsert(testCandidates[i].d))
-		r.True(m.ContainsName(v.d.Name))
-		r.Equal(v.d, m.GetByName(v.d.Name))
-	}
-	r.Equal(len(testCandidates), m.Size())
-
-	// test candidate that does not exist
-	noName := identityset.Address(22)
-	r.False(m.ContainsOwner(noName))
-	m.Delete(noName)
-	r.Equal(len(testCandidates), m.Size())
-
-	// test existence
-	for _, v := range testCandidates {
-		r.True(m.ContainsName(v.d.Name))
-		r.True(m.ContainsOwner(v.d.Owner))
-		r.True(m.ContainsOperator(v.d.Operator))
-		r.True(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
-		r.Equal(v.d, m.GetByName(v.d.Name))
-	}
-
-	// test convert to list
-	list, err := m.All()
-	r.NoError(err)
-	r.Equal(m.Size(), len(list))
-	for _, v := range m.ownerMap {
-		for i := range list {
-			if list[i].Name == v.Name {
-				r.Equal(v, list[i])
-				break
-			}
-		}
-	}
-
-	// cannot insert candidate with conflicting name/operator/self-staking index
-	old := testCandidates[0].d
-	conflict := m.GetByName(old.Name)
-	r.NotNil(conflict)
-	conflict.Owner = identityset.Address(24)
-	r.Equal(ErrInvalidCanName, m.Upsert(conflict))
-	conflict.Name = "xxx"
-	r.Equal(ErrInvalidOperator, m.Upsert(conflict))
-	conflict.Operator = identityset.Address(24)
-	r.Equal(ErrInvalidSelfStkIndex, m.Upsert(conflict))
-
-	// test update candidate
-	d := m.GetByName(old.Name)
-	r.NotNil(d)
-	d.Name = "xxx"
-	d.Operator = identityset.Address(24)
-	d.SelfStakeBucketIdx += 100
-	r.NoError(m.Upsert(d))
-	r.True(m.ContainsName(d.Name))
-	r.True(m.ContainsOperator(d.Operator))
-	r.True(m.ContainsSelfStakingBucket(d.SelfStakeBucketIdx))
-	r.False(m.ContainsName(old.Name))
-	r.False(m.ContainsOperator(old.Operator))
-	r.False(m.ContainsSelfStakingBucket(old.SelfStakeBucketIdx))
-
-	// test delete
-	for i, v := range testCandidates {
-		m.Delete(v.d.Owner)
-		r.False(m.ContainsOwner(v.d.Owner))
-		r.False(m.ContainsName(v.d.Name))
-		r.False(m.ContainsOperator(v.d.Operator))
-		r.False(m.ContainsSelfStakingBucket(v.d.SelfStakeBucketIdx))
-		r.Equal(len(testCandidates)-i-1, m.Size())
-	}
-}
 
 func TestGetPutCandidate(t *testing.T) {
 	require := require.New(t)

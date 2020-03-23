@@ -84,8 +84,6 @@ func TestProtocol(t *testing.T) {
 	r.NoError(err)
 
 	ctx := context.Background()
-	r.NoError(stk.Start(ctx))
-	r.Equal(0, stk.inMemCandidates.Size())
 	buckets, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
@@ -101,31 +99,28 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	r.NoError(stk.Start(ctx))
-	r.Equal(len(testCandidates), stk.inMemCandidates.Size())
+	csm, err := stk.createCandidateStateManager(sm)
+	r.NoError(err)
+	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
-		r.True(stk.inMemCandidates.ContainsOwner(e.d.Owner))
-		r.True(stk.inMemCandidates.ContainsName(e.d.Name))
-		r.True(stk.inMemCandidates.ContainsOperator(e.d.Operator))
-		r.Equal(e.d, stk.inMemCandidates.GetByOwner(e.d.Owner))
+		r.True(csm.ContainsOwner(e.d.Owner))
+		r.True(csm.ContainsName(e.d.Name))
+		r.True(csm.ContainsOperator(e.d.Operator))
+		r.Equal(e.d, csm.GetByOwner(e.d.Owner))
 	}
 
 	// active list should filter out 2 cands with not enough self-stake
-	cand, err := stk.ActiveCandidates(ctx)
+	cand, err := stk.ActiveCandidates(ctx, sm.ConfirmedHeight())
 	r.NoError(err)
 	r.Equal(len(testCandidates)-2, len(cand))
-	for i, e := range cand {
-		for _, v := range testCandidates {
-			if e.Address == v.d.Owner.String() {
-				r.Equal(e.Votes, v.d.Votes)
-				r.Equal(e.RewardAddress, v.d.Reward.String())
-				r.Equal(string(e.CanName), v.d.Name)
-				r.True(v.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
-				// v.index is the order of sorted list
-				r.Equal(i, v.index)
-				break
-			}
-		}
+	for i := range cand {
+		c := testCandidates[i]
+		// index is the order of sorted list
+		e := cand[c.index]
+		r.Equal(e.Votes, c.d.Votes)
+		r.Equal(e.RewardAddress, c.d.Reward.String())
+		r.Equal(string(e.CanName), c.d.Name)
+		r.True(c.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
 	}
 
 	// load buckets from stateDB and verify

@@ -8,14 +8,10 @@ package staking
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 // Errors
@@ -25,6 +21,7 @@ var (
 	ErrInvalidCanName      = errors.New("invalid candidate name")
 	ErrInvalidOwner        = errors.New("invalid owner address")
 	ErrInvalidOperator     = errors.New("invalid operator address")
+	ErrInvalidReward       = errors.New("invalid reward address")
 	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
 	ErrMissingField        = errors.New("missing data field")
 )
@@ -38,9 +35,6 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	}
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
-	}
-	if !p.inMemCandidates.ContainsName(act.Candidate()) {
-		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	return act.AbstractAction.SanityCheck()
 }
@@ -65,9 +59,6 @@ func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.Chan
 	}
 	if !IsValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
-	}
-	if !p.inMemCandidates.ContainsName(act.Candidate()) {
-		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
 	return act.AbstractAction.SanityCheck()
 }
@@ -98,8 +89,6 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		return ErrNilAction
 	}
 
-	actCtx := protocol.MustGetActionCtx(ctx)
-
 	if !IsValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
 	}
@@ -107,40 +96,10 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
-
-	owner := actCtx.Caller
-	if act.OwnerAddress() != nil {
-		owner = act.OwnerAddress()
-	}
-
-	if c := p.inMemCandidates.GetByOwner(owner); c != nil {
-		// an existing owner, but selfstake is 0
-		if c.SelfStake.Cmp(big.NewInt(0)) != 0 {
-			return ErrInvalidOwner
-		}
-		if act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-			return ErrInvalidCanName
-		}
-		if !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-			return ErrInvalidOperator
-		}
-	} else {
-		// cannot collide with existing name
-		if p.inMemCandidates.ContainsName(act.Name()) {
-			return ErrInvalidCanName
-		}
-
-		// cannot collide with existing operator address
-		if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-			return ErrInvalidOperator
-		}
-	}
 	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
-	actCtx := protocol.MustGetActionCtx(ctx)
-
 	if act == nil {
 		return ErrNilAction
 	}
@@ -149,22 +108,6 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 		if !IsValidCandidateName(act.Name()) {
 			return ErrInvalidCanName
 		}
-	}
-
-	// only owner can update candidate
-	c := p.inMemCandidates.GetByOwner(actCtx.Caller)
-	if c == nil {
-		return ErrInvalidOwner
-	}
-
-	// cannot collide with existing name
-	if len(act.Name()) != 0 && act.Name() != c.Name && p.inMemCandidates.ContainsName(act.Name()) {
-		return ErrInvalidCanName
-	}
-
-	// cannot collide with existing operator address
-	if act.OperatorAddress() != nil && !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-		return ErrInvalidOperator
 	}
 	return act.AbstractAction.SanityCheck()
 }

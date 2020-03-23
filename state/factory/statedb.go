@@ -183,6 +183,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	return &workingSet{
 		height:    height,
 		finalized: false,
+		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
 			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
 			if err != nil {
@@ -206,6 +207,9 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
 
 			return nil
+		},
+		stateFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+			return sdb.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -347,16 +351,16 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if sdb.currentChainHeight+1 != ws.Version() {
+	h, _ := ws.Height()
+	if sdb.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
-			"current state height %d + 1 doesn't match working set version %d",
-			sdb.currentChainHeight,
-			ws.Version(),
+			"current state height %d + 1 doesn't match working set height %d",
+			sdb.currentChainHeight, h,
 		)
 	}
 
-	return ws.Commit()
+	return sdb.commit(ctx, ws)
 }
 
 func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
@@ -454,18 +458,18 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) commit(ws *workingSet) error {
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
+func (sdb *stateDB) commit(ctx context.Context, ws *workingSet) error {
+	err := errors.Wrap(ws.Commit(), "failed to commit working set")
+	if !ws.Dirty() {
+		return err
 	}
-	// Update chain height
-	height, err := ws.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get working set height")
+	if err == nil {
+		protocolCommit(ctx, ws)
+	} else {
+		protocolAbort(ctx, ws)
 	}
-	sdb.currentChainHeight = height
-
-	return nil
+	ws.Reset()
+	return err
 }
 
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
@@ -477,7 +481,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return sdb.commit(ws)
+	return sdb.commit(ctx, ws)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

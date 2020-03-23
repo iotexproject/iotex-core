@@ -102,3 +102,8 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
+
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
+}

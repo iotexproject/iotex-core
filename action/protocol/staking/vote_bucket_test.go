@@ -130,7 +130,9 @@ func newMockKVStore(ctrl *gomock.Controller) db.KVStore {
 
 func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	var h uint64
 	kv := newMockKVStore(ctrl)
+	dk := protocol.NewDock()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
@@ -190,6 +192,26 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 				return 0, nil, state.ErrStateNotExist
 			}
 			return 0, state.NewIterator(fv), nil
+		},
+	).AnyTimes()
+	sm.EXPECT().ConfirmedHeight().DoAndReturn(
+		func() uint64 {
+			return h
+		},
+	).AnyTimes()
+	sm.EXPECT().Load(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(name string, v interface{}) error {
+			return dk.Load(name, v)
+		},
+	).AnyTimes()
+	sm.EXPECT().Unload(gomock.Any()).DoAndReturn(
+		func(name string) (interface{}, error) {
+			return dk.Unload(name)
+		},
+	).AnyTimes()
+	sm.EXPECT().Push().DoAndReturn(
+		func() error {
+			return dk.Push()
 		},
 	).AnyTimes()
 

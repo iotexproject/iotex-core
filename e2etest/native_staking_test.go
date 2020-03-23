@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/byteutil"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -19,7 +18,9 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/blockchain"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/server/itx"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -49,6 +50,23 @@ var (
 
 func TestNativeStaking(t *testing.T) {
 	require := require.New(t)
+
+	testInitCands := []genesis.BootstrapCandidate{
+		{
+			identityset.Address(22).String(),
+			identityset.Address(23).String(),
+			identityset.Address(23).String(),
+			"test1",
+			selfStake,
+		},
+		{
+			identityset.Address(24).String(),
+			identityset.Address(25).String(),
+			identityset.Address(25).String(),
+			"test2",
+			selfStake,
+		},
+	}
 
 	testNativeStaking := func(cfg config.Config, t *testing.T) {
 		ctx := context.Background()
@@ -95,6 +113,12 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, register1, true, initBalance, cand1Addr))
 		require.NoError(checkAccountState(cfg, sf, register2, true, initBalance, cand2Addr))
 
+		// get self-stake index from receipts
+		r1, err := dao.GetReceiptByActionHash(register1.Hash(), 1)
+		require.NoError(err)
+		require.Equal(1, len(r1.Logs))
+		selfstakeIndex1 := byteutil.BytesToUint64BigEndian(r1.Logs[0].Data)
+
 		// create two stakes from two voters
 		voter1Addr := identityset.Address(2)
 		voter1PriKey := identityset.PrivateKey(2)
@@ -123,7 +147,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkAccountState(cfg, sf, cs2, false, initBalance, voter2Addr))
 
 		// get bucket index from receipts
-		r1, err := dao.GetReceiptByActionHash(cs1.Hash(), 3)
+		r1, err = dao.GetReceiptByActionHash(cs1.Hash(), 3)
 		require.NoError(err)
 		require.Equal(1, len(r1.Logs))
 
@@ -131,8 +155,8 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(err)
 		require.Equal(1, len(r2.Logs))
 
-		voter1BucketIndex := byteutil.BytesToUint64(r1.Logs[0].Data)
-		voter2BucketIndex := byteutil.BytesToUint64(r2.Logs[0].Data)
+		voter1BucketIndex := byteutil.BytesToUint64BigEndian(r1.Logs[0].Data)
+		voter2BucketIndex := byteutil.BytesToUint64BigEndian(r2.Logs[0].Data)
 
 		// change candidate
 		cc, err := testutil.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
@@ -207,7 +231,7 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, expectedVotes.String(), cand1Addr))
 
 		// unstake self stake
-		us, err = testutil.SignedReclaimStake(false, 2, 0, nil, gasLimit, gasPrice, cand1PriKey)
+		us, err = testutil.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
 		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, fixedTime))
 
@@ -218,7 +242,7 @@ func TestNativeStaking(t *testing.T) {
 			expectedVotes.String(), cand1Addr))
 
 		// withdraw stake
-		ws, err := testutil.SignedReclaimStake(true, 3, 0, nil, gasLimit, gasPrice, cand1PriKey)
+		ws, err := testutil.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
 		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime))
 		r, err = dao.GetReceiptByActionHash(ws.Hash(), 11)
@@ -270,6 +294,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.BootstrapCandidates = testInitCands
 
 	t.Run("test native staking", func(t *testing.T) {
 		testNativeStaking(cfg, t)

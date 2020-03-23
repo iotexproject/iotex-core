@@ -124,6 +124,11 @@ func (p *lifeLongDelegatesProtocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
+// Name returns the name of protocol
+func (p *lifeLongDelegatesProtocol) Name() string {
+	return protocolID
+}
+
 func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 	return p.delegates.Serialize()
 }

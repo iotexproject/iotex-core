@@ -154,6 +154,11 @@ func (p *Protocol) Validate(context.Context, action.Action) error {
 	return nil
 }
 
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
+}
+
 // NumCandidateDelegates returns the number of delegate candidates for an epoch
 func (p *Protocol) NumCandidateDelegates() uint64 {
 	return p.numCandidateDelegates

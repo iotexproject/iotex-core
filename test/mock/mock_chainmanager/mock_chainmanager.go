@@ -167,6 +167,20 @@ func (mr *MockStateManagerMockRecorder) States(arg0 ...interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateManager)(nil).States), arg0...)
 }
 
+// ConfirmedHeight mocks base method
+func (m *MockStateManager) ConfirmedHeight() uint64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ConfirmedHeight")
+	ret0, _ := ret[0].(uint64)
+	return ret0
+}
+
+// ConfirmedHeight indicates an expected call of ConfirmedHeight
+func (mr *MockStateManagerMockRecorder) ConfirmedHeight() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfirmedHeight", reflect.TypeOf((*MockStateManager)(nil).ConfirmedHeight))
+}
+
 // Snapshot mocks base method
 func (m *MockStateManager) Snapshot() int {
 	m.ctrl.T.Helper()
@@ -232,4 +246,193 @@ func (m *MockStateManager) DelState(arg0 ...protocol.StateOption) (uint64, error
 func (mr *MockStateManagerMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManager)(nil).DelState), arg0...)
+}
+
+// Dirty mocks base method
+func (m *MockStateManager) Dirty() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dirty")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Dirty indicates an expected call of Dirty
+func (mr *MockStateManagerMockRecorder) Dirty() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dirty", reflect.TypeOf((*MockStateManager)(nil).Dirty))
+}
+
+// ProtocolDirty mocks base method
+func (m *MockStateManager) ProtocolDirty(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtocolDirty", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProtocolDirty indicates an expected call of ProtocolDirty
+func (mr *MockStateManagerMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolDirty", reflect.TypeOf((*MockStateManager)(nil).ProtocolDirty), arg0)
+}
+
+// Load mocks base method
+func (m *MockStateManager) Load(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Load", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Load indicates an expected call of Load
+func (mr *MockStateManagerMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManager)(nil).Load), arg0, arg1)
+}
+
+// Unload mocks base method
+func (m *MockStateManager) Unload(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unload", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Unload indicates an expected call of Unload
+func (mr *MockStateManagerMockRecorder) Unload(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManager)(nil).Unload), arg0)
+}
+
+// Push mocks base method
+func (m *MockStateManager) Push() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Push")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Push indicates an expected call of Push
+func (mr *MockStateManagerMockRecorder) Push() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockStateManager)(nil).Push))
+}
+
+// Reset mocks base method
+func (m *MockStateManager) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset
+func (mr *MockStateManagerMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockStateManager)(nil).Reset))
+}
+
+// MockDock is a mock of Dock interface
+type MockDock struct {
+	ctrl     *gomock.Controller
+	recorder *MockDockMockRecorder
+}
+
+// MockDockMockRecorder is the mock recorder for MockDock
+type MockDockMockRecorder struct {
+	mock *MockDock
+}
+
+// NewMockDock creates a new mock instance
+func NewMockDock(ctrl *gomock.Controller) *MockDock {
+	mock := &MockDock{ctrl: ctrl}
+	mock.recorder = &MockDockMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockDock) EXPECT() *MockDockMockRecorder {
+	return m.recorder
+}
+
+// Dirty mocks base method
+func (m *MockDock) Dirty() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Dirty")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Dirty indicates an expected call of Dirty
+func (mr *MockDockMockRecorder) Dirty() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dirty", reflect.TypeOf((*MockDock)(nil).Dirty))
+}
+
+// ProtocolDirty mocks base method
+func (m *MockDock) ProtocolDirty(arg0 string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtocolDirty", arg0)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ProtocolDirty indicates an expected call of ProtocolDirty
+func (mr *MockDockMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtocolDirty", reflect.TypeOf((*MockDock)(nil).ProtocolDirty), arg0)
+}
+
+// Load mocks base method
+func (m *MockDock) Load(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Load", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Load indicates an expected call of Load
+func (mr *MockDockMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockDock)(nil).Load), arg0, arg1)
+}
+
+// Unload mocks base method
+func (m *MockDock) Unload(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Unload", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Unload indicates an expected call of Unload
+func (mr *MockDockMockRecorder) Unload(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0)
+}
+
+// Push mocks base method
+func (m *MockDock) Push() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Push")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Push indicates an expected call of Push
+func (mr *MockDockMockRecorder) Push() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockDock)(nil).Push))
+}
+
+// Reset mocks base method
+func (m *MockDock) Reset() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Reset")
+}
+
+// Reset indicates an expected call of Reset
+func (mr *MockDockMockRecorder) Reset() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reset", reflect.TypeOf((*MockDock)(nil).Reset))
 }

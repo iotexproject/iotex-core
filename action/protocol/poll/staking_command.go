@@ -155,6 +155,10 @@ func (sc *stakingCommand) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, sc)
 }
 
+func (sc *stakingCommand) Name() string {
+	return protocolID
+}
+
 func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bool {
 	height, err := sr.Height()
 	if err != nil {
