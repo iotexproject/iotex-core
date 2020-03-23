@@ -28,7 +28,6 @@ const (
 
 const (
 	_modeLifeLong      = "lifeLong"
-	_modeGovernance    = "governance"    // only use governance
 	_modeGovernanceMix = "governanceMix" // mix governance with native staking contract
 	_modeNative        = "native"        // only use go naitve staking
 	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
@@ -140,8 +139,6 @@ func NewProtocol(
 			return nil, errors.New("invalid delegate address in genesis block")
 		}
 		return NewLifeLongDelegatesProtocol(delegates), nil
-	case _modeGovernance:
-		fallthrough
 	case _modeGovernanceMix:
 		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
 			return nil, errors.New("gravity chain voting is not enabled")
