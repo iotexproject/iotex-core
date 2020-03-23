@@ -978,26 +978,29 @@ func TestServer_GetChainMeta(t *testing.T) {
 			pol = poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
+			slasher, _ := poll.NewSlasher(
+				&cfg.Genesis,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.Genesis.KickoutIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				nil,
-				nil,
-				nil,
-				nil,
 				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
-				},
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
-				cfg.Genesis.KickoutIntensityRate,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-			)
+				slasher)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
 
@@ -1250,26 +1253,29 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
-			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				indexer,
+			slasher, _ := poll.NewSlasher(
+				&cfg.Genesis,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
 				nil,
+				indexer,
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.Genesis.KickoutIntensityRate)
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
-				},
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
-				cfg.Genesis.KickoutIntensityRate,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-			)
+				slasher)
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
@@ -1315,26 +1321,30 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
-			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				indexer,
+			slasher, _ := poll.NewSlasher(
+				&cfg.Genesis,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
 				nil,
+				indexer,
+				test.numCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.Genesis.KickoutIntensityRate)
+
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				test.numCandidateDelegates,
-				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
-				},
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
-				cfg.Genesis.KickoutIntensityRate,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-			)
+				slasher)
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
@@ -1379,26 +1389,29 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		} else {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
-			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
-				indexer,
+			slasher, _ := poll.NewSlasher(
+				&cfg.Genesis,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
 				nil,
 				nil,
+				indexer,
+				cfg.Genesis.NumCandidateDelegates,
+				test.numDelegates,
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.Genesis.KickoutIntensityRate)
+			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Genesis.NumCandidateDelegates,
-				test.numDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
-				},
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
-				cfg.Genesis.KickoutIntensityRate,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-			)
+				slasher)
 		}
 		svr, err := createServer(cfg, false)
 		require.NoError(err)
@@ -1467,8 +1480,11 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			mbc := mock_blockchain.NewMockBlockchain(ctrl)
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
-			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
-				indexer,
+			slasher, _ := poll.NewSlasher(
+				&cfg.Genesis,
+				func(context.Context, uint64) (uint64, map[string]uint64, error) {
+					return 0, nil, nil
+				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
 						{
@@ -1506,20 +1522,20 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				indexer,
+				cfg.Genesis.NumCandidateDelegates,
+				cfg.Genesis.NumDelegates,
+				cfg.Genesis.ProductivityThreshold,
+				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+				cfg.Genesis.KickoutIntensityRate)
+			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
+				indexer,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
-				cfg.Genesis.NumCandidateDelegates,
-				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
-				},
-				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
-				cfg.Genesis.KickoutIntensityRate,
-				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-			)
+				slasher)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
