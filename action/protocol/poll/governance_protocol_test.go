@@ -137,20 +137,8 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	p, err := NewGovernanceChainCommitteeProtocol(
-		indexer,
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
-			return candidates, 720, nil
-		},
-		candidatesutil.KickoutListFromDB,
-		candidatesutil.UnproductiveDelegateFromDB,
-		committee,
-		uint64(123456),
-		func(uint64) (time.Time, error) { return time.Now(), nil },
-		2,
-		2,
-		cfg.Chain.PollInitialCandidatesInterval,
+	slasher, err := NewSlasher(
+		&cfg.Genesis,
 		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 			switch epochNum {
 			case 1:
@@ -187,12 +175,32 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 				return 0, nil, nil
 			}
 		},
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
+		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
+			return candidates, 720, nil
+		},
+		candidatesutil.KickoutListFromDB,
+		candidatesutil.UnproductiveDelegateFromDB,
+		indexer,
+		2,
+		2,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.KickoutEpochPeriod,
-		cfg.Genesis.KickoutIntensityRate,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-	)
-
+		cfg.Genesis.KickoutIntensityRate)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+	p, err := NewGovernanceChainCommitteeProtocol(
+		indexer,
+		committee,
+		uint64(123456),
+		func(uint64) (time.Time, error) { return time.Now(), nil },
+		cfg.Chain.PollInitialCandidatesInterval,
+		slasher)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}

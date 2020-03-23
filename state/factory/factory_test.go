@@ -256,23 +256,31 @@ func testCandidates(sf Factory, t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	require.NoError(t, registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20)))
+	cfg := config.Default
+	slasher, err := poll.NewSlasher(
+		&cfg.Genesis,
+		func(context.Context, uint64) (uint64, map[string]uint64, error) {
+			return 0, nil, nil
+		},
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		cfg.Genesis.NumCandidateDelegates,
+		cfg.Genesis.NumDelegates,
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+		cfg.Genesis.KickoutIntensityRate)
+	require.NoError(t, err)
 	p, err := poll.NewGovernanceChainCommitteeProtocol(
-		nil,
-		nil,
-		nil,
-		nil,
 		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		config.Default.Genesis.NumCandidateDelegates,
-		config.Default.Genesis.NumDelegates,
-		config.Default.Chain.PollInitialCandidatesInterval,
-		nil,
-		config.Default.Genesis.ProductivityThreshold,
-		config.Default.Genesis.KickoutEpochPeriod,
-		config.Default.Genesis.KickoutIntensityRate,
-		config.Default.Genesis.UnproductiveDelegateMaxCacheSize,
+		cfg.Chain.PollInitialCandidatesInterval,
+		slasher,
 	)
 	require.NoError(t, err)
 	require.NoError(t, registry.Register("poll", p))
@@ -280,7 +288,7 @@ func testCandidates(sf Factory, t *testing.T) {
 
 	// TODO: investigate why registry cannot be added in the Blockchain Ctx
 	ctx := protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: config.Default.Genesis,
+		Genesis: cfg.Genesis,
 	}), protocol.BlockCtx{
 		BlockHeight: 0,
 		Producer:    identityset.Address(27),
@@ -297,7 +305,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.Commit(protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis:  config.Default.Genesis,
+		Genesis:  cfg.Genesis,
 		Registry: registry,
 	}), protocol.BlockCtx{
 		BlockHeight: 1,

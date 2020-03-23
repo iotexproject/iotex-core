@@ -112,7 +112,7 @@ func NewProtocol(
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
-	kickoutListByEpoch GetKickoutList,
+	getkickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingV2 *staking.Protocol,
@@ -130,25 +130,31 @@ func NewProtocol(
 		}
 		return NewLifeLongDelegatesProtocol(delegates), nil
 	}
-	var pollProtocol, governance Protocol
-	var err error
-	if governance, err = NewGovernanceChainCommitteeProtocol(
-		candidateIndexer,
+	slasher, err := NewSlasher(
+		&genesisConfig,
+		productivityByEpoch,
 		candidatesByHeight,
 		getCandidates,
-		kickoutListByEpoch,
+		getkickoutList,
 		getUnproductiveDelegate,
+		candidateIndexer,
+		genesisConfig.NumCandidateDelegates,
+		genesisConfig.NumDelegates,
+		genesisConfig.ProductivityThreshold,
+		genesisConfig.KickoutEpochPeriod,
+		genesisConfig.UnproductiveDelegateMaxCacheSize,
+		genesisConfig.KickoutIntensityRate)
+	if err != nil {
+		return nil, err
+	}
+	var pollProtocol, governance Protocol
+	if governance, err = NewGovernanceChainCommitteeProtocol(
+		candidateIndexer,
 		electionCommittee,
 		genesisConfig.GravityChainStartHeight,
 		getBlockTimeFunc,
-		genesisConfig.NumCandidateDelegates,
-		genesisConfig.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		productivityByEpoch,
-		genesisConfig.ProductivityThreshold,
-		genesisConfig.KickoutEpochPeriod,
-		genesisConfig.KickoutIntensityRate,
-		genesisConfig.UnproductiveDelegateMaxCacheSize,
+		slasher,
 	); err != nil {
 		return nil, err
 	}
