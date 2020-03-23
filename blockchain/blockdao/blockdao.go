@@ -220,7 +220,7 @@ func (dao *blockDAO) checkIndexers() error {
 			// TODO: delete block
 			return errors.New("indexer tip height cannot by higher than dao tip height")
 		}
-		for i := tipHeight; i < dao.tipHeight; i++ {
+		for i := tipHeight + 1; i <= dao.tipHeight; i++ {
 			blk, err := dao.getBlockByHeight(i)
 			if err != nil {
 				return err
