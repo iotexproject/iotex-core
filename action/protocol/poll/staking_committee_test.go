@@ -105,7 +105,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Chain.PollInitialCandidatesInterval,
-		sm,
 		func(context.Context, uint64) (uint64, map[string]uint64, error) {
 			return 0, nil, nil
 		},

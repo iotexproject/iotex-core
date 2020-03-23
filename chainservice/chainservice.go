@@ -291,7 +291,6 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
-			sf,
 			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
 				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
 			},
