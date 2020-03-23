@@ -197,7 +197,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Chain.PollInitialCandidatesInterval,
-		cfg.Genesis.KickoutIntensityRate,
 		slasher)
 	if err != nil {
 		return nil, nil, nil, nil, err

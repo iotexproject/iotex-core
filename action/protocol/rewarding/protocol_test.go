@@ -173,7 +173,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Chain.PollInitialCandidatesInterval,
-		cfg.Genesis.KickoutIntensityRate,
 		slasher,
 	)
 	require.NoError(t, err)

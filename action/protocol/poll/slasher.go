@@ -70,6 +70,11 @@ func NewSlasher(
 	}, nil
 }
 
+// EmptyBlacklist returns an empty Blacklist
+func (sh *Slasher) EmptyBlacklist() *vote.Blacklist{
+	return vote.NewBlacklist(sh.kickoutIntensity)
+}
+
 // GetCandidates returns candidate list
 func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)

@@ -1000,7 +1000,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
-				cfg.Genesis.KickoutIntensityRate,
 				slasher)
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epoch.GravityChainStartHeight, nil)
 		}
@@ -1276,7 +1275,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
-				cfg.Genesis.KickoutIntensityRate,
 				slasher)
 		}
 		svr, err := createServer(cfg, false)
@@ -1346,7 +1344,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
-				cfg.Genesis.KickoutIntensityRate,
 				slasher)
 		}
 		svr, err := createServer(cfg, false)
@@ -1414,7 +1411,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
-				cfg.Genesis.KickoutIntensityRate,
 				slasher)
 		}
 		svr, err := createServer(cfg, false)
@@ -1539,7 +1535,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
 				cfg.Chain.PollInitialCandidatesInterval,
-				cfg.Genesis.KickoutIntensityRate,
 				slasher)
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)

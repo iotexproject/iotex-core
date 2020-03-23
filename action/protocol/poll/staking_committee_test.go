@@ -115,7 +115,6 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Chain.PollInitialCandidatesInterval,
-		cfg.Genesis.KickoutIntensityRate,
 		slasher,
 	)
 	scoreThreshold, ok := new(big.Int).SetString("0", 10)

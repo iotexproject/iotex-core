@@ -154,7 +154,6 @@ func NewProtocol(
 		genesisConfig.GravityChainStartHeight,
 		getBlockTimeFunc,
 		cfg.Chain.PollInitialCandidatesInterval,
-		genesisConfig.KickoutIntensityRate,
 		slasher,
 	); err != nil {
 		return nil, err

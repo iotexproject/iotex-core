@@ -360,7 +360,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		cfg.Chain.PollInitialCandidatesInterval,
-		cfg.Genesis.KickoutIntensityRate,
 		slasher,
 	)
 	require.NoError(t, err)

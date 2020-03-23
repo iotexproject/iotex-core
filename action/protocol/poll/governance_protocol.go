@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -33,7 +32,6 @@ type governanceChainCommitteeProtocol struct {
 	initGravityChainHeight    uint64
 	addr                      address.Address
 	initialCandidatesInterval time.Duration
-	kickoutIntensity          uint32
 	sh                        *Slasher
 	indexer                   *CandidateIndexer
 }
@@ -45,7 +43,6 @@ func NewGovernanceChainCommitteeProtocol(
 	initGravityChainHeight uint64,
 	getBlockTime GetBlockTime,
 	initialCandidatesInterval time.Duration,
-	kickoutIntensity uint32,
 	sh *Slasher,
 ) (Protocol, error) {
 	if electionCommittee == nil {
@@ -67,7 +64,6 @@ func NewGovernanceChainCommitteeProtocol(
 		getBlockTime:              getBlockTime,
 		addr:                      addr,
 		initialCandidatesInterval: initialCandidatesInterval,
-		kickoutIntensity:          kickoutIntensity,
 		sh:                        sh,
 		indexer:                   candidatesIndexer,
 	}, nil
@@ -105,10 +101,7 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 		if err := setNextEpochBlacklist(sm,
 			p.indexer,
 			uint64(1),
-			&vote.Blacklist{
-				BlacklistInfos: make(map[string]uint32),
-				IntensityRate:  p.kickoutIntensity,
-			}); err != nil {
+			p.sh.EmptyBlacklist()); err != nil {
 			return err
 		}
 	}
