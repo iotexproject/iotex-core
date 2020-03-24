@@ -430,7 +430,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return ws.SimulateExecution(ctx, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB

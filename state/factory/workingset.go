@@ -8,9 +8,7 @@ package factory
 
 import (
 	"context"
-	"math/big"
 	"sort"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -21,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
@@ -366,44 +363,6 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	return receipts, executedActions, ws.finalize()
-}
-
-func (ws *workingSet) SimulateExecution(
-	ctx context.Context,
-	caller address.Address,
-	ex *action.Execution,
-	getBlockHash evm.GetBlockHash,
-) ([]byte, *action.Receipt, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	zeroAddr, err := address.FromString(address.ZeroAddress)
-	if err != nil {
-		return nil, nil, err
-	}
-	ctx = protocol.WithBlockCtx(
-		ctx,
-		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
-			Producer:       zeroAddr,
-		},
-	)
-
-	return evm.ExecuteContract(
-		ctx,
-		ws,
-		ex,
-		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) error {
-			return nil
-		},
-	)
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {

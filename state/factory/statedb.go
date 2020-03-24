@@ -274,7 +274,7 @@ func (sdb *stateDB) SimulateExecution(
 		return nil, nil, err
 	}
 
-	return ws.SimulateExecution(ctx, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
