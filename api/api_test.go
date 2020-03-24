@@ -980,8 +980,8 @@ func TestServer_GetChainMeta(t *testing.T) {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			slasher, _ := poll.NewSlasher(
 				&cfg.Genesis,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
+				func(uint64, uint64) (map[string]uint64, error) {
+					return nil, nil
 				},
 				nil,
 				nil,
@@ -1255,8 +1255,8 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
 				&cfg.Genesis,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
+				func(uint64, uint64) (map[string]uint64, error) {
+					return nil, nil
 				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
@@ -1323,8 +1323,8 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
 				&cfg.Genesis,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
+				func(uint64, uint64) (map[string]uint64, error) {
+					return nil, nil
 				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
@@ -1391,8 +1391,8 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
 				&cfg.Genesis,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
+				func(uint64, uint64) (map[string]uint64, error) {
+					return nil, nil
 				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 				nil,
@@ -1482,8 +1482,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
 				&cfg.Genesis,
-				func(context.Context, uint64) (uint64, map[string]uint64, error) {
-					return 0, nil, nil
+				func(uint64, uint64) (map[string]uint64, error) {
+					return nil, nil
 				},
 				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 					return []*state.Candidate{
@@ -1844,8 +1844,8 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
 	r := rewarding.NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		})
 
 	if err := rolldposProtocol.Register(registry); err != nil {

@@ -207,3 +207,27 @@ func (p *Protocol) GetEpochLastBlockHeight(epochNum uint64) uint64 {
 func (p *Protocol) GetSubEpochNum(height uint64) uint64 {
 	return (height - p.GetEpochHeight(p.GetEpochNum(height))) / p.numDelegates
 }
+
+// ProductivityByEpoch read the productivity in an epoch
+func (p *Protocol) ProductivityByEpoch(
+	epochNum uint64,
+	tipHeight uint64,
+	productivity func(uint64, uint64) (map[string]uint64, error),
+) (uint64, map[string]uint64, error) {
+	if tipHeight == 0 {
+		return 0, map[string]uint64{}, nil
+	}
+	currentEpochNum := p.GetEpochNum(tipHeight)
+	if epochNum > currentEpochNum {
+		return 0, nil, errors.Errorf("epoch number %d is larger than current epoch number %d", epochNum, currentEpochNum)
+	}
+	epochStartHeight := p.GetEpochHeight(epochNum)
+	var epochEndHeight uint64
+	if epochNum == currentEpochNum {
+		epochEndHeight = tipHeight
+	} else {
+		epochEndHeight = p.GetEpochLastBlockHeight(epochNum)
+	}
+	produce, err := productivity(epochStartHeight, epochEndHeight)
+	return epochEndHeight - epochStartHeight + 1, produce, err
+}

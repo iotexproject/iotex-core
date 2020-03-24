@@ -163,7 +163,7 @@ func (p *Protocol) GrantEpochReward(
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		// Get unqualified delegate list
-		if uqd, err = p.unqualifiedDelegates(ctx, sm, epochNum, a.productivityThreshold); err != nil {
+		if uqd, err = p.unqualifiedDelegates(ctx, sm, rp, epochNum, a.productivityThreshold); err != nil {
 			return nil, err
 		}
 	}
@@ -426,6 +426,7 @@ func (p *Protocol) splitEpochReward(
 func (p *Protocol) unqualifiedDelegates(
 	ctx context.Context,
 	sm protocol.StateManager,
+	rp *rolldpos.Protocol,
 	epochNum uint64,
 	productivityThreshold uint64,
 ) (map[string]bool, error) {
@@ -436,7 +437,7 @@ func (p *Protocol) unqualifiedDelegates(
 		return nil, err
 	}
 	unqualifiedDelegates := make(map[string]bool, 0)
-	numBlks, produce, err := p.productivityByEpoch(ctx, epochNum)
+	numBlks, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, p.productivity)
 	if err != nil {
 		return nil, err
 	}

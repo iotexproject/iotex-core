@@ -64,8 +64,8 @@ type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDeleg
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
-// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
+// Productivity returns the number of produced blocks per producer
+type Productivity func(uint64, uint64) (map[string]uint64, error)
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
@@ -125,7 +125,7 @@ func NewProtocol(
 	electionCommittee committee.Committee,
 	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
-	productivityByEpoch ProductivityByEpoch,
+	productivity Productivity,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
@@ -145,7 +145,7 @@ func NewProtocol(
 		}
 		slasher, err := NewSlasher(
 			&genesisConfig,
-			productivityByEpoch,
+			productivity,
 			candidatesByHeight,
 			getCandidates,
 			getkickoutList,

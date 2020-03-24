@@ -308,9 +308,8 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
 	p := NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return uint64(19),
-				map[string]uint64{
+		func(uint64, uint64) (map[string]uint64, error) {
+			return map[string]uint64{
 					identityset.Address(0).String(): 9,
 					identityset.Address(1).String(): 10,
 				},
@@ -337,8 +336,8 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
 		&cfg.Genesis,
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 			return abps, nil
@@ -403,6 +402,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Genesis:    ge,
 			Candidates: abps,
 			Registry:   registry,
+			Tip: protocol.TipInfo{
+				Height: 1,
+			},
 		},
 	)
 
