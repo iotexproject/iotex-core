@@ -385,7 +385,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	if isExist {
 		return nil
 	}
-	if err := validateWithWorkingset(ctx, ws, blk); err != nil {
+	if err := ws.ValidateBlock(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in factory")
 	}
 	sf.putIntoWorkingSets(key, ws)
@@ -404,7 +404,7 @@ func (sf *factory) NewBlockBuilder(
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
 	}
-	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}
@@ -430,7 +430,7 @@ func (sf *factory) SimulateExecution(
 		return nil, nil, errors.Wrap(err, "failed to obtain working set from state factory")
 	}
 
-	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -459,7 +459,7 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		// regenerate workingset
-		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
+		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
 		if err != nil {
 			log.L().Panic("Failed to update state.", zap.Error(err))
 			return err
@@ -595,7 +595,7 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
-	if err := createGenesisStates(ctx, ws); err != nil {
+	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
 	// add Genesis states

@@ -229,7 +229,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 	if isExist {
 		return nil
 	}
-	if err = validateWithWorkingset(ctx, ws, blk); err != nil {
+	if err = ws.ValidateBlock(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to validate block with workingset in statedb")
 	}
 	sdb.putIntoWorkingSets(key, ws)
@@ -248,7 +248,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	if err != nil {
 		return nil, err
 	}
-	blkBuilder, err := createBuilderWithWorkingset(ctx, ws, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}
@@ -274,7 +274,7 @@ func (sdb *stateDB) SimulateExecution(
 		return nil, nil, err
 	}
 
-	return simulateExecution(ctx, ws, caller, ex, getBlockHash)
+	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
 // Commit persists all changes in RunActions() into the DB
@@ -302,7 +302,7 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if !isExist {
-		_, ws, err = runActions(ctx, ws, blk.RunnableActions().Actions())
+		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
 		if err != nil {
 			log.L().Panic("Failed to update state.", zap.Error(err))
 			return err
@@ -432,7 +432,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := createGenesisStates(ctx, ws); err != nil {
+	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
 
