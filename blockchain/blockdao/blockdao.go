@@ -269,7 +269,6 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			fmt.Println("===========", tipHeight, dao.tipHeight, i, blk.Height())
 			if err := indexer.PutBlock(protocol.WithBlockCtx(
 				ctx,
 				protocol.BlockCtx{

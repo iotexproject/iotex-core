@@ -118,7 +118,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
-		break
 	case db.ErrNotExist:
 		ctx = protocol.WithBlockCtx(
 			ctx,

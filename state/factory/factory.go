@@ -210,7 +210,6 @@ func (sf *factory) Start(ctx context.Context) error {
 				}
 			}
 		}
-		break
 	case db.ErrNotExist:
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
