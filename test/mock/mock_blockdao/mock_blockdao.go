@@ -258,35 +258,6 @@ func (mr *MockBlockDAOMockRecorder) DeleteBlockToTarget(arg0 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBlockToTarget", reflect.TypeOf((*MockBlockDAO)(nil).DeleteBlockToTarget), arg0)
 }
 
-// IndexFile mocks base method
-func (m *MockBlockDAO) IndexFile(arg0 uint64, arg1 []byte) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IndexFile", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// IndexFile indicates an expected call of IndexFile
-func (mr *MockBlockDAOMockRecorder) IndexFile(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IndexFile", reflect.TypeOf((*MockBlockDAO)(nil).IndexFile), arg0, arg1)
-}
-
-// GetFileIndex mocks base method
-func (m *MockBlockDAO) GetFileIndex(arg0 uint64) ([]byte, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFileIndex", arg0)
-	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetFileIndex indicates an expected call of GetFileIndex
-func (mr *MockBlockDAOMockRecorder) GetFileIndex(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFileIndex", reflect.TypeOf((*MockBlockDAO)(nil).GetFileIndex), arg0)
-}
-
 // KVStore mocks base method
 func (m *MockBlockDAO) KVStore() db.KVStore {
 	m.ctrl.T.Helper()
