@@ -26,6 +26,14 @@ const (
 	protocolID = "poll"
 )
 
+const (
+	_modeLifeLong      = "lifeLong"
+	_modeGovernanceMix = "governanceMix" // mix governance with native staking contract
+	_modeNative        = "native"        // only use go naitve staking
+	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
+	_modeConsortium    = "consortium"
+)
+
 // ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
 var ErrInconsistentHeight = errors.New("data is inconsistent because the state height has been changed")
 
@@ -56,8 +64,8 @@ type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDeleg
 // GetBlockTime defines a function to get block creation time
 type GetBlockTime func(uint64) (time.Time, error)
 
-// ProductivityByEpoch returns the number of produced blocks per delegate in an epoch
-type ProductivityByEpoch func(context.Context, uint64) (uint64, map[string]uint64, error)
+// Productivity returns the number of produced blocks per producer
+type Productivity func(uint64, uint64) (map[string]uint64, error)
 
 // Protocol defines the protocol of handling votes
 type Protocol interface {
@@ -112,59 +120,78 @@ func NewProtocol(
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
-	kickoutListByEpoch GetKickoutList,
+	getkickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
-	productivityByEpoch ProductivityByEpoch,
+	productivity Productivity,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
-	if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
+
+	switch genesisConfig.PollMode {
+	case _modeLifeLong:
 		delegates := genesisConfig.Delegates
 		if uint64(len(delegates)) < genesisConfig.NumDelegates {
 			return nil, errors.New("invalid delegate address in genesis block")
 		}
 		return NewLifeLongDelegatesProtocol(delegates), nil
+	case _modeGovernanceMix:
+		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
+			return nil, errors.New("gravity chain voting is not enabled")
+		}
+		slasher, err := NewSlasher(
+			&genesisConfig,
+			productivity,
+			candidatesByHeight,
+			getCandidates,
+			getkickoutList,
+			getUnproductiveDelegate,
+			candidateIndexer,
+			genesisConfig.NumCandidateDelegates,
+			genesisConfig.NumDelegates,
+			genesisConfig.ProductivityThreshold,
+			genesisConfig.KickoutEpochPeriod,
+			genesisConfig.UnproductiveDelegateMaxCacheSize,
+			genesisConfig.KickoutIntensityRate)
+		if err != nil {
+			return nil, err
+		}
+		governance, err := NewGovernanceChainCommitteeProtocol(
+			candidateIndexer,
+			electionCommittee,
+			genesisConfig.GravityChainStartHeight,
+			getBlockTimeFunc,
+			cfg.Chain.PollInitialCandidatesInterval,
+			slasher,
+		)
+		if err != nil {
+			return nil, err
+		}
+		scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+		if !ok {
+			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+		}
+		return NewStakingCommittee(
+			electionCommittee,
+			governance,
+			readContract,
+			cfg.Genesis.NativeStakingContractAddress,
+			cfg.Genesis.NativeStakingContractCode,
+			scoreThreshold,
+		)
+	case _modeNative:
+		// TODO
+		return nil, errors.New("not implemented")
+	case _modeNativeMix:
+		// TODO
+		return nil, errors.New("not implemented")
+	case _modeConsortium:
+		return NewConsortiumCommittee(candidateIndexer, readContract)
+	default:
+		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}
-	var pollProtocol, governance Protocol
-	var err error
-	if governance, err = NewGovernanceChainCommitteeProtocol(
-		candidateIndexer,
-		candidatesByHeight,
-		getCandidates,
-		kickoutListByEpoch,
-		getUnproductiveDelegate,
-		electionCommittee,
-		genesisConfig.GravityChainStartHeight,
-		getBlockTimeFunc,
-		genesisConfig.NumCandidateDelegates,
-		genesisConfig.NumDelegates,
-		cfg.Chain.PollInitialCandidatesInterval,
-		productivityByEpoch,
-		genesisConfig.ProductivityThreshold,
-		genesisConfig.KickoutEpochPeriod,
-		genesisConfig.KickoutIntensityRate,
-		genesisConfig.UnproductiveDelegateMaxCacheSize,
-	); err != nil {
-		return nil, err
-	}
-	scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
-	if !ok {
-		return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
-	}
-	if pollProtocol, err = NewStakingCommittee(
-		electionCommittee,
-		governance,
-		readContract,
-		cfg.Genesis.NativeStakingContractAddress,
-		cfg.Genesis.NativeStakingContractCode,
-		scoreThreshold,
-	); err != nil {
-		return nil, err
-	}
-	return pollProtocol, nil
 }

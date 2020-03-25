@@ -10,6 +10,7 @@ import (
 	"context"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -314,4 +315,44 @@ func intrinsicGas(data []byte) (uint64, error) {
 	}
 
 	return dataSize*action.ExecutionDataGas + action.ExecutionBaseIntrinsicGas, nil
+}
+
+// SimulateExecution simulates the execution in evm
+func SimulateExecution(
+	ctx context.Context,
+	sm protocol.StateManager,
+	caller address.Address,
+	ex *action.Execution,
+	getBlockHash GetBlockHash,
+) ([]byte, *action.Receipt, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller: caller,
+		},
+	)
+	zeroAddr, err := address.FromString(address.ZeroAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight:    bcCtx.Tip.Height + 1,
+			BlockTimeStamp: time.Time{},
+			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			Producer:       zeroAddr,
+		},
+	)
+
+	return ExecuteContract(
+		ctx,
+		sm,
+		ex,
+		getBlockHash,
+		func(context.Context, protocol.StateManager, *big.Int) error {
+			return nil
+		},
+	)
 }

@@ -21,6 +21,14 @@ type Blacklist struct {
 	IntensityRate  uint32
 }
 
+// NewBlacklist returns a new Blacklist
+func NewBlacklist(intensity uint32) *Blacklist {
+	return &Blacklist{
+		BlacklistInfos: make(map[string]uint32),
+		IntensityRate:  intensity,
+	}
+}
+
 // Serialize serializes map of blacklist to bytes
 func (bl *Blacklist) Serialize() ([]byte, error) {
 	return proto.Marshal(bl.Proto())

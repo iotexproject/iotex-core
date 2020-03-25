@@ -1432,7 +1432,11 @@ func (api *Server) getProductivityByEpoch(
 	epochNum uint64,
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
-	numBlks, produce, err := blockchain.ProductivityByEpoch(ctx, api.bc, epochNum)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	num, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, func(start uint64, end uint64) (map[string]uint64, error) {
+		return blockchain.Productivity(api.bc, start, end)
+	})
 	if err != nil {
 		return 0, nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -1442,5 +1446,5 @@ func (api *Server) getProductivityByEpoch(
 			produce[abp.Address] = 0
 		}
 	}
-	return numBlks, produce, nil
+	return num, produce, nil
 }

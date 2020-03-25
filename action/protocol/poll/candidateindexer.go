@@ -89,6 +89,10 @@ func (cd *CandidateIndexer) CandidateList(height uint64) (state.CandidateList, e
 	bytes, err := cd.kvStore.Get(CandidateNamespace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
+			log.L().Debug(
+				"failed to read candidates from indexer because does not exist",
+				zap.Uint64("epoch height", height),
+			)
 			return nil, ErrIndexerNotExist
 		}
 		return nil, err
@@ -108,6 +112,10 @@ func (cd *CandidateIndexer) KickoutList(height uint64) (*vote.Blacklist, error) 
 	bytes, err := cd.kvStore.Get(KickoutNamespace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
+			log.L().Debug(
+				"failed to kickout list from indexer because does not exist",
+				zap.Uint64("epoch height", height),
+			)
 			return nil, ErrIndexerNotExist
 		}
 		return nil, err

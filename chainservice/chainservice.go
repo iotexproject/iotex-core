@@ -291,8 +291,8 @@ func New(
 				}
 				return header.Timestamp(), nil
 			},
-			func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-				return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+			func(start, end uint64) (map[string]uint64, error) {
+				return blockchain.Productivity(chain, start, end)
 			},
 		)
 		if err != nil {
@@ -304,8 +304,8 @@ func New(
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(
-		func(ctx context.Context, epochNum uint64) (uint64, map[string]uint64, error) {
-			return blockchain.ProductivityByEpoch(ctx, chain, epochNum)
+		func(start uint64, end uint64) (map[string]uint64, error) {
+			return blockchain.Productivity(chain, start, end)
 		})
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)

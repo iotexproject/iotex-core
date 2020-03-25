@@ -61,6 +61,7 @@ func defaultConfig() Genesis {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
+			PollMode:                         "governanceMix",
 			EnableGravityChainVoting:         true,
 			KickoutEpochPeriod:               6,
 			KickoutIntensityRate:             90,
@@ -167,6 +168,8 @@ type (
 	}
 	// Poll contains the configs for poll protocol
 	Poll struct {
+		// PollMode is different based on chain type or poll input data source
+		PollMode string `yaml:"pollMode"`
 		// EnableGravityChainVoting is a flag whether read voting from gravity chain
 		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
 		// GravityChainStartHeight is the height in gravity chain where the init poll result stored

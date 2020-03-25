@@ -76,9 +76,8 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		genesis.Default.NumSubEpochs,
 	)
 	p := NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return uint64(19),
-				map[string]uint64{
+		func(uint64, uint64) (map[string]uint64, error) {
+			return map[string]uint64{
 					identityset.Address(27).String(): 3,
 					identityset.Address(28).String(): 7,
 					identityset.Address(29).String(): 1,
@@ -148,25 +147,32 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	}
 	cfg := config.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
-	pp, err := poll.NewGovernanceChainCommitteeProtocol(
-		nil,
+	slasher, err := poll.NewSlasher(
+		&cfg.Genesis,
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
+		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
 			return abps, nil
 		},
 		nil,
 		nil,
 		nil,
+		nil,
+		5,
+		5,
+		cfg.Genesis.ProductivityThreshold,
+		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+		cfg.Genesis.KickoutIntensityRate)
+	require.NoError(t, err)
+	pp, err := poll.NewGovernanceChainCommitteeProtocol(
+		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
-		5,
-		5,
 		cfg.Chain.PollInitialCandidatesInterval,
-		nil,
-		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
-		cfg.Genesis.KickoutIntensityRate,
-		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
+		slasher,
 	)
 	require.NoError(t, err)
 	require.NoError(t, rp.Register(registry))
@@ -229,6 +235,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Genesis:    ge,
 			Registry:   registry,
 			Candidates: candidates,
+			Tip: protocol.TipInfo{
+				Height: 20,
+			},
 		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
@@ -303,8 +312,8 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 	require.NoError(t, rp.Register(registry))
 	p := NewProtocol(
-		func(context.Context, uint64) (uint64, map[string]uint64, error) {
-			return 0, nil, nil
+		func(uint64, uint64) (map[string]uint64, error) {
+			return nil, nil
 		})
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
