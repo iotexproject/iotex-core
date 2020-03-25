@@ -65,8 +65,7 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 		IntrinsicGas: intrinsicGas,
 		Nonce:        selp.Nonce(),
 	})
-	bcCtx := MustGetBlockchainCtx(ctx)
-	for _, validator := range bcCtx.Registry.All() {
+	for _, validator := range MustGetRegistry(ctx).All() {
 		if err := validator.Validate(ctx, selp.Action()); err != nil {
 			return err
 		}

@@ -137,11 +137,11 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) 
 	if blkCtx.BlockHeight == 0 {
 		return nil
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if bcCtx.Registry == nil {
+	reg, ok := protocol.GetRegistry(ctx)
+	if !ok {
 		return nil
 	}
-	rp := FindProtocol(bcCtx.Registry)
+	rp := FindProtocol(reg)
 	if rp == nil {
 		return nil
 	}

@@ -204,10 +204,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:  ge,
-			Registry: registry,
+			Genesis: ge,
 			Tip: protocol.TipInfo{
 				Height: 20,
 			},
@@ -314,10 +313,9 @@ func TestProtocol_Handle(t *testing.T) {
 	)
 
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:  cfg.Genesis,
-			Registry: registry,
+			Genesis: cfg.Genesis,
 		},
 	)
 	ap := account.NewProtocol(DepositGas)

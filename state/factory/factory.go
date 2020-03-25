@@ -201,8 +201,8 @@ func (sf *factory) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
-		if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
-			for _, p := range bcCtx.Registry.All() {
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			for _, p := range reg.All() {
 				if s, ok := p.(lifecycle.Starter); ok {
 					if err := s.Start(ctx); err != nil {
 						return errors.Wrap(err, "failed to start protocol")
@@ -214,8 +214,8 @@ func (sf *factory) Start(ctx context.Context) error {
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
-		if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
-			for _, p := range bcCtx.Registry.All() {
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			for _, p := range reg.All() {
 				if s, ok := p.(lifecycle.Starter); ok {
 					if err := s.Start(ctx); err != nil {
 						return errors.Wrap(err, "failed to start protocol")

@@ -54,10 +54,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	}
 	epochStartHeight := rp.GetEpochHeight(2)
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:  cfg.Genesis,
-			Registry: registry,
+			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: epochStartHeight - 1,
 			},
@@ -261,7 +260,7 @@ func TestCreatePreStates(t *testing.T) {
 	psc, ok := p.(protocol.PreStatesCreator)
 	require.True(ok)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 
 	test := make(map[uint64](map[string]uint32))
 	test[2] = map[string]uint32{

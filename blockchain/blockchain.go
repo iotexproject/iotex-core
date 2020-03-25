@@ -389,12 +389,12 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 			return nil, err
 		}
 	}
+
 	return protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, bc.registry),
 		protocol.BlockchainCtx{
-			Registry: bc.registry,
-			Genesis:  bc.config.Genesis,
-			Tip:      tip,
+			Genesis: bc.config.Genesis,
+			Tip:     tip,
 		}), nil
 }
 

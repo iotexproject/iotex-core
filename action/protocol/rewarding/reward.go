@@ -72,14 +72,13 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
-	pp := poll.FindProtocol(bcCtx.Registry)
+	pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
 	if pp != nil {
 		candidates, err := pp.Candidates(ctx, sm)
 		if err != nil {
@@ -142,7 +141,7 @@ func (p *Protocol) GrantEpochReward(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
@@ -174,7 +173,7 @@ func (p *Protocol) GrantEpochReward(
 			return nil, err
 		}
 	}
-	candidates, err := poll.MustGetProtocol(bcCtx.Registry).Candidates(ctx, sm)
+	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +441,7 @@ func (p *Protocol) unqualifiedDelegates(
 ) (map[string]bool, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	delegates, err := poll.MustGetProtocol(bcCtx.Registry).Delegates(ctx, sm)
+	delegates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Delegates(ctx, sm)
 	if err != nil {
 		return nil, err
 	}

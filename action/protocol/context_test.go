@@ -19,11 +19,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRegistryCtx(t *testing.T) {
+	require := require.New(t)
+	_, ok := GetRegistry(context.Background())
+	require.False(ok)
+	require.Panics(func() { MustGetRegistry(context.Background()) }, "Miss registry context")
+	reg := &Registry{}
+	ctx := WithRegistry(context.Background(), reg)
+	require.NotNil(ctx)
+	regFromCtx, ok := GetRegistry(ctx)
+	require.True(ok)
+	require.Equal(reg, regFromCtx)
+	require.Equal(reg, MustGetRegistry(ctx))
+}
+
 func TestWithBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: nil,
+		Genesis: config.Default.Genesis,
 	}
 	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
 }
@@ -31,8 +44,7 @@ func TestWithBlockchainCtx(t *testing.T) {
 func TestGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: nil,
+		Genesis: config.Default.Genesis,
 	}
 	ctx := WithBlockchainCtx(context.Background(), bcCtx)
 	require.NotNil(ctx)
@@ -43,8 +55,7 @@ func TestGetBlockchainCtx(t *testing.T) {
 func TestMustGetBlockchainCtx(t *testing.T) {
 	require := require.New(t)
 	bcCtx := BlockchainCtx{
-		Genesis:  config.Default.Genesis,
-		Registry: nil,
+		Genesis: config.Default.Genesis,
 	}
 	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
 	// Case II: Panic

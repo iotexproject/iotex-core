@@ -30,12 +30,12 @@ type blockContextKey struct{}
 
 type actionContextKey struct{}
 
+type registryContextKey struct{}
+
 // BlockchainCtx provides blockchain auxiliary information.
 type BlockchainCtx struct {
 	// Genesis is a copy of current genesis
 	Genesis genesis.Genesis
-	// Registry is the pointer protocol registry
-	Registry *Registry
 	// Tip is the information of tip block
 	Tip TipInfo
 }
@@ -64,6 +64,26 @@ type ActionCtx struct {
 	IntrinsicGas uint64
 	// Nonce is the nonce of the action
 	Nonce uint64
+}
+
+// WithRegistry adds registry to context
+func WithRegistry(ctx context.Context, reg *Registry) context.Context {
+	return context.WithValue(ctx, registryContextKey{}, reg)
+}
+
+// GetRegistry returns the registry from context
+func GetRegistry(ctx context.Context) (*Registry, bool) {
+	reg, ok := ctx.Value(registryContextKey{}).(*Registry)
+	return reg, ok
+}
+
+// MustGetRegistry returns the registry from context
+func MustGetRegistry(ctx context.Context) *Registry {
+	reg, ok := ctx.Value(registryContextKey{}).(*Registry)
+	if !ok {
+		log.S().Panic("Miss registry context")
+	}
+	return reg
 }
 
 // WithBlockchainCtx add BlockchainCtx into context.

@@ -130,8 +130,7 @@ func (p *lifeLongDelegatesProtocol) readBlockProducers() ([]byte, error) {
 
 func (p *lifeLongDelegatesProtocol) readActiveBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
 	var blockProducerList []string
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	blockProducerMap := make(map[string]*state.Candidate)
 	delegates := p.delegates
 	if len(p.delegates) > int(rp.NumCandidateDelegates()) {

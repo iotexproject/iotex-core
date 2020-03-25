@@ -1183,8 +1183,8 @@ func TestActions(t *testing.T) {
 	require.NoError(acc.Register(registry))
 
 	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.WithRegistry(context.Background(), registry),
+		protocol.BlockchainCtx{Genesis: cfg.Genesis},
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")

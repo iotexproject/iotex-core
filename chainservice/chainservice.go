@@ -467,7 +467,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: cs.registry})
+	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err := cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())

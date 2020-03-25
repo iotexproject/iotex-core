@@ -120,7 +120,6 @@ func (ws *workingSet) runAction(
 ) (*action.Receipt, error) {
 	// Handle action
 	var actionCtx protocol.ActionCtx
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
 	if err != nil {
 		return nil, err
@@ -136,10 +135,11 @@ func (ws *workingSet) runAction(
 	actionCtx.Nonce = elp.Nonce()
 
 	ctx = protocol.WithActionCtx(ctx, actionCtx)
-	if bcCtx.Registry == nil {
+	reg, ok := protocol.GetRegistry(ctx)
+	if !ok {
 		return nil, nil
 	}
-	for _, actionHandler := range bcCtx.Registry.All() {
+	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
@@ -223,8 +223,8 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 
 // createGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
-	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
-		for _, p := range bcCtx.Registry.All() {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
 				if err := gsc.CreateGenesisStates(ctx, ws); err != nil {
 					return errors.Wrap(err, "failed to create genesis states for protocol")
@@ -279,9 +279,7 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
+	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, err
@@ -309,10 +307,8 @@ func (ws *workingSet) pickAndRunActions(
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
 
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
+	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, nil, err

@@ -331,7 +331,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: api.registry})
+	ctx = protocol.WithRegistry(ctx, api.registry)
 	if err = api.ap.Add(ctx, selp); err != nil {
 		log.L().Debug(err.Error())
 		var desc string
@@ -803,10 +803,12 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: api.registry,
-		Genesis:  api.cfg.Genesis,
-	})
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, api.registry),
+		protocol.BlockchainCtx{
+			Genesis: api.cfg.Genesis,
+		},
+	)
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
@@ -1433,7 +1435,7 @@ func (api *Server) getProductivityByEpoch(
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	num, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, func(start uint64, end uint64) (map[string]uint64, error) {
 		return blockchain.Productivity(api.bc, start, end)
 	})
