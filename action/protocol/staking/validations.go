@@ -39,13 +39,10 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
 	if !p.inMemCandidates.ContainsName(act.Candidate()) {
 		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
-	return nil
+	return act.AbstractAction.SelfCheck()
 }
 
 func (p *Protocol) validateUnstake(ctx context.Context, act *action.Unstake) error {

@@ -54,25 +54,5 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
 	}
-	reg, ok := GetRegistry(ctx)
-	if !ok {
-		return nil
-	}
-	intrinsicGas, err := selp.IntrinsicGas()
-	if err != nil {
-		return err
-	}
-	ctx = WithActionCtx(ctx, ActionCtx{
-		Caller:       caller,
-		ActionHash:   selp.Hash(),
-		GasPrice:     selp.GasPrice(),
-		IntrinsicGas: intrinsicGas,
-		Nonce:        selp.Nonce(),
-	})
-	for _, validator := range reg.All() {
-		if err := validator.Validate(ctx, selp.Action()); err != nil {
-			return err
-		}
-	}
 	return nil
 }

@@ -145,3 +145,12 @@ func (cs *CreateStake) Cost() (*big.Int, error) {
 	CreateStakeFee := big.NewInt(0).Mul(cs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(cs.Amount(), CreateStakeFee), nil
 }
+
+// SelfCheck validates the variables in the action
+func (cs *CreateStake) SelfCheck() error {
+	if cs.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+
+	return cs.AbstractAction.SelfCheck()
+}

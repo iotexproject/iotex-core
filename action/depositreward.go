@@ -77,6 +77,15 @@ func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
 	return big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
+// SelfCheck validates the variables in the action
+func (d *DepositToRewardingFund) SelfCheck() error {
+	if d.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+
+	return d.AbstractAction.SelfCheck()
+}
+
 // DepositToRewardingFundBuilder is the struct to build DepositToRewardingFund
 type DepositToRewardingFundBuilder struct {
 	Builder
