@@ -244,6 +244,9 @@ func (l CandidateList) toStateCandidateList() (state.CandidateList, error) {
 }
 
 func getCandidate(sr protocol.StateReader, name address.Address) (*Candidate, error) {
+	if name == nil {
+		return nil, ErrNilParameters
+	}
 	var d Candidate
 	_, err := sr.State(&d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return &d, err
