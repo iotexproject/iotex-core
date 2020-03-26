@@ -77,8 +77,7 @@ func (sh *Slasher) EmptyBlacklist() *vote.Blacklist {
 
 // GetCandidates returns candidate list
 func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
 		return nil, err
@@ -120,8 +119,7 @@ func (sh *Slasher) GetBlockProducers(ctx context.Context, sr protocol.StateReade
 
 // GetActiveBlockProducers returns active BP list
 func (sh *Slasher) GetActiveBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
 		return nil, err
@@ -177,8 +175,7 @@ func (sh *Slasher) GetABPFromIndexer(ctx context.Context, epochStartHeight uint6
 
 // GetKickoutList returns the kick-out list at given epoch
 func (sh *Slasher) GetKickoutList(ctx context.Context, sr protocol.StateReader, readFromNext bool) (*vote.Blacklist, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
 		return nil, err
@@ -209,8 +206,7 @@ func (sh *Slasher) CalculateKickoutList(
 	sm protocol.StateManager,
 	epochNum uint64,
 ) (*vote.Blacklist, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	easterEpochNum := rp.GetEpochNum(sh.hu.EasterBlockHeight())
 
 	nextBlacklist := &vote.Blacklist{

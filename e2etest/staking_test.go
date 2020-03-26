@@ -135,7 +135,7 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 		ns.SetContract(r.ContractAddress)
 
-		height, err := dao.TipHeight()
+		height, err := dao.Height()
 		require.NoError(err)
 		blk, err = dao.GetBlockByHeight(height)
 		require.NoError(err)

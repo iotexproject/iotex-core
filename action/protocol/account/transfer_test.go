@@ -81,11 +81,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
 	cfg.Genesis.Rewarding.ProductivityThreshold = 0
-	ctx = protocol.WithBlockchainCtx(ctx,
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Registry: registry,
-			Genesis:  cfg.Genesis,
-		})
+			Genesis: cfg.Genesis,
+		},
+	)
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -140,9 +141,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		Producer:    identityset.Address(27),
 		GasLimit:    testutil.TestGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: registry,
-	})
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry),
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
+		},
+	)
 
 	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)

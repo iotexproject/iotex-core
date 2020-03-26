@@ -105,8 +105,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 
 func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	epochHeight := rp.GetEpochHeight(epochNum)
@@ -155,7 +154,7 @@ func setCandidates(
 	height uint64, // epoch start height
 ) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")

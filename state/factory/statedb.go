@@ -118,7 +118,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
-		break
 	case db.ErrNotExist:
 		ctx = protocol.WithBlockCtx(
 			ctx,
@@ -277,8 +276,8 @@ func (sdb *stateDB) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
-// Commit persists all changes in RunActions() into the DB
-func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
+// PutBlock persists all changes in RunActions() into the DB
+func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
@@ -320,6 +319,10 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	}
 
 	return ws.Commit()
+}
+
+func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
+	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory

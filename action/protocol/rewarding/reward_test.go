@@ -363,8 +363,8 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoError(t, rp.Register(registry))
-	require.NoError(t, p.Register(registry))
 	require.NoError(t, pp.Register(registry))
+	require.NoError(t, p.Register(registry))
 
 	ge := config.Default.Genesis
 	ge.Rewarding.InitBalanceStr = "0"
@@ -383,10 +383,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			context.Background(),
+			protocol.WithRegistry(context.Background(), registry),
 			protocol.BlockchainCtx{
-				Genesis:  ge,
-				Registry: registry,
+				Genesis: ge,
 			},
 		),
 		protocol.BlockCtx{
@@ -397,11 +396,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:    ge,
-			Candidates: abps,
-			Registry:   registry,
+			Genesis: ge,
 			Tip: protocol.TipInfo{
 				Height: 1,
 			},

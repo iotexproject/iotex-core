@@ -95,8 +95,15 @@ func New(
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
-	var err error
-	var ops optionParams
+	// create indexers
+	var (
+		indexers         []blockdao.BlockIndexer
+		indexer          blockindex.Indexer
+		systemLogIndex   *systemlog.Indexer
+		candidateIndexer *poll.CandidateIndexer
+		err              error
+		ops              optionParams
+	)
 	for _, opt := range opts {
 		if err = opt(&ops); err != nil {
 			return nil, err
@@ -119,6 +126,7 @@ func New(
 			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	}
+	indexers = append(indexers, sf)
 	var chainOpts []blockchain.Option
 	registry := protocol.NewRegistry()
 	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
@@ -149,13 +157,6 @@ func New(
 			}
 		}
 	}
-	// create indexers
-	var (
-		indexers         []blockdao.BlockIndexer
-		indexer          blockindex.Indexer
-		systemLogIndex   *systemlog.Indexer
-		candidateIndexer *poll.CandidateIndexer
-	)
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway {
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -466,7 +467,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: cs.registry})
+	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err := cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())

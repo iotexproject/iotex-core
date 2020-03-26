@@ -72,17 +72,23 @@ func (p *Protocol) GrantBlockReward(
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if err := p.assertNoRewardYet(sm, blockRewardHistoryKeyPrefix, blkCtx.BlockHeight); err != nil {
 		return nil, err
 	}
 
 	producerAddrStr := blkCtx.Producer.String()
 	rewardAddrStr := ""
-	for _, candidate := range bcCtx.Candidates {
-		if candidate.Address == producerAddrStr {
-			rewardAddrStr = candidate.RewardAddress
-			break
+	pp := poll.FindProtocol(protocol.MustGetRegistry(ctx))
+	if pp != nil {
+		candidates, err := pp.Candidates(ctx, sm)
+		if err != nil {
+			return nil, err
+		}
+		for _, candidate := range candidates {
+			if candidate.Address == producerAddrStr {
+				rewardAddrStr = candidate.RewardAddress
+				break
+			}
 		}
 	}
 	// If reward address doesn't exist, do nothing
@@ -135,7 +141,7 @@ func (p *Protocol) GrantEpochReward(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
@@ -167,7 +173,10 @@ func (p *Protocol) GrantEpochReward(
 			return nil, err
 		}
 	}
-	candidates := bcCtx.Candidates
+	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
+	if err != nil {
+		return nil, err
+	}
 	addrs, amounts, err := p.splitEpochReward(epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
 	if err != nil {
 		return nil, err
@@ -432,7 +441,7 @@ func (p *Protocol) unqualifiedDelegates(
 ) (map[string]bool, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	delegates, err := poll.MustGetProtocol(bcCtx.Registry).Delegates(ctx, sm)
+	delegates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Delegates(ctx, sm)
 	if err != nil {
 		return nil, err
 	}

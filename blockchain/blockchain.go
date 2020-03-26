@@ -22,8 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -32,8 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
-	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/state/factory"
 )
 
 var (
@@ -142,7 +138,6 @@ type blockchain struct {
 
 	// used by account-based model
 	bbf      BlockBuilderFactory
-	sf       factory.Factory
 	registry *protocol.Registry
 }
 
@@ -164,7 +159,7 @@ func BlockValidatorOption(blockValidator block.Validator) Option {
 }
 
 // BoltDBDaoOption sets blockchain's dao with BoltDB from config.Chain.ChainDBPath
-func BoltDBDaoOption() Option {
+func BoltDBDaoOption(indexers ...blockdao.BlockIndexer) Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		if bc.dao != nil {
 			return nil
@@ -172,7 +167,7 @@ func BoltDBDaoOption() Option {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewBoltDB(cfg.DB),
-			nil,
+			indexers,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -181,14 +176,14 @@ func BoltDBDaoOption() Option {
 }
 
 // InMemDaoOption sets blockchain's dao with MemKVStore
-func InMemDaoOption() Option {
+func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
 	return func(bc *blockchain, cfg config.Config) error {
 		if bc.dao != nil {
 			return nil
 		}
 		bc.dao = blockdao.NewBlockDAO(
 			db.NewMemKVStore(),
-			nil,
+			indexers,
 			cfg.Chain.CompressBlock,
 			cfg.DB,
 		)
@@ -215,18 +210,12 @@ func RegistryOption(registry *protocol.Registry) Option {
 
 // NewBlockchain creates a new blockchain and DB instance
 // TODO: replace sf with blockbuilderfactory
-func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory, opts ...Option) Blockchain {
-	bbf, ok := sf.(BlockBuilderFactory)
-	if !ok {
-		log.S().Panic("state factory didn't implement BlockBuilderFactory")
-	}
-
+func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
 	// create the Blockchain
 	chain := &blockchain{
 		config:        cfg,
 		dao:           dao,
 		bbf:           bbf,
-		sf:            sf,
 		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
 	}
@@ -252,9 +241,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, sf factory.Factory,
 	if chain.dao != nil {
 		chain.lifecycle.Add(chain.dao)
 	}
-	if chain.sf != nil {
-		chain.lifecycle.Add(chain.sf)
-	}
 	return chain
 }
 
@@ -272,32 +258,11 @@ func (bc *blockchain) Start(ctx context.Context) error {
 	defer bc.mu.Unlock()
 
 	// pass registry to be used by state factory's initialization
-	ctx, err := bc.context(ctx, false, false)
+	ctx, err := bc.context(ctx, false)
 	if err != nil {
 		return err
 	}
-	if err := bc.lifecycle.OnStart(ctx); err != nil {
-		return err
-	}
-	// get blockchain tip height
-	tipHeight, err := bc.dao.TipHeight()
-	if err != nil {
-		return err
-	}
-	if tipHeight == 0 {
-		return nil
-	}
-	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
-		for _, p := range bcCtx.Registry.All() {
-			if s, ok := p.(lifecycle.Starter); ok {
-				if err := s.Start(ctx); err != nil {
-					return errors.Wrap(err, "failed to start protocol")
-				}
-			}
-		}
-	}
-
-	return bc.startExistingBlockchain(ctx)
+	return bc.lifecycle.OnStart(ctx)
 }
 
 // Stop stops the blockchain.
@@ -317,7 +282,7 @@ func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) 
 
 // TipHash returns tip block's hash
 func (bc *blockchain) TipHash() hash.Hash256 {
-	tipHeight, err := bc.dao.TipHeight()
+	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return hash.ZeroHash256
 	}
@@ -330,7 +295,7 @@ func (bc *blockchain) TipHash() hash.Hash256 {
 
 // TipHeight returns tip block's height
 func (bc *blockchain) TipHeight() uint64 {
-	tipHeight, err := bc.dao.TipHeight()
+	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		log.L().Panic("failed to get tip height", zap.Error(err))
 	}
@@ -378,7 +343,7 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	ctx, err := bc.context(context.Background(), true, true)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return err
 	}
@@ -401,7 +366,7 @@ func (bc *blockchain) Context() (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	return bc.context(context.Background(), true, true)
+	return bc.context(context.Background(), true)
 }
 
 func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
@@ -415,18 +380,8 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 		})
 }
 
-func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bool) (context.Context, error) {
-	var candidates state.CandidateList
+func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Context, error) {
 	var tip protocol.TipInfo
-	if candidateFlag {
-		tipHeight, err := bc.dao.TipHeight()
-		if err != nil {
-			return nil, err
-		}
-		if candidates, err = bc.candidatesByHeight(tipHeight + 1); err != nil {
-			return nil, err
-		}
-	}
 	if tipInfoFlag {
 		if tipInfoValue, err := bc.tipInfo(); err == nil {
 			tip = *tipInfoValue
@@ -434,13 +389,12 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag, candidateFlag bo
 			return nil, err
 		}
 	}
+
 	return protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, bc.registry),
 		protocol.BlockchainCtx{
-			Registry:   bc.registry,
-			Genesis:    bc.config.Genesis,
-			Tip:        tip,
-			Candidates: candidates,
+			Genesis: bc.config.Genesis,
+			Tip:     tip,
 		}), nil
 }
 
@@ -452,12 +406,12 @@ func (bc *blockchain) MintNewBlock(
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
 	defer mintNewBlockTimer.End()
-	tipHeight, err := bc.dao.TipHeight()
+	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
 	}
 	newblockHeight := tipHeight + 1
-	ctx, err := bc.context(context.Background(), true, true)
+	ctx, err := bc.context(context.Background(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -498,11 +452,7 @@ func (bc *blockchain) CommitBlock(blk *block.Block) error {
 	defer bc.mu.Unlock()
 	timer := bc.timerFactory.NewTimer("CommitBlock")
 	defer timer.End()
-	ctx, err := bc.context(context.Background(), true, true)
-	if err != nil {
-		return err
-	}
-	return bc.commitBlock(ctx, blk)
+	return bc.commitBlock(blk)
 }
 
 func (bc *blockchain) AddSubscriber(s BlockCreationSubscriber) error {
@@ -535,100 +485,8 @@ func (bc *blockchain) Genesis() genesis.Genesis {
 // private functions
 //=====================================
 
-func (bc *blockchain) candidatesByHeight(height uint64) (state.CandidateList, error) {
-	if bc.registry == nil {
-		return nil, nil
-	}
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{
-			Registry: bc.registry,
-			Genesis:  bc.config.Genesis,
-		})
-
-	stateTipHeight, err := bc.sf.Height()
-	if err != nil {
-		return nil, err
-	}
-	rp := rolldpos.FindProtocol(bc.registry)
-	if rp == nil {
-		return nil, nil
-	}
-	tipEpochNum := rp.GetEpochNum(stateTipHeight)
-	epochNum := rp.GetEpochNum(height)
-	pp := poll.FindProtocol(bc.registry)
-	if pp == nil {
-		return nil, nil
-	}
-	switch epochNum {
-	case tipEpochNum + 1:
-		return pp.NextCandidates(ctx, bc.sf)
-	case tipEpochNum:
-		return pp.Candidates(ctx, bc.sf)
-	default:
-		return nil, errors.New("invalid height to get candidate list")
-	}
-	return nil, nil
-}
-
-func (bc *blockchain) startExistingBlockchain(ctx context.Context) error {
-	if bc.sf == nil {
-		return errors.New("statefactory cannot be nil")
-	}
-
-	stateHeight, err := bc.sf.Height()
-	if err != nil {
-		return err
-	}
-	tipHeight, err := bc.dao.TipHeight()
-	if err != nil {
-		return err
-	}
-	if stateHeight > tipHeight {
-		return errors.New("factory is higher than blockchain")
-	}
-
-	for i := stateHeight + 1; i <= tipHeight; i++ {
-		blk, err := bc.dao.GetBlockByHeight(i)
-		if err != nil {
-			return err
-		}
-		candidates, err := bc.candidatesByHeight(i)
-		if err != nil {
-			return err
-		}
-		ctx = protocol.WithBlockchainCtx(
-			ctx,
-			protocol.BlockchainCtx{
-				Registry: bc.registry,
-				Genesis:  bc.config.Genesis,
-				Tip: protocol.TipInfo{
-					Height: i - 1,
-				},
-				Candidates: candidates,
-			},
-		)
-		producer, err := address.FromBytes(blk.PublicKey().Hash())
-		if err != nil {
-			return err
-		}
-		ctx = bc.contextWithBlock(ctx, producer, blk.Height(), blk.Timestamp())
-		if err := bc.sf.Commit(ctx, blk); err != nil {
-			return err
-		}
-	}
-	stateHeight, err = bc.sf.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get factory's height")
-	}
-	log.L().Info("Restarting blockchain.",
-		zap.Uint64("chainHeight", tipHeight),
-		zap.Uint64("factoryHeight", stateHeight))
-	return nil
-}
-
 func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
-	tipHeight, err := bc.dao.TipHeight()
+	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
 	}
@@ -656,7 +514,11 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 }
 
 // commitBlock commits a block to the chain
-func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
+func (bc *blockchain) commitBlock(blk *block.Block) error {
+	ctx, err := bc.context(context.Background(), false)
+	if err != nil {
+		return err
+	}
 	// early exit if block already exists
 	blkHash, err := bc.dao.GetBlockHash(blk.Height())
 	if err == nil && blkHash != hash.ZeroHash256 {
@@ -669,21 +531,12 @@ func (bc *blockchain) commitBlock(ctx context.Context, blk *block.Block) error {
 	}
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
-	err = bc.dao.PutBlock(blk)
+	err = bc.dao.PutBlock(ctx, blk)
 	putTimer.End()
 	if err != nil {
 		return err
 	}
-
-	// commit state/contract changes
-	sfTimer := bc.timerFactory.NewTimer("sf.Commit")
-	err = bc.sf.Commit(ctx, blk)
-	sfTimer.End()
-	// detach working set so it can be freed by GC
-	if err != nil {
-		log.L().Panic("Error when committing states.", zap.Error(err))
-	}
-	tipHeight, err := bc.dao.TipHeight()
+	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return err
 	}

@@ -79,7 +79,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	r.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -98,6 +98,9 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: cfg.Genesis,
+	})
 	r.NoError(sf.Start(ctx))
 	return bc, sf
 }

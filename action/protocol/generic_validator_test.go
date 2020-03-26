@@ -48,7 +48,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			Caller: caller,
 		})
 
-	ctx = WithBlockchainCtx(ctx,
+	ctx = WithBlockchainCtx(
+		WithRegistry(ctx, reg),
 		BlockchainCtx{
 			Genesis: config.Default.Genesis,
 			Tip: TipInfo{
@@ -56,8 +57,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 				Hash:      config.Default.Genesis.Hash(),
 				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
 			},
-			Registry: reg,
-		})
+		},
+	)
 
 	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()

@@ -412,7 +412,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
@@ -454,7 +454,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
@@ -528,7 +528,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
@@ -631,7 +631,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
@@ -788,7 +788,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		var indexer blockindex.Indexer
-		var indexers []blockdao.BlockIndexer
+		indexers := []blockdao.BlockIndexer{sf}
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -1062,7 +1062,7 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 		cfg,
 		nil,
 		sf,
-		BoltDBDaoOption(),
+		BoltDBDaoOption(sf),
 		RegistryOption(registry),
 		BlockValidatorOption(sf),
 	)
@@ -1098,7 +1098,7 @@ func TestBlockchain_AccountState(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf), RegistryOption(registry))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	s, err := accountutil.AccountState(sf, identityset.Address(0).String())
@@ -1139,7 +1139,7 @@ func TestBlocks(t *testing.T) {
 	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(sf), RegistryOption(registry))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1183,8 +1183,8 @@ func TestActions(t *testing.T) {
 	require.NoError(acc.Register(registry))
 
 	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.WithRegistry(context.Background(), registry),
+		protocol.BlockchainCtx{Genesis: cfg.Genesis},
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1212,7 +1212,7 @@ func TestActions(t *testing.T) {
 		cfg,
 		nil,
 		sf,
-		BoltDBDaoOption(),
+		BoltDBDaoOption(sf),
 		RegistryOption(registry),
 		BlockValidatorOption(block.NewValidator(
 			sf,
@@ -1271,7 +1271,7 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	req.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf), RegistryOption(registry))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1289,7 +1289,7 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	req.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf), RegistryOption(registry))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1497,7 +1497,7 @@ func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVSto
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	var indexer blockindex.Indexer
-	var indexers []blockdao.BlockIndexer
+	indexers := []blockdao.BlockIndexer{sf}
 	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath

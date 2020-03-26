@@ -167,18 +167,32 @@ func (mr *MockFactoryMockRecorder) SimulateExecution(arg0, arg1, arg2, arg3 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SimulateExecution", reflect.TypeOf((*MockFactory)(nil).SimulateExecution), arg0, arg1, arg2, arg3)
 }
 
-// Commit mocks base method
-func (m *MockFactory) Commit(arg0 context.Context, arg1 *block.Block) error {
+// PutBlock mocks base method
+func (m *MockFactory) PutBlock(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
+	ret := m.ctrl.Call(m, "PutBlock", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Commit indicates an expected call of Commit
-func (mr *MockFactoryMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
+// PutBlock indicates an expected call of PutBlock
+func (mr *MockFactoryMockRecorder) PutBlock(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockFactory)(nil).Commit), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockFactory)(nil).PutBlock), arg0, arg1)
+}
+
+// DeleteTipBlock mocks base method
+func (m *MockFactory) DeleteTipBlock(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteTipBlock", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteTipBlock indicates an expected call of DeleteTipBlock
+func (mr *MockFactoryMockRecorder) DeleteTipBlock(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockFactory)(nil).DeleteTipBlock), arg0)
 }
 
 // StateAtHeight mocks base method

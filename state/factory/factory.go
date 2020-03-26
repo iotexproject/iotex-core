@@ -78,7 +78,8 @@ type (
 		// NewBlockBuilder creates block builder
 		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
-		Commit(context.Context, *block.Block) error
+		PutBlock(context.Context, *block.Block) error
+		DeleteTipBlock(*block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -200,8 +201,28 @@ func (sf *factory) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
-		break
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			for _, p := range reg.All() {
+				if s, ok := p.(lifecycle.Starter); ok {
+					if err := s.Start(ctx); err != nil {
+						return errors.Wrap(err, "failed to start protocol")
+					}
+				}
+			}
+		}
 	case db.ErrNotExist:
+		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init factory's height")
+		}
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			for _, p := range reg.All() {
+				if s, ok := p.(lifecycle.Starter); ok {
+					if err := s.Start(ctx); err != nil {
+						return errors.Wrap(err, "failed to start protocol")
+					}
+				}
+			}
+		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -213,9 +234,6 @@ func (sf *factory) Start(ctx context.Context) error {
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
-		}
-		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init factory's height")
 		}
 	default:
 		return err
@@ -433,8 +451,8 @@ func (sf *factory) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
-// Commit persists all changes in RunActions() into the DB
-func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
+// PutBlock persists all changes in RunActions() into the DB
+func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
 	timer := sf.timerFactory.NewTimer("Commit")
 	sf.mutex.Unlock()
@@ -477,6 +495,10 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	}
 
 	return ws.Commit()
+}
+
+func (sf *factory) DeleteTipBlock(_ *block.Block) error {
+	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode

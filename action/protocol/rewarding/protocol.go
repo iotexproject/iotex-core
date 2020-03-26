@@ -104,10 +104,9 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
 func (p *Protocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
-	rp := rolldpos.FindProtocol(bcCtx.Registry)
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
 	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 	}

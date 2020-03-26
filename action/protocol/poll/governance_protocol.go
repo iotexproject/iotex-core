@@ -115,7 +115,7 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -225,8 +225,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	args ...[]byte,
 ) ([]byte, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	switch string(method) {
@@ -339,8 +338,7 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 }
 
 func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNumber := rp.GetEpochNum(height)
 	epochHeight := rp.GetEpochHeight(epochNumber)
 	blkTime, err := p.getBlockTime(epochHeight)

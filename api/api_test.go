@@ -1541,10 +1541,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 
 			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
 			ctx := protocol.WithBlockchainCtx(
-				context.Background(),
+				protocol.WithRegistry(context.Background(), svr.registry),
 				protocol.BlockchainCtx{
-					Genesis:  cfg.Genesis,
-					Registry: svr.registry,
+					Genesis: cfg.Genesis,
 					Tip: protocol.TipInfo{
 						Height:    uint64(4),
 						Timestamp: time.Time{},
@@ -1811,7 +1810,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
@@ -1927,7 +1926,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 			return nil, err
 		}
 		// Add actions to actpool
-		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+		ctx := protocol.WithRegistry(context.Background(), registry)
 		if err := addActsToActPool(ctx, ap); err != nil {
 			return nil, err
 		}
