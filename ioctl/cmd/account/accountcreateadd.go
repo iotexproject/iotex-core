@@ -43,13 +43,6 @@ var accountCreateAddCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	accountCreateAddCmd.Flags().BoolVar(&CryptoSm2, "sm2", false,
-		config.TranslateInLang(flagSm2Usage, config.UILanguage))
-	accountCreateAddCmd.Flags().MarkHidden("sm2")
-
-}
-
 func accountCreateAdd(args []string) error {
 	// Validate inputs
 	if err := validator.ValidateAlias(args[0]); err != nil {

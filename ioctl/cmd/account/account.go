@@ -64,11 +64,6 @@ var (
 // CryptoSm2 is a flag for sm2 cryptographic algorithm
 var CryptoSm2 bool
 
-var flagSm2Usage = map[config.Language]string{
-	config.English: "sm2 cryptographic algorithm",
-	config.Chinese: "sm2签名算法",
-}
-
 // AccountCmd represents the account command
 var AccountCmd = &cobra.Command{
 	Use:   config.TranslateInLang(accountCmdUses, config.UILanguage),
