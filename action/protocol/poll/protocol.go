@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
@@ -126,6 +127,7 @@ func NewProtocol(
 	stakingV2 *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
+	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
@@ -190,7 +192,7 @@ func NewProtocol(
 		// TODO
 		return nil, errors.New("not implemented")
 	case _modeConsortium:
-		return NewConsortiumCommittee(candidateIndexer, readContract)
+		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}

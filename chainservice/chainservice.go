@@ -294,6 +294,7 @@ func New(
 			func(start, end uint64) (map[string]uint64, error) {
 				return blockchain.Productivity(chain, start, end)
 			},
+			dao.GetBlockHash,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")

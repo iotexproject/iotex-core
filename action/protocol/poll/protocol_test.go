@@ -14,6 +14,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -41,6 +42,9 @@ func TestNewProtocol(t *testing.T) {
 		func(uint64) (time.Time, error) { return time.Now(), nil },
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
+		},
+		func(uint64) (hash.Hash256, error) {
+			return hash.ZeroHash256, nil
 		},
 	)
 	require.NoError(err)
