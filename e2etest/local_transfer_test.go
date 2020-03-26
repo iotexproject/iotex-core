@@ -108,20 +108,12 @@ var (
 			TsfSuccess, "Normal transfer from an account with enough balance and gas",
 		},
 		{
-			AcntCreate, nil, big.NewInt(1000000),
-			AcntBadAddr, nil, big.NewInt(1000000),
-			1, big.NewInt(100), // nonce, amount
-			make([]byte, 100),             //payload
-			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-			TsfFail, "Normal transfer to a bad address",
-		},
-		{
-			AcntNotRegistered, nil, big.NewInt(1000000),
-			AcntCreate, nil, big.NewInt(1000000),
-			1, big.NewInt(100), // nonce, amount
-			make([]byte, 100),             //payload
-			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-			TsfFail, "Normal transfer from an address not created on block chain",
+			AcntCreate, nil, big.NewInt(232222),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 0),
+			uint64(200000), big.NewInt(1),
+			TsfSuccess, "Transfer with just enough balance",
 		},
 		{
 			AcntCreate, nil, big.NewInt(1000000),
@@ -132,38 +124,6 @@ var (
 			TsfSuccess, "Normal transfer to an address not created on block chain",
 		},
 		{
-			AcntCreate, nil, big.NewInt(1000000),
-			AcntCreate, nil, big.NewInt(1000000),
-			1, big.NewInt(100),
-			make([]byte, 0),
-			uint64(1000), big.NewInt(1),
-			TsfFail, "Transfer with not enough gas limit",
-		},
-		{
-			AcntCreate, nil, big.NewInt(232222),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(222222),
-			make([]byte, 0),
-			uint64(200000), big.NewInt(1),
-			TsfSuccess, "Transfer with just enough balance",
-		},
-		{
-			AcntCreate, nil, big.NewInt(232221),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(222222),
-			make([]byte, 0),
-			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with not enough balance",
-		},
-		{
-			AcntCreate, nil, big.NewInt(232222),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(222222),
-			make([]byte, 4),
-			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with not enough balance with payload",
-		},
-		{
 			AcntCreate, nil, big.NewInt(100000),
 			AcntCreate, nil, big.NewInt(100000),
 			1, big.NewInt(0),
@@ -172,36 +132,12 @@ var (
 			TsfSuccess, "Transfer with 0 amount",
 		},
 		{
-			AcntCreate, nil, big.NewInt(100000),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(-100),
-			make([]byte, 4),
-			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with negative amount",
-		},
-		{
-			AcntCreate, nil, big.NewInt(100000),
-			AcntCreate, nil, big.NewInt(100000),
-			0, big.NewInt(0),
-			make([]byte, 4),
-			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with nonce 0",
-		},
-		{
 			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
 			AcntCreate, nil, big.NewInt(100000),
 			1, big.NewInt(100),
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfSuccess, "Transfer with same nonce from a single sender 1",
-		},
-		{
-			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(100),
-			make([]byte, 4),
-			uint64(200000), big.NewInt(1),
-			TsfFail, "Transfer with same nonce from a single sender 2",
 		},
 		{
 			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
@@ -220,14 +156,6 @@ var (
 			TsfPending, "Transfer with a sequence of nonce from a single sender 2",
 		},
 		{
-			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
-			AcntCreate, nil, big.NewInt(100000),
-			1, big.NewInt(100),
-			make([]byte, 4),
-			uint64(200000), big.NewInt(1),
-			TsfFinal, "Transfer with a sequence of nonce from a single sender 3",
-		},
-		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
 			AcntCreate, nil, big.NewInt(100000),
 			2, big.NewInt(20000),
@@ -242,6 +170,80 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(0),
 			TsfPending, "Transfer to multiple accounts with not enough total balance 2",
+		},
+		/*
+			{
+				AcntCreate, nil, big.NewInt(1000000),
+				AcntBadAddr, nil, big.NewInt(1000000),
+				1, big.NewInt(100), // nonce, amount
+				make([]byte, 100),             //payload
+				uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+				TsfFail, "Normal transfer to a bad address",
+			},
+			{
+				AcntNotRegistered, nil, big.NewInt(1000000),
+				AcntCreate, nil, big.NewInt(1000000),
+				1, big.NewInt(100), // nonce, amount
+				make([]byte, 100),             //payload
+				uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+				TsfFail, "Normal transfer from an address not created on block chain",
+			},
+			{
+				AcntCreate, nil, big.NewInt(232221),
+				AcntCreate, nil, big.NewInt(100000),
+				1, big.NewInt(222222),
+				make([]byte, 0),
+				uint64(200000), big.NewInt(1),
+				TsfFail, "Transfer with not enough balance",
+			},
+			{
+				AcntCreate, nil, big.NewInt(232222),
+				AcntCreate, nil, big.NewInt(100000),
+				1, big.NewInt(222222),
+				make([]byte, 4),
+				uint64(200000), big.NewInt(1),
+				TsfFail, "Transfer with not enough balance with payload",
+			},
+			{
+				AcntCreate, nil, big.NewInt(100000),
+				AcntCreate, nil, big.NewInt(100000),
+				1, big.NewInt(-100),
+				make([]byte, 4),
+				uint64(200000), big.NewInt(1),
+				TsfFail, "Transfer with negative amount",
+			},
+		*/
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntCreate, nil, big.NewInt(1000000),
+			1, big.NewInt(100),
+			make([]byte, 0),
+			uint64(1000), big.NewInt(1),
+			TsfFail, "Transfer with not enough gas limit",
+		},
+		{
+			AcntCreate, nil, big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			0, big.NewInt(0),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with nonce 0",
+		},
+		{
+			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with same nonce from a single sender 2",
+		},
+		{
+			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFinal, "Transfer with a sequence of nonce from a single sender 3",
 		},
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),

@@ -102,6 +102,10 @@ func (ws *workingSet) runActions(
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
+		ctx, err := withActionCtx(ctx, elp)
+		if err != nil {
+			return nil, err
+		}
 		receipt, err := ws.runAction(ctx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
@@ -114,27 +118,30 @@ func (ws *workingSet) runActions(
 	return receipts, nil
 }
 
+func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
+	var actionCtx protocol.ActionCtx
+	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
+	if err != nil {
+		return nil, err
+	}
+	actionCtx.Caller = caller
+	actionCtx.ActionHash = selp.Hash()
+	actionCtx.GasPrice = selp.GasPrice()
+	intrinsicGas, err := selp.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	actionCtx.IntrinsicGas = intrinsicGas
+	actionCtx.Nonce = selp.Nonce()
+
+	return protocol.WithActionCtx(ctx, actionCtx), nil
+}
+
 func (ws *workingSet) runAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
-	var actionCtx protocol.ActionCtx
-	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
-	if err != nil {
-		return nil, err
-	}
-	actionCtx.Caller = caller
-	actionCtx.ActionHash = elp.Hash()
-	actionCtx.GasPrice = elp.GasPrice()
-	intrinsicGas, err := elp.IntrinsicGas()
-	if err != nil {
-		return nil, err
-	}
-	actionCtx.IntrinsicGas = intrinsicGas
-	actionCtx.Nonce = elp.Nonce()
-
-	ctx = protocol.WithActionCtx(ctx, actionCtx)
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
 		return nil, nil
@@ -144,10 +151,8 @@ func (ws *workingSet) runAction(
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
-				"error when action %x (nonce: %d) from %s mutates states",
+				"error when action %x mutates states",
 				elp.Hash(),
-				elp.Nonce(),
-				caller.String(),
 			)
 		}
 		if receipt != nil {
@@ -279,7 +284,19 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	var err error
+	reg := protocol.MustGetRegistry(ctx)
+	for _, act := range actions {
+		if ctx, err = withActionCtx(ctx, act); err != nil {
+			return nil, err
+		}
+		for _, validator := range reg.All() {
+			if err := validator.Validate(ctx, act.Action()); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, err
@@ -301,14 +318,16 @@ func (ws *workingSet) pickAndRunActions(
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) ([]*action.Receipt, []action.SealedEnvelope, error) {
-	if err := ws.validate(ctx); err != nil {
+	err := ws.validate(ctx)
+	if err != nil {
 		return nil, nil, err
 	}
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
+	reg := protocol.MustGetRegistry(ctx)
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	for _, p := range protocol.MustGetRegistry(ctx).All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, nil, err
@@ -322,6 +341,17 @@ func (ws *workingSet) pickAndRunActions(
 		nextAction, ok := actionIterator.Next()
 		if !ok {
 			break
+		}
+		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			for _, validator := range reg.All() {
+				if err = validator.Validate(ctx, nextAction.Action()); err != nil {
+					break
+				}
+			}
+		}
+		if err != nil {
+			actionIterator.PopAccount()
+			continue
 		}
 		receipt, err := ws.runAction(ctx, nextAction)
 		if err != nil {
@@ -348,6 +378,9 @@ func (ws *workingSet) pickAndRunActions(
 		}
 	}
 	for _, selp := range postSystemActions {
+		if ctx, err = withActionCtx(ctx, selp); err != nil {
+			return nil, nil, err
+		}
 		receipt, err := ws.runAction(ctx, selp)
 		if err != nil {
 			return nil, nil, err

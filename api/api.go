@@ -528,11 +528,7 @@ func (api *Server) GetEpochMeta(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	bcCtx, err := api.bc.Context()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	numBlks, produce, err := api.getProductivityByEpoch(bcCtx, in.EpochNumber, activeConsensusBlockProducers)
+	numBlks, produce, err := api.getProductivityByEpoch(rp, in.EpochNumber, api.bc.TipHeight(), activeConsensusBlockProducers)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -1430,13 +1426,12 @@ func (api *Server) isGasLimitEnough(
 }
 
 func (api *Server) getProductivityByEpoch(
-	ctx context.Context,
+	rp *rolldpos.Protocol,
 	epochNum uint64,
+	tipHeight uint64,
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	num, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, func(start uint64, end uint64) (map[string]uint64, error) {
+	num, produce, err := rp.ProductivityByEpoch(epochNum, tipHeight, func(start uint64, end uint64) (map[string]uint64, error) {
 		return blockchain.Productivity(api.bc, start, end)
 	})
 	if err != nil {

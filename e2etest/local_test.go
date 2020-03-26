@@ -173,14 +173,13 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		sf2,
 		blockchain.BoltDBDaoOption(sf2),
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
 			protocol.NewGenericValidator(sf2, accountutil.AccountState),

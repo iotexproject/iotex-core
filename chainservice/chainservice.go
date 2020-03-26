@@ -109,18 +109,19 @@ func New(
 			return nil, err
 		}
 	}
+	registry := protocol.NewRegistry()
 	// create state factory
 	var sf factory.Factory
 	if ops.isTesting {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption())
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	} else {
 		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
@@ -128,8 +129,6 @@ func New(
 	}
 	indexers = append(indexers, sf)
 	var chainOpts []blockchain.Option
-	registry := protocol.NewRegistry()
-	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee

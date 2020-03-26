@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -68,14 +69,14 @@ func TestSnapshot(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
-	require.NoError(err)
 	registry := protocol.NewRegistry()
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
+	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{
 				Genesis: cfg.Genesis,
 			},
@@ -101,14 +102,14 @@ func TestSDBSnapshot(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
-	require.NoError(err)
 	registry := protocol.NewRegistry()
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
+	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{
 				Genesis: cfg.Genesis,
 			},
@@ -232,15 +233,19 @@ func TestSDBCandidates(t *testing.T) {
 }
 
 func testCandidates(sf Factory, t *testing.T) {
-	sc := state.CandidateList{
-		&state.Candidate{
-			Address: identityset.Address(1).String(),
-			Votes:   big.NewInt(2),
-		},
-		&state.Candidate{
-			Address: identityset.Address(2).String(),
-			Votes:   big.NewInt(22),
-		},
+	sc := state.CandidateList{}
+	result := types.NewElectionResultForTest(time.Now())
+	for _, c := range result.Delegates() {
+		oa, err := address.FromString(string(c.OperatorAddress()))
+		require.NoError(t, err)
+		ra, err := address.FromString(string(c.RewardAddress()))
+		require.NoError(t, err)
+		sc = append(sc, &state.Candidate{
+			Address:       oa.String(),
+			Votes:         c.Score(),
+			RewardAddress: ra.String(),
+			CanName:       c.Name(),
+		})
 	}
 	act := action.NewPutPollResult(1, 1, sc)
 	bd := &action.EnvelopeBuilder{}
@@ -255,11 +260,10 @@ func testCandidates(sf Factory, t *testing.T) {
 	defer ctrl.Finish()
 
 	committee := mock_committee.NewMockCommittee(ctrl)
-	committee.EXPECT().ResultByHeight(uint64(123456)).Return(nil, nil).AnyTimes()
+	committee.EXPECT().ResultByHeight(uint64(123456)).Return(result, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 
-	registry := protocol.NewRegistry()
-	require.NoError(t, registry.Register("rolldpos", rolldpos.NewProtocol(36, 36, 20)))
+	require.NoError(t, sf.Register(rolldpos.NewProtocol(36, 36, 20)))
 	cfg := config.Default
 	slasher, err := poll.NewSlasher(
 		&cfg.Genesis,
@@ -287,7 +291,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		slasher,
 	)
 	require.NoError(t, err)
-	require.NoError(t, registry.Register("poll", p))
+	require.NoError(t, sf.Register(p))
 	gasLimit := testutil.TestGasLimit
 
 	// TODO: investigate why registry cannot be added in the Blockchain Ctx
@@ -309,7 +313,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NoError(t, sf.PutBlock(protocol.WithBlockCtx(protocol.WithBlockchainCtx(
-		protocol.WithRegistry(context.Background(), registry),
+		context.Background(),
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
 		},
@@ -321,11 +325,10 @@ func testCandidates(sf Factory, t *testing.T) {
 
 	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(candidates))
-	require.Equal(t, candidates[0].Address, identityset.Address(1).String())
-	require.Equal(t, candidates[0].Votes, big.NewInt(2))
-	require.Equal(t, candidates[1].Address, identityset.Address(2).String())
-	require.Equal(t, candidates[1].Votes, big.NewInt(22))
+	require.Equal(t, len(sc), len(candidates))
+	for i, c := range candidates {
+		require.True(t, c.Equal(sc[i]))
+	}
 }
 
 func TestState(t *testing.T) {
@@ -389,9 +392,8 @@ func testState(sf Factory, t *testing.T) {
 	// Create a dummy iotex address
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, acc.Register(registry))
+	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
@@ -404,7 +406,7 @@ func testState(sf Factory, t *testing.T) {
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
+		ctx,
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 		},
@@ -454,9 +456,8 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	a := identityset.Address(28).String()
 	b := identityset.Address(31).String()
 	priKeyA := identityset.PrivateKey(28)
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, acc.Register(registry))
+	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
@@ -469,7 +470,7 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
+		ctx,
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 		},
@@ -561,9 +562,8 @@ func testNonce(sf Factory, t *testing.T) {
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	require.NoError(t, acc.Register(registry))
+	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
@@ -574,7 +574,7 @@ func testNonce(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
+		ctx,
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 		})
@@ -674,9 +674,8 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	registry := protocol.NewRegistry()
 	ctx := protocol.WithBlockchainCtx(
-		protocol.WithRegistry(context.Background(), registry),
+		context.Background(),
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 		},
@@ -719,15 +718,15 @@ func TestRunActions(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	registry := protocol.NewRegistry()
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{
 				Genesis: cfg.Genesis,
 			},
@@ -738,7 +737,7 @@ func TestRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	testCommit(sf, registry, t)
+	testCommit(sf, t)
 }
 
 func TestSTXRunActions(t *testing.T) {
@@ -758,7 +757,7 @@ func TestSTXRunActions(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{
 				Genesis: cfg.Genesis,
 			},
@@ -769,10 +768,10 @@ func TestSTXRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
 	}()
-	testCommit(sdb, registry, t)
+	testCommit(sdb, t)
 }
 
-func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
+func testCommit(factory Factory, t *testing.T) {
 	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
@@ -803,7 +802,7 @@ func testCommit(factory Factory, registry *protocol.Registry, t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
+		ctx,
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 			Tip: protocol.TipInfo{
@@ -832,15 +831,15 @@ func TestPickAndRunActions(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	registry := protocol.NewRegistry()
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{Genesis: cfg.Genesis},
 		),
 		protocol.BlockCtx{},
@@ -849,7 +848,7 @@ func TestPickAndRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sf.Stop(ctx))
 	}()
-	testNewBlockBuilder(sf, registry, t)
+	testNewBlockBuilder(sf, t)
 }
 
 func TestSTXPickAndRunActions(t *testing.T) {
@@ -861,15 +860,15 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	registry := protocol.NewRegistry()
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{Genesis: cfg.Genesis},
 		),
 		protocol.BlockCtx{},
@@ -878,27 +877,28 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	defer func() {
 		require.NoError(sdb.Stop(ctx))
 	}()
-	testNewBlockBuilder(sdb, registry, t)
+	testNewBlockBuilder(sdb, t)
 }
 
-func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testing.T) {
+func testNewBlockBuilder(factory Factory, t *testing.T) {
 	require := require.New(t)
 	a := identityset.Address(28).String()
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
 
+	accMap := make(map[string][]action.SealedEnvelope)
 	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
 	elp := bd.SetNonce(1).SetAction(tx1).Build()
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
+	accMap[identityset.Address(28).String()] = []action.SealedEnvelope{selp1}
 
 	addr0 := identityset.Address(27).String()
 	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	accMap := make(map[string][]action.SealedEnvelope)
 	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
 
 	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
@@ -907,6 +907,7 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 	elp = bd.SetNonce(1).SetAction(tx2).Build()
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
+	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
 
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
@@ -916,11 +917,11 @@ func testNewBlockBuilder(factory Factory, registry *protocol.Registry, t *testin
 			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
+		ctx,
 		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
 	)
 
-	blkBuilder, err := factory.NewBlockBuilder(ctx, accMap, []action.SealedEnvelope{selp1, selp2})
+	blkBuilder, err := factory.NewBlockBuilder(ctx, accMap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
 	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
@@ -937,15 +938,15 @@ func TestSimulateExecution(t *testing.T) {
 	cfg.DB.DbPath = testTriePath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	registry := protocol.NewRegistry()
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{Genesis: cfg.Genesis},
 		),
 		protocol.BlockCtx{},
@@ -966,15 +967,15 @@ func TestSTXSimulateExecution(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	registry := protocol.NewRegistry()
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
-			protocol.WithRegistry(context.Background(), registry),
+			context.Background(),
 			protocol.BlockchainCtx{Genesis: cfg.Genesis},
 		),
 		protocol.BlockCtx{},
@@ -1195,13 +1196,12 @@ func benchRunAction(sf Factory, b *testing.B) {
 	for _, acc := range accounts {
 		ge.InitBalanceMap[acc] = big.NewInt(int64(b.N * 100)).String()
 	}
-	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
-	if err := acc.Register(registry); err != nil {
+	if err := sf.Register(acc); err != nil {
 		b.Fatal(err)
 	}
 	ctx := protocol.WithBlockchainCtx(
-		protocol.WithRegistry(context.Background(), registry),
+		context.Background(),
 		protocol.BlockchainCtx{Genesis: ge},
 	)
 	if err := sf.Start(ctx); err != nil {
@@ -1250,7 +1250,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 				GasLimit:    gasLimit,
 			})
 		zctx = protocol.WithBlockchainCtx(
-			protocol.WithRegistry(zctx, registry),
+			zctx,
 			protocol.BlockchainCtx{Genesis: config.Default.Genesis},
 		)
 
