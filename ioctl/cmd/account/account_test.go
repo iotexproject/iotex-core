@@ -49,6 +49,7 @@ func TestAccount(t *testing.T) {
 	r.NoError(err)
 	r.True(IsSignerExist(addr.String()))
 
+	CryptoSm2 = true
 	account2, err := crypto.GenerateKeySm2()
 	r.NoError(err)
 	r.NotNil(account2)
@@ -70,6 +71,7 @@ func TestAccount(t *testing.T) {
 	r.Equal(addr2.String(), accounts[0])
 
 	// test keystore conversion and signing
+	CryptoSm2 = false
 	prvKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
 	r.NoError(err)
 	msg := hash.Hash256b([]byte(nonce))
@@ -77,6 +79,7 @@ func TestAccount(t *testing.T) {
 	r.NoError(err)
 	r.True(prvKey.PublicKey().Verify(msg[:], sig))
 
+	CryptoSm2 = true
 	prvKey2, err := LocalAccountToPrivateKey(addr2.String(), passwd)
 	r.NoError(err)
 	msg2 := hash.Hash256b([]byte(nonce))
