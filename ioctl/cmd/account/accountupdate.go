@@ -59,74 +59,77 @@ func accountUpdate(arg string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert string into addr", err)
 	}
-	// find the keystore and update
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, v := range ks.Accounts() {
-		if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
-			output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
-			currentPassword, err := util.ReadSecretFromStdin()
-			if err != nil {
-				return output.NewError(output.InputError, "failed to get current password", err)
-			}
-			_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
-			if err != nil {
-				return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
-			}
-			output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
-			password, err := util.ReadSecretFromStdin()
-			if err != nil {
-				return output.NewError(output.InputError, "failed to get new password", err)
-			}
-			output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
-			passwordAgain, err := util.ReadSecretFromStdin()
-			if err != nil {
-				return output.NewError(output.InputError, "failed to get new password", err)
-			}
-			if password != passwordAgain {
-				return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
-			}
 
-			if err := ks.Update(v, currentPassword, password); err != nil {
-				return output.NewError(output.KeystoreError, "failed to update keystore", err)
-			}
-
-			output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
-			return nil
+	if CryptoSm2 {
+		// find the pem file and update
+		filePath, err := findSm2PemFile(addr)
+		if err != nil {
+			return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 		}
-	}
 
-	// find the pem file and update
-	filePath, err := findSm2PemFile(addr)
-	if err != nil {
-		return output.NewError(output.ReadFileError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
-	}
+		output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
+		currentPassword, err := util.ReadSecretFromStdin()
+		if err != nil {
+			return output.NewError(output.InputError, "failed to get current password", err)
+		}
+		_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
+		if err != nil {
+			return output.NewError(output.CryptoError, "error occurs when checking current password", err)
+		}
+		output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
+		password, err := util.ReadSecretFromStdin()
+		if err != nil {
+			return output.NewError(output.InputError, "failed to get new password", err)
+		}
+		output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
+		passwordAgain, err := util.ReadSecretFromStdin()
+		if err != nil {
+			return output.NewError(output.InputError, "failed to get new password", err)
+		}
+		if password != passwordAgain {
+			return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+		}
 
-	output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
-	currentPassword, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return output.NewError(output.InputError, "failed to get current password", err)
-	}
-	_, err = crypto.ReadPrivateKeyFromPem(filePath, currentPassword)
-	if err != nil {
-		return output.NewError(output.CryptoError, "error occurs when checking current password", err)
-	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
-	password, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return output.NewError(output.InputError, "failed to get new password", err)
-	}
-	output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
-	passwordAgain, err := util.ReadSecretFromStdin()
-	if err != nil {
-		return output.NewError(output.InputError, "failed to get new password", err)
-	}
-	if password != passwordAgain {
-		return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
-	}
+		if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, password); err != nil {
+			return output.NewError(output.KeystoreError, "failed to update pem file", err)
+		}
+	} else {
+		// find the keystore and update
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, v := range ks.Accounts() {
+			if bytes.Equal(addr.Bytes(), v.Address.Bytes()) {
+				output.PrintQuery(fmt.Sprintf("#%s: Enter current password\n", account))
+				currentPassword, err := util.ReadSecretFromStdin()
+				if err != nil {
+					return output.NewError(output.InputError, "failed to get current password", err)
+				}
+				_, err = ks.SignHashWithPassphrase(v, currentPassword, hash.ZeroHash256[:])
+				if err != nil {
+					return output.NewError(output.KeystoreError, "error occurs when checking current password", err)
+				}
+				output.PrintQuery(fmt.Sprintf("#%s: Enter new password\n", account))
+				password, err := util.ReadSecretFromStdin()
+				if err != nil {
+					return output.NewError(output.InputError, "failed to get new password", err)
+				}
+				output.PrintQuery(fmt.Sprintf("#%s: Enter new password again\n", account))
+				passwordAgain, err := util.ReadSecretFromStdin()
+				if err != nil {
+					return output.NewError(output.InputError, "failed to get new password", err)
+				}
+				if password != passwordAgain {
+					return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
+				}
 
-	if err := crypto.UpdatePrivateKeyPasswordToPem(filePath, currentPassword, password); err != nil {
-		return output.NewError(output.KeystoreError, "failed to update pem file", err)
+				if err := ks.Update(v, currentPassword, password); err != nil {
+					return output.NewError(output.KeystoreError, "failed to update keystore", err)
+				}
+
+				output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))
+				return nil
+			}
+		}
 	}
 
 	output.PrintResult(fmt.Sprintf("Account #%s has been updated.", account))

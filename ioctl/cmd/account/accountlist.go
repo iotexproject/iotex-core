@@ -45,8 +45,7 @@ var accountListCmd = &cobra.Command{
 }
 
 type listMessage struct {
-	Accounts    []account `json:"accounts"`
-	Sm2Accounts []account `json:"sm2Accounts"`
+	Accounts []account `json:"accounts"`
 }
 
 type account struct {
@@ -58,28 +57,30 @@ func accountList() error {
 	message := listMessage{}
 	aliases := alias.GetAliasMap()
 
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	for _, v := range ks.Accounts() {
-		addr, err := address.FromBytes(v.Address.Bytes())
+	if CryptoSm2 {
+		sm2Accounts, err := listSm2Account()
 		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+			return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
 		}
-		message.Accounts = append(message.Accounts, account{
-			Address: addr.String(),
-			Alias:   aliases[addr.String()],
-		})
-	}
-
-	sm2Accounts, err := listSm2Account()
-	if err != nil {
-		return output.NewError(output.ReadFileError, "failed to get sm2 accounts", err)
-	}
-	for _, addr := range sm2Accounts {
-		message.Sm2Accounts = append(message.Sm2Accounts, account{
-			Address: addr,
-			Alias:   aliases[addr],
-		})
+		for _, addr := range sm2Accounts {
+			message.Accounts = append(message.Accounts, account{
+				Address: addr,
+				Alias:   aliases[addr],
+			})
+		}
+	} else {
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, v := range ks.Accounts() {
+			addr, err := address.FromBytes(v.Address.Bytes())
+			if err != nil {
+				return output.NewError(output.ConvertError, "failed to convert bytes into address", err)
+			}
+			message.Accounts = append(message.Accounts, account{
+				Address: addr.String(),
+				Alias:   aliases[addr.String()],
+			})
+		}
 	}
 
 	fmt.Println(message.String())
@@ -96,13 +97,7 @@ func (m *listMessage) String() string {
 			}
 			lines = append(lines, line)
 		}
-		for _, account := range m.Sm2Accounts {
-			line := account.Address + "(sm2)"
-			if account.Alias != "" {
-				line += " - " + account.Alias
-			}
-			lines = append(lines, line)
-		}
+
 		return strings.Join(lines, "\n")
 	}
 	return output.FormatString(output.Result, m)

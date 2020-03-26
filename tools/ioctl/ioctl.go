@@ -7,9 +7,14 @@
 package main
 
 import (
+	"os"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd"
 )
 
 func main() {
-	cmd.Execute()
+	rootCmd := cmd.NewIoctl()
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
 }
