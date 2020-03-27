@@ -123,7 +123,7 @@ func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
-		MethodName: []byte("KickoutListByEpoch"),
+		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
 	}
 	ctx := context.Background()
