@@ -108,8 +108,6 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
 	}
@@ -118,7 +116,20 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			if err := reg.StartAll(ctx); err != nil {
+				return err
+			}
+		}
 	case db.ErrNotExist:
+		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+		if reg, ok := protocol.GetRegistry(ctx); ok {
+			if err := reg.StartAll(ctx); err != nil {
+				return err
+			}
+		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -130,9 +141,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
-		}
-		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
 		return err
