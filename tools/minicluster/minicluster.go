@@ -124,7 +124,7 @@ func main() {
 	}
 	defer func() {
 		for _, svr := range svrs {
-			svr.Stop(context.Background())
+			svr.ChainService(uint32(1)).Stop(context.Background())
 		}
 		if !deleteDBFiles {
 			return
