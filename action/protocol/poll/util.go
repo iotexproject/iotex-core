@@ -196,7 +196,7 @@ func setCandidates(
 	return err
 }
 
-// setNextEpochProbationList sets the probation list for kick-out with next key
+// setNextEpochProbationList sets the probation list with next key
 func setNextEpochProbationList(
 	sm protocol.StateManager,
 	indexer *CandidateIndexer,

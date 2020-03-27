@@ -221,7 +221,7 @@ func (p *Protocol) GrantEpochReward(
 				continue
 			}
 			if candidates[i].Votes.Cmp(big.NewInt(0)) == 0 {
-				// hard kick-out
+				// hard probation
 				continue
 			}
 			count++

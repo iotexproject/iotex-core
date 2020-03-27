@@ -156,7 +156,7 @@ type (
 		DardanellesBlockHeight uint64 `yaml:"dardanellesHeight"`
 		// DaytonaBlockHeight is the height to fix low gas for read native staking contract
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
-		// EasterBlockHeight is the start height of kick-out for slashing
+		// EasterBlockHeight is the start height of probation for slashing
 		EasterBlockHeight uint64 `yaml:"easterHeight"`
 		// FairbankBlockHeight is the start height to switch to native staking V2
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
@@ -194,9 +194,9 @@ type (
 		SelfStakingThreshold string `yaml:"selfStakingThreshold"`
 		// Delegates is a list of delegates with votes
 		Delegates []Delegate `yaml:"delegates"`
-		// ProbationEpochPeriod is a duration of kick-out after delegate's productivity is lower than threshold
+		// ProbationEpochPeriod is a duration of probation after delegate's productivity is lower than threshold
 		ProbationEpochPeriod uint64 `yaml:"probationEpochPeriod"`
-		// ProbationIntensityRate is a intensity rate of kick-out range from [0, 100], where 100 is hard-probation
+		// ProbationIntensityRate is a intensity rate of probation range from [0, 100], where 100 is hard-probation
 		ProbationIntensityRate uint32 `yaml:"probationIntensityRate"`
 		// UnproductiveDelegateMaxCacheSize is a max cache size of upd which is stored into state DB (probationEpochPeriod <= UnproductiveDelegateMaxCacheSize)
 		UnproductiveDelegateMaxCacheSize uint64 `yaml:unproductiveDelegateMaxCacheSize`

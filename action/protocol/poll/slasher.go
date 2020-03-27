@@ -82,7 +82,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
-		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for kick-out and write into state DB
+		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for probation and write into state DB
 		unqualifiedList, err := sh.CalculateProbationList(ctx, sm, epochNum+1)
 		if err != nil {
 			return err
@@ -216,7 +216,7 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 	if sh.hu.IsPre(config.Easter, targetEpochStartHeight) {
 		return sh.candByHeight(sr, targetEpochStartHeight)
 	}
-	// After Easter height, kick-out unqualified delegates based on productivity
+	// After Easter height, probation unqualified delegates based on productivity
 	candidates, stateHeight, err := sh.getCandidates(sr, readFromNext)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get candidates at height %d after easter height", targetEpochStartHeight)
@@ -271,7 +271,7 @@ func (sh *Slasher) GetCandidatesFromIndexer(ctx context.Context, epochStartHeigh
 	if sh.hu.IsPre(config.Easter, epochStartHeight) {
 		return candidates, nil
 	}
-	// After Easter height, kick-out unqualified delegates based on productivity
+	// After Easter height, probation unqualified delegates based on productivity
 	probationList, err := sh.indexer.ProbationList(epochStartHeight)
 	if err != nil {
 		return nil, err
@@ -298,7 +298,7 @@ func (sh *Slasher) GetABPFromIndexer(ctx context.Context, epochStartHeight uint6
 	return sh.calculateActiveBlockProducer(ctx, blockProducers, epochStartHeight)
 }
 
-// GetProbationList returns the kick-out list at given epoch
+// GetProbationList returns the probation list at given epoch
 func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader, readFromNext bool) (*vote.ProbationList, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
@@ -325,7 +325,7 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 	return unqualifiedList, nil
 }
 
-// CalculateProbationList calculates kick-out list according to productivity
+// CalculateProbationList calculates probation list according to productivity
 func (sh *Slasher) CalculateProbationList(
 	ctx context.Context,
 	sm protocol.StateManager,
@@ -391,7 +391,7 @@ func (sh *Slasher) CalculateProbationList(
 	)
 	prevProbationlist, _, err := sh.getProbationList(sm, false)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to read latest kick-out list")
+		return nil, errors.Wrap(err, "failed to read latest probation list")
 	}
 	probationMap := prevProbationlist.ProbationInfo
 	if probationMap == nil {
@@ -510,7 +510,7 @@ func (sh *Slasher) calculateActiveBlockProducer(
 	return activeBlockProducers, nil
 }
 
-// filterCandidates returns filtered candidate list by given raw candidate/ kick-out list
+// filterCandidates returns filtered candidate list by given raw candidate/ probation list
 func filterCandidates(
 	candidates state.CandidateList,
 	unqualifiedList *vote.ProbationList,
@@ -522,7 +522,7 @@ func filterCandidates(
 	for _, cand := range candidates {
 		filterCand := cand.Clone()
 		if _, ok := unqualifiedList.ProbationInfo[cand.Address]; ok {
-			// if it is an unqualified delegate, multiply the voting power with kick-out intensity rate
+			// if it is an unqualified delegate, multiply the voting power with probation intensity rate
 			votingPower := new(big.Float).SetInt(filterCand.Votes)
 			filterCand.Votes, _ = votingPower.Mul(votingPower, big.NewFloat(intensityRate)).Int(nil)
 		}

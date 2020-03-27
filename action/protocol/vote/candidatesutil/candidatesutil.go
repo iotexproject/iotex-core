@@ -105,7 +105,7 @@ func ProbationListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.P
 	probationlistKey := ConstructKey(CurProbationKey)
 	if epochStartPoint {
 		// if not shifted yet
-		log.L().Debug("Read kick-out list with next probation key")
+		log.L().Debug("Read probation list with next probation key")
 		probationlistKey = ConstructKey(NxtProbationKey)
 	}
 	stateHeight, err := sr.State(
@@ -124,7 +124,7 @@ func ProbationListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.P
 	}
 	return nil, stateHeight, errors.Wrapf(
 		err,
-		"failed to get kick-out list with epochStartPoint: %t",
+		"failed to get probation list with epochStartPoint: %t",
 		epochStartPoint,
 	)
 }
