@@ -27,28 +27,28 @@ func (bl *Blacklist) Serialize() ([]byte, error) {
 }
 
 // Proto converts the blacklist to a protobuf message
-func (bl *Blacklist) Proto() *iotextypes.KickoutCandidateList {
-	kickoutListPb := make([]*iotextypes.KickoutInfo, 0, len(bl.BlacklistInfos))
+func (bl *Blacklist) Proto() *iotextypes.ProbationCandidateList {
+	kickoutListPb := make([]*iotextypes.ProbationCandidateList_Info, 0, len(bl.BlacklistInfos))
 	names := make([]string, 0, len(bl.BlacklistInfos))
 	for name := range bl.BlacklistInfos {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	for _, name := range names {
-		kickoutListPb = append(kickoutListPb, &iotextypes.KickoutInfo{
+		kickoutListPb = append(kickoutListPb, &iotextypes.ProbationCandidateList_Info{
 			Address: name,
 			Count:   bl.BlacklistInfos[name],
 		})
 	}
-	return &iotextypes.KickoutCandidateList{
-		Blacklists:    kickoutListPb,
+	return &iotextypes.ProbationCandidateList{
+		ProbationList: kickoutListPb,
 		IntensityRate: bl.IntensityRate,
 	}
 }
 
 // Deserialize deserializes bytes to delegate blacklist
 func (bl *Blacklist) Deserialize(buf []byte) error {
-	blackList := &iotextypes.KickoutCandidateList{}
+	blackList := &iotextypes.ProbationCandidateList{}
 	if err := proto.Unmarshal(buf, blackList); err != nil {
 		return errors.Wrap(err, "failed to unmarshal blacklist")
 	}
@@ -56,9 +56,9 @@ func (bl *Blacklist) Deserialize(buf []byte) error {
 }
 
 // LoadProto loads blacklist from proto
-func (bl *Blacklist) LoadProto(blackListpb *iotextypes.KickoutCandidateList) error {
+func (bl *Blacklist) LoadProto(blackListpb *iotextypes.ProbationCandidateList) error {
 	blackListMap := make(map[string]uint32, 0)
-	candidates := blackListpb.Blacklists
+	candidates := blackListpb.ProbationList
 	for _, cand := range candidates {
 		blackListMap[cand.Address] = cand.Count
 	}

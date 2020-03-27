@@ -361,7 +361,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
-	case "KickoutListByEpoch":
+	case "ProbationListByEpoch":
 		if len(args) != 0 {
 			epochNum = byteutil.BytesToUint64(args[0])
 			epochStartHeight = rp.GetEpochHeight(epochNum)
