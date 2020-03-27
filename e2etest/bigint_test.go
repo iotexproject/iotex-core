@@ -45,7 +45,8 @@ func TestTransfer_Negative(t *testing.T) {
 	r.NoError(err)
 	blk, err := prepareTransfer(bc, sf, r)
 	r.NoError(err)
-	r.Error(bc.ValidateBlock(blk))
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
 	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -61,7 +62,8 @@ func TestAction_Negative(t *testing.T) {
 	blk, err := prepareAction(bc, sf, r)
 	r.NoError(err)
 	r.NotNil(blk)
-	r.Error(bc.ValidateBlock(blk))
+	r.Equal(1, len(blk.Actions))
+	r.NoError(bc.ValidateBlock(blk))
 	state, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
@@ -77,14 +79,13 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -94,7 +95,6 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	reward := rewarding.NewProtocol(nil)
 	r.NoError(reward.Register(registry))
 
-	r.NoError(bc.Start(ctx))
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))

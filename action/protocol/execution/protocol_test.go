@@ -298,7 +298,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
 	// create state factory
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
@@ -310,7 +310,6 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -477,7 +476,7 @@ func TestProtocol_Handle(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -491,7 +490,6 @@ func TestProtocol_Handle(t *testing.T) {
 			cfg,
 			dao,
 			sf,
-			blockchain.RegistryOption(registry),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),

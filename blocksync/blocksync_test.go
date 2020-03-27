@@ -185,7 +185,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -196,7 +196,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 		cfg,
 		dao,
 		sf,
-		bc.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -247,7 +246,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap1)
@@ -258,7 +257,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg,
 		dao,
 		sf,
-		bc.RegistryOption(registry),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NotNil(chain1)
@@ -272,7 +270,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rp.Register(registry2))
-	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -283,7 +281,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 		cfg,
 		dao2,
 		sf2,
-		bc.RegistryOption(registry2),
 		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NotNil(chain2)
@@ -349,7 +346,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg.Genesis.NumSubEpochs,
 	)
 	require.NoError(rolldposProtocol.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap1, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NotNil(ap1)
@@ -360,7 +357,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg,
 		dao,
 		sf,
-		bc.RegistryOption(registry),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NoError(chain1.Start(ctx))
@@ -373,7 +369,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
 	require.NoError(rolldposProtocol.Register(registry2))
-	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf2, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry2))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap2)
@@ -384,7 +380,6 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		cfg,
 		dao2,
 		sf2,
-		bc.RegistryOption(registry2),
 		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NoError(chain2.Start(ctx))
@@ -443,7 +438,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -454,7 +449,6 @@ func TestBlockSyncerSync(t *testing.T) {
 		cfg,
 		dao,
 		sf,
-		bc.RegistryOption(registry),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))

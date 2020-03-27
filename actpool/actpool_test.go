@@ -136,14 +136,13 @@ func TestActPool_AddActs(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "10"
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	require.NoError(bc.Start(context.Background()))
 	// Create actpool
@@ -305,14 +304,13 @@ func TestActPool_PickActs(t *testing.T) {
 		cfgDefault := config.Default
 		cfgDefault.Genesis.InitBalanceMap[addr1] = "100"
 		cfgDefault.Genesis.InitBalanceMap[addr2] = "10"
-		sf, err := factory.NewFactory(cfgDefault, factory.InMemTrieOption())
+		sf, err := factory.NewFactory(cfgDefault, factory.InMemTrieOption(), factory.RegistryOption(registry))
 		require.NoError(err)
 		dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfgDefault.Chain.CompressBlock, cfgDefault.DB)
 		bc := blockchain.NewBlockchain(
 			cfgDefault,
 			dao,
 			sf,
-			blockchain.RegistryOption(registry),
 		)
 		require.NoError(bc.Start(context.Background()))
 		// Create actpool
@@ -384,14 +382,13 @@ func TestActPool_removeConfirmedActs(t *testing.T) {
 	registry := protocol.NewRegistry()
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -458,14 +455,13 @@ func TestActPool_Reset(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr3] = "300"
 	cfg.Genesis.InitBalanceMap[addr4] = "10"
 	cfg.Genesis.InitBalanceMap[addr5] = "20"
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -831,14 +827,13 @@ func TestActPool_removeInvalidActs(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -884,14 +879,13 @@ func TestActPool_GetPendingNonce(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -933,14 +927,13 @@ func TestActPool_GetUnconfirmedActs(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	cfg.Genesis.InitBalanceMap[addr2] = "100"
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -1040,14 +1033,13 @@ func TestActPool_GetSize(t *testing.T) {
 	cfg := config.Default
 	cfg.Genesis.InitBalanceMap[addr1] = "100"
 	re := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(re))
 	require.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(re),
 	)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))

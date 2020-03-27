@@ -41,7 +41,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 	require.NotNil(ap)
@@ -52,7 +52,6 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 		sf,
 		blockchain.InMemDaoOption(sf),
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -144,14 +143,13 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	registry := protocol.NewRegistry()
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		sf,
 		blockchain.InMemDaoOption(sf),
-		blockchain.RegistryOption(registry),
 	)
 	require.NotNil(chain)
 	require.NoError(chain.Start(ctx))

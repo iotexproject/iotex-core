@@ -101,7 +101,7 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
+		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 	}
 )
 
@@ -137,8 +137,7 @@ type blockchain struct {
 	timerFactory   *prometheustimer.TimerFactory
 
 	// used by account-based model
-	bbf      BlockBuilderFactory
-	registry *protocol.Registry
+	bbf BlockBuilderFactory
 }
 
 // ActPoolManager defines the actpool interface
@@ -196,14 +195,6 @@ func ClockOption(clk clock.Clock) Option {
 	return func(bc *blockchain, conf config.Config) error {
 		bc.clk = clk
 
-		return nil
-	}
-}
-
-// RegistryOption sets the blockchain with the protocol registry
-func RegistryOption(registry *protocol.Registry) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.registry = registry
 		return nil
 	}
 }
@@ -391,11 +382,12 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 	}
 
 	return protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, bc.registry),
+		ctx,
 		protocol.BlockchainCtx{
 			Genesis: bc.config.Genesis,
 			Tip:     tip,
-		}), nil
+		},
+	), nil
 }
 
 func (bc *blockchain) MintNewBlock(
@@ -418,23 +410,13 @@ func (bc *blockchain) MintNewBlock(
 	ctx = bc.contextWithBlock(ctx, bc.config.ProducerAddress(), newblockHeight, timestamp)
 	// run execution and update state trie root hash
 	minterPrivateKey := bc.config.ProducerPrivateKey()
-	postSystemActions := make([]action.SealedEnvelope, 0)
-	for _, p := range bc.registry.All() {
-		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
-			if err != nil {
-				return nil, err
-			}
-			for _, elp := range elps {
-				se, err := action.Sign(elp, minterPrivateKey)
-				if err != nil {
-					return nil, err
-				}
-				postSystemActions = append(postSystemActions, se)
-			}
-		}
-	}
-	blockBuilder, err := bc.bbf.NewBlockBuilder(ctx, actionMap, postSystemActions)
+	blockBuilder, err := bc.bbf.NewBlockBuilder(
+		ctx,
+		actionMap,
+		func(elp action.Envelope) (action.SealedEnvelope, error) {
+			return action.Sign(elp, minterPrivateKey)
+		},
+	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create block builder at new block height %d", newblockHeight)
 	}

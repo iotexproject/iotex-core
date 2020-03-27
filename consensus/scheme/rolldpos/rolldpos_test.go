@@ -413,9 +413,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
 			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
-			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-			require.NoError(t, err)
 			registry := protocol.NewRegistry()
+			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+			require.NoError(t, err)
 			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
 				protocol.WithRegistry(ctx, registry),
 				protocol.BlockchainCtx{
@@ -431,7 +431,6 @@ func TestRollDPoSConsensus(t *testing.T) {
 				nil,
 				sf,
 				blockchain.InMemDaoOption(sf),
-				blockchain.RegistryOption(registry),
 				blockchain.BlockValidatorOption(block.NewValidator(
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),

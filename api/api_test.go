@@ -1539,18 +1539,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), svr.registry),
-				protocol.BlockchainCtx{
-					Genesis: cfg.Genesis,
-					Tip: protocol.TipInfo{
-						Height:    uint64(4),
-						Timestamp: time.Time{},
-					},
-				},
-			)
-			mbc.EXPECT().Context().Return(ctx, nil).Times(1)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(4)
 			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))
@@ -1799,7 +1788,8 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -1815,12 +1805,10 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
-	registry := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
