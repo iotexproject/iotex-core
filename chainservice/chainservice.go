@@ -237,6 +237,7 @@ func New(
 		pollProtocol    poll.Protocol
 		stakingProtocol *staking.Protocol
 	)
+	// staking protocol need to be put in registry before poll protocol when enabling
 	if cfg.Chain.EnableStakingProtocol {
 		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
 		if err != nil {

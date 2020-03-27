@@ -113,36 +113,7 @@ func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.C
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
-	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
-		// if the block height is the end of epoch and next epoch is after the Easter height, calculate blacklist for kick-out and write into state DB
-		unqualifiedList, err := p.sh.CalculateKickoutList(ctx, sm, epochNum+1)
-		if err != nil {
-			return err
-		}
-		return setNextEpochBlacklist(sm, p.indexer, nextEpochStartHeight, unqualifiedList)
-	}
-	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
-		prevHeight, err := shiftCandidates(sm)
-		if err != nil {
-			return err
-		}
-		afterHeight, err := shiftKickoutList(sm)
-		if err != nil {
-			return err
-		}
-		if prevHeight != afterHeight {
-			return errors.Wrap(ErrInconsistentHeight, "shifting candidate height is not same as shifting kickout height")
-		}
-	}
-	return nil
+	return p.sh.CreatePreStates(ctx, sm, p.indexer)
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
@@ -224,74 +195,7 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
-	epochStartHeight := rp.GetEpochHeight(epochNum)
 	switch string(method) {
-	case "CandidatesByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
-		if p.indexer != nil {
-			candidates, err := p.sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
-			if err == nil {
-				return candidates.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
-				}
-			}
-		}
-		candidates, err := p.sh.GetCandidates(ctx, sr, false)
-		if err != nil {
-			return nil, err
-		}
-		return candidates.Serialize()
-	case "BlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
-		if p.indexer != nil {
-			blockProducers, err := p.sh.GetBPFromIndexer(ctx, epochStartHeight)
-			if err == nil {
-				return blockProducers.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
-				}
-			}
-		}
-		blockProducers, err := p.sh.GetBlockProducers(ctx, sr, false)
-		if err != nil {
-			return nil, err
-		}
-		return blockProducers.Serialize()
-	case "ActiveBlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
-		if p.indexer != nil {
-			activeBlockProducers, err := p.sh.GetABPFromIndexer(ctx, epochStartHeight)
-			if err == nil {
-				return activeBlockProducers.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
-				}
-			}
-		}
-		activeBlockProducers, err := p.sh.GetActiveBlockProducers(ctx, sr, false)
-		if err != nil {
-			return nil, err
-		}
-		return activeBlockProducers.Serialize()
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
@@ -301,29 +205,8 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 			return nil, err
 		}
 		return byteutil.Uint64ToBytes(gravityStartheight), nil
-	case "KickoutListByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
-		if p.indexer != nil {
-			kickoutList, err := p.indexer.KickoutList(epochStartHeight)
-			if err == nil {
-				return kickoutList.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
-				}
-			}
-		}
-		kickoutList, err := p.sh.GetKickoutList(ctx, sr, false)
-		if err != nil {
-			return nil, err
-		}
-		return kickoutList.Serialize()
 	default:
-		return nil, errors.New("corresponding method isn't found")
+		return p.sh.ReadState(ctx, sr, p.indexer, method, args...)
 	}
 }
 

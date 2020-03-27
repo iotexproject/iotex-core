@@ -124,7 +124,7 @@ func NewProtocol(
 	getkickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
-	stakingV2 *staking.Protocol,
+	stakingProto *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
@@ -134,18 +134,17 @@ func NewProtocol(
 		return nil, nil
 	}
 
+	var (
+		slasher        *Slasher
+		scoreThreshold *big.Int
+	)
 	switch genesisConfig.PollMode {
-	case _modeLifeLong:
-		delegates := genesisConfig.Delegates
-		if uint64(len(delegates)) < genesisConfig.NumDelegates {
-			return nil, errors.New("invalid delegate address in genesis block")
-		}
-		return NewLifeLongDelegatesProtocol(delegates), nil
-	case _modeGovernanceMix:
-		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
-			return nil, errors.New("gravity chain voting is not enabled")
-		}
-		slasher, err := NewSlasher(
+	case _modeGovernanceMix, _modeNative, _modeNativeMix:
+		var (
+			err error
+			ok  bool
+		)
+		slasher, err = NewSlasher(
 			&genesisConfig,
 			productivity,
 			candidatesByHeight,
@@ -162,6 +161,18 @@ func NewProtocol(
 		if err != nil {
 			return nil, err
 		}
+		scoreThreshold, ok = new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+		if !ok {
+			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+		}
+	}
+
+	var stakingV1 Protocol
+	switch genesisConfig.PollMode {
+	case _modeGovernanceMix, _modeNativeMix:
+		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
+			return nil, errors.New("gravity chain voting is not enabled")
+		}
 		governance, err := NewGovernanceChainCommitteeProtocol(
 			candidateIndexer,
 			electionCommittee,
@@ -173,11 +184,7 @@ func NewProtocol(
 		if err != nil {
 			return nil, err
 		}
-		scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
-		if !ok {
-			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
-		}
-		return NewStakingCommittee(
+		stakingV1, err = NewStakingCommittee(
 			electionCommittee,
 			governance,
 			readContract,
@@ -185,12 +192,26 @@ func NewProtocol(
 			cfg.Genesis.NativeStakingContractCode,
 			scoreThreshold,
 		)
-	case _modeNative:
-		// TODO
-		return nil, errors.New("not implemented")
-	case _modeNativeMix:
-		// TODO
-		return nil, errors.New("not implemented")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	switch genesisConfig.PollMode {
+	case _modeLifeLong:
+		delegates := genesisConfig.Delegates
+		if uint64(len(delegates)) < genesisConfig.NumDelegates {
+			return nil, errors.New("invalid delegate address in genesis block")
+		}
+		return NewLifeLongDelegatesProtocol(delegates), nil
+	case _modeGovernanceMix:
+		return stakingV1, nil
+	case _modeNativeMix, _modeNative:
+		stakingV2, err := newNativeStakingV2(candidateIndexer, slasher, scoreThreshold, stakingProto)
+		if err != nil {
+			return nil, err
+		}
+		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
 		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
 	default:

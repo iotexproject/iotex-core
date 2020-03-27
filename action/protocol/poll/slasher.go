@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -68,6 +69,130 @@ func NewSlasher(
 		maxKickoutPeriod:      maxKoPeriod,
 		kickoutIntensity:      koIntensity,
 	}, nil
+}
+
+// CreatePreStates is to setup kickout list
+func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
+	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
+		// if the block height is the end of epoch and next epoch is after the Easter height, calculate blacklist for kick-out and write into state DB
+		unqualifiedList, err := sh.CalculateKickoutList(ctx, sm, epochNum+1)
+		if err != nil {
+			return err
+		}
+		return setNextEpochBlacklist(sm, indexer, nextEpochStartHeight, unqualifiedList)
+	}
+	if blkCtx.BlockHeight == epochStartHeight && hu.IsPost(config.Easter, epochStartHeight) {
+		prevHeight, err := shiftCandidates(sm)
+		if err != nil {
+			return err
+		}
+		afterHeight, err := shiftKickoutList(sm)
+		if err != nil {
+			return err
+		}
+		if prevHeight != afterHeight {
+			return errors.Wrap(ErrInconsistentHeight, "shifting candidate height is not same as shifting kickout height")
+		}
+	}
+	return nil
+}
+
+// ReadState defines slasher's read methods.
+func (sh *Slasher) ReadState(
+	ctx context.Context,
+	sr protocol.StateReader,
+	indexer *CandidateIndexer,
+	method []byte,
+	args ...[]byte,
+) ([]byte, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	if len(args) != 0 {
+		epochNum = byteutil.BytesToUint64(args[0])
+		epochStartHeight = rp.GetEpochHeight(epochNum)
+	}
+	switch string(method) {
+	case "CandidatesByEpoch":
+		if indexer != nil {
+			candidates, err := sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return candidates.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
+		}
+		candidates, err := sh.GetCandidates(ctx, sr, false)
+		if err != nil {
+			return nil, err
+		}
+		return candidates.Serialize()
+	case "BlockProducersByEpoch":
+		if indexer != nil {
+			blockProducers, err := sh.GetBPFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return blockProducers.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
+		}
+		blockProducers, err := sh.GetBlockProducers(ctx, sr, false)
+		if err != nil {
+			return nil, err
+		}
+		return blockProducers.Serialize()
+	case "ActiveBlockProducersByEpoch":
+		if indexer != nil {
+			activeBlockProducers, err := sh.GetABPFromIndexer(ctx, epochStartHeight)
+			if err == nil {
+				return activeBlockProducers.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
+		}
+		activeBlockProducers, err := sh.GetActiveBlockProducers(ctx, sr, false)
+		if err != nil {
+			return nil, err
+		}
+		return activeBlockProducers.Serialize()
+	case "KickoutListByEpoch":
+		if indexer != nil {
+			kickoutList, err := indexer.KickoutList(epochStartHeight)
+			if err == nil {
+				return kickoutList.Serialize()
+			}
+			if err != nil {
+				if errors.Cause(err) != ErrIndexerNotExist {
+					return nil, err
+				}
+			}
+		}
+		kickoutList, err := sh.GetKickoutList(ctx, sr, false)
+		if err != nil {
+			return nil, err
+		}
+		return kickoutList.Serialize()
+	default:
+		return nil, errors.New("corresponding method isn't found")
+	}
 }
 
 // EmptyBlacklist returns an empty Blacklist
