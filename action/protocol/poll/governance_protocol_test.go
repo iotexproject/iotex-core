@@ -37,8 +37,8 @@ import (
 func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol.StateManager, *types.ElectionResult, error) {
 	cfg := config.Default
 	cfg.Genesis.EasterBlockHeight = 1 // set up testing after Easter Height
-	cfg.Genesis.KickoutIntensityRate = 90
-	cfg.Genesis.KickoutEpochPeriod = 2
+	cfg.Genesis.ProbationIntensityRate = 90
+	cfg.Genesis.ProbationEpochPeriod = 2
 	cfg.Genesis.ProductivityThreshold = 75
 	ctx := protocol.WithBlockCtx(
 		context.Background(),
@@ -175,15 +175,15 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
 			return candidates, 30, nil
 		},
-		candidatesutil.KickoutListFromDB,
+		candidatesutil.ProbationListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		indexer,
 		2,
 		2,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -281,7 +281,7 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(6).String(): 1,
 	}
 	require.NoError(p.CreateGenesisStates(ctx, sm))
-	// testing for kick-out slashing
+	// testing for probation slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
 		epochStartHeight := rp.GetEpochHeight(epochNum)
@@ -295,19 +295,19 @@ func TestCreatePreStates(t *testing.T) {
 			},
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
-		bl := &vote.Blacklist{}
-		candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+		bl := &vote.ProbationList{}
+		candKey := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
 		_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected := test[epochNum]
-		require.Equal(len(expected), len(bl.BlacklistInfos))
-		for addr, count := range bl.BlacklistInfos {
+		require.Equal(len(expected), len(bl.ProbationInfo))
+		for addr, count := range bl.ProbationInfo {
 			val, ok := expected[addr]
 			require.True(ok)
 			require.Equal(val, count)
 		}
 
-		// at last of epoch, set blacklist into next kickout key
+		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		bcCtx.Tip.Height = epochLastHeight - 1
 		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
@@ -320,13 +320,13 @@ func TestCreatePreStates(t *testing.T) {
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm))
 
-		bl = &vote.Blacklist{}
-		candKey = candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+		bl = &vote.ProbationList{}
+		candKey = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
 		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected = test[epochNum+1]
-		require.Equal(len(expected), len(bl.BlacklistInfos))
-		for addr, count := range bl.BlacklistInfos {
+		require.Equal(len(expected), len(bl.ProbationInfo))
+		for addr, count := range bl.ProbationInfo {
 			val, ok := expected[addr]
 			require.True(ok)
 			require.Equal(val, count)
@@ -577,16 +577,16 @@ func TestNextCandidates(t *testing.T) {
 	defer ctrl.Finish()
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
-	blackListMap := map[string]uint32{
+	probationListMap := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
 	}
 
-	blackList := &vote.Blacklist{
-		BlacklistInfos: blackListMap,
-		IntensityRate:  50,
+	probationList := &vote.ProbationList{
+		ProbationInfo: probationListMap,
+		IntensityRate: 50,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList))
 	filteredCandidates, err := p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(6, len(filteredCandidates))
@@ -601,11 +601,11 @@ func TestNextCandidates(t *testing.T) {
 	}
 
 	// change intensity rate to be 0
-	blackList = &vote.Blacklist{
-		BlacklistInfos: blackListMap,
-		IntensityRate:  0,
+	probationList = &vote.ProbationList{
+		ProbationInfo: probationListMap,
+		IntensityRate: 0,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList))
 	filteredCandidates, err = p.NextCandidates(ctx, sm)
 	require.NoError(err)
 	require.Equal(6, len(filteredCandidates))
@@ -628,13 +628,13 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 
-	// 1: empty blacklist NextDelegates()
-	blackListMap := map[string]uint32{}
-	blackList := &vote.Blacklist{
-		BlacklistInfos: blackListMap,
-		IntensityRate:  90,
+	// 1: empty probationList NextDelegates()
+	probationListMap := map[string]uint32{}
+	probationList := &vote.ProbationList{
+		ProbationInfo: probationListMap,
+		IntensityRate: 90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 31, blackList))
+	require.NoError(setNextEpochProbationList(sm, nil, 31, probationList))
 
 	delegates, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
@@ -642,33 +642,33 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(1).String(), delegates[0].Address)
 	require.Equal(identityset.Address(2).String(), delegates[1].Address)
 
-	// 2: not empty blacklist NextDelegates()
-	blackListMap2 := map[string]uint32{
+	// 2: not empty probationList NextDelegates()
+	probationListMap2 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
 	}
-	blackList2 := &vote.Blacklist{
-		BlacklistInfos: blackListMap2,
-		IntensityRate:  90,
+	probationList2 := &vote.ProbationList{
+		ProbationInfo: probationListMap2,
+		IntensityRate: 90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList2))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList2))
 	delegates2, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
-	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on kick-out list
+	// even though the address 1, 2 have larger amount of votes, it got probated because it's on probation list
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 
-	// 3: kickout out with different blacklist
-	blackListMap3 := map[string]uint32{
+	// 3: probation out with different probationList
+	probationListMap3 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(3).String(): 2,
 	}
-	blackList3 := &vote.Blacklist{
-		BlacklistInfos: blackListMap3,
-		IntensityRate:  90,
+	probationList3 := &vote.ProbationList{
+		ProbationInfo: probationListMap3,
+		IntensityRate: 90,
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList3))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList3))
 
 	delegates3, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
@@ -677,8 +677,8 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
 
-	// 4: shift kickout list and Delegates()
-	_, err = shiftKickoutList(sm)
+	// 4: shift probation list and Delegates()
+	_, err = shiftProbationList(sm)
 	require.NoError(err)
 	delegates4, err := p.Delegates(ctx, sm)
 	require.NoError(err)
@@ -687,19 +687,19 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 		require.True(d.Equal(delegates4[i]))
 	}
 
-	// 5: test hard kick-out
-	blackListMap5 := map[string]uint32{
+	// 5: test hard probation
+	probationListMap5 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 2,
 		identityset.Address(4).String(): 2,
 		identityset.Address(5).String(): 2,
 	}
-	blackList5 := &vote.Blacklist{
-		BlacklistInfos: blackListMap5,
-		IntensityRate:  100, // hard kickout
+	probationList5 := &vote.ProbationList{
+		ProbationInfo: probationListMap5,
+		IntensityRate: 100, // hard probation
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList5))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList5))
 
 	delegates5, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)

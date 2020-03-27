@@ -105,9 +105,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,

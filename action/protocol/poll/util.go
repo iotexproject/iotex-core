@@ -196,20 +196,20 @@ func setCandidates(
 	return err
 }
 
-// setNextEpochBlacklist sets the blacklist for kick-out with next key
-func setNextEpochBlacklist(
+// setNextEpochProbationList sets the probation list with next key
+func setNextEpochProbationList(
 	sm protocol.StateManager,
 	indexer *CandidateIndexer,
 	height uint64,
-	blackList *vote.Blacklist,
+	probationlist *vote.ProbationList,
 ) error {
 	if indexer != nil {
-		if err := indexer.PutKickoutList(height, blackList); err != nil {
-			return errors.Wrapf(err, "failed to put kickoutlist into indexer at height %d", height)
+		if err := indexer.PutProbationList(height, probationlist); err != nil {
+			return errors.Wrapf(err, "failed to put probationlist into indexer at height %d", height)
 		}
 	}
-	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
-	_, err := sm.PutState(blackList, protocol.KeyOption(blackListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	probationListKey := candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
+	_, err := sm.PutState(probationlist, protocol.KeyOption(probationListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
@@ -233,14 +233,14 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	if stateHeight, err = sm.State(&next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next blacklist when shifting to current blacklist",
+			"failed to read next probationlist when shifting to current probationlist",
 		)
 	}
 	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
 	if putStateHeight, err = sm.PutState(&next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+			"failed to write current probationlist when shifting from next probationlist to current probationlist",
 		)
 	}
 	if stateHeight != putStateHeight {
@@ -249,24 +249,24 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	return stateHeight, nil
 }
 
-// shiftKickoutList updates current data with next data of kickout list
-func shiftKickoutList(sm protocol.StateManager) (uint64, error) {
-	zap.L().Debug("Shift kickoutList from next key to current key")
+// shiftProbationList updates current data with next data of probation list
+func shiftProbationList(sm protocol.StateManager) (uint64, error) {
+	zap.L().Debug("Shift probationList from next key to current key")
 	var err error
 	var stateHeight, putStateHeight uint64
-	next := &vote.Blacklist{}
-	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	next := &vote.ProbationList{}
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
 	if stateHeight, err = sm.State(next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next blacklist when shifting to current blacklist",
+			"failed to read next probationlist when shifting to current probationlist",
 		)
 	}
-	curKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
 	if putStateHeight, err = sm.PutState(next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+			"failed to write current probationlist when shifting from next probationlist to current probationlist",
 		)
 	}
 	if stateHeight != putStateHeight {

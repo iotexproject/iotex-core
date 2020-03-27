@@ -991,9 +991,9 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
 				committee,
@@ -1266,9 +1266,9 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
@@ -1334,9 +1334,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
@@ -1402,9 +1402,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
@@ -1526,9 +1526,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,

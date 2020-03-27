@@ -20,7 +20,7 @@ var (
 )
 
 const (
-	// SystemNamespace is the namespace to store system information such as candidates/blacklist/unproductiveDelegates
+	// SystemNamespace is the namespace to store system information such as candidates/probationList/unproductiveDelegates
 	SystemNamespace = "System"
 )
 
