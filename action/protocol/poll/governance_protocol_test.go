@@ -655,7 +655,7 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	delegates2, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 	require.Equal(2, len(delegates2))
-	// even though the address 1, 2 have larger amount of votes, it got kicked out because it's on probation list
+	// even though the address 1, 2 have larger amount of votes, it got probated because it's on probation list
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 

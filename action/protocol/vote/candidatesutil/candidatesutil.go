@@ -115,7 +115,7 @@ func ProbationListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.P
 	)
 	log.L().Debug(
 		"GetProbationList",
-		zap.Any("kick out list", probationList.ProbationInfo),
+		zap.Any("Probation list", probationList.ProbationInfo),
 		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
