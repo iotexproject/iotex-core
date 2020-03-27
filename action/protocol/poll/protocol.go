@@ -124,7 +124,7 @@ func NewProtocol(
 	getkickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
-	stakingV2 *staking.Protocol,
+	stakingProto *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
 	getBlockHash evm.GetBlockHash,
@@ -206,10 +206,12 @@ func NewProtocol(
 		return NewLifeLongDelegatesProtocol(delegates), nil
 	case _modeGovernanceMix:
 		return stakingV1, nil
-	case _modeNativeMix:
-		return NewStakingCommand(candidateIndexer, slasher, scoreThreshold, stakingV1, stakingV2)
-	case _modeNative:
-		return NewStakingCommand(candidateIndexer, slasher, scoreThreshold, nil, stakingV2)
+	case _modeNativeMix, _modeNative:
+		stakingV2, err := newNativeStakingV2(candidateIndexer, slasher, scoreThreshold, stakingProto)
+		if err != nil {
+			return nil, err
+		}
+		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
 		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
 	default:

@@ -8,56 +8,41 @@ package poll
 
 import (
 	"context"
-	"math/big"
-	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/util"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 type stakingCommand struct {
-	addr           address.Address
-	stakingV1      Protocol
-	stakingV2      *staking.Protocol
-	candIndexer    *CandidateIndexer
-	slasher        *Slasher
-	scoreThreshold *big.Int
+	addr      address.Address
+	stakingV1 Protocol
+	stakingV2 Protocol
 }
 
 // NewStakingCommand creates a staking command center to manage staking committee and new native staking
-func NewStakingCommand(
-	candIndexer *CandidateIndexer,
-	sh *Slasher,
-	scoreThreshold *big.Int,
-	stkV1 Protocol,
-	stkV2 *staking.Protocol,
-) (Protocol, error) {
+func NewStakingCommand(stkV1 Protocol, stkV2 Protocol) (Protocol, error) {
+	if stkV1 == nil && stkV2 == nil {
+		return nil, errors.New("empty staking protocol")
+	}
+
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
 	}
 
-	sc := stakingCommand{
-		addr:        addr,
-		stakingV1:   stkV1,
-		stakingV2:   stkV2,
-		candIndexer: candIndexer,
-	}
-
-	if stkV1 == nil && stkV2 == nil {
-		return nil, errors.New("empty staking protocol")
-	}
-	return &sc, nil
+	return &stakingCommand{
+		addr:      addr,
+		stakingV1: stkV1,
+		stakingV2: stkV2,
+	}, nil
 }
 
 func (sc *stakingCommand) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
@@ -65,14 +50,7 @@ func (sc *stakingCommand) CreateGenesisStates(ctx context.Context, sm protocol.S
 	if sc.stakingV1 != nil {
 		return sc.stakingV1.CreateGenesisStates(ctx, sm)
 	}
-
-	cands, err := sc.stakingV2.ActiveCandidates(ctx)
-	if err != nil {
-		return err
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	cands = sc.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp)
-	return setCandidates(ctx, sm, sc.candIndexer, cands, uint64(1))
+	return sc.stakingV2.CreateGenesisStates(ctx, sm)
 }
 
 func (sc *stakingCommand) Start(ctx context.Context) error {
@@ -81,85 +59,88 @@ func (sc *stakingCommand) Start(ctx context.Context) error {
 			return starter.Start(ctx)
 		}
 	}
+	if starter, ok := sc.stakingV2.(lifecycle.Starter); ok {
+		return starter.Start(ctx)
+	}
 	return nil
 }
 
 func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	return sc.slasher.CreatePreStates(ctx, sm, sc.candIndexer)
+	if sc.useV2(ctx, sm) {
+		if p, ok := sc.stakingV2.(protocol.PreStatesCreator); ok {
+			return p.CreatePreStates(ctx, sm)
+		}
+	}
+	if p, ok := sc.stakingV1.(protocol.PreStatesCreator); ok {
+		return p.CreatePreStates(ctx, sm)
+	}
+	return nil
 }
 
 func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
+	// no height here,  v1 v2 has the same createPostSystemActions method, so directly use common one
 	return createPostSystemActions(ctx, sc)
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// transition to V2 starting Fairbank
-	height, err := sm.Height()
-	if err != nil {
-		return nil, err
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if sc.stakingV1 == nil || hu.IsPost(config.Fairbank, height) {
-		return handle(ctx, act, sm, sc.candIndexer, sc.addr.String())
+	if sc.useV2(ctx, sm) {
+		return sc.stakingV2.Handle(ctx, act, sm)
 	}
 	return sc.stakingV1.Handle(ctx, act, sm)
 }
 
 func (sc *stakingCommand) Validate(ctx context.Context, act action.Action) error {
+	// no height here,  v1 v2 has the same validate method, so directly use common one
 	return validate(ctx, sc, act)
 }
 
 func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
-	// transition to V2 starting Fairbank
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if sc.stakingV1 == nil || hu.IsPost(config.Fairbank, height) {
-		cands, err := sc.stakingV2.ActiveCandidates(ctx)
-		if err != nil {
-			return cands, err
-		}
-		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		return sc.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp), nil
+	if sc.useV2ByHeight(ctx, height) {
+		return sc.stakingV2.CalculateCandidatesByHeight(ctx, height)
 	}
 	return sc.stakingV1.CalculateCandidatesByHeight(ctx, height)
 }
 
 // Delegates returns exact number of delegates of current epoch
 func (sc *stakingCommand) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return sc.slasher.GetActiveBlockProducers(ctx, sr, false)
+	if sc.useV2(ctx, sr) {
+		return sc.stakingV2.Delegates(ctx, sr)
+	}
+	return sc.stakingV1.Delegates(ctx, sr)
 }
 
 // NextDelegates returns exact number of delegates of next epoch
 func (sc *stakingCommand) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return sc.slasher.GetActiveBlockProducers(ctx, sr, true)
+	if sc.useV2(ctx, sr) {
+		return sc.stakingV2.NextDelegates(ctx, sr)
+	}
+	return sc.stakingV1.NextDelegates(ctx, sr)
 }
 
 // Candidates returns candidate list from state factory of current epoch
 func (sc *stakingCommand) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return sc.slasher.GetCandidates(ctx, sr, false)
+	if sc.useV2(ctx, sr) {
+		return sc.stakingV2.Candidates(ctx, sr)
+	}
+	return sc.stakingV1.Candidates(ctx, sr)
 }
 
 // NextCandidates returns candidate list from state factory of next epoch
 func (sc *stakingCommand) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return sc.slasher.GetCandidates(ctx, sr, true)
+	if sc.useV2(ctx, sr) {
+		return sc.stakingV2.NextCandidates(ctx, sr)
+	}
+	return sc.stakingV1.NextCandidates(ctx, sr)
 }
 
 func (sc *stakingCommand) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
-	if sc.stakingV1 == nil {
-		return sc.slasher.ReadState(ctx, sr, sc.candIndexer, method, args...)
-	}
-	height, err := sr.Height()
-	if err != nil {
-		return nil, err
-	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Fairbank, height) {
-		res, err := sc.slasher.ReadState(ctx, sr, sc.candIndexer, method, args...)
-		if err == nil {
-			return res, nil
+	if sc.useV2(ctx, sr) {
+		res, err := sc.stakingV2.ReadState(ctx, sr, method, args...)
+		if err != nil && sc.stakingV1 != nil {
+			// check if reading from v1 only method
+			return sc.stakingV1.ReadState(ctx, sr, method, args...)
 		}
+		return res, nil
 	}
 	return sc.stakingV1.ReadState(ctx, sr, method, args...)
 }
@@ -174,20 +155,19 @@ func (sc *stakingCommand) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, sc)
 }
 
-func (sc *stakingCommand) filterAndSortCandidatesByVoteScore(list state.CandidateList, ts time.Time) state.CandidateList {
-	candidates := make(map[string]*state.Candidate)
-	candidateScores := make(map[string]*big.Int)
-	for _, cand := range list {
-		if cand.Votes.Cmp(sc.scoreThreshold) >= 0 {
-			clone := cand.Clone()
-			candidates[string(clone.CanName)] = clone
-			candidateScores[string(clone.CanName)] = clone.Votes
-		}
+func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bool {
+	height, err := sr.Height()
+	if err != nil {
+		panic("failed to return out height from state reader")
 	}
-	sorted := util.Sort(candidateScores, uint64(ts.Unix()))
-	res := make(state.CandidateList, 0, len(sorted))
-	for _, name := range sorted {
-		res = append(res, candidates[name])
+	return sc.useV2ByHeight(ctx, height)
+}
+
+func (sc *stakingCommand) useV2ByHeight(ctx context.Context, height uint64) bool {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if sc.stakingV1 == nil || hu.IsPost(config.Fairbank, height) {
+		return true
 	}
-	return res
+	return false
 }
