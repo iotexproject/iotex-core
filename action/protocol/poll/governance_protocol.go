@@ -98,10 +98,10 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Easter, uint64(1)) {
-		if err := setNextEpochBlacklist(sm,
+		if err := setNextEpochProbationList(sm,
 			p.indexer,
 			uint64(1),
-			p.sh.EmptyBlacklist()); err != nil {
+			p.sh.EmptyProbationList()); err != nil {
 			return err
 		}
 	}

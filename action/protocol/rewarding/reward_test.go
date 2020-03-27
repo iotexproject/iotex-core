@@ -349,9 +349,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		2,
 		2,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	require.NoError(t, err)
 	pp, err := poll.NewGovernanceChainCommitteeProtocol(
 		nil,

@@ -45,10 +45,10 @@ var (
 )
 
 var (
-	epochNum      uint64
-	nextEpoch     bool
-	nodeStatus    map[bool]string
-	kickoutStatus map[bool]string
+	epochNum        uint64
+	nextEpoch       bool
+	nodeStatus      map[bool]string
+	probationStatus map[bool]string
 )
 
 type nextDelegatesMessage struct {
@@ -58,13 +58,13 @@ type nextDelegatesMessage struct {
 }
 
 type delegate struct {
-	Address       string `json:"address"`
-	Rank          int    `json:"rank"`
-	Alias         string `json:"alias"`
-	Active        bool   `json:"active"`
-	Production    int    `json:"production"`
-	Votes         string `json:"votes"`
-	KickoutStatus bool   `json:"kickoutStatus"`
+	Address         string `json:"address"`
+	Rank            int    `json:"rank"`
+	Alias           string `json:"alias"`
+	Active          bool   `json:"active"`
+	Production      int    `json:"production"`
+	Votes           string `json:"votes"`
+	ProbationStatus bool   `json:"probationStatus"`
 }
 
 type delegatesMessage struct {
@@ -192,14 +192,14 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					StartBlock:  int(epochData.Height),
 					TotalBlocks: int(response.TotalBlocks),
 				}
-				kickoutListRes, err := bc.GetKickoutList(epochNum, c)
+				probationListRes, err := bc.GetProbationList(epochNum, c)
 				if err != nil {
-					return output.NewError(0, "failed to get kickout list", err)
+					return output.NewError(0, "failed to get probation list", err)
 				}
-				blacklist := &vote.Blacklist{}
-				if kickoutListRes != nil {
-					if err := blacklist.Deserialize(kickoutListRes.Data); err != nil {
-						return output.NewError(output.SerializationError, "failed to deserialize kickout blacklist", err)
+				probationList := &vote.ProbationList{}
+				if probationListRes != nil {
+					if err := probationList.Deserialize(probationListRes.Data); err != nil {
+						return output.NewError(output.SerializationError, "failed to deserialize probation list", err)
 					}
 				}
 				for rank, bp := range response.BlockProducersInfo {
@@ -207,19 +207,19 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					if !ok {
 						return output.NewError(output.ConvertError, "failed to convert votes into big int", nil)
 					}
-					isBlacklist := false
-					if _, ok := blacklist.BlacklistInfos[bp.Address]; ok {
-						// if it exists in blacklist
-						isBlacklist = true
+					isProbation := false
+					if _, ok := probationList.ProbationInfo[bp.Address]; ok {
+						// if it exists in probation list
+						isProbation = true
 					}
 					delegate := delegate{
-						Address:       bp.Address,
-						Rank:          rank + 1,
-						Alias:         aliases[bp.Address],
-						Active:        bp.Active,
-						Production:    int(bp.Production),
-						Votes:         util.RauToString(votes, util.IotxDecimalNum),
-						KickoutStatus: isBlacklist,
+						Address:         bp.Address,
+						Rank:            rank + 1,
+						Alias:           aliases[bp.Address],
+						Active:          bp.Active,
+						Production:      int(bp.Production),
+						Votes:           util.RauToString(votes, util.IotxDecimalNum),
+						ProbationStatus: isProbation,
 					}
 					message.Delegates = append(message.Delegates, delegate)
 				}
@@ -234,7 +234,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 	nd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
 		flagNextEpochUsage)
 	nodeStatus = map[bool]string{true: "active", false: ""}
-	kickoutStatus = map[bool]string{true: "kicked-out", false: ""}
+	probationStatus = map[bool]string{true: "kicked-out", false: ""}
 	return nd
 }
 
@@ -274,10 +274,10 @@ func (m *delegatesMessage) String() string {
 		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
 		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
 		lines = append(lines, fmt.Sprintf(formatTitleString,
-			"Address", "Rank", "Alias", "Status", "Blocks", "KickoutStatus", "Votes"))
+			"Address", "Rank", "Alias", "Status", "Blocks", "ProbationStatus", "Votes"))
 		for _, bp := range m.Delegates {
 			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Rank,
-				bp.Alias, nodeStatus[bp.Active], bp.Production, kickoutStatus[bp.KickoutStatus], bp.Votes))
+				bp.Alias, nodeStatus[bp.Active], bp.Production, probationStatus[bp.ProbationStatus], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
 	}

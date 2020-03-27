@@ -274,9 +274,9 @@ func testCandidates(sf Factory, t *testing.T) {
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	require.NoError(t, err)
 	p, err := poll.NewGovernanceChainCommitteeProtocol(
 		nil,

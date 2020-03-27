@@ -279,7 +279,7 @@ func New(
 			},
 			candidatesutil.CandidatesByHeight,
 			candidatesutil.CandidatesFromDB,
-			candidatesutil.KickoutListFromDB,
+			candidatesutil.ProbationListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
 			stakingProtocol,
