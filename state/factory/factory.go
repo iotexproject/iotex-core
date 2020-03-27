@@ -184,8 +184,6 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 }
 
 func (sf *factory) Start(ctx context.Context) error {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	err := sf.dao.Start(ctx)
 	if err != nil {
 		return err
@@ -202,12 +200,8 @@ func (sf *factory) Start(ctx context.Context) error {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
 		if reg, ok := protocol.GetRegistry(ctx); ok {
-			for _, p := range reg.All() {
-				if s, ok := p.(lifecycle.Starter); ok {
-					if err := s.Start(ctx); err != nil {
-						return errors.Wrap(err, "failed to start protocol")
-					}
-				}
+			if err := reg.StartAll(ctx); err != nil {
+				return err
 			}
 		}
 	case db.ErrNotExist:
@@ -215,12 +209,8 @@ func (sf *factory) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
 		if reg, ok := protocol.GetRegistry(ctx); ok {
-			for _, p := range reg.All() {
-				if s, ok := p.(lifecycle.Starter); ok {
-					if err := s.Start(ctx); err != nil {
-						return errors.Wrap(err, "failed to start protocol")
-					}
-				}
+			if err := reg.StartAll(ctx); err != nil {
+				return err
 			}
 		}
 		ctx = protocol.WithBlockCtx(
