@@ -117,12 +117,12 @@ func (sh *Slasher) ReadState(
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
 	epochStartHeight := rp.GetEpochHeight(epochNum)
+	if len(args) != 0 {
+		epochNum = byteutil.BytesToUint64(args[0])
+		epochStartHeight = rp.GetEpochHeight(epochNum)
+	}
 	switch string(method) {
 	case "CandidatesByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if indexer != nil {
 			candidates, err := sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -140,10 +140,6 @@ func (sh *Slasher) ReadState(
 		}
 		return candidates.Serialize()
 	case "BlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if indexer != nil {
 			blockProducers, err := sh.GetBPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -161,10 +157,6 @@ func (sh *Slasher) ReadState(
 		}
 		return blockProducers.Serialize()
 	case "ActiveBlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if indexer != nil {
 			activeBlockProducers, err := sh.GetABPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -182,10 +174,6 @@ func (sh *Slasher) ReadState(
 		}
 		return activeBlockProducers.Serialize()
 	case "KickoutListByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if indexer != nil {
 			kickoutList, err := indexer.KickoutList(epochStartHeight)
 			if err == nil {
