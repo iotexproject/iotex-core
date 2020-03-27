@@ -112,8 +112,8 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 	return response, nil
 }
 
-// GetKickoutList gets kickout list
-func GetKickoutList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
+// GetProbationList gets probation list
+func GetProbationList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)

@@ -118,8 +118,8 @@ func GetEpochMeta(epochNum uint64, client ioctl.Client) (*iotexapi.GetEpochMetaR
 	return epochMetaresponse, nil
 }
 
-// GetKickoutList gets kickout list
-func GetKickoutList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadStateResponse, error) {
+// GetProbationList gets probation list
+func GetProbationList(epochNum uint64, client ioctl.Client) (*iotexapi.ReadStateResponse, error) {
 	var endpoint string
 	var insecure bool
 	apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
