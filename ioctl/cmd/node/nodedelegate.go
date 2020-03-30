@@ -100,7 +100,7 @@ func (m *delegatesMessage) String() string {
 				aliasLen = len(bp.Alias)
 			}
 		}
-		lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks in epoch: %d\n",
+		lines := []string{fmt.Sprintf("Epoch: %d,  Start block height: %d,Total blocks produced in epoch: %d\n",
 			m.Epoch, m.StartBlock, m.TotalBlocks)}
 		formatTitleString := "%-41s   %-4s   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6s   %-12s    %s"
 		formatDataString := "%-41s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
