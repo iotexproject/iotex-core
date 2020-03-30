@@ -7,12 +7,14 @@
 package factory
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -23,9 +25,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
-	"github.com/iotexproject/iotex-election/types"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -43,6 +42,8 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-election/types"
 )
 
 const (
@@ -397,16 +398,8 @@ func testState(sf Factory, t *testing.T) {
 	ge := genesis.Default
 	ge.InitBalanceMap[a] = "100"
 	gasLimit := uint64(1000000)
-	ctx := protocol.WithBlockCtx(
+	ctx := protocol.WithBlockchainCtx(
 		context.Background(),
-		protocol.BlockCtx{
-			BlockHeight: 0,
-			Producer:    identityset.Address(27),
-			GasLimit:    gasLimit,
-		},
-	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
 		protocol.BlockchainCtx{
 			Genesis: config.Default.Genesis,
 		},
@@ -1117,6 +1110,116 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
 	})
+}
+
+func TestStates(t *testing.T) {
+	testTriePath, err := testutil.PathOfTempFile(triePath)
+	require.NoError(t, err)
+
+	cfg := config.Default
+	cfg.DB.DbPath = testTriePath
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	require.NoError(t, err)
+	testStates(sf, t)
+}
+
+type AddrSlice []hash.Hash160
+
+func (s AddrSlice) Len() int      { return len(s) }
+func (s AddrSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s AddrSlice) Less(i, j int) bool {
+	si := make([]byte, len(s[i][:]))
+	copy(si, s[i][:])
+
+	sj := make([]byte, len(s[i][:]))
+	copy(sj, s[j][:])
+
+	return bytes.Compare(si, sj) == -1
+}
+
+func testStates(sf Factory, t *testing.T) {
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, sf.Register(acc))
+
+	balanceMap := map[string]string{
+		identityset.Address(9).String():  "900",
+		identityset.Address(6).String():  "600",
+		identityset.Address(1).String():  "100",
+		identityset.Address(8).String():  "800",
+		identityset.Address(2).String():  "200",
+		identityset.Address(5).String():  "500",
+		identityset.Address(4).String():  "400",
+		identityset.Address(10).String(): "1000",
+		identityset.Address(3).String():  "300",
+		identityset.Address(7).String():  "700",
+	}
+	genesis.Default.InitBalanceMap = balanceMap
+
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		},
+	)
+
+	require.NoError(t, sf.Start(ctx))
+	defer func() {
+		require.NoError(t, sf.Stop(ctx))
+	}()
+
+	_, iter, err := sf.States(protocol.FilterOption(func(k []byte, v []byte) bool {
+		var c state.Account
+		state.Deserialize(&c, v)
+
+		if c.Balance == nil {
+			return false
+		}
+		if c.Balance.Cmp(big.NewInt(200)) <= 0 {
+			return false
+		}
+		if c.Balance.Cmp(big.NewInt(900)) >= 0 {
+			return false
+		}
+
+		return true
+	}, nil, nil))
+	require.NoError(t, err)
+
+	addrStrings := []string{
+		identityset.Address(3).String(),
+		identityset.Address(4).String(),
+		identityset.Address(5).String(),
+		identityset.Address(6).String(),
+		identityset.Address(7).String(),
+		identityset.Address(8).String(),
+	}
+	require.Equal(t, len(addrStrings), iter.Size())
+
+	var addrSlice AddrSlice
+	var accounts = make(map[hash.Hash160]state.Account)
+	for _, addrStr := range addrStrings {
+		addr, err := address.FromString(addrStr)
+		require.NoError(t, err)
+
+		var a state.Account
+		h := hash.BytesToHash160(addr.Bytes())
+		_, err = sf.State(&a, protocol.LegacyKeyOption(h))
+		require.NoError(t, err)
+		addrSlice = append(addrSlice, h)
+		accounts[h] = a
+
+		balance, ok := big.NewInt(0).SetString(balanceMap[addrStr], 10)
+		require.True(t, ok)
+		require.Equal(t, balance, a.Balance)
+	}
+
+	sort.Sort(addrSlice)
+	for _, s := range addrSlice {
+		c := &state.Account{}
+		err = iter.Next(c)
+		require.NoError(t, err)
+		require.Equal(t, accounts[s], *c)
+	}
 }
 
 func BenchmarkInMemRunAction(b *testing.B) {
