@@ -137,8 +137,8 @@ func (tsf *Transfer) Cost() (*big.Int, error) {
 	return big.NewInt(0).Add(tsf.Amount(), transferFee), nil
 }
 
-// SelfCheck validates the variables in the action
-func (tsf *Transfer) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (tsf *Transfer) SanityCheck() error {
 	// Reject transfer of negative amount
 	if tsf.Amount().Sign() < 0 {
 		return errors.Wrap(ErrBalance, "negative value")
@@ -148,5 +148,5 @@ func (tsf *Transfer) SelfCheck() error {
 		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
 	}
 
-	return tsf.AbstractAction.SelfCheck()
+	return tsf.AbstractAction.SanityCheck()
 }

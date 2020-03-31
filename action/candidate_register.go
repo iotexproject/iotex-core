@@ -213,11 +213,11 @@ func (cr *CandidateRegister) Cost() (*big.Int, error) {
 	return big.NewInt(0).Add(cr.Amount(), fee), nil
 }
 
-// SelfCheck validates the variables in the action
-func (cr *CandidateRegister) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (cr *CandidateRegister) SanityCheck() error {
 	if cr.Amount().Sign() < 0 {
 		return errors.Wrap(ErrBalance, "negative value")
 	}
 
-	return cr.AbstractAction.SelfCheck()
+	return cr.AbstractAction.SanityCheck()
 }

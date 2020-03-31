@@ -42,27 +42,21 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if !p.inMemCandidates.ContainsName(act.Candidate()) {
 		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
-	return act.AbstractAction.SelfCheck()
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateUnstake(ctx context.Context, act *action.Unstake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateWithdrawStake(ctx context.Context, act *action.WithdrawStake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.ChangeCandidate) error {
@@ -72,43 +66,31 @@ func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.Chan
 	if !IsValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
 	if !p.inMemCandidates.ContainsName(act.Candidate()) {
 		return errors.Wrap(ErrInvalidCanName, "cannot find candidate in candidate center")
 	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateTransferStake(ctx context.Context, act *action.TransferStake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.DepositToStake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) error {
 	if act == nil {
 		return ErrNilAction
 	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
@@ -117,9 +99,6 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	}
 
 	actCtx := protocol.MustGetActionCtx(ctx)
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
 
 	if !IsValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
@@ -145,19 +124,18 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 		if !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 			return ErrInvalidOperator
 		}
-		return nil
-	}
+	} else {
+		// cannot collide with existing name
+		if p.inMemCandidates.ContainsName(act.Name()) {
+			return ErrInvalidCanName
+		}
 
-	// cannot collide with existing name
-	if p.inMemCandidates.ContainsName(act.Name()) {
-		return ErrInvalidCanName
+		// cannot collide with existing operator address
+		if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
+			return ErrInvalidOperator
+		}
 	}
-
-	// cannot collide with existing operator address
-	if p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
-		return ErrInvalidOperator
-	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
@@ -165,9 +143,6 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 
 	if act == nil {
 		return ErrNilAction
-	}
-	if act.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
 	}
 
 	if len(act.Name()) != 0 {
@@ -191,7 +166,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 	if act.OperatorAddress() != nil && !address.Equal(act.OperatorAddress(), c.Operator) && p.inMemCandidates.ContainsOperator(act.OperatorAddress()) {
 		return ErrInvalidOperator
 	}
-	return nil
+	return act.AbstractAction.SanityCheck()
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

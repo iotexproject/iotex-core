@@ -146,11 +146,11 @@ func (cs *CreateStake) Cost() (*big.Int, error) {
 	return big.NewInt(0).Add(cs.Amount(), CreateStakeFee), nil
 }
 
-// SelfCheck validates the variables in the action
-func (cs *CreateStake) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (cs *CreateStake) SanityCheck() error {
 	if cs.Amount().Sign() < 0 {
 		return errors.Wrap(ErrBalance, "negative value")
 	}
 
-	return cs.AbstractAction.SelfCheck()
+	return cs.AbstractAction.SanityCheck()
 }

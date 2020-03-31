@@ -119,11 +119,11 @@ func (ds *DepositToStake) Cost() (*big.Int, error) {
 	return big.NewInt(0).Add(ds.Amount(), depositToStakeFee), nil
 }
 
-// SelfCheck validates the variables in the action
-func (ds *DepositToStake) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (ds *DepositToStake) SanityCheck() error {
 	if ds.Amount().Sign() < 0 {
 		return errors.Wrap(ErrBalance, "negative value")
 	}
 
-	return ds.AbstractAction.SelfCheck()
+	return ds.AbstractAction.SanityCheck()
 }

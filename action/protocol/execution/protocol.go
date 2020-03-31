@@ -85,7 +85,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	if exec.TotalSize() > ExecutionSizeLimit {
 		return errors.Wrap(action.ErrActPool, "oversized data")
 	}
-	return exec.SelfCheck()
+	return exec.SanityCheck()
 }
 
 // ReadState read the state on blockchain via protocol

@@ -134,8 +134,8 @@ func (ex *Execution) Cost() (*big.Int, error) {
 	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
 }
 
-// SelfCheck validates the variables in the action
-func (ex *Execution) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (ex *Execution) SanityCheck() error {
 	// Reject execution of negative amount
 	if ex.Amount().Sign() < 0 {
 		return errors.Wrap(ErrBalance, "negative value")
@@ -146,5 +146,5 @@ func (ex *Execution) SelfCheck() error {
 			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
 		}
 	}
-	return ex.AbstractAction.SelfCheck()
+	return ex.AbstractAction.SanityCheck()
 }

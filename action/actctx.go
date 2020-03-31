@@ -79,8 +79,8 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 	act.hash = selp.Hash()
 }
 
-// SelfCheck validates the variables in the action
-func (act *AbstractAction) SelfCheck() error {
+// SanityCheck validates the variables in the action
+func (act *AbstractAction) SanityCheck() error {
 	// Reject execution of negative gas price
 	if act.GasPrice().Sign() < 0 {
 		return errors.Wrap(ErrGasPrice, "negative value")
