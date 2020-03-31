@@ -216,7 +216,7 @@ ioctl:
 
 .PHONY: xctl
 xctl:
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/ioctl/xctl
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_XCTL) -v ./tools/xctl
 
 .PHONY: iomigrater
 iomigrater:
