@@ -15,22 +15,22 @@ import (
 	updpb "github.com/iotexproject/iotex-core/action/protocol/vote/unproductivedelegatepb"
 )
 
-// UnproductiveDelegate defines unproductive delegates information within kickout period
+// UnproductiveDelegate defines unproductive delegates information within probation period
 type UnproductiveDelegate struct {
-	delegatelist  [][]string
-	kickoutPeriod uint64
-	cacheSize     uint64
+	delegatelist    [][]string
+	probationPeriod uint64
+	cacheSize       uint64
 }
 
-// NewUnproductiveDelegate creates new UnproductiveDelegate with kickoutperiod and cacheSize
-func NewUnproductiveDelegate(kickoutPeriod uint64, cacheSize uint64) (*UnproductiveDelegate, error) {
-	if kickoutPeriod > cacheSize {
-		return nil, errors.New("cache size of unproductiveDelegate should be bigger than kickout period + 1")
+// NewUnproductiveDelegate creates new UnproductiveDelegate with probationperiod and cacheSize
+func NewUnproductiveDelegate(probationPeriod uint64, cacheSize uint64) (*UnproductiveDelegate, error) {
+	if probationPeriod > cacheSize {
+		return nil, errors.New("cache size of unproductiveDelegate should be bigger than probation period + 1")
 	}
 	return &UnproductiveDelegate{
-		delegatelist:  make([][]string, cacheSize),
-		kickoutPeriod: kickoutPeriod,
-		cacheSize:     cacheSize,
+		delegatelist:    make([][]string, cacheSize),
+		probationPeriod: probationPeriod,
+		cacheSize:       cacheSize,
 	}, nil
 }
 
@@ -39,8 +39,8 @@ func (upd *UnproductiveDelegate) AddRecentUPD(new []string) error {
 	delegates := make([]string, len(new))
 	copy(delegates, new)
 	sort.Strings(delegates)
-	upd.delegatelist = append([][]string{delegates}, upd.delegatelist[0:upd.kickoutPeriod-1]...)
-	if len(upd.delegatelist) > int(upd.kickoutPeriod) {
+	upd.delegatelist = append([][]string{delegates}, upd.delegatelist[0:upd.probationPeriod-1]...)
+	if len(upd.delegatelist) > int(upd.probationPeriod) {
 		return errors.New("wrong length of UPD delegatelist")
 	}
 	return nil
@@ -48,7 +48,7 @@ func (upd *UnproductiveDelegate) AddRecentUPD(new []string) error {
 
 // ReadOldestUPD returns the last upd-list
 func (upd *UnproductiveDelegate) ReadOldestUPD() []string {
-	return upd.delegatelist[upd.kickoutPeriod-1]
+	return upd.delegatelist[upd.probationPeriod-1]
 }
 
 // Serialize serializes unproductvieDelegate struct to bytes
@@ -68,9 +68,9 @@ func (upd *UnproductiveDelegate) Proto() *updpb.UnproductiveDelegate {
 		delegatespb = append(delegatespb, listpb)
 	}
 	return &updpb.UnproductiveDelegate{
-		DelegateList:  delegatespb,
-		KickoutPeriod: upd.kickoutPeriod,
-		CacheSize:     upd.cacheSize,
+		DelegateList:    delegatespb,
+		ProbationPeriod: upd.probationPeriod,
+		CacheSize:       upd.cacheSize,
 	}
 }
 
@@ -78,7 +78,7 @@ func (upd *UnproductiveDelegate) Proto() *updpb.UnproductiveDelegate {
 func (upd *UnproductiveDelegate) Deserialize(buf []byte) error {
 	unproductivedelegatePb := &updpb.UnproductiveDelegate{}
 	if err := proto.Unmarshal(buf, unproductivedelegatePb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal blacklist")
+		return errors.Wrap(err, "failed to unmarshal unproductive delegate")
 	}
 	return upd.LoadProto(unproductivedelegatePb)
 }
@@ -94,7 +94,7 @@ func (upd *UnproductiveDelegate) LoadProto(updPb *updpb.UnproductiveDelegate) er
 		delegates = append(delegates, delegateElem)
 	}
 	upd.delegatelist = delegates
-	upd.kickoutPeriod = updPb.KickoutPeriod
+	upd.probationPeriod = updPb.ProbationPeriod
 	upd.cacheSize = updPb.CacheSize
 
 	return nil
@@ -102,7 +102,7 @@ func (upd *UnproductiveDelegate) LoadProto(updPb *updpb.UnproductiveDelegate) er
 
 // Equal compares with other upd struct and returns true if it's equal
 func (upd *UnproductiveDelegate) Equal(upd2 *UnproductiveDelegate) bool {
-	if upd.kickoutPeriod != upd2.kickoutPeriod {
+	if upd.probationPeriod != upd2.probationPeriod {
 		return false
 	}
 	if upd.cacheSize != upd2.cacheSize {

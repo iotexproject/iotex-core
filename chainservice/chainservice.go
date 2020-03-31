@@ -95,33 +95,40 @@ func New(
 	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
-	var err error
-	var ops optionParams
+	// create indexers
+	var (
+		indexers         []blockdao.BlockIndexer
+		indexer          blockindex.Indexer
+		systemLogIndex   *systemlog.Indexer
+		candidateIndexer *poll.CandidateIndexer
+		err              error
+		ops              optionParams
+	)
 	for _, opt := range opts {
 		if err = opt(&ops); err != nil {
 			return nil, err
 		}
 	}
+	registry := protocol.NewRegistry()
 	// create state factory
 	var sf factory.Factory
 	if ops.isTesting {
-		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption())
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	} else {
 		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 		} else {
-			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption())
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		}
 		if err != nil {
 			return nil, errors.Wrapf(err, "Failed to create state factory")
 		}
 	}
+	indexers = append(indexers, sf)
 	var chainOpts []blockchain.Option
-	registry := protocol.NewRegistry()
-	chainOpts = append(chainOpts, blockchain.RegistryOption(registry))
 	var electionCommittee committee.Committee
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
@@ -149,13 +156,6 @@ func New(
 			}
 		}
 	}
-	// create indexers
-	var (
-		indexers         []blockdao.BlockIndexer
-		indexer          blockindex.Indexer
-		systemLogIndex   *systemlog.Indexer
-		candidateIndexer *poll.CandidateIndexer
-	)
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway {
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -236,6 +236,7 @@ func New(
 		pollProtocol    poll.Protocol
 		stakingProtocol *staking.Protocol
 	)
+	// staking protocol need to be put in registry before poll protocol when enabling
 	if cfg.Chain.EnableStakingProtocol {
 		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, sf, cfg.Genesis.Staking)
 		if err != nil {
@@ -277,7 +278,7 @@ func New(
 			},
 			candidatesutil.CandidatesByHeight,
 			candidatesutil.CandidatesFromDB,
-			candidatesutil.KickoutListFromDB,
+			candidatesutil.ProbationListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,
 			electionCommittee,
 			stakingProtocol,
@@ -294,6 +295,7 @@ func New(
 			func(start, end uint64) (map[string]uint64, error) {
 				return blockchain.Productivity(chain, start, end)
 			},
+			dao.GetBlockHash,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate poll protocol")
@@ -465,7 +467,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 	if err := act.LoadProto(actPb); err != nil {
 		return err
 	}
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: cs.registry})
+	ctx = protocol.WithRegistry(ctx, cs.registry)
 	err := cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())

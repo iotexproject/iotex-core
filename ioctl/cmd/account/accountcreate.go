@@ -63,8 +63,6 @@ type generatedAccount struct {
 func init() {
 	accountCreateCmd.Flags().UintVarP(&numAccounts, "num", "n", 1,
 		config.TranslateInLang(flagNumUsages, config.UILanguage))
-	accountCreateCmd.Flags().BoolVar(&CryptoSm2, "sm2", false,
-		config.TranslateInLang(flagSm2Usage, config.UILanguage))
 }
 
 func accountCreate() error {

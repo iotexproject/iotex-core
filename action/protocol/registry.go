@@ -7,8 +7,11 @@
 package protocol
 
 import (
+	"context"
+	"reflect"
 	"sync"
 
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/pkg/errors"
 )
 
@@ -78,8 +81,29 @@ func (r *Registry) All() []Protocol {
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	return r.all()
+}
+
+func (r *Registry) all() []Protocol {
 	all := make([]Protocol, len(r.protocols))
 	copy(all, r.protocols)
 
 	return all
+}
+
+// StartAll starts all protocols which are startable
+func (r *Registry) StartAll(ctx context.Context) error {
+	if r == nil {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	for _, p := range r.all() {
+		if s, ok := p.(lifecycle.Starter); ok {
+			if err := s.Start(ctx); err != nil {
+				return errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(s))
+			}
+		}
+	}
+	return nil
 }

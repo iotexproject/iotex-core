@@ -23,13 +23,13 @@ import (
 var (
 	// CandidateNamespace is a namespace to store raw candidate
 	CandidateNamespace = "candidates"
-	// KickoutNamespace is a namespace to store kickoutlist
-	KickoutNamespace = "kickout"
+	// ProbationNamespace is a namespace to store probationlist
+	ProbationNamespace = "probation"
 	// ErrIndexerNotExist is an error that shows not exist in candidate indexer DB
 	ErrIndexerNotExist = errors.New("not exist in DB")
 )
 
-// CandidateIndexer is an indexer to store candidate/blacklist by given height
+// CandidateIndexer is an indexer to store candidate/probationList by given height
 type CandidateIndexer struct {
 	mutex   sync.RWMutex
 	kvStore db.KVStore
@@ -68,16 +68,16 @@ func (cd *CandidateIndexer) PutCandidateList(height uint64, candidates *state.Ca
 	return cd.kvStore.Put(CandidateNamespace, byteutil.Uint64ToBytes(height), candidatesByte)
 }
 
-// PutKickoutList puts kickout list into indexer
-func (cd *CandidateIndexer) PutKickoutList(height uint64, kickoutList *vote.Blacklist) error {
+// PutProbationList puts probation list into indexer
+func (cd *CandidateIndexer) PutProbationList(height uint64, probationList *vote.ProbationList) error {
 	cd.mutex.Lock()
 	defer cd.mutex.Unlock()
-	kickoutListByte, err := kickoutList.Serialize()
+	probationListByte, err := probationList.Serialize()
 	if err != nil {
 		return err
 	}
-	log.L().Debug("put kickout list into candidate indexer", zap.Uint64("height", height))
-	return cd.kvStore.Put(KickoutNamespace, byteutil.Uint64ToBytes(height), kickoutListByte)
+	log.L().Debug("put probation list into candidate indexer", zap.Uint64("height", height))
+	return cd.kvStore.Put(ProbationNamespace, byteutil.Uint64ToBytes(height), probationListByte)
 }
 
 // CandidateList gets candidate list from indexer given epoch start height
@@ -103,17 +103,17 @@ func (cd *CandidateIndexer) CandidateList(height uint64) (state.CandidateList, e
 	return *candidates, nil
 }
 
-// KickoutList gets kickout list from indexer given epoch start height
-func (cd *CandidateIndexer) KickoutList(height uint64) (*vote.Blacklist, error) {
+// ProbationList gets probation list from indexer given epoch start height
+func (cd *CandidateIndexer) ProbationList(height uint64) (*vote.ProbationList, error) {
 	cd.mutex.RLock()
 	defer cd.mutex.RUnlock()
-	log.L().Debug("get kickoutlist from candidate indexer", zap.Uint64("height", height))
-	bl := &vote.Blacklist{}
-	bytes, err := cd.kvStore.Get(KickoutNamespace, byteutil.Uint64ToBytes(height))
+	log.L().Debug("get probationlist from candidate indexer", zap.Uint64("height", height))
+	bl := &vote.ProbationList{}
+	bytes, err := cd.kvStore.Get(ProbationNamespace, byteutil.Uint64ToBytes(height))
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			log.L().Debug(
-				"failed to kickout list from indexer because does not exist",
+				"failed to probation list from indexer because does not exist",
 				zap.Uint64("epoch height", height),
 			)
 			return nil, ErrIndexerNotExist

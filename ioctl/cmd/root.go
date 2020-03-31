@@ -7,8 +7,6 @@
 package cmd
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
@@ -24,17 +22,29 @@ import (
 
 // Multi-language support
 var (
-	rootCmdShorts = map[config.Language]string{
+	ioctlRootCmdShorts = map[config.Language]string{
 		config.English: "Command-line interface for IoTeX blockchain",
 		config.Chinese: "IoTeX区块链命令行工具",
 	}
-	rootCmdLongs = map[config.Language]string{
+	ioctlRootCmdLongs = map[config.Language]string{
 		config.English: `ioctl is a command-line interface for interacting with IoTeX blockchain.`,
 		config.Chinese: `ioctl 是用于与IoTeX区块链进行交互的命令行工具`,
 	}
-	rootCmdUses = map[config.Language]string{
+	ioctlRootCmdUses = map[config.Language]string{
 		config.English: "ioctl",
 		config.Chinese: "ioctl",
+	}
+	xctlRootCmdShorts = map[config.Language]string{
+		config.English: "Command-line interface for consortium blockchain",
+		config.Chinese: "联盟链命令行工具",
+	}
+	xctlRootCmdLongs = map[config.Language]string{
+		config.English: `xctl is a command-line interface for interacting with consortium blockchain.`,
+		config.Chinese: `xctl 是用于与联盟链进行交互的命令行工具`,
+	}
+	xctlRootCmdUses = map[config.Language]string{
+		config.English: "xctl",
+		config.Chinese: "xctl",
 	}
 	flagOutputFormatUsages = map[config.Language]string{
 		config.English: "output format",
@@ -42,32 +52,50 @@ var (
 	}
 )
 
-// RootCmd represents the base command when called without any subcommands
-var RootCmd = &cobra.Command{
-	Use:   config.TranslateInLang(rootCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(rootCmdShorts, config.UILanguage),
-	Long:  config.TranslateInLang(rootCmdLongs, config.UILanguage),
-}
-
-// Execute adds all child commands to the root command and sets flags appropriately.
-func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		os.Exit(1)
+// NewIoctl returns ioctl root cmd
+func NewIoctl() *cobra.Command {
+	var rootCmd = &cobra.Command{
+		Use:   config.TranslateInLang(ioctlRootCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(ioctlRootCmdShorts, config.UILanguage),
+		Long:  config.TranslateInLang(ioctlRootCmdLongs, config.UILanguage),
 	}
-}
-func init() {
-	RootCmd.AddCommand(config.ConfigCmd)
-	RootCmd.AddCommand(account.AccountCmd)
-	RootCmd.AddCommand(alias.AliasCmd)
-	RootCmd.AddCommand(action.ActionCmd)
-	RootCmd.AddCommand(action.Xrc20Cmd)
-	RootCmd.AddCommand(action.StakeCmd)
-	RootCmd.AddCommand(bc.BCCmd)
-	RootCmd.AddCommand(node.NodeCmd)
-	RootCmd.AddCommand(version.VersionCmd)
-	RootCmd.AddCommand(update.UpdateCmd)
 
-	RootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
+	rootCmd.AddCommand(config.ConfigCmd)
+	rootCmd.AddCommand(account.AccountCmd)
+	rootCmd.AddCommand(alias.AliasCmd)
+	rootCmd.AddCommand(action.ActionCmd)
+	rootCmd.AddCommand(action.Xrc20Cmd)
+	rootCmd.AddCommand(action.StakeCmd)
+	rootCmd.AddCommand(bc.BCCmd)
+	rootCmd.AddCommand(node.NodeCmd)
+	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(update.UpdateCmd)
+
+	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
-	RootCmd.HelpFunc()
+
+	return rootCmd
+}
+
+// NewXctl returns xctl root cmd
+func NewXctl() *cobra.Command {
+	var rootCmd = &cobra.Command{
+		Use:   config.TranslateInLang(xctlRootCmdUses, config.UILanguage),
+		Short: config.TranslateInLang(xctlRootCmdShorts, config.UILanguage),
+		Long:  config.TranslateInLang(xctlRootCmdLongs, config.UILanguage),
+	}
+
+	rootCmd.AddCommand(config.ConfigCmd)
+	rootCmd.AddCommand(account.AccountCmd)
+	rootCmd.AddCommand(alias.AliasCmd)
+	rootCmd.AddCommand(action.ActionCmd)
+	rootCmd.AddCommand(action.Xrc20Cmd)
+	rootCmd.AddCommand(bc.BCCmd)
+	rootCmd.AddCommand(version.VersionCmd)
+	// TODO: add xctl's UpdateCmd
+
+	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
+		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
+
+	return rootCmd
 }

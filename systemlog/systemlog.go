@@ -87,15 +87,15 @@ func (x *Indexer) Stop(ctx context.Context) error {
 	return x.kvStore.Stop(ctx)
 }
 
-// TipHeight returns the tip height of the indexer
-func (x *Indexer) TipHeight() (uint64, error) {
+// Height returns the tip height of the indexer
+func (x *Indexer) Height() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 	return x.tipHeight()
 }
 
 // PutBlock indexes the block
-func (x *Indexer) PutBlock(blk *block.Block) error {
+func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 	x.mutex.Lock()
 	defer x.mutex.Unlock()
 

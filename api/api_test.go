@@ -991,9 +991,9 @@ func TestServer_GetChainMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				nil,
 				committee,
@@ -1266,9 +1266,9 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
@@ -1334,9 +1334,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
@@ -1402,9 +1402,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
@@ -1526,9 +1526,9 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
-				cfg.Genesis.KickoutEpochPeriod,
+				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-				cfg.Genesis.KickoutIntensityRate)
+				cfg.Genesis.ProbationIntensityRate)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
 				committee,
@@ -1539,19 +1539,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(pol.ForceRegister(svr.registry))
 			committee.EXPECT().HeightByTime(gomock.Any()).Return(test.epochData.GravityChainStartHeight, nil)
 
-			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(3)
-			ctx := protocol.WithBlockchainCtx(
-				context.Background(),
-				protocol.BlockchainCtx{
-					Genesis:  cfg.Genesis,
-					Registry: svr.registry,
-					Tip: protocol.TipInfo{
-						Height:    uint64(4),
-						Timestamp: time.Time{},
-					},
-				},
-			)
-			mbc.EXPECT().Context().Return(ctx, nil).Times(1)
+			mbc.EXPECT().TipHeight().Return(uint64(4)).Times(4)
 			mbc.EXPECT().BlockHeaderByHeight(gomock.Any()).DoAndReturn(func(height uint64) (*block.Header, error) {
 				if height > 0 && height <= 4 {
 					pk := identityset.PrivateKey(int(height))
@@ -1800,7 +1788,8 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 
 func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -1811,17 +1800,15 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
 		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
-	registry := protocol.NewRegistry()
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -1927,7 +1914,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 			return nil, err
 		}
 		// Add actions to actpool
-		ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{Registry: registry})
+		ctx := protocol.WithRegistry(context.Background(), registry)
 		if err := addActsToActPool(ctx, ap); err != nil {
 			return nil, err
 		}

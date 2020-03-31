@@ -73,8 +73,8 @@ func TestNewNodeDelegateCmd(t *testing.T) {
 	epochMetaResponse := &iotexapi.GetEpochMetaResponse{EpochData: &iotextypes.EpochData{Num: 7000, Height: 3223081}, TotalBlocks: 720, BlockProducersInfo: testBlockProducersInfo}
 	apiServiceClient.EXPECT().GetEpochMeta(gomock.Any(), gomock.Any()).Return(epochMetaResponse, nil).AnyTimes()
 
-	kickoutList := &iotexapi.ReadStateResponse{}
-	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(kickoutList, nil).AnyTimes()
+	probationList := &iotexapi.ReadStateResponse{}
+	apiServiceClient.EXPECT().ReadState(gomock.Any(), gomock.Any()).Return(probationList, nil).AnyTimes()
 
 	cmd := NewNodeDelegateCmd(client)
 

@@ -26,18 +26,29 @@ var (
 	consortiumCommitteeContractNonce   = uint64(0)
 )
 
+type contractReader interface {
+	Read(ctx context.Context, contract string, data []byte) ([]byte, error)
+}
+
+type contractReaderFunc func(context.Context, string, []byte) ([]byte, error)
+
+func (f contractReaderFunc) Read(ctx context.Context, contract string, data []byte) ([]byte, error) {
+	return f(ctx, contract, data)
+}
+
 type consortiumCommittee struct {
-	readContract ReadContract
-	contract     string
-	abi          abi.ABI
-	bufferHeight uint64
-	bufferResult state.CandidateList
-	indexer      *CandidateIndexer
-	addr         address.Address
+	contractReader contractReader
+	contract       string
+	abi            abi.ABI
+	bufferHeight   uint64
+	bufferResult   state.CandidateList
+	indexer        *CandidateIndexer
+	addr           address.Address
+	getBlockHash   evm.GetBlockHash
 }
 
 // NewConsortiumCommittee creates a committee for consorium chain
-func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract) (Protocol, error) {
+func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract, getBlockHash evm.GetBlockHash) (Protocol, error) {
 	abi, err := abi.JSON(strings.NewReader(ConsortiumManagementABI))
 	if err != nil {
 		return nil, err
@@ -52,10 +63,11 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 		return nil, err
 	}
 	return &consortiumCommittee{
-		readContract: readContract,
-		abi:          abi,
-		addr:         addr,
-		indexer:      indexer,
+		contractReader: genContractReaderFromReadContract(readContract, true),
+		abi:            abi,
+		addr:           addr,
+		indexer:        indexer,
+		getBlockHash:   getBlockHash,
 	}, nil
 }
 
@@ -128,7 +140,8 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	}
 	cc.contract = receipt.ContractAddress
 
-	cands, err := cc.readDelegates(ctx)
+	r := getContractReaderForGenesisStates(ctx, sm, cc.getBlockHash)
+	cands, err := cc.readDelegatesWithContractReader(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -192,6 +205,10 @@ func (cc *consortiumCommittee) NextCandidates(ctx context.Context, _ protocol.St
 }
 
 func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.CandidateList, error) {
+	return cc.readDelegatesWithContractReader(ctx, cc.contractReader)
+}
+
+func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Context, r contractReader) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if cc.bufferHeight == bcCtx.Tip.Height && cc.bufferResult != nil {
 		return cc.bufferResult, nil
@@ -202,12 +219,12 @@ func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.Candida
 		return nil, err
 	}
 
-	data, err = cc.readContract(ctx, cc.contract, data, true)
+	data, err = r.Read(ctx, cc.contract, data)
 	if err != nil {
 		return nil, err
 	}
 	var res []common.Address
-	if err = cc.abi.Unpack(res, "delegates", data); err != nil {
+	if err = cc.abi.Unpack(&res, "delegates", data); err != nil {
 		return nil, err
 	}
 
@@ -229,4 +246,29 @@ func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.Candida
 	cc.bufferHeight = bcCtx.Tip.Height
 	cc.bufferResult = candidates
 	return candidates, nil
+}
+
+func genContractReaderFromReadContract(r ReadContract, setting bool) contractReaderFunc {
+	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
+		return r(ctx, contract, data, setting)
+	}
+}
+
+func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager, getBlockHash evm.GetBlockHash) contractReaderFunc {
+	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
+		gasLimit := uint64(10000000)
+		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
+		if err != nil {
+			return nil, err
+		}
+
+		addr, err := address.FromString(address.ZeroAddress)
+		if err != nil {
+			return nil, err
+		}
+
+		res, _, err := evm.SimulateExecution(ctx, sm, addr, ex, getBlockHash)
+
+		return res, err
+	}
 }

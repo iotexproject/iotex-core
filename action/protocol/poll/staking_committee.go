@@ -203,7 +203,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, hei
 	}
 
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// convert to epoch start height
 	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
@@ -305,7 +305,7 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Cook, epochHeight) {

@@ -331,7 +331,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: api.registry})
+	ctx = protocol.WithRegistry(ctx, api.registry)
 	if err = api.ap.Add(ctx, selp); err != nil {
 		log.L().Debug(err.Error())
 		var desc string
@@ -528,11 +528,7 @@ func (api *Server) GetEpochMeta(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	bcCtx, err := api.bc.Context()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	numBlks, produce, err := api.getProductivityByEpoch(bcCtx, in.EpochNumber, activeConsensusBlockProducers)
+	numBlks, produce, err := api.getProductivityByEpoch(rp, in.EpochNumber, api.bc.TipHeight(), activeConsensusBlockProducers)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -803,10 +799,12 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: api.registry,
-		Genesis:  api.cfg.Genesis,
-	})
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, api.registry),
+		protocol.BlockchainCtx{
+			Genesis: api.cfg.Genesis,
+		},
+	)
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
@@ -1428,13 +1426,12 @@ func (api *Server) isGasLimitEnough(
 }
 
 func (api *Server) getProductivityByEpoch(
-	ctx context.Context,
+	rp *rolldpos.Protocol,
 	epochNum uint64,
+	tipHeight uint64,
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	num, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, func(start uint64, end uint64) (map[string]uint64, error) {
+	num, produce, err := rp.ProductivityByEpoch(epochNum, tipHeight, func(start uint64, end uint64) (map[string]uint64, error) {
 		return blockchain.Productivity(api.bc, start, end)
 	})
 	if err != nil {

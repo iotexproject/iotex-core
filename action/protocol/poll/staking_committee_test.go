@@ -50,10 +50,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		return nil, nil, nil, nil, err
 	}
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
+			Genesis: config.Default.Genesis,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -106,9 +105,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,

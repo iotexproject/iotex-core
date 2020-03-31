@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -23,9 +24,11 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -79,17 +82,15 @@ type (
 		GetBlockHeight(hash.Hash256) (uint64, error)
 		GetBlock(hash.Hash256) (*block.Block, error)
 		GetBlockByHeight(uint64) (*block.Block, error)
-		TipHeight() (uint64, error)
+		Height() (uint64, error)
 		Header(hash.Hash256) (*block.Header, error)
 		Body(hash.Hash256) (*block.Body, error)
 		Footer(hash.Hash256) (*block.Footer, error)
 		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		GetReceipts(uint64) ([]*action.Receipt, error)
-		PutBlock(*block.Block) error
+		PutBlock(context.Context, *block.Block) error
 		DeleteBlockToTarget(uint64) error
-		IndexFile(uint64, []byte) error
-		GetFileIndex(uint64) ([]byte, error)
 		KVStore() db.KVStore
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
@@ -99,8 +100,8 @@ type (
 	BlockIndexer interface {
 		Start(ctx context.Context) error
 		Stop(ctx context.Context) error
-		TipHeight() (uint64, error)
-		PutBlock(blk *block.Block) error
+		Height() (uint64, error)
+		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(blk *block.Block) error
 	}
 
@@ -174,7 +175,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	if err := dao.initStores(); err != nil {
 		return err
 	}
-	return dao.checkIndexers()
+	return dao.checkIndexers(ctx)
 }
 
 func (dao *blockDAO) initStores() error {
@@ -210,9 +211,42 @@ func (dao *blockDAO) initStores() error {
 	return nil
 }
 
-func (dao *blockDAO) checkIndexers() error {
-	for _, indexer := range dao.indexers {
-		tipHeight, err := indexer.TipHeight()
+func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
+	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	if !ok {
+		return nil, errors.New("failed to find blockchain ctx")
+	}
+	if height == 0 {
+		bcCtx.Tip = protocol.TipInfo{
+			Height:    0,
+			Hash:      bcCtx.Genesis.Hash(),
+			Timestamp: time.Unix(bcCtx.Genesis.Timestamp, 0),
+		}
+	} else {
+		tipHash, err := dao.GetBlockHash(height)
+		if err != nil {
+			return nil, err
+		}
+		header, err := dao.Header(tipHash)
+		if err != nil {
+			return nil, err
+		}
+		bcCtx.Tip = protocol.TipInfo{
+			Height:    height,
+			Hash:      tipHash,
+			Timestamp: header.Timestamp(),
+		}
+	}
+	return protocol.WithBlockchainCtx(ctx, bcCtx), nil
+}
+
+func (dao *blockDAO) checkIndexers(ctx context.Context) error {
+	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	if !ok {
+		return errors.New("failed to find blockchain ctx")
+	}
+	for ii, indexer := range dao.indexers {
+		tipHeight, err := indexer.Height()
 		if err != nil {
 			return err
 		}
@@ -225,10 +259,31 @@ func (dao *blockDAO) checkIndexers() error {
 			if err != nil {
 				return err
 			}
-			if err := indexer.PutBlock(blk); err != nil {
+			producer, err := address.FromBytes(blk.PublicKey().Hash())
+			if err != nil {
+				return err
+			}
+			ctx, err = dao.fillWithBlockInfoAsTip(ctx, i-1)
+			if err != nil {
+				return err
+			}
+			if err := indexer.PutBlock(protocol.WithBlockCtx(
+				ctx,
+				protocol.BlockCtx{
+					BlockHeight:    i,
+					BlockTimeStamp: blk.Timestamp(),
+					Producer:       producer,
+					GasLimit:       bcCtx.Genesis.BlockGasLimit,
+				},
+			), blk); err != nil {
 				return err
 			}
 		}
+		log.L().Info(
+			"indexer is up to date.",
+			zap.Int("indexer", ii),
+			zap.Uint64("height", tipHeight),
+		)
 	}
 	return nil
 }
@@ -275,7 +330,7 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	return dao.footer(hash)
 }
 
-func (dao *blockDAO) TipHeight() (uint64, error) {
+func (dao *blockDAO) Height() (uint64, error) {
 	return atomic.LoadUint64(&dao.tipHeight), nil
 }
 
@@ -325,10 +380,13 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 	return dao.getReceipts(blkHeight)
 }
 
-func (dao *blockDAO) PutBlock(blk *block.Block) error {
+func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	err := func() error {
-		dao.mutex.Lock()
-		defer dao.mutex.Unlock()
+		var err error
+		ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
+		if err != nil {
+			return err
+		}
 		if err := dao.putBlock(blk); err != nil {
 			return err
 		}
@@ -340,7 +398,7 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 	}
 	// index the block if there's indexer
 	for _, indexer := range dao.indexers {
-		if err := indexer.PutBlock(blk); err != nil {
+		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err
 		}
 	}
@@ -349,8 +407,6 @@ func (dao *blockDAO) PutBlock(blk *block.Block) error {
 }
 
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
-	dao.mutex.Lock()
-	defer dao.mutex.Unlock()
 	tipHeight, err := dao.getTipHeight()
 	if err != nil {
 		return err
@@ -381,7 +437,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
+func (dao *blockDAO) indexFile(height uint64, index []byte) error {
 	dao.mutex.Lock()
 	defer dao.mutex.Unlock()
 
@@ -395,8 +451,8 @@ func (dao *blockDAO) IndexFile(height uint64, index []byte) error {
 	return dao.htf.Insert(height, index)
 }
 
-// GetFileIndex return the db filename
-func (dao *blockDAO) GetFileIndex(height uint64) ([]byte, error) {
+// getFileIndex return the db filename
+func (dao *blockDAO) getFileIndex(height uint64) ([]byte, error) {
 	dao.mutex.RLock()
 	defer dao.mutex.RUnlock()
 
@@ -780,7 +836,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvStore db.KVStore, index uint6
 	dat, err := os.Stat(longFileName)
 	if err != nil && os.IsNotExist(err) {
 		// index the height --> file index mapping
-		if err = dao.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
+		if err = dao.indexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
 			return
 		}
 		// db file does not exist, create it
@@ -795,7 +851,7 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvStore db.KVStore, index uint6
 		kvStore, index, err = dao.openDB(topIndex + 1)
 		dao.topIndex.Store(index)
 		// index the height --> file index mapping
-		err = dao.IndexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex))
+		err = dao.indexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(index))
 		return
 	}
 	// db exist,need load from kvStores
@@ -820,7 +876,7 @@ func (dao *blockDAO) getDBFromHeight(blkHeight uint64) (kvStore db.KVStore, inde
 		return dao.kvStore, 0, nil
 	}
 	// get file index
-	value, err := dao.GetFileIndex(blkHeight)
+	value, err := dao.getFileIndex(blkHeight)
 	if err != nil {
 		return
 	}
@@ -873,12 +929,12 @@ func (dao *blockDAO) openDB(idx uint64) (kvStore db.KVStore, index uint64, err e
 	if idx == 0 {
 		return dao.kvStore, 0, nil
 	}
-	dao.mutex.Lock()
-	defer dao.mutex.Unlock()
 	cfg := dao.cfg
 	model, _ := getFileNameAndDir(cfg.DbPath)
 	name := model + fmt.Sprintf("-%08d", idx) + ".db"
 
+	dao.mutex.Lock()
+	defer dao.mutex.Unlock()
 	// open or create this db file
 	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
 	kvStore = db.NewBoltDB(cfg)

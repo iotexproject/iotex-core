@@ -96,7 +96,8 @@ func main() {
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort)
+		HTTPAdminPort := 9009 + i
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
@@ -111,17 +112,7 @@ func main() {
 		config.Genesis.PacificBlockHeight = 1
 		configs[i] = config
 	}
-	defer func() {
-		if !deleteDBFiles {
-			return
-		}
-		for _, dbFilePath := range dbFilePaths {
-			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
-				log.L().Error("Failed to delete db file")
-			}
-		}
 
-	}()
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -131,7 +122,19 @@ func main() {
 		}
 		svrs[i] = svr
 	}
-
+	defer func() {
+		for _, svr := range svrs {
+			svr.ChainService(uint32(1)).Stop(context.Background())
+		}
+		if !deleteDBFiles {
+			return
+		}
+		for _, dbFilePath := range dbFilePaths {
+			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
+				log.L().Error("Failed to delete db file")
+			}
+		}
+	}()
 	// Create a probe server
 	probeSvr := probe.New(7788)
 
@@ -387,12 +390,14 @@ func newConfig(
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
+	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 
+	cfg.System.HTTPAdminPort = HTTPAdminPort
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
 

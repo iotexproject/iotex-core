@@ -85,23 +85,23 @@ func TestCandidateIndexer(t *testing.T) {
 		require.True(cand.Equal(candidatesFromDB[i]))
 	}
 
-	// PutKickoutList and KickoutList with height 1
-	blackListMap := map[string]uint32{
+	// PutProbationList and ProbationList with height 1
+	probationListMap := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 1,
 	}
 
-	blackList := &vote.Blacklist{
-		BlacklistInfos: blackListMap,
-		IntensityRate:  50,
+	probationList := &vote.ProbationList{
+		ProbationInfo: probationListMap,
+		IntensityRate: 50,
 	}
-	require.NoError(indexer.PutKickoutList(uint64(1), blackList))
-	blackList2, err := indexer.KickoutList(uint64(1))
+	require.NoError(indexer.PutProbationList(uint64(1), probationList))
+	probationList2, err := indexer.ProbationList(uint64(1))
 	require.NoError(err)
 
-	require.Equal(blackList.IntensityRate, blackList2.IntensityRate)
-	require.Equal(len(blackList.BlacklistInfos), len(blackList.BlacklistInfos))
-	for str, count := range blackList.BlacklistInfos {
-		require.Equal(blackList2.BlacklistInfos[str], count)
+	require.Equal(probationList.IntensityRate, probationList2.IntensityRate)
+	require.Equal(len(probationList.ProbationInfo), len(probationList2.ProbationInfo))
+	for str, count := range probationList.ProbationInfo {
+		require.Equal(probationList2.ProbationInfo[str], count)
 	}
 }
