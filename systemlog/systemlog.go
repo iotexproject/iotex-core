@@ -211,8 +211,8 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	return x.kvStore.WriteBatch(batch)
 }
 
-// GetEvmTransferByActionHash queries evm transfers by action hash
-func (x *Indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*iotextypes.ActionEvmTransfer, error) {
+// GetEvmTransfersByActionHash queries evm transfers by action hash
+func (x *Indexer) GetEvmTransfersByActionHash(actionHash hash.Hash256) (*iotextypes.ActionEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, actionKey(actionHash))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
@@ -231,8 +231,8 @@ func (x *Indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*iotextyp
 	return pb, nil
 }
 
-// GetEvmTransferByBlockHeight queries evm transfers by block height
-func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*iotextypes.BlockEvmTransfer, error) {
+// GetEvmTransfersByBlockHeight queries evm transfers by block height
+func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.BlockEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
@@ -243,7 +243,7 @@ func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*iotextypes.B
 		return nil, errors.Wrap(err, "failed to serialize ActionHashList")
 	}
 
-	pb := &iotextypes.BlockEvmTransfer{BlockHeight: blockHeight, NumEvmTransfers: 0}
+	pb := &iotextypes.BlockEvmTransfer{BlockHeight: blockHeight}
 	for _, actionHash := range actionHashList.ActionHashList {
 		data, err := x.kvStore.Get(evmTransferNS, actionKey(hash.BytesToHash256(actionHash)))
 		if err != nil {

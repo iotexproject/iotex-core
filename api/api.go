@@ -754,12 +754,12 @@ func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	aet, err := api.systemLogIndexer.GetEvmTransferByActionHash(actHash)
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iotexapi.GetEvmTransfersByActionHashResponse{ActionEvmTransfers: aet}, nil
+	return &iotexapi.GetEvmTransfersByActionHashResponse{ActionEvmTransfers: transfers}, nil
 }
 
 // GetEvmTransfersByBlockHeight returns evm transfers by block height
@@ -768,12 +768,12 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
 
-	bet, err := api.systemLogIndexer.GetEvmTransferByBlockHeight(in.BlockHeight)
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: bet}, nil
+	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: transfers}, nil
 }
 
 // Start starts the API server

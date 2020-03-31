@@ -233,11 +233,11 @@ func TestSystemLogIndexer(t *testing.T) {
 		r.Equal(blocks[1].Height(), tipHeight)
 
 		for _, expectedBlock := range expectedList {
-			actualBlock, err := indexer.GetEvmTransferByBlockHeight(expectedBlock.BlockHeight)
+			actualBlock, err := indexer.GetEvmTransfersByBlockHeight(expectedBlock.BlockHeight)
 			r.NoError(err)
 			checkBlockEvmTransfers(t, expectedBlock, actualBlock)
 			for _, expectedAction := range expectedBlock.ActionEvmTransfers {
-				actualAction, err := indexer.GetEvmTransferByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
+				actualAction, err := indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
 				r.NoError(err)
 				checkActionEvmTransfers(t, expectedAction, actualAction)
 			}
@@ -248,17 +248,17 @@ func TestSystemLogIndexer(t *testing.T) {
 		r.NoError(err)
 		r.Equal(blocks[0].Height(), tipHeight)
 
-		_, err = indexer.GetEvmTransferByBlockHeight(blocks[1].Height())
+		_, err = indexer.GetEvmTransfersByBlockHeight(blocks[1].Height())
 		r.Error(err)
 		for _, act := range expectedList[1].ActionEvmTransfers {
-			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+			_, err = indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(act.ActionHash))
 			r.Error(err)
 		}
 
-		_, err = indexer.GetEvmTransferByBlockHeight(blocks[0].Height())
+		_, err = indexer.GetEvmTransfersByBlockHeight(blocks[0].Height())
 		r.NoError(err)
 		for _, act := range expectedList[0].ActionEvmTransfers {
-			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+			_, err = indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(act.ActionHash))
 			r.NoError(err)
 		}
 
