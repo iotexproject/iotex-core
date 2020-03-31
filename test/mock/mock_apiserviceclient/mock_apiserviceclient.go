@@ -335,6 +335,46 @@ func (mr *MockServiceClientMockRecorder) GetLogs(ctx, in interface{}, opts ...in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLogs", reflect.TypeOf((*MockServiceClient)(nil).GetLogs), varargs...)
 }
 
+// GetEvmTransfersByActionHash mocks base method
+func (m *MockServiceClient) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByActionHashResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetEvmTransfersByActionHash", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetEvmTransfersByActionHashResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEvmTransfersByActionHash indicates an expected call of GetEvmTransfersByActionHash
+func (mr *MockServiceClientMockRecorder) GetEvmTransfersByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByActionHash), varargs...)
+}
+
+// GetEvmTransfersByBlockHeight mocks base method
+func (m *MockServiceClient) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetEvmTransfersByBlockHeight", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetEvmTransfersByBlockHeightResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEvmTransfersByBlockHeight indicates an expected call of GetEvmTransfersByBlockHeight
+func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
+}
+
 // GetVotes mocks base method
 func (m *MockServiceClient) GetVotes(ctx context.Context, in *iotexapi.GetVotesRequest, opts ...grpc.CallOption) (*iotexapi.GetVotesResponse, error) {
 	m.ctrl.T.Helper()
