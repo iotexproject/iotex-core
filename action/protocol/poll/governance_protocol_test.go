@@ -95,6 +95,15 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			cb.Put(cfg.Namespace, cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
+		func(opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
+			cb.Delete(cfg.Namespace, cfg.Key, "failed to delete state")
+			return 0, nil
+		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Height().Return(epochStartHeight-1, nil).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
@@ -200,6 +209,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
+	if err := setNextEpochProbationList(sm, indexer, 1, vote.NewProbationList(cfg.Genesis.ProbationIntensityRate)); err != nil {
+		return nil, nil, nil, nil, err
+	}
 	return p, ctx, sm, r, err
 }
 
@@ -280,7 +292,7 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(5).String(): 1,
 		identityset.Address(6).String(): 1,
 	}
-	require.NoError(p.CreateGenesisStates(ctx, sm))
+
 	// testing for probation slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
@@ -307,6 +319,13 @@ func TestCreatePreStates(t *testing.T) {
 			require.Equal(val, count)
 		}
 
+		// mid of epoch, set candidatelist into next candidate key
+		nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
+		candidates, err := p.Candidates(ctx, sm)
+		require.Equal(len(candidates), 6)
+		require.NoError(err)
+		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set candidate
+
 		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		bcCtx.Tip.Height = epochLastHeight - 1
@@ -318,7 +337,7 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
-		require.NoError(psc.CreatePreStates(ctx, sm))
+		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate probation list and set probationlist
 
 		bl = &vote.ProbationList{}
 		candKey = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
@@ -380,7 +399,9 @@ func TestHandle(t *testing.T) {
 
 	_, err = shiftCandidates(sm2)
 	require.NoError(err)
-	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, false)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, true)
+	require.Error(err)
+	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
