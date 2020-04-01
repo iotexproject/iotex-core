@@ -62,18 +62,19 @@ var nodeRewardCmd = &cobra.Command{
 	},
 }
 
+// TotalBalance == Total rewards in the pool
 // TotalAvailable == Rewards in the pool that has not been issued to anyone
 // TotalUnclaimed == Rewards in the pool that has been issued to a delegate but are not claimed yet
 type rewardPoolMessage struct {
-	//rewardPoolMessageDescription string `json:rewardPoolMessageDescription`
+	TotalBalance   string `json:"TotalBalance"`
 	TotalUnclaimed string `json:"TotalUnclaimed"`
 	TotalAvailable string `json:"TotalAvailable"`
 }
 
 func (m *rewardPoolMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("TotalUnclaimed: %s IOTX   TotalAvailable: %s IOTX",
-			m.TotalUnclaimed, m.TotalAvailable)
+		message := fmt.Sprintf("TotalUnclaimed: %s IOTX   TotalAvailable: %s IOTX	TotalBalance: %s IOTX",
+			m.TotalUnclaimed, m.TotalAvailable, m.TotalBalance)
 		return message
 	}
 	return output.FormatString(output.Result, m)
@@ -105,7 +106,7 @@ func rewardPool() error {
 	if err == nil {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
-	// AvailableBalance == Rewards in the pool that has been issued and unclaimed
+	// AvailableBalance == Rewards in the pool that has not been issued to anyone
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
@@ -122,7 +123,7 @@ func rewardPool() error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
-	// TotalBalance == Rewards in the pool that has not been issued to anyone
+	// TotalBalance == Total rewards in the pool
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
@@ -139,9 +140,13 @@ func rewardPool() error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert string into big int", err)
 	}
+	// TotalUnclaimedBalance == Rewards in the pool that has been issued and unclaimed
+	totalUnclaimedRewardRau := big.NewInt(0)
+	totalUnclaimedRewardRau.Sub(totalRewardRau, availableRewardRau)
 	message := rewardPoolMessage{
-		TotalUnclaimed: util.RauToString(availableRewardRau, util.IotxDecimalNum),
-		TotalAvailable: util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		TotalBalance:   util.RauToString(totalRewardRau, util.IotxDecimalNum),
+		TotalUnclaimed: util.RauToString(totalUnclaimedRewardRau, util.IotxDecimalNum),
+		TotalAvailable: util.RauToString(availableRewardRau, util.IotxDecimalNum),
 	}
 	fmt.Println(message.String())
 	return nil
