@@ -181,9 +181,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			}
 		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
-			return candidates, 30, nil
-		},
+		candidatesutil.CandidatesFromDB,
 		candidatesutil.ProbationListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		indexer,
@@ -243,11 +241,13 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, sr, r, err := initConstruct(ctrl)
+	p, ctx, sm, r, err := initConstruct(ctrl)
+	require.NoError(err)
+	_, err = shiftCandidates(sm)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
-	elp, err := psac.CreatePostSystemActions(ctx, sr)
+	elp, err := psac.CreatePostSystemActions(ctx, sm)
 	require.NoError(err)
 	require.Equal(1, len(elp))
 	act, ok := elp[0].Action().(*action.PutPollResult)
@@ -324,7 +324,7 @@ func TestCreatePreStates(t *testing.T) {
 		candidates, err := p.Candidates(ctx, sm)
 		require.Equal(len(candidates), 6)
 		require.NoError(err)
-		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set candidate
+		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set next candidate
 
 		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -337,7 +337,7 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
-		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate probation list and set probationlist
+		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate probation list and set next probationlist
 
 		bl = &vote.ProbationList{}
 		candKey = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
@@ -680,7 +680,7 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 
-	// 3: probation out with different probationList
+	// 3: probation with different probationList
 	probationListMap3 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(3).String(): 2,
@@ -698,33 +698,35 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
 
-	// 4: shift probation list and Delegates()
-	_, err = shiftProbationList(sm)
-	require.NoError(err)
-	delegates4, err := p.Delegates(ctx, sm)
-	require.NoError(err)
-	require.Equal(len(delegates4), len(delegates3))
-	for i, d := range delegates3 {
-		require.True(d.Equal(delegates4[i]))
-	}
-
-	// 5: test hard probation
-	probationListMap5 := map[string]uint32{
+	// 4: test hard probation
+	probationListMap4 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 2,
 		identityset.Address(4).String(): 2,
 		identityset.Address(5).String(): 2,
 	}
-	probationList5 := &vote.ProbationList{
-		ProbationInfo: probationListMap5,
+	probationList4 := &vote.ProbationList{
+		ProbationInfo: probationListMap4,
 		IntensityRate: 100, // hard probation
 	}
-	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList5))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList4))
 
-	delegates5, err := p.NextDelegates(ctx, sm)
+	delegates4, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 
-	require.Equal(1, len(delegates5)) // exclude all of them
-	require.Equal(identityset.Address(6).String(), delegates5[0].Address)
+	require.Equal(1, len(delegates4)) // exclude all of them
+	require.Equal(identityset.Address(6).String(), delegates4[0].Address)
+
+	// 5: shift probation list and Delegates()
+	_, err = shiftCandidates(sm)
+	require.NoError(err)
+	_, err = shiftProbationList(sm)
+	require.NoError(err)
+	delegates5, err := p.Delegates(ctx, sm)
+	require.NoError(err)
+	require.Equal(len(delegates5), len(delegates4))
+	for i, d := range delegates4 {
+		require.True(d.Equal(delegates5[i]))
+	}
 }
