@@ -96,6 +96,15 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			cb.Put(cfg.Namespace, cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
+		func(opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
+			cb.Delete(cfg.Namespace, cfg.Key, "failed to delete state")
+			return 0, nil
+		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Height().Return(epochStartHeight-1, nil).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
@@ -130,9 +139,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	p, err := NewGovernanceChainCommitteeProtocol(
 		indexer,
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
-			return candidates, 720, nil
-		},
+		candidatesutil.CandidatesFromDB,
 		candidatesutil.KickoutListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		committee,
@@ -181,6 +188,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
 		return nil, nil, nil, nil, err
 	}
+	if err := setNextEpochBlacklist(sm, indexer, 1, &vote.Blacklist{}); err != nil {
+		return nil, nil, nil, nil, err
+	}
 	return p, ctx, sm, r, err
 }
 
@@ -212,8 +222,9 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, _, r, err := initConstruct(ctrl)
+	p, ctx, sm, r, err := initConstruct(ctrl)
 	require.NoError(err)
+	_, err = shiftCandidates(sm)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
 	elp, err := psac.CreatePostSystemActions(ctx)
@@ -244,6 +255,7 @@ func TestCreatePreStates(t *testing.T) {
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 
 	test := make(map[uint64](map[string]uint32))
+	test[1] = map[string]uint32{}
 	test[2] = map[string]uint32{
 		identityset.Address(1).String(): 1, // [A, B, C]
 		identityset.Address(2).String(): 1,
@@ -262,31 +274,39 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(6).String(): 1,
 	}
 
+	candidates, err := p.CandidatesByHeight(ctx, 721)
+	require.NoError(err)
+	require.Equal(4, len(candidates))
+
 	// testing for kick-out slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
-		if epochNum > 1 {
-			epochStartHeight := rp.GetEpochHeight(epochNum)
-			ctx = protocol.WithBlockCtx(
-				ctx,
-				protocol.BlockCtx{
-					BlockHeight: epochStartHeight,
-					Producer:    identityset.Address(1),
-				},
-			)
-			require.NoError(psc.CreatePreStates(ctx, sm)) // shift
-			bl := &vote.Blacklist{}
-			candKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
-			_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-			require.NoError(err)
-			expected := test[epochNum]
-			require.Equal(len(expected), len(bl.BlacklistInfos))
-			for addr, count := range bl.BlacklistInfos {
-				val, ok := expected[addr]
-				require.True(ok)
-				require.Equal(val, count)
-			}
+		// shift and compare blacklist info
+		epochStartHeight := rp.GetEpochHeight(epochNum)
+		ctx = protocol.WithBlockCtx(
+			ctx,
+			protocol.BlockCtx{
+				BlockHeight: epochStartHeight,
+				Producer:    identityset.Address(1),
+			},
+		)
+		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
+		bl := &vote.Blacklist{}
+		key := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+		_, err := sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		expected := test[epochNum]
+		require.Equal(len(expected), len(bl.BlacklistInfos))
+		for addr, count := range bl.BlacklistInfos {
+			val, ok := expected[addr]
+			require.True(ok)
+			require.Equal(val, count)
 		}
+
+		// mid of epoch, set candidatelist into next candidate key
+		nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
+		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set candidate
+
 		// at last of epoch, set blacklist into next kickout key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 		ctx = protocol.WithBlockCtx(
@@ -296,13 +316,13 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
-		require.NoError(psc.CreatePreStates(ctx, sm))
+		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate blacklist and set blacklist
 
-		bl := &vote.Blacklist{}
-		candKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
-		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		bl = &vote.Blacklist{}
+		key = candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+		_, err = sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
-		expected := test[epochNum+1]
+		expected = test[epochNum+1]
 		require.Equal(len(expected), len(bl.BlacklistInfos))
 		for addr, count := range bl.BlacklistInfos {
 			val, ok := expected[addr]
@@ -358,7 +378,9 @@ func TestHandle(t *testing.T) {
 
 	_, err = shiftCandidates(sm2)
 	require.NoError(err)
-	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, false)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, true)
+	require.Error(err)
+	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -637,7 +659,7 @@ func TestDelegatesByEpoch(t *testing.T) {
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 
-	// 3: kickout out with different blacklist
+	// 3: kickout with different blacklist
 	blackListMap3 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(3).String(): 2,
@@ -655,31 +677,31 @@ func TestDelegatesByEpoch(t *testing.T) {
 	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
 
-	// 4: shift kickout list and Delegates()
-	_, err = shiftKickoutList(sm)
-	require.NoError(err)
-	delegates4, err := p.DelegatesByEpoch(ctx, 1)
-	require.NoError(err)
-	require.Equal(len(delegates4), len(delegates3))
-	for i, d := range delegates3 {
-		require.True(d.Equal(delegates4[i]))
-	}
-
-	// 5: test hard kick-out
-	blackListMap5 := map[string]uint32{
+	// 4: test hard kick-out
+	blackListMap4 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 2,
 	}
-	blackList5 := &vote.Blacklist{
-		BlacklistInfos: blackListMap5,
+	blackList4 := &vote.Blacklist{
+		BlacklistInfos: blackListMap4,
 		IntensityRate:  100, // hard kickout
 	}
-	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList5))
-
-	delegates5, err := p.DelegatesByEpoch(ctx, 2)
+	require.NoError(setNextEpochBlacklist(sm, nil, 721, blackList4))
+	delegates4, err := p.DelegatesByEpoch(ctx, 2)
 	require.NoError(err)
+	require.Equal(1, len(delegates4)) // exclude all of them
+	require.Equal(identityset.Address(4).String(), delegates4[0].Address)
 
-	require.Equal(1, len(delegates5)) // exclude all of them
-	require.Equal(identityset.Address(4).String(), delegates5[0].Address)
+	// 5: shift kickout list and Delegates()
+	_, err = shiftCandidates(sm)
+	require.NoError(err)
+	_, err = shiftKickoutList(sm)
+	require.NoError(err)
+	delegates5, err := p.DelegatesByEpoch(ctx, 1)
+	require.NoError(err)
+	require.Equal(len(delegates4), len(delegates5))
+	for i, d := range delegates4 {
+		require.True(d.Equal(delegates5[i]))
+	}
 }
