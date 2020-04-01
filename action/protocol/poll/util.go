@@ -115,6 +115,9 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
+	if _, err := p.CandidatesByHeight(ctx, nextEpochHeight); errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
 	log.L().Debug(
 		"createPutPollResultAction",
 		zap.Uint64("height", blkCtx.BlockHeight),
