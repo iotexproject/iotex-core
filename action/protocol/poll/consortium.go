@@ -153,8 +153,8 @@ func (cc *consortiumCommittee) CreatePreStates(ctx context.Context, sm protocol.
 	return nil
 }
 
-func (cc *consortiumCommittee) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, cc)
+func (cc *consortiumCommittee) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, cc)
 }
 
 func (cc *consortiumCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

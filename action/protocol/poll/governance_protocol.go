@@ -108,8 +108,8 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	return setCandidates(ctx, sm, p.indexer, ds, uint64(1))
 }
 
-func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, p)
+func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, p)
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {

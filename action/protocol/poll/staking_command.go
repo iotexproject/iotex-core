@@ -77,9 +77,9 @@ func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.State
 	return nil
 }
 
-func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
+func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
 	// no height here,  v1 v2 has the same createPostSystemActions method, so directly use common one
-	return createPostSystemActions(ctx, sc)
+	return createPostSystemActions(ctx, sr, sc)
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
