@@ -66,6 +66,7 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(action.ActionCmd)
 	rootCmd.AddCommand(action.Xrc20Cmd)
 	rootCmd.AddCommand(action.StakeCmd)
+	rootCmd.AddCommand(action.Stake2Cmd)
 	rootCmd.AddCommand(bc.BCCmd)
 	rootCmd.AddCommand(node.NodeCmd)
 	rootCmd.AddCommand(version.VersionCmd)
