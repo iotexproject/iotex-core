@@ -111,6 +111,20 @@ func (mr *MockProtocolMockRecorder) ForceRegister(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForceRegister", reflect.TypeOf((*MockProtocol)(nil).ForceRegister), arg0)
 }
 
+// Name mocks base method
+func (m *MockProtocol) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockProtocolMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockProtocol)(nil).Name))
+}
+
 // MockGenesisStateCreator is a mock of GenesisStateCreator interface
 type MockGenesisStateCreator struct {
 	ctrl     *gomock.Controller
@@ -183,6 +197,80 @@ func (m *MockPreStatesCreator) CreatePreStates(arg0 context.Context, arg1 StateM
 func (mr *MockPreStatesCreatorMockRecorder) CreatePreStates(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePreStates", reflect.TypeOf((*MockPreStatesCreator)(nil).CreatePreStates), arg0, arg1)
+}
+
+// MockCommitter is a mock of Committer interface
+type MockCommitter struct {
+	ctrl     *gomock.Controller
+	recorder *MockCommitterMockRecorder
+}
+
+// MockCommitterMockRecorder is the mock recorder for MockCommitter
+type MockCommitterMockRecorder struct {
+	mock *MockCommitter
+}
+
+// NewMockCommitter creates a new mock instance
+func NewMockCommitter(ctrl *gomock.Controller) *MockCommitter {
+	mock := &MockCommitter{ctrl: ctrl}
+	mock.recorder = &MockCommitterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockCommitter) EXPECT() *MockCommitterMockRecorder {
+	return m.recorder
+}
+
+// Commit mocks base method
+func (m *MockCommitter) Commit(arg0 context.Context, arg1 StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Commit", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockCommitterMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockCommitter)(nil).Commit), arg0, arg1)
+}
+
+// MockAborter is a mock of Aborter interface
+type MockAborter struct {
+	ctrl     *gomock.Controller
+	recorder *MockAborterMockRecorder
+}
+
+// MockAborterMockRecorder is the mock recorder for MockAborter
+type MockAborterMockRecorder struct {
+	mock *MockAborter
+}
+
+// NewMockAborter creates a new mock instance
+func NewMockAborter(ctrl *gomock.Controller) *MockAborter {
+	mock := &MockAborter{ctrl: ctrl}
+	mock.recorder = &MockAborterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockAborter) EXPECT() *MockAborterMockRecorder {
+	return m.recorder
+}
+
+// Abort mocks base method
+func (m *MockAborter) Abort(arg0 context.Context, arg1 StateManager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Abort", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Abort indicates an expected call of Abort
+func (mr *MockAborterMockRecorder) Abort(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockAborter)(nil).Abort), arg0, arg1)
 }
 
 // MockPostSystemActionsCreator is a mock of PostSystemActionsCreator interface

@@ -184,6 +184,11 @@ func (cc *consortiumCommittee) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, cc)
 }
 
+// Name returns the name of protocol
+func (cc *consortiumCommittee) Name() string {
+	return protocolID
+}
+
 func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	return cc.readDelegates(ctx)
 }

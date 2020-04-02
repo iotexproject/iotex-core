@@ -79,11 +79,24 @@ type (
 	// StateManager defines the stateDB interface atop IoTeX blockchain
 	StateManager interface {
 		StateReader
+		ConfirmedHeight() uint64
 		// Accounts
 		Snapshot() int
 		Revert(int) error
 		// General state
 		PutState(interface{}, ...StateOption) (uint64, error)
 		DelState(...StateOption) (uint64, error)
+		Dock
+	}
+
+	// Dock defines an interface for protocol to read/write their private data in StateReader/Manager
+	// data are stored as interface{}, user needs to type-assert on their own upon Unload()
+	Dock interface {
+		Dirty() bool
+		ProtocolDirty(string) bool
+		Load(string, interface{}) error
+		Unload(string) (interface{}, error)
+		Push() error
+		Reset()
 	}
 )

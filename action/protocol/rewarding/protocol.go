@@ -231,6 +231,11 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
+}
+
 func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.State(value, protocol.LegacyKeyOption(keyHash))

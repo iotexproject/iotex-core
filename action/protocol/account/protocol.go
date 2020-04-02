@@ -96,6 +96,11 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
+}
+
 func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) error {
 	var account state.Account
 	addr, err := address.FromString(encodedAddr)

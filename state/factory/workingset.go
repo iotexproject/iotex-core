@@ -44,9 +44,11 @@ type (
 	workingSet struct {
 		height       uint64
 		finalized    bool
+		dock         protocol.Dock
 		commitFunc   func(uint64) error
 		dbFunc       func() db.KVStore
 		delStateFunc func(string, []byte) error
+		stateFunc    func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
 		digestFunc   func() hash.Hash256
 		finalizeFunc func(uint64) error
 		getStateFunc func(string, []byte, interface{}) error
@@ -67,9 +69,12 @@ func (ws *workingSet) digest() (hash.Hash256, error) {
 	return ws.digestFunc(), nil
 }
 
-// Version returns the Version of this working set
-func (ws *workingSet) Version() uint64 {
-	return ws.height
+// ConfirmedHeight() returns the confirmed height this working set is based on
+func (ws *workingSet) ConfirmedHeight() uint64 {
+	if ws.height > 0 {
+		return ws.height - 1
+	}
+	return 0
 }
 
 // Height returns the Height of the block being worked on
@@ -184,7 +189,10 @@ func (ws *workingSet) Revert(snapshot int) error {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit() error {
-	return ws.commitFunc(ws.height)
+	if err := ws.commitFunc(ws.height); err != nil {
+		return err
+	}
+	return ws.dock.Push()
 }
 
 // GetDB returns the underlying DB for account/contract storage
@@ -203,7 +211,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return 0, nil, ErrNotSupported
+	return ws.stateFunc(opts...)
 }
 
 // PutState puts a state into DB
@@ -224,6 +232,30 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 		return ws.height, err
 	}
 	return ws.height, ws.delStateFunc(cfg.Namespace, cfg.Key)
+}
+
+func (ws *workingSet) Dirty() bool {
+	return ws.dock.Dirty()
+}
+
+func (ws *workingSet) ProtocolDirty(name string) bool {
+	return ws.dock.ProtocolDirty(name)
+}
+
+func (ws *workingSet) Load(name string, v interface{}) error {
+	return ws.dock.Load(name, v)
+}
+
+func (ws *workingSet) Unload(name string) (interface{}, error) {
+	return ws.dock.Unload(name)
+}
+
+func (ws *workingSet) Push() error {
+	return ws.dock.Push()
+}
+
+func (ws *workingSet) Reset() {
+	ws.dock.Reset()
 }
 
 // createGenesisStates initialize the genesis states
@@ -326,7 +358,6 @@ func (ws *workingSet) pickAndRunActions(
 	executedActions := make([]action.SealedEnvelope, 0)
 	reg := protocol.MustGetRegistry(ctx)
 
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
@@ -336,6 +367,7 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	// initial action iterator
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
 		nextAction, ok := actionIterator.Next()
@@ -377,6 +409,7 @@ func (ws *workingSet) pickAndRunActions(
 			break
 		}
 	}
+
 	for _, selp := range postSystemActions {
 		if ctx, err = withActionCtx(ctx, selp); err != nil {
 			return nil, nil, err

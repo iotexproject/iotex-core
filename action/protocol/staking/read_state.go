@@ -54,9 +54,9 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
+func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, cv CandidateView,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, error) {
-	c, err := getCandidateByName(sr, req.GetCandName())
+	c, err := getCandidateByName(cv, req.GetCandName())
 	if err != nil {
 		return nil, err
 	}
@@ -82,23 +82,18 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func readStateCandidates(ctx context.Context, sr protocol.StateReader,
+func readStateCandidates(ctx context.Context, cv CandidateView,
 	req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, error) {
-	all, err := getAllCandidates(sr)
-	if err != nil {
-		return nil, err
-	}
-
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
-	candidates := getPageOfCandidates(all, offset, limit)
+	candidates := getPageOfCandidates(cv.All(), offset, limit)
 
 	return toIoTeXTypesCandidateListV2(candidates), nil
 }
 
-func readStateCandidateByName(ctx context.Context, sr protocol.StateReader,
+func readStateCandidateByName(ctx context.Context, cv CandidateView,
 	req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, error) {
-	c, err := getCandidateByName(sr, req.GetCandName())
+	c, err := getCandidateByName(cv, req.GetCandName())
 	if err != nil {
 		return nil, err
 	}
