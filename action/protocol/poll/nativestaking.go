@@ -87,7 +87,7 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 		return nil, ErrNoData
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
 	if ns.bufferEpochNum == tipEpochNum && ns.bufferResult != nil {
 		log.L().Info("Using cache native staking data", zap.Uint64("tip height", bcCtx.Tip.Height))
