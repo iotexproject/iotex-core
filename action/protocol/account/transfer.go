@@ -147,17 +147,6 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 	if tsf.TotalSize() > TransferSizeLimit {
 		return errors.Wrap(action.ErrActPool, "oversized data")
 	}
-	// Reject transfer of negative amount
-	if tsf.Amount().Sign() < 0 {
-		return errors.Wrap(action.ErrBalance, "negative value")
-	}
-	// Reject transfer of negative gas price
-	if tsf.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	// check if recipient's address is valid
-	if _, err := address.FromString(tsf.Recipient()); err != nil {
-		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
-	}
-	return nil
+
+	return tsf.SanityCheck()
 }

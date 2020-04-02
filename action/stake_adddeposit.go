@@ -118,3 +118,12 @@ func (ds *DepositToStake) Cost() (*big.Int, error) {
 	depositToStakeFee := big.NewInt(0).Mul(ds.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(ds.Amount(), depositToStakeFee), nil
 }
+
+// SanityCheck validates the variables in the action
+func (ds *DepositToStake) SanityCheck() error {
+	if ds.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+
+	return ds.AbstractAction.SanityCheck()
+}

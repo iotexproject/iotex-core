@@ -171,15 +171,15 @@ var (
 			uint64(200000), big.NewInt(0),
 			TsfPending, "Transfer to multiple accounts with not enough total balance 2",
 		},
+		{
+			AcntCreate, nil, big.NewInt(1000000),
+			AcntBadAddr, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfFail, "Normal transfer to a bad address",
+		},
 		/*
-			{
-				AcntCreate, nil, big.NewInt(1000000),
-				AcntBadAddr, nil, big.NewInt(1000000),
-				1, big.NewInt(100), // nonce, amount
-				make([]byte, 100),             //payload
-				uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-				TsfFail, "Normal transfer to a bad address",
-			},
 			{
 				AcntNotRegistered, nil, big.NewInt(1000000),
 				AcntCreate, nil, big.NewInt(1000000),
@@ -204,15 +204,15 @@ var (
 				uint64(200000), big.NewInt(1),
 				TsfFail, "Transfer with not enough balance with payload",
 			},
-			{
-				AcntCreate, nil, big.NewInt(100000),
-				AcntCreate, nil, big.NewInt(100000),
-				1, big.NewInt(-100),
-				make([]byte, 4),
-				uint64(200000), big.NewInt(1),
-				TsfFail, "Transfer with negative amount",
-			},
 		*/
+		{
+			AcntCreate, nil, big.NewInt(100000),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(-100),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with negative amount",
+		},
 		{
 			AcntCreate, nil, big.NewInt(1000000),
 			AcntCreate, nil, big.NewInt(1000000),

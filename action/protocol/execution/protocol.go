@@ -85,21 +85,7 @@ func (p *Protocol) Validate(_ context.Context, act action.Action) error {
 	if exec.TotalSize() > ExecutionSizeLimit {
 		return errors.Wrap(action.ErrActPool, "oversized data")
 	}
-	// Reject execution of negative amount
-	if exec.Amount().Sign() < 0 {
-		return errors.Wrap(action.ErrBalance, "negative value")
-	}
-	// Reject execution of negative gas price
-	if exec.GasPrice().Sign() < 0 {
-		return errors.Wrap(action.ErrGasPrice, "negative value")
-	}
-	// check if contract's address is valid
-	if exec.Contract() != action.EmptyAddress {
-		if _, err := address.FromString(exec.Contract()); err != nil {
-			return errors.Wrapf(err, "error when validating contract's address %s", exec.Contract())
-		}
-	}
-	return nil
+	return exec.SanityCheck()
 }
 
 // ReadState read the state on blockchain via protocol
