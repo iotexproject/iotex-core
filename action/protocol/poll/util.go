@@ -103,7 +103,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	return nil
 }
 
-func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope, error) {
+func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -113,6 +113,9 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 	// make sure that putpollresult action is created around half of each epoch
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
+	}
+	if _, err := p.NextCandidates(ctx, sr); errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
 	}
 	log.L().Debug(
 		"createPutPollResultAction",
@@ -228,22 +231,31 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	zap.L().Debug("Shift candidatelist from next key to current key")
 	var next state.CandidateList
 	var err error
-	var stateHeight, putStateHeight uint64
+	var stateHeight, putStateHeight, delStateHeight uint64
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	if stateHeight, err = sm.State(&next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next probationlist when shifting to current probationlist",
+			"failed to read next candidateList when shifting to current candidateList",
 		)
 	}
 	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
 	if putStateHeight, err = sm.PutState(&next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current probationlist when shifting from next probationlist to current probationlist",
+			"failed to write current candidateList when shifting from next candidateList to current candidateList",
 		)
 	}
 	if stateHeight != putStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next candidatelist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
 	return stateHeight, nil
@@ -253,7 +265,7 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	zap.L().Debug("Shift probationList from next key to current key")
 	var err error
-	var stateHeight, putStateHeight uint64
+	var stateHeight, putStateHeight, delStateHeight uint64
 	next := &vote.ProbationList{}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
 	if stateHeight, err = sm.State(next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
@@ -271,6 +283,15 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	}
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next probationlist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift probationlist")
 	}
 	return stateHeight, nil
 }

@@ -56,7 +56,7 @@ type Aborter interface {
 
 // PostSystemActionsCreator creates a list of system actions to be appended to block actions
 type PostSystemActionsCreator interface {
-	CreatePostSystemActions(context.Context) ([]action.Envelope, error)
+	CreatePostSystemActions(context.Context, StateReader) ([]action.Envelope, error)
 }
 
 // ActionValidator is the interface of validating an action

@@ -103,7 +103,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
-func (p *Protocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
