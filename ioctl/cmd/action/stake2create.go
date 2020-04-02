@@ -9,6 +9,8 @@ package action
 import (
 	"encoding/hex"
 
+	"github.com/iotexproject/iotex-core/ioctl/validator"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -53,8 +55,11 @@ func init() {
 
 func stake2Create(args []string) error {
 	var amount = args[0]
-	var candidateName = args[1]
 
+	var candidateName = args[1]
+	if err := validator.ValidateCandidateName(candidateName); err != nil {
+		return output.NewError(output.ValidationError, "invalid candidate name", err)
+	}
 	stakeDuration, err := parseStakeDuration(args[2])
 	if err != nil {
 		return output.NewError(0, "", err)

@@ -18,16 +18,30 @@ var (
 		config.English: "stake2",
 		config.Chinese: "stake2",
 	}
+	stake2CmdShorts = map[config.Language]string{
+		config.English: "support native staking from ioctl",
+		config.Chinese: "支持来自ioctl的本地质押",
+	}
+	stake2FlagEndpointUsages = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置所有端点",
+	}
+	stake2FlagInsecureUsages = map[config.Language]string{
+		config.English: "insecure connection for once (default false)",
+		config.Chinese: "一次不安全的连接（默认为false)",
+	}
 )
 
 var stake2AutoRestake bool
 
 //Stake2Cmd represent stake2 command
 var Stake2Cmd = &cobra.Command{
-	Use: config.TranslateInLang(stake2CmdUses, config.UILanguage),
+	Use:   config.TranslateInLang(stake2CmdUses, config.UILanguage),
+	Short: config.TranslateInLang(stake2CmdShorts, config.UILanguage),
 }
 
 func init() {
-	Stake2Cmd.AddCommand(stake2RgisterCmd)
 	Stake2Cmd.AddCommand(stake2CreateCmd)
+	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(stake2FlagEndpointUsages, config.UILanguage))
+	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(stake2FlagInsecureUsages, config.UILanguage))
 }
