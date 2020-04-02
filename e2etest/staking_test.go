@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -51,7 +52,9 @@ func TestStakingContract(t *testing.T) {
 		bc := svr.ChainService(chainID).Blockchain()
 		sf := svr.ChainService(chainID).StateFactory()
 		dao := svr.ChainService(chainID).BlockDAO()
+		registry := svr.ChainService(chainID).Registry()
 		require.NotNil(bc)
+		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
 		addr0 := identityset.Address(26).String()
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
@@ -139,7 +142,8 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 		blk, err = dao.GetBlockByHeight(height)
 		require.NoError(err)
-		ctx = protocol.WithBlockchainCtx(ctx,
+		ctx = protocol.WithBlockchainCtx(
+			protocol.WithRegistry(ctx, registry),
 			protocol.BlockchainCtx{
 				Genesis: cfg.Genesis,
 				Tip: protocol.TipInfo{
@@ -188,12 +192,15 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
+	testConsensusPath, err := testutil.PathOfTempFile("consensus")
+	require.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
 		testutil.CleanupPath(t, testCandidateIndexPath)
 		testutil.CleanupPath(t, testSystemLogPath)
+		testutil.CleanupPath(t, testConsensusPath)
 		// clear the gateway
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -203,8 +210,19 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
+	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
 	cfg.Chain.ProducerPrivKey = "a000000000000000000000000000000000000000000000000000000000000000"
-	cfg.Consensus.Scheme = config.NOOPScheme
+	cfg.Consensus.Scheme = config.RollDPoSScheme
+	cfg.Genesis.NumDelegates = 1
+	cfg.Genesis.NumSubEpochs = 10
+	cfg.Genesis.Delegates = []genesis.Delegate{
+		{
+			OperatorAddrStr: identityset.Address(0).String(),
+			RewardAddrStr:   identityset.Address(0).String(),
+			VotesStr:        "10",
+		},
+	}
+	cfg.Genesis.PollMode = "lifeLong"
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
