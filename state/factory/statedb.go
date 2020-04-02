@@ -275,7 +275,7 @@ func (sdb *stateDB) NewBlockBuilder(
 	postSystemActions := make([]action.SealedEnvelope, 0)
 	for _, p := range sdb.registry.All() {
 		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
+			elps, err := psac.CreatePostSystemActions(ctx, ws)
 			if err != nil {
 				return nil, err
 			}

@@ -177,8 +177,8 @@ func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.Sta
 	return nil
 }
 
-func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, sc)
+func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, sc)
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
