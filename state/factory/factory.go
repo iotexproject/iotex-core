@@ -302,7 +302,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			}
 			return err
 		},
-		stateFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 			return sf.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
@@ -329,8 +329,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			if err := flusher.Flush(); err != nil {
 				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 			}
+			if err := sf.twoLayerTrie.SetRootHash(tlt.RootHash()); err != nil {
+				return err
+			}
 			sf.currentChainHeight = h
-			return sf.twoLayerTrie.SetRootHash(tlt.RootHash())
+			return nil
 		},
 		snapshotFunc: func() int {
 			s := flusher.KVStoreWithBuffer().Snapshot()
@@ -519,7 +522,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return sf.commit(ctx, ws)
+	return ws.Commit(ctx)
 }
 
 func (sf *factory) DeleteTipBlock(_ *block.Block) error {
@@ -637,20 +640,6 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	return readState(tlt, ns, key, s)
 }
 
-func (sf *factory) commit(ctx context.Context, ws *workingSet) error {
-	err := errors.Wrap(ws.Commit(), "failed to commit working set")
-	if !ws.Dirty() {
-		return err
-	}
-	if err == nil {
-		protocolCommit(ctx, ws)
-	} else {
-		protocolAbort(ctx, ws)
-	}
-	ws.Reset()
-	return err
-}
-
 func (sf *factory) createGenesisStates(ctx context.Context) error {
 	ws, err := sf.newWorkingSet(ctx, 0)
 	if err != nil {
@@ -660,7 +649,8 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
-	return sf.commit(ctx, ws)
+
+	return ws.Commit(ctx)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

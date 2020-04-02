@@ -208,7 +208,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 
 			return nil
 		},
-		stateFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
 			return sdb.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
@@ -360,7 +360,7 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		)
 	}
 
-	return sdb.commit(ctx, ws)
+	return ws.Commit(ctx)
 }
 
 func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
@@ -458,20 +458,6 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) commit(ctx context.Context, ws *workingSet) error {
-	err := errors.Wrap(ws.Commit(), "failed to commit working set")
-	if !ws.Dirty() {
-		return err
-	}
-	if err == nil {
-		protocolCommit(ctx, ws)
-	} else {
-		protocolAbort(ctx, ws)
-	}
-	ws.Reset()
-	return err
-}
-
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	ws, err := sdb.newWorkingSet(ctx, 0)
 	if err != nil {
@@ -481,7 +467,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return sdb.commit(ctx, ws)
+	return ws.Commit(ctx)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

@@ -305,20 +305,6 @@ func (mr *MockStateManagerMockRecorder) Unload(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManager)(nil).Unload), arg0)
 }
 
-// Push mocks base method
-func (m *MockStateManager) Push() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Push")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Push indicates an expected call of Push
-func (mr *MockStateManagerMockRecorder) Push() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockStateManager)(nil).Push))
-}
-
 // Reset mocks base method
 func (m *MockStateManager) Reset() {
 	m.ctrl.T.Helper()
@@ -409,20 +395,6 @@ func (m *MockDock) Unload(arg0 string) (interface{}, error) {
 func (mr *MockDockMockRecorder) Unload(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0)
-}
-
-// Push mocks base method
-func (m *MockDock) Push() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Push")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Push indicates an expected call of Push
-func (mr *MockDockMockRecorder) Push() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Push", reflect.TypeOf((*MockDock)(nil).Push))
 }
 
 // Reset mocks base method
