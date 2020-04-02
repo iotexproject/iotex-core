@@ -89,13 +89,16 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			cb.Put("state", cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(720), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
-		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+			return nil, state.ErrStateNotExist
+		},
 		nil,
 		nil,
 		nil,

@@ -115,6 +115,9 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
+	if _, err := p.CandidatesByHeight(ctx, nextEpochHeight); errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
 	log.L().Debug(
 		"createPutPollResultAction",
 		zap.Uint64("height", blkCtx.BlockHeight),
@@ -229,22 +232,31 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	zap.L().Debug("Shift candidatelist from next key to current key")
 	var next state.CandidateList
 	var err error
-	var stateHeight, putStateHeight uint64
+	var stateHeight, putStateHeight, delStateHeight uint64
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	if stateHeight, err = sm.State(&next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next blacklist when shifting to current blacklist",
+			"failed to read next candidateList when shifting to current candidateList",
 		)
 	}
 	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
 	if putStateHeight, err = sm.PutState(&next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+			"failed to write current candidateList when shifting from next candidateList to current candidateList",
 		)
 	}
 	if stateHeight != putStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next candidatelist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
 	return stateHeight, nil
@@ -254,7 +266,7 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 func shiftKickoutList(sm protocol.StateManager) (uint64, error) {
 	zap.L().Debug("Shift kickoutList from next key to current key")
 	var err error
-	var stateHeight, putStateHeight uint64
+	var stateHeight, putStateHeight, delStateHeight uint64
 	next := &vote.Blacklist{}
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
 	if stateHeight, err = sm.State(next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
@@ -272,6 +284,15 @@ func shiftKickoutList(sm protocol.StateManager) (uint64, error) {
 	}
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next blacklist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift blacklist")
 	}
 	return stateHeight, nil
 }
