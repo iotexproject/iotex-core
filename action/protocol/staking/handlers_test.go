@@ -37,18 +37,14 @@ func (m *candCenter) deleteForTestOnly(owner address.Address) {
 
 	if _, hit := m.base.getByOwner(owner.String()); hit {
 		m.base.delete(owner)
-		if !m.change.ContainsOwner(owner) {
+		if !m.change.containsOwner(owner) {
 			m.size--
 			return
 		}
 	}
 
-	if m.change.ContainsOwner(owner) {
-		cv, ok := m.change.(*candChange)
-		if !ok {
-			panic("wrong type of CandidateView, expecting *candChange")
-		}
-		cv.delete(owner)
+	if m.change.containsOwner(owner) {
+		m.change.delete(owner)
 		m.size--
 	}
 }
