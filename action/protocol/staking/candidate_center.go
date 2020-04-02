@@ -15,17 +15,12 @@ import (
 type (
 	// CandidateCenter is the candidate center
 	CandidateCenter interface {
-		CandidateView
-		Base() CandidateCenter
-		Delta() CandidateList
-		SetDelta(CandidateView) error
-		Commit() error
-	}
-
-	// CandidateView provides access to all candidates
-	CandidateView interface {
 		Size() int
 		All() CandidateList
+		Base() CandidateCenter
+		Delta() CandidateList
+		SetDelta(CandidateList) error
+		Commit() error
 		ContainsName(string) bool
 		ContainsOwner(address.Address) bool
 		ContainsOperator(address.Address) bool
@@ -34,7 +29,6 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
-		collision(*Candidate) error
 	}
 
 	// candChange captures the change to candidates
@@ -55,12 +49,12 @@ type (
 	candCenter struct {
 		base   *candBase
 		size   int
-		change CandidateView
+		change *candChange
 	}
 )
 
-// NewCandidateView creates an instance of CandidateView
-func NewCandidateView(l CandidateList) (CandidateView, error) {
+// listToCandChange creates a candChange from list
+func listToCandChange(l CandidateList) (*candChange, error) {
 	cv := candChange{
 		dirty: make(map[string]*Candidate),
 	}
@@ -94,13 +88,13 @@ func (m *candCenter) Size() int {
 
 // All returns all candidates in candidate center
 func (m *candCenter) All() CandidateList {
-	list := m.change.All()
+	list := m.change.all()
 	if list == nil {
 		return m.base.all()
 	}
 
 	for _, d := range m.base.all() {
-		if !m.change.ContainsOwner(d.Owner) {
+		if !m.change.containsOwner(d.Owner) {
 			list = append(list, d.Clone())
 		}
 	}
@@ -118,32 +112,35 @@ func (m candCenter) Base() CandidateCenter {
 
 // Delta exports the pending changes
 func (m *candCenter) Delta() CandidateList {
-	return m.change.All()
+	return m.change.all()
 }
 
 // SetDelta sets the delta
-func (m *candCenter) SetDelta(cv CandidateView) error {
-	if cv == nil || cv.Size() == 0 {
+func (m *candCenter) SetDelta(l CandidateList) error {
+	if len(l) == 0 {
 		m.change = nil
 		m.change = newCandChange()
 		m.size = m.base.size()
 		return nil
 	}
 
-	m.change = nil
-	m.change = cv
+	var err error
+	m.change, err = listToCandChange(l)
+	if err != nil {
+		return err
+	}
 	if m.base.size() == 0 {
-		m.size = cv.Size()
+		m.size = m.change.size()
 		return nil
 	}
 
 	overlap := 0
 	for _, v := range m.base.all() {
-		if cv.ContainsOwner(v.Owner) {
+		if m.change.containsOwner(v.Owner) {
 			overlap++
 		}
 	}
-	m.size = m.base.size() + cv.Size() - overlap
+	m.size = m.base.size() + m.change.size() - overlap
 	return nil
 }
 
@@ -161,12 +158,12 @@ func (m *candCenter) Commit() error {
 
 // ContainsName returns true if the map contains the candidate by name
 func (m *candCenter) ContainsName(name string) bool {
-	if hit := m.change.ContainsName(name); hit {
+	if hit := m.change.containsName(name); hit {
 		return true
 	}
 
 	if d, hit := m.base.getByName(name); hit {
-		return !m.change.ContainsOwner(d.Owner)
+		return !m.change.containsOwner(d.Owner)
 	}
 	return false
 }
@@ -177,7 +174,7 @@ func (m *candCenter) ContainsOwner(owner address.Address) bool {
 		return false
 	}
 
-	if hit := m.change.ContainsOwner(owner); hit {
+	if hit := m.change.containsOwner(owner); hit {
 		return true
 	}
 
@@ -191,35 +188,35 @@ func (m *candCenter) ContainsOperator(operator address.Address) bool {
 		return false
 	}
 
-	if hit := m.change.ContainsOperator(operator); hit {
+	if hit := m.change.containsOperator(operator); hit {
 		return true
 	}
 
 	if d, hit := m.base.getByOperator(operator.String()); hit {
-		return !m.change.ContainsOwner(d.Owner)
+		return !m.change.containsOwner(d.Owner)
 	}
 	return false
 }
 
 // ContainsSelfStakingBucket returns true if the map contains the self staking bucket index
 func (m *candCenter) ContainsSelfStakingBucket(index uint64) bool {
-	if hit := m.change.ContainsSelfStakingBucket(index); hit {
+	if hit := m.change.containsSelfStakingBucket(index); hit {
 		return true
 	}
 
 	if d, hit := m.base.getBySelfStakingIndex(index); hit {
-		return !m.change.ContainsOwner(d.Owner)
+		return !m.change.containsOwner(d.Owner)
 	}
 	return false
 }
 
 // GetByName returns the candidate by name
 func (m *candCenter) GetByName(name string) *Candidate {
-	if d := m.change.GetByName(name); d != nil {
+	if d := m.change.getByName(name); d != nil {
 		return d
 	}
 
-	if d, hit := m.base.getByName(name); hit && !m.change.ContainsOwner(d.Owner) {
+	if d, hit := m.base.getByName(name); hit && !m.change.containsOwner(d.Owner) {
 		return d.Clone()
 	}
 	return nil
@@ -231,7 +228,7 @@ func (m *candCenter) GetByOwner(owner address.Address) *Candidate {
 		return nil
 	}
 
-	if d := m.change.GetByOwner(owner); d != nil {
+	if d := m.change.getByOwner(owner); d != nil {
 		return d
 	}
 
@@ -243,11 +240,11 @@ func (m *candCenter) GetByOwner(owner address.Address) *Candidate {
 
 // GetBySelfStakingIndex returns the candidate by self-staking index
 func (m *candCenter) GetBySelfStakingIndex(index uint64) *Candidate {
-	if d := m.change.GetBySelfStakingIndex(index); d != nil {
+	if d := m.change.getBySelfStakingIndex(index); d != nil {
 		return d
 	}
 
-	if d, hit := m.base.getBySelfStakingIndex(index); hit && !m.change.ContainsOwner(d.Owner) {
+	if d, hit := m.base.getBySelfStakingIndex(index); hit && !m.change.containsOwner(d.Owner) {
 		return d.Clone()
 	}
 	return nil
@@ -263,7 +260,7 @@ func (m *candCenter) Upsert(d *Candidate) error {
 		return err
 	}
 
-	if err := m.change.Upsert(d); err != nil {
+	if err := m.change.upsert(d); err != nil {
 		return err
 	}
 
@@ -279,15 +276,15 @@ func (m *candCenter) collision(d *Candidate) error {
 	}
 
 	name, oper, self := m.base.collision(d)
-	if name != nil && !m.change.ContainsOwner(name) {
+	if name != nil && !m.change.containsOwner(name) {
 		return ErrInvalidCanName
 	}
 
-	if oper != nil && !m.change.ContainsOwner(oper) {
+	if oper != nil && !m.change.containsOwner(oper) {
 		return ErrInvalidOperator
 	}
 
-	if self != nil && !m.change.ContainsOwner(self) {
+	if self != nil && !m.change.containsOwner(self) {
 		return ErrInvalidSelfStkIndex
 	}
 	return nil
@@ -303,11 +300,11 @@ func newCandChange() *candChange {
 	}
 }
 
-func (cc *candChange) Size() int {
+func (cc *candChange) size() int {
 	return len(cc.dirty)
 }
 
-func (cc *candChange) All() CandidateList {
+func (cc *candChange) all() CandidateList {
 	if len(cc.dirty) == 0 {
 		return nil
 	}
@@ -319,7 +316,7 @@ func (cc *candChange) All() CandidateList {
 	return list
 }
 
-func (cc *candChange) ContainsName(name string) bool {
+func (cc *candChange) containsName(name string) bool {
 	for _, d := range cc.dirty {
 		if name == d.Name {
 			return true
@@ -328,7 +325,7 @@ func (cc *candChange) ContainsName(name string) bool {
 	return false
 }
 
-func (cc *candChange) ContainsOwner(owner address.Address) bool {
+func (cc *candChange) containsOwner(owner address.Address) bool {
 	if owner == nil {
 		return false
 	}
@@ -336,7 +333,7 @@ func (cc *candChange) ContainsOwner(owner address.Address) bool {
 	return ok
 }
 
-func (cc *candChange) ContainsOperator(operator address.Address) bool {
+func (cc *candChange) containsOperator(operator address.Address) bool {
 	for _, d := range cc.dirty {
 		if address.Equal(operator, d.Operator) {
 			return true
@@ -345,7 +342,7 @@ func (cc *candChange) ContainsOperator(operator address.Address) bool {
 	return false
 }
 
-func (cc *candChange) ContainsSelfStakingBucket(index uint64) bool {
+func (cc *candChange) containsSelfStakingBucket(index uint64) bool {
 	for _, d := range cc.dirty {
 		if index == d.SelfStakeBucketIdx {
 			return true
@@ -354,7 +351,7 @@ func (cc *candChange) ContainsSelfStakingBucket(index uint64) bool {
 	return false
 }
 
-func (cc *candChange) GetByName(name string) *Candidate {
+func (cc *candChange) getByName(name string) *Candidate {
 	for _, d := range cc.dirty {
 		if name == d.Name {
 			return d.Clone()
@@ -363,7 +360,7 @@ func (cc *candChange) GetByName(name string) *Candidate {
 	return nil
 }
 
-func (cc *candChange) GetByOwner(owner address.Address) *Candidate {
+func (cc *candChange) getByOwner(owner address.Address) *Candidate {
 	if owner == nil {
 		return nil
 	}
@@ -374,7 +371,7 @@ func (cc *candChange) GetByOwner(owner address.Address) *Candidate {
 	return nil
 }
 
-func (cc *candChange) GetBySelfStakingIndex(index uint64) *Candidate {
+func (cc *candChange) getBySelfStakingIndex(index uint64) *Candidate {
 	for _, d := range cc.dirty {
 		if index == d.SelfStakeBucketIdx {
 			return d.Clone()
@@ -383,7 +380,7 @@ func (cc *candChange) GetBySelfStakingIndex(index uint64) *Candidate {
 	return nil
 }
 
-func (cc *candChange) Upsert(d *Candidate) error {
+func (cc *candChange) upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -431,10 +428,10 @@ func (cb *candBase) all() CandidateList {
 	return list
 }
 
-func (cb *candBase) commit(cv CandidateView) (int, error) {
+func (cb *candBase) commit(change *candChange) (int, error) {
 	cb.lock.Lock()
 	defer cb.lock.Unlock()
-	for _, v := range cv.All() {
+	for _, v := range change.dirty {
 		if err := v.Validate(); err != nil {
 			return 0, err
 		}

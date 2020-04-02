@@ -12,7 +12,7 @@ import (
 )
 
 // testEqual verifies m contains exactly the list
-func testEqual(m CandidateView, l CandidateList) bool {
+func testEqual(m CandidateCenter, l CandidateList) bool {
 	for _, v := range l {
 		d := m.GetByOwner(v.Owner)
 		if d == nil {
@@ -69,9 +69,7 @@ func testEqualAllCommitAbort(r *require.Assertions, m CandidateCenter, old Candi
 
 	// test commit
 	r.NoError(delta.Deserialize(ser))
-	diff, err := NewCandidateView(delta)
-	r.NoError(err)
-	r.NoError(m.SetDelta(diff))
+	r.NoError(m.SetDelta(delta))
 	r.NoError(m.Commit())
 	r.NoError(m.Commit()) // commit is idempotent
 	r.Equal(size+increase, m.Size())
@@ -105,9 +103,7 @@ func TestCandCenter(t *testing.T) {
 	r.NotNil(list)
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	delta, err := NewCandidateView(list)
-	r.NoError(err)
-	r.NoError(m.SetDelta(delta))
+	r.NoError(m.SetDelta(list))
 	r.NoError(m.Commit())
 	r.Equal(len(testCandidates), m.Size())
 	r.True(testEqual(m, list))
@@ -207,10 +203,9 @@ func TestCandCenter(t *testing.T) {
 	list = m.All()
 	r.Equal(len(list), m.Size())
 	r.True(testEqual(m, list))
-	delta, err = NewCandidateView(m.Delta())
-	r.NoError(err)
+	delta := m.Delta()
 	// 4 updates + 4 new
-	r.Equal(8, delta.Size())
+	r.Equal(8, len(delta))
 	r.Equal(len(testCandidates)+4, m.Size())
 
 	// SetDelta using one's own Delta() does not change a thing

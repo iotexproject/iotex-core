@@ -400,13 +400,8 @@ func createCandCenter(sr protocol.StateReader, height uint64) (CandidateCenter, 
 		return nil, err
 	}
 
-	delta, err := NewCandidateView(all)
-	if err != nil {
-		return nil, err
-	}
-
 	center := NewCandidateCenter()
-	if err := center.SetDelta(delta); err != nil {
+	if err := center.SetDelta(all); err != nil {
 		return nil, err
 	}
 	if err := center.Commit(); err != nil {

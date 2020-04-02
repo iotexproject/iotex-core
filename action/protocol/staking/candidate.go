@@ -323,12 +323,3 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 	_, err := sm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return err
 }
-
-func getCandidateByName(cv CandidateView, name string) (*Candidate, error) {
-	for _, cand := range cv.All() {
-		if cand.Name == name {
-			return cand, nil
-		}
-	}
-	return nil, nil
-}
