@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -134,4 +135,18 @@ func (tsf *Transfer) Cost() (*big.Int, error) {
 	}
 	transferFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(tsf.Amount(), transferFee), nil
+}
+
+// SanityCheck validates the variables in the action
+func (tsf *Transfer) SanityCheck() error {
+	// Reject transfer of negative amount
+	if tsf.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+	// check if recipient's address is valid
+	if _, err := address.FromString(tsf.Recipient()); err != nil {
+		return errors.Wrapf(err, "error when validating recipient's address %s", tsf.Recipient())
+	}
+
+	return tsf.AbstractAction.SanityCheck()
 }

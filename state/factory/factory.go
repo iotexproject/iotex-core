@@ -278,6 +278,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	return &workingSet{
 		height:    height,
 		finalized: false,
+		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
 			return readState(tlt, ns, key, s)
 		},
@@ -300,6 +301,9 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
 			}
 			return err
+		},
+		stateFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+			return sf.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -506,16 +510,16 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if sf.currentChainHeight+1 != ws.Version() {
+	h, _ := ws.Height()
+	if sf.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
-			"current state height %d + 1 doesn't match working set version %d",
-			sf.currentChainHeight,
-			ws.Version(),
+			"current state height %d + 1 doesn't match working set height %d",
+			sf.currentChainHeight, h,
 		)
 	}
 
-	return ws.Commit()
+	return sf.commit(ctx, ws)
 }
 
 func (sf *factory) DeleteTipBlock(_ *block.Block) error {
@@ -633,19 +637,30 @@ func (sf *factory) stateAtHeight(height uint64, ns string, key []byte, s interfa
 	return readState(tlt, ns, key, s)
 }
 
+func (sf *factory) commit(ctx context.Context, ws *workingSet) error {
+	err := errors.Wrap(ws.Commit(), "failed to commit working set")
+	if !ws.Dirty() {
+		return err
+	}
+	if err == nil {
+		protocolCommit(ctx, ws)
+	} else {
+		protocolAbort(ctx, ws)
+	}
+	ws.Reset()
+	return err
+}
+
 func (sf *factory) createGenesisStates(ctx context.Context) error {
 	ws, err := sf.newWorkingSet(ctx, 0)
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
+	// add Genesis states
 	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
-	// add Genesis states
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
+	return sf.commit(ctx, ws)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

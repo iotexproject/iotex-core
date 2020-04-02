@@ -19,6 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/types"
@@ -36,11 +37,11 @@ type (
 	ReadContract func(context.Context, string, []byte, bool) ([]byte, error)
 	// NativeStaking represents native staking struct
 	NativeStaking struct {
-		readContract ReadContract
-		contract     string
-		abi          abi.ABI
-		bufferHeight uint64
-		bufferResult *VoteTally
+		readContract   ReadContract
+		contract       string
+		abi            abi.ABI
+		bufferEpochNum uint64
+		bufferResult   *VoteTally
 	}
 
 	pygg struct {
@@ -73,10 +74,10 @@ func NewNativeStaking(readContract ReadContract) (*NativeStaking, error) {
 	}
 
 	return &NativeStaking{
-		abi:          abi,
-		readContract: readContract,
-		bufferHeight: 0,
-		bufferResult: nil,
+		abi:            abi,
+		readContract:   readContract,
+		bufferEpochNum: 0,
+		bufferResult:   nil,
 	}, nil
 }
 
@@ -86,7 +87,9 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 		return nil, ErrNoData
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if ns.bufferHeight == bcCtx.Tip.Height && ns.bufferResult != nil {
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if ns.bufferEpochNum == tipEpochNum && ns.bufferResult != nil {
 		log.L().Info("Using cache native staking data", zap.Uint64("tip height", bcCtx.Tip.Height))
 		return ns.bufferResult, nil
 	}
@@ -116,7 +119,7 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 		}
 		prevIndex = index
 	}
-	ns.bufferHeight = bcCtx.Tip.Height
+	ns.bufferEpochNum = tipEpochNum
 	ns.bufferResult = &votes
 
 	return &votes, nil

@@ -309,7 +309,7 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		}
 	}
 
-	return nil
+	return selp.Action().SanityCheck()
 }
 
 //======================================

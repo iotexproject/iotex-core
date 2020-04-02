@@ -193,6 +193,10 @@ func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) err
 	return validate(ctx, sc, act)
 }
 
+func (sc *stakingCommittee) Name() string {
+	return protocolID
+}
+
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
 func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	timer := sc.timerFactory.NewTimer("Governance")

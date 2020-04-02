@@ -75,3 +75,31 @@ func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) has
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
 	return hash.Hash256b(sum)
 }
+
+func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			post, ok := p.(protocol.Committer)
+			if ok && sr.ProtocolDirty(p.Name()) {
+				if err := post.Commit(ctx, sr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func protocolAbort(ctx context.Context, sr protocol.StateManager) error {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
+			post, ok := p.(protocol.Aborter)
+			if ok && sr.ProtocolDirty(p.Name()) {
+				if err := post.Abort(ctx, sr); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}

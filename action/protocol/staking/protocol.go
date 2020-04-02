@@ -14,6 +14,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -47,17 +48,18 @@ const (
 
 // Errors
 var (
-	ErrAlreadyExist = errors.New("candidate already exist")
-	TotalBucketKey  = append([]byte{_const}, []byte("totalBucket")...)
+	ErrAlreadyExist  = errors.New("candidate already exist")
+	ErrTypeAssertion = errors.New("failed type assertion")
+	TotalBucketKey   = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	addr            address.Address
-	inMemCandidates *CandidateCenter
-	depositGas      DepositGas
-	sr              protocol.StateReader
-	config          Configuration
+	addr        address.Address
+	candCenters *cache.ThreadSafeLruCache
+	depositGas  DepositGas
+	sr          protocol.StateReader
+	config      Configuration
 }
 
 // Configuration is the staking protocol configuration.
@@ -96,8 +98,8 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}
 
 	return &Protocol{
-		addr:            addr,
-		inMemCandidates: NewCandidateCenter(),
+		addr:        addr,
+		candCenters: cache.NewThreadSafeLruCache(8),
 		config: Configuration{
 			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
@@ -118,6 +120,15 @@ func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
+	if len(p.config.BootstrapCandidates) == 0 {
+		return nil
+	}
+
+	csm, err := p.createCandidateStateManager(sm)
+	if err != nil {
+		return err
+	}
+
 	for _, bc := range p.config.BootstrapCandidates {
 		owner, err := address.FromString(bc.OwnerAddress)
 		if err != nil {
@@ -153,55 +164,66 @@ func (p *Protocol) CreateGenesisStates(
 			SelfStake:          selfStake,
 		}
 
-		// put in statedb
-		if err := putCandidate(sm, c); err != nil {
-			return err
-		}
-		// put in mem
-		if err := p.inMemCandidates.Upsert(c); err != nil {
+		// put in statedb and cand center
+		if err := csm.Upsert(c); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Start starts the protocol
-func (p *Protocol) Start(ctx context.Context) error {
-	cands, err := getAllCandidates(p.sr)
+// Commit commits the last change
+func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
+	center, err := p.getCandCenter(sm.ConfirmedHeight())
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to commit candidate change in sm, cand center does not exist")
 	}
 
-	// populate into candidate center
-	for _, c := range cands {
-		if err := p.inMemCandidates.Upsert(c); err != nil {
-			return err
-		}
+	csm, err := NewCandidateStateManager(sm, center)
+	if err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in sm")
 	}
-	return nil
+	return csm.Commit()
 }
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	csm, err := p.createCandidateStateManager(sm)
+	if err != nil {
+		return nil, err
+	}
+	return p.handle(ctx, act, csm)
+}
+
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.CreateStake:
-		return p.handleCreateStake(ctx, act, sm)
+		r, err := p.handleCreateStake(ctx, act, csm)
+		return r, err
 	case *action.Unstake:
-		return p.handleUnstake(ctx, act, sm)
+		r, err := p.handleUnstake(ctx, act, csm)
+		return r, err
 	case *action.WithdrawStake:
-		return p.handleWithdrawStake(ctx, act, sm)
+		r, err := p.handleWithdrawStake(ctx, act, csm)
+		return r, err
 	case *action.ChangeCandidate:
-		return p.handleChangeCandidate(ctx, act, sm)
+		r, err := p.handleChangeCandidate(ctx, act, csm)
+		return r, err
 	case *action.TransferStake:
-		return p.handleTransferStake(ctx, act, sm)
+		r, err := p.handleTransferStake(ctx, act, csm)
+		return r, err
 	case *action.DepositToStake:
-		return p.handleDepositToStake(ctx, act, sm)
+		r, err := p.handleDepositToStake(ctx, act, csm)
+		return r, err
 	case *action.Restake:
-		return p.handleRestake(ctx, act, sm)
+		r, err := p.handleRestake(ctx, act, csm)
+		return r, err
 	case *action.CandidateRegister:
-		return p.handleCandidateRegister(ctx, act, sm)
+		r, err := p.handleCandidateRegister(ctx, act, csm)
+		return r, err
 	case *action.CandidateUpdate:
-		return p.handleCandidateUpdate(ctx, act, sm)
+		r, err := p.handleCandidateUpdate(ctx, act, csm)
+		return r, err
 	}
 	return nil, nil
 }
@@ -232,12 +254,28 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 }
 
 // ActiveCandidates returns all active candidates in candidate center
-func (p *Protocol) ActiveCandidates(context.Context) (state.CandidateList, error) {
-	list, err := p.inMemCandidates.All()
+func (p *Protocol) ActiveCandidates(ctx context.Context, height uint64) (state.CandidateList, error) {
+	center, err := p.getCandCenter(height)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
+	}
+	switch errors.Cause(err) {
+	case ErrTypeAssertion:
+		{
+			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+		}
+	case ErrNilParameters:
+		{
+			// TODO: pass in sr
+			center, err = createCandCenter(p.sr, height)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+			}
+			p.candCenters.Add(height, center)
+		}
 	}
 
+	list := center.All()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
@@ -264,17 +302,38 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp proto.Message
 		err  error
 	)
+
+	h, err := sr.Height()
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get SR height")
+	}
+	center, err := p.getCandCenter(h)
+	switch errors.Cause(err) {
+	case ErrTypeAssertion:
+		{
+			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+		}
+	case ErrNilParameters:
+		{
+			center, err = createCandCenter(sr, h)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+			}
+			p.candCenters.Add(h, center)
+		}
+	}
+
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
 		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, err = readStateBucketsByCandidate(ctx, sr, r.GetBucketsByCandidate())
+		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		resp, err = readStateCandidates(ctx, sr, r.GetCandidates())
+		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, err = readStateCandidateByName(ctx, sr, r.GetCandidateByName())
+		resp, err = readStateCandidateByName(ctx, center, r.GetCandidateByName())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
@@ -295,6 +354,63 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
+}
+
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
+}
+
+func (p *Protocol) createCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
+	h := sm.ConfirmedHeight()
+	center, err := p.getCandCenter(h)
+	switch errors.Cause(err) {
+	case ErrTypeAssertion:
+		{
+			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+		}
+	case ErrNilParameters:
+		{
+			center, err = createCandCenter(sm, h)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+			}
+			p.candCenters.Add(h, center)
+		}
+	}
+	return NewCandidateStateManager(sm, center.Base())
+}
+
+func (p *Protocol) getCandCenter(height uint64) (CandidateCenter, error) {
+	v, hit := p.candCenters.Get(height)
+	if hit {
+		if center, ok := v.(CandidateCenter); ok {
+			return center, nil
+		}
+		return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
+	}
+	return nil, ErrNilParameters
+}
+
+func createCandCenter(sr protocol.StateReader, height uint64) (CandidateCenter, error) {
+	all, err := loadCandidatesFromSR(sr)
+	if err != nil {
+		return nil, err
+	}
+
+	delta, err := NewCandidateView(all)
+	if err != nil {
+		return nil, err
+	}
+
+	center := NewCandidateCenter()
+	if err := center.SetDelta(delta); err != nil {
+		return nil, err
+	}
+	if err := center.Commit(); err != nil {
+		return nil, err
+	}
+	return center, nil
 }

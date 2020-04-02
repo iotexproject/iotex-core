@@ -45,18 +45,71 @@ type (
 
 // Clone returns a copy
 func (d *Candidate) Clone() *Candidate {
-	v := new(big.Int).Set(d.Votes)
-	s := new(big.Int).Set(d.SelfStake)
-
 	return &Candidate{
 		Owner:              d.Owner,
 		Operator:           d.Operator,
 		Reward:             d.Reward,
 		Name:               d.Name,
-		Votes:              v,
+		Votes:              new(big.Int).Set(d.Votes),
 		SelfStakeBucketIdx: d.SelfStakeBucketIdx,
-		SelfStake:          s,
+		SelfStake:          new(big.Int).Set(d.SelfStake),
 	}
+}
+
+// Equal tests equality of 2 candidates
+func (d *Candidate) Equal(c *Candidate) bool {
+	return d.Name == c.Name &&
+		d.SelfStakeBucketIdx == c.SelfStakeBucketIdx &&
+		address.Equal(d.Owner, c.Owner) &&
+		address.Equal(d.Operator, c.Operator) &&
+		address.Equal(d.Reward, c.Reward) &&
+		d.Votes.Cmp(c.Votes) == 0 &&
+		d.SelfStake.Cmp(c.SelfStake) == 0
+}
+
+// Validate does the sanity check
+func (d *Candidate) Validate() error {
+	if d.Votes == nil {
+		return ErrInvalidAmount
+	}
+
+	if d.Name == "" {
+		return ErrInvalidCanName
+	}
+
+	if d.Owner == nil {
+		return ErrInvalidOwner
+	}
+
+	if d.Operator == nil {
+		return ErrInvalidOperator
+	}
+
+	if d.Reward == nil {
+		return ErrInvalidReward
+	}
+
+	if d.SelfStake == nil {
+		return ErrInvalidAmount
+	}
+	return nil
+}
+
+// Collision checks collsion of 2 candidates
+func (d *Candidate) Collision(c *Candidate) error {
+	if address.Equal(d.Owner, c.Owner) {
+		return nil
+	}
+	if c.Name == d.Name {
+		return ErrInvalidCanName
+	}
+	if address.Equal(c.Operator, d.Operator) {
+		return ErrInvalidOperator
+	}
+	if c.SelfStakeBucketIdx == d.SelfStakeBucketIdx {
+		return ErrInvalidSelfStkIndex
+	}
+	return nil
 }
 
 // AddVote adds vote
@@ -204,6 +257,15 @@ func (l CandidateList) Less(i, j int) bool {
 	return strings.Compare(l[i].Owner.String(), l[j].Owner.String()) == 1
 }
 
+// Serialize serializes candidate to bytes
+func (l CandidateList) Serialize() ([]byte, error) {
+	pb, err := l.toProto()
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(pb)
+}
+
 func (l CandidateList) toProto() (*stakingpb.Candidates, error) {
 	candidatePb := make([]*stakingpb.Candidate, len(l))
 	for i, del := range l {
@@ -262,34 +324,8 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 	return err
 }
 
-func getAllCandidates(sr protocol.StateReader) (CandidateList, error) {
-	// TODO: load from current height's candidate center
-	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, nil
-}
-
-func getCandidateByName(sr protocol.StateReader, name string) (*Candidate, error) {
-	// TODO use current height's candidate center to avoid looping through all candiates.
-	cands, err := getAllCandidates(sr)
-	if err != nil {
-		return nil, err
-	}
-	for _, cand := range cands {
+func getCandidateByName(cv CandidateView, name string) (*Candidate, error) {
+	for _, cand := range cv.All() {
 		if cand.Name == name {
 			return cand, nil
 		}

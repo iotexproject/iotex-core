@@ -220,6 +220,11 @@ func (p *governanceChainCommitteeProtocol) ForceRegister(r *protocol.Registry) e
 	return r.ForceRegister(protocolID, p)
 }
 
+// Name returns the name of protocol
+func (p *governanceChainCommitteeProtocol) Name() string {
+	return protocolID
+}
+
 func (p *governanceChainCommitteeProtocol) getGravityHeight(ctx context.Context, height uint64) (uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNumber := rp.GetEpochNum(height)

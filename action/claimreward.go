@@ -77,6 +77,15 @@ func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
 	return big.NewInt(0).Mul(c.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
 }
 
+// SanityCheck validates the variables in the action
+func (c *ClaimFromRewardingFund) SanityCheck() error {
+	if c.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+
+	return c.AbstractAction.SanityCheck()
+}
+
 // ClaimFromRewardingFundBuilder is the struct to build ClaimFromRewardingFund
 type ClaimFromRewardingFundBuilder struct {
 	Builder

@@ -113,6 +113,20 @@ func (mr *MockProtocolMockRecorder) ForceRegister(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForceRegister", reflect.TypeOf((*MockProtocol)(nil).ForceRegister), arg0)
 }
 
+// Name mocks base method
+func (m *MockProtocol) Name() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Name")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Name indicates an expected call of Name
+func (mr *MockProtocolMockRecorder) Name() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockProtocol)(nil).Name))
+}
+
 // CreateGenesisStates mocks base method
 func (m *MockProtocol) CreateGenesisStates(arg0 context.Context, arg1 protocol.StateManager) error {
 	m.ctrl.T.Helper()

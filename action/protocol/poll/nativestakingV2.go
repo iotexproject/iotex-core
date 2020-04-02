@@ -46,7 +46,7 @@ func newNativeStakingV2(
 func (ns *nativeStakingV2) Start(ctx context.Context) error { return nil }
 
 func (ns *nativeStakingV2) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
-	cands, err := ns.stakingV2.ActiveCandidates(ctx)
+	cands, err := ns.stakingV2.ActiveCandidates(ctx, 0)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (ns *nativeStakingV2) Validate(ctx context.Context, act action.Action) erro
 
 func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
 	// transition to V2 starting Fairbank
-	cands, err := ns.stakingV2.ActiveCandidates(ctx)
+	cands, err := ns.stakingV2.ActiveCandidates(ctx, height)
 	if err != nil {
 		return cands, err
 	}
@@ -112,6 +112,10 @@ func (ns *nativeStakingV2) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (ns *nativeStakingV2) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, ns)
+}
+
+func (ns *nativeStakingV2) Name() string {
+	return protocolID
 }
 
 func (ns *nativeStakingV2) filterAndSortCandidatesByVoteScore(list state.CandidateList, ts time.Time) state.CandidateList {

@@ -31,6 +31,7 @@ type Protocol interface {
 	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, error)
 	Register(*Registry) error
 	ForceRegister(*Registry) error
+	Name() string
 }
 
 // GenesisStateCreator creates some genesis states
@@ -38,9 +39,19 @@ type GenesisStateCreator interface {
 	CreateGenesisStates(context.Context, StateManager) error
 }
 
-// PreStatesCreator creates state manager
+// PreStatesCreator creates preliminary states for state manager
 type PreStatesCreator interface {
 	CreatePreStates(context.Context, StateManager) error
+}
+
+// Committer performs commit action of the protocol
+type Committer interface {
+	Commit(context.Context, StateManager) error
+}
+
+// Aborter performs abort action of the protocol
+type Aborter interface {
+	Abort(context.Context, StateManager) error
 }
 
 // PostSystemActionsCreator creates a list of system actions to be appended to block actions
