@@ -275,6 +275,7 @@ func TestCreatePreStates(t *testing.T) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 
 	test := make(map[uint64](map[string]uint32))
+	test[1] = map[string]uint32{}
 	test[2] = map[string]uint32{
 		identityset.Address(1).String(): 1, // [A, B, C]
 		identityset.Address(2).String(): 1,
@@ -296,6 +297,7 @@ func TestCreatePreStates(t *testing.T) {
 	// testing for probation slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
+		// at first of epoch
 		epochStartHeight := rp.GetEpochHeight(epochNum)
 		bcCtx.Tip.Height = epochStartHeight - 1
 		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
@@ -308,8 +310,8 @@ func TestCreatePreStates(t *testing.T) {
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
 		bl := &vote.ProbationList{}
-		candKey := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
-		_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		key := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
+		_, err := sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected := test[epochNum]
 		require.Equal(len(expected), len(bl.ProbationInfo))
@@ -340,8 +342,8 @@ func TestCreatePreStates(t *testing.T) {
 		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate probation list and set next probationlist
 
 		bl = &vote.ProbationList{}
-		candKey = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
-		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		key = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
+		_, err = sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected = test[epochNum+1]
 		require.Equal(len(expected), len(bl.ProbationInfo))
@@ -400,7 +402,7 @@ func TestHandle(t *testing.T) {
 	_, err = shiftCandidates(sm2)
 	require.NoError(err)
 	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, true)
-	require.Error(err)
+	require.Error(err) // should return stateNotExist error
 	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
