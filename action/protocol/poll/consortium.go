@@ -14,6 +14,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -40,7 +41,7 @@ type consortiumCommittee struct {
 	contractReader contractReader
 	contract       string
 	abi            abi.ABI
-	bufferHeight   uint64
+	bufferEpochNum uint64
 	bufferResult   state.CandidateList
 	indexer        *CandidateIndexer
 	addr           address.Address
@@ -215,7 +216,9 @@ func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.Candida
 
 func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Context, r contractReader) (state.CandidateList, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if cc.bufferHeight == bcCtx.Tip.Height && cc.bufferResult != nil {
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	if cc.bufferEpochNum == epochNum && cc.bufferResult != nil {
 		return cc.bufferResult, nil
 	}
 
@@ -248,7 +251,7 @@ func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Conte
 			Votes:   big.NewInt(100),
 		})
 	}
-	cc.bufferHeight = bcCtx.Tip.Height
+	cc.bufferEpochNum = epochNum
 	cc.bufferResult = candidates
 	return candidates, nil
 }
