@@ -8,14 +8,15 @@ package action
 
 import (
 	"encoding/hex"
-
-	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -42,7 +43,7 @@ var stake2CreateCmd = &cobra.Command{Use: config.TranslateInLang(stake2CreateCmd
 	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := create(args)
+		err := stake2Create(args)
 		return output.PrintError(err)
 	},
 }
@@ -55,9 +56,14 @@ func init() {
 
 func stake2Create(args []string) error {
 	var amount = args[0]
+	amountInRau, err := util.StringToRau(amount, util.IotxDecimalNum)
+	if err != nil {
+		return output.NewError(output.ConvertError, "invalid amount", err)
+	}
+	amountStringInRau := strconv.FormatUint(amountInRau.Uint64(), 10)
 
 	var candidateName = args[1]
-	if err := validator.ValidateCandidateName(candidateName); err != nil {
+	if err := validator.ValidateCandidateNameForStake2(candidateName); err != nil {
 		return output.NewError(output.ValidationError, "invalid candidate name", err)
 	}
 	stakeDuration, err := parseStakeDuration(args[2])
@@ -91,7 +97,7 @@ func stake2Create(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewCreateStake(nonce, candidateName, amount, duration, stake2AutoRestake, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, stake2AutoRestake, data, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a createStake instance", err)
 	}

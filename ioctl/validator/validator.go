@@ -24,7 +24,9 @@ var (
 	// ErrInvalidStakeDuration indicates error for invalid stake duration
 	ErrInvalidStakeDuration = errors.New("stake duration must be within 0 and 1050 and in multiples of 7")
 	// ErrInvalidCandidateName indicates error for invalid candidate name
-	ErrCandidateName = errors.New("the candidate name string is not valid")
+	ErrLongCandidateName = errors.New("invalid length of candidate name that is more than 12 ")
+	// ErrInvalidCandidateName indicates error for invalid candidate name (for ioctl stake2 command)
+	ErrStake2CandidateName = errors.New("the candidate name string is not valid")
 )
 
 const (
@@ -71,12 +73,19 @@ func ValidateStakeDuration(stakeDuration *big.Int) error {
 
 // ValidateCandidateName validates candidate name for native staking
 func ValidateCandidateName(candidateName string) error {
-	if len(s) == 0 || len(s) > 12 {
-		return ErrCandidateName
+	if len(candidateName) > 12 {
+		return ErrLongCandidateName
 	}
-	for _, c := range s {
+	return nil
+}
+
+func ValidateCandidateNameForStake2(candidateName string) error {
+	if len(candidateName) == 0 || len(candidateName) > 12 {
+		return ErrStake2CandidateName
+	}
+	for _, c := range candidateName {
 		if !(('a' <= c && c <= 'z') || ('0' <= c && c <= '9')) {
-			return ErrCandidateName
+			return ErrStake2CandidateName
 		}
 	}
 	return nil
