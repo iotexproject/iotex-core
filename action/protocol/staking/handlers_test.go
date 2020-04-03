@@ -642,6 +642,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// block context
 		blkHeight    uint64
 		blkTimestamp time.Time
+		ctxTimestamp time.Time
 		blkGasLimit  uint64
 		// clear flag for inMemCandidates
 		clear bool
@@ -664,6 +665,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			false,
 			true,
@@ -682,6 +684,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			10000,
 			1,
 			1,
+			time.Now(),
 			time.Now(),
 			10000,
 			false,
@@ -703,6 +706,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			false,
 			true,
@@ -722,11 +726,32 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			true,
 			true,
 			ErrInvalidOwner,
 			iotextypes.ReceiptStatus_Success,
+		},
+		// unstake before maturity
+		{
+			callerAddr,
+			"10000000000000000000",
+			"",
+			100,
+			false,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			time.Now(),
+			10000,
+			false,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		},
 		// Upsert error cannot happen,because collision cannot happen
 		// success
@@ -742,6 +767,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now().Add(time.Duration(1) * 24 * time.Hour),
 			10000,
 			false,
 			true,
@@ -760,6 +786,11 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		act, err := action.NewUnstake(test.nonce, test.index,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
+		if test.blkTimestamp != test.ctxTimestamp {
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			blkCtx.BlockTimeStamp = test.ctxTimestamp
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
+		}
 		var r *action.Receipt
 		if test.clear {
 			v, err := p.createCandidateStateManager(sm)
@@ -966,7 +997,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			})
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight:    1,
-				BlockTimeStamp: time.Now(),
+				BlockTimeStamp: time.Now().Add(time.Duration(1) * 24 * time.Hour),
 				GasLimit:       1000000,
 			})
 

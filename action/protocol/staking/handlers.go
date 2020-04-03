@@ -127,16 +127,16 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
 	}
 
+	candidate := csm.GetByOwner(bucket.Candidate)
+	if candidate == nil {
+		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+	}
+
 	if blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
 		err := fmt.Errorf("bucket is not ready to be unstaked, current time %s, required time %s",
 			blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
 		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), gasFee)
-	}
-
-	candidate := csm.GetByOwner(bucket.Candidate)
-	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
 	}
 
 	// update bucket
