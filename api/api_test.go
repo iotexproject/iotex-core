@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
+	"github.com/iotexproject/iotex-core/systemlog"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -87,6 +88,27 @@ var (
 	testExecution3, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
+
+	testReceiptWithSystemLog = &action.Receipt{
+		Status:          1,
+		BlockHeight:     1,
+		ActionHash:      testExecution.Hash(),
+		GasConsumed:     0,
+		ContractAddress: identityset.Address(31).String(),
+		Logs: []*action.Log{
+			{
+				Address: identityset.Address(31).String(),
+				Topics: []hash.Hash256{
+					hash.BytesToHash256(action.InContractTransfer[:]),
+					hash.BytesToHash256(identityset.Address(30).Bytes()),
+					hash.BytesToHash256(identityset.Address(29).Bytes()),
+				},
+				Data:        big.NewInt(3).Bytes(),
+				BlockHeight: 1,
+				ActionHash:  testExecution.Hash(),
+			},
+		},
+	}
 )
 
 var (
@@ -702,6 +724,58 @@ var (
 			fromBlock: 1,
 			count:     100,
 			numLogs:   4,
+		},
+	}
+
+	getEvmTransfersByActionHashTest = []struct {
+		// Arguments
+		actHash hash.Hash256
+		// Expected Values
+		numEvmTransfer uint64
+		amount         [][]byte
+		from           []string
+		to             []string
+	}{
+		{
+			actHash:        testExecution.Hash(),
+			numEvmTransfer: uint64(1),
+			amount:         [][]byte{big.NewInt(3).Bytes()},
+			from:           []string{identityset.Address(30).String()},
+			to:             []string{identityset.Address(29).String()},
+		},
+	}
+
+	getEvmTransfersByBlockHeightTest = []struct {
+		// Arguments
+		height uint64
+		// Expected Values
+		numEvmTransfer uint64
+		actTransfers   []struct {
+			actHash        hash.Hash256
+			numEvmTransfer uint64
+			amount         [][]byte
+			from           []string
+			to             []string
+		}
+	}{
+		{
+			height:         uint64(1),
+			numEvmTransfer: uint64(1),
+			actTransfers: []struct {
+				actHash        hash.Hash256
+				numEvmTransfer uint64
+				amount         [][]byte
+				from           []string
+				to             []string
+			}{
+				{
+					actHash:        testExecution.Hash(),
+					numEvmTransfer: uint64(1),
+					amount:         [][]byte{big.NewInt(3).Bytes()},
+					from:           []string{identityset.Address(30).String()},
+					to:             []string{identityset.Address(29).String()},
+				},
+			},
 		},
 	}
 )
@@ -1637,6 +1711,60 @@ func TestServer_GetLogs(t *testing.T) {
 	}
 }
 
+func TestServer_GetEvmTransfersByActionHash(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range getEvmTransfersByActionHashTest {
+		request := &iotexapi.GetEvmTransfersByActionHashRequest{
+			ActionHash: hex.EncodeToString(test.actHash[:]),
+		}
+		res, err := svr.GetEvmTransfersByActionHash(context.Background(), request)
+		require.NoError(err)
+
+		transfers := res.ActionEvmTransfers
+		require.Equal(test.numEvmTransfer, transfers.NumEvmTransfers)
+		require.Equal(test.numEvmTransfer, uint64(len(transfers.EvmTransfers)))
+		require.Equal(test.actHash[:], transfers.ActionHash)
+		for i := 0; i < len(transfers.EvmTransfers); i++ {
+			require.Equal(test.amount[i], transfers.EvmTransfers[i].Amount)
+			require.Equal(test.from[i], transfers.EvmTransfers[i].From)
+			require.Equal(test.to[i], transfers.EvmTransfers[i].To)
+		}
+	}
+}
+func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+
+	for _, test := range getEvmTransfersByBlockHeightTest {
+		request := &iotexapi.GetEvmTransfersByBlockHeightRequest{
+			BlockHeight: test.height,
+		}
+		res, err := svr.GetEvmTransfersByBlockHeight(context.Background(), request)
+		require.NoError(err)
+
+		transfers := res.BlockEvmTransfers
+		require.Equal(test.numEvmTransfer, transfers.NumEvmTransfers)
+		require.Equal(test.numEvmTransfer, uint64(len(transfers.ActionEvmTransfers)))
+		require.Equal(test.height, transfers.BlockHeight)
+		for i := 0; i < len(transfers.ActionEvmTransfers); i++ {
+			require.Equal(test.actTransfers[i].actHash[:], transfers.ActionEvmTransfers[i].ActionHash)
+			for j := 0; j < len(transfers.ActionEvmTransfers[i].EvmTransfers); j++ {
+				require.Equal(test.actTransfers[i].amount[j], transfers.ActionEvmTransfers[i].EvmTransfers[j].Amount)
+				require.Equal(test.actTransfers[i].from[j], transfers.ActionEvmTransfers[i].EvmTransfers[j].From)
+				require.Equal(test.actTransfers[i].to[j], transfers.ActionEvmTransfers[i].EvmTransfers[j].To)
+			}
+		}
+	}
+}
+
 func addTestingBlocks(bc blockchain.Blockchain) error {
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
@@ -1786,23 +1914,28 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *systemlog.Indexer, factory.Factory, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+	}
+	systemLogIndexer, err := systemlog.NewIndexer(db.NewMemKVStore())
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create systemlog indexer")
 	}
 	// create BlockDAO
+	// systemLogIndexer is not added into blockDao
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
@@ -1815,7 +1948,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		)),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -1836,22 +1969,22 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		})
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	return bc, dao, indexer, sf, registry, nil
+	return bc, dao, indexer, systemLogIndexer, sf, registry, nil
 }
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
@@ -1865,6 +1998,27 @@ func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, erro
 	return ap, nil
 }
 
+func setupSystemLogIndexer(indexer *systemlog.Indexer) error {
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SignAndBuild(identityset.PrivateKey(30))
+	if err != nil {
+		return err
+	}
+	blk.Receipts = []*action.Receipt{testReceiptWithSystemLog}
+
+	ctx := context.Background()
+	if err := indexer.Start(ctx); err != nil {
+		return err
+	}
+
+	if err := indexer.PutBlock(ctx, &blk); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func newConfig(t *testing.T) config.Config {
 	r := require.New(t)
 	cfg := config.Default
@@ -1875,11 +2029,14 @@ func newConfig(t *testing.T) config.Config {
 	r.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	r.NoError(err)
+	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
+	r.NoError(err)
 
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.ActPool.MinGasPriceStr = "0"
@@ -1890,7 +2047,7 @@ func newConfig(t *testing.T) config.Config {
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	// TODO (zhi): revise
-	bc, dao, indexer, sf, registry, err := setupChain(cfg)
+	bc, dao, indexer, systemLogIndexer, sf, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -1904,6 +2061,11 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 
 	// Add testing blocks
 	if err := addTestingBlocks(bc); err != nil {
+		return nil, err
+	}
+
+	// setup system log indexer
+	if err := setupSystemLogIndexer(systemLogIndexer); err != nil {
 		return nil, err
 	}
 
@@ -1921,15 +2083,16 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	svr := &Server{
-		bc:             bc,
-		sf:             sf,
-		dao:            dao,
-		indexer:        indexer,
-		ap:             ap,
-		cfg:            cfg,
-		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
-		registry:       registry,
-		hasActionIndex: true,
+		bc:               bc,
+		sf:               sf,
+		dao:              dao,
+		indexer:          indexer,
+		systemLogIndexer: systemLogIndexer,
+		ap:               ap,
+		cfg:              cfg,
+		gs:               gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
+		registry:         registry,
+		hasActionIndex:   true,
 	}
 
 	return svr, nil

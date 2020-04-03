@@ -48,6 +48,10 @@ type ServiceClient interface {
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
 	// get logs filtered by contract address and topics
 	GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest, opts ...grpc.CallOption) (*iotexapi.GetLogsResponse, error)
+	// get evm transfers by action hash
+	GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByActionHashResponse, error)
+	// get evm transfers by block height
+	GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error)
 	// get a single address' votes
 	GetVotes(ctx context.Context, in *iotexapi.GetVotesRequest, opts ...grpc.CallOption) (*iotexapi.GetVotesResponse, error)
 	// get block info in stream

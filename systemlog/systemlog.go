@@ -115,7 +115,7 @@ func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 			continue
 		}
 
-		evmTransferList := &systemlogpb.EvmTransferList{}
+		evmTransferList := &iotextypes.EvmTransferList{}
 		for _, l := range receipt.Logs {
 			if action.IsSystemLog(l) {
 				// TODO: switch different kinds of system log
@@ -127,7 +127,7 @@ func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 				if err != nil {
 					return errors.Wrap(err, "failed to convert IoTeX address")
 				}
-				evmTransferList.EvmTransferList = append(evmTransferList.EvmTransferList, &systemlogpb.EvmTransfer{
+				evmTransferList.EvmTransfers = append(evmTransferList.EvmTransfers, &iotextypes.EvmTransfer{
 					Amount: l.Data,
 					From:   fromAddr.String(),
 					To:     toAddr.String(),
@@ -135,7 +135,7 @@ func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 			}
 		}
 
-		if len(evmTransferList.EvmTransferList) > 0 {
+		if len(evmTransferList.EvmTransfers) > 0 {
 			data, err := proto.Marshal(evmTransferList)
 			if err != nil {
 				return errors.Wrap(err, "failed to serialize EvmTransferList")
@@ -211,28 +211,28 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	return x.kvStore.WriteBatch(batch)
 }
 
-// GetEvmTransferByActionHash queries evm transfers by action hash
-func (x *Indexer) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
+// GetEvmTransfersByActionHash queries evm transfers by action hash
+func (x *Indexer) GetEvmTransfersByActionHash(actionHash hash.Hash256) (*iotextypes.ActionEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, actionKey(actionHash))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
 	}
 
-	etl := &systemlogpb.EvmTransferList{}
+	etl := &iotextypes.EvmTransferList{}
 	if err := proto.UnmarshalMerge(data, etl); err != nil {
 		return nil, errors.Wrap(err, "failed to deserialize ActionEvmTransfer")
 	}
-	pb := &systemlogpb.ActionEvmTransfer{
+	pb := &iotextypes.ActionEvmTransfer{
 		ActionHash:      actionHash[:],
-		NumEvmTransfer:  int32(len(etl.EvmTransferList)),
-		EvmTransferList: etl.EvmTransferList,
+		NumEvmTransfers: uint64(len(etl.EvmTransfers)),
+		EvmTransfers:    etl.EvmTransfers,
 	}
 
 	return pb, nil
 }
 
-// GetEvmTransferByBlockHeight queries evm transfers by block height
-func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
+// GetEvmTransfersByBlockHeight queries evm transfers by block height
+func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.BlockEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
@@ -243,25 +243,25 @@ func (x *Indexer) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.
 		return nil, errors.Wrap(err, "failed to serialize ActionHashList")
 	}
 
-	pb := &systemlogpb.BlockEvmTransfer{BlockHeight: blockHeight, NumEvmTransfer: 0}
+	pb := &iotextypes.BlockEvmTransfer{BlockHeight: blockHeight}
 	for _, actionHash := range actionHashList.ActionHashList {
 		data, err := x.kvStore.Get(evmTransferNS, actionKey(hash.BytesToHash256(actionHash)))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get evm transfer by action hash")
 		}
 
-		etl := &systemlogpb.EvmTransferList{}
+		etl := &iotextypes.EvmTransferList{}
 		if err := proto.Unmarshal(data, etl); err != nil {
 			return nil, errors.Wrap(err, "failed to deserialize ActionEvmTransfer")
 		}
 
-		pb.ActionEvmTransferList = append(pb.ActionEvmTransferList, &systemlogpb.ActionEvmTransfer{
+		pb.ActionEvmTransfers = append(pb.ActionEvmTransfers, &iotextypes.ActionEvmTransfer{
 			ActionHash:      actionHash,
-			NumEvmTransfer:  int32(len(etl.EvmTransferList)),
-			EvmTransferList: etl.EvmTransferList,
+			NumEvmTransfers: uint64(len(etl.EvmTransfers)),
+			EvmTransfers:    etl.EvmTransfers,
 		})
 
-		pb.NumEvmTransfer += int32(len(etl.EvmTransferList))
+		pb.NumEvmTransfers += uint64(len(etl.EvmTransfers))
 	}
 
 	return pb, nil

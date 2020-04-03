@@ -51,7 +51,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/systemlog"
-	"github.com/iotexproject/iotex-core/systemlog/systemlogpb"
 )
 
 var (
@@ -744,20 +743,37 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 	return selp, err
 }
 
-// GetEvmTransferByActionHash returns evm transfers by action hash
-func (api *Server) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
+// GetEvmTransfersByActionHash returns evm transfers by action hash
+func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest) (*iotexapi.GetEvmTransfersByActionHashResponse, error) {
 	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
-	return api.systemLogIndexer.GetEvmTransferByActionHash(actionHash)
+
+	actHash, err := hash.HexStringToHash256(in.ActionHash)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetEvmTransfersByActionHashResponse{ActionEvmTransfers: transfers}, nil
 }
 
-// GetEvmTransferByBlockHeight returns evm transfers by block height
-func (api *Server) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
+// GetEvmTransfersByBlockHeight returns evm transfers by block height
+func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error) {
 	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
-	return api.systemLogIndexer.GetEvmTransferByBlockHeight(blockHeight)
+
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: transfers}, nil
 }
 
 // Start starts the API server

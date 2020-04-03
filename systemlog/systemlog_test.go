@@ -16,17 +16,17 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/systemlog/systemlogpb"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*systemlogpb.BlockEvmTransfer) {
+func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*iotextypes.BlockEvmTransfer) {
 	r := require.New(t)
 
 	contractAddr := identityset.Address(31).String()
@@ -162,15 +162,15 @@ func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*systemlogpb.Bloc
 	}
 	blk2.Receipts = []*action.Receipt{receipt3, failedReceipt}
 
-	expectedEvmTransfers := []*systemlogpb.BlockEvmTransfer{
+	expectedEvmTransfers := []*iotextypes.BlockEvmTransfer{
 		{
-			BlockHeight:    blk1.Height(),
-			NumEvmTransfer: 2,
-			ActionEvmTransferList: []*systemlogpb.ActionEvmTransfer{
+			BlockHeight:     blk1.Height(),
+			NumEvmTransfers: 2,
+			ActionEvmTransfers: []*iotextypes.ActionEvmTransfer{
 				{
-					ActionHash:     hash2[:],
-					NumEvmTransfer: 2,
-					EvmTransferList: []*systemlogpb.EvmTransfer{
+					ActionHash:      hash2[:],
+					NumEvmTransfers: 2,
+					EvmTransfers: []*iotextypes.EvmTransfer{
 						{
 							Amount: big.NewInt(3).Bytes(),
 							From:   addr2.String(),
@@ -186,13 +186,13 @@ func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*systemlogpb.Bloc
 			},
 		},
 		{
-			BlockHeight:    blk2.Height(),
-			NumEvmTransfer: 2,
-			ActionEvmTransferList: []*systemlogpb.ActionEvmTransfer{
+			BlockHeight:     blk2.Height(),
+			NumEvmTransfers: 2,
+			ActionEvmTransfers: []*iotextypes.ActionEvmTransfer{
 				{
-					ActionHash:     hash3[:],
-					NumEvmTransfer: 2,
-					EvmTransferList: []*systemlogpb.EvmTransfer{
+					ActionHash:      hash3[:],
+					NumEvmTransfers: 2,
+					EvmTransfers: []*iotextypes.EvmTransfer{
 						{
 							Amount: big.NewInt(8).Bytes(),
 							From:   addr3.String(),
@@ -233,11 +233,11 @@ func TestSystemLogIndexer(t *testing.T) {
 		r.Equal(blocks[1].Height(), tipHeight)
 
 		for _, expectedBlock := range expectedList {
-			actualBlock, err := indexer.GetEvmTransferByBlockHeight(expectedBlock.BlockHeight)
+			actualBlock, err := indexer.GetEvmTransfersByBlockHeight(expectedBlock.BlockHeight)
 			r.NoError(err)
 			checkBlockEvmTransfers(t, expectedBlock, actualBlock)
-			for _, expectedAction := range expectedBlock.ActionEvmTransferList {
-				actualAction, err := indexer.GetEvmTransferByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
+			for _, expectedAction := range expectedBlock.ActionEvmTransfers {
+				actualAction, err := indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
 				r.NoError(err)
 				checkActionEvmTransfers(t, expectedAction, actualAction)
 			}
@@ -248,17 +248,17 @@ func TestSystemLogIndexer(t *testing.T) {
 		r.NoError(err)
 		r.Equal(blocks[0].Height(), tipHeight)
 
-		_, err = indexer.GetEvmTransferByBlockHeight(blocks[1].Height())
+		_, err = indexer.GetEvmTransfersByBlockHeight(blocks[1].Height())
 		r.Error(err)
-		for _, act := range expectedList[1].ActionEvmTransferList {
-			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+		for _, act := range expectedList[1].ActionEvmTransfers {
+			_, err = indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(act.ActionHash))
 			r.Error(err)
 		}
 
-		_, err = indexer.GetEvmTransferByBlockHeight(blocks[0].Height())
+		_, err = indexer.GetEvmTransfersByBlockHeight(blocks[0].Height())
 		r.NoError(err)
-		for _, act := range expectedList[0].ActionEvmTransferList {
-			_, err = indexer.GetEvmTransferByActionHash(hash.BytesToHash256(act.ActionHash))
+		for _, act := range expectedList[0].ActionEvmTransfers {
+			_, err = indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(act.ActionHash))
 			r.NoError(err)
 		}
 
@@ -283,23 +283,23 @@ func TestSystemLogIndexer(t *testing.T) {
 	})
 }
 
-func checkActionEvmTransfers(t *testing.T, expect *systemlogpb.ActionEvmTransfer, actual *systemlogpb.ActionEvmTransfer) {
+func checkActionEvmTransfers(t *testing.T, expect *iotextypes.ActionEvmTransfer, actual *iotextypes.ActionEvmTransfer) {
 	r := require.New(t)
 	r.Equal(expect.ActionHash, actual.ActionHash)
-	r.Equal(expect.NumEvmTransfer, actual.NumEvmTransfer)
-	for i, exp := range expect.EvmTransferList {
-		r.Equal(exp.From, actual.EvmTransferList[i].From)
-		r.Equal(exp.To, actual.EvmTransferList[i].To)
-		r.Equal(exp.Amount, actual.EvmTransferList[i].Amount)
+	r.Equal(expect.NumEvmTransfers, actual.NumEvmTransfers)
+	for i, exp := range expect.EvmTransfers {
+		r.Equal(exp.From, actual.EvmTransfers[i].From)
+		r.Equal(exp.To, actual.EvmTransfers[i].To)
+		r.Equal(exp.Amount, actual.EvmTransfers[i].Amount)
 	}
 }
 
-func checkBlockEvmTransfers(t *testing.T, expect *systemlogpb.BlockEvmTransfer, actual *systemlogpb.BlockEvmTransfer) {
+func checkBlockEvmTransfers(t *testing.T, expect *iotextypes.BlockEvmTransfer, actual *iotextypes.BlockEvmTransfer) {
 	r := require.New(t)
 	r.Equal(expect.BlockHeight, actual.BlockHeight)
-	r.Equal(expect.NumEvmTransfer, actual.NumEvmTransfer)
-	for i, exp := range expect.ActionEvmTransferList {
-		r.Equal(exp.ActionHash, actual.ActionEvmTransferList[i].ActionHash)
-		checkActionEvmTransfers(t, exp, actual.ActionEvmTransferList[i])
+	r.Equal(expect.NumEvmTransfers, actual.NumEvmTransfers)
+	for i, exp := range expect.ActionEvmTransfers {
+		r.Equal(exp.ActionHash, actual.ActionEvmTransfers[i].ActionHash)
+		checkActionEvmTransfers(t, exp, actual.ActionEvmTransfers[i])
 	}
 }
