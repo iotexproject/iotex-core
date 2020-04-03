@@ -27,6 +27,7 @@ type stakingCommand struct {
 	stakingV1   Protocol
 	stakingV2   *staking.Protocol
 	candIndexer *CandidateIndexer
+	sr          protocol.StateReader
 }
 
 // NewStakingCommand creates a staking command center to manage staking committee and new native staking
@@ -35,6 +36,7 @@ func NewStakingCommand(
 	candIndexer *CandidateIndexer,
 	stkV1 Protocol,
 	stkV2 *staking.Protocol,
+	sr protocol.StateReader,
 ) (Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
@@ -48,6 +50,7 @@ func NewStakingCommand(
 		stakingV1:   stkV1,
 		stakingV2:   stkV2,
 		candIndexer: candIndexer,
+		sr:          sr,
 	}
 
 	if stkV1 == nil && stkV2 == nil {
@@ -86,7 +89,7 @@ func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.State
 }
 
 func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, sc)
+	return createPostSystemActions(ctx, sc.sr, sc)
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

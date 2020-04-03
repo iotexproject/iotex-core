@@ -37,7 +37,6 @@ func TestNewProtocol(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 		committee,
 		nil,
 		func(uint64) (time.Time, error) { return time.Now(), nil },

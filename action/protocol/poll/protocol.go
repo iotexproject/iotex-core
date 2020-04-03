@@ -41,11 +41,8 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 // ErrDelegatesNotExist is an error that the delegates cannot be prepared
 var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 
-// CandidatesByHeight returns the candidates of a given height
-type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
-
 // GetCandidates returns the current candidates
-type GetCandidates func(protocol.StateReader, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error)
+type GetCandidates func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error)
 
 // GetKickoutList returns current the blacklist
 type GetKickoutList func(protocol.StateReader, bool, ...protocol.StateOption) (*vote.Blacklist, uint64, error)
@@ -108,9 +105,8 @@ func NewProtocol(
 	cfg config.Config,
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
-	candidatesByHeight CandidatesByHeight,
-	getCandidates GetCandidates,
-	kickoutListByEpoch GetKickoutList,
+	getCandidatesFromDB GetCandidates,
+	getKickoutListFromDB GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
 	stakingV2 *staking.Protocol,
@@ -133,9 +129,8 @@ func NewProtocol(
 	var err error
 	if governance, err = NewGovernanceChainCommitteeProtocol(
 		candidateIndexer,
-		candidatesByHeight,
-		getCandidates,
-		kickoutListByEpoch,
+		getCandidatesFromDB,
+		getKickoutListFromDB,
 		getUnproductiveDelegate,
 		electionCommittee,
 		genesisConfig.GravityChainStartHeight,
@@ -163,6 +158,7 @@ func NewProtocol(
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
+		sr,
 	); err != nil {
 		return nil, err
 	}

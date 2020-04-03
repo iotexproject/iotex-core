@@ -96,10 +96,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
-			return nil, state.ErrStateNotExist
+		func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+			return nil, 0, state.ErrStateNotExist
 		},
-		nil,
 		nil,
 		nil,
 		committee,
@@ -131,6 +130,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
+		sm,
 	)
 
 	return p, ctx, sm, r, err
@@ -228,7 +228,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(receipt)
 
-	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, true, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
