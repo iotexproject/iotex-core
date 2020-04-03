@@ -96,7 +96,6 @@ type (
 		ProtocolDirty(string) bool
 		Load(string, interface{}) error
 		Unload(string) (interface{}, error)
-		Push() error
 		Reset()
 	}
 )

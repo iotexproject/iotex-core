@@ -209,11 +209,6 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return dk.Unload(name)
 		},
 	).AnyTimes()
-	sm.EXPECT().Push().DoAndReturn(
-		func() error {
-			return dk.Push()
-		},
-	).AnyTimes()
 
 	return sm
 }

@@ -48,7 +48,7 @@ type (
 		commitFunc   func(uint64) error
 		dbFunc       func() db.KVStore
 		delStateFunc func(string, []byte) error
-		stateFunc    func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
+		statesFunc   func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
 		digestFunc   func() hash.Hash256
 		finalizeFunc func(uint64) error
 		getStateFunc func(string, []byte, interface{}) error
@@ -188,11 +188,18 @@ func (ws *workingSet) Revert(snapshot int) error {
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) Commit() error {
-	if err := ws.commitFunc(ws.height); err != nil {
+func (ws *workingSet) Commit(ctx context.Context) error {
+	err := ws.commitFunc(ws.height)
+	if !ws.Dirty() {
 		return err
 	}
-	return ws.dock.Push()
+	if err == nil {
+		protocolCommit(ctx, ws)
+	} else {
+		protocolAbort(ctx, ws)
+	}
+	ws.Reset()
+	return err
 }
 
 // GetDB returns the underlying DB for account/contract storage
@@ -211,7 +218,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return ws.stateFunc(opts...)
+	return ws.statesFunc(opts...)
 }
 
 // PutState puts a state into DB
@@ -248,10 +255,6 @@ func (ws *workingSet) Load(name string, v interface{}) error {
 
 func (ws *workingSet) Unload(name string) (interface{}, error) {
 	return ws.dock.Unload(name)
-}
-
-func (ws *workingSet) Push() error {
-	return ws.dock.Push()
 }
 
 func (ws *workingSet) Reset() {
