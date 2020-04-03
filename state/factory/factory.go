@@ -97,6 +97,7 @@ type (
 		dao                db.KVStore         // the underlying DB for account/contract storage
 		timerFactory       *prometheustimer.TimerFactory
 		workingsets        *lru.Cache // lru cache for workingsets
+		protocolView       protocol.Dock
 	}
 )
 
@@ -169,6 +170,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
+		protocolView:       protocol.NewDock(),
 	}
 
 	for _, opt := range opts {
@@ -334,6 +336,12 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			}
 			sf.currentChainHeight = h
 			return nil
+		},
+		readviewFunc: func(name string) (interface{}, error) {
+			return sf.protocolView.Unload(name)
+		},
+		writviewFunc: func(name string, v interface{}) error {
+			return sf.protocolView.Load(name, v)
 		},
 		snapshotFunc: func() int {
 			s := flusher.KVStoreWithBuffer().Snapshot()
@@ -597,6 +605,11 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 	}
 
 	return sf.currentChainHeight, state.NewIterator(values), nil
+}
+
+// ReadView reads the view
+func (sf *factory) ReadView(name string) (interface{}, error) {
+	return sf.protocolView.Unload(name)
 }
 
 //======================================

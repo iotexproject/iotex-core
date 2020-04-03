@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -55,11 +54,10 @@ var (
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	addr        address.Address
-	candCenters *cache.ThreadSafeLruCache
-	depositGas  DepositGas
-	sr          protocol.StateReader
-	config      Configuration
+	addr       address.Address
+	depositGas DepositGas
+	sr         protocol.StateReader
+	config     Configuration
 }
 
 // Configuration is the staking protocol configuration.
@@ -98,8 +96,7 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}
 
 	return &Protocol{
-		addr:        addr,
-		candCenters: cache.NewThreadSafeLruCache(8),
+		addr: addr,
 		config: Configuration{
 			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
@@ -124,7 +121,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	csm, err := p.createCandidateStateManager(sm)
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return err
 	}
@@ -169,26 +166,35 @@ func (p *Protocol) CreateGenesisStates(
 			return err
 		}
 	}
-	return nil
+
+	// commit updated view
+	if err := csm.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change")
+	}
+
+	// write update view back to state factory
+	return csm.WriteView(protocolID, csm.CandCenter())
 }
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	center, err := p.getCandCenter(sm.ConfirmedHeight())
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
-		return errors.Wrap(err, "failed to commit candidate change in sm, cand center does not exist")
+		return err
 	}
 
-	csm, err := NewCandidateStateManager(sm, center)
-	if err != nil {
-		return errors.Wrap(err, "failed to commit candidate change in sm")
+	// commit updated view
+	if err := csm.Commit(); err != nil {
+		return errors.Wrap(err, "failed to commit candidate change")
 	}
-	return csm.Commit()
+
+	// write update view back to state factory
+	return csm.WriteView(protocolID, csm.CandCenter())
 }
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	csm, err := p.createCandidateStateManager(sm)
+	csm, err := NewCandidateStateManager(sm)
 	if err != nil {
 		return nil, err
 	}
@@ -255,24 +261,9 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, height uint64) (state.CandidateList, error) {
-	center, err := p.getCandCenter(height)
+	center, err := getOrCreateCandCenter(p.sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
-	}
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			// TODO: pass in sr
-			center, err = createCandCenter(p.sr, height)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(height, center)
-		}
 	}
 
 	list := center.All()
@@ -298,31 +289,13 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err := proto.Unmarshal(args[0], &r); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal request")
 	}
-	var (
-		resp proto.Message
-		err  error
-	)
 
-	h, err := sr.Height()
+	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get SR height")
-	}
-	center, err := p.getCandCenter(h)
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			center, err = createCandCenter(sr, h)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(h, center)
-		}
+		return nil, errors.Wrap(err, "failed to get candidate center")
 	}
 
+	var resp proto.Message
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
 		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
@@ -361,51 +334,4 @@ func (p *Protocol) Name() string {
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
-}
-
-func (p *Protocol) createCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
-	h := sm.ConfirmedHeight()
-	center, err := p.getCandCenter(h)
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			center, err = createCandCenter(sm, h)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(h, center)
-		}
-	}
-	return NewCandidateStateManager(sm, center.Base())
-}
-
-func (p *Protocol) getCandCenter(height uint64) (CandidateCenter, error) {
-	v, hit := p.candCenters.Get(height)
-	if hit {
-		if center, ok := v.(CandidateCenter); ok {
-			return center, nil
-		}
-		return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
-	}
-	return nil, ErrNilParameters
-}
-
-func createCandCenter(sr protocol.StateReader, height uint64) (CandidateCenter, error) {
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	center := NewCandidateCenter()
-	if err := center.SetDelta(all); err != nil {
-		return nil, err
-	}
-	if err := center.Commit(); err != nil {
-		return nil, err
-	}
-	return center, nil
 }

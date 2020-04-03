@@ -19,6 +19,7 @@ type (
 	// CandidateStateManager is candidate manager on top of StateMangaer
 	CandidateStateManager interface {
 		protocol.StateManager
+		CandCenter() CandidateCenter
 		// candidate-related
 		Size() int
 		ContainsName(string) bool
@@ -39,11 +40,17 @@ type (
 )
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager, c CandidateCenter) (CandidateStateManager, error) {
-	if sm == nil || c == nil {
+func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
+	if sm == nil {
 		return nil, ErrMissingField
 	}
 
+	center, err := getOrCreateCandCenter(sm)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
+	}
+
+	c := center.Base()
 	csm := candSM{
 		sm,
 		c,
@@ -69,6 +76,10 @@ func NewCandidateStateManager(sm protocol.StateManager, c CandidateCenter) (Cand
 	return &csm, nil
 }
 
+func (csm *candSM) CandCenter() CandidateCenter {
+	return csm.CandidateCenter
+}
+
 // Upsert writes the candidate into state manager and cand center
 func (csm *candSM) Upsert(d *Candidate) error {
 	if err := csm.CandidateCenter.Upsert(d); err != nil {
@@ -92,6 +103,39 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	// load change to sm
 	csm.StateManager.Load(protocolID, ser)
 	return nil
+}
+
+func getOrCreateCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	v, err := sr.ReadView(protocolID)
+	if err != nil {
+		if errors.Cause(err) == protocol.ErrNoName {
+			// the view does not exist yet, create it
+			cc, err := createCandCenter(sr)
+			return cc, err
+		}
+		return nil, err
+	}
+
+	if center, ok := v.(CandidateCenter); ok {
+		return center, nil
+	}
+	return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
+}
+
+func createCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	all, err := loadCandidatesFromSR(sr)
+	if err != nil {
+		return nil, err
+	}
+
+	center := NewCandidateCenter()
+	if err := center.SetDelta(all); err != nil {
+		return nil, err
+	}
+	if err := center.Commit(); err != nil {
+		return nil, err
+	}
+	return center, nil
 }
 
 func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {

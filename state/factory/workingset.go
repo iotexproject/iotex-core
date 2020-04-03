@@ -46,6 +46,8 @@ type (
 		finalized    bool
 		dock         protocol.Dock
 		commitFunc   func(uint64) error
+		readviewFunc func(name string) (interface{}, error)
+		writviewFunc func(name string, v interface{}) error
 		dbFunc       func() db.KVStore
 		delStateFunc func(string, []byte) error
 		statesFunc   func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
@@ -67,14 +69,6 @@ func (ws *workingSet) digest() (hash.Hash256, error) {
 		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
 	}
 	return ws.digestFunc(), nil
-}
-
-// ConfirmedHeight() returns the confirmed height this working set is based on
-func (ws *workingSet) ConfirmedHeight() uint64 {
-	if ws.height > 0 {
-		return ws.height - 1
-	}
-	return 0
 }
 
 // Height returns the Height of the block being worked on
@@ -239,6 +233,16 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 		return ws.height, err
 	}
 	return ws.height, ws.delStateFunc(cfg.Namespace, cfg.Key)
+}
+
+// ReadView reads the view
+func (ws *workingSet) ReadView(name string) (interface{}, error) {
+	return ws.readviewFunc(name)
+}
+
+// WriteView writeback the view to factory
+func (ws *workingSet) WriteView(name string, v interface{}) error {
+	return ws.writviewFunc(name, v)
 }
 
 func (ws *workingSet) Dirty() bool {
