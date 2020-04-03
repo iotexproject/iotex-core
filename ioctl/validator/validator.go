@@ -79,6 +79,7 @@ func ValidateCandidateName(candidateName string) error {
 	return nil
 }
 
+// ValidateCandidateNameForStake2 validates candidate name for native staking 2
 func ValidateCandidateNameForStake2(candidateName string) error {
 	if len(candidateName) == 0 || len(candidateName) > 12 {
 		return ErrStake2CandidateName
