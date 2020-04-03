@@ -9,28 +9,6 @@
 syntax = "proto3";
 package systemlogpb;
 
-message EvmTransfer {
-    bytes amount = 1;
-    string from = 2;
-    string to = 3;
-}
-
-message EvmTransferList {
-    repeated EvmTransfer evmTransferList = 1;
-}
-
-message ActionEvmTransfer {
-    bytes actionHash = 1;
-    int32 numEvmTransfer = 2;
-    repeated EvmTransfer evmTransferList = 3;
-}
-
-message BlockEvmTransfer {
-    uint64 blockHeight = 1;
-    int32 numEvmTransfer = 2;
-    repeated ActionEvmTransfer actionEvmTransferList = 3;
-}
-
-message ActionHashList{
-    repeated bytes actionHashList = 1;
+message ActionHashList {
+  repeated bytes actionHashList = 1;
 }

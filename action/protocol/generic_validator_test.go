@@ -30,9 +30,6 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	reg := NewRegistry()
-	mp := NewMockProtocol(ctrl)
-	require.NoError(reg.Register("1", mp))
 	caller, err := address.FromString("io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms")
 	require.NoError(err)
 	producer, err := address.FromString("io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6")
@@ -48,7 +45,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			Caller: caller,
 		})
 
-	ctx = WithBlockchainCtx(ctx,
+	ctx = WithBlockchainCtx(
+		ctx,
 		BlockchainCtx{
 			Genesis: config.Default.Genesis,
 			Tip: TipInfo{
@@ -56,8 +54,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 				Hash:      config.Default.Genesis.Hash(),
 				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
 			},
-			Registry: reg,
-		})
+		},
+	)
 
 	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()
@@ -70,7 +68,6 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	t.Run("normal", func(t *testing.T) {
-		mp.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
@@ -150,18 +147,5 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			SetGasLimit(100000).Build()
 		selp := action.FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
 		require.True(strings.Contains(valid.Validate(ctx, selp).Error(), "failed to verify action signature"))
-	})
-	t.Run("protocol validation failed", func(t *testing.T) {
-		me := errors.New("mock error")
-		mp.EXPECT().Validate(gomock.Any(), gomock.Any()).Return(me).Times(1)
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
-		require.NoError(err)
-		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
-			SetGasLimit(uint64(100000)).
-			SetAction(v).Build()
-		selp, err := action.Sign(elp, identityset.PrivateKey(28))
-		require.NoError(err)
-		require.Equal(me, errors.Cause(valid.Validate(ctx, selp)))
 	})
 }

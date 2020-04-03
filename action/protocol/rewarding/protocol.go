@@ -103,11 +103,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
-func (p *Protocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
-	rp := rolldpos.FindProtocol(bcCtx.Registry)
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
 	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
 		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
 	}
@@ -230,6 +229,11 @@ func (p *Protocol) Register(r *protocol.Registry) error {
 // ForceRegister registers the protocol with a unique ID and force replacing the previous protocol if it exists
 func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
+}
+
+// Name returns the name of protocol
+func (p *Protocol) Name() string {
+	return protocolID
 }
 
 func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {

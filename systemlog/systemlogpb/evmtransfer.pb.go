@@ -21,210 +21,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type EvmTransfer struct {
-	Amount               []byte   `protobuf:"bytes,1,opt,name=amount,proto3" json:"amount,omitempty"`
-	From                 string   `protobuf:"bytes,2,opt,name=from,proto3" json:"from,omitempty"`
-	To                   string   `protobuf:"bytes,3,opt,name=to,proto3" json:"to,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *EvmTransfer) Reset()         { *m = EvmTransfer{} }
-func (m *EvmTransfer) String() string { return proto.CompactTextString(m) }
-func (*EvmTransfer) ProtoMessage()    {}
-func (*EvmTransfer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_83fa4e7b004e40b6, []int{0}
-}
-
-func (m *EvmTransfer) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EvmTransfer.Unmarshal(m, b)
-}
-func (m *EvmTransfer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EvmTransfer.Marshal(b, m, deterministic)
-}
-func (m *EvmTransfer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EvmTransfer.Merge(m, src)
-}
-func (m *EvmTransfer) XXX_Size() int {
-	return xxx_messageInfo_EvmTransfer.Size(m)
-}
-func (m *EvmTransfer) XXX_DiscardUnknown() {
-	xxx_messageInfo_EvmTransfer.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EvmTransfer proto.InternalMessageInfo
-
-func (m *EvmTransfer) GetAmount() []byte {
-	if m != nil {
-		return m.Amount
-	}
-	return nil
-}
-
-func (m *EvmTransfer) GetFrom() string {
-	if m != nil {
-		return m.From
-	}
-	return ""
-}
-
-func (m *EvmTransfer) GetTo() string {
-	if m != nil {
-		return m.To
-	}
-	return ""
-}
-
-type EvmTransferList struct {
-	EvmTransferList      []*EvmTransfer `protobuf:"bytes,1,rep,name=evmTransferList,proto3" json:"evmTransferList,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
-}
-
-func (m *EvmTransferList) Reset()         { *m = EvmTransferList{} }
-func (m *EvmTransferList) String() string { return proto.CompactTextString(m) }
-func (*EvmTransferList) ProtoMessage()    {}
-func (*EvmTransferList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_83fa4e7b004e40b6, []int{1}
-}
-
-func (m *EvmTransferList) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_EvmTransferList.Unmarshal(m, b)
-}
-func (m *EvmTransferList) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_EvmTransferList.Marshal(b, m, deterministic)
-}
-func (m *EvmTransferList) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_EvmTransferList.Merge(m, src)
-}
-func (m *EvmTransferList) XXX_Size() int {
-	return xxx_messageInfo_EvmTransferList.Size(m)
-}
-func (m *EvmTransferList) XXX_DiscardUnknown() {
-	xxx_messageInfo_EvmTransferList.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_EvmTransferList proto.InternalMessageInfo
-
-func (m *EvmTransferList) GetEvmTransferList() []*EvmTransfer {
-	if m != nil {
-		return m.EvmTransferList
-	}
-	return nil
-}
-
-type ActionEvmTransfer struct {
-	ActionHash           []byte         `protobuf:"bytes,1,opt,name=actionHash,proto3" json:"actionHash,omitempty"`
-	NumEvmTransfer       int32          `protobuf:"varint,2,opt,name=numEvmTransfer,proto3" json:"numEvmTransfer,omitempty"`
-	EvmTransferList      []*EvmTransfer `protobuf:"bytes,3,rep,name=evmTransferList,proto3" json:"evmTransferList,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
-}
-
-func (m *ActionEvmTransfer) Reset()         { *m = ActionEvmTransfer{} }
-func (m *ActionEvmTransfer) String() string { return proto.CompactTextString(m) }
-func (*ActionEvmTransfer) ProtoMessage()    {}
-func (*ActionEvmTransfer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_83fa4e7b004e40b6, []int{2}
-}
-
-func (m *ActionEvmTransfer) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_ActionEvmTransfer.Unmarshal(m, b)
-}
-func (m *ActionEvmTransfer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_ActionEvmTransfer.Marshal(b, m, deterministic)
-}
-func (m *ActionEvmTransfer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ActionEvmTransfer.Merge(m, src)
-}
-func (m *ActionEvmTransfer) XXX_Size() int {
-	return xxx_messageInfo_ActionEvmTransfer.Size(m)
-}
-func (m *ActionEvmTransfer) XXX_DiscardUnknown() {
-	xxx_messageInfo_ActionEvmTransfer.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ActionEvmTransfer proto.InternalMessageInfo
-
-func (m *ActionEvmTransfer) GetActionHash() []byte {
-	if m != nil {
-		return m.ActionHash
-	}
-	return nil
-}
-
-func (m *ActionEvmTransfer) GetNumEvmTransfer() int32 {
-	if m != nil {
-		return m.NumEvmTransfer
-	}
-	return 0
-}
-
-func (m *ActionEvmTransfer) GetEvmTransferList() []*EvmTransfer {
-	if m != nil {
-		return m.EvmTransferList
-	}
-	return nil
-}
-
-type BlockEvmTransfer struct {
-	BlockHeight           uint64               `protobuf:"varint,1,opt,name=blockHeight,proto3" json:"blockHeight,omitempty"`
-	NumEvmTransfer        int32                `protobuf:"varint,2,opt,name=numEvmTransfer,proto3" json:"numEvmTransfer,omitempty"`
-	ActionEvmTransferList []*ActionEvmTransfer `protobuf:"bytes,3,rep,name=actionEvmTransferList,proto3" json:"actionEvmTransferList,omitempty"`
-	XXX_NoUnkeyedLiteral  struct{}             `json:"-"`
-	XXX_unrecognized      []byte               `json:"-"`
-	XXX_sizecache         int32                `json:"-"`
-}
-
-func (m *BlockEvmTransfer) Reset()         { *m = BlockEvmTransfer{} }
-func (m *BlockEvmTransfer) String() string { return proto.CompactTextString(m) }
-func (*BlockEvmTransfer) ProtoMessage()    {}
-func (*BlockEvmTransfer) Descriptor() ([]byte, []int) {
-	return fileDescriptor_83fa4e7b004e40b6, []int{3}
-}
-
-func (m *BlockEvmTransfer) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_BlockEvmTransfer.Unmarshal(m, b)
-}
-func (m *BlockEvmTransfer) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_BlockEvmTransfer.Marshal(b, m, deterministic)
-}
-func (m *BlockEvmTransfer) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BlockEvmTransfer.Merge(m, src)
-}
-func (m *BlockEvmTransfer) XXX_Size() int {
-	return xxx_messageInfo_BlockEvmTransfer.Size(m)
-}
-func (m *BlockEvmTransfer) XXX_DiscardUnknown() {
-	xxx_messageInfo_BlockEvmTransfer.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_BlockEvmTransfer proto.InternalMessageInfo
-
-func (m *BlockEvmTransfer) GetBlockHeight() uint64 {
-	if m != nil {
-		return m.BlockHeight
-	}
-	return 0
-}
-
-func (m *BlockEvmTransfer) GetNumEvmTransfer() int32 {
-	if m != nil {
-		return m.NumEvmTransfer
-	}
-	return 0
-}
-
-func (m *BlockEvmTransfer) GetActionEvmTransferList() []*ActionEvmTransfer {
-	if m != nil {
-		return m.ActionEvmTransferList
-	}
-	return nil
-}
-
 type ActionHashList struct {
 	ActionHashList       [][]byte `protobuf:"bytes,1,rep,name=actionHashList,proto3" json:"actionHashList,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -236,7 +32,7 @@ func (m *ActionHashList) Reset()         { *m = ActionHashList{} }
 func (m *ActionHashList) String() string { return proto.CompactTextString(m) }
 func (*ActionHashList) ProtoMessage()    {}
 func (*ActionHashList) Descriptor() ([]byte, []int) {
-	return fileDescriptor_83fa4e7b004e40b6, []int{4}
+	return fileDescriptor_83fa4e7b004e40b6, []int{0}
 }
 
 func (m *ActionHashList) XXX_Unmarshal(b []byte) error {
@@ -265,32 +61,19 @@ func (m *ActionHashList) GetActionHashList() [][]byte {
 }
 
 func init() {
-	proto.RegisterType((*EvmTransfer)(nil), "systemlogpb.EvmTransfer")
-	proto.RegisterType((*EvmTransferList)(nil), "systemlogpb.EvmTransferList")
-	proto.RegisterType((*ActionEvmTransfer)(nil), "systemlogpb.ActionEvmTransfer")
-	proto.RegisterType((*BlockEvmTransfer)(nil), "systemlogpb.BlockEvmTransfer")
 	proto.RegisterType((*ActionHashList)(nil), "systemlogpb.ActionHashList")
 }
 
-func init() { proto.RegisterFile("evmtransfer.proto", fileDescriptor_83fa4e7b004e40b6) }
+func init() {
+	proto.RegisterFile("evmtransfer.proto", fileDescriptor_83fa4e7b004e40b6)
+}
 
 var fileDescriptor_83fa4e7b004e40b6 = []byte{
-	// 272 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0x41, 0x4b, 0xc3, 0x30,
-	0x14, 0xc7, 0x49, 0x3b, 0x07, 0xbe, 0x8e, 0xce, 0x05, 0x94, 0x9c, 0x46, 0xe9, 0x61, 0xf4, 0xd4,
-	0x83, 0x5e, 0xbc, 0x6e, 0x20, 0x4c, 0xf0, 0x14, 0xe6, 0x07, 0x48, 0x47, 0xb6, 0x15, 0x97, 0xbe,
-	0xd1, 0x64, 0x03, 0x3f, 0x8d, 0xdf, 0xc1, 0x4f, 0x28, 0xc6, 0x22, 0xaf, 0x71, 0x07, 0x77, 0x6b,
-	0x7f, 0xe4, 0xff, 0xf8, 0xe5, 0xff, 0x02, 0x13, 0x7d, 0x32, 0xae, 0x55, 0x8d, 0xdd, 0xe8, 0xb6,
-	0x3c, 0xb4, 0xe8, 0x90, 0x27, 0xf6, 0xdd, 0x3a, 0x6d, 0xf6, 0xb8, 0x3d, 0x54, 0xf9, 0x33, 0x24,
-	0x4f, 0x27, 0xb3, 0xea, 0x4e, 0xf0, 0x3b, 0x18, 0x2a, 0x83, 0xc7, 0xc6, 0x09, 0x96, 0xb1, 0x62,
-	0x24, 0xbb, 0x3f, 0xce, 0x61, 0xb0, 0x69, 0xd1, 0x88, 0x28, 0x63, 0xc5, 0xb5, 0xf4, 0xdf, 0x3c,
-	0x85, 0xc8, 0xa1, 0x88, 0x3d, 0x89, 0x1c, 0xe6, 0xaf, 0x30, 0x26, 0xa3, 0x5e, 0x6a, 0xeb, 0xf8,
-	0x02, 0xc6, 0xba, 0x8f, 0x04, 0xcb, 0xe2, 0x22, 0xb9, 0x17, 0x25, 0x91, 0x28, 0x49, 0x4c, 0x86,
-	0x81, 0xfc, 0x83, 0xc1, 0x64, 0xbe, 0x76, 0x35, 0x36, 0x54, 0x74, 0x0a, 0xa0, 0x3c, 0x5c, 0x2a,
-	0xbb, 0xeb, 0x64, 0x09, 0xe1, 0x33, 0x48, 0x9b, 0xa3, 0x21, 0x09, 0xaf, 0x7e, 0x25, 0x03, 0x7a,
-	0xce, 0x30, 0xbe, 0xd4, 0xf0, 0x93, 0xc1, 0xcd, 0x62, 0x8f, 0xeb, 0x37, 0x3a, 0x38, 0x83, 0xa4,
-	0xfa, 0x66, 0x4b, 0x5d, 0x6f, 0x77, 0x3f, 0x75, 0x0e, 0x24, 0x45, 0xff, 0x56, 0x5c, 0xc1, 0xad,
-	0x0a, 0xef, 0x4f, 0x44, 0xa7, 0x3d, 0xd1, 0x3f, 0x4d, 0xc9, 0xf3, 0xe1, 0xfc, 0x11, 0xd2, 0xf9,
-	0x6f, 0x5d, 0x7e, 0x59, 0x33, 0x48, 0x55, 0x8f, 0xf8, 0x5d, 0x8d, 0x64, 0x40, 0xab, 0xa1, 0x7f,
-	0x46, 0x0f, 0x5f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x43, 0x59, 0x4f, 0xfd, 0x5b, 0x02, 0x00, 0x00,
+	// 95 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x4c, 0x2d, 0xcb, 0x2d,
+	0x29, 0x4a, 0xcc, 0x2b, 0x4e, 0x4b, 0x2d, 0xd2, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x2e,
+	0xae, 0x2c, 0x2e, 0x49, 0xcd, 0xcd, 0xc9, 0x4f, 0x2f, 0x48, 0x52, 0xb2, 0xe0, 0xe2, 0x73, 0x4c,
+	0x2e, 0xc9, 0xcc, 0xcf, 0xf3, 0x48, 0x2c, 0xce, 0xf0, 0xc9, 0x2c, 0x2e, 0x11, 0x52, 0xe3, 0xe2,
+	0x4b, 0x44, 0x11, 0x91, 0x60, 0x54, 0x60, 0xd6, 0xe0, 0x09, 0x42, 0x13, 0x4d, 0x62, 0x03, 0x9b,
+	0x66, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x59, 0x8d, 0xfa, 0x90, 0x62, 0x00, 0x00, 0x00,
 }

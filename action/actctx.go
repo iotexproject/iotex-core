@@ -11,6 +11,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
 )
 
 // AbstractAction is an abstract implementation of Action interface
@@ -76,4 +77,13 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 
 	// the reason to set hash here, after set act context, is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt.
 	act.hash = selp.Hash()
+}
+
+// SanityCheck validates the variables in the action
+func (act *AbstractAction) SanityCheck() error {
+	// Reject execution of negative gas price
+	if act.GasPrice().Sign() < 0 {
+		return errors.Wrap(ErrGasPrice, "negative value")
+	}
+	return nil
 }

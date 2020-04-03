@@ -171,16 +171,15 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 			cfg.Genesis.Delegates = append(cfg.Genesis.Delegates, d)
 		}
 	}
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 
-	registry := protocol.NewRegistry()
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
 		sf,
-		blockchain.BoltDBDaoOption(),
-		blockchain.RegistryOption(registry),
+		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -232,10 +231,9 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 			}
 			tipHeight := bc.TipHeight()
 			ctx := protocol.WithBlockchainCtx(
-				context.Background(),
+				protocol.WithRegistry(context.Background(), re),
 				protocol.BlockchainCtx{
-					Genesis:  config.Default.Genesis,
-					Registry: re,
+					Genesis: config.Default.Genesis,
 					Tip: protocol.TipInfo{
 						Height: tipHeight,
 					},

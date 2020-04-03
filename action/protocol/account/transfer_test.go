@@ -81,11 +81,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
 	cfg.Genesis.Rewarding.ProductivityThreshold = 0
-	ctx = protocol.WithBlockchainCtx(ctx,
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Registry: registry,
-			Genesis:  cfg.Genesis,
-		})
+			Genesis: cfg.Genesis,
+		},
+	)
 	ctx = protocol.WithBlockCtx(ctx,
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -140,9 +141,12 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		Producer:    identityset.Address(27),
 		GasLimit:    testutil.TestGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: registry,
-	})
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, registry),
+		protocol.BlockchainCtx{
+			Genesis: cfg.Genesis,
+		},
+	)
 
 	receipt, err := p.Handle(ctx, transfer, sm)
 	require.NoError(err)
@@ -213,7 +217,7 @@ func TestProtocol_ValidateTransfer(t *testing.T) {
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
 	// Case IV: Negative gas fee
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(100), "2", nil,
+	tsf, err = action.NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
 		uint64(100000), big.NewInt(-1))
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), tsf)

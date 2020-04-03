@@ -38,6 +38,7 @@ type stateDB struct {
 	mutex              sync.RWMutex
 	currentChainHeight uint64
 	cfg                config.Config
+	registry           *protocol.Registry
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
 	workingsets        *lru.Cache // lru cache for workingsets
@@ -79,11 +80,20 @@ func InMemStateDBOption() StateDBOption {
 	}
 }
 
+// RegistryStateDBOption sets the registry in state db
+func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		sdb.registry = reg
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
+		registry:           protocol.NewRegistry(),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -108,8 +118,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 }
 
 func (sdb *stateDB) Start(ctx context.Context) error {
-	sdb.mutex.Lock()
-	defer sdb.mutex.Unlock()
+	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	if err := sdb.dao.Start(ctx); err != nil {
 		return err
 	}
@@ -118,8 +127,16 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
-		break
+		if err := sdb.registry.StartAll(ctx); err != nil {
+			return err
+		}
 	case db.ErrNotExist:
+		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init statedb's height")
+		}
+		if err := sdb.registry.StartAll(ctx); err != nil {
+			return err
+		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -131,9 +148,6 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 		// init the state factory
 		if err = sdb.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
-		}
-		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init statedb's height")
 		}
 	default:
 		return err
@@ -169,6 +183,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	return &workingSet{
 		height:    height,
 		finalized: false,
+		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
 			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
 			if err != nil {
@@ -192,6 +207,9 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
 
 			return nil
+		},
+		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+			return sdb.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -220,7 +238,12 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 	}, nil
 }
 
+func (sdb *stateDB) Register(p protocol.Protocol) error {
+	return p.Register(sdb.registry)
+}
+
 func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
+	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sdb.getFromWorkingSets(ctx, key)
 	if err != nil {
@@ -240,13 +263,30 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
-	postSystemActions []action.SealedEnvelope,
+	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
+	ctx = protocol.WithRegistry(ctx, sdb.registry)
 	ws, err := sdb.newWorkingSet(ctx, sdb.currentChainHeight+1)
 	sdb.mutex.Unlock()
 	if err != nil {
 		return nil, err
+	}
+	postSystemActions := make([]action.SealedEnvelope, 0)
+	for _, p := range sdb.registry.All() {
+		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psac.CreatePostSystemActions(ctx, ws)
+			if err != nil {
+				return nil, err
+			}
+			for _, elp := range elps {
+				se, err := sign(elp)
+				if err != nil {
+					return nil, err
+				}
+				postSystemActions = append(postSystemActions, se)
+			}
+		}
 	}
 	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
@@ -277,8 +317,8 @@ func (sdb *stateDB) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
-// Commit persists all changes in RunActions() into the DB
-func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
+// PutBlock persists all changes in RunActions() into the DB
+func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	sdb.mutex.Lock()
 	timer := sdb.timerFactory.NewTimer("Commit")
 	sdb.mutex.Unlock()
@@ -288,7 +328,8 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithBlockCtx(ctx,
+	ctx = protocol.WithBlockCtx(
+		protocol.WithRegistry(ctx, sdb.registry),
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
@@ -310,16 +351,20 @@ func (sdb *stateDB) Commit(ctx context.Context, blk *block.Block) error {
 	}
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	if sdb.currentChainHeight+1 != ws.Version() {
+	h, _ := ws.Height()
+	if sdb.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
-			"current state height %d + 1 doesn't match working set version %d",
-			sdb.currentChainHeight,
-			ws.Version(),
+			"current state height %d + 1 doesn't match working set height %d",
+			sdb.currentChainHeight, h,
 		)
 	}
 
-	return ws.Commit()
+	return ws.Commit(ctx)
+}
+
+func (sdb *stateDB) DeleteTipBlock(_ *block.Block) error {
+	return errors.Wrap(ErrNotSupported, "cannot delete tip block from state db")
 }
 
 // State returns a confirmed state in the state factory
@@ -413,20 +458,6 @@ func (sdb *stateDB) state(ns string, addr []byte, s interface{}) error {
 	return nil
 }
 
-func (sdb *stateDB) commit(ws *workingSet) error {
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit working set")
-	}
-	// Update chain height
-	height, err := ws.Height()
-	if err != nil {
-		return errors.Wrap(err, "failed to get working set height")
-	}
-	sdb.currentChainHeight = height
-
-	return nil
-}
-
 func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 	ws, err := sdb.newWorkingSet(ctx, 0)
 	if err != nil {
@@ -436,7 +467,7 @@ func (sdb *stateDB) createGenesisStates(ctx context.Context) error {
 		return err
 	}
 
-	return sdb.commit(ws)
+	return ws.Commit(ctx)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

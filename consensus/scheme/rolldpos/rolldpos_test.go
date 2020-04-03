@@ -413,13 +413,15 @@ func TestRollDPoSConsensus(t *testing.T) {
 		for i := 0; i < numNodes; i++ {
 			ctx := context.Background()
 			cfg.Chain.ProducerPrivKey = hex.EncodeToString(chainAddrs[i].priKey.Bytes())
-			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
-			require.NoError(t, err)
 			registry := protocol.NewRegistry()
-			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-				Genesis:  config.Default.Genesis,
-				Registry: registry,
-			})))
+			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+			require.NoError(t, err)
+			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
+				protocol.WithRegistry(ctx, registry),
+				protocol.BlockchainCtx{
+					Genesis: config.Default.Genesis,
+				},
+			)))
 			acc := account.NewProtocol(rewarding.DepositGas)
 			require.NoError(t, acc.Register(registry))
 			rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
@@ -428,8 +430,7 @@ func TestRollDPoSConsensus(t *testing.T) {
 				cfg,
 				nil,
 				sf,
-				blockchain.InMemDaoOption(),
-				blockchain.RegistryOption(registry),
+				blockchain.InMemDaoOption(sf),
 				blockchain.BlockValidatorOption(block.NewValidator(
 					sf,
 					protocol.NewGenericValidator(sf, accountutil.AccountState),

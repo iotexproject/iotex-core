@@ -31,10 +31,9 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 		return nil, nil, nil, err
 	}
 	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
+		protocol.WithRegistry(context.Background(), registry),
 		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
+			Genesis: config.Default.Genesis,
 		},
 	)
 	ctx = protocol.WithActionCtx(

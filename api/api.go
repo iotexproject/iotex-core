@@ -51,7 +51,6 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/systemlog"
-	"github.com/iotexproject/iotex-core/systemlog/systemlogpb"
 )
 
 var (
@@ -331,7 +330,7 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Registry: api.registry})
+	ctx = protocol.WithRegistry(ctx, api.registry)
 	if err = api.ap.Add(ctx, selp); err != nil {
 		log.L().Debug(err.Error())
 		var desc string
@@ -528,11 +527,7 @@ func (api *Server) GetEpochMeta(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	bcCtx, err := api.bc.Context()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	numBlks, produce, err := api.getProductivityByEpoch(bcCtx, in.EpochNumber, activeConsensusBlockProducers)
+	numBlks, produce, err := api.getProductivityByEpoch(rp, in.EpochNumber, api.bc.TipHeight(), activeConsensusBlockProducers)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -748,20 +743,37 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 	return selp, err
 }
 
-// GetEvmTransferByActionHash returns evm transfers by action hash
-func (api *Server) GetEvmTransferByActionHash(actionHash hash.Hash256) (*systemlogpb.ActionEvmTransfer, error) {
+// GetEvmTransfersByActionHash returns evm transfers by action hash
+func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest) (*iotexapi.GetEvmTransfersByActionHashResponse, error) {
 	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
-	return api.systemLogIndexer.GetEvmTransferByActionHash(actionHash)
+
+	actHash, err := hash.HexStringToHash256(in.ActionHash)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetEvmTransfersByActionHashResponse{ActionEvmTransfers: transfers}, nil
 }
 
-// GetEvmTransferByBlockHeight returns evm transfers by block height
-func (api *Server) GetEvmTransferByBlockHeight(blockHeight uint64) (*systemlogpb.BlockEvmTransfer, error) {
+// GetEvmTransfersByBlockHeight returns evm transfers by block height
+func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error) {
 	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.NotFound, "evm transfer index not supported")
+		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
-	return api.systemLogIndexer.GetEvmTransferByBlockHeight(blockHeight)
+
+	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: transfers}, nil
 }
 
 // Start starts the API server
@@ -803,10 +815,12 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Registry: api.registry,
-		Genesis:  api.cfg.Genesis,
-	})
+	ctx = protocol.WithBlockchainCtx(
+		protocol.WithRegistry(ctx, api.registry),
+		protocol.BlockchainCtx{
+			Genesis: api.cfg.Genesis,
+		},
+	)
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
@@ -1428,13 +1442,12 @@ func (api *Server) isGasLimitEnough(
 }
 
 func (api *Server) getProductivityByEpoch(
-	ctx context.Context,
+	rp *rolldpos.Protocol,
 	epochNum uint64,
+	tipHeight uint64,
 	abps state.CandidateList,
 ) (uint64, map[string]uint64, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	num, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, func(start uint64, end uint64) (map[string]uint64, error) {
+	num, produce, err := rp.ProductivityByEpoch(epochNum, tipHeight, func(start uint64, end uint64) (map[string]uint64, error) {
 		return blockchain.Productivity(api.bc, start, end)
 	})
 	if err != nil {

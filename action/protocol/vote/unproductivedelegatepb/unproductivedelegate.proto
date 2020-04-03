@@ -12,7 +12,7 @@ package unproductivedelegatepb;
 
 message unproductiveDelegate{
 	uint64 cacheSize = 1;
-	uint64 kickoutPeriod = 2;
+	uint64 probationPeriod = 2;
 	repeated delegatelist delegateList = 3;
 }
 

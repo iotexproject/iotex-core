@@ -22,13 +22,6 @@ mockgen -destination=./test/mock/mock_blockdao/mock_blockdao.go  \
         -package=mock_blockdao \
         BlockDAO
 
-mkdir -p ./test/mock/mock_blocksync
-mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
-        -source=./blocksync/blocksync.go \
-        -self_package=github.com/iotexproject/iotex-core/blocksync \
-        -package=mock_blocksync \
-        BlockSync
-
 mkdir -p ./test/mock/mock_trie
 mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
         -source=./db/trie/trie.go \
@@ -77,6 +70,12 @@ mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -self_package=github.com/iotexproject/iotex-core/action/protocol \
         -package=protocol \
         Protocol
+        
+mkdir -p ./test/mock/mock_poll
+mockgen -destination=./test/mock/mock_poll/mock_poll.go  \
+        -source=./action/protocol/poll/protocol.go \
+        -package=mock_poll \
+        Poll
 
 mockgen -destination=./db/mock_kvstore.go  \
         -source=./db/kvstore.go \
@@ -101,6 +100,13 @@ mockgen -destination=./test/mock/mock_chainmanager/mock_chainmanager.go  \
         -source=./action/protocol/managers.go \
         -package=mock_chainmanager \
         StateManager
+
+mkdir -p ./test/mock/mock_blocksync
+mockgen -destination=./test/mock/mock_blocksync/mock_blocksync.go  \
+        -source=./blocksync/blocksync.go \
+        -self_package=github.com/iotexproject/iotex-core/blocksync \
+        -package=mock_blocksync \
+        BlockSync
 
 mkdir -p ./test/mock/mock_apiserviceclient
 mockgen -destination=./test/mock/mock_apiserviceclient/mock_apiserviceclient.go  \

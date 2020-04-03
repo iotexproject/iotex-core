@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -131,4 +132,19 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 func (ex *Execution) Cost() (*big.Int, error) {
 	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
 	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
+}
+
+// SanityCheck validates the variables in the action
+func (ex *Execution) SanityCheck() error {
+	// Reject execution of negative amount
+	if ex.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+	// check if contract's address is valid
+	if ex.Contract() != EmptyAddress {
+		if _, err := address.FromString(ex.Contract()); err != nil {
+			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
+		}
+	}
+	return ex.AbstractAction.SanityCheck()
 }

@@ -32,11 +32,11 @@ const CurCandidateKey = "CurrentCandidateList."
 // NxtCandidateKey is the key of next candidate list
 const NxtCandidateKey = "NextCandidateList."
 
-// CurKickoutKey is the key of current kickout list
-const CurKickoutKey = "CurrentKickoutKey."
+// CurProbationKey is the key of current probation list
+const CurProbationKey = "CurrentProbationKey."
 
-// NxtKickoutKey is the key of next kickout list
-const NxtKickoutKey = "NextKickoutKey."
+// NxtProbationKey is the key of next probation list
+const NxtProbationKey = "NextProbationKey."
 
 // UnproductiveDelegateKey is the key of unproductive Delegate struct
 const UnproductiveDelegateKey = "UnproductiveDelegateKey."
@@ -99,32 +99,32 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 	)
 }
 
-// KickoutListFromDB returns array of kickout list at current epoch
-func KickoutListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.Blacklist, uint64, error) {
-	blackList := &vote.Blacklist{}
-	blackListKey := ConstructKey(CurKickoutKey)
+// ProbationListFromDB returns array of probation list at current epoch
+func ProbationListFromDB(sr protocol.StateReader, epochStartPoint bool) (*vote.ProbationList, uint64, error) {
+	probationList := &vote.ProbationList{}
+	probationlistKey := ConstructKey(CurProbationKey)
 	if epochStartPoint {
 		// if not shifted yet
-		log.L().Debug("Read kick-out list with next kickout key")
-		blackListKey = ConstructKey(NxtKickoutKey)
+		log.L().Debug("Read probation list with next probation key")
+		probationlistKey = ConstructKey(NxtProbationKey)
 	}
 	stateHeight, err := sr.State(
-		blackList,
-		protocol.KeyOption(blackListKey[:]),
+		probationList,
+		protocol.KeyOption(probationlistKey[:]),
 		protocol.NamespaceOption(protocol.SystemNamespace),
 	)
 	log.L().Debug(
-		"GetKickoutList",
-		zap.Any("kick out list", blackList.BlacklistInfos),
+		"GetProbationList",
+		zap.Any("Probation list", probationList.ProbationInfo),
 		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
 	if err == nil {
-		return blackList, stateHeight, nil
+		return probationList, stateHeight, nil
 	}
 	return nil, stateHeight, errors.Wrapf(
 		err,
-		"failed to get kick-out list with epochStartPoint: %t",
+		"failed to get probation list with epochStartPoint: %t",
 		epochStartPoint,
 	)
 }

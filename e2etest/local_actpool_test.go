@@ -8,6 +8,7 @@ package e2etest
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -38,8 +39,9 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(err)
 
 	chainID := cfg.Chain.ID
+	fmt.Println("server start")
 	require.NoError(svr.Start(ctx))
-
+	fmt.Println("server started")
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 
 	// create client
@@ -57,6 +59,7 @@ func TestLocalActPool(t *testing.T) {
 	)
 	require.NotNil(cli)
 	require.NoError(cli.Start(ctx))
+	fmt.Println("p2p agent started")
 
 	defer func() {
 		require.NoError(cli.Stop(ctx))
@@ -73,6 +76,7 @@ func TestLocalActPool(t *testing.T) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		return lenPendingActionMap(acts) == 1, nil
 	}))
+	fmt.Println("1")
 
 	tsf2, err := testutil.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
@@ -90,12 +94,15 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(cli.BroadcastOutbound(p2pCtx, exec4.Proto()))
 	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf5.Proto()))
 
+	fmt.Println("2")
 	// Wait until server receives all the transfers
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
 		acts := svr.ChainService(chainID).ActionPool().PendingActionMap()
 		// 3 valid transfers and 1 valid execution
 		return lenPendingActionMap(acts) == 4, nil
 	}))
+	fmt.Println("3")
+
 }
 
 func TestPressureActPool(t *testing.T) {

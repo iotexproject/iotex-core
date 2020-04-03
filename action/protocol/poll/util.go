@@ -103,10 +103,9 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	return nil
 }
 
-func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope, error) {
+func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
 	epochHeight := rp.GetEpochHeight(epochNum)
@@ -114,6 +113,9 @@ func createPostSystemActions(ctx context.Context, p Protocol) ([]action.Envelope
 	// make sure that putpollresult action is created around half of each epoch
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
+	}
+	if _, err := p.NextCandidates(ctx, sr); errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
 	}
 	log.L().Debug(
 		"createPutPollResultAction",
@@ -155,7 +157,7 @@ func setCandidates(
 	height uint64, // epoch start height
 ) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")
@@ -197,20 +199,20 @@ func setCandidates(
 	return err
 }
 
-// setNextEpochBlacklist sets the blacklist for kick-out with next key
-func setNextEpochBlacklist(
+// setNextEpochProbationList sets the probation list with next key
+func setNextEpochProbationList(
 	sm protocol.StateManager,
 	indexer *CandidateIndexer,
 	height uint64,
-	blackList *vote.Blacklist,
+	probationlist *vote.ProbationList,
 ) error {
 	if indexer != nil {
-		if err := indexer.PutKickoutList(height, blackList); err != nil {
-			return errors.Wrapf(err, "failed to put kickoutlist into indexer at height %d", height)
+		if err := indexer.PutProbationList(height, probationlist); err != nil {
+			return errors.Wrapf(err, "failed to put probationlist into indexer at height %d", height)
 		}
 	}
-	blackListKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
-	_, err := sm.PutState(blackList, protocol.KeyOption(blackListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	probationListKey := candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
+	_, err := sm.PutState(probationlist, protocol.KeyOption(probationListKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
@@ -229,49 +231,67 @@ func shiftCandidates(sm protocol.StateManager) (uint64, error) {
 	zap.L().Debug("Shift candidatelist from next key to current key")
 	var next state.CandidateList
 	var err error
-	var stateHeight, putStateHeight uint64
+	var stateHeight, putStateHeight, delStateHeight uint64
 	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
 	if stateHeight, err = sm.State(&next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next blacklist when shifting to current blacklist",
+			"failed to read next candidateList when shifting to current candidateList",
 		)
 	}
 	curKey := candidatesutil.ConstructKey(candidatesutil.CurCandidateKey)
 	if putStateHeight, err = sm.PutState(&next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+			"failed to write current candidateList when shifting from next candidateList to current candidateList",
 		)
 	}
 	if stateHeight != putStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next candidatelist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
 	}
 	return stateHeight, nil
 }
 
-// shiftKickoutList updates current data with next data of kickout list
-func shiftKickoutList(sm protocol.StateManager) (uint64, error) {
-	zap.L().Debug("Shift kickoutList from next key to current key")
+// shiftProbationList updates current data with next data of probation list
+func shiftProbationList(sm protocol.StateManager) (uint64, error) {
+	zap.L().Debug("Shift probationList from next key to current key")
 	var err error
-	var stateHeight, putStateHeight uint64
-	next := &vote.Blacklist{}
-	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtKickoutKey)
+	var stateHeight, putStateHeight, delStateHeight uint64
+	next := &vote.ProbationList{}
+	nextKey := candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
 	if stateHeight, err = sm.State(next, protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to read next blacklist when shifting to current blacklist",
+			"failed to read next probationlist when shifting to current probationlist",
 		)
 	}
-	curKey := candidatesutil.ConstructKey(candidatesutil.CurKickoutKey)
+	curKey := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
 	if putStateHeight, err = sm.PutState(next, protocol.KeyOption(curKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
 		return 0, errors.Wrap(
 			err,
-			"failed to write current blacklist when shifting from next blacklist to current blacklist",
+			"failed to write current probationlist when shifting from next probationlist to current probationlist",
 		)
 	}
 	if stateHeight != putStateHeight {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift candidates")
+	}
+	if delStateHeight, err = sm.DelState(protocol.KeyOption(nextKey[:]), protocol.NamespaceOption(protocol.SystemNamespace)); err != nil {
+		return 0, errors.Wrap(
+			err,
+			"failed to delete next probationlist after shifting",
+		)
+	}
+	if stateHeight != delStateHeight {
+		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift probationlist")
 	}
 	return stateHeight, nil
 }

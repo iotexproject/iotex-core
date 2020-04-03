@@ -50,10 +50,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		return nil, nil, nil, nil, err
 	}
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis:  config.Default.Genesis,
-			Registry: registry,
+			Genesis: config.Default.Genesis,
 		},
 	)
 	ctx = protocol.WithActionCtx(
@@ -89,6 +88,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			cb.Put("state", cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(123456), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
 	committee.EXPECT().ResultByHeight(uint64(123456)).Return(r, nil).AnyTimes()
@@ -98,7 +98,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
 		},
-		nil,
+		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+			return nil, state.ErrStateNotExist
+		},
 		nil,
 		nil,
 		nil,
@@ -106,9 +108,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.ProductivityThreshold,
-		cfg.Genesis.KickoutEpochPeriod,
+		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
-		cfg.Genesis.KickoutIntensityRate)
+		cfg.Genesis.ProbationIntensityRate)
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
 		committee,
@@ -166,11 +168,11 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, _, r, err := initConstructStakingCommittee(ctrl)
+	p, ctx, sr, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
-	elp, err := psac.CreatePostSystemActions(ctx)
+	elp, err := psac.CreatePostSystemActions(ctx, sr)
 	require.NoError(err)
 	require.Equal(1, len(elp))
 	act, ok := elp[0].Action().(*action.PutPollResult)

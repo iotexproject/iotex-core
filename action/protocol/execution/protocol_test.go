@@ -298,19 +298,18 @@ func (sct *SmartContractTest) prepareBlockchain(
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
 	// create state factory
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		blockchain.RegistryOption(registry),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -477,7 +476,7 @@ func TestProtocol_Handle(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption())
+		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -485,13 +484,12 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
 			dao,
 			sf,
-			blockchain.RegistryOption(registry),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -808,7 +806,7 @@ func TestProtocol_Validate(t *testing.T) {
 	require.Error(err)
 	require.True(strings.Contains(err.Error(), "error when validating contract's address"))
 	// Case V: Negative gas price
-	ex, err = action.NewExecution("2", uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
+	ex, err = action.NewExecution(identityset.Address(29).String(), uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
 	require.NoError(err)
 	err = protocol.Validate(context.Background(), ex)
 	require.Equal(action.ErrGasPrice, errors.Cause(err))

@@ -212,3 +212,12 @@ func (cr *CandidateRegister) Cost() (*big.Int, error) {
 	fee := big.NewInt(0).Mul(cr.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
 	return big.NewInt(0).Add(cr.Amount(), fee), nil
 }
+
+// SanityCheck validates the variables in the action
+func (cr *CandidateRegister) SanityCheck() error {
+	if cr.Amount().Sign() < 0 {
+		return errors.Wrap(ErrBalance, "negative value")
+	}
+
+	return cr.AbstractAction.SanityCheck()
+}

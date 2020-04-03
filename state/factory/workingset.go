@@ -44,9 +44,11 @@ type (
 	workingSet struct {
 		height       uint64
 		finalized    bool
+		dock         protocol.Dock
 		commitFunc   func(uint64) error
 		dbFunc       func() db.KVStore
 		delStateFunc func(string, []byte) error
+		statesFunc   func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
 		digestFunc   func() hash.Hash256
 		finalizeFunc func(uint64) error
 		getStateFunc func(string, []byte, interface{}) error
@@ -67,9 +69,12 @@ func (ws *workingSet) digest() (hash.Hash256, error) {
 	return ws.digestFunc(), nil
 }
 
-// Version returns the Version of this working set
-func (ws *workingSet) Version() uint64 {
-	return ws.height
+// ConfirmedHeight() returns the confirmed height this working set is based on
+func (ws *workingSet) ConfirmedHeight() uint64 {
+	if ws.height > 0 {
+		return ws.height - 1
+	}
+	return 0
 }
 
 // Height returns the Height of the block being worked on
@@ -102,6 +107,10 @@ func (ws *workingSet) runActions(
 	// Handle actions
 	receipts := make([]*action.Receipt, 0)
 	for _, elp := range elps {
+		ctx, err := withActionCtx(ctx, elp)
+		if err != nil {
+			return nil, err
+		}
 		receipt, err := ws.runAction(ctx, elp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error when run action")
@@ -114,40 +123,41 @@ func (ws *workingSet) runActions(
 	return receipts, nil
 }
 
+func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Context, error) {
+	var actionCtx protocol.ActionCtx
+	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
+	if err != nil {
+		return nil, err
+	}
+	actionCtx.Caller = caller
+	actionCtx.ActionHash = selp.Hash()
+	actionCtx.GasPrice = selp.GasPrice()
+	intrinsicGas, err := selp.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	actionCtx.IntrinsicGas = intrinsicGas
+	actionCtx.Nonce = selp.Nonce()
+
+	return protocol.WithActionCtx(ctx, actionCtx), nil
+}
+
 func (ws *workingSet) runAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
 	// Handle action
-	var actionCtx protocol.ActionCtx
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	caller, err := address.FromBytes(elp.SrcPubkey().Hash())
-	if err != nil {
-		return nil, err
-	}
-	actionCtx.Caller = caller
-	actionCtx.ActionHash = elp.Hash()
-	actionCtx.GasPrice = elp.GasPrice()
-	intrinsicGas, err := elp.IntrinsicGas()
-	if err != nil {
-		return nil, err
-	}
-	actionCtx.IntrinsicGas = intrinsicGas
-	actionCtx.Nonce = elp.Nonce()
-
-	ctx = protocol.WithActionCtx(ctx, actionCtx)
-	if bcCtx.Registry == nil {
+	reg, ok := protocol.GetRegistry(ctx)
+	if !ok {
 		return nil, nil
 	}
-	for _, actionHandler := range bcCtx.Registry.All() {
+	for _, actionHandler := range reg.All() {
 		receipt, err := actionHandler.Handle(ctx, elp.Action(), ws)
 		if err != nil {
 			return nil, errors.Wrapf(
 				err,
-				"error when action %x (nonce: %d) from %s mutates states",
+				"error when action %x mutates states",
 				elp.Hash(),
-				elp.Nonce(),
-				caller.String(),
 			)
 		}
 		if receipt != nil {
@@ -178,8 +188,18 @@ func (ws *workingSet) Revert(snapshot int) error {
 }
 
 // Commit persists all changes in RunActions() into the DB
-func (ws *workingSet) Commit() error {
-	return ws.commitFunc(ws.height)
+func (ws *workingSet) Commit(ctx context.Context) error {
+	err := ws.commitFunc(ws.height)
+	if !ws.Dirty() {
+		return err
+	}
+	if err == nil {
+		protocolCommit(ctx, ws)
+	} else {
+		protocolAbort(ctx, ws)
+	}
+	ws.Reset()
+	return err
 }
 
 // GetDB returns the underlying DB for account/contract storage
@@ -198,7 +218,7 @@ func (ws *workingSet) State(s interface{}, opts ...protocol.StateOption) (uint64
 }
 
 func (ws *workingSet) States(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return 0, nil, ErrNotSupported
+	return ws.statesFunc(opts...)
 }
 
 // PutState puts a state into DB
@@ -221,10 +241,30 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 	return ws.height, ws.delStateFunc(cfg.Namespace, cfg.Key)
 }
 
+func (ws *workingSet) Dirty() bool {
+	return ws.dock.Dirty()
+}
+
+func (ws *workingSet) ProtocolDirty(name string) bool {
+	return ws.dock.ProtocolDirty(name)
+}
+
+func (ws *workingSet) Load(name string, v interface{}) error {
+	return ws.dock.Load(name, v)
+}
+
+func (ws *workingSet) Unload(name string) (interface{}, error) {
+	return ws.dock.Unload(name)
+}
+
+func (ws *workingSet) Reset() {
+	ws.dock.Reset()
+}
+
 // createGenesisStates initialize the genesis states
 func (ws *workingSet) CreateGenesisStates(ctx context.Context) error {
-	if bcCtx, ok := protocol.GetBlockchainCtx(ctx); ok {
-		for _, p := range bcCtx.Registry.All() {
+	if reg, ok := protocol.GetRegistry(ctx); ok {
+		for _, p := range reg.All() {
 			if gsc, ok := p.(protocol.GenesisStateCreator); ok {
 				if err := gsc.CreateGenesisStates(ctx, ws); err != nil {
 					return errors.Wrap(err, "failed to create genesis states for protocol")
@@ -279,9 +319,19 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
+	var err error
+	reg := protocol.MustGetRegistry(ctx)
+	for _, act := range actions {
+		if ctx, err = withActionCtx(ctx, act); err != nil {
+			return nil, err
+		}
+		for _, validator := range reg.All() {
+			if err := validator.Validate(ctx, act.Action()); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, err
@@ -303,16 +353,15 @@ func (ws *workingSet) pickAndRunActions(
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) ([]*action.Receipt, []action.SealedEnvelope, error) {
-	if err := ws.validate(ctx); err != nil {
+	err := ws.validate(ctx)
+	if err != nil {
 		return nil, nil, err
 	}
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
+	reg := protocol.MustGetRegistry(ctx)
 
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	registry := bcCtx.Registry
-	for _, p := range registry.All() {
+	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, nil, err
@@ -321,11 +370,23 @@ func (ws *workingSet) pickAndRunActions(
 	}
 
 	// initial action iterator
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionIterator := actioniterator.NewActionIterator(actionMap)
 	for {
 		nextAction, ok := actionIterator.Next()
 		if !ok {
 			break
+		}
+		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			for _, validator := range reg.All() {
+				if err = validator.Validate(ctx, nextAction.Action()); err != nil {
+					break
+				}
+			}
+		}
+		if err != nil {
+			actionIterator.PopAccount()
+			continue
 		}
 		receipt, err := ws.runAction(ctx, nextAction)
 		if err != nil {
@@ -351,7 +412,11 @@ func (ws *workingSet) pickAndRunActions(
 			break
 		}
 	}
+
 	for _, selp := range postSystemActions {
+		if ctx, err = withActionCtx(ctx, selp); err != nil {
+			return nil, nil, err
+		}
 		receipt, err := ws.runAction(ctx, selp)
 		if err != nil {
 			return nil, nil, err

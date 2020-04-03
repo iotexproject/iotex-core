@@ -74,11 +74,13 @@ type (
 	Factory interface {
 		lifecycle.StartStopper
 		protocol.StateReader
+		Register(protocol.Protocol) error
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, []action.SealedEnvelope) (*block.Builder, error)
+		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
-		Commit(context.Context, *block.Block) error
+		PutBlock(context.Context, *block.Block) error
+		DeleteTipBlock(*block.Block) error
 		StateAtHeight(uint64, interface{}, ...protocol.StateOption) error
 		StatesAtHeight(uint64, ...protocol.StateOption) (state.Iterator, error)
 	}
@@ -88,6 +90,7 @@ type (
 		lifecycle          lifecycle.Lifecycle
 		mutex              sync.RWMutex
 		cfg                config.Config
+		registry           *protocol.Registry
 		currentChainHeight uint64
 		saveHistory        bool
 		twoLayerTrie       *trie.TwoLayerTrie // global state trie, this is a read only trie
@@ -132,6 +135,14 @@ func InMemTrieOption() Option {
 	}
 }
 
+// RegistryOption sets the registry in state db
+func RegistryOption(reg *protocol.Registry) Option {
+	return func(sf *factory, cfg config.Config) error {
+		sf.registry = reg
+		return nil
+	}
+}
+
 func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (*trie.TwoLayerTrie, error) {
 	dbForTrie, err := trie.NewKVStore(ns, dao)
 	if err != nil {
@@ -156,6 +167,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 	sf := &factory{
 		cfg:                cfg,
 		currentChainHeight: 0,
+		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 	}
 
@@ -183,8 +195,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 }
 
 func (sf *factory) Start(ctx context.Context) error {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	err := sf.dao.Start(ctx)
 	if err != nil {
 		return err
@@ -200,8 +211,16 @@ func (sf *factory) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
-		break
+		if err := sf.registry.StartAll(ctx); err != nil {
+			return err
+		}
 	case db.ErrNotExist:
+		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return errors.Wrap(err, "failed to init factory's height")
+		}
+		if err := sf.registry.StartAll(ctx); err != nil {
+			return err
+		}
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -213,9 +232,6 @@ func (sf *factory) Start(ctx context.Context) error {
 		// init the state factory
 		if err := sf.createGenesisStates(ctx); err != nil {
 			return errors.Wrap(err, "failed to create genesis states")
-		}
-		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
-			return errors.Wrap(err, "failed to init factory's height")
 		}
 	default:
 		return err
@@ -262,6 +278,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 	return &workingSet{
 		height:    height,
 		finalized: false,
+		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
 			return readState(tlt, ns, key, s)
 		},
@@ -284,6 +301,9 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
 			}
 			return err
+		},
+		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
+			return sf.States(opts...)
 		},
 		digestFunc: func() hash.Hash256 {
 			return hash.Hash256b(flusher.SerializeQueue())
@@ -309,8 +329,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			if err := flusher.Flush(); err != nil {
 				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 			}
+			if err := sf.twoLayerTrie.SetRootHash(tlt.RootHash()); err != nil {
+				return err
+			}
 			sf.currentChainHeight = h
-			return sf.twoLayerTrie.SetRootHash(tlt.RootHash())
+			return nil
 		},
 		snapshotFunc: func() int {
 			s := flusher.KVStoreWithBuffer().Snapshot()
@@ -376,7 +399,12 @@ func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVSto
 	return opts
 }
 
+func (sf *factory) Register(p protocol.Protocol) error {
+	return p.Register(sf.registry)
+}
+
 func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	key := generateWorkingSetCacheKey(blk.Header, blk.Header.ProducerAddress())
 	ws, isExist, err := sf.getFromWorkingSets(ctx, key)
 	if err != nil {
@@ -396,13 +424,30 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 func (sf *factory) NewBlockBuilder(
 	ctx context.Context,
 	actionMap map[string][]action.SealedEnvelope,
-	postSystemActions []action.SealedEnvelope,
+	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
+	ctx = protocol.WithRegistry(ctx, sf.registry)
 	ws, err := sf.newWorkingSet(ctx, sf.currentChainHeight+1)
 	sf.mutex.Unlock()
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to obtain working set from state factory")
+	}
+	postSystemActions := make([]action.SealedEnvelope, 0)
+	for _, p := range sf.registry.All() {
+		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
+			elps, err := psac.CreatePostSystemActions(ctx, ws)
+			if err != nil {
+				return nil, err
+			}
+			for _, elp := range elps {
+				se, err := sign(elp)
+				if err != nil {
+					return nil, err
+				}
+				postSystemActions = append(postSystemActions, se)
+			}
+		}
 	}
 	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
@@ -433,8 +478,8 @@ func (sf *factory) SimulateExecution(
 	return evm.SimulateExecution(ctx, ws, caller, ex, getBlockHash)
 }
 
-// Commit persists all changes in RunActions() into the DB
-func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
+// PutBlock persists all changes in RunActions() into the DB
+func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	sf.mutex.Lock()
 	timer := sf.timerFactory.NewTimer("Commit")
 	sf.mutex.Unlock()
@@ -444,7 +489,8 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithBlockCtx(ctx,
+	ctx = protocol.WithBlockCtx(
+		protocol.WithRegistry(ctx, sf.registry),
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
@@ -467,16 +513,20 @@ func (sf *factory) Commit(ctx context.Context, blk *block.Block) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
-	if sf.currentChainHeight+1 != ws.Version() {
+	h, _ := ws.Height()
+	if sf.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
 		return fmt.Errorf(
-			"current state height %d + 1 doesn't match working set version %d",
-			sf.currentChainHeight,
-			ws.Version(),
+			"current state height %d + 1 doesn't match working set height %d",
+			sf.currentChainHeight, h,
 		)
 	}
 
-	return ws.Commit()
+	return ws.Commit(ctx)
+}
+
+func (sf *factory) DeleteTipBlock(_ *block.Block) error {
+	return errors.Wrap(ErrNotSupported, "cannot delete tip block from factory")
 }
 
 // StateAtHeight returns a confirmed state at height -- archive mode
@@ -595,14 +645,12 @@ func (sf *factory) createGenesisStates(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to obtain working set from state factory")
 	}
+	// add Genesis states
 	if err := ws.CreateGenesisStates(ctx); err != nil {
 		return err
 	}
-	// add Genesis states
-	if err := ws.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit Genesis states")
-	}
-	return nil
+
+	return ws.Commit(ctx)
 }
 
 // getFromWorkingSets returns (workingset, true) if it exists in a cache, otherwise generates new workingset and return (ws, false)

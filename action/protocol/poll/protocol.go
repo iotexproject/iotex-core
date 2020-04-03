@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/config"
@@ -55,8 +56,8 @@ type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, 
 // GetCandidates returns the current candidates
 type GetCandidates func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error)
 
-// GetKickoutList returns current the blacklist
-type GetKickoutList func(protocol.StateReader, bool) (*vote.Blacklist, uint64, error)
+// GetProbationList returns current the ProbationList
+type GetProbationList func(protocol.StateReader, bool) (*vote.ProbationList, uint64, error)
 
 // GetUnproductiveDelegate returns unproductiveDelegate struct which contains a cache of upd info by epochs
 type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDelegate, error)
@@ -120,45 +121,57 @@ func NewProtocol(
 	readContract ReadContract,
 	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
-	getkickoutList GetKickoutList,
+	getprobationList GetProbationList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
 	electionCommittee committee.Committee,
-	stakingV2 *staking.Protocol,
+	stakingProto *staking.Protocol,
 	getBlockTimeFunc GetBlockTime,
 	productivity Productivity,
+	getBlockHash evm.GetBlockHash,
 ) (Protocol, error) {
 	genesisConfig := cfg.Genesis
 	if cfg.Consensus.Scheme != config.RollDPoSScheme {
 		return nil, nil
 	}
 
+	var (
+		slasher        *Slasher
+		scoreThreshold *big.Int
+	)
 	switch genesisConfig.PollMode {
-	case _modeLifeLong:
-		delegates := genesisConfig.Delegates
-		if uint64(len(delegates)) < genesisConfig.NumDelegates {
-			return nil, errors.New("invalid delegate address in genesis block")
-		}
-		return NewLifeLongDelegatesProtocol(delegates), nil
-	case _modeGovernanceMix:
-		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
-			return nil, errors.New("gravity chain voting is not enabled")
-		}
-		slasher, err := NewSlasher(
+	case _modeGovernanceMix, _modeNative, _modeNativeMix:
+		var (
+			err error
+			ok  bool
+		)
+		slasher, err = NewSlasher(
 			&genesisConfig,
 			productivity,
 			candidatesByHeight,
 			getCandidates,
-			getkickoutList,
+			getprobationList,
 			getUnproductiveDelegate,
 			candidateIndexer,
 			genesisConfig.NumCandidateDelegates,
 			genesisConfig.NumDelegates,
 			genesisConfig.ProductivityThreshold,
-			genesisConfig.KickoutEpochPeriod,
+			genesisConfig.ProbationEpochPeriod,
 			genesisConfig.UnproductiveDelegateMaxCacheSize,
-			genesisConfig.KickoutIntensityRate)
+			genesisConfig.ProbationIntensityRate)
 		if err != nil {
 			return nil, err
+		}
+		scoreThreshold, ok = new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
+		if !ok {
+			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
+		}
+	}
+
+	var stakingV1 Protocol
+	switch genesisConfig.PollMode {
+	case _modeGovernanceMix, _modeNativeMix:
+		if !genesisConfig.EnableGravityChainVoting || electionCommittee == nil {
+			return nil, errors.New("gravity chain voting is not enabled")
 		}
 		governance, err := NewGovernanceChainCommitteeProtocol(
 			candidateIndexer,
@@ -171,11 +184,7 @@ func NewProtocol(
 		if err != nil {
 			return nil, err
 		}
-		scoreThreshold, ok := new(big.Int).SetString(cfg.Genesis.ScoreThreshold, 10)
-		if !ok {
-			return nil, errors.Errorf("failed to parse score threshold %s", cfg.Genesis.ScoreThreshold)
-		}
-		return NewStakingCommittee(
+		stakingV1, err = NewStakingCommittee(
 			electionCommittee,
 			governance,
 			readContract,
@@ -183,14 +192,28 @@ func NewProtocol(
 			cfg.Genesis.NativeStakingContractCode,
 			scoreThreshold,
 		)
-	case _modeNative:
-		// TODO
-		return nil, errors.New("not implemented")
-	case _modeNativeMix:
-		// TODO
-		return nil, errors.New("not implemented")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	switch genesisConfig.PollMode {
+	case _modeLifeLong:
+		delegates := genesisConfig.Delegates
+		if uint64(len(delegates)) < genesisConfig.NumDelegates {
+			return nil, errors.New("invalid delegate address in genesis block")
+		}
+		return NewLifeLongDelegatesProtocol(delegates), nil
+	case _modeGovernanceMix:
+		return stakingV1, nil
+	case _modeNativeMix, _modeNative:
+		stakingV2, err := newNativeStakingV2(candidateIndexer, slasher, scoreThreshold, stakingProto)
+		if err != nil {
+			return nil, err
+		}
+		return NewStakingCommand(stakingV1, stakingV2)
 	case _modeConsortium:
-		return NewConsortiumCommittee(candidateIndexer, readContract)
+		return NewConsortiumCommittee(candidateIndexer, readContract, getBlockHash)
 	default:
 		return nil, errors.Errorf("unsupported poll mode %s", genesisConfig.PollMode)
 	}

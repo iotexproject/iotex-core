@@ -29,6 +29,26 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
+// Delete should only be used by test
+func (m *candCenter) deleteForTestOnly(owner address.Address) {
+	if owner == nil {
+		return
+	}
+
+	if _, hit := m.base.getByOwner(owner.String()); hit {
+		m.base.delete(owner)
+		if !m.change.containsOwner(owner) {
+			m.size--
+			return
+		}
+	}
+
+	if m.change.containsOwner(owner) {
+		m.change.delete(owner)
+		m.size--
+	}
+}
+
 func TestProtocol_HandleCreateStake(t *testing.T) {
 	require := require.New(t)
 
@@ -48,7 +68,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()
-	require.NoError(setupCandidate(p, sm, candidate))
+	require.NoError(putCandidate(sm, candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
 
@@ -130,7 +150,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		r, err := p.handleCreateStake(ctx, act, sm)
+		r, err := p.Handle(ctx, act, sm)
 		require.Equal(uint64(test.status), r.Status)
 
 		if test.status == iotextypes.ReceiptStatus_Success {
@@ -152,7 +172,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidateAddr)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidateAddr)
 			require.NotNil(candidate)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
 
@@ -269,7 +291,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			false,
-			ErrInvalidSelfStkIndex,
+			ErrAlreadyExist,
 			iotextypes.ReceiptStatus_Success,
 		},
 		{
@@ -312,7 +334,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		r, err := p.handleCandidateRegister(ctx, act, sm)
+		r, err := p.Handle(ctx, act, sm)
 		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
@@ -335,7 +357,9 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.amountStr, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.amountStr, candidate.Votes.String())
 			require.Equal(test.name, candidate.Name)
@@ -523,7 +547,7 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		_, err = p.handleCandidateRegister(ctx, act, sm)
+		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
 
 		cu, err := action.NewCandidateUpdate(test.nonce, test.updateName, test.updateOperator, test.updateReward, test.gasLimit, test.gasPrice)
@@ -540,7 +564,7 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
-		r, err := p.handleCandidateUpdate(ctx, cu, sm)
+		r, err := p.Handle(ctx, cu, sm)
 		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
@@ -563,7 +587,9 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.afterUpdate, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.afterUpdate, candidate.Votes.String())
 			if test.updateName != "" {
@@ -616,6 +642,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// block context
 		blkHeight    uint64
 		blkTimestamp time.Time
+		ctxTimestamp time.Time
 		blkGasLimit  uint64
 		// clear flag for inMemCandidates
 		clear bool
@@ -638,6 +665,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			false,
 			true,
@@ -656,6 +684,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			10000,
 			1,
 			1,
+			time.Now(),
 			time.Now(),
 			10000,
 			false,
@@ -677,6 +706,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			false,
 			true,
@@ -696,11 +726,32 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now(),
 			10000,
 			true,
 			true,
 			ErrInvalidOwner,
 			iotextypes.ReceiptStatus_Success,
+		},
+		// unstake before maturity
+		{
+			callerAddr,
+			"10000000000000000000",
+			"",
+			100,
+			false,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			time.Now(),
+			10000,
+			false,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		},
 		// Upsert error cannot happen,because collision cannot happen
 		// success
@@ -716,6 +767,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			1,
 			1,
 			time.Now(),
+			time.Now().Add(time.Duration(1) * 24 * time.Hour),
 			10000,
 			false,
 			true,
@@ -734,11 +786,27 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		act, err := action.NewUnstake(test.nonce, test.index,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		if test.clear {
-			p.inMemCandidates.Delete(test.caller)
+		if test.blkTimestamp != test.ctxTimestamp {
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			blkCtx.BlockTimeStamp = test.ctxTimestamp
+			ctx = protocol.WithBlockCtx(ctx, blkCtx)
 		}
-		r, err := p.handleUnstake(ctx, act, sm)
-		require.Equal(test.err, errors.Cause(err))
+		var r *action.Receipt
+		if test.clear {
+			v, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			csm, ok := v.(*candSM)
+			require.True(ok)
+			center := csm.CandidateCenter.(*candCenter)
+			require.True(ok)
+			center.deleteForTestOnly(test.caller)
+			require.False(csm.ContainsOwner(test.caller))
+			r, err = p.handle(ctx, act, csm)
+			require.Equal(test.err, errors.Cause(err))
+		} else {
+			r, err = p.Handle(ctx, act, sm)
+			require.Equal(test.err, errors.Cause(err))
+		}
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
@@ -764,7 +832,9 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
 
@@ -927,11 +997,11 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			})
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight:    1,
-				BlockTimeStamp: time.Now(),
+				BlockTimeStamp: time.Now().Add(time.Duration(1) * 24 * time.Hour),
 				GasLimit:       1000000,
 			})
 
-			_, err = p.handleUnstake(ctx, act, sm)
+			_, err = p.Handle(ctx, act, sm)
 			require.NoError(err)
 		}
 
@@ -951,7 +1021,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			BlockTimeStamp: test.ctxTimestamp,
 			GasLimit:       blkCtx.GasLimit,
 		})
-		r, err := p.handleWithdrawStake(ctx, withdraw, sm)
+		r, err := p.Handle(ctx, withdraw, sm)
 		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
@@ -1134,12 +1204,23 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		var r *action.Receipt
 		if test.clear {
-			cc := p.inMemCandidates.GetBySelfStakingIndex(test.index)
-			p.inMemCandidates.Delete(cc.Owner)
+			v, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			csm, ok := v.(*candSM)
+			require.True(ok)
+			center := csm.CandidateCenter.(*candCenter)
+			require.True(ok)
+			cc := center.GetBySelfStakingIndex(test.index)
+			center.deleteForTestOnly(cc.Owner)
+			require.False(csm.ContainsOwner(cc.Owner))
+			r, err = p.handle(ctx, act, csm)
+			require.Equal(test.err, errors.Cause(err))
+		} else {
+			r, err = p.Handle(ctx, act, sm)
+			require.Equal(test.err, errors.Cause(err))
 		}
-		r, err := p.handleChangeCandidate(ctx, act, sm)
-		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
@@ -1171,7 +1252,9 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(candidate.Reward.String(), candidate.Reward.String())
 			require.Equal(candidate.Owner.String(), candidate.Owner.String())
 			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.afterChange, candidate.Votes.String())
 
@@ -1317,7 +1400,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
-		r, err := p.handleTransferStake(ctx, act, sm)
+		r, err := p.Handle(ctx, act, sm)
 		require.Equal(test.err, errors.Cause(err))
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
@@ -1325,7 +1408,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
 		}
 
-		if err == nil && test.status == iotextypes.ReceiptStatus_Success {
+		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidate2.Owner)
 			require.NoError(err)
@@ -1344,7 +1427,9 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
-			candidate = p.inMemCandidates.GetByOwner(candi.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candi.Owner)
 			require.NotNil(candidate)
 			require.LessOrEqual(test.afterTransfer, candidate.Votes.Uint64())
 			require.Equal(candi.Name, candidate.Name)
@@ -1519,9 +1604,6 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 		act, err := action.NewRestake(test.nonce, test.index, test.duration, test.autoStake, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		if test.clear {
-			p.inMemCandidates.Delete(test.caller)
-		}
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
@@ -1535,15 +1617,29 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
-		r, err := p.handleRestake(ctx, act, sm)
-		require.Equal(test.err, errors.Cause(err))
+		var r *action.Receipt
+		if test.clear {
+			v, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			csm, ok := v.(*candSM)
+			require.True(ok)
+			center := csm.CandidateCenter.(*candCenter)
+			require.True(ok)
+			center.deleteForTestOnly(test.caller)
+			require.False(csm.ContainsOwner(test.caller))
+			r, err = p.handle(ctx, act, csm)
+			require.Equal(test.err, errors.Cause(err))
+		} else {
+			r, err = p.Handle(ctx, act, sm)
+			require.Equal(test.err, errors.Cause(err))
+		}
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
 			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
 		}
 
-		if err == nil && test.status == iotextypes.ReceiptStatus_Success {
+		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
@@ -1562,7 +1658,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.afterRestake, candidate.Votes.String())
 
@@ -1719,9 +1817,6 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 		act, err := action.NewDepositToStake(test.nonce, test.index, fmt.Sprintf("%d", test.amount), nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		if test.clear {
-			p.inMemCandidates.Delete(test.caller)
-		}
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
@@ -1735,15 +1830,29 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
-		r, err := p.handleDepositToStake(ctx, act, sm)
-		require.Equal(test.err, errors.Cause(err))
+		var r *action.Receipt
+		if test.clear {
+			v, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			csm, ok := v.(*candSM)
+			require.True(ok)
+			center := csm.CandidateCenter.(*candCenter)
+			require.True(ok)
+			center.deleteForTestOnly(test.caller)
+			require.False(csm.ContainsOwner(test.caller))
+			r, err = p.handle(ctx, act, csm)
+			require.Equal(test.err, errors.Cause(err))
+		} else {
+			r, err = p.Handle(ctx, act, sm)
+			require.Equal(test.err, errors.Cause(err))
+		}
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
 			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
 		}
 
-		if err == nil && test.status == iotextypes.ReceiptStatus_Success {
+		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
@@ -1762,7 +1871,9 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
-			candidate = p.inMemCandidates.GetByOwner(candidate.Owner)
+			csm, err := p.createCandidateStateManager(sm)
+			require.NoError(err)
+			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
 
@@ -1797,7 +1908,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
-	_, err = p.handleCreateStake(ctx, a, sm)
+	_, err = p.Handle(ctx, a, sm)
 	require.NoError(err)
 	cost, err := a.Cost()
 	require.NoError(err)
@@ -1821,10 +1932,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	// set up candidate
 	candidate := testCandidates[0].d.Clone()
 	candidate.Votes = big.NewInt(0)
-	require.NoError(setupCandidate(p, sm, candidate))
+	require.NoError(putCandidate(sm, candidate))
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
-	require.NoError(setupCandidate(p, sm, candidate2))
+	require.NoError(putCandidate(sm, candidate2))
 	return sm, p, candidate, candidate2
 }
 
@@ -1838,14 +1949,6 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	}
 	account.Balance = unit.ConvertIotxToRau(balance)
 	return accountutil.StoreAccount(sm, addr.String(), account)
-}
-
-func setupCandidate(p *Protocol, sm protocol.StateManager, candidate *Candidate) error {
-	if err := putCandidate(sm, candidate); err != nil {
-		return err
-	}
-	p.inMemCandidates.Upsert(candidate)
-	return nil
 }
 
 func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) error {

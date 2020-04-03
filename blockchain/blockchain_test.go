@@ -410,14 +410,13 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		RegistryOption(registry),
 		BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -452,14 +451,13 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(t, rp.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		RegistryOption(registry),
 		BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -526,14 +524,13 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := NewBlockchain(
 		cfg,
 		dao,
 		sf,
-		RegistryOption(registry),
 		BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -617,11 +614,11 @@ func TestConstantinople(t *testing.T) {
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
 		ctx := context.Background()
 
+		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		require.NoError(err)
 		acc := account.NewProtocol(rewarding.DepositGas)
-		registry := protocol.NewRegistry()
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
@@ -631,13 +628,12 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		dao := blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 		require.NotNil(dao)
 		bc := NewBlockchain(
 			cfg,
 			dao,
 			sf,
-			RegistryOption(registry),
 			BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -779,16 +775,16 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	testValidateBlockchain := func(cfg config.Config, t *testing.T) {
 		ctx := context.Background()
 
+		registry := protocol.NewRegistry()
 		// Create a blockchain from scratch
-		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+		sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		require.NoError(err)
 		acc := account.NewProtocol(rewarding.DepositGas)
-		registry := protocol.NewRegistry()
 		require.NoError(acc.Register(registry))
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		var indexer blockindex.Indexer
-		var indexers []blockdao.BlockIndexer
+		indexers := []blockdao.BlockIndexer{sf}
 		if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 			// create indexer
 			cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -805,7 +801,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			cfg,
 			dao,
 			sf,
-			RegistryOption(registry),
 			BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -826,27 +821,15 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		require.Equal(24, ms.Counter())
 
 		// Load a blockchain from DB
-		accountProtocol := account.NewProtocol(rewarding.DepositGas)
-		registry = protocol.NewRegistry()
-		require.NoError(accountProtocol.Register(registry))
 		bc = NewBlockchain(
 			cfg,
 			dao,
 			sf,
-			RegistryOption(registry),
 			BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
 			)),
 		)
-		rolldposProtocol := rolldpos.NewProtocol(
-			genesis.Default.NumCandidateDelegates,
-			genesis.Default.NumDelegates,
-			genesis.Default.NumSubEpochs,
-		)
-		require.NoError(rolldposProtocol.Register(registry))
-		rewardingProtocol := rewarding.NewProtocol(nil)
-		require.NoError(rewardingProtocol.Register(registry))
 		require.NoError(bc.Start(ctx))
 		defer func() {
 			require.NoError(bc.Stop(ctx))
@@ -1053,17 +1036,16 @@ func TestBlockchainInitialCandidate(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption())
+	registry := protocol.NewRegistry()
+	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
 	accountProtocol := account.NewProtocol(rewarding.DepositGas)
-	registry := protocol.NewRegistry()
 	require.NoError(accountProtocol.Register(registry))
 	bc := NewBlockchain(
 		cfg,
 		nil,
 		sf,
-		BoltDBDaoOption(),
-		RegistryOption(registry),
+		BoltDBDaoOption(sf),
 		BlockValidatorOption(sf),
 	)
 	rolldposProtocol := rolldpos.NewProtocol(
@@ -1096,9 +1078,9 @@ func TestBlockchain_AccountState(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	s, err := accountutil.AccountState(sf, identityset.Address(0).String())
@@ -1136,10 +1118,10 @@ func TestBlocks(t *testing.T) {
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 
 	// Create a blockchain from scratch
-	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, BoltDBDaoOption(sf))
 	require.NoError(bc.Start(context.Background()))
 	defer func() {
 		require.NoError(bc.Stop(context.Background()))
@@ -1183,8 +1165,8 @@ func TestActions(t *testing.T) {
 	require.NoError(acc.Register(registry))
 
 	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis, Registry: registry},
+		protocol.WithRegistry(context.Background(), registry),
+		protocol.BlockchainCtx{Genesis: cfg.Genesis},
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1205,15 +1187,14 @@ func TestActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[a] = "100000"
 	cfg.Genesis.InitBalanceMap[c] = "100000"
 
-	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, _ := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 
 	// Create a blockchain from scratch
 	bc := NewBlockchain(
 		cfg,
 		nil,
 		sf,
-		BoltDBDaoOption(),
-		RegistryOption(registry),
+		BoltDBDaoOption(sf),
 		BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -1269,9 +1250,9 @@ func TestBlockchain_AddSubscriber(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	req.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1287,9 +1268,9 @@ func TestBlockchain_RemoveSubscriber(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	// create chain
 	registry := protocol.NewRegistry()
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	req.NoError(err)
-	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(), RegistryOption(registry))
+	bc := NewBlockchain(cfg, nil, sf, InMemDaoOption(sf))
 	// mock
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -1482,22 +1463,22 @@ func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVSto
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.BlockGasLimit = uint64(1000000)
 	cfg.Genesis.EnableGravityChainVoting = false
+	registry := protocol.NewRegistry()
 	var sf factory.Factory
 	kv := db.NewMemKVStore()
 	if stateTX {
-		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv))
+		sf, err = factory.NewStateDB(cfg, factory.PrecreatedStateDBOption(kv), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 	} else {
-		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv))
+		sf, err = factory.NewFactory(cfg, factory.PrecreatedTrieDBOption(kv), factory.RegistryOption(registry))
 		require.NoError(err)
 	}
 	acc := account.NewProtocol(rewarding.DepositGas)
-	registry := protocol.NewRegistry()
 	require.NoError(acc.Register(registry))
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	require.NoError(rp.Register(registry))
 	var indexer blockindex.Indexer
-	var indexers []blockdao.BlockIndexer
+	indexers := []blockdao.BlockIndexer{sf}
 	if _, gateway := cfg.Plugins[config.GatewayPlugin]; gateway && !cfg.Chain.EnableAsyncIndexWrite {
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -1514,7 +1495,6 @@ func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVSto
 		cfg,
 		dao,
 		sf,
-		RegistryOption(registry),
 		BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -1536,10 +1516,11 @@ func newChain(t *testing.T, stateTX bool) (Blockchain, factory.Factory, db.KVSto
 	require.NoError(err)
 	actionMap := make(map[string][]action.SealedEnvelope)
 	actionMap[genesisAccount] = []action.SealedEnvelope{tsf, tsf2}
-	blk, _ := bc.MintNewBlock(
+	blk, err := bc.MintNewBlock(
 		actionMap,
 		testutil.TimestampNow(),
 	)
+	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
 	return bc, sf, kv, dao
 }
