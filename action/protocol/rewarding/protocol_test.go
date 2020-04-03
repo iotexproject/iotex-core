@@ -416,7 +416,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.Nil(t, p.Validate(ctx, se2.Action()))
 
 	// Test for CreatePostSystemActions
-	grants, err := p.CreatePostSystemActions(ctx)
+	grants, err := p.CreatePostSystemActions(ctx, sm)
 	require.NoError(t, err)
 	require.NotNil(t, grants)
 

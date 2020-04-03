@@ -114,7 +114,7 @@ func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
 	return cands, nil
 }
 
-func retrieveDeltaFromSM(sm protocol.StateManager) (CandidateView, error) {
+func retrieveDeltaFromSM(sm protocol.StateManager) (CandidateList, error) {
 	v, err := sm.Unload(protocolID)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
@@ -133,5 +133,5 @@ func retrieveDeltaFromSM(sm protocol.StateManager) (CandidateView, error) {
 	if err := l.Deserialize(ser); err != nil {
 		return nil, errors.Wrap(err, "failed to retrieveDeltaFromSM")
 	}
-	return NewCandidateView(l)
+	return l, nil
 }

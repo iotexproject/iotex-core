@@ -95,6 +95,15 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			cb.Put(cfg.Namespace, cfg.Key, ss, "failed to put state")
 			return 0, nil
 		}).AnyTimes()
+	sm.EXPECT().DelState(gomock.Any()).DoAndReturn(
+		func(opts ...protocol.StateOption) (uint64, error) {
+			cfg, err := protocol.CreateStateConfig(opts...)
+			if err != nil {
+				return 0, err
+			}
+			cb.Delete(cfg.Namespace, cfg.Key, "failed to delete state")
+			return 0, nil
+		}).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Height().Return(epochStartHeight-1, nil).AnyTimes()
 	r := types.NewElectionResultForTest(time.Now())
@@ -172,9 +181,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 			}
 		},
 		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-		func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error) {
-			return candidates, 30, nil
-		},
+		candidatesutil.CandidatesFromDB,
 		candidatesutil.ProbationListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
 		indexer,
@@ -198,6 +205,9 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	if err := setCandidates(ctx, sm, indexer, candidates, 1); err != nil {
+		return nil, nil, nil, nil, err
+	}
+	if err := setNextEpochProbationList(sm, indexer, 1, vote.NewProbationList(cfg.Genesis.ProbationIntensityRate)); err != nil {
 		return nil, nil, nil, nil, err
 	}
 	return p, ctx, sm, r, err
@@ -231,11 +241,13 @@ func TestCreatePostSystemActions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, _, r, err := initConstruct(ctrl)
+	p, ctx, sm, r, err := initConstruct(ctrl)
+	require.NoError(err)
+	_, err = shiftCandidates(sm)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
-	elp, err := psac.CreatePostSystemActions(ctx)
+	elp, err := psac.CreatePostSystemActions(ctx, sm)
 	require.NoError(err)
 	require.Equal(1, len(elp))
 	act, ok := elp[0].Action().(*action.PutPollResult)
@@ -263,6 +275,7 @@ func TestCreatePreStates(t *testing.T) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 
 	test := make(map[uint64](map[string]uint32))
+	test[1] = map[string]uint32{}
 	test[2] = map[string]uint32{
 		identityset.Address(1).String(): 1, // [A, B, C]
 		identityset.Address(2).String(): 1,
@@ -280,10 +293,11 @@ func TestCreatePreStates(t *testing.T) {
 		identityset.Address(5).String(): 1,
 		identityset.Address(6).String(): 1,
 	}
-	require.NoError(p.CreateGenesisStates(ctx, sm))
+
 	// testing for probation slashing
 	var epochNum uint64
 	for epochNum = 1; epochNum <= 3; epochNum++ {
+		// at first of epoch
 		epochStartHeight := rp.GetEpochHeight(epochNum)
 		bcCtx.Tip.Height = epochStartHeight - 1
 		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
@@ -296,8 +310,8 @@ func TestCreatePreStates(t *testing.T) {
 		)
 		require.NoError(psc.CreatePreStates(ctx, sm)) // shift
 		bl := &vote.ProbationList{}
-		candKey := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
-		_, err := sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		key := candidatesutil.ConstructKey(candidatesutil.CurProbationKey)
+		_, err := sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected := test[epochNum]
 		require.Equal(len(expected), len(bl.ProbationInfo))
@@ -306,6 +320,13 @@ func TestCreatePreStates(t *testing.T) {
 			require.True(ok)
 			require.Equal(val, count)
 		}
+
+		// mid of epoch, set candidatelist into next candidate key
+		nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
+		candidates, err := p.Candidates(ctx, sm)
+		require.Equal(len(candidates), 6)
+		require.NoError(err)
+		require.NoError(setCandidates(ctx, sm, nil, candidates, nextEpochStartHeight)) // set next candidate
 
 		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -318,11 +339,11 @@ func TestCreatePreStates(t *testing.T) {
 				Producer:    identityset.Address(1),
 			},
 		)
-		require.NoError(psc.CreatePreStates(ctx, sm))
+		require.NoError(psc.CreatePreStates(ctx, sm)) // calculate probation list and set next probationlist
 
 		bl = &vote.ProbationList{}
-		candKey = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
-		_, err = sm.State(bl, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		key = candidatesutil.ConstructKey(candidatesutil.NxtProbationKey)
+		_, err = sm.State(bl, protocol.KeyOption(key[:]), protocol.NamespaceOption(protocol.SystemNamespace))
 		require.NoError(err)
 		expected = test[epochNum+1]
 		require.Equal(len(expected), len(bl.ProbationInfo))
@@ -380,7 +401,9 @@ func TestHandle(t *testing.T) {
 
 	_, err = shiftCandidates(sm2)
 	require.NoError(err)
-	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, false)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, true)
+	require.Error(err) // should return stateNotExist error
+	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
@@ -659,7 +682,7 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(3).String(), delegates2[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates2[1].Address)
 
-	// 3: probation out with different probationList
+	// 3: probation with different probationList
 	probationListMap3 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(3).String(): 2,
@@ -677,33 +700,35 @@ func TestDelegatesAndNextDelegates(t *testing.T) {
 	require.Equal(identityset.Address(2).String(), delegates3[0].Address)
 	require.Equal(identityset.Address(4).String(), delegates3[1].Address)
 
-	// 4: shift probation list and Delegates()
-	_, err = shiftProbationList(sm)
-	require.NoError(err)
-	delegates4, err := p.Delegates(ctx, sm)
-	require.NoError(err)
-	require.Equal(len(delegates4), len(delegates3))
-	for i, d := range delegates3 {
-		require.True(d.Equal(delegates4[i]))
-	}
-
-	// 5: test hard probation
-	probationListMap5 := map[string]uint32{
+	// 4: test hard probation
+	probationListMap4 := map[string]uint32{
 		identityset.Address(1).String(): 1,
 		identityset.Address(2).String(): 2,
 		identityset.Address(3).String(): 2,
 		identityset.Address(4).String(): 2,
 		identityset.Address(5).String(): 2,
 	}
-	probationList5 := &vote.ProbationList{
-		ProbationInfo: probationListMap5,
+	probationList4 := &vote.ProbationList{
+		ProbationInfo: probationListMap4,
 		IntensityRate: 100, // hard probation
 	}
-	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList5))
+	require.NoError(setNextEpochProbationList(sm, nil, 721, probationList4))
 
-	delegates5, err := p.NextDelegates(ctx, sm)
+	delegates4, err := p.NextDelegates(ctx, sm)
 	require.NoError(err)
 
-	require.Equal(1, len(delegates5)) // exclude all of them
-	require.Equal(identityset.Address(6).String(), delegates5[0].Address)
+	require.Equal(1, len(delegates4)) // exclude all of them
+	require.Equal(identityset.Address(6).String(), delegates4[0].Address)
+
+	// 5: shift probation list and Delegates()
+	_, err = shiftCandidates(sm)
+	require.NoError(err)
+	_, err = shiftProbationList(sm)
+	require.NoError(err)
+	delegates5, err := p.Delegates(ctx, sm)
+	require.NoError(err)
+	require.Equal(len(delegates5), len(delegates4))
+	for i, d := range delegates4 {
+		require.True(d.Equal(delegates5[i]))
+	}
 }

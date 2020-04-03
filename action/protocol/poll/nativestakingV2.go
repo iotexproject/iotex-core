@@ -59,8 +59,8 @@ func (ns *nativeStakingV2) CreatePreStates(ctx context.Context, sm protocol.Stat
 	return ns.slasher.CreatePreStates(ctx, sm, ns.candIndexer)
 }
 
-func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, ns)
+func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, ns)
 }
 
 func (ns *nativeStakingV2) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

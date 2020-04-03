@@ -297,18 +297,18 @@ func (m *MockPostSystemActionsCreator) EXPECT() *MockPostSystemActionsCreatorMoc
 }
 
 // CreatePostSystemActions mocks base method
-func (m *MockPostSystemActionsCreator) CreatePostSystemActions(arg0 context.Context) ([]action.Envelope, error) {
+func (m *MockPostSystemActionsCreator) CreatePostSystemActions(arg0 context.Context, arg1 StateReader) ([]action.Envelope, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreatePostSystemActions", arg0)
+	ret := m.ctrl.Call(m, "CreatePostSystemActions", arg0, arg1)
 	ret0, _ := ret[0].([]action.Envelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreatePostSystemActions indicates an expected call of CreatePostSystemActions
-func (mr *MockPostSystemActionsCreatorMockRecorder) CreatePostSystemActions(arg0 interface{}) *gomock.Call {
+func (mr *MockPostSystemActionsCreatorMockRecorder) CreatePostSystemActions(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePostSystemActions", reflect.TypeOf((*MockPostSystemActionsCreator)(nil).CreatePostSystemActions), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePostSystemActions", reflect.TypeOf((*MockPostSystemActionsCreator)(nil).CreatePostSystemActions), arg0, arg1)
 }
 
 // MockActionValidator is a mock of ActionValidator interface
