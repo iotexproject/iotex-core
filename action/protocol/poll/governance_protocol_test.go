@@ -226,7 +226,7 @@ func TestCreatePostSystemActions(t *testing.T) {
 	_, err = shiftCandidates(sm)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
-	elp, err := psac.CreatePostSystemActions(ctx)
+	elp, err := psac.CreatePostSystemActions(ctx, sm)
 	require.NoError(err)
 	require.Equal(1, len(elp))
 	act, ok := elp[0].Action().(*action.PutPollResult)
