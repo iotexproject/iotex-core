@@ -158,7 +158,6 @@ func NewProtocol(
 		cfg.Genesis.NativeStakingContractAddress,
 		cfg.Genesis.NativeStakingContractCode,
 		scoreThreshold,
-		sr,
 	); err != nil {
 		return nil, err
 	}
