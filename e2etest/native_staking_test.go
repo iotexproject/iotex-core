@@ -224,7 +224,12 @@ func TestNativeStaking(t *testing.T) {
 		// unstake voter stake
 		us, err := testutil.SignedReclaimStake(false, 4, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{us}, fixedTime))
+		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, fixedTime))
+		r, err = dao.GetReceiptByActionHash(us.Hash(), 9)
+		require.NoError(err)
+		require.Equal(uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), r.Status)
+		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
+		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{us}, unstakeTime))
 
 		// check candidate state
 		expectedVotes, _ = big.NewInt(0).SetString(initVotes, 10)
@@ -233,7 +238,7 @@ func TestNativeStaking(t *testing.T) {
 		// unstake self stake
 		us, err = testutil.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, fixedTime))
+		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, unstakeTime))
 
 		// check candidate state
 		expectedVotes = big.NewInt(0)
@@ -244,12 +249,12 @@ func TestNativeStaking(t *testing.T) {
 		// withdraw stake
 		ws, err := testutil.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime))
-		r, err = dao.GetReceiptByActionHash(ws.Hash(), 11)
+		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, unstakeTime))
+		r, err = dao.GetReceiptByActionHash(ws.Hash(), 12)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity), r.Status)
 
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, fixedTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
+		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 
 		// check buckets
 		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
