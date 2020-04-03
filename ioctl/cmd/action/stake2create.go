@@ -8,7 +8,6 @@ package action
 
 import (
 	"encoding/hex"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -60,7 +59,7 @@ func stake2Create(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
-	amountStringInRau := strconv.FormatUint(amountInRau.Uint64(), 10)
+	amountStringInRau := amountInRau.String()
 
 	var candidateName = args[1]
 	if err := validator.ValidateCandidateNameForStake2(candidateName); err != nil {
