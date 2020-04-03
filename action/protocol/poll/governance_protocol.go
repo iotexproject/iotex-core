@@ -31,7 +31,6 @@ import (
 )
 
 type governanceChainCommitteeProtocol struct {
-	candidatesByHeight        CandidatesByHeight
 	getCandidates             GetCandidates
 	getKickoutList            GetKickoutList
 	getUnproductiveDelegate   GetUnproductiveDelegate
@@ -54,7 +53,6 @@ type governanceChainCommitteeProtocol struct {
 // NewGovernanceChainCommitteeProtocol creates a Poll Protocol which fetch result from governance chain
 func NewGovernanceChainCommitteeProtocol(
 	candidatesIndexer *CandidateIndexer,
-	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
 	getKickoutList GetKickoutList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
@@ -85,7 +83,6 @@ func NewGovernanceChainCommitteeProtocol(
 	}
 	return &governanceChainCommitteeProtocol{
 		indexer:                   candidatesIndexer,
-		candidatesByHeight:        candidatesByHeight,
 		getCandidates:             getCandidates,
 		getKickoutList:            getKickoutList,
 		getUnproductiveDelegate:   getUnproductiveDelegate,
@@ -147,8 +144,8 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	return setCandidates(ctx, sm, p.indexer, ds, uint64(1))
 }
 
-func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, p)
+func (p *governanceChainCommitteeProtocol) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, p)
 }
 
 func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
@@ -483,9 +480,7 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, e
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
-	if hu.IsPre(config.Easter, epochStartHeight) {
-		return p.candidatesByHeight(p.sr, epochStartHeight)
-	}
+	beforeEaster := hu.IsPre(config.Easter, epochStartHeight)
 	stateTipHeight, err := p.sr.Height()
 	if err != nil {
 		return nil, err
@@ -493,13 +488,13 @@ func (p *governanceChainCommitteeProtocol) readCandidates(ctx context.Context, e
 	tipEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(stateTipHeight))
 	if epochStartHeight < tipEpochStartHeight {
 		// read historical data
-		candidates, _, err := p.getCandidates(p.sr, readFromNext, protocol.BlockHeightOption(epochStartHeight))
+		candidates, _, err := p.getCandidates(p.sr, epochStartHeight, beforeEaster, readFromNext, protocol.BlockHeightOption(epochStartHeight))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get old-candidateList at height %d", epochStartHeight)
 		}
 		return candidates, nil
 	}
-	candidates, stateHeight, err := p.getCandidates(p.sr, readFromNext)
+	candidates, stateHeight, err := p.getCandidates(p.sr, epochStartHeight, beforeEaster, readFromNext)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get candidateList at height %d", epochStartHeight)
 	}

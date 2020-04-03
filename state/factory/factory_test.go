@@ -261,7 +261,6 @@ func testCandidates(sf Factory, t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 		committee,
 		uint64(123456),
 		func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -306,7 +305,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		GasLimit:    gasLimit,
 	}), &blk))
 
-	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(candidates))
 	require.Equal(t, candidates[0].Address, identityset.Address(1).String())

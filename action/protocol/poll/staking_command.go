@@ -85,8 +85,8 @@ func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.State
 	return sc.stakingV1.CreateGenesisStates(ctx, sm)
 }
 
-func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context) ([]action.Envelope, error) {
-	return createPostSystemActions(ctx, sc)
+func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context, sr protocol.StateReader) ([]action.Envelope, error) {
+	return createPostSystemActions(ctx, sr, sc)
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {

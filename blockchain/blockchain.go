@@ -490,7 +490,7 @@ func (bc *blockchain) MintNewBlock(
 	postSystemActions := make([]action.SealedEnvelope, 0)
 	for _, p := range bc.registry.All() {
 		if psac, ok := p.(protocol.PostSystemActionsCreator); ok {
-			elps, err := psac.CreatePostSystemActions(ctx)
+			elps, err := psac.CreatePostSystemActions(ctx, bc.sf)
 			if err != nil {
 				return nil, err
 			}

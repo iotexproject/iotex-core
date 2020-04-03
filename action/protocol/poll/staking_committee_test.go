@@ -96,10 +96,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	committee.EXPECT().HeightByTime(gomock.Any()).Return(uint64(123456), nil).AnyTimes()
 	gs, err := NewGovernanceChainCommitteeProtocol(
 		nil,
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
-			return nil, state.ErrStateNotExist
+		func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+			return nil, 0, state.ErrStateNotExist
 		},
-		nil,
 		nil,
 		nil,
 		committee,
@@ -166,11 +165,11 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	p, ctx, _, r, err := initConstructStakingCommittee(ctrl)
+	p, ctx, sm, r, err := initConstructStakingCommittee(ctrl)
 	require.NoError(err)
 	psac, ok := p.(protocol.PostSystemActionsCreator)
 	require.True(ok)
-	elp, err := psac.CreatePostSystemActions(ctx)
+	elp, err := psac.CreatePostSystemActions(ctx, sm)
 	require.NoError(err)
 	require.Equal(1, len(elp))
 	act, ok := elp[0].Action().(*action.PutPollResult)
@@ -228,7 +227,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(receipt)
 
-	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, true, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)

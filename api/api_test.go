@@ -984,7 +984,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
 				committee,
 				uint64(123456),
 				func(uint64) (time.Time, error) { return time.Now(), nil },
@@ -1231,6 +1230,10 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1254,8 +1257,9 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				committee,
@@ -1264,7 +1268,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
+				sm,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1297,6 +1301,10 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	committee := mock_committee.NewMockCommittee(ctrl)
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
+	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1320,8 +1328,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				committee,
@@ -1330,7 +1339,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Chain.PollInitialCandidatesInterval,
-				nil,
+				sm,
 				func(context.Context, uint64) (uint64, map[string]uint64, error) {
 					return 0, nil, nil
 				},
@@ -1365,6 +1374,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).Return(uint64(0), state.ErrStateNotExist).AnyTimes()
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
+	sm.EXPECT().Height().Return(uint64(0), nil).AnyTimes()
 	candidates := []*state.Candidate{
 		{
 			Address:       "address1",
@@ -1388,8 +1398,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			require.NoError(err)
 			pol, _ = poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				committee,
@@ -1481,7 +1492,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			require.NoError(err)
 			pol, _ := poll.NewGovernanceChainCommitteeProtocol(
 				indexer,
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+				func(protocol.StateReader, uint64, bool, bool, ...protocol.StateOption) ([]*state.Candidate, uint64, error) {
 					return []*state.Candidate{
 						{
 							Address:       identityset.Address(1).String(),
@@ -1513,9 +1524,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 							Votes:         big.NewInt(1),
 							RewardAddress: "rewardAddress",
 						},
-					}, nil
+					}, 0, nil
 				},
-				nil,
 				nil,
 				nil,
 				committee,
