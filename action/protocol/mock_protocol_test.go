@@ -274,43 +274,6 @@ func (mr *MockCommitterMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockCommitter)(nil).Commit), arg0, arg1)
 }
 
-// MockAborter is a mock of Aborter interface
-type MockAborter struct {
-	ctrl     *gomock.Controller
-	recorder *MockAborterMockRecorder
-}
-
-// MockAborterMockRecorder is the mock recorder for MockAborter
-type MockAborterMockRecorder struct {
-	mock *MockAborter
-}
-
-// NewMockAborter creates a new mock instance
-func NewMockAborter(ctrl *gomock.Controller) *MockAborter {
-	mock := &MockAborter{ctrl: ctrl}
-	mock.recorder = &MockAborterMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockAborter) EXPECT() *MockAborterMockRecorder {
-	return m.recorder
-}
-
-// Abort mocks base method
-func (m *MockAborter) Abort(arg0 context.Context, arg1 StateManager) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Abort", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Abort indicates an expected call of Abort
-func (mr *MockAborterMockRecorder) Abort(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockAborter)(nil).Abort), arg0, arg1)
-}
-
 // MockPostSystemActionsCreator is a mock of PostSystemActionsCreator interface
 type MockPostSystemActionsCreator struct {
 	ctrl     *gomock.Controller

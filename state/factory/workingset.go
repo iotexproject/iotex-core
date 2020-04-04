@@ -183,17 +183,16 @@ func (ws *workingSet) Revert(snapshot int) error {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
-	err := ws.commitFunc(ws.height)
-	if !ws.Dirty() {
+	if err := ws.commitFunc(ws.height); err != nil {
 		return err
 	}
-	if err == nil {
-		protocolCommit(ctx, ws)
-	} else {
-		protocolAbort(ctx, ws)
+	if !ws.dock.Dirty() {
+		if err := protocolCommit(ctx, ws); err != nil {
+			return err
+		}
 	}
 	ws.Reset()
-	return err
+	return nil
 }
 
 // GetDB returns the underlying DB for account/contract storage
