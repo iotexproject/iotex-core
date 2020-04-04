@@ -340,7 +340,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 		readviewFunc: func(name string) (interface{}, error) {
 			return sf.protocolView.Unload(name)
 		},
-		writviewFunc: func(name string, v interface{}) error {
+		writeviewFunc: func(name string, v interface{}) error {
 			return sf.protocolView.Load(name, v)
 		},
 		snapshotFunc: func() int {

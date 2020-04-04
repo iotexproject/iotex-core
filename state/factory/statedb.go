@@ -235,7 +235,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		readviewFunc: func(name string) (interface{}, error) {
 			return sdb.protocolView.Unload(name)
 		},
-		writviewFunc: func(name string, v interface{}) error {
+		writeviewFunc: func(name string, v interface{}) error {
 			return sdb.protocolView.Load(name, v)
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,

@@ -19,7 +19,6 @@ type (
 	// CandidateStateManager is candidate manager on top of StateMangaer
 	CandidateStateManager interface {
 		protocol.StateManager
-		CandCenter() CandidateCenter
 		// candidate-related
 		Size() int
 		ContainsName(string) bool
@@ -76,10 +75,6 @@ func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, 
 	return &csm, nil
 }
 
-func (csm *candSM) CandCenter() CandidateCenter {
-	return csm.CandidateCenter
-}
-
 // Upsert writes the candidate into state manager and cand center
 func (csm *candSM) Upsert(d *Candidate) error {
 	if err := csm.CandidateCenter.Upsert(d); err != nil {
@@ -103,6 +98,15 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	// load change to sm
 	csm.StateManager.Load(protocolID, ser)
 	return nil
+}
+
+func (csm *candSM) Commit() error {
+	if err := csm.CandidateCenter.Commit(); err != nil {
+		return err
+	}
+
+	// write update view back to state factory
+	return csm.WriteView(protocolID, csm.CandidateCenter)
 }
 
 func getOrCreateCandCenter(sr protocol.StateReader) (CandidateCenter, error) {

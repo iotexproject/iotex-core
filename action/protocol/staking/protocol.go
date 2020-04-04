@@ -168,12 +168,7 @@ func (p *Protocol) CreateGenesisStates(
 	}
 
 	// commit updated view
-	if err := csm.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit candidate change")
-	}
-
-	// write update view back to state factory
-	return csm.WriteView(protocolID, csm.CandCenter())
+	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // Commit commits the last change
@@ -184,12 +179,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	}
 
 	// commit updated view
-	if err := csm.Commit(); err != nil {
-		return errors.Wrap(err, "failed to commit candidate change")
-	}
-
-	// write update view back to state factory
-	return csm.WriteView(protocolID, csm.CandCenter())
+	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message

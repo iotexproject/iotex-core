@@ -42,21 +42,21 @@ func init() {
 
 type (
 	workingSet struct {
-		height       uint64
-		finalized    bool
-		dock         protocol.Dock
-		commitFunc   func(uint64) error
-		readviewFunc func(name string) (interface{}, error)
-		writviewFunc func(name string, v interface{}) error
-		dbFunc       func() db.KVStore
-		delStateFunc func(string, []byte) error
-		statesFunc   func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
-		digestFunc   func() hash.Hash256
-		finalizeFunc func(uint64) error
-		getStateFunc func(string, []byte, interface{}) error
-		putStateFunc func(string, []byte, interface{}) error
-		revertFunc   func(int) error
-		snapshotFunc func() int
+		height        uint64
+		finalized     bool
+		dock          protocol.Dock
+		commitFunc    func(uint64) error
+		readviewFunc  func(name string) (interface{}, error)
+		writeviewFunc func(name string, v interface{}) error
+		dbFunc        func() db.KVStore
+		delStateFunc  func(string, []byte) error
+		statesFunc    func(opts ...protocol.StateOption) (uint64, state.Iterator, error)
+		digestFunc    func() hash.Hash256
+		finalizeFunc  func(uint64) error
+		getStateFunc  func(string, []byte, interface{}) error
+		putStateFunc  func(string, []byte, interface{}) error
+		revertFunc    func(int) error
+		snapshotFunc  func() int
 	}
 
 	workingSetCreator interface {
@@ -242,7 +242,7 @@ func (ws *workingSet) ReadView(name string) (interface{}, error) {
 
 // WriteView writeback the view to factory
 func (ws *workingSet) WriteView(name string, v interface{}) error {
-	return ws.writviewFunc(name, v)
+	return ws.writeviewFunc(name, v)
 }
 
 func (ws *workingSet) Dirty() bool {
