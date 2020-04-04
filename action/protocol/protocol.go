@@ -54,11 +54,6 @@ type Committer interface {
 	Commit(context.Context, StateManager) error
 }
 
-// Aborter performs abort action of the protocol
-type Aborter interface {
-	Abort(context.Context, StateManager) error
-}
-
 // PostSystemActionsCreator creates a list of system actions to be appended to block actions
 type PostSystemActionsCreator interface {
 	CreatePostSystemActions(context.Context, StateReader) ([]action.Envelope, error)

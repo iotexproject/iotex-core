@@ -41,9 +41,9 @@ func testEqual(m CandidateCenter, l CandidateList) bool {
 	return true
 }
 
-// testEqualAllCommitAbort validates candidate center
+// testEqualAllCommit validates candidate center
 // with original candidates = old, number of changed cand = change, and number of new cand = increase
-func testEqualAllCommitAbort(r *require.Assertions, m CandidateCenter, old CandidateList, change, increase int,
+func testEqualAllCommit(r *require.Assertions, m CandidateCenter, old CandidateList, change, increase int,
 ) (CandidateList, error) {
 	// capture all candidates
 	size := len(old)
@@ -312,7 +312,7 @@ func TestCandCenter(t *testing.T) {
 
 		// there are 5 changes (2 dirty + 2 new + 1 w/o change)
 		var err error
-		list, err = testEqualAllCommitAbort(r, m, list, 5, 2)
+		list, err = testEqualAllCommit(r, m, list, 5, 2)
 		r.NoError(err)
 
 		// test candidate that does not exist
