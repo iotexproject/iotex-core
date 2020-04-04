@@ -186,10 +186,8 @@ func (ws *workingSet) Commit(ctx context.Context) error {
 	if err := ws.commitFunc(ws.height); err != nil {
 		return err
 	}
-	if ws.dock.Dirty() {
-		if err := protocolCommit(ctx, ws); err != nil {
-			return err
-		}
+	if err := protocolCommit(ctx, ws); err != nil {
+		return err
 	}
 	ws.Reset()
 	return nil
