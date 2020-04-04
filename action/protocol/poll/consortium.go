@@ -159,11 +159,10 @@ func (cc *consortiumCommittee) CreatePostSystemActions(ctx context.Context, sr p
 }
 
 func (cc *consortiumCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	if err := validate(ctx, sm, cc, act); err != nil {
+		return nil, err
+	}
 	return handle(ctx, act, sm, cc.indexer, cc.addr.String())
-}
-
-func (cc *consortiumCommittee) Validate(ctx context.Context, act action.Action) error {
-	return validate(ctx, cc, act)
 }
 
 func (cc *consortiumCommittee) ReadState(
@@ -190,7 +189,7 @@ func (cc *consortiumCommittee) Name() string {
 	return protocolID
 }
 
-func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, _ uint64) (state.CandidateList, error) {
 	return cc.readDelegates(ctx)
 }
 

@@ -8,7 +8,6 @@ package staking
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -93,12 +92,13 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		blkTimestamp time.Time
 		blkGasLimit  uint64
 		// expected result
+		err    error
 		status iotextypes.ReceiptStatus
 	}{
 		{
 			10,
 			candidateName,
-			"10000000000000000000",
+			"100000000000000000000",
 			1,
 			false,
 			big.NewInt(unit.Qev),
@@ -107,12 +107,13 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
+			nil,
 			iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		},
 		{
 			100,
 			"notExist",
-			"10000000000000000000",
+			"100000000000000000000",
 			1,
 			false,
 			big.NewInt(unit.Qev),
@@ -121,10 +122,11 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
+			ErrInvalidCanName,
 			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		{
-			100,
+			101,
 			candidateName,
 			"10000000000000000000",
 			1,
@@ -135,6 +137,37 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			1,
 			time.Now(),
 			10000,
+			ErrInvalidAmount,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			101,
+			candidateName,
+			"100000000000000000000",
+			1,
+			false,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			101,
+			candidateName,
+			"100000000000000000000",
+			1,
+			false,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			nil,
 			iotextypes.ReceiptStatus_Success,
 		},
 	}
@@ -156,6 +189,11 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		r, err := p.Handle(ctx, act, sm)
+		if test.err != nil {
+			require.EqualError(test.err, errors.Cause(err).Error())
+			continue
+		}
+		require.NoError(err)
 		require.Equal(uint64(test.status), r.Status)
 
 		if test.status == iotextypes.ReceiptStatus_Success {
@@ -208,6 +246,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		rewardAddrStr   string
 		ownerAddrStr    string
 		amountStr       string
+		votesStr        string
 		duration        uint32
 		autoStake       bool
 		payload         []byte
@@ -220,14 +259,15 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	}{
 		// fetchCaller,ErrNotEnoughBalance
 		{
-			100,
+			1200000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
-			"100",
+			"1200000000000000000000000",
+			"",
 			uint32(10000),
 			false,
 			[]byte("payload"),
@@ -240,14 +280,15 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		},
 		// owner address is nil
 		{
-			101,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			"",
-			"1",
+			"1200000000000000000000000",
+			"1896514358080272355522312",
 			uint32(10000),
 			false,
 			nil,
@@ -261,14 +302,15 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		// caller.SubBalance,ErrNotEnoughBalance,cannot happen because fetchcaller already check
 		// settleAction,ErrHitGasLimit
 		{
-			1000,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
-			"100",
+			"1200000000000000000000000",
+			"",
 			uint32(10000),
 			false,
 			[]byte("payload"),
@@ -277,18 +319,19 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			big.NewInt(1000),
 			true,
 			action.ErrHitGasLimit,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
 		},
 		// Upsert,check collision
 		{
-			1000,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
-			"100",
+			"1200000000000000000000000",
+			"",
 			uint32(10000),
 			false,
 			[]byte("payload"),
@@ -297,17 +340,81 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			big.NewInt(1000),
 			false,
 			ErrAlreadyExist,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
 		},
+		// invalid amount
 		{
-			101,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
-			"1",
+			"120000000000000000000000",
+			"1896514358080272355522312",
+			uint32(10000),
+			false,
+			nil,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1),
+			true,
+			ErrInvalidAmount,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid gas price
+		{
+			1201000,
+			identityset.Address(27),
+			uint64(10),
+			"test",
+			identityset.Address(28).String(),
+			identityset.Address(29).String(),
+			identityset.Address(30).String(),
+			"1200000000000000000000000",
+			"1896514358080272355522312",
+			uint32(10000),
+			false,
+			nil,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(-1),
+			true,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid candidate name
+		{
+			1201000,
+			identityset.Address(27),
+			uint64(10),
+			"!invalid",
+			identityset.Address(28).String(),
+			identityset.Address(29).String(),
+			identityset.Address(30).String(),
+			"1200000000000000000000000",
+			"1896514358080272355522312",
+			uint32(10000),
+			false,
+			nil,
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1),
+			true,
+			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			1201000,
+			identityset.Address(27),
+			uint64(10),
+			"test",
+			identityset.Address(28).String(),
+			identityset.Address(29).String(),
+			identityset.Address(30).String(),
+			"1200000000000000000000000",
+			"1896514358080272355522312",
 			uint32(10000),
 			false,
 			nil,
@@ -344,7 +451,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -361,16 +468,15 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.NoError(err)
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
-			require.Equal(test.amountStr, candidate.Votes.String())
+			require.Equal(test.votesStr, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, cc)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
-			require.Equal(test.amountStr, candidate.Votes.String())
+			require.Equal(test.votesStr, candidate.Votes.String())
 			require.Equal(test.name, candidate.Name)
 			require.Equal(test.operatorAddrStr, candidate.Operator.String())
 			require.Equal(test.rewardAddrStr, candidate.Reward.String())
-			require.Equal(test.amountStr, candidate.Votes.String())
 			require.Equal(test.amountStr, candidate.SelfStake.String())
 
 			// test staker's account
@@ -415,14 +521,14 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 	}{
 		// fetchCaller ErrNotEnoughBalance
 		{
-			110,
+			1200101,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(27).String(),
-			"9999999999989300000",
+			"1200000999999999989300000",
 			"",
 			uint32(10000),
 			false,
@@ -446,7 +552,7 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
-			"100",
+			"1200000000000000000000000",
 			"",
 			uint32(10000),
 			false,
@@ -463,15 +569,15 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 		},
 		// name,operator,reward all empty
 		{
-			1000,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(28).String(),
 			identityset.Address(29).String(),
 			"",
-			"100",
-			"158",
+			"1200000000000000000000000",
+			"1896514358080272355522312",
 			uint32(10000),
 			false,
 			[]byte("payload"),
@@ -487,14 +593,14 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 		},
 		// upsert,collision
 		{
-			1000,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(29).String(),
 			identityset.Address(30).String(),
 			"",
-			"100",
+			"1200000000000000000000000",
 			"",
 			uint32(10000),
 			false,
@@ -507,18 +613,65 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			"",
 			"",
 			ErrInvalidCanName,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
 		},
+		// invalid gas price
 		{
-			1000,
+			1201000,
 			identityset.Address(27),
 			uint64(10),
 			"test",
 			identityset.Address(27).String(),
 			identityset.Address(29).String(),
 			identityset.Address(27).String(),
-			"100",
-			"158",
+			"1200000000000000000000000",
+			"1896514358080272355522312",
+			uint32(10000),
+			false,
+			[]byte("payload"),
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(-1000),
+			true,
+			"update",
+			identityset.Address(31).String(),
+			identityset.Address(32).String(),
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			1201000,
+			identityset.Address(27),
+			uint64(10),
+			"test",
+			identityset.Address(27).String(),
+			identityset.Address(29).String(),
+			identityset.Address(27).String(),
+			"1200000000000000000000000",
+			"1896514358080272355522312",
+			uint32(10000),
+			false,
+			[]byte("payload"),
+			uint64(1000000),
+			uint64(1000000),
+			big.NewInt(1000),
+			true,
+			"!invalidname",
+			identityset.Address(31).String(),
+			identityset.Address(32).String(),
+			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			1201000,
+			identityset.Address(27),
+			uint64(10),
+			"test",
+			identityset.Address(27).String(),
+			identityset.Address(29).String(),
+			identityset.Address(27).String(),
+			"1200000000000000000000000",
+			"1896514358080272355522312",
 			uint32(10000),
 			false,
 			[]byte("payload"),
@@ -538,7 +691,7 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 		sm, p, _, _, cc := initAll(t, ctrl)
 		require.NoError(setupAccount(sm, identityset.Address(28), test.initBalance))
 		require.NoError(setupAccount(sm, identityset.Address(27), test.initBalance))
-		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
+		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, big.NewInt(1000))
 		require.NoError(err)
 		intrinsic, _ := act.IntrinsicGas()
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
@@ -574,7 +727,7 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -629,7 +782,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	defer ctrl.Finish()
 
 	sm, p, candidate, candidate2, cc := initAll(t, ctrl)
-	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "10000000000000000000", false)
+	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 
 	callerAddr := identityset.Address(1)
 	tests := []struct {
@@ -661,10 +814,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// fetchCaller ErrNotEnoughBalance
 		{
 			callerAddr,
-			"9990000000000000000",
+			"100990000000000000000",
 			false,
 			"",
-			10,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -682,10 +835,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// fetchBucket, bucket.Owner is not equal to actionCtx.Caller
 		{
 			identityset.Address(12),
-			"10000000000000000000",
+			"100000000000000000000",
 			false,
 			"",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -704,10 +857,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// fetchBucket and updateBucket call getbucket, ReceiptStatus_ErrInvalidBucketIndex
 		{
 			identityset.Address(33),
-			"10000000000000000000",
+			"100000000000000000000",
 			false,
 			"",
-			100,
+			101,
 			false,
 			1,
 			big.NewInt(unit.Qev),
@@ -725,10 +878,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// inMemCandidates.GetByOwner,ErrInvalidOwner
 		{
 			callerAddr,
-			"10000000000000000000",
+			"100000000000000000000",
 			false,
 			"",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -746,10 +899,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// unstake before maturity
 		{
 			callerAddr,
-			"10000000000000000000",
+			"100000000000000000000",
 			false,
 			"",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -767,10 +920,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// unstake with autoStake bucket
 		{
 			callerAddr,
-			"10000000000000000000",
+			"100000000000000000000",
 			true,
 			"0",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -785,14 +938,35 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		},
+		// invalid gas price
+		{
+			callerAddr,
+			"100000000000000000000",
+			false,
+			"0",
+			101,
+			false,
+			0,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			time.Now().Add(time.Duration(1) * 24 * time.Hour),
+			10000,
+			false,
+			true,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Success,
+		},
 		// Upsert error cannot happen,because collision cannot happen
 		// success
 		{
 			callerAddr,
-			"10000000000000000000",
+			"100000000000000000000",
 			false,
 			"0",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -815,7 +989,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		} else {
 			candidate = candidate2
 		}
-		ctx, createCost := initCreateStake(t, sm, test.caller, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, test.autoStake)
+		ctx, createCost := initCreateStake(t, sm, test.caller, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, test.autoStake)
 		act, err := action.NewUnstake(test.nonce, test.index,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -912,8 +1086,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		// fetchCaller ErrNotEnoughBalance
 		{
 			identityset.Address(2),
-			"9980000000000000000",
-			10,
+			"100990000000000000000",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -931,8 +1105,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		// fetchBucket ReceiptStatus_ErrInvalidBucketIndex
 		{
 			identityset.Address(2),
-			"10000000000000000000",
-			100,
+			"100000000000000000000",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -950,8 +1124,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		// check unstake time,ReceiptStatus_ErrWithdrawBeforeUnstake
 		{
 			identityset.Address(2),
-			"10000000000000000000",
-			100,
+			"100000000000000000000",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -969,8 +1143,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		// check ReceiptStatus_ErrWithdrawBeforeMaturity
 		{
 			identityset.Address(2),
-			"10000000000000000000",
-			100,
+			"100000000000000000000",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -985,12 +1159,31 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity,
 		},
+		// invalid gas price
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			101,
+			false,
+			0,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			time.Now().Add(time.Hour * 500),
+			10000,
+			true,
+			0,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
 		// delxxx cannot happen,because unstake first called without error
 		// ReceiptStatus_Success
 		{
 			identityset.Address(2),
-			"10000000000000000000",
-			100,
+			"100000000000000000000",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1013,8 +1206,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
 		var actCost *big.Int
 		if test.unstake {
-			act, err := action.NewUnstake(test.nonce, test.index,
-				nil, test.gasLimit, test.gasPrice)
+			act, err := action.NewUnstake(test.nonce, test.index, nil, test.gasLimit, big.NewInt(unit.Qev))
 			require.NoError(err)
 			intrinsic, err := act.IntrinsicGas()
 			actCost, err = act.Cost()
@@ -1057,7 +1249,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -1113,10 +1305,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// fetchCaller ReceiptStatus_ErrNotEnoughBalance
 		{
 			identityset.Address(1),
-			"9999990000000000000000",
+			"100990000000000000000",
 			"0",
 			"0",
-			10000,
+			101,
 			false,
 			1,
 			"test2",
@@ -1133,10 +1325,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// ReceiptStatus_ErrCandidateNotExist
 		{
 			identityset.Address(1),
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
 			"0",
-			100,
+			101,
 			false,
 			1,
 			"testname",
@@ -1153,10 +1345,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// fetchBucket,ReceiptStatus_ErrInvalidBucketType
 		{
 			identityset.Address(1),
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
 			"0",
-			100,
+			101,
 			true,
 			1,
 			"test2",
@@ -1173,10 +1365,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		// ErrInvalidOwner
 		{
 			identityset.Address(1),
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
 			"0",
-			100,
+			101,
 			false,
 			1,
 			"test2",
@@ -1188,16 +1380,96 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			10000,
 			true,
 			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid gas price
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			"200000000000000000000",
+			"1200000000000000000000000",
+			101,
+			false,
+			0,
+			"test1",
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			false,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid candidate name
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			"200000000000000000000",
+			"1200000000000000000000000",
+			101,
+			false,
+			0,
+			"~1",
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			false,
+			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid candidate name 2
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			"200000000000000000000",
+			"1200000000000000000000000",
+			101,
+			false,
+			0,
+			"0123456789abc",
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			false,
+			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid candidate name 3
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			"200000000000000000000",
+			"1200000000000000000000000",
+			101,
+			false,
+			0,
+			"",
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			false,
+			ErrInvalidCanName,
+			iotextypes.ReceiptStatus_Failure,
 		},
 		// Upsert error cannot happen,because CreateStake already check collision
 		// change from 0 to test1
 		{
 			identityset.Address(2),
-			"10000000000000000000",
-			"20000000000000000000",
+			"100000000000000000000",
+			"200000000000000000000",
 			"1200000000000000000000000",
-			100,
+			101,
 			false,
 			0,
 			"test1",
@@ -1216,9 +1488,9 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	for _, test := range tests {
 		sm, p, candidate, candidate2, cc := initAll(t, ctrl)
 		// candidate2 vote self,index 0
-		initCreateStake(t, sm, candidate2.Owner, 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "10000000000000000000", false)
+		initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 		// candidate vote self,index 1
-		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
+		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
 
 		act, err := action.NewChangeCandidate(test.nonce, test.candidateName, test.index, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -1253,7 +1525,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -1307,7 +1579,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 	tests := []struct {
 		// creat stake fields
 		caller        address.Address
-		amount        uint64
+		amount        string
 		afterTransfer uint64
 		initBalance   int64
 		// action fields
@@ -1330,9 +1602,9 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 		// fetchCaller ReceiptStatus_ErrNotEnoughBalance
 		{
 			identityset.Address(2),
-			9990000000000000000,
+			"100990000000000000000",
 			0,
-			10,
+			101,
 			0,
 			big.NewInt(unit.Qev),
 			1000000000,
@@ -1349,7 +1621,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 		// fetchBucket,bucket.Owner not equal to actionCtx.Caller
 		{
 			identityset.Address(1),
-			10000000000000000000,
+			"100000000000000000000",
 			0,
 			1000,
 			0,
@@ -1368,9 +1640,9 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 		// fetchBucket,inMemCandidates.ContainsSelfStakingBucket is false
 		{
 			identityset.Address(1),
-			10000000000000000000,
+			"100000000000000000000",
 			0,
-			100,
+			101,
 			1,
 			big.NewInt(unit.Qev),
 			10000,
@@ -1384,11 +1656,30 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		},
+		// invalid gas price
 		{
 			identityset.Address(2),
-			10000000000000000000,
+			"100000000000000000000",
 			0,
-			100,
+			101,
+			0,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			identityset.Address(1),
+			1,
+			false,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			0,
+			101,
 			0,
 			big.NewInt(unit.Qev),
 			10000,
@@ -1406,9 +1697,9 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candi, candidate2, cc := initAll(t, ctrl)
-		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, fmt.Sprintf("%d", test.amount), false)
+		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
 		if test.init {
-			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, fmt.Sprintf("%d", test.amount), false)
+			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, test.amount, false)
 		} else {
 			require.NoError(setupAccount(sm, identityset.Address(1), 1))
 		}
@@ -1434,7 +1725,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -1450,7 +1741,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.NoError(err)
 			require.Equal(candidate2.Owner, bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
-			require.Equal(test.amount, bucket.StakedAmount.Uint64())
+			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
 			candidate, err := getCandidate(sm, candi.Owner)
@@ -1516,9 +1807,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// fetchCaller ReceiptStatus_ErrNotEnoughBalance
 		{
 			callerAddr,
-			"9990000000000000000",
+			"100990000000000000000",
 			"0",
-			10,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1537,9 +1828,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// fetchBucket, bucket.Owner is not equal to actionCtx.Caller
 		{
 			identityset.Address(12),
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1558,9 +1849,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// updateBucket getbucket ErrStateNotExist
 		{
 			identityset.Address(33),
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
-			100,
+			101,
 			false,
 			1,
 			big.NewInt(unit.Qev),
@@ -1579,9 +1870,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// for inMemCandidates.GetByOwner,ErrInvalidOwner
 		{
 			callerAddr,
-			"10000000000000000000",
+			"100000000000000000000",
 			"0",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1595,14 +1886,34 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			true,
 			false,
 			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		{
+			callerAddr,
+			"100000000000000000000",
+			"103801784016923925869",
+			101,
+			false,
+			0,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			1,
+			true,
+			false,
+			false,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
 		},
 		// autoStake = true, set up duration
 		{
 			callerAddr,
-			"10000000000000000000",
-			"10380178401692392587",
-			100,
+			"100000000000000000000",
+			"103801784016923925869",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1621,9 +1932,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// autoStake = false, set up duration
 		{
 			callerAddr,
-			"10000000000000000000",
-			"10380178401692392587",
-			100,
+			"100000000000000000000",
+			"103801784016923925869",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1643,9 +1954,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		// ReceiptStatus_Success
 		{
 			callerAddr,
-			"10000000000000000000",
-			"10380178401692392587",
-			100,
+			"100000000000000000000",
+			"103801784016923925869",
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1705,7 +2016,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -1752,7 +2063,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 	tests := []struct {
 		// creat stake fields
 		caller       address.Address
-		amount       uint64
+		amount       string
 		afterDeposit string
 		initBalance  int64
 		selfstaking  bool
@@ -1777,7 +2088,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		// fetchCaller ErrNotEnoughBalance
 		{
 			identityset.Address(1),
-			9990000000000000000,
+			"100000000000000000000",
 			"0",
 			10,
 			false,
@@ -1797,9 +2108,9 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		// fetchBucket ReceiptStatus_ErrInvalidBucketIndex
 		{
 			identityset.Address(12),
-			10000000000000000000,
+			"100000000000000000000",
 			"0",
-			100,
+			101,
 			false,
 			1,
 			big.NewInt(unit.Qev),
@@ -1817,9 +2128,9 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		// fetchBucket ReceiptStatus_ErrInvalidBucketType
 		{
 			identityset.Address(33),
-			10000000000000000000,
+			"100000000000000000000",
 			"0",
-			100,
+			101,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1837,9 +2148,9 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		// for inMemCandidates.GetByOwner,ErrInvalidOwner
 		{
 			identityset.Address(1),
-			10000000000000000000,
+			"100000000000000000000",
 			"0",
-			100,
+			201,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1852,14 +2163,34 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			true,
 			false,
 			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Success,
+			iotextypes.ReceiptStatus_Failure,
+		},
+		// invalid gas price
+		{
+			identityset.Address(1),
+			"100000000000000000000",
+			"207603568033847851737",
+			201,
+			false,
+			0,
+			big.NewInt(-unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			true,
+			false,
+			false,
+			action.ErrGasPrice,
+			iotextypes.ReceiptStatus_Failure,
 		},
 		// ReceiptStatus_Success
 		{
 			identityset.Address(1),
-			10000000000000000000,
-			"20760356803384785174",
-			100,
+			"100000000000000000000",
+			"207603568033847851737",
+			201,
 			false,
 			0,
 			big.NewInt(unit.Qev),
@@ -1878,13 +2209,13 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 	for _, test := range tests {
 		sm, p, candidate, _, cc := initAll(t, ctrl)
-		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, fmt.Sprintf("%d", test.amount), test.autoStake)
+		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
 
 		if test.newAccount {
 			require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		}
 
-		act, err := action.NewDepositToStake(test.nonce, test.index, fmt.Sprintf("%d", test.amount), nil, test.gasLimit, test.gasPrice)
+		act, err := action.NewDepositToStake(test.nonce, test.index, test.amount, nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
@@ -1916,7 +2247,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
-			require.Equal(test.status, iotextypes.ReceiptStatus_Success)
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
@@ -1932,7 +2263,8 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
-			require.Equal(test.amount*2, bucket.StakedAmount.Uint64())
+			amount, _ := new(big.Int).SetString(test.amount, 10)
+			require.Zero(new(big.Int).Mul(amount, big.NewInt(2)).Cmp(bucket.StakedAmount))
 
 			// test candidate
 			candidate, err = getCandidate(sm, candidate.Owner)

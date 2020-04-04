@@ -67,7 +67,7 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, in
 	}, nil
 }
 
-func validate(ctx context.Context, p Protocol, act action.Action) error {
+func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act action.Action) error {
 	ppr, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil
@@ -82,7 +82,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 	if err := validateDelegates(proposedDelegates); err != nil {
 		return err
 	}
-	ds, err := p.CalculateCandidatesByHeight(ctx, blkCtx.BlockHeight)
+	ds, err := p.CalculateCandidatesByHeight(ctx, sr, blkCtx.BlockHeight)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 		zap.Uint64("epochHeight", epochHeight),
 		zap.Uint64("nextEpochHeight", nextEpochHeight),
 	)
-	l, err := p.CalculateCandidatesByHeight(ctx, epochHeight)
+	l, err := p.CalculateCandidatesByHeight(ctx, sr, epochHeight)
 	if err == nil && len(l) == 0 {
 		err = errors.Wrapf(
 			ErrDelegatesNotExist,

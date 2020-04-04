@@ -412,9 +412,6 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(8000000000000000000), BlockReward)
 
-	// Test for Validate
-	require.Nil(t, p.Validate(ctx, se2.Action()))
-
 	// Test for CreatePostSystemActions
 	grants, err := p.CreatePostSystemActions(ctx, sm)
 	require.NoError(t, err)

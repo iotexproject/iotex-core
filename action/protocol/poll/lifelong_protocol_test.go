@@ -98,13 +98,3 @@ func TestProtocol_Handle_WithLifeLong(t *testing.T) {
 	require.Nil(receipt)
 	require.NoError(error)
 }
-
-func TestProtocol_Validate_WithLifeLong(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	p, ctx, _, err := initLifeLongDelegateProtocol(ctrl)
-	require.NoError(err)
-	require.NoError(p.Validate(ctx, nil))
-}

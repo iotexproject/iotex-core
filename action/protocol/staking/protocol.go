@@ -217,67 +217,63 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+	if act == nil {
+		return nil, ErrNilAction
+	}
 	switch act := act.(type) {
 	case *action.CreateStake:
-		r, err := p.handleCreateStake(ctx, act, csm)
-		return r, err
+		if err := p.validateCreateStake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
-		r, err := p.handleUnstake(ctx, act, csm)
-		return r, err
+		if err := p.validateUnstake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		r, err := p.handleWithdrawStake(ctx, act, csm)
-		return r, err
+		if err := p.validateWithdrawStake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
-		r, err := p.handleChangeCandidate(ctx, act, csm)
-		return r, err
+		if err := p.validateChangeCandidate(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
-		r, err := p.handleTransferStake(ctx, act, csm)
-		return r, err
+		if err := p.validateTransferStake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		r, err := p.handleDepositToStake(ctx, act, csm)
-		return r, err
+		if err := p.validateDepositToStake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
-		r, err := p.handleRestake(ctx, act, csm)
-		return r, err
+		if err := p.validateRestake(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		r, err := p.handleCandidateRegister(ctx, act, csm)
-		return r, err
+		if err := p.validateCandidateRegister(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
-		r, err := p.handleCandidateUpdate(ctx, act, csm)
-		return r, err
+		if err := p.validateCandidateUpdate(ctx, act); err != nil {
+			return nil, err
+		}
+		return p.handleCandidateUpdate(ctx, act, csm)
 	}
 	return nil, nil
 }
 
-// Validate validates a staking message
-func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	switch act := act.(type) {
-	case *action.CreateStake:
-		return p.validateCreateStake(ctx, act)
-	case *action.Unstake:
-		return p.validateUnstake(ctx, act)
-	case *action.WithdrawStake:
-		return p.validateWithdrawStake(ctx, act)
-	case *action.ChangeCandidate:
-		return p.validateChangeCandidate(ctx, act)
-	case *action.TransferStake:
-		return p.validateTransferStake(ctx, act)
-	case *action.DepositToStake:
-		return p.validateDepositToStake(ctx, act)
-	case *action.Restake:
-		return p.validateRestake(ctx, act)
-	case *action.CandidateRegister:
-		return p.validateCandidateRegister(ctx, act)
-	case *action.CandidateUpdate:
-		return p.validateCandidateUpdate(ctx, act)
-	}
-	return nil
-}
-
 // ActiveCandidates returns all active candidates in candidate center
-func (p *Protocol) ActiveCandidates(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	// TODO: should use createCandCenter()?
-	center, err := getOrCreateCandCenter(p.sr)
+	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}

@@ -320,19 +320,7 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
-	var err error
-	reg := protocol.MustGetRegistry(ctx)
-	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
-			return nil, err
-		}
-		for _, validator := range reg.All() {
-			if err := validator.Validate(ctx, act.Action()); err != nil {
-				return nil, err
-			}
-		}
-	}
-	for _, p := range reg.All() {
+	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, err
@@ -378,27 +366,14 @@ func (ws *workingSet) pickAndRunActions(
 		if !ok {
 			break
 		}
-		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
-			for _, validator := range reg.All() {
-				if err = validator.Validate(ctx, nextAction.Action()); err != nil {
-					break
-				}
-			}
-		}
-		if err != nil {
+		if ctx, err = withActionCtx(ctx, nextAction); err != nil {
 			actionIterator.PopAccount()
 			continue
 		}
 		receipt, err := ws.runAction(ctx, nextAction)
 		if err != nil {
-			if errors.Cause(err) == action.ErrHitGasLimit {
-				// hit block gas limit, we should not process actions belong to this user anymore since we
-				// need monotonically increasing nonce. But we can continue processing other actions
-				// that belong other users
-				actionIterator.PopAccount()
-				continue
-			}
-			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+			actionIterator.PopAccount()
+			continue
 		}
 		if receipt != nil {
 			blkCtx.GasLimit -= receipt.GasConsumed

@@ -74,7 +74,8 @@ type Protocol interface {
 	Candidates(context.Context, protocol.StateReader) (state.CandidateList, error)
 	NextCandidates(context.Context, protocol.StateReader) (state.CandidateList, error)
 	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
-	CalculateCandidatesByHeight(context.Context, uint64) (state.CandidateList, error)
+	// TODO: remove height, and read it from state reader
+	CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
 }
 
 // FindProtocol finds the registered protocol from registry

@@ -108,11 +108,10 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	if err := validate(ctx, sm, p, act); err != nil {
+		return nil, err
+	}
 	return handle(ctx, act, sm, p.indexer, p.addr.String())
-}
-
-func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action) error {
-	return validate(ctx, p, act)
 }
 
 func (p *governanceChainCommitteeProtocol) candidatesByGravityChainHeight(height uint64) (state.CandidateList, error) {
@@ -152,7 +151,7 @@ func (p *governanceChainCommitteeProtocol) candidatesByGravityChainHeight(height
 	return l, nil
 }
 
-func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, height uint64) (state.CandidateList, error) {
 	gravityHeight, err := p.getGravityHeight(ctx, height)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get gravity chain height")

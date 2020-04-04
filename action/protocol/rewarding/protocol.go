@@ -174,15 +174,6 @@ func (p *Protocol) Handle(
 	return nil, nil
 }
 
-// Validate validates the actions on the rewarding protocol
-func (p *Protocol) Validate(
-	ctx context.Context,
-	act action.Action,
-) error {
-	// TODO: validate interface shouldn't be required for protocol code
-	return nil
-}
-
 // ReadState read the state on blockchain via protocol
 func (p *Protocol) ReadState(
 	ctx context.Context,

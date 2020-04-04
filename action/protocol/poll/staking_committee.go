@@ -182,6 +182,9 @@ func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr prot
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	if err := validate(ctx, sm, sc, act); err != nil {
+		return nil, err
+	}
 	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err
@@ -189,18 +192,14 @@ func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm pr
 	return receipt, err
 }
 
-func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action) error {
-	return validate(ctx, sc, act)
-}
-
 func (sc *stakingCommittee) Name() string {
 	return protocolID
 }
 
 // CalculateCandidatesByHeight calculates delegates with native staking and returns merged list
-func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	timer := sc.timerFactory.NewTimer("Governance")
-	cand, err := sc.governanceStaking.CalculateCandidatesByHeight(ctx, height)
+	cand, err := sc.governanceStaking.CalculateCandidatesByHeight(ctx, sr, height)
 	timer.End()
 	if err != nil {
 		return nil, err

@@ -36,13 +36,6 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(error)
 }
 
-func TestProtocol_Validate(t *testing.T) {
-	require := require.New(t)
-	p := NewProtocol(23, 4, 3)
-	ctx := context.Background()
-	require.NoError(p.Validate(ctx, nil))
-}
-
 func TestProtocol_NumCandidateDelegates(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(23, 4, 3)

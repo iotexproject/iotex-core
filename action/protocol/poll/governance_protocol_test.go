@@ -362,235 +362,207 @@ func TestHandle(t *testing.T) {
 	p, ctx, sm, _, err := initConstruct(ctrl)
 	require.NoError(err)
 	require.NoError(p.CreateGenesisStates(ctx, sm))
-
-	// wrong action
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
-	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
-	require.NoError(err)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(tsf).Build()
-	selp, err := action.Sign(elp, senderKey)
-	require.NoError(err)
-	require.NotNil(selp)
-	// Case 1: wrong action type
-	receipt, err := p.Handle(ctx, selp.Action(), nil)
-	require.NoError(err)
-	require.Nil(receipt)
-	// Case 2: all right
-	p2, ctx2, sm2, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
-	var sc2 state.CandidateList
+
+	t.Run("wrong action", func(t *testing.T) {
+		tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+		require.NoError(err)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(tsf).Build()
+		selp, err := action.Sign(elp, senderKey)
+		require.NoError(err)
+		require.NotNil(selp)
+		receipt, err := p.Handle(ctx, selp.Action(), nil)
+		require.NoError(err)
+		require.Nil(receipt)
+	})
 	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
-	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	act2 := action.NewPutPollResult(1, 1, sc2)
-	elp = bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act2).Build()
-	selp2, err := action.Sign(elp, senderKey)
-	require.NoError(err)
-	require.NotNil(selp2)
-	receipt, err = p.Handle(ctx2, selp2.Action(), sm2)
-	require.NoError(err)
-	require.NotNil(receipt)
+	t.Run("All right", func(t *testing.T) {
+		p2, ctx2, sm2, _, err := initConstruct(ctrl)
+		require.NoError(err)
+		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
+		var sc2 state.CandidateList
+		_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		act2 := action.NewPutPollResult(1, 1, sc2)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(act2).Build()
+		selp2, err := action.Sign(elp, senderKey)
+		require.NoError(err)
+		require.NotNil(selp2)
+		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
+		require.NoError(err)
+		ctx2 = protocol.WithBlockCtx(
+			ctx2,
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    caller,
+			},
+		)
+		ctx2 = protocol.WithActionCtx(
+			ctx2,
+			protocol.ActionCtx{
+				Caller: caller,
+			},
+		)
+		receipt, err := p.Handle(ctx2, selp2.Action(), sm2)
+		require.NoError(err)
+		require.NotNil(receipt)
 
-	_, err = shiftCandidates(sm2)
-	require.NoError(err)
-	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, true)
-	require.Error(err) // should return stateNotExist error
-	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, false)
-	require.NoError(err)
-	require.Equal(2, len(candidates))
-	require.Equal(candidates[0].Address, sc2[0].Address)
-	require.Equal(candidates[0].Votes, sc2[0].Votes)
-	require.Equal(candidates[1].Address, sc2[1].Address)
-	require.Equal(candidates[1].Votes, sc2[1].Votes)
-}
+		_, err = shiftCandidates(sm2)
+		require.NoError(err)
+		candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, true)
+		require.Error(err) // should return stateNotExist error
+		candidates, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, false)
+		require.NoError(err)
+		require.Equal(2, len(candidates))
+		require.Equal(candidates[0].Address, sc2[0].Address)
+		require.Equal(candidates[0].Votes, sc2[0].Votes)
+		require.Equal(candidates[1].Address, sc2[1].Address)
+		require.Equal(candidates[1].Votes, sc2[1].Votes)
+	})
 
-func TestProtocol_Validate(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	p, ctx, sm, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p.CreateGenesisStates(ctx, sm))
-
-	// wrong action
-	recipientAddr := identityset.Address(28)
-	senderKey := identityset.PrivateKey(27)
-	tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
-	require.NoError(err)
-	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(tsf).Build()
-	selp, err := action.Sign(elp, senderKey)
-	require.NoError(err)
-	require.NotNil(selp)
-	// Case 1: wrong action type
-	require.NoError(p.Validate(ctx, selp.Action()))
-	// Case 2: Only producer could create this protocol
-	p2, ctx2, sm2, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p2.CreateGenesisStates(ctx2, sm2))
-	var sc2 state.CandidateList
-	candKey := candidatesutil.ConstructKey(candidatesutil.NxtCandidateKey)
-	_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	act2 := action.NewPutPollResult(1, 1, sc2)
-	elp = bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act2).Build()
-	selp2, err := action.Sign(elp, senderKey)
-	require.NoError(err)
-	require.NotNil(selp2)
-	caller, err := address.FromBytes(selp.SrcPubkey().Hash())
-	require.NoError(err)
-	ctx2 = protocol.WithBlockCtx(
-		ctx2,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    recipientAddr,
-		},
-	)
-	ctx2 = protocol.WithActionCtx(
-		ctx2,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	err = p.Validate(ctx2, selp2.Action())
-	require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
-	// Case 3: duplicate candidate
-	p3, ctx3, sm3, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p3.CreateGenesisStates(ctx3, sm3))
-	var sc3 state.CandidateList
-	_, err = sm3.State(&sc3, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
-	sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
-	act3 := action.NewPutPollResult(1, 1, sc3)
-	elp = bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act3).Build()
-	selp3, err := action.Sign(elp, senderKey)
-	require.NoError(err)
-	require.NotNil(selp3)
-	ctx3 = protocol.WithBlockCtx(
-		ctx3,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-		},
-	)
-	ctx3 = protocol.WithActionCtx(
-		ctx3,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	err = p.Validate(ctx3, selp3.Action())
-	require.True(strings.Contains(err.Error(), "duplicate candidate"))
-
-	// Case 4: delegate's length is not equal
-	p4, ctx4, sm4, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p4.CreateGenesisStates(ctx4, sm4))
-	var sc4 state.CandidateList
-	_, err = sm4.State(&sc4, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
-	act4 := action.NewPutPollResult(1, 1, sc4)
-	bd4 := &action.EnvelopeBuilder{}
-	elp4 := bd4.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act4).Build()
-	selp4, err := action.Sign(elp4, senderKey)
-	require.NoError(err)
-	require.NotNil(selp4)
-	ctx4 = protocol.WithBlockCtx(
-		ctx4,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-		},
-	)
-	ctx4 = protocol.WithActionCtx(
-		ctx4,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	err = p4.Validate(ctx4, selp4.Action())
-	require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
-	// Case 5: candidate's vote is not equal
-	p5, ctx5, sm5, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p5.CreateGenesisStates(ctx5, sm5))
-	var sc5 state.CandidateList
-	_, err = sm5.State(&sc5, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	sc5[0].Votes = big.NewInt(10)
-	act5 := action.NewPutPollResult(1, 1, sc5)
-	bd5 := &action.EnvelopeBuilder{}
-	elp5 := bd5.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act5).Build()
-	selp5, err := action.Sign(elp5, senderKey)
-	require.NoError(err)
-	require.NotNil(selp5)
-	ctx5 = protocol.WithBlockCtx(
-		ctx5,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-		},
-	)
-	ctx5 = protocol.WithActionCtx(
-		ctx5,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
-	err = p5.Validate(ctx5, selp5.Action())
-	require.True(strings.Contains(err.Error(), "delegates are not as expected"))
-	// Case 6: all good
-	p6, ctx6, sm6, _, err := initConstruct(ctrl)
-	require.NoError(err)
-	require.NoError(p6.CreateGenesisStates(ctx6, sm6))
-	var sc6 state.CandidateList
-	_, err = sm6.State(&sc6, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
-	require.NoError(err)
-	act6 := action.NewPutPollResult(1, 1, sc6)
-	bd6 := &action.EnvelopeBuilder{}
-	elp6 := bd6.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
-		SetAction(act6).Build()
-	selp6, err := action.Sign(elp6, senderKey)
-	require.NoError(err)
-	require.NotNil(selp6)
-	caller6, err := address.FromBytes(selp6.SrcPubkey().Hash())
-	require.NoError(err)
-	ctx6 = protocol.WithBlockCtx(
-		ctx6,
-		protocol.BlockCtx{
-			BlockHeight: 1,
-			Producer:    identityset.Address(27),
-		},
-	)
-	ctx6 = protocol.WithActionCtx(
-		ctx6,
-		protocol.ActionCtx{
-			Caller: caller6,
-		},
-	)
-	require.NoError(p6.Validate(ctx6, selp6.Action()))
+	t.Run("Only producer could create this protocol", func(t *testing.T) {
+		p2, ctx2, sm2, _, err := initConstruct(ctrl)
+		require.NoError(err)
+		require.NoError(p2.CreateGenesisStates(ctx2, sm2))
+		var sc2 state.CandidateList
+		_, err = sm2.State(&sc2, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		act2 := action.NewPutPollResult(1, 1, sc2)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(act2).Build()
+		selp2, err := action.Sign(elp, senderKey)
+		require.NoError(err)
+		require.NotNil(selp2)
+		caller, err := address.FromBytes(selp2.SrcPubkey().Hash())
+		require.NoError(err)
+		ctx2 = protocol.WithBlockCtx(
+			ctx2,
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    recipientAddr,
+			},
+		)
+		ctx2 = protocol.WithActionCtx(
+			ctx2,
+			protocol.ActionCtx{
+				Caller: caller,
+			},
+		)
+		_, err = p.Handle(ctx2, selp2.Action(), sm2)
+		require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
+	})
+	t.Run("Duplicate candidate", func(t *testing.T) {
+		p3, ctx3, sm3, _, err := initConstruct(ctrl)
+		require.NoError(err)
+		require.NoError(p3.CreateGenesisStates(ctx3, sm3))
+		var sc3 state.CandidateList
+		_, err = sm3.State(&sc3, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
+		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
+		act3 := action.NewPutPollResult(1, 1, sc3)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(act3).Build()
+		selp3, err := action.Sign(elp, senderKey)
+		require.NoError(err)
+		require.NotNil(selp3)
+		caller, err := address.FromBytes(selp3.SrcPubkey().Hash())
+		require.NoError(err)
+		ctx3 = protocol.WithBlockCtx(
+			ctx3,
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    identityset.Address(27),
+			},
+		)
+		ctx3 = protocol.WithActionCtx(
+			ctx3,
+			protocol.ActionCtx{
+				Caller: caller,
+			},
+		)
+		_, err = p.Handle(ctx3, selp3.Action(), sm3)
+		require.True(strings.Contains(err.Error(), "duplicate candidate"))
+	})
+	t.Run("Delegate's length is not equal", func(t *testing.T) {
+		p4, ctx4, sm4, _, err := initConstruct(ctrl)
+		require.NoError(err)
+		require.NoError(p4.CreateGenesisStates(ctx4, sm4))
+		var sc4 state.CandidateList
+		_, err = sm4.State(&sc4, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
+		act4 := action.NewPutPollResult(1, 1, sc4)
+		bd4 := &action.EnvelopeBuilder{}
+		elp4 := bd4.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(act4).Build()
+		selp4, err := action.Sign(elp4, senderKey)
+		require.NoError(err)
+		require.NotNil(selp4)
+		caller, err := address.FromBytes(selp4.SrcPubkey().Hash())
+		require.NoError(err)
+		ctx4 = protocol.WithBlockCtx(
+			ctx4,
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    identityset.Address(27),
+			},
+		)
+		ctx4 = protocol.WithActionCtx(
+			ctx4,
+			protocol.ActionCtx{
+				Caller: caller,
+			},
+		)
+		_, err = p4.Handle(ctx4, selp4.Action(), sm4)
+		require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
+	})
+	t.Run("Candidate's vote is not equal", func(t *testing.T) {
+		p5, ctx5, sm5, _, err := initConstruct(ctrl)
+		require.NoError(err)
+		require.NoError(p5.CreateGenesisStates(ctx5, sm5))
+		var sc5 state.CandidateList
+		_, err = sm5.State(&sc5, protocol.KeyOption(candKey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+		require.NoError(err)
+		sc5[0].Votes = big.NewInt(10)
+		act5 := action.NewPutPollResult(1, 1, sc5)
+		bd5 := &action.EnvelopeBuilder{}
+		elp5 := bd5.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(10)).
+			SetAction(act5).Build()
+		selp5, err := action.Sign(elp5, senderKey)
+		require.NoError(err)
+		require.NotNil(selp5)
+		caller, err := address.FromBytes(selp5.SrcPubkey().Hash())
+		require.NoError(err)
+		ctx5 = protocol.WithBlockCtx(
+			ctx5,
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    identityset.Address(27),
+			},
+		)
+		ctx5 = protocol.WithActionCtx(
+			ctx5,
+			protocol.ActionCtx{
+				Caller: caller,
+			},
+		)
+		_, err = p5.Handle(ctx5, selp5.Action(), sm5)
+		require.True(strings.Contains(err.Error(), "delegates are not as expected"))
+	})
 }
 
 func TestNextCandidates(t *testing.T) {

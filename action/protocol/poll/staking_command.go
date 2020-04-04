@@ -87,22 +87,21 @@ func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context, sr protoc
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	// no height here,  v1 v2 has the same validate method, so directly use common one
+	if err := validate(ctx, sm, sc, act); err != nil {
+		return nil, err
+	}
 	if sc.useV2(ctx, sm) {
 		return sc.stakingV2.Handle(ctx, act, sm)
 	}
 	return sc.stakingV1.Handle(ctx, act, sm)
 }
 
-func (sc *stakingCommand) Validate(ctx context.Context, act action.Action) error {
-	// no height here,  v1 v2 has the same validate method, so directly use common one
-	return validate(ctx, sc, act)
-}
-
-func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	if sc.useV2ByHeight(ctx, height) {
-		return sc.stakingV2.CalculateCandidatesByHeight(ctx, height)
+		return sc.stakingV2.CalculateCandidatesByHeight(ctx, sr, height)
 	}
-	return sc.stakingV1.CalculateCandidatesByHeight(ctx, height)
+	return sc.stakingV1.CalculateCandidatesByHeight(ctx, sr, height)
 }
 
 // Delegates returns exact number of delegates of current epoch
