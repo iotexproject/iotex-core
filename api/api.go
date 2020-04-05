@@ -779,7 +779,7 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 		if strings.Contains(err.Error(), "key = ") && strings.Contains(err.Error(), "doesn't exist") {
 			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
 		}
-		if strings.Contains(err.Error(), systemlog.HighBlockHeight.Error()) {
+		if strings.Contains(err.Error(), systemlog.ErrHighBlockHeight.Error()) {
 			return nil, status.Errorf(codes.OutOfRange, "height = %d is higher than current height", in.BlockHeight)
 		}
 		return nil, status.Error(codes.Internal, err.Error())

@@ -37,8 +37,8 @@ var (
 	tipBlockHeightKey = []byte("tipHeight")
 )
 
-// HighBlockHeight error
-var HighBlockHeight = errors.New("query's block height is higher than tip height")
+// ErrHighBlockHeight error
+var ErrHighBlockHeight = errors.New("query's block height is higher than tip height")
 
 // Indexer is the indexer for system log
 type Indexer struct {
@@ -247,7 +247,7 @@ func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.
 		return nil, err
 	}
 	if tipHeight < blockHeight {
-		return nil, HighBlockHeight
+		return nil, ErrHighBlockHeight
 	}
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
