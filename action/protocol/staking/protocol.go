@@ -112,6 +112,16 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}, nil
 }
 
+// Start starts the protocol
+func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+	// load view from SR
+	c, err := getOrCreateCandCenter(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to start staking protocol")
+	}
+	return c, nil
+}
+
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
 func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
@@ -121,7 +131,12 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	csm, err := NewCandidateStateManager(sm)
+	center, err := getOrCreateCandCenter(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create CandidateStateManager")
+	}
+
+	csm, err := NewCandidateStateManager(sm, center)
 	if err != nil {
 		return err
 	}
@@ -173,7 +188,12 @@ func (p *Protocol) CreateGenesisStates(
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	csm, err := NewCandidateStateManager(sm)
+	center, err := getCandCenter(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to commit candidate change in Commit")
+	}
+
+	csm, err := NewCandidateStateManager(sm, center)
 	if err != nil {
 		return err
 	}
@@ -184,7 +204,12 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	csm, err := NewCandidateStateManager(sm)
+	center, err := getCandCenter(sm)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to Handle action")
+	}
+
+	csm, err := NewCandidateStateManager(sm, center.Base())
 	if err != nil {
 		return nil, err
 	}

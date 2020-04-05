@@ -213,14 +213,14 @@ func (sf *factory) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
-		if err := sf.registry.StartAll(ctx); err != nil {
+		if err := sf.registry.StartAll(ctx, sf, sf.protocolView); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
 		if err = sf.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
-		if err := sf.registry.StartAll(ctx); err != nil {
+		if err := sf.registry.StartAll(ctx, sf, sf.protocolView); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(

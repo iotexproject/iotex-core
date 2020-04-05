@@ -39,17 +39,11 @@ type (
 )
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
+func NewCandidateStateManager(sm protocol.StateManager, c CandidateCenter) (CandidateStateManager, error) {
 	if sm == nil {
 		return nil, ErrMissingField
 	}
 
-	center, err := getOrCreateCandCenter(sm)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	}
-
-	c := center.Base()
 	csm := candSM{
 		sm,
 		c,
@@ -110,13 +104,21 @@ func (csm *candSM) Commit() error {
 }
 
 func getOrCreateCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
-	v, err := sr.ReadView(protocolID)
+	c, err := getCandCenter(sr)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
 			cc, err := createCandCenter(sr)
 			return cc, err
 		}
+		return nil, err
+	}
+	return c, nil
+}
+
+func getCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	v, err := sr.ReadView(protocolID)
+	if err != nil {
 		return nil, err
 	}
 
