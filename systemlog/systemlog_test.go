@@ -71,6 +71,13 @@ func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*iotextypes.Block
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
 
+	blk3, err := block.NewTestingBuilder().
+		SetHeight(3).
+		SetPrevBlockHash(blk2.HashBlock()).
+		SetTimeStamp(testutil.TimestampNow()).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+
 	receipt1 := &action.Receipt{
 		Status:          1,
 		BlockHeight:     blk1.Height(),
@@ -207,9 +214,13 @@ func getTestBlocksAndExpected(t *testing.T) ([]*block.Block, []*iotextypes.Block
 				},
 			},
 		},
+		{
+			BlockHeight:     blk3.Height(),
+			NumEvmTransfers: 0,
+		},
 	}
 
-	return []*block.Block{&blk1, &blk2}, expectedEvmTransfers
+	return []*block.Block{&blk1, &blk2, &blk3}, expectedEvmTransfers
 }
 
 func TestSystemLogIndexer(t *testing.T) {
@@ -230,19 +241,28 @@ func TestSystemLogIndexer(t *testing.T) {
 		}
 		tipHeight, err = indexer.Height()
 		r.NoError(err)
-		r.Equal(blocks[1].Height(), tipHeight)
+		r.Equal(uint64(len(blocks)), tipHeight)
 
 		for _, expectedBlock := range expectedList {
 			actualBlock, err := indexer.GetEvmTransfersByBlockHeight(expectedBlock.BlockHeight)
-			r.NoError(err)
-			checkBlockEvmTransfers(t, expectedBlock, actualBlock)
-			for _, expectedAction := range expectedBlock.ActionEvmTransfers {
-				actualAction, err := indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
+			if expectedBlock.NumEvmTransfers != 0 {
 				r.NoError(err)
-				checkActionEvmTransfers(t, expectedAction, actualAction)
+				checkBlockEvmTransfers(t, expectedBlock, actualBlock)
+				for _, expectedAction := range expectedBlock.ActionEvmTransfers {
+					actualAction, err := indexer.GetEvmTransfersByActionHash(hash.BytesToHash256(expectedAction.ActionHash))
+					r.NoError(err)
+					checkActionEvmTransfers(t, expectedAction, actualAction)
+				}
+			} else {
+				r.Error(err)
 			}
 		}
+		_, err = indexer.GetEvmTransfersByBlockHeight(uint64((len(blocks))) + 1)
+		r.Error(err)
+		_, err = indexer.GetEvmTransfersByActionHash(hash.ZeroHash256)
+		r.Error(err)
 
+		r.NoError(indexer.DeleteTipBlock(blocks[2]))
 		r.NoError(indexer.DeleteTipBlock(blocks[1]))
 		tipHeight, err = indexer.Height()
 		r.NoError(err)
