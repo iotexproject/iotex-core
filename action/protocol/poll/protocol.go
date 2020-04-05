@@ -50,11 +50,8 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 // ErrDelegatesNotExist is an error that the delegates cannot be prepared
 var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 
-// CandidatesByHeight returns the candidates of a given height
-type CandidatesByHeight func(protocol.StateReader, uint64) ([]*state.Candidate, error)
-
 // GetCandidates returns the current candidates
-type GetCandidates func(protocol.StateReader, bool) ([]*state.Candidate, uint64, error)
+type GetCandidates func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error)
 
 // GetProbationList returns current the ProbationList
 type GetProbationList func(protocol.StateReader, bool) (*vote.ProbationList, uint64, error)
@@ -119,7 +116,6 @@ func NewProtocol(
 	cfg config.Config,
 	candidateIndexer *CandidateIndexer,
 	readContract ReadContract,
-	candidatesByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
 	getprobationList GetProbationList,
 	getUnproductiveDelegate GetUnproductiveDelegate,
@@ -147,7 +143,6 @@ func NewProtocol(
 		slasher, err = NewSlasher(
 			&genesisConfig,
 			productivity,
-			candidatesByHeight,
 			getCandidates,
 			getprobationList,
 			getUnproductiveDelegate,
