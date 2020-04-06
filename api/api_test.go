@@ -1061,7 +1061,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
@@ -1332,8 +1331,9 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1400,8 +1400,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1468,8 +1469,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1559,7 +1561,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
 					return []*state.Candidate{
 						{
 							Address:       identityset.Address(1).String(),
@@ -1591,9 +1593,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 							Votes:         big.NewInt(1),
 							RewardAddress: "rewardAddress",
 						},
-					}, nil
+					}, 0, nil
 				},
-				nil,
 				nil,
 				nil,
 				indexer,

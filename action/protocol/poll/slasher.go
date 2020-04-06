@@ -29,7 +29,6 @@ import (
 type Slasher struct {
 	hu                    config.HeightUpgrade
 	productivity          Productivity
-	candByHeight          CandidatesByHeight
 	getCandidates         GetCandidates
 	getProbationList      GetProbationList
 	getUnprodDelegate     GetUnproductiveDelegate
@@ -46,7 +45,6 @@ type Slasher struct {
 func NewSlasher(
 	gen *genesis.Genesis,
 	productivity Productivity,
-	candByHeight CandidatesByHeight,
 	getCandidates GetCandidates,
 	getProbationList GetProbationList,
 	getUnprodDelegate GetUnproductiveDelegate,
@@ -57,7 +55,6 @@ func NewSlasher(
 	return &Slasher{
 		hu:                    config.NewHeightUpgrade(gen),
 		productivity:          productivity,
-		candByHeight:          candByHeight,
 		getCandidates:         getCandidates,
 		getProbationList:      getProbationList,
 		getUnprodDelegate:     getUnprodDelegate,
@@ -200,7 +197,7 @@ func (sh *Slasher) EmptyProbationList() *vote.ProbationList {
 	return vote.NewProbationList(sh.probationIntensity)
 }
 
-// GetCandidates returns candidate list
+// GetCandidates returns filtered candidate list
 func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
@@ -213,18 +210,19 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	if sh.hu.IsPre(config.Easter, targetEpochStartHeight) {
-		return sh.candByHeight(sr, targetEpochStartHeight)
-	}
-	// After Easter height, probation unqualified delegates based on productivity
-	candidates, stateHeight, err := sh.getCandidates(sr, readFromNext)
+	beforeEaster := sh.hu.IsPre(config.Easter, targetEpochStartHeight)
+	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, beforeEaster, readFromNext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get candidates at height %d after easter height", targetEpochStartHeight)
+		return nil, errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
 	}
 	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
 	if rp.GetEpochNum(targetEpochStartHeight) < rp.GetEpochNum(stateHeight) {
 		return nil, errors.Wrap(ErrInconsistentHeight, "state factory epoch number became larger than target epoch number")
 	}
+	if beforeEaster {
+		return candidates, nil
+	}
+	// After Easter height, probation unqualified delegates based on productivity
 	unqualifiedList, err := sh.GetProbationList(ctx, sr, readFromNext)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get probation list at height %d", targetEpochStartHeight)

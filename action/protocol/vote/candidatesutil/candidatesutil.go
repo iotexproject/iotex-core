@@ -41,49 +41,34 @@ const NxtProbationKey = "NextProbationKey."
 // UnproductiveDelegateKey is the key of unproductive Delegate struct
 const UnproductiveDelegateKey = "UnproductiveDelegateKey."
 
-// CandidatesByHeight returns array of Candidates in candidate pool of a given height (deprecated version)
-func CandidatesByHeight(sr protocol.StateReader, height uint64) ([]*state.Candidate, error) {
+// CandidatesFromDB returns array of Candidates in candidate pool of a given height or current epoch
+func CandidatesFromDB(sr protocol.StateReader, height uint64, beforeEaster bool, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
 	var candidates state.CandidateList
-	// Load Candidates on the given height from underlying db
-	candidatesKey := ConstructLegacyKey(height)
-	_, err := sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
-	log.L().Debug(
-		"CandidatesByHeight",
-		zap.Uint64("height", height),
-		zap.Any("candidates", candidates),
-		zap.Error(err),
-	)
-	if errors.Cause(err) == nil {
-		if len(candidates) > 0 {
-			return candidates, nil
+	var stateHeight uint64
+	var err error
+	if beforeEaster {
+		// Load Candidates on the given height from underlying db [deprecated]
+		candidatesKey := ConstructLegacyKey(height)
+		stateHeight, err = sr.State(&candidates, protocol.LegacyKeyOption(candidatesKey))
+	} else {
+		candidatesKey := ConstructKey(CurCandidateKey)
+		if epochStartPoint {
+			// if not shifted yet
+			log.L().Debug("Read candidate list with next candidate key", zap.Uint64("height", height))
+			candidatesKey = ConstructKey(NxtCandidateKey)
 		}
-		err = state.ErrStateNotExist
+		stateHeight, err = sr.State(
+			&candidates,
+			protocol.KeyOption(candidatesKey[:]),
+			protocol.NamespaceOption(protocol.SystemNamespace),
+		)
 	}
-	return nil, errors.Wrapf(
-		err,
-		"failed to get state of candidateList for height %d",
-		height,
-	)
-}
-
-// CandidatesFromDB returns array of Candidates at current epoch
-func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
-	var candidates state.CandidateList
-	candidatesKey := ConstructKey(CurCandidateKey)
-	if epochStartPoint {
-		// if not shifted yet
-		log.L().Debug("Read candidate list with next candidate key")
-		candidatesKey = ConstructKey(NxtCandidateKey)
-	}
-	stateHeight, err := sr.State(
-		&candidates,
-		protocol.KeyOption(candidatesKey[:]),
-		protocol.NamespaceOption(protocol.SystemNamespace),
-	)
 	log.L().Debug(
-		"GetCandidates",
+		"CandidatesFromDB",
+		zap.Bool("beforeEaster", beforeEaster),
+		zap.Uint64("height", height),
+		zap.Uint64("stateHeight", stateHeight),
 		zap.Any("candidates", candidates),
-		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
 	if errors.Cause(err) == nil {
@@ -94,7 +79,7 @@ func CandidatesFromDB(sr protocol.StateReader, epochStartPoint bool) ([]*state.C
 	}
 	return nil, stateHeight, errors.Wrapf(
 		err,
-		"failed to get candidates with epochStartEpoch: %t",
+		"failed to get candidates with epochStartPoint: %t",
 		epochStartPoint,
 	)
 }
