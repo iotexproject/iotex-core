@@ -8,6 +8,7 @@ package bc
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
@@ -20,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 // Multi-language support
@@ -124,7 +124,7 @@ func GetProbationList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 	}
 	ctx := context.Background()
 
