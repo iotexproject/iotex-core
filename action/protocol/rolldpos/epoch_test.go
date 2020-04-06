@@ -2,11 +2,10 @@ package rolldpos
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
@@ -71,8 +70,11 @@ func TestProtocol_ReadState(t *testing.T) {
 		"trick",
 	}
 
-	arg1 := byteutil.Uint64ToBytes(10)
-	arg2 := byteutil.Uint64ToBytes(20)
+	arg1 := []byte("10")
+	arg2 := []byte("20")
+
+	arg1Num, err := strconv.ParseUint(string(arg1), 10, 64)
+	require.NoError(err)
 
 	for i, method := range methods {
 
@@ -86,41 +88,41 @@ func TestProtocol_ReadState(t *testing.T) {
 
 		case "NumCandidateDelegates":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.numCandidateDelegates), result)
+			require.Equal(strconv.FormatUint(p.numCandidateDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumDelegates":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.numDelegates), result)
+			require.Equal(strconv.FormatUint(p.numDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumSubEpochs":
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.NumSubEpochs(byteutil.BytesToUint64(arg1))), result)
+			require.Equal(strconv.FormatUint(p.NumSubEpochs(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochNumber":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.GetEpochNum(byteutil.BytesToUint64(arg1))), result)
+			require.Equal(strconv.FormatUint(p.GetEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochHeight":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.GetEpochHeight(byteutil.BytesToUint64(arg1))), result)
+			require.Equal(strconv.FormatUint(p.GetEpochHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochLastHeight":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.GetEpochLastBlockHeight(byteutil.BytesToUint64(arg1))), result)
+			require.Equal(strconv.FormatUint(p.GetEpochLastBlockHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "SubEpochNumber":
 
 			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
-			require.Equal(byteutil.Uint64ToBytes(p.GetSubEpochNum(byteutil.BytesToUint64(arg1))), result)
+			require.Equal(strconv.FormatUint(p.GetSubEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		default:
