@@ -1765,7 +1765,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	require.Error(err)
 	sta, ok := status.FromError(err)
 	require.Equal(true, ok)
-	require.Equal(codes.OutOfRange, sta.Code())
+	require.Equal(codes.InvalidArgument, sta.Code())
 
 	request.BlockHeight = 2
 	_, err = svr.GetEvmTransfersByBlockHeight(context.Background(), request)

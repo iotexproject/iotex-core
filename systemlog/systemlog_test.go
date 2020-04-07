@@ -254,13 +254,13 @@ func TestSystemLogIndexer(t *testing.T) {
 					checkActionEvmTransfers(t, expectedAction, actualAction)
 				}
 			} else {
-				r.Error(err)
+				r.Equal(ErrNotFound, err)
 			}
 		}
 		_, err = indexer.GetEvmTransfersByBlockHeight(uint64((len(blocks))) + 1)
-		r.Error(err)
+		r.Equal(ErrHeightNotReached, err)
 		_, err = indexer.GetEvmTransfersByActionHash(hash.ZeroHash256)
-		r.Error(err)
+		r.Equal(ErrNotFound, err)
 
 		r.NoError(indexer.DeleteTipBlock(blocks[2]))
 		r.NoError(indexer.DeleteTipBlock(blocks[1]))

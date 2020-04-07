@@ -36,9 +36,12 @@ var (
 	actionHashPrefix  = []byte("ah.")
 	tipBlockHeightKey = []byte("tipHeight")
 )
-
-// ErrHighBlockHeight error
-var ErrHighBlockHeight = errors.New("query's block height is higher than tip height")
+var (
+	// ErrHeightNotReached
+	ErrHeightNotReached = errors.New("query's block height is higher than tip height")
+	// ErrNotFound
+	ErrNotFound = errors.New("no result found")
+)
 
 // Indexer is the indexer for system log
 type Indexer struct {
@@ -193,7 +196,7 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	data, err := x.kvStore.Get(evmTransferNS, blockKey)
 	if err != nil {
 		// there may be no blockEvmTransfer data if the block contains no evm transfers
-		if !(strings.Contains(err.Error(), "key = ") && strings.Contains(err.Error(), "doesn't exist")) {
+		if !checkKeyNotFound(err) {
 			return errors.Wrapf(err, "failed to get ActionHashList of block %d", height)
 		}
 	} else {
@@ -224,6 +227,9 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 func (x *Indexer) GetEvmTransfersByActionHash(actionHash hash.Hash256) (*iotextypes.ActionEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, actionKey(actionHash))
 	if err != nil {
+		if checkKeyNotFound(err) {
+			return nil, ErrNotFound
+		}
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
 	}
 
@@ -247,10 +253,13 @@ func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.
 		return nil, err
 	}
 	if tipHeight < blockHeight {
-		return nil, ErrHighBlockHeight
+		return nil, ErrHeightNotReached
 	}
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
+		if checkKeyNotFound(err) {
+			return nil, ErrNotFound
+		}
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
 	}
 
@@ -289,4 +298,8 @@ func blockKey(height uint64) []byte {
 
 func actionKey(h hash.Hash256) []byte {
 	return append(actionHashPrefix, h[:]...)
+}
+
+func checkKeyNotFound(err error) bool {
+	return strings.Contains(err.Error(), "key = ") && strings.Contains(err.Error(), "doesn't exist")
 }

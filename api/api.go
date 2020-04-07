@@ -755,7 +755,7 @@ func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
 	if err != nil {
-		if strings.Contains(err.Error(), "key = ") && strings.Contains(err.Error(), "doesn't exist") {
+		if err == systemlog.ErrNotFound {
 			return nil, status.Error(codes.NotFound, "no such action with evm transfer")
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -771,16 +771,16 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 	}
 
 	if in.BlockHeight < 1 {
-		return nil, status.Errorf(codes.OutOfRange, "invalid block height = %d", in.BlockHeight)
+		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
 	}
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
 	if err != nil {
-		if strings.Contains(err.Error(), "key = ") && strings.Contains(err.Error(), "doesn't exist") {
+		if err == systemlog.ErrNotFound {
 			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
 		}
-		if strings.Contains(err.Error(), systemlog.ErrHighBlockHeight.Error()) {
-			return nil, status.Errorf(codes.OutOfRange, "height = %d is higher than current height", in.BlockHeight)
+		if strings.Contains(err.Error(), systemlog.ErrHeightNotReached.Error()) {
+			return nil, status.Errorf(codes.InvalidArgument, "height = %d is higher than current height", in.BlockHeight)
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
