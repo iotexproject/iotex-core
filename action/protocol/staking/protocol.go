@@ -115,7 +115,7 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	// load view from SR
-	c, err := getOrCreateCandCenter(sr)
+	c, err := createCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -131,7 +131,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	center, err := getOrCreateCandCenter(sm)
+	center, err := createCandCenter(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create CandidateStateManager")
 	}
@@ -276,6 +276,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, height uint64) (state.CandidateList, error) {
+	// TODO: should use createCandCenter()?
 	center, err := getOrCreateCandCenter(p.sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
@@ -305,6 +306,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, errors.Wrap(err, "failed to unmarshal request")
 	}
 
+	// TODO: should use createCandCenter()?
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate center")

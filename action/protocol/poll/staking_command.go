@@ -8,6 +8,7 @@ package poll
 
 import (
 	"context"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"

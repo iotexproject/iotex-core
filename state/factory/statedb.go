@@ -129,14 +129,16 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
-		if err := sdb.registry.StartAll(ctx, sdb, sdb.protocolView); err != nil {
+		// start all protocols
+		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
-		if err := sdb.registry.StartAll(ctx, sdb, sdb.protocolView); err != nil {
+		// start all protocols
+		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(

@@ -91,12 +91,13 @@ func (r *Registry) all() []Protocol {
 }
 
 // StartAll starts all protocols which are startable
-func (r *Registry) StartAll(ctx context.Context, sr StateReader, dock Dock) error {
+func (r *Registry) StartAll(ctx context.Context, sr StateReader) (map[string]interface{}, error) {
 	if r == nil {
-		return nil
+		return nil, nil
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	allView := make(map[string]interface{})
 	for _, p := range r.all() {
 		s, ok := p.(Starter)
 		if !ok {
@@ -104,14 +105,12 @@ func (r *Registry) StartAll(ctx context.Context, sr StateReader, dock Dock) erro
 		}
 		view, err := s.Start(ctx, sr)
 		if err != nil {
-			return errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(p))
+			return nil, errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(p))
 		}
 		if view == nil {
 			continue
 		}
-		if err := dock.Load(p.Name(), view); err != nil {
-			return errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(p))
-		}
+		allView[p.Name()] = view
 	}
-	return nil
+	return allView, nil
 }
