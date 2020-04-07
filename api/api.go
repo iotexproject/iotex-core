@@ -46,7 +46,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -515,7 +514,7 @@ func (api *Server) GetEpochMeta(
 	}
 
 	methodName := []byte("ActiveBlockProducersByEpoch")
-	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
+	arguments := [][]byte{[]byte(strconv.FormatUint(in.EpochNumber, 10))}
 	height := strconv.FormatUint(epochHeight, 10)
 	data, err := api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
@@ -533,7 +532,6 @@ func (api *Server) GetEpochMeta(
 	}
 
 	methodName = []byte("BlockProducersByEpoch")
-	arguments = [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
 	data, err = api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -1212,12 +1210,14 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	gravityChainStartHeight := epochHeight
 	if pp := poll.FindProtocol(api.registry); pp != nil {
 		methodName := []byte("GetGravityChainStartHeight")
-		arguments := [][]byte{byteutil.Uint64ToBytes(epochHeight)}
+		arguments := [][]byte{[]byte(strconv.FormatUint(epochHeight, 10))}
 		data, err := api.readState(context.Background(), pp, "", methodName, arguments...)
 		if err != nil {
 			return 0, err
 		}
-		gravityChainStartHeight = byteutil.BytesToUint64(data)
+		if gravityChainStartHeight, err = strconv.ParseUint(string(data), 10, 64); err != nil {
+			return 0, err
+		}
 	}
 	return gravityChainStartHeight, nil
 }

@@ -8,13 +8,13 @@ package rolldpos
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 const protocolID = "rolldpos"
@@ -101,39 +101,59 @@ func (p *Protocol) Handle(context.Context, action.Action, protocol.StateManager)
 func (p *Protocol) ReadState(ctx context.Context, _ protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
 	switch string(method) {
 	case "NumCandidateDelegates":
-		return byteutil.Uint64ToBytes(p.numCandidateDelegates), nil
+		return []byte(strconv.FormatUint(p.numCandidateDelegates, 10)), nil
 	case "NumDelegates":
-		return byteutil.Uint64ToBytes(p.numDelegates), nil
+		return []byte(strconv.FormatUint(p.numDelegates, 10)), nil
 	case "NumSubEpochs":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		numSubEpochs := p.NumSubEpochs(byteutil.BytesToUint64(args[0]))
-		return byteutil.Uint64ToBytes(numSubEpochs), nil
+		height, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		numSubEpochs := p.NumSubEpochs(height)
+		return []byte(strconv.FormatUint(numSubEpochs, 10)), nil
 	case "EpochNumber":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		epochNumber := p.GetEpochNum(byteutil.BytesToUint64(args[0]))
-		return byteutil.Uint64ToBytes(epochNumber), nil
+		height, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		epochNumber := p.GetEpochNum(height)
+		return []byte(strconv.FormatUint(epochNumber, 10)), nil
 	case "EpochHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		epochHeight := p.GetEpochHeight(byteutil.BytesToUint64(args[0]))
-		return byteutil.Uint64ToBytes(epochHeight), nil
+		epochNumber, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		epochHeight := p.GetEpochHeight(epochNumber)
+		return []byte(strconv.FormatUint(epochHeight, 10)), nil
 	case "EpochLastHeight":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		epochLastHeight := p.GetEpochLastBlockHeight(byteutil.BytesToUint64(args[0]))
-		return byteutil.Uint64ToBytes(epochLastHeight), nil
+		epochNumber, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		epochLastHeight := p.GetEpochLastBlockHeight(epochNumber)
+		return []byte(strconv.FormatUint(epochLastHeight, 10)), nil
 	case "SubEpochNumber":
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		subEpochNumber := p.GetSubEpochNum(byteutil.BytesToUint64(args[0]))
-		return byteutil.Uint64ToBytes(subEpochNumber), nil
+		height, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		subEpochNumber := p.GetSubEpochNum(height)
+		return []byte(strconv.FormatUint(subEpochNumber, 10)), nil
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}

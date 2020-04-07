@@ -8,6 +8,7 @@ package poll
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -22,7 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -200,11 +200,15 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		gravityStartheight, err := p.getGravityHeight(ctx, byteutil.BytesToUint64(args[0]))
+		nativeHeight, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
 			return nil, err
 		}
-		return byteutil.Uint64ToBytes(gravityStartheight), nil
+		gravityStartheight, err := p.getGravityHeight(ctx, nativeHeight)
+		if err != nil {
+			return nil, err
+		}
+		return []byte(strconv.FormatUint(gravityStartheight, 10)), nil
 	default:
 		return p.sh.ReadState(ctx, sr, p.indexer, method, args...)
 	}

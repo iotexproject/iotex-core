@@ -9,6 +9,7 @@ package poll
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	"github.com/iotexproject/iotex-election/util"
 	"github.com/pkg/errors"
@@ -21,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -115,7 +115,10 @@ func (sh *Slasher) ReadState(
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if len(args) != 0 {
-		epochNum = byteutil.BytesToUint64(args[0])
+		epochNum, err := strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
 		epochStartHeight = rp.GetEpochHeight(epochNum)
 	}
 	switch string(method) {
