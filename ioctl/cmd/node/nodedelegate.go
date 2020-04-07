@@ -26,7 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -234,7 +233,7 @@ func nextDelegates() error {
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
@@ -256,7 +255,7 @@ func nextDelegates() error {
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("BlockProducersByEpoch"),
-		Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 	}
 	bpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {

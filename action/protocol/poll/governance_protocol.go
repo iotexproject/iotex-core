@@ -9,6 +9,7 @@ package poll
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -26,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -285,12 +285,16 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	rp := rolldpos.MustGetProtocol(bcCtx.Registry)
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
 	epochStartHeight := rp.GetEpochHeight(epochNum)
+	if len(args) != 0 && string(method) != "GetGravityChainStartHeight" {
+		var err error
+		epochNum, err = strconv.ParseUint(string(args[0]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		epochStartHeight = rp.GetEpochHeight(epochNum)
+	}
 	switch string(method) {
 	case "CandidatesByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if p.indexer != nil {
 			candidates, err := p.readCandidatesFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -308,10 +312,6 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		}
 		return candidates.Serialize()
 	case "BlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if p.indexer != nil {
 			blockProducers, err := p.readBPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -329,10 +329,6 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		}
 		return blockProducers.Serialize()
 	case "ActiveBlockProducersByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
-		}
 		if p.indexer != nil {
 			activeBlockProducers, err := p.readABPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -353,16 +349,16 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 		if len(args) != 1 {
 			return nil, errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		gravityStartheight, err := p.getGravityHeight(ctx, byteutil.BytesToUint64(args[0]))
+		nativeHeight, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
 			return nil, err
 		}
-		return byteutil.Uint64ToBytes(gravityStartheight), nil
-	case "ProbationListByEpoch":
-		if len(args) != 0 {
-			epochNum = byteutil.BytesToUint64(args[0])
-			epochStartHeight = rp.GetEpochHeight(epochNum)
+		gravityStartheight, err := p.getGravityHeight(ctx, nativeHeight)
+		if err != nil {
+			return nil, err
 		}
+		return []byte(strconv.FormatUint(gravityStartheight, 10)), nil
+	case "ProbationListByEpoch":
 		if p.indexer != nil {
 			kickoutList, err := p.indexer.KickoutList(epochStartHeight)
 			if err == nil {

@@ -43,7 +43,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -1285,7 +1284,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var delegates state.CandidateList
@@ -1355,7 +1354,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var blockProducers state.CandidateList
@@ -1426,7 +1425,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var activeBlockProducers state.CandidateList
@@ -1447,7 +1446,9 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 			MethodName: []byte(test.methodName),
 		})
 		require.NoError(err)
-		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+		result, err := strconv.ParseUint(string(res.Data), 10, 64)
+		require.NoError(err)
+		require.Equal(test.result, result)
 	}
 }
 
@@ -1461,10 +1462,12 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.argument)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.argument, 10))},
 		})
 		require.NoError(err)
-		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+		result, err := strconv.ParseUint(string(res.Data), 10, 64)
+		require.NoError(err)
+		require.Equal(test.result, result)
 	}
 }
 
