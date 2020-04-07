@@ -40,7 +40,7 @@ type (
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
 func NewCandidateStateManager(sm protocol.StateManager, c CandidateCenter) (CandidateStateManager, error) {
-	if sm == nil || c == nil {
+	if sm == nil {
 		return nil, ErrMissingField
 	}
 
@@ -92,6 +92,49 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	// load change to sm
 	csm.StateManager.Load(protocolID, ser)
 	return nil
+}
+
+func (csm *candSM) Commit() error {
+	if err := csm.CandidateCenter.Commit(); err != nil {
+		return err
+	}
+
+	// write update view back to state factory
+	return csm.WriteView(protocolID, csm.CandidateCenter)
+}
+
+func getOrCreateCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	c, err := getCandCenter(sr)
+	if err != nil {
+		if errors.Cause(err) == protocol.ErrNoName {
+			// the view does not exist yet, create it
+			cc, err := createCandCenter(sr)
+			return cc, err
+		}
+		return nil, err
+	}
+	return c, nil
+}
+
+func getCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	v, err := sr.ReadView(protocolID)
+	if err != nil {
+		return nil, err
+	}
+
+	if center, ok := v.(CandidateCenter); ok {
+		return center, nil
+	}
+	return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
+}
+
+func createCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
+	all, err := loadCandidatesFromSR(sr)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewCandidateCenter(all)
 }
 
 func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {

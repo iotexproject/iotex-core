@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -55,11 +54,10 @@ var (
 
 // Protocol defines the protocol of handling staking
 type Protocol struct {
-	addr        address.Address
-	candCenters *cache.ThreadSafeLruCache
-	depositGas  DepositGas
-	sr          protocol.StateReader
-	config      Configuration
+	addr       address.Address
+	depositGas DepositGas
+	sr         protocol.StateReader
+	config     Configuration
 }
 
 // Configuration is the staking protocol configuration.
@@ -98,8 +96,7 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}
 
 	return &Protocol{
-		addr:        addr,
-		candCenters: cache.NewThreadSafeLruCache(8),
+		addr: addr,
 		config: Configuration{
 			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
 			RegistrationConsts: RegistrationConsts{
@@ -115,6 +112,16 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 	}, nil
 }
 
+// Start starts the protocol
+func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+	// load view from SR
+	c, err := createCandCenter(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to start staking protocol")
+	}
+	return c, nil
+}
+
 // CreateGenesisStates is used to setup BootstrapCandidates from genesis config.
 func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
@@ -124,7 +131,12 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	csm, err := p.createCandidateStateManager(sm)
+	center, err := getCandCenter(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create CandidateStateManager")
+	}
+
+	csm, err := NewCandidateStateManager(sm, center)
 	if err != nil {
 		return err
 	}
@@ -169,26 +181,35 @@ func (p *Protocol) CreateGenesisStates(
 			return err
 		}
 	}
-	return nil
+
+	// commit updated view
+	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
 }
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	center, err := p.getCandCenter(sm.ConfirmedHeight())
+	center, err := getCandCenter(sm)
 	if err != nil {
-		return errors.Wrap(err, "failed to commit candidate change in sm, cand center does not exist")
+		return errors.Wrap(err, "failed to commit candidate change in Commit")
 	}
 
 	csm, err := NewCandidateStateManager(sm, center)
 	if err != nil {
-		return errors.Wrap(err, "failed to commit candidate change in sm")
+		return err
 	}
-	return csm.Commit()
+
+	// commit updated view
+	return errors.Wrap(csm.Commit(), "failed to commit candidate change in Commit")
 }
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	csm, err := p.createCandidateStateManager(sm)
+	center, err := getCandCenter(sm)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to Handle action")
+	}
+
+	csm, err := NewCandidateStateManager(sm, center.Base())
 	if err != nil {
 		return nil, err
 	}
@@ -255,24 +276,10 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, height uint64) (state.CandidateList, error) {
-	center, err := p.getCandCenter(height)
+	// TODO: should use createCandCenter()?
+	center, err := getOrCreateCandCenter(p.sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
-	}
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			// TODO: pass in sr
-			center, err = createCandCenter(p.sr, height)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(height, center)
-		}
 	}
 
 	list := center.All()
@@ -298,31 +305,14 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err := proto.Unmarshal(args[0], &r); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal request")
 	}
-	var (
-		resp proto.Message
-		err  error
-	)
 
-	h, err := sr.Height()
+	// TODO: should use createCandCenter()?
+	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get SR height")
-	}
-	center, err := p.getCandCenter(h)
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			center, err = createCandCenter(sr, h)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(h, center)
-		}
+		return nil, errors.Wrap(err, "failed to get candidate center")
 	}
 
+	var resp proto.Message
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
 		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
@@ -361,51 +351,4 @@ func (p *Protocol) Name() string {
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
-}
-
-func (p *Protocol) createCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
-	h := sm.ConfirmedHeight()
-	center, err := p.getCandCenter(h)
-	switch errors.Cause(err) {
-	case ErrTypeAssertion:
-		{
-			return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-		}
-	case ErrNilParameters:
-		{
-			center, err = createCandCenter(sm, h)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-			}
-			p.candCenters.Add(h, center)
-		}
-	}
-	return NewCandidateStateManager(sm, center.Base())
-}
-
-func (p *Protocol) getCandCenter(height uint64) (CandidateCenter, error) {
-	v, hit := p.candCenters.Get(height)
-	if hit {
-		if center, ok := v.(CandidateCenter); ok {
-			return center, nil
-		}
-		return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
-	}
-	return nil, ErrNilParameters
-}
-
-func createCandCenter(sr protocol.StateReader, height uint64) (CandidateCenter, error) {
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	center := NewCandidateCenter()
-	if err := center.SetDelta(all); err != nil {
-		return nil, err
-	}
-	if err := center.Commit(); err != nil {
-		return nil, err
-	}
-	return center, nil
 }
