@@ -36,7 +36,7 @@ var (
 	tipBlockHeightKey = []byte("tipHeight")
 )
 var (
-	// ErrHeightNotReached
+	// ErrHeightNotReached happened when query's block height is higher than tip height
 	ErrHeightNotReached = errors.New("query's block height is higher than tip height")
 )
 
