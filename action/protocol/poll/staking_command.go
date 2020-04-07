@@ -60,7 +60,12 @@ func (sc *stakingCommand) Start(ctx context.Context, sr protocol.StateReader) (i
 			}
 		}
 	}
-	// stakingV2 Start() do nothing now
+
+	if sc.stakingV2 != nil {
+		if starter, ok := sc.stakingV2.(protocol.Starter); ok {
+			return starter.Start(ctx, sr)
+		}
+	}
 	return nil, nil
 }
 

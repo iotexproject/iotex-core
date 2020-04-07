@@ -90,7 +90,8 @@ func testEqualAllCommitAbort(r *require.Assertions, m CandidateCenter, old Candi
 func TestCandCenter(t *testing.T) {
 	r := require.New(t)
 
-	m := NewCandidateCenter()
+	m, err := NewCandidateCenter(nil)
+	r.NoError(err)
 	for i, v := range testCandidates {
 		r.NoError(m.Upsert(testCandidates[i].d))
 		r.True(m.ContainsName(v.d.Name))

@@ -134,14 +134,7 @@ func createCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
 		return nil, err
 	}
 
-	center := NewCandidateCenter()
-	if err := center.SetDelta(all); err != nil {
-		return nil, err
-	}
-	if err := center.Commit(); err != nil {
-		return nil, err
-	}
-	return center, nil
+	return NewCandidateCenter(all)
 }
 
 func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {

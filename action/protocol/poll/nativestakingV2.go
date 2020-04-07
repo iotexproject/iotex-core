@@ -43,6 +43,10 @@ func newNativeStakingV2(
 	}, nil
 }
 
+func (ns *nativeStakingV2) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+	return nil, nil
+}
+
 func (ns *nativeStakingV2) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	cands, err := ns.stakingV2.ActiveCandidates(ctx, 0)
 	if err != nil {

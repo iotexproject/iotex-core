@@ -131,7 +131,7 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	center, err := createCandCenter(sm)
+	center, err := getCandCenter(sm)
 	if err != nil {
 		return errors.Wrap(err, "failed to create CandidateStateManager")
 	}
