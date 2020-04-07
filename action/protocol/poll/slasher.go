@@ -68,6 +68,21 @@ func NewSlasher(
 	}, nil
 }
 
+// CreateGenesisStates creates genesis state for slasher
+func (sh *Slasher) CreateGenesisStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Easter, uint64(1)) {
+		if err := setNextEpochProbationList(sm,
+			indexer,
+			uint64(1),
+			vote.NewProbationList(sh.probationIntensity)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // CreatePreStates is to setup probation list
 func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
@@ -193,11 +208,6 @@ func (sh *Slasher) ReadState(
 	default:
 		return nil, errors.New("corresponding method isn't found")
 	}
-}
-
-// EmptyProbationList returns an empty ProbationList
-func (sh *Slasher) EmptyProbationList() *vote.ProbationList {
-	return vote.NewProbationList(sh.probationIntensity)
 }
 
 // GetCandidates returns filtered candidate list

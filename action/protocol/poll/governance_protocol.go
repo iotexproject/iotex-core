@@ -21,7 +21,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -74,13 +73,14 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	sm protocol.StateManager,
 ) (err error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
 	log.L().Info("Initialize poll protocol", zap.Uint64("height", p.initGravityChainHeight))
+	if err = p.sh.CreateGenesisStates(ctx, sm, p.indexer); err != nil {
+		return
+	}
 	var ds state.CandidateList
-
 	for {
 		ds, err = p.candidatesByGravityChainHeight(p.initGravityChainHeight)
 		if err == nil || errors.Cause(err) != db.ErrNotExist {
@@ -95,15 +95,6 @@ func (p *governanceChainCommitteeProtocol) CreateGenesisStates(
 	log.L().Info("Validating delegates from gravity chain", zap.Any("delegates", ds))
 	if err = validateDelegates(ds); err != nil {
 		return
-	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Easter, uint64(1)) {
-		if err := setNextEpochProbationList(sm,
-			p.indexer,
-			uint64(1),
-			p.sh.EmptyProbationList()); err != nil {
-			return err
-		}
 	}
 	return setCandidates(ctx, sm, p.indexer, ds, uint64(1))
 }
