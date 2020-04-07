@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -254,13 +255,13 @@ func TestSystemLogIndexer(t *testing.T) {
 					checkActionEvmTransfers(t, expectedAction, actualAction)
 				}
 			} else {
-				r.Equal(ErrNotFound, err)
+				r.Equal(db.ErrNotExist, errors.Cause(err))
 			}
 		}
 		_, err = indexer.GetEvmTransfersByBlockHeight(uint64((len(blocks))) + 1)
 		r.Equal(ErrHeightNotReached, err)
 		_, err = indexer.GetEvmTransfersByActionHash(hash.ZeroHash256)
-		r.Equal(ErrNotFound, err)
+		r.Equal(db.ErrNotExist, errors.Cause(err))
 
 		r.NoError(indexer.DeleteTipBlock(blocks[2]))
 		r.NoError(indexer.DeleteTipBlock(blocks[1]))

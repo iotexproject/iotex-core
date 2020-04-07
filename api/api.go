@@ -755,7 +755,7 @@ func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
 	if err != nil {
-		if err == systemlog.ErrNotFound {
+		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, "no such action with evm transfer")
 		}
 		return nil, status.Error(codes.Internal, err.Error())
@@ -776,7 +776,7 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
 	if err != nil {
-		if err == systemlog.ErrNotFound {
+		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
 		}
 		if strings.Contains(err.Error(), systemlog.ErrHeightNotReached.Error()) {
