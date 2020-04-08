@@ -1215,6 +1215,9 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 		if err != nil {
 			return 0, err
 		}
+		if len(data) == 0 {
+			return 0, nil
+		}
 		if gravityChainStartHeight, err = strconv.ParseUint(string(data), 10, 64); err != nil {
 			return 0, err
 		}
