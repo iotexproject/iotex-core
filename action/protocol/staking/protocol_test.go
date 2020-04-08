@@ -79,7 +79,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, sm, genesis.Default.Staking)
+	stk, err := NewProtocol(nil, genesis.Default.Staking)
 	r.NotNil(stk)
 	r.NoError(err)
 

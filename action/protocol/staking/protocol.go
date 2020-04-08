@@ -56,7 +56,6 @@ var (
 type Protocol struct {
 	addr       address.Address
 	depositGas DepositGas
-	sr         protocol.StateReader
 	config     Configuration
 }
 
@@ -73,7 +72,7 @@ type Configuration struct {
 type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -108,7 +107,6 @@ func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Sta
 			BootstrapCandidates:   cfg.BootstrapCandidates,
 		},
 		depositGas: depositGas,
-		sr:         sr,
 	}, nil
 }
 
@@ -272,7 +270,6 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	// TODO: should use createCandCenter()?
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
@@ -302,7 +299,6 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	// TODO: should use createCandCenter()?
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate center")
