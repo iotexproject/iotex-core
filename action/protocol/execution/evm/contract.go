@@ -174,7 +174,7 @@ func (c *contract) Snapshot() Contract {
 }
 
 // newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager) (Contract, error) {
+func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
@@ -191,6 +191,9 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 	}
 	if account.Root != hash.ZeroHash256 {
 		options = append(options, mptrie.RootHashOption(account.Root[:]))
+	}
+	if enableAsync {
+		options = append(options, mptrie.AsyncOption())
 	}
 
 	tr, err := mptrie.New(options...)
