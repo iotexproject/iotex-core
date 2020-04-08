@@ -159,6 +159,7 @@ func ExecuteContract(
 		sm,
 		blkCtx.BlockHeight,
 		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
+		hu.IsPost(config.Fairbank, blkCtx.BlockHeight),
 		execution.Hash(),
 	)
 	ps, err := NewParams(ctx, execution, stateDB, getBlockHash)

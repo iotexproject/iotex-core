@@ -61,6 +61,7 @@ type (
 		preimages          preimageMap
 		preimageSnapshot   map[int]preimageMap
 		notFixTopicCopyBug bool
+		asyncContractTrie  bool
 	}
 )
 
@@ -72,6 +73,7 @@ func NewStateDBAdapter(
 	sm protocol.StateManager,
 	blockHeight uint64,
 	notFixTopicCopyBug bool,
+	asyncContractTrie bool,
 	executionHash hash.Hash256,
 	opts ...StateDBOption,
 ) *StateDBAdapter {
@@ -88,6 +90,7 @@ func NewStateDBAdapter(
 		preimages:          make(preimageMap),
 		preimageSnapshot:   make(map[int]preimageMap),
 		notFixTopicCopyBug: notFixTopicCopyBug,
+		asyncContractTrie:  asyncContractTrie,
 	}
 	for _, opt := range opts {
 		if err := opt(s); err != nil {
@@ -700,7 +703,7 @@ func (stateDB *StateDBAdapter) getNewContract(addr hash.Hash160) (Contract, erro
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load account state for address %x", addr)
 	}
-	contract, err := newContract(addr, account, stateDB.sm)
+	contract, err := newContract(addr, account, stateDB.sm, stateDB.asyncContractTrie)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract %x", addr)
 	}
