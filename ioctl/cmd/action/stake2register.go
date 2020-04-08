@@ -77,7 +77,6 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
-	amountStringInRau := amountInRau.String()
 
 	stakeDuration, err := parseStakeDuration(args[5])
 	if err != nil {
@@ -110,7 +109,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStringInRau, duration, autoRestake, payload, gasLimit, gasPriceRau)
+	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
 
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
