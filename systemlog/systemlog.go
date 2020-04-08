@@ -36,7 +36,7 @@ var (
 	tipBlockHeightKey = []byte("tipHeight")
 )
 var (
-	// ErrHeightNotReached happened when query's block height is higher than tip height
+	// ErrHeightNotReached defines the error when query's block height is higher than tip height
 	ErrHeightNotReached = errors.New("query's block height is higher than tip height")
 )
 
@@ -224,9 +224,6 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 func (x *Indexer) GetEvmTransfersByActionHash(actionHash hash.Hash256) (*iotextypes.ActionEvmTransfer, error) {
 	data, err := x.kvStore.Get(evmTransferNS, actionKey(actionHash))
 	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, err
-		}
 		return nil, errors.Wrap(err, "failed to get evm transfers by action hash")
 	}
 
@@ -254,9 +251,6 @@ func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.
 	}
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
-		if errors.Cause(err) != db.ErrNotExist {
-			return nil, err
-		}
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
 	}
 
