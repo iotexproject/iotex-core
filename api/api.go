@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -749,11 +750,14 @@ func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi
 
 	actHash, err := hash.HexStringToHash256(in.ActionHash)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
 	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, "no such action with evm transfer")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -766,8 +770,18 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
 
+	if in.BlockHeight < 1 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
+	}
+
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
 	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
+		}
+		if strings.Contains(err.Error(), systemlog.ErrHeightNotReached.Error()) {
+			return nil, status.Errorf(codes.InvalidArgument, "height = %d is higher than current height", in.BlockHeight)
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
