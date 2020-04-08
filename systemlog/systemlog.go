@@ -35,6 +35,10 @@ var (
 	actionHashPrefix  = []byte("ah.")
 	tipBlockHeightKey = []byte("tipHeight")
 )
+var (
+	// ErrHeightNotReached defines the error when query's block height is higher than tip height
+	ErrHeightNotReached = errors.New("query's block height is higher than tip height")
+)
 
 // Indexer is the indexer for system log
 type Indexer struct {
@@ -188,19 +192,24 @@ func (x *Indexer) DeleteTipBlock(blk *block.Block) error {
 	blockKey := blockKey(blk.Height())
 	data, err := x.kvStore.Get(evmTransferNS, blockKey)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get ActionHashList of block %d", height)
-	}
-	batch.Delete(evmTransferNS, blockKey, "failed to delete blockHeight -> ActionHashList")
+		// there may be no blockEvmTransfer data if the block contains no evm transfers
+		if errors.Cause(err) != db.ErrNotExist {
+			return errors.Wrapf(err, "failed to get ActionHashList of block %d", height)
+		}
+	} else {
+		batch.Delete(evmTransferNS, blockKey, "failed to delete blockHeight -> ActionHashList")
 
-	actionHashList := &systemlogpb.ActionHashList{}
-	if err := proto.Unmarshal(data, actionHashList); err != nil {
-		return errors.Wrap(err, "failed to deserialize ActionHashList")
+		actionHashList := &systemlogpb.ActionHashList{}
+		if err := proto.Unmarshal(data, actionHashList); err != nil {
+			return errors.Wrap(err, "failed to deserialize ActionHashList")
+		}
+
+		for _, actionHash := range actionHashList.ActionHashList {
+			actionKey := actionKey(hash.BytesToHash256(actionHash))
+			batch.Delete(evmTransferNS, actionKey, "failed to delete actionHash -> EvmTransferList")
+		}
 	}
 
-	for _, actionHash := range actionHashList.ActionHashList {
-		actionKey := actionKey(hash.BytesToHash256(actionHash))
-		batch.Delete(evmTransferNS, actionKey, "failed to delete actionHash -> EvmTransferList")
-	}
 	batch.Put(
 		indexerStatus,
 		tipBlockHeightKey,
@@ -233,6 +242,13 @@ func (x *Indexer) GetEvmTransfersByActionHash(actionHash hash.Hash256) (*iotexty
 
 // GetEvmTransfersByBlockHeight queries evm transfers by block height
 func (x *Indexer) GetEvmTransfersByBlockHeight(blockHeight uint64) (*iotextypes.BlockEvmTransfer, error) {
+	tipHeight, err := x.tipHeight()
+	if err != nil {
+		return nil, err
+	}
+	if tipHeight < blockHeight {
+		return nil, ErrHeightNotReached
+	}
 	data, err := x.kvStore.Get(evmTransferNS, blockKey(blockHeight))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get evm transfers by block height")
