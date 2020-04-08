@@ -98,7 +98,7 @@ func register(args []string) error {
 	gasLimit := gasLimitFlag.Value().(uint64)
 	if gasLimit == 0 {
 		gasLimit = action.CandidateRegisterBaseIntrinsicGas +
-			action.CreateStakePayloadGas*uint64(len(payload))
+			action.CandidateRegisterPayloadGas*uint64(len(payload))
 	}
 
 	gasPriceRau, err := gasPriceInRau()
@@ -110,6 +110,10 @@ func register(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
+
+	if err != nil {
+		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
+	}
 
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
