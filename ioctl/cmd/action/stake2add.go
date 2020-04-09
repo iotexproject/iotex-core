@@ -8,7 +8,7 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +37,7 @@ var (
 var stake2AddCmd = &cobra.Command{
 	Use:   config.TranslateInLang(stake2AddCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2AddCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 3),
+	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Add(args)
@@ -51,11 +51,10 @@ func init() {
 
 func stake2Add(args []string) error {
 
-	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
-	if !ok {
+	bucketIndex, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
-	index := bucketIndex.Uint64()
 
 	amountInRau, err := util.StringToRau(args[1], util.IotxDecimalNum)
 	if err != nil {
@@ -87,7 +86,7 @@ func stake2Add(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2a, err := action.NewDepositToStake(nonce, index, amountInRau.String(), data, gasLimit, gasPriceRau)
+	s2a, err := action.NewDepositToStake(nonce, bucketIndex, amountInRau.String(), data, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a depositToStake instance", err)
 	}
