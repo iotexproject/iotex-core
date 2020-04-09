@@ -7,7 +7,7 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -47,11 +47,10 @@ func init() {
 }
 
 func stake2Release(args []string) error {
-	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
-	if !ok {
+	bucketIndex, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
-	index := bucketIndex.Uint64()
 
 	data := []byte{}
 	if len(args) == 2 {
@@ -71,12 +70,12 @@ func stake2Release(args []string) error {
 		return output.NewError(0, "failed to get nonce", err)
 	}
 	gasLimit := gasLimitFlag.Value().(uint64)
-	s2r, err := action.NewUnstake(nonce, index, data, gasLimit, gasPriceRau)
+	s2r, err := action.NewUnstake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
 	if err != nil || s2r == nil {
 		return output.NewError(output.InstantiationError, "failed to make a Unstake  instance", err)
 	}
 	if gasLimit == 0 {
-		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas
+		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 	}
 
 	return SendAction(
