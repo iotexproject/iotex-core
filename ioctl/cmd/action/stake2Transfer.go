@@ -8,7 +8,7 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -37,7 +37,7 @@ var (
 var stake2TransferCmd = &cobra.Command{
 	Use:   config.TranslateInLang(stake2TransferCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2TransferCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 3),
+	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Transfer(args)
@@ -56,11 +56,10 @@ func stake2Transfer(args []string) error {
 		return output.NewError(output.AddressError, "failed to get voter address", err)
 	}
 
-	bucketIndex, ok := new(big.Int).SetString(args[1], 10)
-	if !ok {
+	bucketIndex, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
-	index := bucketIndex.Uint64()
 
 	var payload []byte
 	if len(args) == 3 {
@@ -87,8 +86,10 @@ func stake2Transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t, err := action.NewTransferStake(nonce, voterAddrStr, index, payload, gasLimit, gasPriceRau)
-
+	s2t, err := action.NewTransferStake(nonce, voterAddrStr, bucketIndex, payload, gasLimit, gasPriceRau)
+	if err != nil {
+		return output.NewError(output.InstantiationError, "failed to make a transferStake instance", err)
+	}
 	return SendAction(
 		(&action.EnvelopeBuilder{}).
 			SetNonce(nonce).
