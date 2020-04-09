@@ -146,7 +146,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	}
 
 	// update bucket
-	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp
+	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
 		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
 	}

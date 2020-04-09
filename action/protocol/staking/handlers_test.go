@@ -764,7 +764,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		},
-		// unstake with autoStake bucket 
+		// unstake with autoStake bucket
 		{
 			callerAddr,
 			"10000000000000000000",
