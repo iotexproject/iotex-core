@@ -7,12 +7,13 @@
 package action
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
-	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -50,11 +51,11 @@ func stake2Update(args []string) error {
 		return output.NewError(output.ValidationError, "invalid candidate name", err)
 	}
 
-	operatorAddrStr, err := util.Address(args[0])
+	operatorAddrStr, err := util.Address(args[1])
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get operator address", err)
 	}
-	rewardAddrStr, err := util.Address(args[1])
+	rewardAddrStr, err := util.Address(args[2])
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get reward address", err)
 	}
