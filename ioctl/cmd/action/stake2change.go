@@ -8,7 +8,7 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -54,11 +54,11 @@ func stake2Change(args []string) error {
 		return output.NewError(output.ValidationError, "invalid candidate name", err)
 	}
 
-	bucketIndex, ok := new(big.Int).SetString(args[1], 10)
-	if !ok {
+	bucketIndex, err := strconv.ParseUint(args[1], 10, 64)
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
-	index := bucketIndex.Uint64()
+
 	data := []byte{}
 	if len(args) == 3 {
 		data = make([]byte, 2*len([]byte(args[2])))
@@ -84,7 +84,7 @@ func stake2Change(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewChangeCandidate(nonce, candidateName, index, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewChangeCandidate(nonce, candidateName, bucketIndex, data, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a changeCandidate instance", err)
 	}
