@@ -8,7 +8,7 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -53,11 +53,10 @@ func init() {
 }
 
 func stake2Renew(args []string) error {
-	bucketIndex, ok := new(big.Int).SetString(args[0], 10)
-	if !ok {
+	bucketIndex, err := strconv.ParseUint(args[0], 10, 64)
+	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
-	index := bucketIndex.Uint64()
 
 	stakeDuration, err := parseStakeDuration(args[1])
 	if err != nil {
@@ -90,7 +89,7 @@ func stake2Renew(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2r, err := action.NewRestake(nonce, index, duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
+	s2r, err := action.NewRestake(nonce, bucketIndex, duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a restake instance", err)
 	}
