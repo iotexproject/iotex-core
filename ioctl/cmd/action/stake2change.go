@@ -36,7 +36,7 @@ var (
 var stake2ChangeCmd = &cobra.Command{
 	Use:   config.TranslateInLang(stake2ChangeCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2ChangeCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 3),
+	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Change(args)
