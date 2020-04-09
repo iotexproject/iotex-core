@@ -132,10 +132,16 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
 	}
 
+	if bucket.AutoStake {
+		err := errors.New("AutoStake should be disabled first in order to unstake")
+		log.L().Debug("Error when unstaking bucket", zap.Error(err))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
+	}
+
 	if blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
 		err := fmt.Errorf("bucket is not ready to be unstaked, current time %s, required time %s",
 			blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
-		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
+		log.L().Debug("Error when unstaking bucket", zap.Error(err))
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), gasFee)
 	}
 
@@ -189,13 +195,10 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake), gasFee)
 	}
-	maturity := bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)
-	if bucket.AutoStake {
-		maturity = maturity.Add(bucket.StakedDuration)
-	}
-	if blkCtx.BlockTimeStamp.Before(maturity) {
-		err := fmt.Errorf("bucket is not ready to be withdrawn, current time %s, required time %s",
-			blkCtx.BlockTimeStamp, maturity)
+
+	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
+		err := fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
+			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
 		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity), gasFee)
 	}
@@ -399,6 +402,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm CandidateStateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	_, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -426,6 +430,10 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedDuration = time.Duration(act.Duration()) * 24 * time.Hour
+	if bucket.AutoStake && !act.AutoStake() {
+		// in case of switching off autostake, update bucket StakeStartTime
+		bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
+	}
 	bucket.AutoStake = act.AutoStake()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
 		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
