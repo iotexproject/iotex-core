@@ -429,7 +429,24 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
-	bucket.StakedDuration = time.Duration(act.Duration()) * 24 * time.Hour
+	actDuration := time.Duration(act.Duration()) * 24 * time.Hour
+	if bucket.StakedDuration.Hours() > actDuration.Hours() {
+		// in case of reducing the duration
+		if bucket.AutoStake {
+			// if auto-stake on, user can't reduce duration
+			err := errors.New("AutoStake should be disabled first in order to reduce duration")
+			log.L().Debug("Error when restaking bucket", zap.Error(err))
+			return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
+		}
+		if !bucket.AutoStake && blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
+			// if auto-stake off and maturity is not enough
+			err := fmt.Errorf("bucket is not ready to be able to reduce duration, current time %s, required time %s",
+				blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
+			log.L().Debug("Error when restaking bucket", zap.Error(err))
+			return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrReduceDurationBeforeMaturity), gasFee)
+		}
+	}
+	bucket.StakedDuration = actDuration
 	if bucket.AutoStake && !act.AutoStake() {
 		// in case of switching off autostake, update bucket StakeStartTime
 		bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
