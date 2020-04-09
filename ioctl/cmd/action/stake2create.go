@@ -29,8 +29,7 @@ var (
 		config.English: "create stake on IoTeX blockchain",
 		config.Chinese: "在区块链上创建质押",
 	}
-
-	stake2FalgAutoRestakeUsages = map[config.Language]string{
+	stake2CreateFlagAutoRestakeUsages = map[config.Language]string{
 		config.English: "auto restake without power decay",
 		config.Chinese: "自动质押，权重不会衰减",
 	}
@@ -50,7 +49,7 @@ var stake2CreateCmd = &cobra.Command{Use: config.TranslateInLang(stake2CreateCmd
 func init() {
 	registerWriteCommand(stake2CreateCmd)
 	stake2CreateCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
-		config.TranslateInLang(stake2FalgAutoRestakeUsages, config.UILanguage))
+		config.TranslateInLang(stake2CreateFlagAutoRestakeUsages, config.UILanguage))
 }
 
 func stake2Create(args []string) error {
