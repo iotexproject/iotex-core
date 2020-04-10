@@ -636,6 +636,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		// creat stake fields
 		caller       address.Address
 		amount       string
+		autoStake    bool
 		afterUnstake string
 		initBalance  int64
 		selfstaking  bool
@@ -661,6 +662,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{
 			callerAddr,
 			"9990000000000000000",
+			false,
 			"",
 			10,
 			false,
@@ -681,6 +683,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{
 			identityset.Address(12),
 			"10000000000000000000",
+			false,
 			"",
 			100,
 			false,
@@ -702,6 +705,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{
 			identityset.Address(33),
 			"10000000000000000000",
+			false,
 			"",
 			100,
 			false,
@@ -722,6 +726,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{
 			callerAddr,
 			"10000000000000000000",
+			false,
 			"",
 			100,
 			false,
@@ -742,6 +747,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		{
 			callerAddr,
 			"10000000000000000000",
+			false,
 			"",
 			100,
 			false,
@@ -758,11 +764,33 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
 		},
+		// unstake with autoStake bucket
+		{
+			callerAddr,
+			"10000000000000000000",
+			true,
+			"0",
+			100,
+			false,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			time.Now().Add(time.Duration(1) * 24 * time.Hour),
+			10000,
+			false,
+			true,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		},
 		// Upsert error cannot happen,because collision cannot happen
 		// success
 		{
 			callerAddr,
 			"10000000000000000000",
+			false,
 			"0",
 			100,
 			false,
@@ -787,7 +815,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		} else {
 			candidate = candidate2
 		}
-		ctx, createCost := initCreateStake(t, sm, test.caller, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
+		ctx, createCost := initCreateStake(t, sm, test.caller, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, test.autoStake)
 		act, err := action.NewUnstake(test.nonce, test.index,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -1568,6 +1596,48 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			false,
 			ErrInvalidOwner,
 			iotextypes.ReceiptStatus_Success,
+		},
+		// autoStake = true, set up duration
+		{
+			callerAddr,
+			"10000000000000000000",
+			"10380178401692392587",
+			100,
+			false,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			0,
+			true,
+			false,
+			false,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		},
+		// autoStake = false, set up duration
+		{
+			callerAddr,
+			"10000000000000000000",
+			"10380178401692392587",
+			100,
+			false,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			1,
+			time.Now(),
+			10000,
+			0,
+			false,
+			false,
+			false,
+			nil,
+			iotextypes.ReceiptStatus_ErrReduceDurationBeforeMaturity,
 		},
 		// candidate.SubVote,ErrInvalidAmount cannot happen,because previous vote with no error
 		// ReceiptStatus_Success
