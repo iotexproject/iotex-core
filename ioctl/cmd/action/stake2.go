@@ -42,6 +42,7 @@ var Stake2Cmd = &cobra.Command{
 
 func init() {
 	Stake2Cmd.AddCommand(stake2CreateCmd)
+	Stake2Cmd.AddCommand(stake2AddCmd)
 	Stake2Cmd.AddCommand(stake2TransferCmd)
 	Stake2Cmd.AddCommand(stake2ReleaseCmd)
 	Stake2Cmd.AddCommand(stake2RegisterCmd)
