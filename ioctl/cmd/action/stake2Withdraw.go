@@ -27,7 +27,7 @@ var (
 	}
 	stake2WithDrawCmdShorts = map[config.Language]string{
 		config.English: "Withdraw form bucket on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上提取表单存储桶",
+		config.Chinese: "在IoTeX区块链上撤回表单存储桶",
 	}
 )
 
