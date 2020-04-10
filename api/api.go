@@ -13,6 +13,7 @@ import (
 	"math/big"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -46,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -515,7 +515,7 @@ func (api *Server) GetEpochMeta(
 	}
 
 	methodName := []byte("ActiveBlockProducersByEpoch")
-	arguments := [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
+	arguments := [][]byte{[]byte(strconv.FormatUint(in.EpochNumber, 10))}
 	height := strconv.FormatUint(epochHeight, 10)
 	data, err := api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
@@ -533,7 +533,6 @@ func (api *Server) GetEpochMeta(
 	}
 
 	methodName = []byte("BlockProducersByEpoch")
-	arguments = [][]byte{byteutil.Uint64ToBytes(in.EpochNumber)}
 	data, err = api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -751,11 +750,14 @@ func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi
 
 	actHash, err := hash.HexStringToHash256(in.ActionHash)
 	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
 	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, "no such action with evm transfer")
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -768,8 +770,18 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
 	}
 
+	if in.BlockHeight < 1 {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
+	}
+
 	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
 	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
+		}
+		if strings.Contains(err.Error(), systemlog.ErrHeightNotReached.Error()) {
+			return nil, status.Errorf(codes.InvalidArgument, "height = %d is higher than current height", in.BlockHeight)
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
@@ -1212,12 +1224,17 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	gravityChainStartHeight := epochHeight
 	if pp := poll.FindProtocol(api.registry); pp != nil {
 		methodName := []byte("GetGravityChainStartHeight")
-		arguments := [][]byte{byteutil.Uint64ToBytes(epochHeight)}
+		arguments := [][]byte{[]byte(strconv.FormatUint(epochHeight, 10))}
 		data, err := api.readState(context.Background(), pp, "", methodName, arguments...)
 		if err != nil {
 			return 0, err
 		}
-		gravityChainStartHeight = byteutil.BytesToUint64(data)
+		if len(data) == 0 {
+			return 0, nil
+		}
+		if gravityChainStartHeight, err = strconv.ParseUint(string(data), 10, 64); err != nil {
+			return 0, err
+		}
 	}
 	return gravityChainStartHeight, nil
 }

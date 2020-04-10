@@ -89,6 +89,21 @@ func (mr *MockStateReaderMockRecorder) States(arg0 ...interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateReader)(nil).States), arg0...)
 }
 
+// ReadView mocks base method
+func (m *MockStateReader) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView
+func (mr *MockStateReaderMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateReader)(nil).ReadView), arg0)
+}
+
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller
@@ -167,18 +182,19 @@ func (mr *MockStateManagerMockRecorder) States(arg0 ...interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateManager)(nil).States), arg0...)
 }
 
-// ConfirmedHeight mocks base method
-func (m *MockStateManager) ConfirmedHeight() uint64 {
+// ReadView mocks base method
+func (m *MockStateManager) ReadView(arg0 string) (interface{}, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConfirmedHeight")
-	ret0, _ := ret[0].(uint64)
-	return ret0
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// ConfirmedHeight indicates an expected call of ConfirmedHeight
-func (mr *MockStateManagerMockRecorder) ConfirmedHeight() *gomock.Call {
+// ReadView indicates an expected call of ReadView
+func (mr *MockStateManagerMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConfirmedHeight", reflect.TypeOf((*MockStateManager)(nil).ConfirmedHeight))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateManager)(nil).ReadView), arg0)
 }
 
 // Snapshot mocks base method
@@ -246,6 +262,20 @@ func (m *MockStateManager) DelState(arg0 ...protocol.StateOption) (uint64, error
 func (mr *MockStateManagerMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateManager)(nil).DelState), arg0...)
+}
+
+// WriteView mocks base method
+func (m *MockStateManager) WriteView(arg0 string, arg1 interface{}) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteView", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteView indicates an expected call of WriteView
+func (mr *MockStateManagerMockRecorder) WriteView(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockStateManager)(nil).WriteView), arg0, arg1)
 }
 
 // Dirty mocks base method

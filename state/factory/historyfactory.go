@@ -7,6 +7,8 @@
 package factory
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -42,4 +44,9 @@ func (hReader *historyStateReader) States(opts ...protocol.StateOption) (uint64,
 		return 0, nil, err
 	}
 	return hReader.height, iterator, nil
+}
+
+// ReadView reads the view
+func (hReader *historyStateReader) ReadView(name string) (interface{}, error) {
+	return nil, errors.Wrap(ErrNotSupported, "not implemented yet")
 }

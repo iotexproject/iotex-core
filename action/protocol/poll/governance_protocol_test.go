@@ -180,7 +180,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 				return nil, nil
 			}
 		},
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
 		candidatesutil.CandidatesFromDB,
 		candidatesutil.ProbationListFromDB,
 		candidatesutil.UnproductiveDelegateFromDB,
@@ -401,9 +400,9 @@ func TestHandle(t *testing.T) {
 
 	_, err = shiftCandidates(sm2)
 	require.NoError(err)
-	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, true)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, true)
 	require.Error(err) // should return stateNotExist error
-	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, false)
+	candidates, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)

@@ -133,6 +133,7 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	var h uint64
 	kv := newMockKVStore(ctrl)
 	dk := protocol.NewDock()
+	view := protocol.NewDock()
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
@@ -194,9 +195,9 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return 0, state.NewIterator(fv), nil
 		},
 	).AnyTimes()
-	sm.EXPECT().ConfirmedHeight().DoAndReturn(
-		func() uint64 {
-			return h
+	sm.EXPECT().Height().DoAndReturn(
+		func() (uint64, error) {
+			return h, nil
 		},
 	).AnyTimes()
 	sm.EXPECT().Load(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -207,6 +208,16 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm.EXPECT().Unload(gomock.Any()).DoAndReturn(
 		func(name string) (interface{}, error) {
 			return dk.Unload(name)
+		},
+	).AnyTimes()
+	sm.EXPECT().ReadView(gomock.Any()).DoAndReturn(
+		func(name string) (interface{}, error) {
+			return view.Unload(name)
+		},
+	).AnyTimes()
+	sm.EXPECT().WriteView(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(name string, v interface{}) error {
+			return view.Load(name, v)
 		},
 	).AnyTimes()
 

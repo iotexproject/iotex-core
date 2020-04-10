@@ -105,6 +105,7 @@ func validate(ctx context.Context, p Protocol, act action.Action) error {
 
 func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -114,7 +115,9 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
-	if _, err := p.NextCandidates(ctx, sr); errors.Cause(err) != state.ErrStateNotExist {
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	beforeEaster := hu.IsPre(config.Easter, nextEpochHeight)
+	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, beforeEaster, true); errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
 	log.L().Debug(

@@ -34,6 +34,11 @@ type Protocol interface {
 	Name() string
 }
 
+// Starter starts the protocol
+type Starter interface {
+	Start(context.Context, StateReader) (interface{}, error)
+}
+
 // GenesisStateCreator creates some genesis states
 type GenesisStateCreator interface {
 	CreateGenesisStates(context.Context, StateManager) error
