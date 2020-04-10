@@ -437,8 +437,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 			err := errors.New("AutoStake should be disabled first in order to reduce duration")
 			log.L().Debug("Error when restaking bucket", zap.Error(err))
 			return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
-		}
-		if !bucket.AutoStake && blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
+		} else if blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
 			// if auto-stake off and maturity is not enough
 			err := fmt.Errorf("bucket is not ready to be able to reduce duration, current time %s, required time %s",
 				blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
@@ -447,10 +446,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		}
 	}
 	bucket.StakedDuration = actDuration
-	if bucket.AutoStake && !act.AutoStake() {
-		// in case of switching off autostake, update bucket StakeStartTime
-		bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
-	}
+	bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	bucket.AutoStake = act.AutoStake()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
 		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)

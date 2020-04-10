@@ -1597,7 +1597,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			ErrInvalidOwner,
 			iotextypes.ReceiptStatus_Success,
 		},
-		// autoStake = true, set up duration 
+		// autoStake = true, set up duration
 		{
 			callerAddr,
 			"10000000000000000000",
@@ -1618,7 +1618,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		},
-		// autoStake = false, set up duration 
+		// autoStake = false, set up duration
 		{
 			callerAddr,
 			"10000000000000000000",
