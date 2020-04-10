@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/newcmd/bc"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -114,7 +113,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("ActiveBlockProducersByEpoch"),
-						Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
 
@@ -140,7 +139,7 @@ func NewNodeDelegateCmd(c ioctl.Client) *cobra.Command {
 					&iotexapi.ReadStateRequest{
 						ProtocolID: []byte("poll"),
 						MethodName: []byte("BlockProducersByEpoch"),
-						Arguments:  [][]byte{byteutil.Uint64ToBytes(epochNum)},
+						Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 					},
 				)
 

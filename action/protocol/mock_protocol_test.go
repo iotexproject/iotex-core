@@ -125,6 +125,44 @@ func (mr *MockProtocolMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockProtocol)(nil).Name))
 }
 
+// MockStarter is a mock of Starter interface
+type MockStarter struct {
+	ctrl     *gomock.Controller
+	recorder *MockStarterMockRecorder
+}
+
+// MockStarterMockRecorder is the mock recorder for MockStarter
+type MockStarterMockRecorder struct {
+	mock *MockStarter
+}
+
+// NewMockStarter creates a new mock instance
+func NewMockStarter(ctrl *gomock.Controller) *MockStarter {
+	mock := &MockStarter{ctrl: ctrl}
+	mock.recorder = &MockStarterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockStarter) EXPECT() *MockStarterMockRecorder {
+	return m.recorder
+}
+
+// Start mocks base method
+func (m *MockStarter) Start(arg0 context.Context, arg1 StateReader) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Start", arg0, arg1)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Start indicates an expected call of Start
+func (mr *MockStarterMockRecorder) Start(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockStarter)(nil).Start), arg0, arg1)
+}
+
 // MockGenesisStateCreator is a mock of GenesisStateCreator interface
 type MockGenesisStateCreator struct {
 	ctrl     *gomock.Controller
