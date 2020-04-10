@@ -72,8 +72,7 @@ func register(args []string) error {
 		return output.NewError(output.AddressError, "failed to get owner address", err)
 	}
 
-	amountStr := args[4]
-	amountInRau, err := util.StringToRau(amountStr, util.IotxDecimalNum)
+	amountInRau, err := util.StringToRau(args[4], util.IotxDecimalNum)
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
