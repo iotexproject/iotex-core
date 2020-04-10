@@ -42,6 +42,7 @@ type stateDB struct {
 	dao                db.KVStore // the underlying DB for account/contract storage
 	timerFactory       *prometheustimer.TimerFactory
 	workingsets        *lru.Cache // lru cache for workingsets
+	protocolView       protocol.Dock
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -94,6 +95,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
+		protocolView:       protocol.NewDock(),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -127,14 +129,16 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	switch errors.Cause(err) {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
-		if err := sdb.registry.StartAll(ctx); err != nil {
+		// start all protocols
+		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
 		if err = sdb.dao.Put(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
-		if err := sdb.registry.StartAll(ctx); err != nil {
+		// start all protocols
+		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -229,6 +233,12 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			}
 			sdb.currentChainHeight = h
 			return nil
+		},
+		readviewFunc: func(name string) (interface{}, error) {
+			return sdb.protocolView.Unload(name)
+		},
+		writeviewFunc: func(name string, v interface{}) error {
+			return sdb.protocolView.Load(name, v)
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
 		revertFunc:   flusher.KVStoreWithBuffer().Revert,
@@ -415,6 +425,11 @@ func (sdb *stateDB) StateAtHeight(height uint64, s interface{}, opts ...protocol
 // StatesAtHeight returns a set states in the state factory at height -- archive mode
 func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) (state.Iterator, error) {
 	return nil, errors.Wrap(ErrNotSupported, "state db does not support archive mode")
+}
+
+// ReadView reads the view
+func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+	return sdb.protocolView.Unload(name)
 }
 
 //======================================

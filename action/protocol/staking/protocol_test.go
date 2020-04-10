@@ -99,7 +99,11 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	csm, err := stk.createCandidateStateManager(sm)
+	v, err := stk.Start(ctx, sm)
+	r.NoError(err)
+	cc, ok := v.(CandidateCenter)
+	r.True(ok)
+	csm, err := NewCandidateStateManager(sm, cc)
 	r.NoError(err)
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
@@ -110,7 +114,8 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// active list should filter out 2 cands with not enough self-stake
-	cand, err := stk.ActiveCandidates(ctx, sm.ConfirmedHeight())
+	h, _ := sm.Height()
+	cand, err := stk.ActiveCandidates(ctx, h)
 	r.NoError(err)
 	r.Equal(len(testCandidates)-2, len(cand))
 	for i := range cand {

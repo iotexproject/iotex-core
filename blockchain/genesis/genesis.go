@@ -54,7 +54,7 @@ func defaultConfig() Genesis {
 			CookBlockHeight:         1641601,
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
-			EasterBlockHeight:       4200841,
+			EasterBlockHeight:       4478761,
 			FairbankBlockHeight:     4339081,
 		},
 		Account: Account{

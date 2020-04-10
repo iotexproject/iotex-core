@@ -98,10 +98,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
 		},
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
-			return nil, state.ErrStateNotExist
+		func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+			return nil, 0, state.ErrStateNotExist
 		},
-		nil,
 		nil,
 		nil,
 		nil,
@@ -230,7 +229,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	require.NoError(err)
 	require.NotNil(receipt)
 
-	candidates, err := candidatesutil.CandidatesByHeight(sm2, 1)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, true, false)
 	require.NoError(err)
 	require.Equal(2, len(candidates))
 	require.Equal(candidates[0].Address, sc2[0].Address)
