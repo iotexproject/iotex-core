@@ -3,6 +3,7 @@
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
+
 package action
 
 import (
@@ -70,12 +71,12 @@ func stake2Release(args []string) error {
 		return output.NewError(0, "failed to get nonce", err)
 	}
 	gasLimit := gasLimitFlag.Value().(uint64)
-	s2r, err := action.NewUnstake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
-	if err != nil || s2r == nil {
-		return output.NewError(output.InstantiationError, "failed to make a Unstake  instance", err)
-	}
 	if gasLimit == 0 {
 		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
+	}
+	s2r, err := action.NewUnstake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
+	if err != nil {
+		return output.NewError(output.InstantiationError, "failed to make a Unstake  instance", err)
 	}
 
 	return SendAction(
