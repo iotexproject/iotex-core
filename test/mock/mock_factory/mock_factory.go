@@ -122,6 +122,21 @@ func (mr *MockFactoryMockRecorder) States(arg0 ...interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockFactory)(nil).States), arg0...)
 }
 
+// ReadView mocks base method
+func (m *MockFactory) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView
+func (mr *MockFactoryMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockFactory)(nil).ReadView), arg0)
+}
+
 // Register mocks base method
 func (m *MockFactory) Register(arg0 protocol.Protocol) error {
 	m.ctrl.T.Helper()

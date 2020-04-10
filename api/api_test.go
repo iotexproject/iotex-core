@@ -19,6 +19,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
@@ -43,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/systemlog"
@@ -1061,7 +1062,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 				nil,
 				nil,
 				nil,
-				nil,
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
 				cfg.Genesis.ProductivityThreshold,
@@ -1332,8 +1332,9 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1358,7 +1359,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var delegates state.CandidateList
@@ -1400,8 +1401,9 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1426,7 +1428,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var blockProducers state.CandidateList
@@ -1468,8 +1470,9 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) { return candidates, nil },
-				nil,
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+					return candidates, 0, nil
+				},
 				nil,
 				nil,
 				indexer,
@@ -1494,7 +1497,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.epoch)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.epoch, 10))},
 		})
 		require.NoError(err)
 		var activeBlockProducers state.CandidateList
@@ -1515,7 +1518,9 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 			MethodName: []byte(test.methodName),
 		})
 		require.NoError(err)
-		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+		result, err := strconv.ParseUint(string(res.Data), 10, 64)
+		require.NoError(err)
+		require.Equal(test.result, result)
 	}
 }
 
@@ -1529,10 +1534,12 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
-			Arguments:  [][]byte{byteutil.Uint64ToBytes(test.argument)},
+			Arguments:  [][]byte{[]byte(strconv.FormatUint(test.argument, 10))},
 		})
 		require.NoError(err)
-		require.Equal(test.result, byteutil.BytesToUint64(res.Data))
+		result, err := strconv.ParseUint(string(res.Data), 10, 64)
+		require.NoError(err)
+		require.Equal(test.result, result)
 	}
 }
 
@@ -1559,7 +1566,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
-				func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
+				func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
 					return []*state.Candidate{
 						{
 							Address:       identityset.Address(1).String(),
@@ -1591,9 +1598,8 @@ func TestServer_GetEpochMeta(t *testing.T) {
 							Votes:         big.NewInt(1),
 							RewardAddress: "rewardAddress",
 						},
-					}, nil
+					}, 0, nil
 				},
-				nil,
 				nil,
 				nil,
 				indexer,
@@ -1718,6 +1724,15 @@ func TestServer_GetEvmTransfersByActionHash(t *testing.T) {
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
+	request := &iotexapi.GetEvmTransfersByActionHashRequest{
+		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
+	}
+	_, err = svr.GetEvmTransfersByActionHash(context.Background(), request)
+	require.Error(err)
+	sta, ok := status.FromError(err)
+	require.Equal(true, ok)
+	require.Equal(codes.NotFound, sta.Code())
+
 	for _, test := range getEvmTransfersByActionHashTest {
 		request := &iotexapi.GetEvmTransfersByActionHashRequest{
 			ActionHash: hex.EncodeToString(test.actHash[:]),
@@ -1742,6 +1757,22 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
+
+	request := &iotexapi.GetEvmTransfersByBlockHeightRequest{
+		BlockHeight: 101,
+	}
+	_, err = svr.GetEvmTransfersByBlockHeight(context.Background(), request)
+	require.Error(err)
+	sta, ok := status.FromError(err)
+	require.Equal(true, ok)
+	require.Equal(codes.InvalidArgument, sta.Code())
+
+	request.BlockHeight = 2
+	_, err = svr.GetEvmTransfersByBlockHeight(context.Background(), request)
+	require.Error(err)
+	sta, ok = status.FromError(err)
+	require.Equal(true, ok)
+	require.Equal(codes.NotFound, sta.Code())
 
 	for _, test := range getEvmTransfersByBlockHeightTest {
 		request := &iotexapi.GetEvmTransfersByBlockHeightRequest{
@@ -2005,6 +2036,12 @@ func setupSystemLogIndexer(indexer *systemlog.Indexer) error {
 	if err != nil {
 		return err
 	}
+	emptyBlock, err := block.NewTestingBuilder().
+		SetHeight(2).
+		SignAndBuild(identityset.PrivateKey(30))
+	if err != nil {
+		return err
+	}
 	blk.Receipts = []*action.Receipt{testReceiptWithSystemLog}
 
 	ctx := context.Background()
@@ -2013,6 +2050,9 @@ func setupSystemLogIndexer(indexer *systemlog.Indexer) error {
 	}
 
 	if err := indexer.PutBlock(ctx, &blk); err != nil {
+		return err
+	}
+	if err := indexer.PutBlock(ctx, &emptyBlock); err != nil {
 		return err
 	}
 

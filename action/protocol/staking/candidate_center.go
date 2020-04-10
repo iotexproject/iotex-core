@@ -55,9 +55,7 @@ type (
 
 // listToCandChange creates a candChange from list
 func listToCandChange(l CandidateList) (*candChange, error) {
-	cv := candChange{
-		dirty: make(map[string]*Candidate),
-	}
+	cv := newCandChange()
 
 	for _, d := range l {
 		if err := d.Validate(); err != nil {
@@ -65,20 +63,34 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 		}
 		cv.dirty[d.Owner.String()] = d
 	}
-	return &cv, nil
+	return cv, nil
 }
 
 // NewCandidateCenter creates an instance of candCenter
-func NewCandidateCenter() CandidateCenter {
-	return &candCenter{
+func NewCandidateCenter(all CandidateList) (CandidateCenter, error) {
+	delta, err := listToCandChange(all)
+	if err != nil {
+		return nil, err
+	}
+
+	c := candCenter{
 		base: &candBase{
 			nameMap:          make(map[string]*Candidate),
 			ownerMap:         make(map[string]*Candidate),
 			operatorMap:      make(map[string]*Candidate),
 			selfStkBucketMap: make(map[uint64]*Candidate),
 		},
-		change: newCandChange(),
+		change: delta,
 	}
+
+	if len(all) == 0 {
+		return &c, nil
+	}
+
+	if err := c.Commit(); err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 // Size returns number of candidates

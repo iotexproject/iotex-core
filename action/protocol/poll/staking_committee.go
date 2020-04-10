@@ -156,7 +156,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	return nil
 }
 
-func (sc *stakingCommittee) Start(ctx context.Context) error {
+func (sc *stakingCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if bcCtx.Genesis.NativeStakingContractAddress == "" && bcCtx.Genesis.NativeStakingContractCode != "" {
 		caller, _ := address.FromString(nativeStakingContractCreator)
@@ -166,7 +166,7 @@ func (sc *stakingCommittee) Start(ctx context.Context) error {
 		log.L().Info("Loaded native staking contract", zap.String("address", iotxAddr.String()))
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (sc *stakingCommittee) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {

@@ -274,7 +274,6 @@ func testCandidates(sf Factory, t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.ProductivityThreshold,
@@ -323,7 +322,7 @@ func testCandidates(sf Factory, t *testing.T) {
 		GasLimit:    gasLimit,
 	}), &blk))
 
-	candidates, err := candidatesutil.CandidatesByHeight(sf, 1)
+	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
 	require.Equal(t, len(sc), len(candidates))
 	for i, c := range candidates {

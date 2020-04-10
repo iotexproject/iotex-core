@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/pkg/errors"
 )
 
@@ -92,18 +91,26 @@ func (r *Registry) all() []Protocol {
 }
 
 // StartAll starts all protocols which are startable
-func (r *Registry) StartAll(ctx context.Context) error {
+func (r *Registry) StartAll(ctx context.Context, sr StateReader) (map[string]interface{}, error) {
 	if r == nil {
-		return nil
+		return nil, nil
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	allView := make(map[string]interface{})
 	for _, p := range r.all() {
-		if s, ok := p.(lifecycle.Starter); ok {
-			if err := s.Start(ctx); err != nil {
-				return errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(s))
-			}
+		s, ok := p.(Starter)
+		if !ok {
+			continue
 		}
+		view, err := s.Start(ctx, sr)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to start protocol %s", reflect.TypeOf(p))
+		}
+		if view == nil {
+			continue
+		}
+		allView[p.Name()] = view
 	}
-	return nil
+	return allView, nil
 }

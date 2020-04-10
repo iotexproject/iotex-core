@@ -276,7 +276,6 @@ func New(
 
 				return data, err
 			},
-			candidatesutil.CandidatesByHeight,
 			candidatesutil.CandidatesFromDB,
 			candidatesutil.ProbationListFromDB,
 			candidatesutil.UnproductiveDelegateFromDB,

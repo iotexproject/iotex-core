@@ -339,10 +339,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
 		},
-		func(protocol.StateReader, uint64) ([]*state.Candidate, error) {
-			return abps, nil
+		func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
+			return abps, 0, nil
 		},
-		nil,
 		nil,
 		nil,
 		nil,
