@@ -42,6 +42,7 @@ var Stake2Cmd = &cobra.Command{
 
 func init() {
 	Stake2Cmd.AddCommand(stake2CreateCmd)
+	Stake2Cmd.AddCommand(stake2ChangeCmd)
 	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(stake2FlagEndpointUsages, config.UILanguage))
 	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(stake2FlagInsecureUsages, config.UILanguage))
 }
