@@ -72,10 +72,10 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 	}, nil
 }
 
-func (cc *consortiumCommittee) Start(ctx context.Context) error {
+func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	if bcCtx.Genesis.ConsortiumCommitteeContractCode == "" {
-		return errors.New("cannot find consortium committee contract in gensis")
+		return nil, errors.New("cannot find consortium committee contract in gensis")
 	}
 
 	caller, _ := address.FromString(consortiumCommitteeContractCreator)
@@ -84,7 +84,7 @@ func (cc *consortiumCommittee) Start(ctx context.Context) error {
 	cc.contract = iotxAddr.String()
 	log.L().Info("Loaded consortium committee contract", zap.String("address", iotxAddr.String()))
 
-	return nil
+	return nil, nil
 }
 
 func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {

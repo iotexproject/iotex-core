@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -53,16 +52,21 @@ func (sc *stakingCommand) CreateGenesisStates(ctx context.Context, sm protocol.S
 	return sc.stakingV2.CreateGenesisStates(ctx, sm)
 }
 
-func (sc *stakingCommand) Start(ctx context.Context) error {
+func (sc *stakingCommand) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	if sc.stakingV1 != nil {
-		if starter, ok := sc.stakingV1.(lifecycle.Starter); ok {
-			return starter.Start(ctx)
+		if starter, ok := sc.stakingV1.(protocol.Starter); ok {
+			if _, err := starter.Start(ctx, sr); err != nil {
+				return nil, err
+			}
 		}
 	}
-	if starter, ok := sc.stakingV2.(lifecycle.Starter); ok {
-		return starter.Start(ctx)
+
+	if sc.stakingV2 != nil {
+		if starter, ok := sc.stakingV2.(protocol.Starter); ok {
+			return starter.Start(ctx, sr)
+		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (sc *stakingCommand) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
