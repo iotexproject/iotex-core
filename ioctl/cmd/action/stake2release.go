@@ -27,7 +27,7 @@ var (
 	}
 	stake2ReleaseCmdShorts = map[config.Language]string{
 		config.English: "Release bucket on IoTeX blockchain",
-		config.Chinese: "发布IoTeX区块链上的存储桶",
+		config.Chinese: "释放IoTeX区块链上的存储桶",
 	}
 )
 
