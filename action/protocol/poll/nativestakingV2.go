@@ -51,7 +51,7 @@ func (ns *nativeStakingV2) CreateGenesisStates(ctx context.Context, sm protocol.
 	if err := ns.slasher.CreateGenesisStates(ctx, sm, ns.candIndexer); err != nil {
 		return err
 	}
-	cands, err := ns.stakingV2.ActiveCandidates(ctx, 0)
+	cands, err := ns.stakingV2.ActiveCandidates(ctx, sm, 0)
 	if err != nil {
 		return err
 	}
@@ -69,16 +69,15 @@ func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context, sr proto
 }
 
 func (ns *nativeStakingV2) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	if err := validate(ctx, sm, ns, act); err != nil {
+		return nil, err
+	}
 	return handle(ctx, act, sm, ns.candIndexer, ns.addr.String())
 }
 
-func (ns *nativeStakingV2) Validate(ctx context.Context, act action.Action) error {
-	return validate(ctx, ns, act)
-}
-
-func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	// transition to V2 starting Fairbank
-	cands, err := ns.stakingV2.ActiveCandidates(ctx, height)
+	cands, err := ns.stakingV2.ActiveCandidates(ctx, sr, height)
 	if err != nil {
 		return cands, err
 	}

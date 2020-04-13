@@ -27,93 +27,64 @@ var (
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	if !IsValidCandidateName(act.Candidate()) {
+	if !isValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateUnstake(ctx context.Context, act *action.Unstake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateWithdrawStake(ctx context.Context, act *action.WithdrawStake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.ChangeCandidate) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	if !IsValidCandidateName(act.Candidate()) {
+	if !isValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateTransferStake(ctx context.Context, act *action.TransferStake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.DepositToStake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) error {
-	if act == nil {
-		return ErrNilAction
-	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
-	if act == nil {
-		return ErrNilAction
-	}
-
-	if !IsValidCandidateName(act.Name()) {
+	if !isValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
 	}
 
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
-	if act == nil {
-		return ErrNilAction
-	}
-
 	if len(act.Name()) != 0 {
-		if !IsValidCandidateName(act.Name()) {
+		if !isValidCandidateName(act.Name()) {
 			return ErrInvalidCanName
 		}
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.
-func IsValidCandidateName(s string) bool {
+func isValidCandidateName(s string) bool {
 	if len(s) == 0 || len(s) > 12 {
 		return false
 	}

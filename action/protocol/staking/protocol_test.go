@@ -115,7 +115,7 @@ func TestProtocol(t *testing.T) {
 
 	// active list should filter out 2 cands with not enough self-stake
 	h, _ := sm.Height()
-	cand, err := stk.ActiveCandidates(ctx, h)
+	cand, err := stk.ActiveCandidates(ctx, sm, h)
 	r.NoError(err)
 	r.Equal(len(testCandidates)-2, len(cand))
 	for i := range cand {

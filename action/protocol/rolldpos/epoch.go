@@ -169,11 +169,6 @@ func (p *Protocol) ForceRegister(r *protocol.Registry) error {
 	return r.ForceRegister(protocolID, p)
 }
 
-// Validate validates a modification
-func (p *Protocol) Validate(context.Context, action.Action) error {
-	return nil
-}
-
 // Name returns the name of protocol
 func (p *Protocol) Name() string {
 	return protocolID

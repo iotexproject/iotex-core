@@ -103,17 +103,3 @@ func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	}
 	return nil
 }
-
-func protocolAbort(ctx context.Context, sr protocol.StateManager) error {
-	if reg, ok := protocol.GetRegistry(ctx); ok {
-		for _, p := range reg.All() {
-			post, ok := p.(protocol.Aborter)
-			if ok && sr.ProtocolDirty(p.Name()) {
-				if err := post.Abort(ctx, sr); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	return nil
-}

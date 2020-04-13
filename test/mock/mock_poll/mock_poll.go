@@ -36,20 +36,6 @@ func (m *MockProtocol) EXPECT() *MockProtocolMockRecorder {
 	return m.recorder
 }
 
-// Validate mocks base method
-func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Action) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Validate indicates an expected call of Validate
-func (mr *MockProtocolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockProtocol)(nil).Validate), arg0, arg1)
-}
-
 // Handle mocks base method
 func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 protocol.StateManager) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
@@ -202,16 +188,16 @@ func (mr *MockProtocolMockRecorder) NextCandidates(arg0, arg1 interface{}) *gomo
 }
 
 // CalculateCandidatesByHeight mocks base method
-func (m *MockProtocol) CalculateCandidatesByHeight(arg0 context.Context, arg1 uint64) (state.CandidateList, error) {
+func (m *MockProtocol) CalculateCandidatesByHeight(arg0 context.Context, arg1 protocol.StateReader, arg2 uint64) (state.CandidateList, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CalculateCandidatesByHeight", arg0, arg1)
+	ret := m.ctrl.Call(m, "CalculateCandidatesByHeight", arg0, arg1, arg2)
 	ret0, _ := ret[0].(state.CandidateList)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CalculateCandidatesByHeight indicates an expected call of CalculateCandidatesByHeight
-func (mr *MockProtocolMockRecorder) CalculateCandidatesByHeight(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockProtocolMockRecorder) CalculateCandidatesByHeight(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateCandidatesByHeight", reflect.TypeOf((*MockProtocol)(nil).CalculateCandidatesByHeight), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CalculateCandidatesByHeight", reflect.TypeOf((*MockProtocol)(nil).CalculateCandidatesByHeight), arg0, arg1, arg2)
 }

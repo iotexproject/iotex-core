@@ -183,17 +183,14 @@ func (ws *workingSet) Revert(snapshot int) error {
 
 // Commit persists all changes in RunActions() into the DB
 func (ws *workingSet) Commit(ctx context.Context) error {
-	err := ws.commitFunc(ws.height)
-	if !ws.Dirty() {
+	if err := ws.commitFunc(ws.height); err != nil {
 		return err
 	}
-	if err == nil {
-		protocolCommit(ctx, ws)
-	} else {
-		protocolAbort(ctx, ws)
+	if err := protocolCommit(ctx, ws); err != nil {
+		return err
 	}
 	ws.Reset()
-	return err
+	return nil
 }
 
 // GetDB returns the underlying DB for account/contract storage
@@ -243,10 +240,6 @@ func (ws *workingSet) ReadView(name string) (interface{}, error) {
 // WriteView writeback the view to factory
 func (ws *workingSet) WriteView(name string, v interface{}) error {
 	return ws.writeviewFunc(name, v)
-}
-
-func (ws *workingSet) Dirty() bool {
-	return ws.dock.Dirty()
 }
 
 func (ws *workingSet) ProtocolDirty(name string) bool {
@@ -323,19 +316,7 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
-	var err error
-	reg := protocol.MustGetRegistry(ctx)
-	for _, act := range actions {
-		if ctx, err = withActionCtx(ctx, act); err != nil {
-			return nil, err
-		}
-		for _, validator := range reg.All() {
-			if err := validator.Validate(ctx, act.Action()); err != nil {
-				return nil, err
-			}
-		}
-	}
-	for _, p := range reg.All() {
+	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
 				return nil, err
@@ -381,28 +362,21 @@ func (ws *workingSet) pickAndRunActions(
 		if !ok {
 			break
 		}
-		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
-			for _, validator := range reg.All() {
-				if err = validator.Validate(ctx, nextAction.Action()); err != nil {
-					break
-				}
-			}
-		}
-		if err != nil {
+		if ctx, err = withActionCtx(ctx, nextAction); err != nil {
 			actionIterator.PopAccount()
 			continue
 		}
+		snapshot := ws.snapshotFunc()
 		receipt, err := ws.runAction(ctx, nextAction)
 		if err != nil {
-			if errors.Cause(err) == action.ErrHitGasLimit {
-				// hit block gas limit, we should not process actions belong to this user anymore since we
-				// need monotonically increasing nonce. But we can continue processing other actions
-				// that belong other users
-				actionIterator.PopAccount()
-				continue
+			if err := ws.revertFunc(snapshot); err != nil {
+				return nil, nil, errors.Wrap(err, "failed to revert changes")
 			}
-			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+			actionIterator.PopAccount()
+			continue
 		}
+		// TODO: if the action is not handled by any handler, receipt will be nil.
+		//  in this case, should this action be appended?
 		if receipt != nil {
 			blkCtx.GasLimit -= receipt.GasConsumed
 			ctx = protocol.WithBlockCtx(ctx, blkCtx)

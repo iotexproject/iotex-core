@@ -64,14 +64,13 @@ func (p *lifeLongDelegatesProtocol) CreateGenesisStates(
 }
 
 func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	if err := validate(ctx, sm, p, act); err != nil {
+		return nil, err
+	}
 	return handle(ctx, act, sm, nil, p.addr.String())
 }
 
-func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Action) error {
-	return validate(ctx, p, act)
-}
-
-func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Context, height uint64) (state.CandidateList, error) {
+func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, _ uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
 

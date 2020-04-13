@@ -14,7 +14,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -769,47 +768,20 @@ func TestProtocol_Handle(t *testing.T) {
 		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
 	})
 
-}
-
-func TestProtocol_Validate(t *testing.T) {
-	require := require.New(t)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-
 	protocol := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
-	// Case I: Oversized data
-	tmpPayload := [32769]byte{}
-	data := tmpPayload[:]
-	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), ex)
-	require.Equal(action.ErrActPool, errors.Cause(err))
-	// Case II: Negative amount
-	ex, err = action.NewExecution("2", uint64(1), big.NewInt(-100), uint64(0), big.NewInt(0), []byte{})
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), ex)
-	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case IV: Invalid contract address
-	ex, err = action.NewExecution(
-		identityset.Address(29).String()+"bbb",
-		uint64(1),
-		big.NewInt(0),
-		uint64(0),
-		big.NewInt(0),
-		[]byte{},
-	)
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), ex)
-	require.Error(err)
-	require.True(strings.Contains(err.Error(), "error when validating contract's address"))
-	// Case V: Negative gas price
-	ex, err = action.NewExecution(identityset.Address(29).String(), uint64(1), big.NewInt(100), uint64(0), big.NewInt(-1), []byte{})
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), ex)
-	require.Equal(action.ErrGasPrice, errors.Cause(err))
+
+	t.Run("Oversized data", func(t *testing.T) {
+		tmpPayload := [32769]byte{}
+		data := tmpPayload[:]
+		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+		require.NoError(t, err)
+		_, err = protocol.Handle(context.Background(), ex, nil)
+		require.Equal(t, action.ErrActPool, errors.Cause(err))
+	})
 }
 
 func TestMaxTime(t *testing.T) {

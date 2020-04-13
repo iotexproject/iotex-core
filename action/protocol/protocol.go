@@ -26,7 +26,6 @@ const (
 
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
-	ActionValidator
 	ActionHandler
 	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, error)
 	Register(*Registry) error
@@ -54,19 +53,9 @@ type Committer interface {
 	Commit(context.Context, StateManager) error
 }
 
-// Aborter performs abort action of the protocol
-type Aborter interface {
-	Abort(context.Context, StateManager) error
-}
-
 // PostSystemActionsCreator creates a list of system actions to be appended to block actions
 type PostSystemActionsCreator interface {
 	CreatePostSystemActions(context.Context, StateReader) ([]action.Envelope, error)
-}
-
-// ActionValidator is the interface of validating an action
-type ActionValidator interface {
-	Validate(context.Context, action.Action) error
 }
 
 // ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be

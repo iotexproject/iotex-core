@@ -34,20 +34,6 @@ func (m *MockProtocol) EXPECT() *MockProtocolMockRecorder {
 	return m.recorder
 }
 
-// Validate mocks base method
-func (m *MockProtocol) Validate(arg0 context.Context, arg1 action.Action) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Validate indicates an expected call of Validate
-func (mr *MockProtocolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockProtocol)(nil).Validate), arg0, arg1)
-}
-
 // Handle mocks base method
 func (m *MockProtocol) Handle(arg0 context.Context, arg1 action.Action, arg2 StateManager) (*action.Receipt, error) {
 	m.ctrl.T.Helper()
@@ -274,43 +260,6 @@ func (mr *MockCommitterMockRecorder) Commit(arg0, arg1 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockCommitter)(nil).Commit), arg0, arg1)
 }
 
-// MockAborter is a mock of Aborter interface
-type MockAborter struct {
-	ctrl     *gomock.Controller
-	recorder *MockAborterMockRecorder
-}
-
-// MockAborterMockRecorder is the mock recorder for MockAborter
-type MockAborterMockRecorder struct {
-	mock *MockAborter
-}
-
-// NewMockAborter creates a new mock instance
-func NewMockAborter(ctrl *gomock.Controller) *MockAborter {
-	mock := &MockAborter{ctrl: ctrl}
-	mock.recorder = &MockAborterMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockAborter) EXPECT() *MockAborterMockRecorder {
-	return m.recorder
-}
-
-// Abort mocks base method
-func (m *MockAborter) Abort(arg0 context.Context, arg1 StateManager) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Abort", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Abort indicates an expected call of Abort
-func (mr *MockAborterMockRecorder) Abort(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockAborter)(nil).Abort), arg0, arg1)
-}
-
 // MockPostSystemActionsCreator is a mock of PostSystemActionsCreator interface
 type MockPostSystemActionsCreator struct {
 	ctrl     *gomock.Controller
@@ -347,43 +296,6 @@ func (m *MockPostSystemActionsCreator) CreatePostSystemActions(arg0 context.Cont
 func (mr *MockPostSystemActionsCreatorMockRecorder) CreatePostSystemActions(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePostSystemActions", reflect.TypeOf((*MockPostSystemActionsCreator)(nil).CreatePostSystemActions), arg0, arg1)
-}
-
-// MockActionValidator is a mock of ActionValidator interface
-type MockActionValidator struct {
-	ctrl     *gomock.Controller
-	recorder *MockActionValidatorMockRecorder
-}
-
-// MockActionValidatorMockRecorder is the mock recorder for MockActionValidator
-type MockActionValidatorMockRecorder struct {
-	mock *MockActionValidator
-}
-
-// NewMockActionValidator creates a new mock instance
-func NewMockActionValidator(ctrl *gomock.Controller) *MockActionValidator {
-	mock := &MockActionValidator{ctrl: ctrl}
-	mock.recorder = &MockActionValidatorMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
-	return m.recorder
-}
-
-// Validate mocks base method
-func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Validate indicates an expected call of Validate
-func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1)
 }
 
 // MockActionHandler is a mock of ActionHandler interface

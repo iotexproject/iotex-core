@@ -9,7 +9,6 @@ package account
 import (
 	"context"
 	"math/big"
-	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -184,42 +183,14 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 	require.Equal(uint64(2), acct.Nonce)
 	require.Equal("20003", acct.Balance.String())
-}
 
-func TestProtocol_ValidateTransfer(t *testing.T) {
-	require := require.New(t)
-	protocol := NewProtocol(rewarding.DepositGas)
-	// Case I: Oversized data
-	tmpPayload := [32769]byte{}
-	payload := tmpPayload[:]
-	tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
-		big.NewInt(0))
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), tsf)
-	require.Equal(action.ErrActPool, errors.Cause(err))
-	// Case II: Negative amount
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
-		uint64(100000), big.NewInt(0))
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), tsf)
-	require.Equal(action.ErrBalance, errors.Cause(err))
-	// Case III: Invalid recipient address
-	tsf, err = action.NewTransfer(
-		1,
-		big.NewInt(1),
-		identityset.Address(28).String()+"aaa",
-		nil,
-		uint64(100000),
-		big.NewInt(0),
-	)
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), tsf)
-	require.Error(err)
-	require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
-	// Case IV: Negative gas fee
-	tsf, err = action.NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
-		uint64(100000), big.NewInt(-1))
-	require.NoError(err)
-	err = protocol.Validate(context.Background(), tsf)
-	require.Equal(action.ErrGasPrice, errors.Cause(err))
+	t.Run("Oversize data", func(t *testing.T) {
+		tmpPayload := [32769]byte{}
+		payload := tmpPayload[:]
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
+			big.NewInt(0))
+		require.NoError(err)
+		_, err = p.Handle(ctx, tsf, sm)
+		require.Equal(action.ErrActPool, errors.Cause(err))
+	})
 }

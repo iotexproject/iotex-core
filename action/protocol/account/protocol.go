@@ -65,20 +65,12 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	switch act := act.(type) {
 	case *action.Transfer:
+		if err := p.validateTransfer(ctx, act); err != nil {
+			return nil, errors.Wrap(err, "error when validating transfer action")
+		}
 		return p.handleTransfer(ctx, act, sm)
 	}
 	return nil, nil
-}
-
-// Validate validates an account
-func (p *Protocol) Validate(ctx context.Context, act action.Action) error {
-	switch act := act.(type) {
-	case *action.Transfer:
-		if err := p.validateTransfer(ctx, act); err != nil {
-			return errors.Wrap(err, "error when validating transfer action")
-		}
-	}
-	return nil
 }
 
 // ReadState read the state on blockchain via protocol
