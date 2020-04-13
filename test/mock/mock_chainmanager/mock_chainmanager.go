@@ -104,6 +104,200 @@ func (mr *MockStateReaderMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateReader)(nil).ReadView), arg0)
 }
 
+// MockStateWriter is a mock of StateWriter interface
+type MockStateWriter struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateWriterMockRecorder
+}
+
+// MockStateWriterMockRecorder is the mock recorder for MockStateWriter
+type MockStateWriterMockRecorder struct {
+	mock *MockStateWriter
+}
+
+// NewMockStateWriter creates a new mock instance
+func NewMockStateWriter(ctrl *gomock.Controller) *MockStateWriter {
+	mock := &MockStateWriter{ctrl: ctrl}
+	mock.recorder = &MockStateWriterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockStateWriter) EXPECT() *MockStateWriterMockRecorder {
+	return m.recorder
+}
+
+// PutState mocks base method
+func (m *MockStateWriter) PutState(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutState indicates an expected call of PutState
+func (mr *MockStateWriterMockRecorder) PutState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateWriter)(nil).PutState), varargs...)
+}
+
+// DelState mocks base method
+func (m *MockStateWriter) DelState(arg0 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelState indicates an expected call of DelState
+func (mr *MockStateWriterMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateWriter)(nil).DelState), arg0...)
+}
+
+// MockStateReadWriter is a mock of StateReadWriter interface
+type MockStateReadWriter struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateReadWriterMockRecorder
+}
+
+// MockStateReadWriterMockRecorder is the mock recorder for MockStateReadWriter
+type MockStateReadWriterMockRecorder struct {
+	mock *MockStateReadWriter
+}
+
+// NewMockStateReadWriter creates a new mock instance
+func NewMockStateReadWriter(ctrl *gomock.Controller) *MockStateReadWriter {
+	mock := &MockStateReadWriter{ctrl: ctrl}
+	mock.recorder = &MockStateReadWriterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockStateReadWriter) EXPECT() *MockStateReadWriterMockRecorder {
+	return m.recorder
+}
+
+// Height mocks base method
+func (m *MockStateReadWriter) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockStateReadWriterMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockStateReadWriter)(nil).Height))
+}
+
+// State mocks base method
+func (m *MockStateReadWriter) State(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "State", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// State indicates an expected call of State
+func (mr *MockStateReadWriterMockRecorder) State(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "State", reflect.TypeOf((*MockStateReadWriter)(nil).State), varargs...)
+}
+
+// States mocks base method
+func (m *MockStateReadWriter) States(arg0 ...protocol.StateOption) (uint64, state.Iterator, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "States", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(state.Iterator)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// States indicates an expected call of States
+func (mr *MockStateReadWriterMockRecorder) States(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "States", reflect.TypeOf((*MockStateReadWriter)(nil).States), arg0...)
+}
+
+// ReadView mocks base method
+func (m *MockStateReadWriter) ReadView(arg0 string) (interface{}, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadView", arg0)
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadView indicates an expected call of ReadView
+func (mr *MockStateReadWriterMockRecorder) ReadView(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadView", reflect.TypeOf((*MockStateReadWriter)(nil).ReadView), arg0)
+}
+
+// PutState mocks base method
+func (m *MockStateReadWriter) PutState(arg0 interface{}, arg1 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "PutState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PutState indicates an expected call of PutState
+func (mr *MockStateReadWriterMockRecorder) PutState(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutState", reflect.TypeOf((*MockStateReadWriter)(nil).PutState), varargs...)
+}
+
+// DelState mocks base method
+func (m *MockStateReadWriter) DelState(arg0 ...protocol.StateOption) (uint64, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{}
+	for _, a := range arg0 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DelState", varargs...)
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DelState indicates an expected call of DelState
+func (mr *MockStateReadWriterMockRecorder) DelState(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DelState", reflect.TypeOf((*MockStateReadWriter)(nil).DelState), arg0...)
+}
+
 // MockStateManager is a mock of StateManager interface
 type MockStateManager struct {
 	ctrl     *gomock.Controller

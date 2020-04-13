@@ -57,7 +57,7 @@ func (f *fund) Deserialize(data []byte) error {
 // Deposit deposits token into the rewarding fund
 func (p *Protocol) Deposit(
 	ctx context.Context,
-	sm protocol.StateManager,
+	sm protocol.StateReadWriter,
 	amount *big.Int,
 ) error {
 	actionCtx := protocol.MustGetActionCtx(ctx)
@@ -126,7 +126,7 @@ func (p *Protocol) assertEnoughBalance(
 }
 
 // DepositGas deposits gas into the rewarding fund
-func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
+func DepositGas(ctx context.Context, sm protocol.StateReadWriter, amount *big.Int) error {
 	// If the gas fee is 0, return immediately
 	if amount.Cmp(big.NewInt(0)) == 0 {
 		return nil

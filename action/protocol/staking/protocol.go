@@ -60,6 +60,15 @@ type Protocol struct {
 	config     Configuration
 }
 
+// HandleMsg is the msg returned by handler
+type HandleMsg struct {
+	handlerName    string
+	candidateOwner address.Address
+	data           []byte
+	status         uint64
+	gasFee         *big.Int
+}
+
 // Configuration is the staking protocol configuration.
 type Configuration struct {
 	VoteWeightCalConsts   genesis.VoteWeightCalConsts
@@ -70,7 +79,7 @@ type Configuration struct {
 }
 
 // DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+type DepositGas func(ctx context.Context, sm protocol.StateReadWriter, amount *big.Int) error
 
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, sr protocol.StateReader, cfg genesis.Staking) (*Protocol, error) {
@@ -213,13 +222,23 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, act, csm)
-}
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	if act == nil {
 		return nil, ErrNilAction
 	}
+
+	handleMsg, err := p.handle(ctx, act, csm)
+	if err != nil {
+		return nil, err
+	}
+	if handleMsg == nil {
+		return nil, nil
+	}
+	log := p.createLog(ctx, handleMsg.handlerName, handleMsg.candidateOwner, protocol.MustGetActionCtx(ctx).Caller, handleMsg.data)
+	return p.settleAction(ctx, sm, handleMsg.status, handleMsg.gasFee, log)
+}
+
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*HandleMsg, error) {
 	switch act := act.(type) {
 	case *action.CreateStake:
 		if err := p.validateCreateStake(ctx, act); err != nil {

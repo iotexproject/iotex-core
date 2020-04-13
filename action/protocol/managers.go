@@ -76,16 +76,26 @@ type (
 		States(...StateOption) (uint64, state.Iterator, error)
 		ReadView(string) (interface{}, error)
 	}
+	
+	// StateWriter defines an interface to write stateDB
+	StateWriter interface {
+		PutState(interface{}, ...StateOption) (uint64, error)
+		DelState(...StateOption) (uint64, error)
+	}
 
+	// StateReadWriter defines an interface to read and write stateDB
+	StateReadWriter interface {
+		StateReader
+		StateWriter
+	}
+	
 	// StateManager defines the stateDB interface atop IoTeX blockchain
 	StateManager interface {
-		StateReader
+		StateReadWriter
 		// Accounts
 		Snapshot() int
 		Revert(int) error
 		// General state
-		PutState(interface{}, ...StateOption) (uint64, error)
-		DelState(...StateOption) (uint64, error)
 		WriteView(string, interface{}) error
 		Dock
 	}

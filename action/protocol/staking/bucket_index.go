@@ -79,7 +79,7 @@ func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, erro
 	return &bis, nil
 }
 
-func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
+func putBucketIndex(sm protocol.StateReadWriter, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
@@ -95,7 +95,7 @@ func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	return err
 }
 
-func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
+func delBucketIndex(sm protocol.StateReadWriter, key []byte, index uint64) error {
 	var bis BucketIndices
 	if _, err := sm.State(
 		&bis,
@@ -123,11 +123,11 @@ func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*Buck
 	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
 }
 
-func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+func putVoterBucketIndex(sm protocol.StateReadWriter, addr address.Address, index uint64) error {
 	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+func delVoterBucketIndex(sm protocol.StateReadWriter, addr address.Address, index uint64) error {
 	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
@@ -135,11 +135,11 @@ func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*Bucke
 	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
 }
 
-func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+func putCandBucketIndex(sm protocol.StateReadWriter, addr address.Address, index uint64) error {
 	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
 }
 
-func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
+func delCandBucketIndex(sm protocol.StateReadWriter, addr address.Address, index uint64) error {
 	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
 }
 

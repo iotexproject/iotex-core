@@ -351,7 +351,7 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) error {
+		func(context.Context, protocol.StateReadWriter, *big.Int) error {
 			return nil
 		},
 	)

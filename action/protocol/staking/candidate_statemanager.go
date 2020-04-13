@@ -18,7 +18,6 @@ import (
 type (
 	// CandidateStateManager is candidate manager on top of StateMangaer
 	CandidateStateManager interface {
-		protocol.StateManager
 		// candidate-related
 		Size() int
 		ContainsName(string) bool
@@ -30,6 +29,9 @@ type (
 		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
 		Commit() error
+		// bucket-related
+		protocol.StateReadWriter
+		Load(string, interface{}) error
 	}
 
 	candSM struct {

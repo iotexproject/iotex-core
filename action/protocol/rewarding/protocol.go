@@ -233,7 +233,7 @@ func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{})
 	return err
 }
 
-func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) putState(sm protocol.StateWriter, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
 	return err
