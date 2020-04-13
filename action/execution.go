@@ -138,7 +138,7 @@ func (ex *Execution) Cost() (*big.Int, error) {
 func (ex *Execution) SanityCheck() error {
 	// Reject execution of negative amount
 	if ex.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 	// check if contract's address is valid
 	if ex.Contract() != EmptyAddress {

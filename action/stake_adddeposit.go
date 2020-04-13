@@ -44,7 +44,7 @@ func NewDepositToStake(
 	gasPrice *big.Int,
 ) (*DepositToStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
-	if !ok || stake.Sign() != 1 {
+	if !ok {
 		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 	return &DepositToStake{
@@ -121,8 +121,8 @@ func (ds *DepositToStake) Cost() (*big.Int, error) {
 
 // SanityCheck validates the variables in the action
 func (ds *DepositToStake) SanityCheck() error {
-	if ds.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+	if ds.Amount().Sign() <= 0 {
+		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 
 	return ds.AbstractAction.SanityCheck()

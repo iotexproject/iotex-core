@@ -33,34 +33,34 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateUnstake(ctx context.Context, act *action.Unstake) error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateWithdrawStake(ctx context.Context, act *action.WithdrawStake) error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateChangeCandidate(ctx context.Context, act *action.ChangeCandidate) error {
 	if !isValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateTransferStake(ctx context.Context, act *action.TransferStake) error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateDepositToStake(ctx context.Context, act *action.DepositToStake) error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateRestake(ctx context.Context, act *action.Restake) error {
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.CandidateRegister) error {
@@ -71,7 +71,7 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
 		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.CandidateUpdate) error {
@@ -80,7 +80,7 @@ func (p *Protocol) validateCandidateUpdate(ctx context.Context, act *action.Cand
 			return ErrInvalidCanName
 		}
 	}
-	return act.AbstractAction.SanityCheck()
+	return nil
 }
 
 // IsValidCandidateName check if a candidate name string is valid.

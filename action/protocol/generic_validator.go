@@ -54,5 +54,5 @@ func (v *GenericValidator) Validate(ctx context.Context, selp action.SealedEnvel
 	if selp.Nonce() > 0 && pendingNonce > selp.Nonce() {
 		return errors.Wrap(action.ErrNonce, "nonce is too low")
 	}
-	return nil
+	return selp.Action().SanityCheck()
 }

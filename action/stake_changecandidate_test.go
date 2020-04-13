@@ -8,9 +8,11 @@ package action
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,6 +46,12 @@ func TestChangeCandidate(t *testing.T) {
 	require.Equal(payload, stake2.Payload())
 	require.Equal(canAddress, stake2.Candidate())
 	require.Equal(index, stake2.BucketIndex())
+
+	t.Run("Invalid Gas Price", func(t *testing.T) {
+		cc, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, new(big.Int).Mul(gasprice, big.NewInt(-1)))
+		require.NoError(err)
+		require.Equal(ErrGasPrice, errors.Cause(cc.SanityCheck()))
+	})
 }
 
 func TestChangeCandidateSignVerify(t *testing.T) {

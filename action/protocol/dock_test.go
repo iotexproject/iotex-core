@@ -39,7 +39,6 @@ func TestDock(t *testing.T) {
 	for _, e := range testDocks {
 		r.NoError(dk.Load(e.name, e.v))
 	}
-	r.True(dk.Dirty())
 
 	for _, e := range testDocks {
 		r.True(dk.ProtocolDirty(e.name))
@@ -59,6 +58,5 @@ func TestDock(t *testing.T) {
 	r.Equal(5, v.(int))
 
 	dk.Reset()
-	r.False(dk.Dirty())
 	r.False(dk.ProtocolDirty(testDocks[1].name))
 }

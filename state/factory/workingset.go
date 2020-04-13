@@ -242,10 +242,6 @@ func (ws *workingSet) WriteView(name string, v interface{}) error {
 	return ws.writeviewFunc(name, v)
 }
 
-func (ws *workingSet) Dirty() bool {
-	return ws.dock.Dirty()
-}
-
 func (ws *workingSet) ProtocolDirty(name string) bool {
 	return ws.dock.ProtocolDirty(name)
 }
@@ -370,11 +366,17 @@ func (ws *workingSet) pickAndRunActions(
 			actionIterator.PopAccount()
 			continue
 		}
+		snapshot := ws.snapshotFunc()
 		receipt, err := ws.runAction(ctx, nextAction)
 		if err != nil {
+			if err := ws.revertFunc(snapshot); err != nil {
+				return nil, nil, errors.Wrap(err, "failed to revert changes")
+			}
 			actionIterator.PopAccount()
 			continue
 		}
+		// TODO: if the action is not handled by any handler, receipt will be nil.
+		//  in this case, should this action be appended?
 		if receipt != nil {
 			blkCtx.GasLimit -= receipt.GasConsumed
 			ctx = protocol.WithBlockCtx(ctx, blkCtx)

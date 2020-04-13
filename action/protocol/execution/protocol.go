@@ -70,9 +70,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if exec.TotalSize() > ExecutionSizeLimit {
 		return nil, errors.Wrap(action.ErrActPool, "oversized data")
 	}
-	if err := exec.SanityCheck(); err != nil {
-		return nil, err
-	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 
 	if err != nil {

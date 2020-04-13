@@ -303,13 +303,17 @@ func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) err
 		actpoolMtc.WithLabelValues("blacklisted").Inc()
 		return errors.Wrap(action.ErrAddress, "action source address is blacklisted")
 	}
+	// if already validated
+	if _, ok := ap.allActions[selp.Hash()]; ok {
+		return nil
+	}
 	for _, ev := range ap.actionEnvelopeValidators {
 		if err := ev.Validate(ctx, selp); err != nil {
 			return err
 		}
 	}
 
-	return selp.Action().SanityCheck()
+	return nil
 }
 
 //======================================

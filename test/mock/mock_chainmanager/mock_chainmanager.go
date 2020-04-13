@@ -278,20 +278,6 @@ func (mr *MockStateManagerMockRecorder) WriteView(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteView", reflect.TypeOf((*MockStateManager)(nil).WriteView), arg0, arg1)
 }
 
-// Dirty mocks base method
-func (m *MockStateManager) Dirty() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dirty")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// Dirty indicates an expected call of Dirty
-func (mr *MockStateManagerMockRecorder) Dirty() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dirty", reflect.TypeOf((*MockStateManager)(nil).Dirty))
-}
-
 // ProtocolDirty mocks base method
 func (m *MockStateManager) ProtocolDirty(arg0 string) bool {
 	m.ctrl.T.Helper()
@@ -368,20 +354,6 @@ func NewMockDock(ctrl *gomock.Controller) *MockDock {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockDock) EXPECT() *MockDockMockRecorder {
 	return m.recorder
-}
-
-// Dirty mocks base method
-func (m *MockDock) Dirty() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Dirty")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// Dirty indicates an expected call of Dirty
-func (mr *MockDockMockRecorder) Dirty() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Dirty", reflect.TypeOf((*MockDock)(nil).Dirty))
 }
 
 // ProtocolDirty mocks base method

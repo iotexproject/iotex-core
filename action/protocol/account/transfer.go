@@ -148,5 +148,5 @@ func (p *Protocol) validateTransfer(_ context.Context, act action.Action) error 
 		return errors.Wrap(action.ErrActPool, "oversized data")
 	}
 
-	return tsf.SanityCheck()
+	return nil
 }

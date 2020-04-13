@@ -65,7 +65,7 @@ func NewCandidateRegister(
 	}
 
 	amount, ok := new(big.Int).SetString(amountStr, 10)
-	if !ok || amount.Sign() != 1 {
+	if !ok {
 		return nil, errors.Wrapf(ErrInvalidAmount, "amount %s", amount)
 	}
 
@@ -215,8 +215,8 @@ func (cr *CandidateRegister) Cost() (*big.Int, error) {
 
 // SanityCheck validates the variables in the action
 func (cr *CandidateRegister) SanityCheck() error {
-	if cr.Amount().Sign() < 0 {
-		return errors.Wrap(ErrBalance, "negative value")
+	if cr.Amount().Sign() <= 0 {
+		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 
 	return cr.AbstractAction.SanityCheck()

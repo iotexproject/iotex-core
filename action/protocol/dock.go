@@ -29,10 +29,6 @@ func NewDock() Dock {
 	}
 }
 
-func (d *dock) Dirty() bool {
-	return d.dirty
-}
-
 func (d *dock) ProtocolDirty(name string) bool {
 	return d.protocols[name]
 }
@@ -40,7 +36,6 @@ func (d *dock) ProtocolDirty(name string) bool {
 func (d *dock) Load(name string, v interface{}) error {
 	d.value[name] = v
 	d.protocols[name] = true
-	d.dirty = true
 	return nil
 }
 
@@ -60,5 +55,4 @@ func (d *dock) Reset() {
 	d.protocols = nil
 	d.value = make(map[string]interface{})
 	d.protocols = make(map[string]bool)
-	d.dirty = false
 }

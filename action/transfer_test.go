@@ -8,8 +8,10 @@ package action
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -43,6 +45,7 @@ func TestTransferSignVerify(t *testing.T) {
 	// verify signature
 	require.NoError(Verify(selp))
 }
+
 func TestTransfer(t *testing.T) {
 	require := require.New(t)
 	recipientAddr := identityset.Address(28)
@@ -88,4 +91,31 @@ func TestTransfer(t *testing.T) {
 	require.Equal([]byte{}, tsf2.Payload())
 	require.Equal(recipientAddr.String(), tsf2.Recipient())
 	require.Equal(recipientAddr.String(), tsf2.Destination())
+
+	t.Run("Negative amount", func(t *testing.T) {
+		tsf, err := NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
+			uint64(100000), big.NewInt(0))
+		require.NoError(err)
+		require.Equal(ErrBalance, errors.Cause(tsf.SanityCheck()))
+	})
+	t.Run("Invalid recipient address", func(t *testing.T) {
+		tsf, err := NewTransfer(
+			1,
+			big.NewInt(1),
+			identityset.Address(28).String()+"aaa",
+			nil,
+			uint64(100000),
+			big.NewInt(0),
+		)
+		require.NoError(err)
+		err = tsf.SanityCheck()
+		require.Error(err)
+		require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
+	})
+	t.Run("Negative gas fee", func(t *testing.T) {
+		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
+			uint64(100000), big.NewInt(-1))
+		require.NoError(err)
+		require.Equal(ErrGasPrice, errors.Cause(tsf.SanityCheck()))
+	})
 }
