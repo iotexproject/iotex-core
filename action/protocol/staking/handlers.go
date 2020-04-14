@@ -129,7 +129,8 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
 	if bucket.AutoStake {
@@ -256,7 +257,8 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	prevCandidate := csm.GetByOwner(bucket.Candidate)
 	if prevCandidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
 	// update bucket index
@@ -360,7 +362,8 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
@@ -424,7 +427,8 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		return nil, errors.Wrap(ErrInvalidOwner, "cannot find candidate in candidate center")
+		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
 	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
@@ -488,21 +492,23 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		owner = act.OwnerAddress()
 	}
 
-	// TODO: settle
 	c := csm.GetByOwner(owner)
 	ownerExist := c != nil
 	// cannot collide with existing owner (with selfstake != 0)
 	if ownerExist && c.SelfStake.Cmp(big.NewInt(0)) != 0 {
-		return nil, ErrAlreadyExist
+		log.L().Debug("collide with existing owner", zap.Error(ErrAlreadyExist))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), gasFee)
 	}
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
-		return nil, ErrInvalidCanName
+		log.L().Debug("collide with existing name", zap.Error(ErrInvalidCanName))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
 	}
 	// cannot collide with existing operator address
 	if csm.ContainsOperator(act.OperatorAddress()) &&
 		(!ownerExist || !address.Equal(act.OperatorAddress(), c.Operator)) {
-		return nil, ErrInvalidOperator
+		log.L().Debug("collide with existing operator address", zap.Error(ErrInvalidOperator))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
 	}
 
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
