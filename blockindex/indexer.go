@@ -179,16 +179,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 func (x *blockIndexer) Height() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
-
-	index, err := db.GetCountingIndex(x.kvStore, totalBlocksBucket)
-	if err != nil {
-		if errors.Cause(err) == db.ErrBucketNotExist || errors.Cause(err) == db.ErrNotExist {
-			// counting index does not exist yet
-			return 0, nil
-		}
-		return 0, err
-	}
-	return index.Size() - 1, nil
+	return x.tbk.Size() - 1, nil
 }
 
 // GetBlockHash returns the block hash by height
@@ -251,12 +242,7 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 func (x *blockIndexer) GetTotalActions() (uint64, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
-
-	total, err := db.GetCountingIndex(x.kvStore, totalActionsBucket)
-	if err != nil {
-		return 0, err
-	}
-	return total.Size(), nil
+	return x.tac.Size(), nil
 }
 
 // GetActionHashFromIndex return hash of actions[start, start+count)
