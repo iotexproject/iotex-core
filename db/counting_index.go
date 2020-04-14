@@ -100,13 +100,6 @@ func GetCountingIndex(kv KVStore, name []byte) (CountingIndex, error) {
 	if errors.Cause(err) == ErrNotExist || total == nil {
 		return nil, errors.Wrapf(err, "counting index 0x%x doesn't exist", name)
 	}
-	if kvFillPercent, ok := kv.(KVStoreWithBucketFillPercent); ok {
-		if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
-			// set an aggressive fill percent
-			// b/c counting index only appends, further inserts to the bucket would never split the page
-			return nil, err
-		}
-	}
 	return &countingIndex{
 		kvStore: kvRange,
 		bucket:  bucket,
