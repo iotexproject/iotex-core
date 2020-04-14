@@ -324,8 +324,8 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			uint64(1000000),
 			big.NewInt(1000),
 			false,
-			ErrAlreadyExist,
-			iotextypes.ReceiptStatus_Failure,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		},
 		// invalid amount
 		{
@@ -833,8 +833,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			10000,
 			true,
 			true,
-			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Success,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		// unstake before maturity
 		{
@@ -1279,8 +1279,8 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			time.Now(),
 			10000,
 			true,
-			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Failure,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		// invalid candidate name
 		{
@@ -1746,8 +1746,8 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			true,
 			true,
 			false,
-			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Failure,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		// autoStake = true, set up duration
 		{
@@ -2003,8 +2003,8 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			true,
 			true,
 			false,
-			ErrInvalidOwner,
-			iotextypes.ReceiptStatus_Failure,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateNotExist,
 		},
 		// ReceiptStatus_Success
 		{
