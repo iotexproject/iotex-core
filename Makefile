@@ -174,7 +174,7 @@ reboot:
 	$(ECHO_V)rm -rf *candidate.index*.db
 	$(ECHO_V)rm -rf ./e2etest/*chain*.db
 	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_SERVER) -v ./$(BUILD_TARGET_SERVER)
-	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway
+	./bin/$(BUILD_TARGET_SERVER) -plugin=gateway -config-path=./config/standalone-config.yaml 
 
 .PHONY: run
 run:
