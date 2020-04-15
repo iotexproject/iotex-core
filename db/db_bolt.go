@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
@@ -23,19 +22,17 @@ const fileMode = 0600
 
 // boltDB is KVStore implementation based bolt DB
 type boltDB struct {
-	db          *bolt.DB
-	path        string
-	config      config.DB
-	fillPercent *cache.ThreadSafeLruCache // specific fill percent for certain buckets (for example, 1.0 for append-only)
+	db     *bolt.DB
+	path   string
+	config config.DB
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
 func NewBoltDB(cfg config.DB) KVStoreWithBucketFillPercent {
 	return &boltDB{
-		db:          nil,
-		path:        cfg.DbPath,
-		config:      cfg,
-		fillPercent: cache.NewThreadSafeLruCache(256),
+		db:     nil,
+		path:   cfg.DbPath,
+		config: cfg,
 	}
 }
 
@@ -66,9 +63,6 @@ func (b *boltDB) Put(namespace string, key, value []byte) (err error) {
 			bucket, err := tx.CreateBucketIfNotExists([]byte(namespace))
 			if err != nil {
 				return err
-			}
-			if p, ok := b.getBucketFillPercent(namespace); ok {
-				bucket.FillPercent = p
 			}
 			return bucket.Put(key, value)
 		}); err == nil {
@@ -257,6 +251,15 @@ func (b *boltDB) Delete(namespace string, key []byte) (err error) {
 
 // WriteBatch commits a batch
 func (b *boltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
+	return b.writeBatch(kvsb, 0.0)
+}
+
+// WriteBatchWithFillPercent commits a batch with specified fill percent
+func (b *boltDB) WriteBatchWithFillPercent(kvsb batch.KVStoreBatch, percent float64) (err error) {
+	return b.writeBatch(kvsb, percent)
+}
+
+func (b *boltDB) writeBatch(kvsb batch.KVStoreBatch, percent float64) (err error) {
 	succeed := true
 	kvsb.Lock()
 	defer func() {
@@ -283,8 +286,8 @@ func (b *boltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 					if e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)
 					}
-					if p, ok := b.getBucketFillPercent(ns); ok {
-						bucket.FillPercent = p
+					if percent != 0.0 {
+						bucket.FillPercent = percent
 					}
 					if e := bucket.Put(write.Key(), write.Value()); e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)
@@ -310,19 +313,6 @@ func (b *boltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err
-}
-
-// SetBucketFillPercent sets specified fill percent for a bucket
-func (b *boltDB) SetBucketFillPercent(namespace string, percent float64) error {
-	b.fillPercent.Add(namespace, percent)
-	return nil
-}
-
-func (b *boltDB) getBucketFillPercent(namespace string) (float64, bool) {
-	if p, hit := b.fillPercent.Get(namespace); hit {
-		return p.(float64), true
-	}
-	return 0, false
 }
 
 // ======================================
