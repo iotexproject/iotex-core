@@ -87,10 +87,6 @@ func (sc *stakingCommand) CreatePostSystemActions(ctx context.Context, sr protoc
 }
 
 func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	// no height here,  v1 v2 has the same validate method, so directly use common one
-	if err := validate(ctx, sm, sc, act); err != nil {
-		return nil, err
-	}
 	if sc.useV2(ctx, sm) {
 		return sc.stakingV2.Handle(ctx, act, sm)
 	}

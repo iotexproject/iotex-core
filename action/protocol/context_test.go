@@ -165,3 +165,15 @@ func TestMustGetActionCtx(t *testing.T) {
 	// Case II: Panic
 	require.Panics(func() { MustGetActionCtx(context.Background()) }, "Miss action context")
 }
+
+func TestGetValidationCtx(t *testing.T) {
+	require := require.New(t)
+	pCtx := ValidationCtx{
+		Validated: true,
+	}
+	ctx := WithValidationlCtx(context.Background(), pCtx)
+	require.NotNil(ctx)
+	ret, ok := GetValidationCtx(ctx)
+	require.True(ok)
+	require.Equal(true, ret.Validated)
+}
