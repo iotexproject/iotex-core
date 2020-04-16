@@ -24,15 +24,8 @@ var (
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 type Action interface {
-	SetEnvelopeContext(SealedEnvelope)
-	SanityCheck() error
-}
-
-type actionPayload interface {
-	Serialize() []byte
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
-	SetEnvelopeContext(SealedEnvelope)
 	SanityCheck() error
 }
 
@@ -52,31 +45,26 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
 	sealed.signature = sig
-	sealed.payload.SetEnvelopeContext(sealed)
 	return sealed, nil
 }
 
 // FakeSeal creates a SealedActionEnvelope without signature.
 // This method should be only used in tests.
 func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
-	sealed := SealedEnvelope{
+	return SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
-	return sealed
 }
 
 // AssembleSealedEnvelope assembles a SealedEnvelope use Envelope, Sender Address and Signature.
 // This method should be only used in tests.
 func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) SealedEnvelope {
-	sealed := SealedEnvelope{
+	return SealedEnvelope{
 		Envelope:  act,
 		srcPubkey: pk,
 		signature: sig,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
-	return sealed
 }
 
 // Verify verifies the action using sender's public key

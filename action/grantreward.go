@@ -24,8 +24,6 @@ const (
 
 // GrantReward is the action to grant either block or epoch reward
 type GrantReward struct {
-	AbstractAction
-
 	rewardType int
 	height     uint64
 }
@@ -79,9 +77,13 @@ func (*GrantReward) Cost() (*big.Int, error) {
 	return big.NewInt(0), nil
 }
 
+// SanityCheck checks the action
+func (*GrantReward) SanityCheck() error {
+	return nil
+}
+
 // GrantRewardBuilder is the struct to build GrantReward
 type GrantRewardBuilder struct {
-	Builder
 	grantReward GrantReward
 }
 
@@ -99,6 +101,5 @@ func (b *GrantRewardBuilder) SetHeight(height uint64) *GrantRewardBuilder {
 
 // Build builds a new grant reward action
 func (b *GrantRewardBuilder) Build() GrantReward {
-	b.grantReward.AbstractAction = b.Builder.Build()
 	return b.grantReward
 }

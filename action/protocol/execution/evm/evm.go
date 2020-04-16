@@ -88,7 +88,7 @@ func NewParams(
 		contractAddrPointer = &contractAddr
 	}
 
-	gasLimit := execution.GasLimit()
+	gasLimit := actionCtx.GasLimit
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
 	if blkCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
@@ -112,12 +112,12 @@ func NewParams(
 		Time:        new(big.Int).SetInt64(blkCtx.BlockTimeStamp.Unix()),
 		Difficulty:  new(big.Int).SetUint64(uint64(50)),
 		GasLimit:    gasLimit,
-		GasPrice:    execution.GasPrice(),
+		GasPrice:    actionCtx.GasPrice,
 	}
 
 	return &Params{
 		context,
-		execution.Nonce(),
+		actionCtx.Nonce,
 		actionCtx.Caller.String(),
 		execution.Amount(),
 		contractAddrPointer,
@@ -152,6 +152,7 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
@@ -159,7 +160,7 @@ func ExecuteContract(
 		sm,
 		blkCtx.BlockHeight,
 		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
-		execution.Hash(),
+		actionCtx.ActionHash,
 	)
 	ps, err := NewParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
@@ -172,7 +173,7 @@ func ExecuteContract(
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
 		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      execution.Hash(),
+		ActionHash:      actionCtx.ActionHash,
 		ContractAddress: contractAddress,
 	}
 
@@ -326,12 +327,17 @@ func SimulateExecution(
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	ctx = protocol.WithActionCtx(
-		ctx,
-		protocol.ActionCtx{
-			Caller: caller,
-		},
-	)
+	if _, ok := protocol.GetActionCtx(ctx); !ok {
+		ctx = protocol.WithActionCtx(
+			ctx,
+			protocol.ActionCtx{
+				Caller:   caller,
+				GasLimit: bcCtx.Genesis.BlockGasLimit,
+				GasPrice: big.NewInt(0),
+				Nonce:    0,
+			},
+		)
+	}
 	zeroAddr, err := address.FromString(address.ZeroAddress)
 	if err != nil {
 		return nil, nil, err

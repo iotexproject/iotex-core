@@ -79,18 +79,17 @@ func transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	tx, err := action.NewTransfer(nonce, amount,
-		recipient, payload, gasLimit, gasPriceRau)
+	tx, err := action.NewTransfer(amount, recipient, payload)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a Transfer instance", err)
 	}
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(tx).Build(),
-		sender,
-	)
-
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(tx).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope ", err)
+	}
+	return SendAction(elp, sender)
 }

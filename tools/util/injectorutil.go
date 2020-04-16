@@ -509,16 +509,18 @@ func createSignedTransfer(
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode payload %s", payload)
 	}
-	transfer, err := action.NewTransfer(
-		nonce, amount, recipient.EncodedAddr, transferPayload, gasLimit, gasPrice)
+	transfer, err := action.NewTransfer(amount, recipient.EncodedAddr, transferPayload)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw transfer")
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
+	elp, err := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
+	if err != nil {
+		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to create envelope")
+	}
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign transfer %v", elp)
@@ -540,15 +542,18 @@ func createSignedExecution(
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to decode data %s", data)
 	}
-	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, executionData)
+	execution, err := action.NewExecution(contract, amount, executionData)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create raw execution")
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
+	elp, err := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
+	if err != nil {
+		return action.SealedEnvelope{}, nil, errors.Wrap(err, "failed to create envelope")
+	}
 	selp, err := action.Sign(elp, executor.PriKey)
 	if err != nil {
 		return action.SealedEnvelope{}, nil, errors.Wrapf(err, "failed to sign execution %v", elp)

@@ -226,10 +226,7 @@ func runExecution(
 	}
 	exec, err := action.NewExecution(
 		contractAddr,
-		state.Nonce+1,
 		ecfg.Amount(),
-		ecfg.GasLimit(),
-		ecfg.GasPrice(),
 		ecfg.ByteCode(),
 	)
 	if err != nil {
@@ -248,11 +245,14 @@ func runExecution(
 		return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash)
 	}
 	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
+	elp, err := builder.SetAction(exec).
+		SetNonce(state.Nonce + 1).
 		SetGasLimit(ecfg.GasLimit()).
 		SetGasPrice(ecfg.GasPrice()).
 		Build()
+	if err != nil {
+		return nil, nil, err
+	}
 	selp, err := action.Sign(elp, ecfg.PrivateKey())
 	if err != nil {
 		return nil, nil, err
@@ -269,7 +269,7 @@ func runExecution(
 	if err := bc.CommitBlock(blk); err != nil {
 		return nil, nil, err
 	}
-	receipt, err := dao.GetReceiptByActionHash(exec.Hash(), blk.Height())
+	receipt, err := dao.GetReceiptByActionHash(selp.Hash(), blk.Height())
 
 	return nil, receipt, err
 }
@@ -503,13 +503,16 @@ func TestProtocol_Handle(t *testing.T) {
 		}()
 
 		data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
+		execution, err := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
 		require.NoError(err)
 
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetAction(execution).
+		elp, err := bd.SetAction(execution).
 			SetNonce(1).
-			SetGasLimit(100000).Build()
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(0)).
+			Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
@@ -523,7 +526,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash := execution.Hash()
+		eHash := selp.Hash()
 		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
@@ -554,13 +557,16 @@ func TestProtocol_Handle(t *testing.T) {
 
 		// store to key 0
 		data, _ = hex.DecodeString("60fe47b1000000000000000000000000000000000000000000000000000000000000000f")
-		execution, err = action.NewExecution(r.ContractAddress, 2, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
+		elp, err = bd.SetAction(execution).
 			SetNonce(2).
-			SetGasLimit(120000).Build()
+			SetGasLimit(120000).
+			SetGasPrice(big.NewInt(0)).
+			Build()
+		require.NoError(err)
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
@@ -585,7 +591,7 @@ func TestProtocol_Handle(t *testing.T) {
 			v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 			require.Equal(byte(15), v[31])
 		*/
-		eHash = execution.Hash()
+		eHash = selp.Hash()
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
@@ -593,13 +599,16 @@ func TestProtocol_Handle(t *testing.T) {
 		// read from key 0
 		data, err = hex.DecodeString("6d4ce63c")
 		require.NoError(err)
-		execution, err = action.NewExecution(r.ContractAddress, 3, big.NewInt(0), uint64(120000), big.NewInt(0), data)
+		execution, err = action.NewExecution(r.ContractAddress, big.NewInt(0), data)
 		require.NoError(err)
 
 		bd = &action.EnvelopeBuilder{}
-		elp = bd.SetAction(execution).
+		elp, err = bd.SetAction(execution).
 			SetNonce(3).
-			SetGasLimit(120000).Build()
+			SetGasLimit(120000).
+			SetGasPrice(big.NewInt(0)).
+			Build()
+		require.NoError(err)
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
@@ -614,19 +623,22 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash = execution.Hash()
+		eHash = selp.Hash()
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
 		data, _ = hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-		execution1, err := action.NewExecution(action.EmptyAddress, 4, big.NewInt(0), uint64(100000), big.NewInt(10), data)
+		execution1, err := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
 		require.NoError(err)
 		bd = &action.EnvelopeBuilder{}
 
-		elp = bd.SetAction(execution1).
+		elp, err = bd.SetAction(execution1).
 			SetNonce(4).
-			SetGasLimit(100000).SetGasPrice(big.NewInt(10)).Build()
+			SetGasLimit(100000).
+			SetGasPrice(big.NewInt(10)).
+			Build()
+		require.NoError(err)
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
@@ -777,7 +789,7 @@ func TestProtocol_Handle(t *testing.T) {
 	t.Run("Oversized data", func(t *testing.T) {
 		tmpPayload := [32769]byte{}
 		data := tmpPayload[:]
-		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+		ex, err := action.NewExecution("2", big.NewInt(0), data)
 		require.NoError(t, err)
 		_, err = protocol.Handle(context.Background(), ex, nil)
 		require.Equal(t, action.ErrActPool, errors.Cause(err))

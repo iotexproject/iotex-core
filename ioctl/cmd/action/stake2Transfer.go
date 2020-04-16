@@ -86,16 +86,17 @@ func stake2Transfer(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2t, err := action.NewTransferStake(nonce, voterAddrStr, bucketIndex, payload, gasLimit, gasPriceRau)
+	s2t, err := action.NewTransferStake(voterAddrStr, bucketIndex, payload)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a transferStake instance", err)
 	}
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(s2t).Build(),
-		sender)
-
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(s2t).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope ", err)
+	}
+	return SendAction(elp, sender)
 }

@@ -16,16 +16,11 @@ import (
 
 func TestRestake(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
+	stake, err := NewRestake(index, duration, autoStake, payload)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a10e807180122077061796c6f6164", hex.EncodeToString(ser))
-
-	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
 
 	require.True(stake.AutoStake())
 	require.Equal(payload, stake.Payload())
@@ -37,7 +32,7 @@ func TestRestake(t *testing.T) {
 	require.Equal(uint64(10700), gas)
 	cost, err := stake.Cost()
 	require.NoError(err)
-	require.Equal("107000", cost.Text(10))
+	require.Equal("0", cost.Text(10))
 
 	proto := stake.Proto()
 	stake2 := &Restake{}
@@ -51,13 +46,16 @@ func TestRestake(t *testing.T) {
 func TestRestakeSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
+	stake, err := NewRestake(index, duration, autoStake, payload)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
+	elp, err := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
-		SetAction(stake).Build()
+		SetAction(stake).
+		SetNonce(nonce).
+		Build()
+	require.NoError(err)
 	h := elp.Hash()
 	require.Equal("f3e36f74dfe53c39c66a827244fc20f44b8f22db23e84776c4b1d2123a72c63a", hex.EncodeToString(h[:]))
 	// sign

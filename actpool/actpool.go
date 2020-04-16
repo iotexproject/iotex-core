@@ -359,7 +359,7 @@ func (ap *actPool) enqueueAction(sender string, act action.SealedEnvelope, actHa
 		return errors.Wrapf(action.ErrNonce, "nonce too large ,actNonce : %x", actNonce)
 	}
 
-	cost, err := act.Cost()
+	cost, err := act.EstimatedCost()
 	if err != nil {
 		actpoolMtc.WithLabelValues("failedToGetCost").Inc()
 		return errors.Wrapf(err, "failed to get cost of action %x", actHash)

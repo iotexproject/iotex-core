@@ -8,26 +8,19 @@ package action
 
 import (
 	"encoding/hex"
-	"math/big"
 	"testing"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
 func TestChangeCandidate(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(canAddress, index, payload)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a1229696f3178707136326177383575717a72636367397935686e727976386c64326e6b7079636333677a611a077061796c6f6164", hex.EncodeToString(ser))
-
-	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
 	require.Equal(canAddress, stake.Candidate())
@@ -38,7 +31,7 @@ func TestChangeCandidate(t *testing.T) {
 	require.Equal(uint64(10700), gas)
 	cost, err := stake.Cost()
 	require.NoError(err)
-	require.Equal("107000", cost.Text(10))
+	require.Equal("0", cost.Text(10))
 
 	proto := stake.Proto()
 	stake2 := &ChangeCandidate{}
@@ -46,24 +39,20 @@ func TestChangeCandidate(t *testing.T) {
 	require.Equal(payload, stake2.Payload())
 	require.Equal(canAddress, stake2.Candidate())
 	require.Equal(index, stake2.BucketIndex())
-
-	t.Run("Invalid Gas Price", func(t *testing.T) {
-		cc, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, new(big.Int).Mul(gasprice, big.NewInt(-1)))
-		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(cc.SanityCheck()))
-	})
 }
 
 func TestChangeCandidateSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
-	stake, err := NewChangeCandidate(nonce, canAddress, index, payload, gaslimit, gasprice)
+	stake, err := NewChangeCandidate(canAddress, index, payload)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
+	elp, err := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
+		SetNonce(nonce).
 		SetAction(stake).Build()
+	require.NoError(err)
 	h := elp.Hash()
 	require.Equal("4fe20be23e3de2fd81cacdebb04d4b69b0f80404fd0193a92d6478ae38602d9f", hex.EncodeToString(h[:]))
 	// sign

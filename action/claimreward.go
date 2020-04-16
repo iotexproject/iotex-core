@@ -25,8 +25,6 @@ var (
 
 // ClaimFromRewardingFund is the action to claim reward from the rewarding fund
 type ClaimFromRewardingFund struct {
-	AbstractAction
-
 	amount *big.Int
 	data   []byte
 }
@@ -70,11 +68,7 @@ func (c *ClaimFromRewardingFund) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a claim action
 func (c *ClaimFromRewardingFund) Cost() (*big.Int, error) {
-	intrinsicGas, err := c.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting intrinsic gas for the claim action")
-	}
-	return big.NewInt(0).Mul(c.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
+	return big.NewInt(0), nil
 }
 
 // SanityCheck validates the variables in the action
@@ -83,12 +77,11 @@ func (c *ClaimFromRewardingFund) SanityCheck() error {
 		return errors.Wrap(ErrBalance, "negative value")
 	}
 
-	return c.AbstractAction.SanityCheck()
+	return nil
 }
 
 // ClaimFromRewardingFundBuilder is the struct to build ClaimFromRewardingFund
 type ClaimFromRewardingFundBuilder struct {
-	Builder
 	claim ClaimFromRewardingFund
 }
 
@@ -106,6 +99,5 @@ func (b *ClaimFromRewardingFundBuilder) SetData(data []byte) *ClaimFromRewarding
 
 // Build builds a new claim from rewarding fund action
 func (b *ClaimFromRewardingFundBuilder) Build() ClaimFromRewardingFund {
-	b.claim.AbstractAction = b.Builder.Build()
 	return b.claim
 }

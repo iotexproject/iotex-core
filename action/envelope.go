@@ -17,8 +17,8 @@ type Envelope struct {
 	version  uint32
 	nonce    uint64
 	gasLimit uint64
-	payload  actionPayload
 	gasPrice *big.Int
+	payload  Action
 }
 
 // Version returns the version
@@ -49,9 +49,20 @@ func (elp *Envelope) GasPrice() *big.Int {
 	return p.Set(elp.gasPrice)
 }
 
-// Cost returns cost of actions
-func (elp *Envelope) Cost() (*big.Int, error) {
-	return elp.payload.Cost()
+// EstimatedCost returns the estimated cost of an action
+func (elp *Envelope) EstimatedCost() (*big.Int, error) {
+	gas, err := elp.payload.IntrinsicGas()
+	if err != nil {
+		return nil, err
+	}
+	cost, err := elp.payload.Cost()
+	if err != nil {
+		return nil, err
+	}
+	return big.NewInt(0).Add(
+		cost,
+		new(big.Int).Mul(elp.gasPrice, new(big.Int).SetUint64(gas)),
+	), nil
 }
 
 // IntrinsicGas returns intrinsic gas of action.
@@ -59,7 +70,7 @@ func (elp *Envelope) IntrinsicGas() (uint64, error) {
 	return elp.payload.IntrinsicGas()
 }
 
-// Action returns the action payload.
+// Action returns the action.
 func (elp *Envelope) Action() Action { return elp.payload }
 
 // Proto convert Envelope to protobuf format.
@@ -120,109 +131,115 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return errors.New("nil action to load proto")
 	}
-	*elp = Envelope{}
-	elp.version = pbAct.GetVersion()
-	elp.nonce = pbAct.GetNonce()
-	elp.gasLimit = pbAct.GetGasLimit()
-	elp.gasPrice = &big.Int{}
-	elp.gasPrice.SetString(pbAct.GetGasPrice(), 10)
-
+	builder := EnvelopeBuilder{}
+	builder.SetVersion(pbAct.GetVersion())
+	builder.SetNonce(pbAct.GetNonce())
+	builder.SetGasLimit(pbAct.GetGasLimit())
+	if len(pbAct.GetGasPrice()) != 0 {
+		gasPrice, ok := new(big.Int).SetString(pbAct.GetGasPrice(), 10)
+		if !ok {
+			return errors.Errorf("invalid gas price '%s'", pbAct.GetGasPrice())
+		}
+		builder.SetGasPrice(gasPrice)
+	}
 	switch {
 	case pbAct.GetTransfer() != nil:
 		act := &Transfer{}
 		if err := act.LoadProto(pbAct.GetTransfer()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetExecution() != nil:
 		act := &Execution{}
 		if err := act.LoadProto(pbAct.GetExecution()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetGrantReward() != nil:
 		act := &GrantReward{}
 		if err := act.LoadProto(pbAct.GetGrantReward()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetClaimFromRewardingFund() != nil:
 		act := &ClaimFromRewardingFund{}
 		if err := act.LoadProto(pbAct.GetClaimFromRewardingFund()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetDepositToRewardingFund() != nil:
 		act := &DepositToRewardingFund{}
 		if err := act.LoadProto(pbAct.GetDepositToRewardingFund()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetPutPollResult() != nil:
 		act := &PutPollResult{}
 		if err := act.LoadProto(pbAct.GetPutPollResult()); err != nil {
 			return err
 		}
-		elp.payload = act
-
+		builder.SetAction(act)
 	case pbAct.GetStakeCreate() != nil:
 		act := &CreateStake{}
 		if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeUnstake() != nil:
 		act := &Unstake{}
 		if err := act.LoadProto(pbAct.GetStakeUnstake()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeWithdraw() != nil:
 		act := &WithdrawStake{}
 		if err := act.LoadProto(pbAct.GetStakeWithdraw()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeAddDeposit() != nil:
 		act := &DepositToStake{}
 		if err := act.LoadProto(pbAct.GetStakeAddDeposit()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeRestake() != nil:
 		act := &Restake{}
 		if err := act.LoadProto(pbAct.GetStakeRestake()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeChangeCandidate() != nil:
 		act := &ChangeCandidate{}
 		if err := act.LoadProto(pbAct.GetStakeChangeCandidate()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetStakeTransferOwnership() != nil:
 		act := &TransferStake{}
 		if err := act.LoadProto(pbAct.GetStakeTransferOwnership()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetCandidateRegister() != nil:
 		act := &CandidateRegister{}
 		if err := act.LoadProto(pbAct.GetCandidateRegister()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	case pbAct.GetCandidateUpdate() != nil:
 		act := &CandidateUpdate{}
 		if err := act.LoadProto(pbAct.GetCandidateUpdate()); err != nil {
 			return err
 		}
-		elp.payload = act
+		builder.SetAction(act)
 	default:
 		return errors.Errorf("no applicable action to handle in action proto %+v", pbAct)
 	}
-	return nil
+	var err error
+	*elp, err = builder.Build()
+
+	return err
 }
 
 // Serialize returns encoded binary.

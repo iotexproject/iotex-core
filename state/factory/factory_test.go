@@ -247,11 +247,12 @@ func testCandidates(sf Factory, t *testing.T) {
 			CanName:       c.Name(),
 		})
 	}
-	act := action.NewPutPollResult(1, 1, sc)
+	act := action.NewPutPollResult(1, sc)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
+	elp, err := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(act).Build()
+	require.NoError(t, err)
 	selp, err := action.Sign(elp, identityset.PrivateKey(27))
 	require.NoError(t, err)
 	require.NotNil(t, selp)
@@ -416,10 +417,11 @@ func testState(sf Factory, t *testing.T) {
 		require.NoError(t, sf.Stop(ctx))
 	}()
 
-	tsf, err := action.NewTransfer(1, big.NewInt(10), identityset.Address(31).String(), nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(big.NewInt(10), identityset.Address(31).String(), nil)
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp, err := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	require.NoError(t, err)
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -478,10 +480,11 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
-	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	tsf, err := action.NewTransfer(big.NewInt(10), b, nil)
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	elp, err := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	require.NoError(t, err)
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 	ctx = protocol.WithBlockCtx(
@@ -585,10 +588,11 @@ func testNonce(sf Factory, t *testing.T) {
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(t, err)
 
-	tx, err := action.NewTransfer(0, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
+	tx, err := action.NewTransfer(big.NewInt(2), b, nil)
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tx).SetNonce(0).SetGasLimit(20000).Build()
+	elp, err := bd.SetAction(tx).SetNonce(0).SetGasLimit(20000).Build()
+	require.NoError(t, err)
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -598,16 +602,26 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Nonce:    0,
+			GasLimit: uint64(20000),
+			GasPrice: big.NewInt(0),
+		},
+	)
+
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
 	state, err := accountutil.AccountState(sf, a)
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), state.Nonce)
 
-	tx, err = action.NewTransfer(1, big.NewInt(2), b, nil, uint64(20000), big.NewInt(0))
+	tx, err = action.NewTransfer(big.NewInt(2), b, nil)
 	require.NoError(t, err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetAction(tx).SetNonce(1).SetGasLimit(20000).Build()
+	elp, err = bd.SetAction(tx).SetNonce(1).SetGasLimit(20000).Build()
+	require.NoError(t, err)
 	selp, err = action.Sign(elp, priKeyA)
 	require.NoError(t, err)
 
@@ -777,17 +791,19 @@ func testCommit(factory Factory, t *testing.T) {
 	b := identityset.Address(29).String()
 	priKeyB := identityset.PrivateKey(29)
 
-	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
+	tx1, err := action.NewTransfer(big.NewInt(10), b, nil)
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetAction(tx1).Build()
+	elp, err := bd.SetNonce(1).SetAction(tx1).Build()
+	require.NoError(err)
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
-	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
+	tx2, err := action.NewTransfer(big.NewInt(20), a, nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).SetAction(tx2).Build()
+	elp, err = bd.SetNonce(1).SetAction(tx2).Build()
+	require.NoError(err)
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
@@ -887,10 +903,11 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	priKeyB := identityset.PrivateKey(29)
 
 	accMap := make(map[string][]action.SealedEnvelope)
-	tx1, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(100000), big.NewInt(0))
+	tx1, err := action.NewTransfer(big.NewInt(10), b, nil)
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetAction(tx1).Build()
+	elp, err := bd.SetNonce(1).SetAction(tx1).SetGasLimit(uint64(100000)).SetGasPrice(big.NewInt(0)).Build()
+	require.NoError(err)
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 	accMap[identityset.Address(28).String()] = []action.SealedEnvelope{selp1}
@@ -900,10 +917,11 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	require.NoError(err)
 	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
 
-	tx2, err := action.NewTransfer(uint64(1), big.NewInt(20), a, nil, uint64(100000), big.NewInt(0))
+	tx2, err := action.NewTransfer(big.NewInt(20), a, nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).SetAction(tx2).Build()
+	elp, err = bd.SetNonce(1).SetAction(tx2).SetGasLimit(uint64(100000)).SetGasPrice(big.NewInt(0)).Build()
+	require.NoError(err)
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
@@ -990,7 +1008,7 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 	require := require.New(t)
 
 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806360fe47b114604e5780636d4ce63c146078575b600080fd5b348015605957600080fd5b5060766004803603810190808035906020019092919050505060a0565b005b348015608357600080fd5b50608a60aa565b6040518082815260200191505060405180910390f35b8060008190555050565b600080549050905600a165627a7a7230582002faabbefbbda99b20217cf33cb8ab8100caf1542bf1f48117d72e2c59139aea0029")
-	ex, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
+	ex, err := action.NewExecution(action.EmptyAddress, big.NewInt(0), data)
 	require.NoError(err)
 	addr, err := address.FromString(address.ZeroAddress)
 	require.NoError(err)
@@ -1234,12 +1252,15 @@ func benchRunAction(sf Factory, b *testing.B) {
 			}
 			receiver := receiverAddr.String()
 			nonces[senderIdx] += nonces[senderIdx]
-			tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), receiver, nil, uint64(0), big.NewInt(0))
+			tx, err := action.NewTransfer(big.NewInt(1), receiver, nil)
 			if err != nil {
 				b.Fatal(err)
 			}
 			bd := &action.EnvelopeBuilder{}
-			elp := bd.SetNonce(nonces[senderIdx]).SetAction(tx).Build()
+			elp, err := bd.SetNonce(nonces[senderIdx]).SetAction(tx).SetGasLimit(0).SetGasPrice(big.NewInt(0)).Build()
+			if err != nil {
+				b.Fatal(err)
+			}
 			selp := action.FakeSeal(elp, pubKeys[senderIdx])
 			acts = append(acts, selp)
 		}

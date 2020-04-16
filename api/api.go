@@ -405,20 +405,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 	if err := sc.LoadProto(in.Execution); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-
-	state, err := accountutil.AccountState(api.sf, in.CallerAddress)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		state.Nonce+1,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
+	sc, _ = action.NewExecution(sc.Contract(), sc.Amount(), sc.Data())
 
 	callerAddr, err := address.FromString(in.CallerAddress)
 	if err != nil {
@@ -1378,14 +1365,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		nonce,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
+	sc, _ = action.NewExecution(sc.Contract(), sc.Amount(), sc.Data())
 
 	ctx, err := api.bc.Context()
 	if err != nil {
@@ -1441,16 +1421,18 @@ func (api *Server) isGasLimitEnough(
 ) (bool, error) {
 	sc, _ = action.NewExecution(
 		sc.Contract(),
-		nonce,
 		sc.Amount(),
-		gasLimit,
-		big.NewInt(0),
 		sc.Data(),
 	)
 	ctx, err := api.bc.Context()
 	if err != nil {
 		return false, err
 	}
+	ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+		GasLimit: gasLimit,
+		GasPrice: big.NewInt(0),
+		Caller:   caller,
+	})
 	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
 		return false, err

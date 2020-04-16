@@ -145,10 +145,14 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	}
 
 	nonce := uint64(0)
-	pollAction := action.NewPutPollResult(nonce, nextEpochHeight, l)
+	pollAction := action.NewPutPollResult(nextEpochHeight, l)
 	builder := action.EnvelopeBuilder{}
+	elp, err := builder.SetNonce(nonce).SetAction(pollAction).Build()
+	if err != nil {
+		return nil, err
+	}
 
-	return []action.Envelope{builder.SetNonce(nonce).SetAction(pollAction).Build()}, nil
+	return []action.Envelope{elp}, nil
 }
 
 // setCandidates sets the candidates for the given state manager

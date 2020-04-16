@@ -68,12 +68,15 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	data, err := hex.DecodeString("")
 	require.NoError(err)
 	t.Run("normal", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
-			SetAction(v).Build()
+			SetAction(v).
+			SetNonce(0).
+			Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
@@ -81,12 +84,14 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.NoError(valid.Validate(ctx, nselp))
 	})
 	t.Run("Gas limit low", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(10)).
+			SetNonce(0).
 			SetAction(v).Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
@@ -96,12 +101,15 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.True(strings.Contains(err.Error(), "insufficient gas"))
 	})
 	t.Run("state error", func(t *testing.T) {
-		v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
-			SetAction(v).Build()
+			SetAction(v).
+			SetNonce(0).
+			Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
@@ -111,13 +119,14 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.True(strings.Contains(err.Error(), "invalid state of account"))
 	})
 	t.Run("nonce too low", func(t *testing.T) {
-		v, err := action.NewExecution("", 1, big.NewInt(10), uint64(10), big.NewInt(10), data)
+		v, err := action.NewExecution("", big.NewInt(10), data)
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetNonce(1).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
@@ -127,24 +136,26 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		require.True(strings.Contains(err.Error(), "nonce is too low"))
 	})
 	t.Run("wrong recipient", func(t *testing.T) {
-		v, err := action.NewTransfer(1, big.NewInt(1), "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", []byte{}, uint64(100000), big.NewInt(10))
+		v, err := action.NewTransfer(big.NewInt(1), "io1qyqsyqcyq5narhapakcsrhksfajfcpl24us3xp38zwvsep", []byte{})
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetAction(v).SetGasLimit(100000).
+		elp, err := bd.SetAction(v).SetGasLimit(100000).
 			SetGasPrice(big.NewInt(10)).
 			SetNonce(1).Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 		require.Error(valid.Validate(ctx, selp))
 	})
 	t.Run("wrong signature", func(t *testing.T) {
-		unsignedTsf, err := action.NewTransfer(uint64(1), big.NewInt(1), caller.String(), []byte{}, uint64(100000), big.NewInt(0))
+		unsignedTsf, err := action.NewTransfer(big.NewInt(1), caller.String(), []byte{})
 		require.NoError(err)
 
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetNonce(1).
+		elp, err := bd.SetNonce(1).
 			SetAction(unsignedTsf).
 			SetGasLimit(100000).Build()
+		require.NoError(err)
 		selp := action.FakeSeal(elp, identityset.PrivateKey(27).PublicKey())
 		require.True(strings.Contains(valid.Validate(ctx, selp).Error(), "failed to verify action signature"))
 	})

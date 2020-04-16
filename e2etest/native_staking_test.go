@@ -350,7 +350,7 @@ func checkAccountState(
 	expectedBalance string,
 	accountAddr address.Address,
 ) error {
-	cost, err := act.Cost()
+	cost, err := act.EstimatedCost()
 	if err != nil {
 		return err
 	}

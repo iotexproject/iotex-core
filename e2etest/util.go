@@ -23,17 +23,18 @@ import (
 func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
-		1,
 		unit.ConvertIotxToRau(90000000),
 		identityset.Address(27).String(),
-		[]byte{}, uint64(100000),
-		big.NewInt(0),
+		[]byte{},
 	)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetAction(tsf0).
+	elp, err := bd.SetAction(tsf0).
 		SetNonce(1).
 		SetGasLimit(100000).
 		SetGasPrice(big.NewInt(10)).Build()
+	if err != nil {
+		return err
+	}
 	selp, err := action.Sign(elp, identityset.PrivateKey(0))
 	if err != nil {
 		return err

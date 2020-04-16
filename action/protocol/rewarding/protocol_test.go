@@ -342,11 +342,12 @@ func TestProtocol_Handle(t *testing.T) {
 	db := action.DepositToRewardingFundBuilder{}
 	deposit := db.SetAmount(big.NewInt(1000000)).Build()
 	eb1 := action.EnvelopeBuilder{}
-	e1 := eb1.SetNonce(0).
+	e1, err := eb1.SetNonce(0).
 		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(deposit.GasLimit()).
+		SetGasLimit(0).
 		SetAction(&deposit).
 		Build()
+	require.NoError(t, err)
 	se1, err := action.Sign(e1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
@@ -358,7 +359,8 @@ func TestProtocol_Handle(t *testing.T) {
 
 	// Grant
 	// Test for createGrantRewardAction
-	e2 := createGrantRewardAction(0, uint64(0))
+	e2, err := createGrantRewardAction(0, uint64(0))
+	require.NoError(t, err)
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
@@ -375,11 +377,12 @@ func TestProtocol_Handle(t *testing.T) {
 	claimBuilder := action.ClaimFromRewardingFundBuilder{}
 	claim := claimBuilder.SetAmount(big.NewInt(1000000)).Build()
 	eb3 := action.EnvelopeBuilder{}
-	e3 := eb3.SetNonce(0).
+	e3, err := eb3.SetNonce(0).
 		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(claim.GasLimit()).
+		SetGasLimit(0).
 		SetAction(&claim).
 		Build()
+	require.NoError(t, err)
 	se3, err := action.Sign(e3, identityset.PrivateKey(0))
 	require.NoError(t, err)
 

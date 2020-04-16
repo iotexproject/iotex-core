@@ -10,13 +10,11 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -32,8 +30,6 @@ var _ hasDestination = (*Execution)(nil)
 
 // Execution defines the struct of account-based contract execution
 type Execution struct {
-	AbstractAction
-
 	contract string
 	amount   *big.Int
 	data     []byte
@@ -42,28 +38,14 @@ type Execution struct {
 // NewExecution returns a Execution instance
 func NewExecution(
 	contractAddress string,
-	nonce uint64,
 	amount *big.Int,
-	gasLimit uint64,
-	gasPrice *big.Int,
 	data []byte,
 ) (*Execution, error) {
 	return &Execution{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		contract: contractAddress,
 		amount:   amount,
 		data:     data,
 	}, nil
-}
-
-// ExecutorPublicKey returns the executor's public key
-func (ex *Execution) ExecutorPublicKey() crypto.PublicKey {
-	return ex.SrcPubkey()
 }
 
 // Contract returns a contract address
@@ -80,12 +62,12 @@ func (ex *Execution) Data() []byte { return ex.data }
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
-	size := ex.BasicActionSize()
+	size := uint32(len(ex.data))
 	if ex.amount != nil && len(ex.amount.Bytes()) > 0 {
 		size += uint32(len(ex.amount.Bytes()))
 	}
 
-	return size + uint32(len(ex.data))
+	return size
 }
 
 // Serialize returns a raw byte stream of this Transfer
@@ -130,8 +112,7 @@ func (ex *Execution) IntrinsicGas() (uint64, error) {
 
 // Cost returns the cost of an execution
 func (ex *Execution) Cost() (*big.Int, error) {
-	maxExecFee := big.NewInt(0).Mul(ex.GasPrice(), big.NewInt(0).SetUint64(ex.GasLimit()))
-	return big.NewInt(0).Add(ex.Amount(), maxExecFee), nil
+	return ex.Amount(), nil
 }
 
 // SanityCheck validates the variables in the action
@@ -146,5 +127,5 @@ func (ex *Execution) SanityCheck() error {
 			return errors.Wrapf(err, "error when validating contract's address %s", ex.Contract())
 		}
 	}
-	return ex.AbstractAction.SanityCheck()
+	return nil
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -27,8 +26,6 @@ const (
 
 // Restake defines the action of stake again
 type Restake struct {
-	AbstractAction
-
 	bucketIndex uint64
 	duration    uint32
 	autoStake   bool
@@ -37,21 +34,12 @@ type Restake struct {
 
 // NewRestake returns a Restake instance
 func NewRestake(
-	nonce uint64,
 	index uint64,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*Restake, error) {
 	return &Restake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		bucketIndex: index,
 		duration:    duration,
 		autoStake:   autoStake,
@@ -109,10 +97,10 @@ func (rs *Restake) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a Restake
 func (rs *Restake) Cost() (*big.Int, error) {
-	intrinsicGas, err := rs.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the stake creates")
-	}
-	restakeFee := big.NewInt(0).Mul(rs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return restakeFee, nil
+	return big.NewInt(0), nil
+}
+
+// SanityCheck checks the action
+func (rs *Restake) SanityCheck() error {
+	return nil
 }

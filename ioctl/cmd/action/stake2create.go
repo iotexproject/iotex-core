@@ -95,15 +95,18 @@ func stake2Create(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, stake2AutoRestake, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewCreateStake(candidateName, amountStringInRau, duration, stake2AutoRestake, data)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a createStake instance", err)
 	}
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(s2c).Build(),
-		sender)
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(s2c).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope ", err)
+	}
+
+	return SendAction(elp, sender)
 }

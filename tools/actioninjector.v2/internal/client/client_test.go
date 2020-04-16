@@ -41,10 +41,11 @@ func TestClient(t *testing.T) {
 	defer mockCtrl.Finish()
 
 	chainID := uint32(1)
-	tx, err := action.NewTransfer(uint64(1), big.NewInt(10), b, nil, uint64(0), big.NewInt(0))
+	tx, err := action.NewTransfer(big.NewInt(10), b, nil)
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).SetAction(tx).Build()
+	elp, err := bd.SetNonce(1).SetAction(tx).Build()
+	require.NoError(err)
 	selp, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 

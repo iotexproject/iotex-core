@@ -194,14 +194,17 @@ func (p *injectProcessor) pickAction() (action.SealedEnvelope, error) {
 
 	bd := &action.EnvelopeBuilder{}
 	var elp action.Envelope
-	execution, err := action.NewExecution(injectCfg.contract, nonce, injectCfg.executionAmount, injectCfg.executionGasLimit, injectCfg.executionGasPrice, injectCfg.executionData)
+	execution, err := action.NewExecution(injectCfg.contract, injectCfg.executionAmount, injectCfg.executionData)
 	if err != nil {
 		return action.SealedEnvelope{}, errors.Wrap(err, "failed to create raw execution")
 	}
-	elp = bd.SetNonce(nonce).
+	elp, err = bd.SetNonce(nonce).
 		SetGasPrice(injectCfg.executionGasPrice).
 		SetGasLimit(injectCfg.executionGasLimit).
 		SetAction(execution).Build()
+	if err != nil {
+		return action.SealedEnvelope{}, errors.Wrap(err, "failed to create envelope")
+	}
 
 	selp, err := action.Sign(elp, sender.PriKey)
 	if err != nil {
@@ -228,24 +231,29 @@ func (p *injectProcessor) pickRandomAction() (action.SealedEnvelope, error) {
 			amount = int64(rand.Intn(5))
 		}
 		recipient := p.accounts[rand.Intn(len(p.accounts))]
-		transfer, err := action.NewTransfer(
-			nonce, unit.ConvertIotxToRau(amount), recipient.EncodedAddr, injectCfg.transferPayload, injectCfg.transferGasLimit, injectCfg.transferGasPrice)
+		transfer, err := action.NewTransfer(unit.ConvertIotxToRau(amount), recipient.EncodedAddr, injectCfg.transferPayload)
 		if err != nil {
 			return action.SealedEnvelope{}, errors.Wrap(err, "failed to create raw transfer")
 		}
-		elp = bd.SetNonce(nonce).
+		elp, err = bd.SetNonce(nonce).
 			SetGasPrice(injectCfg.transferGasPrice).
 			SetGasLimit(injectCfg.transferGasLimit).
 			SetAction(transfer).Build()
+		if err != nil {
+			return action.SealedEnvelope{}, errors.Wrap(err, "failed to create envelope")
+		}
 	case 1:
-		execution, err := action.NewExecution(injectCfg.contract, nonce, injectCfg.executionAmount, injectCfg.executionGasLimit, injectCfg.executionGasPrice, injectCfg.executionData)
+		execution, err := action.NewExecution(injectCfg.contract, injectCfg.executionAmount, injectCfg.executionData)
 		if err != nil {
 			return action.SealedEnvelope{}, errors.Wrap(err, "failed to create raw execution")
 		}
-		elp = bd.SetNonce(nonce).
+		elp, err = bd.SetNonce(nonce).
 			SetGasPrice(injectCfg.executionGasPrice).
 			SetGasLimit(injectCfg.executionGasLimit).
 			SetAction(execution).Build()
+		if err != nil {
+			return action.SealedEnvelope{}, errors.Wrap(err, "failed to create envelope")
+		}
 	}
 
 	selp, err := action.Sign(elp, sender.PriKey)

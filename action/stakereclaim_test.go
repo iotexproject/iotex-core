@@ -32,16 +32,11 @@ var (
 
 func TestUnstake(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewUnstake(nonce, index, payload, gaslimit, gasprice)
+	stake, err := NewUnstake(index, payload)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))
-
-	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
 	require.Equal(index, stake.BucketIndex())
@@ -51,7 +46,7 @@ func TestUnstake(t *testing.T) {
 	require.Equal(uint64(10700), gas)
 	cost, err := stake.Cost()
 	require.NoError(err)
-	require.Equal("107000", cost.Text(10))
+	require.Equal("0", cost.Text(10))
 
 	proto := stake.Proto()
 	stake2 := &Unstake{}
@@ -64,13 +59,15 @@ func TestUnstakeSignVerify(t *testing.T) {
 	require := require.New(t)
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
 
-	stake, err := NewUnstake(nonce, index, payload, gaslimit, gasprice)
+	stake, err := NewUnstake(index, payload)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
+	elp, err := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
+		SetNonce(nonce).
 		SetAction(stake).Build()
+	require.NoError(err)
 	h := elp.Hash()
 	require.Equal("9c806c793d5e452ecf944aa18b07fb8ee0b07fa37807b6480d1208bd591c5c92", hex.EncodeToString(h[:]))
 	// sign
@@ -88,16 +85,11 @@ func TestUnstakeSignVerify(t *testing.T) {
 
 func TestWithdraw(t *testing.T) {
 	require := require.New(t)
-	stake, err := NewWithdrawStake(nonce, index, payload, gaslimit, gasprice)
+	stake, err := NewWithdrawStake(index, payload)
 	require.NoError(err)
 
 	ser := stake.Serialize()
 	require.Equal("080a12077061796c6f6164", hex.EncodeToString(ser))
-
-	require.NoError(err)
-	require.Equal(gaslimit, stake.GasLimit())
-	require.Equal(gasprice, stake.GasPrice())
-	require.Equal(nonce, stake.Nonce())
 
 	require.Equal(payload, stake.Payload())
 	require.Equal(index, stake.BucketIndex())
@@ -107,7 +99,7 @@ func TestWithdraw(t *testing.T) {
 	require.Equal(uint64(10700), gas)
 	cost, err := stake.Cost()
 	require.NoError(err)
-	require.Equal("107000", cost.Text(10))
+	require.Equal("0", cost.Text(10))
 
 	proto := stake.Proto()
 	stake2 := &WithdrawStake{}
@@ -121,13 +113,16 @@ func TestWithdrawSignVerify(t *testing.T) {
 
 	require.Equal("cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1", senderKey.HexString())
 
-	stake, err := NewWithdrawStake(nonce, index, payload, gaslimit, gasprice)
+	stake, err := NewWithdrawStake(index, payload)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
+	elp, err := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
-		SetAction(stake).Build()
+		SetAction(stake).
+		SetNonce(nonce).
+		Build()
+	require.NoError(err)
 	h := elp.Hash()
 	require.Equal("9f7845013c46a387a0b8832d757a9f21aab054fa73c045ad3a66b52f2cad3627", hex.EncodeToString(h[:]))
 	// sign

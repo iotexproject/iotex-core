@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -27,8 +26,6 @@ const (
 
 // CreateStake defines the action of CreateStake creation
 type CreateStake struct {
-	AbstractAction
-
 	candName  string
 	amount    *big.Int
 	duration  uint32
@@ -38,13 +35,10 @@ type CreateStake struct {
 
 // NewCreateStake returns a CreateStake instance
 func NewCreateStake(
-	nonce uint64,
 	candidateName, amount string,
 	duration uint32,
 	autoStake bool,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*CreateStake, error) {
 	stake, ok := new(big.Int).SetString(amount, 10)
 	if !ok {
@@ -52,12 +46,6 @@ func NewCreateStake(
 	}
 
 	return &CreateStake{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
 		candName:  candidateName,
 		amount:    stake,
 		duration:  duration,
@@ -138,12 +126,7 @@ func (cs *CreateStake) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a CreateStake
 func (cs *CreateStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := cs.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the CreateStake creates")
-	}
-	CreateStakeFee := big.NewInt(0).Mul(cs.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return big.NewInt(0).Add(cs.Amount(), CreateStakeFee), nil
+	return cs.Amount(), nil
 }
 
 // SanityCheck validates the variables in the action
@@ -152,5 +135,5 @@ func (cs *CreateStake) SanityCheck() error {
 		return errors.Wrap(ErrInvalidAmount, "negative value")
 	}
 
-	return cs.AbstractAction.SanityCheck()
+	return nil
 }

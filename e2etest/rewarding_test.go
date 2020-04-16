@@ -492,10 +492,11 @@ func injectClaim(
 	b := &action.ClaimFromRewardingFundBuilder{}
 	act := b.SetAmount(amount).SetData(payload).Build()
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
+	elp, err := bd.SetNonce(nonce).
 		SetGasPrice(big.NewInt(0)).
 		SetGasLimit(100000).
 		SetAction(&act).Build()
+	require.NoError(t, err)
 
 	selp, err := action.Sign(elp, beneficiaryPri)
 	require.NoError(t, err)

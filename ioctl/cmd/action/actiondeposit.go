@@ -71,11 +71,12 @@ func deposit(args []string) error {
 		return output.NewError(0, "failed to get nonce", err)
 	}
 	act := (&action.DepositToRewardingFundBuilder{}).SetAmount(amount).SetData(payload).Build()
-
-	return SendAction((&action.EnvelopeBuilder{}).SetNonce(nonce).
+	elp, err := (&action.EnvelopeBuilder{}).SetNonce(nonce).
 		SetGasPrice(gasPriceRau).
 		SetGasLimit(gasLimit).
-		SetAction(&act).Build(),
-		sender,
-	)
+		SetAction(&act).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope", err)
+	}
+	return SendAction(elp, sender)
 }

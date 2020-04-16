@@ -14,7 +14,6 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -23,8 +22,6 @@ const CandidateUpdateBaseIntrinsicGas = uint64(10000)
 
 // CandidateUpdate is the action to register a candidate
 type CandidateUpdate struct {
-	AbstractAction
-
 	name            string
 	operatorAddress address.Address
 	rewardAddress   address.Address
@@ -32,20 +29,9 @@ type CandidateUpdate struct {
 
 // NewCandidateUpdate creates a CandidateUpdate instance
 func NewCandidateUpdate(
-	nonce uint64,
 	name, operatorAddrStr, rewardAddrStr string,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*CandidateUpdate, error) {
-	cu := &CandidateUpdate{
-		AbstractAction: AbstractAction{
-			version:  version.ProtocolVersion,
-			nonce:    nonce,
-			gasLimit: gasLimit,
-			gasPrice: gasPrice,
-		},
-		name: name,
-	}
+	cu := &CandidateUpdate{name: name}
 
 	var err error
 	if len(operatorAddrStr) > 0 {
@@ -128,10 +114,10 @@ func (cu *CandidateUpdate) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a CandidateUpdate
 func (cu *CandidateUpdate) Cost() (*big.Int, error) {
-	intrinsicGas, err := cu.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed ts get intrinsic gas for the CandidateUpdate")
-	}
-	fee := big.NewInt(0).Mul(cu.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return fee, nil
+	return big.NewInt(0), nil
+}
+
+// SanityCheck checks the action
+func (cu *CandidateUpdate) SanityCheck() error {
+	return nil
 }

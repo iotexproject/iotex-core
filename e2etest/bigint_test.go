@@ -106,26 +106,28 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 }
 
 func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
-	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
+	exec, err := action.NewTransfer(big.NewInt(-10000), recipient, nil)
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
-		SetGasLimit(exec.GasLimit()).
-		SetGasPrice(exec.GasPrice()).
+	elp, err := builder.SetAction(exec).
+		SetNonce(1).
+		SetGasLimit(uint64(1000000)).
+		SetGasPrice(big.NewInt(9000000000000)).
 		Build()
+	r.NoError(err)
 	return prepare(bc, sf, elp, r)
 }
 
 func prepareAction(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
-	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
+	exec, err := action.NewExecution(action.EmptyAddress, big.NewInt(-100), []byte{})
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
-	elp := builder.SetAction(exec).
-		SetNonce(exec.Nonce()).
-		SetGasLimit(exec.GasLimit()).
-		SetGasPrice(exec.GasPrice()).
+	elp, err := builder.SetAction(exec).
+		SetNonce(1).
+		SetGasLimit(uint64(1000000)).
+		SetGasPrice(big.NewInt(9000000000000)).
 		Build()
+	r.NoError(err)
 	return prepare(bc, sf, elp, r)
 }
 

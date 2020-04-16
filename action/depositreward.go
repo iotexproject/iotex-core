@@ -25,8 +25,6 @@ var (
 
 // DepositToRewardingFund is the action to deposit to the rewarding fund
 type DepositToRewardingFund struct {
-	AbstractAction
-
 	amount *big.Int
 	data   []byte
 }
@@ -70,11 +68,7 @@ func (d *DepositToRewardingFund) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a deposit action
 func (d *DepositToRewardingFund) Cost() (*big.Int, error) {
-	intrinsicGas, err := d.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "error when getting intrinsic gas for the deposit action")
-	}
-	return big.NewInt(0).Mul(d.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas)), nil
+	return big.NewInt(0), nil
 }
 
 // SanityCheck validates the variables in the action
@@ -83,12 +77,11 @@ func (d *DepositToRewardingFund) SanityCheck() error {
 		return errors.Wrap(ErrBalance, "negative value")
 	}
 
-	return d.AbstractAction.SanityCheck()
+	return nil
 }
 
 // DepositToRewardingFundBuilder is the struct to build DepositToRewardingFund
 type DepositToRewardingFundBuilder struct {
-	Builder
 	deposit DepositToRewardingFund
 }
 
@@ -106,6 +99,5 @@ func (b *DepositToRewardingFundBuilder) SetData(data []byte) *DepositToRewarding
 
 // Build builds a new deposit to rewarding fund action
 func (b *DepositToRewardingFundBuilder) Build() DepositToRewardingFund {
-	b.deposit.AbstractAction = b.Builder.Build()
 	return b.deposit
 }

@@ -167,10 +167,10 @@ func gasPriceInRau() (*big.Int, error) {
 	return new(big.Int).SetUint64(response.GasPrice), nil
 }
 
-func fixGasLimit(caller string, execution *action.Execution) (*action.Execution, error) {
+func fixGasLimit(caller string, execution *action.Execution) (uint64, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return 0, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
@@ -191,12 +191,15 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
-			return nil, output.NewError(output.APIError, sta.Message(), nil)
+			return 0, output.NewError(output.APIError, sta.Message(), nil)
 		}
-		return nil, output.NewError(output.NetworkError,
-			"failed to invoke EstimateActionGasConsumption api", err)
+		return 0, output.NewError(
+			output.NetworkError,
+			"failed to invoke EstimateActionGasConsumption api",
+			err,
+		)
 	}
-	return action.NewExecution(execution.Contract(), execution.Nonce(), execution.Amount(), res.Gas, execution.GasPrice(), execution.Data())
+	return res.Gas, nil
 }
 
 // SendRaw sends raw action to blockchain
@@ -310,25 +313,26 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 		return output.NewError(0, "failed to get nonce", err)
 	}
 	gasLimit := gasLimitFlag.Value().(uint64)
-	tx, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPriceRau, bytecode)
+	tx, err := action.NewExecution(contract, amount, bytecode)
 	if err != nil || tx == nil {
 		return output.NewError(output.InstantiationError, "failed to make a Execution instance", err)
 	}
 	if gasLimit == 0 {
-		tx, err = fixGasLimit(signer, tx)
+		gasLimit, err = fixGasLimit(signer, tx)
 		if err != nil || tx == nil {
 			return output.NewError(0, "failed to fix Execution gaslimit", err)
 		}
-		gasLimit = tx.GasLimit()
+		gasLimit = gasLimit
 	}
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(tx).Build(),
-		signer,
-	)
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(tx).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope", err)
+	}
+	return SendAction(elp, signer)
 }
 
 // Read reads smart contract on IoTeX blockchain
@@ -337,7 +341,7 @@ func Read(contract address.Address, bytecode []byte) (string, error) {
 	if err != nil {
 		caller = address.ZeroAddress
 	}
-	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
+	exec, err := action.NewExecution(contract.String(), big.NewInt(0), bytecode)
 	if err != nil {
 		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
 	}
@@ -378,7 +382,7 @@ func isBalanceEnough(address string, act action.SealedEnvelope) error {
 	if !ok {
 		return output.NewError(output.ConvertError, "failed to convert balance into big int", nil)
 	}
-	cost, err := act.Cost()
+	cost, err := act.EstimatedCost()
 	if err != nil {
 		return output.NewError(output.RuntimeError, "failed to check cost of an action", nil)
 	}

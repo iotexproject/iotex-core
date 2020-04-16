@@ -248,13 +248,16 @@ func TestActPool_AddActs(t *testing.T) {
 	require.NoError(err)
 	err = ap.Add(ctx, replaceTsf)
 	require.Equal(action.ErrNonce, errors.Cause(err))
-	replaceTransfer, err := action.NewTransfer(uint64(4), big.NewInt(1), addr2, []byte{}, uint64(100000), big.NewInt(0))
+	replaceTransfer, err := action.NewTransfer(big.NewInt(1), addr2, []byte{})
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(4).
+	elp, err := bd.SetNonce(4).
 		SetAction(replaceTransfer).
-		SetGasLimit(100000).Build()
+		SetGasLimit(100000).
+		SetGasPrice(big.NewInt(0)).
+		Build()
+	require.NoError(err)
 	selp, err := action.Sign(elp, priKey1)
 
 	require.NoError(err)
@@ -275,19 +278,18 @@ func TestActPool_AddActs(t *testing.T) {
 	tmpData := [1234]byte{}
 	creationExecution, err := action.NewExecution(
 		action.EmptyAddress,
-		uint64(5),
 		big.NewInt(int64(0)),
-		10,
-		big.NewInt(10),
 		tmpData[:],
 	)
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(5).
+	elp, err = bd.SetNonce(5).
 		SetGasPrice(big.NewInt(10)).
 		SetGasLimit(10).
-		SetAction(creationExecution).Build()
+		SetAction(creationExecution).
+		Build()
+	require.NoError(err)
 	selp, err = action.Sign(elp, priKey1)
 	require.NoError(err)
 
@@ -746,13 +748,16 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf22, err := testutil.SignedTransfer(addr5, priKey4, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf23, err := action.NewTransfer(uint64(3), big.NewInt(1), "", []byte{}, uint64(100000), big.NewInt(0))
+	tsf23, err := action.NewTransfer(big.NewInt(1), "", []byte{})
 	require.NoError(err)
 
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(3).
-		SetGasLimit(20000).
-		SetAction(tsf23).Build()
+	elp, err := bd.SetNonce(3).
+		SetGasLimit(100000).
+		SetGasPrice(big.NewInt(0)).
+		SetAction(tsf23).
+		Build()
+	require.NoError(err)
 	selp23, err := action.Sign(elp, priKey4)
 	require.NoError(err)
 
@@ -760,13 +765,16 @@ func TestActPool_Reset(t *testing.T) {
 	require.NoError(err)
 	tsf25, err := testutil.SignedTransfer(addr4, priKey5, uint64(2), big.NewInt(10), []byte{}, uint64(20000), big.NewInt(0))
 	require.NoError(err)
-	tsf26, err := action.NewTransfer(uint64(3), big.NewInt(1), addr4, []byte{}, uint64(20000), big.NewInt(0))
+	tsf26, err := action.NewTransfer(big.NewInt(1), addr4, []byte{})
 	require.NoError(err)
 
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
+	elp, err = bd.SetNonce(3).
 		SetGasLimit(20000).
-		SetAction(tsf26).Build()
+		SetGasPrice(big.NewInt(0)).
+		SetAction(tsf26).
+		Build()
+	require.NoError(err)
 	selp26, err := action.Sign(elp, priKey5)
 	require.NoError(err)
 

@@ -15,7 +15,6 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
 const (
@@ -27,8 +26,6 @@ const (
 
 // reclaimStake defines the action of stake restake/withdraw
 type reclaimStake struct {
-	AbstractAction
-
 	bucketIndex uint64
 	payload     []byte
 }
@@ -72,20 +69,11 @@ type Unstake struct {
 
 // NewUnstake returns a Unstake instance
 func NewUnstake(
-	nonce uint64,
 	bucketIndex uint64,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*Unstake, error) {
 	return &Unstake{
 		reclaimStake{
-			AbstractAction: AbstractAction{
-				version:  version.ProtocolVersion,
-				nonce:    nonce,
-				gasLimit: gasLimit,
-				gasPrice: gasPrice,
-			},
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
@@ -100,12 +88,12 @@ func (su *Unstake) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a Unstake
 func (su *Unstake) Cost() (*big.Int, error) {
-	intrinsicGas, err := su.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the unstake")
-	}
-	unstakeFee := big.NewInt(0).Mul(su.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return unstakeFee, nil
+	return big.NewInt(0), nil
+}
+
+// SanityCheck checks the action
+func (su *Unstake) SanityCheck() error {
+	return nil
 }
 
 // WithdrawStake defines the action of stake withdraw
@@ -115,20 +103,11 @@ type WithdrawStake struct {
 
 // NewWithdrawStake returns a WithdrawStake instance
 func NewWithdrawStake(
-	nonce uint64,
 	bucketIndex uint64,
 	payload []byte,
-	gasLimit uint64,
-	gasPrice *big.Int,
 ) (*WithdrawStake, error) {
 	return &WithdrawStake{
 		reclaimStake{
-			AbstractAction: AbstractAction{
-				version:  version.ProtocolVersion,
-				nonce:    nonce,
-				gasLimit: gasLimit,
-				gasPrice: gasPrice,
-			},
 			bucketIndex: bucketIndex,
 			payload:     payload,
 		},
@@ -143,10 +122,10 @@ func (sw *WithdrawStake) IntrinsicGas() (uint64, error) {
 
 // Cost returns the total cost of a WithdrawStake
 func (sw *WithdrawStake) Cost() (*big.Int, error) {
-	intrinsicGas, err := sw.IntrinsicGas()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get intrinsic gas for the WithdrawStake")
-	}
-	withdrawFee := big.NewInt(0).Mul(sw.GasPrice(), big.NewInt(0).SetUint64(intrinsicGas))
-	return withdrawFee, nil
+	return big.NewInt(0), nil
+}
+
+// SanityCheck checks the action
+func (sw *WithdrawStake) SanityCheck() error {
+	return nil
 }

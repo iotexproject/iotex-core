@@ -22,13 +22,16 @@ func TestActionProtoAndVerify(t *testing.T) {
 	require := require.New(t)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	v, err := NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+	v, err := NewExecution("", big.NewInt(10), data)
 	require.NoError(err)
 	t.Run("no error", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
-			SetAction(v).Build()
+			SetAction(v).
+			SetNonce(uint64(0)).
+			Build()
+		require.NoError(err)
 
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
@@ -37,14 +40,14 @@ func TestActionProtoAndVerify(t *testing.T) {
 
 		nselp := &SealedEnvelope{}
 		require.NoError(nselp.LoadProto(selp.Proto()))
-
 		require.Equal(selp.Hash(), nselp.Hash())
 	})
 	t.Run("empty public key", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
+		require.NoError(err)
 
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
@@ -55,9 +58,10 @@ func TestActionProtoAndVerify(t *testing.T) {
 	})
 	t.Run("gas limit too low", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(1000)).
 			SetAction(v).Build()
+		require.NoError(err)
 
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
@@ -66,9 +70,10 @@ func TestActionProtoAndVerify(t *testing.T) {
 	})
 	t.Run("invalid signature", func(t *testing.T) {
 		bd := &EnvelopeBuilder{}
-		elp := bd.SetGasPrice(big.NewInt(10)).
+		elp, err := bd.SetGasPrice(big.NewInt(10)).
 			SetGasLimit(uint64(100000)).
 			SetAction(v).Build()
+		require.NoError(err)
 
 		selp, err := Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)

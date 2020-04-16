@@ -44,7 +44,7 @@ func TestEnvelope_GasPrice(t *testing.T) {
 func TestEnvelope_Cost(t *testing.T) {
 	req := require.New(t)
 	evlp, _ := createEnvelope()
-	c, err := evlp.Cost()
+	c, err := evlp.EstimatedCost()
 	expC, _ := new(big.Int).SetString("111010000000000000000000", 10)
 	req.Equal(0, c.Cmp(expC))
 	req.NoError(err)
@@ -103,21 +103,19 @@ func TestEnvelope_Hash(t *testing.T) {
 	expH := hash.BytesToHash256(exp)
 	req.Equal(expH, h)
 }
+
 func createEnvelope() (Envelope, *Transfer) {
 	tsf, _ := NewTransfer(
-		uint64(10),
 		unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
 		nil,
-		20000+uint64(10),
-		unit.ConvertIotxToRau(1+int64(10)),
 	)
 	eb := EnvelopeBuilder{}
-	evlp := eb.
+	evlp, _ := eb.
 		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(tsf.Nonce()).
+		SetGasLimit(20000 + uint64(10)).
+		SetGasPrice(unit.ConvertIotxToRau(1 + int64(10))).
+		SetNonce(uint64(10)).
 		SetVersion(1).
 		Build()
 	return evlp, tsf

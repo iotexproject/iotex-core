@@ -23,9 +23,9 @@ type noncer interface {
 }
 
 // SetNonce sets nonce for account
-func SetNonce(i noncer, state *state.Account) {
-	if i.Nonce() > state.Nonce {
-		state.Nonce = i.Nonce()
+func SetNonce(nonce uint64, state *state.Account) {
+	if nonce > state.Nonce {
+		state.Nonce = nonce
 	}
 }
 

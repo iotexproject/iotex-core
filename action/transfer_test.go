@@ -22,15 +22,17 @@ func TestTransferSignVerify(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 
-	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(big.NewInt(10), recipientAddr.String(), []byte{})
 	require.NoError(err)
 
 	tsf.Proto()
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
+	elp, err := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
+		SetNonce(0).
 		SetAction(tsf).Build()
+	require.NoError(err)
 
 	elp.Serialize()
 
@@ -51,15 +53,17 @@ func TestTransfer(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 
-	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(big.NewInt(10), recipientAddr.String(), []byte{})
 	require.NoError(err)
 
 	tsf.Proto()
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
+	elp, err := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
+		SetNonce(0).
 		SetAction(tsf).Build()
+	require.NoError(err)
 
 	elp.Serialize()
 
@@ -69,20 +73,23 @@ func TestTransfer(t *testing.T) {
 	require.NoError(err)
 	require.Equal("10", tsf.Amount().Text(10))
 	require.Equal([]byte{}, tsf.Payload())
-	require.Equal(uint64(100000), tsf.GasLimit())
-	require.Equal("10", tsf.GasPrice().Text(10))
-	require.Equal(uint64(0), tsf.Nonce())
-	require.Equal(senderKey.PublicKey().HexString(), tsf.SenderPublicKey().HexString())
+	require.Equal(uint64(100000), elp.GasLimit())
+	require.Equal("10", elp.GasPrice().Text(10))
+	require.Equal(uint64(0), elp.Nonce())
+	require.Equal(senderKey.PublicKey().HexString(), w.SrcPubkey().HexString())
 	require.Equal(recipientAddr.String(), tsf.Recipient())
 	require.Equal(recipientAddr.String(), tsf.Destination())
-	require.Equal(uint32(87), tsf.TotalSize())
+	require.Equal(uint32(1), tsf.TotalSize())
 
 	gas, err := tsf.IntrinsicGas()
 	require.NoError(err)
 	require.Equal(uint64(10000), gas)
 	cs, err := tsf.Cost()
 	require.NoError(err)
-	require.Equal("100010", cs.Text(10))
+	require.Equal("10", cs.Text(10))
+	ec, err := elp.EstimatedCost()
+	require.NoError(err)
+	require.Equal("100010", ec.Text(10))
 
 	proto := tsf.Proto()
 	tsf2 := &Transfer{}
@@ -93,19 +100,15 @@ func TestTransfer(t *testing.T) {
 	require.Equal(recipientAddr.String(), tsf2.Destination())
 
 	t.Run("Negative amount", func(t *testing.T) {
-		tsf, err := NewTransfer(uint64(1), big.NewInt(-100), "2", nil,
-			uint64(100000), big.NewInt(0))
+		tsf, err := NewTransfer(big.NewInt(-100), "2", nil)
 		require.NoError(err)
 		require.Equal(ErrBalance, errors.Cause(tsf.SanityCheck()))
 	})
 	t.Run("Invalid recipient address", func(t *testing.T) {
 		tsf, err := NewTransfer(
-			1,
 			big.NewInt(1),
 			identityset.Address(28).String()+"aaa",
 			nil,
-			uint64(100000),
-			big.NewInt(0),
 		)
 		require.NoError(err)
 		err = tsf.SanityCheck()
@@ -113,9 +116,14 @@ func TestTransfer(t *testing.T) {
 		require.True(strings.Contains(err.Error(), "error when validating recipient's address"))
 	})
 	t.Run("Negative gas fee", func(t *testing.T) {
-		tsf, err := NewTransfer(uint64(1), big.NewInt(100), identityset.Address(28).String(), nil,
-			uint64(100000), big.NewInt(-1))
+		tsf, err := NewTransfer(big.NewInt(100), identityset.Address(28).String(), nil)
 		require.NoError(err)
-		require.Equal(ErrGasPrice, errors.Cause(tsf.SanityCheck()))
+		bd := &EnvelopeBuilder{}
+		_, err = bd.SetGasLimit(uint64(100000)).
+			SetGasPrice(big.NewInt(-10)).
+			SetNonce(0).
+			SetAction(tsf).Build()
+		require.Error(err)
+		require.EqualError(ErrGasPrice, err.Error())
 	})
 }

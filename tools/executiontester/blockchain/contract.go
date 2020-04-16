@@ -201,10 +201,7 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	gasLimit := GasLimitPerByte*uint64(len(data)) + 5000000
 	tx, err := action.NewExecution(
 		c.addr,
-		nonce,
 		big.NewInt(0),
-		gasLimit,
-		gasPrice,
 		data)
 	if err != nil {
 		return "", err
@@ -222,10 +219,13 @@ func (c *contract) Transact(data []byte, readOnly bool) (string, error) {
 	}
 
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(nonce).
+	elp, err := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(tx).Build()
+	if err != nil {
+		return "", err
+	}
 	prvKey, err := crypto.HexStringToPrivateKey(c.prvkey)
 	if err != nil {
 		return "", crypto.ErrInvalidKey

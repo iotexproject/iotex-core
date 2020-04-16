@@ -96,14 +96,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		consortiumCommitteeContractNonce,
-		big.NewInt(0),
-		bcCtx.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		bytes,
-	)
+	execution, err := action.NewExecution("", big.NewInt(0), bytes)
 	if err != nil {
 		return err
 	}
@@ -113,8 +106,8 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		return err
 	}
 	actionCtx.Nonce = consortiumCommitteeContractNonce
-	actionCtx.ActionHash = execution.Hash()
-	actionCtx.GasPrice = execution.GasPrice()
+	actionCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
+	actionCtx.GasPrice = big.NewInt(0)
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
 		return err
@@ -264,7 +257,12 @@ func genContractReaderFromReadContract(r ReadContract, setting bool) contractRea
 func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateManager, getBlockHash evm.GetBlockHash) contractReaderFunc {
 	return func(ctx context.Context, contract string, data []byte) ([]byte, error) {
 		gasLimit := uint64(10000000)
-		ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), data)
+		ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			GasLimit: gasLimit,
+			GasPrice: big.NewInt(0),
+			Nonce:    1,
+		})
+		ex, err := action.NewExecution(contract, big.NewInt(0), data)
 		if err != nil {
 			return nil, err
 		}

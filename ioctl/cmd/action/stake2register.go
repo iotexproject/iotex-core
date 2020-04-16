@@ -108,17 +108,20 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
+	cr, err := action.NewCandidateRegister(name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoRestake, payload)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
 	}
 
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(cr).Build(),
-		sender)
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(cr).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope", err)
+	}
+
+	return SendAction(elp, sender)
 }

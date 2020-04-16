@@ -60,10 +60,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	sealed.srcPubkey = srcPub
 	sealed.signature = make([]byte, len(pbAct.GetSignature()))
 	copy(sealed.signature, pbAct.GetSignature())
-	if err := sealed.Envelope.LoadProto(pbAct.GetCore()); err != nil {
-		return err
-	}
 
-	sealed.payload.SetEnvelopeContext(*sealed)
-	return nil
+	return sealed.Envelope.LoadProto(pbAct.GetCore())
 }

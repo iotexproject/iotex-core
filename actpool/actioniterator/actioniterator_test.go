@@ -26,61 +26,67 @@ func TestActionIterator(t *testing.T) {
 	c := identityset.Address(30)
 	priKeyC := identityset.PrivateKey(30)
 	accMap := make(map[string][]action.SealedEnvelope)
-	tsf1, err := action.NewTransfer(uint64(1), big.NewInt(100), b.String(), nil, uint64(0), big.NewInt(13))
+	tsf1, err := action.NewTransfer(big.NewInt(100), b.String(), nil)
 	require.NoError(err)
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetNonce(1).
+	elp, err := bd.SetNonce(1).
 		SetGasPrice(big.NewInt(13)).
 		SetAction(tsf1).Build()
+	require.NoError(err)
 	selp1, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
-	tsf2, err := action.NewTransfer(uint64(2), big.NewInt(100), "2", nil, uint64(0), big.NewInt(30))
+	tsf2, err := action.NewTransfer(big.NewInt(100), "2", nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).
+	elp, err = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(30)).
 		SetAction(tsf2).Build()
+	require.NoError(err)
 	selp2, err := action.Sign(elp, priKeyA)
 	require.NoError(err)
 
 	accMap[a.String()] = []action.SealedEnvelope{selp1, selp2}
 
-	tsf3, err := action.NewTransfer(uint64(1), big.NewInt(100), c.String(), nil, uint64(0), big.NewInt(15))
+	tsf3, err := action.NewTransfer(big.NewInt(100), c.String(), nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
+	elp, err = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(15)).
 		SetAction(tsf3).Build()
+	require.NoError(err)
 	selp3, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	tsf4, err := action.NewTransfer(uint64(2), big.NewInt(100), "3", nil, uint64(0), big.NewInt(10))
+	tsf4, err := action.NewTransfer(big.NewInt(100), "3", nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(2).
+	elp, err = bd.SetNonce(2).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf4).Build()
+	require.NoError(err)
 	selp4, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
-	tsf5, err := action.NewTransfer(uint64(3), big.NewInt(100), a.String(), nil, uint64(0), big.NewInt(2))
+	tsf5, err := action.NewTransfer(big.NewInt(100), a.String(), nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(3).
+	elp, err = bd.SetNonce(3).
 		SetGasPrice(big.NewInt(20)).
 		SetAction(tsf5).Build()
+	require.NoError(err)
 	selp5, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 
 	accMap[b.String()] = []action.SealedEnvelope{selp3, selp4, selp5}
 
-	tsf6, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(0), big.NewInt(5))
+	tsf6, err := action.NewTransfer(big.NewInt(100), "1", nil)
 	require.NoError(err)
 	bd = &action.EnvelopeBuilder{}
-	elp = bd.SetNonce(1).
+	elp, err = bd.SetNonce(1).
 		SetGasPrice(big.NewInt(5)).
 		SetAction(tsf6).Build()
+	require.NoError(err)
 	selp6, err := action.Sign(elp, priKeyC)
 	require.NoError(err)
 

@@ -44,7 +44,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, action.ErrHitGasLimit
 	}
 
-	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
 		return nil, errors.Wrapf(
 			state.ErrNotEnoughBalance,
@@ -75,7 +75,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	recipientAcct, err := accountutil.LoadAccount(sm, hash.BytesToHash160(recipientAddr.Bytes()))
 	if err == nil && recipientAcct.IsContract() {
 		// update sender Nonce
-		accountutil.SetNonce(tsf, sender)
+		accountutil.SetNonce(actionCtx.Nonce, sender)
 		// put updated sender's state to trie
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
@@ -101,7 +101,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrapf(err, "failed to update the Balance of sender %s", actionCtx.Caller.String())
 	}
 	// update sender Nonce
-	accountutil.SetNonce(tsf, sender)
+	accountutil.SetNonce(actionCtx.Nonce, sender)
 	// put updated sender's state to trie
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")

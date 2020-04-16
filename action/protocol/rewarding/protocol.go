@@ -105,23 +105,31 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
 func (p *Protocol) CreatePostSystemActions(ctx context.Context, _ protocol.StateReader) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	grants := []action.Envelope{createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)}
+	grant, err := createGrantRewardAction(action.BlockReward, blkCtx.BlockHeight)
+	if err != nil {
+		return nil, err
+	}
+	grants := []action.Envelope{grant}
 	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
 	if rp != nil && blkCtx.BlockHeight == rp.GetEpochLastBlockHeight(rp.GetEpochNum(blkCtx.BlockHeight)) {
-		grants = append(grants, createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight))
+		grant, err = createGrantRewardAction(action.EpochReward, blkCtx.BlockHeight)
+		if err != nil {
+			return nil, err
+		}
+		grants = append(grants, grant)
 	}
 
 	return grants, nil
 }
 
-func createGrantRewardAction(rewardType int, height uint64) action.Envelope {
+func createGrantRewardAction(rewardType int, height uint64) (action.Envelope, error) {
 	builder := action.EnvelopeBuilder{}
 	gb := action.GrantRewardBuilder{}
 	grant := gb.SetRewardType(rewardType).SetHeight(height).Build()
 
 	return builder.SetNonce(0).
 		SetGasPrice(big.NewInt(0)).
-		SetGasLimit(grant.GasLimit()).
+		SetGasLimit(0).
 		SetAction(&grant).
 		Build()
 }

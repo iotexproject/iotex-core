@@ -60,6 +60,8 @@ type ActionCtx struct {
 	ActionHash hash.Hash256
 	// GasPrice is the action gas price
 	GasPrice *big.Int
+	// GasLimit is the limit of gas for this action
+	GasLimit uint64
 	// IntrinsicGas is the action intrinsic gas
 	IntrinsicGas uint64
 	// Nonce is the nonce of the action

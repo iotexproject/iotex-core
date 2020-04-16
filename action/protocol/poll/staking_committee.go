@@ -107,14 +107,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 	if err != nil {
 		return err
 	}
-	execution, err := action.NewExecution(
-		"",
-		nativeStakingContractNonce,
-		big.NewInt(0),
-		bcCtx.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		bytes,
-	)
+	execution, err := action.NewExecution("", big.NewInt(0), bytes)
 	if err != nil {
 		return err
 	}
@@ -124,8 +117,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return err
 	}
 	actionCtx.Nonce = nativeStakingContractNonce
-	actionCtx.ActionHash = execution.Hash()
-	actionCtx.GasPrice = execution.GasPrice()
+	actionCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
+	actionCtx.GasPrice = big.NewInt(0)
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {
 		return err

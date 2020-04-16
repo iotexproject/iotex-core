@@ -74,16 +74,17 @@ func stake2Release(args []string) error {
 	if gasLimit == 0 {
 		gasLimit = action.ReclaimStakeBaseIntrinsicGas + action.ReclaimStakePayloadGas*uint64(len(data))
 	}
-	s2r, err := action.NewUnstake(nonce, bucketIndex, data, gasLimit, gasPriceRau)
+	s2r, err := action.NewUnstake(bucketIndex, data)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a Unstake  instance", err)
 	}
-
-	return SendAction(
-		(&action.EnvelopeBuilder{}).
-			SetNonce(nonce).
-			SetGasPrice(gasPriceRau).
-			SetGasLimit(gasLimit).
-			SetAction(s2r).Build(),
-		sender)
+	elp, err := (&action.EnvelopeBuilder{}).
+		SetNonce(nonce).
+		SetGasPrice(gasPriceRau).
+		SetGasLimit(gasLimit).
+		SetAction(s2r).Build()
+	if err != nil {
+		return output.NewError(0, "failed to create envelope", err)
+	}
+	return SendAction(elp, sender)
 }

@@ -126,6 +126,7 @@ func withActionCtx(ctx context.Context, selp action.SealedEnvelope) (context.Con
 	actionCtx.Caller = caller
 	actionCtx.ActionHash = selp.Hash()
 	actionCtx.GasPrice = selp.GasPrice()
+	actionCtx.GasLimit = selp.GasLimit()
 	intrinsicGas, err := selp.IntrinsicGas()
 	if err != nil {
 		return nil, err

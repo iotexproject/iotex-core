@@ -26,8 +26,7 @@ func TestPutPollResult(t *testing.T) {
 		Address: addr.String(),
 		Votes:   big.NewInt(1000),
 	})
-	r := NewPutPollResult(1, 10001, candidates)
-	assert.Equal(t, uint64(1), r.Nonce())
+	r := NewPutPollResult(10001, candidates)
 	igas, err := r.IntrinsicGas()
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), igas)

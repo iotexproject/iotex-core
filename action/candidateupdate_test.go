@@ -26,16 +26,11 @@ var (
 
 func TestCandidateUpdate(t *testing.T) {
 	require := require.New(t)
-	cu, err := NewCandidateUpdate(cuNonce, cuName, cuOperatorAddrStr, cuRewardAddrStr, cuGasLimit, cuGasPrice)
+	cu, err := NewCandidateUpdate(cuName, cuOperatorAddrStr, cuRewardAddrStr)
 	require.NoError(err)
 
 	ser := cu.Serialize()
 	require.Equal("0a04746573741229696f31636c36726c32657635646661393838716d677a673278346866617a6d7039766e326736366e671a29696f316a757678356730363365753474733833326e756b7034766763776b32676e6335637539617964", hex.EncodeToString(ser))
-
-	require.NoError(err)
-	require.Equal(cuGasLimit, cu.GasLimit())
-	require.Equal(cuGasPrice, cu.GasPrice())
-	require.Equal(cuNonce, cu.Nonce())
 
 	require.Equal(cuName, cu.Name())
 	require.Equal(cuOperatorAddrStr, cu.OperatorAddress().String())
@@ -46,7 +41,7 @@ func TestCandidateUpdate(t *testing.T) {
 	require.Equal(uint64(10000), gas)
 	cost, err := cu.Cost()
 	require.NoError(err)
-	require.Equal("20000000", cost.Text(10))
+	require.Equal("0", cost.Text(10))
 
 	proto := cu.Proto()
 	cu2 := &CandidateUpdate{}
@@ -58,13 +53,15 @@ func TestCandidateUpdate(t *testing.T) {
 
 func TestCandidateUpdateSignVerify(t *testing.T) {
 	require := require.New(t)
-	cu, err := NewCandidateUpdate(cuNonce, cuName, cuOperatorAddrStr, cuRewardAddrStr, cuGasLimit, cuGasPrice)
+	cu, err := NewCandidateUpdate(cuName, cuOperatorAddrStr, cuRewardAddrStr)
 	require.NoError(err)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(gaslimit).
+	elp, err := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
-		SetAction(cu).Build()
+		SetAction(cu).
+		Build()
+	require.NoError(err)
 	h := elp.Hash()
 	require.Equal("46209470b666b5fdb7fcc91444316c186e700006cb5a660abe8533f12e0db004", hex.EncodeToString(h[:]))
 	// sign

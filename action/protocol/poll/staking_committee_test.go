@@ -181,7 +181,7 @@ func TestCreatePostSystemActions_StakingCommittee(t *testing.T) {
 	act, ok := elp[0].Action().(*action.PutPollResult)
 	require.True(ok)
 	require.Equal(uint64(1), act.Height())
-	require.Equal(uint64(0), act.AbstractAction.Nonce())
+	require.Equal(uint64(0), elp[0].Nonce())
 	delegates := r.Delegates()
 	require.Equal(len(act.Candidates()), len(delegates))
 	for _, can := range act.Candidates() {
@@ -203,12 +203,13 @@ func TestHandle_StakingCommittee(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 	t.Run("Wrong action type", func(t *testing.T) {
-		tsf, err := action.NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+		tsf, err := action.NewTransfer(big.NewInt(10), recipientAddr.String(), []byte{})
 		require.NoError(err)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
+		elp, err := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(tsf).Build()
+		require.NoError(err)
 		selp, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp)
@@ -223,11 +224,12 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
-		act2 := action.NewPutPollResult(1, 1, sc2)
+		act2 := action.NewPutPollResult(1, sc2)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
+		elp, err := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act2).Build()
+		require.NoError(err)
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
@@ -252,11 +254,12 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc2 state.CandidateList
 		_, err = sm2.State(&sc2, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
-		act2 := action.NewPutPollResult(1, 1, sc2)
+		act2 := action.NewPutPollResult(1, sc2)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
+		elp, err := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act2).Build()
+		require.NoError(err)
 		selp2, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp2)
@@ -288,11 +291,12 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		require.NoError(err)
 		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
 		sc3 = append(sc3, &state.Candidate{"1", big.NewInt(10), "2", nil})
-		act3 := action.NewPutPollResult(1, 1, sc3)
+		act3 := action.NewPutPollResult(1, sc3)
 		bd := &action.EnvelopeBuilder{}
-		elp := bd.SetGasLimit(uint64(100000)).
+		elp, err := bd.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act3).Build()
+		require.NoError(err)
 		selp3, err := action.Sign(elp, senderKey)
 		require.NoError(err)
 		require.NotNil(selp3)
@@ -323,11 +327,12 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		_, err = sm4.State(&sc4, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		require.NoError(err)
 		sc4 = append(sc4, &state.Candidate{"1", big.NewInt(10), "2", nil})
-		act4 := action.NewPutPollResult(1, 1, sc4)
+		act4 := action.NewPutPollResult(1, sc4)
 		bd4 := &action.EnvelopeBuilder{}
-		elp4 := bd4.SetGasLimit(uint64(100000)).
+		elp4, err := bd4.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act4).Build()
+		require.NoError(err)
 		selp4, err := action.Sign(elp4, senderKey)
 		require.NoError(err)
 		require.NotNil(selp4)
@@ -357,11 +362,12 @@ func TestHandle_StakingCommittee(t *testing.T) {
 		var sc5 state.CandidateList
 		_, err = sm5.State(&sc5, protocol.LegacyKeyOption(candidatesutil.ConstructLegacyKey(1)))
 		sc5[0].Votes = big.NewInt(10)
-		act5 := action.NewPutPollResult(1, 1, sc5)
+		act5 := action.NewPutPollResult(1, sc5)
 		bd5 := &action.EnvelopeBuilder{}
-		elp5 := bd5.SetGasLimit(uint64(100000)).
+		elp5, err := bd5.SetGasLimit(uint64(100000)).
 			SetGasPrice(big.NewInt(10)).
 			SetAction(act5).Build()
+		require.NoError(err)
 		selp5, err := action.Sign(elp5, senderKey)
 		require.NoError(err)
 		require.NotNil(selp5)

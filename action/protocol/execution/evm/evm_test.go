@@ -35,18 +35,14 @@ func TestExecuteContractFailure(t *testing.T) {
 	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).Return(uint64(0), nil).AnyTimes()
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 
-	e, err := action.NewExecution(
-		"",
-		1,
-		big.NewInt(0),
-		testutil.TestGasLimit,
-		big.NewInt(10),
-		nil,
-	)
+	e, err := action.NewExecution("", big.NewInt(0), nil)
 	require.NoError(t, err)
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller: identityset.Address(27),
+		Caller:   identityset.Address(27),
+		Nonce:    1,
+		GasLimit: testutil.TestGasLimit,
+		GasPrice: big.NewInt(10),
 	})
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		Producer: identityset.Address(27),
@@ -75,11 +71,7 @@ func TestConstantinople(t *testing.T) {
 	defer ctrl.Finish()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 
-	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller: identityset.Address(27),
-	})
-
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
 		Genesis: config.Default.Genesis,
 	})
 
@@ -121,16 +113,19 @@ func TestConstantinople(t *testing.T) {
 	for _, e := range execHeights {
 		ex, err := action.NewExecution(
 			e.contract,
-			1,
 			big.NewInt(0),
-			testutil.TestGasLimit,
-			big.NewInt(10),
 			nil,
 		)
 		require.NoError(err)
+		ctx := protocol.WithActionCtx(ctx, protocol.ActionCtx{
+			Caller:   identityset.Address(27),
+			Nonce:    1,
+			GasLimit: testutil.TestGasLimit,
+			GasPrice: big.NewInt(10),
+		})
 
 		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), ex.Hash())
+		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hash.Hash256b([]byte("some hash")))
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,

@@ -13,22 +13,39 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/pkg/version"
-	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
 func TestActionBuilder(t *testing.T) {
-	srcPubKey := identityset.PrivateKey(27).PublicKey()
-	bd := &Builder{}
-	act := bd.SetVersion(version.ProtocolVersion).
-		SetNonce(2).
-		SetSourcePublicKey(srcPubKey).
-		SetGasLimit(10003).
-		SetGasPrice(big.NewInt(10004)).
-		Build()
-
-	assert.Equal(t, uint32(version.ProtocolVersion), act.Version())
-	assert.Equal(t, uint64(2), act.Nonce())
-	assert.Equal(t, srcPubKey, act.SrcPubkey())
-	assert.Equal(t, uint64(10003), act.GasLimit())
-	assert.Equal(t, big.NewInt(10004), act.GasPrice())
+	t.Run("default gas price", func(t *testing.T) {
+		bd := &EnvelopeBuilder{}
+		elp, err := bd.Build()
+		assert.NoError(t, err)
+		assert.Equal(t, uint32(version.ProtocolVersion), elp.Version())
+		assert.Equal(t, uint64(0), elp.Nonce())
+		assert.Equal(t, uint64(0), elp.GasLimit())
+		assert.Equal(t, big.NewInt(0), elp.GasPrice())
+	})
+	t.Run("normal case", func(t *testing.T) {
+		bd := &EnvelopeBuilder{}
+		elp, err := bd.SetVersion(version.ProtocolVersion).
+			SetNonce(2).
+			SetGasLimit(10003).
+			SetGasPrice(big.NewInt(10004)).
+			Build()
+		assert.NoError(t, err)
+		assert.Equal(t, uint32(version.ProtocolVersion), elp.Version())
+		assert.Equal(t, uint64(2), elp.Nonce())
+		assert.Equal(t, uint64(10003), elp.GasLimit())
+		assert.Equal(t, big.NewInt(10004), elp.GasPrice())
+	})
+	t.Run("invalid gas price", func(t *testing.T) {
+		bd := &EnvelopeBuilder{}
+		_, err := bd.SetVersion(version.ProtocolVersion).
+			SetNonce(2).
+			SetGasLimit(10003).
+			SetGasPrice(big.NewInt(-10004)).
+			Build()
+		assert.Error(t, err)
+		assert.EqualError(t, ErrGasPrice, err.Error())
+	})
 }

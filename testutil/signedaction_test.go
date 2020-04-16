@@ -30,11 +30,11 @@ func TestSignedTransfer(t *testing.T) {
 
 	tsf := selp.Action().(*action.Transfer)
 	require.Equal(addr2, tsf.Recipient())
-	require.Equal(uint64(1), tsf.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(big.NewInt(2), tsf.Amount())
 	require.Equal([]byte{}, tsf.Payload())
-	require.Equal(uint64(100000), tsf.GasLimit())
-	require.Equal(big.NewInt(10), tsf.GasPrice())
+	require.Equal(uint64(100000), selp.GasLimit())
+	require.Equal(big.NewInt(10), selp.GasPrice())
 	require.NotNil(selp.Signature())
 }
 
@@ -45,10 +45,10 @@ func TestSignedExecution(t *testing.T) {
 
 	exec := selp.Action().(*action.Execution)
 	require.Equal(action.EmptyAddress, exec.Contract())
-	require.Equal(uint64(1), exec.Nonce())
+	require.Equal(uint64(1), selp.Nonce())
 	require.Equal(big.NewInt(0), exec.Amount())
-	require.Equal(uint64(100000), exec.GasLimit())
-	require.Equal(big.NewInt(10), exec.GasPrice())
+	require.Equal(uint64(100000), selp.GasLimit())
+	require.Equal(big.NewInt(10), selp.GasPrice())
 	require.Equal([]byte{}, exec.Data())
 	require.NotNil(selp.Signature())
 }

@@ -120,20 +120,20 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 
 	transfer, err := action.NewTransfer(
-		uint64(1),
 		big.NewInt(2),
 		identityset.Address(29).String(),
 		[]byte{},
-		uint64(10000),
-		big.NewInt(1),
 	)
 	require.NoError(err)
 	gas, err := transfer.IntrinsicGas()
 	require.NoError(err)
 
 	ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+		Nonce:        uint64(1),
 		Caller:       identityset.Address(28),
 		IntrinsicGas: gas,
+		GasLimit:     uint64(10000),
+		GasPrice:     big.NewInt(1),
 	})
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: 1,
@@ -166,13 +166,21 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	contractAddr := hash.BytesToHash160(identityset.Address(32).Bytes())
 	_, err = sm.PutState(&contractAcct, protocol.LegacyKeyOption(contractAddr))
 	require.NoError(err)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Nonce:        uint64(2),
+			Caller:       identityset.Address(28),
+			IntrinsicGas: gas,
+			GasLimit:     uint64(10000),
+			GasPrice:     big.NewInt(2),
+		},
+	)
+
 	transfer, err = action.NewTransfer(
-		uint64(2),
 		big.NewInt(3),
 		identityset.Address(32).String(),
 		[]byte{},
-		uint64(10000),
-		big.NewInt(2),
 	)
 	require.NoError(err)
 	// Assume that the gas of this transfer is the same as previous one
@@ -187,8 +195,9 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	t.Run("Oversize data", func(t *testing.T) {
 		tmpPayload := [32769]byte{}
 		payload := tmpPayload[:]
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
-			big.NewInt(0))
+		// tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
+		// 	big.NewInt(0))
+		tsf, err := action.NewTransfer(big.NewInt(1), "2", payload)
 		require.NoError(err)
 		_, err = p.Handle(ctx, tsf, sm)
 		require.Equal(action.ErrActPool, errors.Cause(err))

@@ -90,20 +90,22 @@ func TestCalculateTransferAmount(t *testing.T) {
 
 func makeBody() (body Body, err error) {
 	A := make([]action.SealedEnvelope, 0)
-	v, err := action.NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), []byte("data"))
+	v, err := action.NewExecution("", big.NewInt(10), []byte("data"))
 	if err != nil {
 		return
 	}
-	t, err := action.NewTransfer(0, big.NewInt(20), "", []byte("payload"), uint64(20), big.NewInt(20))
+	t, err := action.NewTransfer(big.NewInt(20), "", []byte("payload"))
 	if err != nil {
 		return
 	}
 	bd := &action.EnvelopeBuilder{}
-	elp := bd.SetGasPrice(big.NewInt(10)).
+	elp, err := bd.SetGasPrice(big.NewInt(10)).
 		SetGasLimit(uint64(100000)).
 		SetAction(v).
 		SetAction(t).Build()
-
+	if err != nil {
+		return
+	}
 	selp, err := action.Sign(elp, identityset.PrivateKey(28))
 	if err != nil {
 		return

@@ -8,10 +8,11 @@ package actpool
 
 import (
 	"container/heap"
-	"go.uber.org/zap"
 	"math/big"
 	"sort"
 	"time"
+
+	"go.uber.org/zap"
 
 	"github.com/facebookgo/clock"
 	"github.com/pkg/errors"
@@ -274,7 +275,7 @@ func (q *actQueue) removeActs(idx int) []action.SealedEnvelope {
 
 // enoughBalance helps check whether queue's pending balance is sufficient for the given action
 func (q *actQueue) enoughBalance(act action.SealedEnvelope, updateBalance bool) bool {
-	cost, _ := act.Cost()
+	cost, _ := act.EstimatedCost()
 	if q.pendingBalance.Cmp(cost) < 0 {
 		return false
 	}

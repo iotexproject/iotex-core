@@ -66,26 +66,25 @@ func TestSealedEnvelope_LoadProto(t *testing.T) {
 	req.Equal(nil, err2)
 }
 
-func createSealedEnvelope() (SealedEnvelope, error) {
+func createSealedEnvelope() (*SealedEnvelope, error) {
 	tsf, _ := NewTransfer(
-		uint64(10),
 		unit.ConvertIotxToRau(1000+int64(10)),
 		identityset.Address(10%identityset.Size()).String(),
 		nil,
-		20000+uint64(10),
-		unit.ConvertIotxToRau(1+int64(10)),
 	)
 	eb := EnvelopeBuilder{}
-	evlp := eb.
+	evlp, err := eb.
 		SetAction(tsf).
-		SetGasLimit(tsf.GasLimit()).
-		SetGasPrice(tsf.GasPrice()).
-		SetNonce(tsf.Nonce()).
+		SetGasLimit(20000 + uint64(10)).
+		SetGasPrice(unit.ConvertIotxToRau(1 + int64(10))).
+		SetNonce(uint64(10)).
 		SetVersion(1).
 		Build()
-
+	if err != nil {
+		return nil, err
+	}
 	cPubKey, err := crypto.HexStringToPublicKey(publicKey)
-	se := SealedEnvelope{}
+	se := &SealedEnvelope{}
 	se.Envelope = evlp
 	se.srcPubkey = cPubKey
 	se.signature = signByte

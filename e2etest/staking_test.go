@@ -121,7 +121,7 @@ func TestStakingContract(t *testing.T) {
 			if correctGas {
 				gasLimit *= 10
 			}
-			ex, err := action.NewExecution(contract, 1, big.NewInt(0), gasLimit, big.NewInt(0), params)
+			ex, err := action.NewExecution(contract, big.NewInt(0), params)
 			if err != nil {
 				return nil, err
 			}
@@ -130,7 +130,11 @@ func TestStakingContract(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-
+			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
+				GasLimit: gasLimit,
+				Caller:   addr,
+				GasPrice: big.NewInt(0),
+			})
 			data, _, err := sf.SimulateExecution(ctx, addr, ex, dao.GetBlockHash)
 
 			return data, err
