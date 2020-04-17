@@ -50,16 +50,16 @@ var nodeRewardCmd = &cobra.Command{
 		switch args[0] {
 		case "pool":
 			if len(args) != 1 {
-				return output.NewError(output.InputError, "ioctl node reward pool command accepts no args, but received "+string(len(args)-1), nil)
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward pool command. \nRun 'ioctl node reward --help' for usage.", nil)
 			}
 			err = rewardPool()
 		case "unclaimed":
 			if len(args) != 2 {
-				return output.NewError(output.InputError, "ioctl node reward pool command accepts 1 args, but received "+string(len(args)-1), nil)
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
 			}
 			err = reward(args[1])
 		default:
-			return output.NewError(output.InputError, "unknown command \nRun 'ioctl node reward --help' for usage.", nil)
+			return output.NewError(output.InputError, "unknown command. \nRun 'ioctl node reward --help' for usage.", nil)
 		}
 		return output.PrintError(err)
 	},
