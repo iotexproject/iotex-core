@@ -492,18 +492,18 @@ func (mr *MockKVStoreWithBucketFillPercentMockRecorder) Filter(arg0, arg1, arg2,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Filter", reflect.TypeOf((*MockKVStoreWithBucketFillPercent)(nil).Filter), arg0, arg1, arg2, arg3)
 }
 
-// SetBucketFillPercent mocks base method
-func (m *MockKVStoreWithBucketFillPercent) SetBucketFillPercent(arg0 string, arg1 float64) error {
+// WriteBatchWithFillPercent mocks base method
+func (m *MockKVStoreWithBucketFillPercent) WriteBatchWithFillPercent(arg0 batch.KVStoreBatch, arg1 float64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetBucketFillPercent", arg0, arg1)
+	ret := m.ctrl.Call(m, "WriteBatchWithFillPercent", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// SetBucketFillPercent indicates an expected call of SetBucketFillPercent
-func (mr *MockKVStoreWithBucketFillPercentMockRecorder) SetBucketFillPercent(arg0, arg1 interface{}) *gomock.Call {
+// WriteBatchWithFillPercent indicates an expected call of WriteBatchWithFillPercent
+func (mr *MockKVStoreWithBucketFillPercentMockRecorder) WriteBatchWithFillPercent(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBucketFillPercent", reflect.TypeOf((*MockKVStoreWithBucketFillPercent)(nil).SetBucketFillPercent), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteBatchWithFillPercent", reflect.TypeOf((*MockKVStoreWithBucketFillPercent)(nil).WriteBatchWithFillPercent), arg0, arg1)
 }
 
 // MockKVStoreForRangeIndex is a mock of KVStoreForRangeIndex interface

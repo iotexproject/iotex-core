@@ -74,13 +74,7 @@ func NewCountingIndexNX(kv KVStore, name []byte) (CountingIndex, error) {
 		}
 		total = ZeroIndex
 	}
-	if kvFillPercent, ok := kv.(KVStoreWithBucketFillPercent); ok {
-		if err := kvFillPercent.SetBucketFillPercent(bucket, 1.0); err != nil {
-			// set an aggressive fill percent
-			// b/c counting index only appends, further inserts to the bucket would never split the page
-			return nil, err
-		}
-	}
+
 	return &countingIndex{
 		kvStore: kvRange,
 		bucket:  bucket,
@@ -123,7 +117,7 @@ func (c *countingIndex) Add(value []byte, inBatch bool) error {
 	b := batch.NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
-	if err := c.kvStore.WriteBatch(b); err != nil {
+	if err := c.commit(b); err != nil {
 		return err
 	}
 	c.size++
@@ -170,7 +164,7 @@ func (c *countingIndex) Revert(count uint64) error {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
 	}
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
-	if err := c.kvStore.WriteBatch(b); err != nil {
+	if err := c.commit(b); err != nil {
 		return err
 	}
 	c.size = start
@@ -190,9 +184,18 @@ func (c *countingIndex) Commit() error {
 		return nil
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
-	if err := c.kvStore.WriteBatch(c.batch); err != nil {
+	if err := c.commit(c.batch); err != nil {
 		return err
 	}
 	c.batch = nil
 	return nil
+}
+
+func (c *countingIndex) commit(b batch.KVStoreBatch) error {
+	if kvFillPercent, ok := c.kvStore.(KVStoreWithBucketFillPercent); ok {
+		// set an aggressive fill percent
+		// b/c counting index only appends, further inserts to the bucket would never split the page
+		return kvFillPercent.WriteBatchWithFillPercent(b, 1.0)
+	}
+	return c.kvStore.WriteBatch(b)
 }
