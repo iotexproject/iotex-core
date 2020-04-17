@@ -17,54 +17,56 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// TipInfo contains the tip block information
-type TipInfo struct {
-	Height    uint64
-	Hash      hash.Hash256
-	Timestamp time.Time
-}
+type (
+	blockchainContextKey struct{}
 
-type blockchainContextKey struct{}
+	blockContextKey struct{}
 
-type blockContextKey struct{}
+	actionContextKey struct{}
 
-type actionContextKey struct{}
+	registryContextKey struct{}
 
-type registryContextKey struct{}
+	// TipInfo contains the tip block information
+	TipInfo struct {
+		Height    uint64
+		Hash      hash.Hash256
+		Timestamp time.Time
+	}
 
-// BlockchainCtx provides blockchain auxiliary information.
-type BlockchainCtx struct {
-	// Genesis is a copy of current genesis
-	Genesis genesis.Genesis
-	// Tip is the information of tip block
-	Tip TipInfo
-}
+	// BlockchainCtx provides blockchain auxiliary information.
+	BlockchainCtx struct {
+		// Genesis is a copy of current genesis
+		Genesis genesis.Genesis
+		// Tip is the information of tip block
+		Tip TipInfo
+	}
 
-// BlockCtx provides block auxiliary information.
-type BlockCtx struct {
-	// height of block containing those actions
-	BlockHeight uint64
-	// timestamp of block containing those actions
-	BlockTimeStamp time.Time
-	// gas Limit for perform those actions
-	GasLimit uint64
-	// Producer is the address of whom composes the block containing this action
-	Producer address.Address
-}
+	// BlockCtx provides block auxiliary information.
+	BlockCtx struct {
+		// height of block containing those actions
+		BlockHeight uint64
+		// timestamp of block containing those actions
+		BlockTimeStamp time.Time
+		// gas Limit for perform those actions
+		GasLimit uint64
+		// Producer is the address of whom composes the block containing this action
+		Producer address.Address
+	}
 
-// ActionCtx provides action auxiliary information.
-type ActionCtx struct {
-	// Caller is the address of whom issues this action
-	Caller address.Address
-	// ActionHash is the hash of the action with the sealed envelope
-	ActionHash hash.Hash256
-	// GasPrice is the action gas price
-	GasPrice *big.Int
-	// IntrinsicGas is the action intrinsic gas
-	IntrinsicGas uint64
-	// Nonce is the nonce of the action
-	Nonce uint64
-}
+	// ActionCtx provides action auxiliary information.
+	ActionCtx struct {
+		// Caller is the address of whom issues this action
+		Caller address.Address
+		// ActionHash is the hash of the action with the sealed envelope
+		ActionHash hash.Hash256
+		// GasPrice is the action gas price
+		GasPrice *big.Int
+		// IntrinsicGas is the action intrinsic gas
+		IntrinsicGas uint64
+		// Nonce is the nonce of the action
+		Nonce uint64
+	}
+)
 
 // WithRegistry adds registry to context
 func WithRegistry(ctx context.Context, reg *Registry) context.Context {
