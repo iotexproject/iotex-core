@@ -185,6 +185,10 @@ func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm pr
 	if err := validate(ctx, sm, sc, act); err != nil {
 		return nil, err
 	}
+	// validation passed, no need to validate() again
+	ctx = WithValidationlCtx(ctx, ValidationCtx{
+		Validated: true,
+	})
 	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err

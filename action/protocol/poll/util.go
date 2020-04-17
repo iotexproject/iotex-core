@@ -68,6 +68,11 @@ func handle(ctx context.Context, act action.Action, sm protocol.StateManager, in
 }
 
 func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act action.Action) error {
+	valCtx, ok := GetValidationCtx(ctx)
+	if ok && valCtx.Validated {
+		return nil
+	}
+
 	ppr, ok := act.(*action.PutPollResult)
 	if !ok {
 		return nil

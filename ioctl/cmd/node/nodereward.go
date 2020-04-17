@@ -33,7 +33,7 @@ var (
 		config.Chinese: "查询奖励",
 	}
 	rewardPoolLong = map[config.Language]string{
-		config.English: "ioctl node reward returns unclaimed and available Rewards in fund pool. TotalUnclaimed is the amount of all delegates that have been issued but are not claimed; TotalAvailable is the amount of balance that has not been issued to anyone.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
+		config.English: "ioctl node reward pool returns unclaimed and available Rewards in fund pool.\nTotalUnclaimed is the amount of all delegates that have been issued but are not claimed;\nTotalAvailable is the amount of balance that has not been issued to anyone.\n\nioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] returns unclaimed rewards of a specific delegate.",
 		config.Chinese: "ioctl node reward 返回奖金池中的未支取奖励和可获取的奖励. TotalUnclaimed是所有代表已被发放但未支取的奖励的总和; TotalAvailable 是奖金池中未被发放的奖励的总和.\n\nioctl node [ALIAS|DELEGATE_ADDRESS] 返回特定代表的已被发放但未支取的奖励.",
 	}
 )
@@ -42,21 +42,24 @@ var (
 var nodeRewardCmd = &cobra.Command{
 	Use:   config.TranslateInLang(rewardCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(rewardCmdShorts, config.UILanguage),
-	Args:  cobra.MaximumNArgs(2),
+	Args:  cobra.RangeArgs(1, 2),
 	Long:  config.TranslateInLang(rewardPoolLong, config.UILanguage),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error
-		if len(args) == 0 {
-			return output.PrintError(err)
-		}
 		switch args[0] {
 		case "pool":
+			if len(args) != 1 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward pool command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
 			err = rewardPool()
 		case "unclaimed":
+			if len(args) != 2 {
+				return output.NewError(output.InputError, "wrong number of arg(s) for ioctl node reward unclaimed [ALIAS|DELEGATE_ADDRESS] command. \nRun 'ioctl node reward --help' for usage.", nil)
+			}
 			err = reward(args[1])
 		default:
-			return output.PrintError(err)
+			return output.NewError(output.InputError, "unknown command. \nRun 'ioctl node reward --help' for usage.", nil)
 		}
 		return output.PrintError(err)
 	},
