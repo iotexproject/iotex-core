@@ -50,33 +50,43 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 // ErrDelegatesNotExist is an error that the delegates cannot be prepared
 var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 
-// GetCandidates returns the current candidates
-type GetCandidates func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error)
+type (
+	validationContextKey struct{}
 
-// GetProbationList returns current the ProbationList
-type GetProbationList func(protocol.StateReader, bool) (*vote.ProbationList, uint64, error)
+	// ValidationCtx provides validation auxiliary information.
+	ValidationCtx struct {
+		// Validated indicates validation has been done
+		Validated bool
+	}
 
-// GetUnproductiveDelegate returns unproductiveDelegate struct which contains a cache of upd info by epochs
-type GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDelegate, error)
+	// GetCandidates returns the current candidates
+	GetCandidates func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error)
 
-// GetBlockTime defines a function to get block creation time
-type GetBlockTime func(uint64) (time.Time, error)
+	// GetProbationList returns current the ProbationList
+	GetProbationList func(protocol.StateReader, bool) (*vote.ProbationList, uint64, error)
 
-// Productivity returns the number of produced blocks per producer
-type Productivity func(uint64, uint64) (map[string]uint64, error)
+	// GetUnproductiveDelegate returns unproductiveDelegate struct which contains a cache of upd info by epochs
+	GetUnproductiveDelegate func(protocol.StateReader) (*vote.UnproductiveDelegate, error)
 
-// Protocol defines the protocol of handling votes
-type Protocol interface {
-	protocol.Protocol
-	protocol.GenesisStateCreator
-	Delegates(context.Context, protocol.StateReader) (state.CandidateList, error)
-	NextDelegates(context.Context, protocol.StateReader) (state.CandidateList, error)
-	Candidates(context.Context, protocol.StateReader) (state.CandidateList, error)
-	NextCandidates(context.Context, protocol.StateReader) (state.CandidateList, error)
-	// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
-	// TODO: remove height, and read it from state reader
-	CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
-}
+	// GetBlockTime defines a function to get block creation time
+	GetBlockTime func(uint64) (time.Time, error)
+
+	// Productivity returns the number of produced blocks per producer
+	Productivity func(uint64, uint64) (map[string]uint64, error)
+
+	// Protocol defines the protocol of handling votes
+	Protocol interface {
+		protocol.Protocol
+		protocol.GenesisStateCreator
+		Delegates(context.Context, protocol.StateReader) (state.CandidateList, error)
+		NextDelegates(context.Context, protocol.StateReader) (state.CandidateList, error)
+		Candidates(context.Context, protocol.StateReader) (state.CandidateList, error)
+		NextCandidates(context.Context, protocol.StateReader) (state.CandidateList, error)
+		// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
+		// TODO: remove height, and read it from state reader
+		CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
+	}
+)
 
 // FindProtocol finds the registered protocol from registry
 func FindProtocol(registry *protocol.Registry) Protocol {
@@ -110,6 +120,17 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	}
 
 	return pp
+}
+
+// WithValidationlCtx add ValidationCtx into context.
+func WithValidationlCtx(ctx context.Context, val ValidationCtx) context.Context {
+	return context.WithValue(ctx, validationContextKey{}, val)
+}
+
+// GetValidationCtx gets ValidationCtx
+func GetValidationCtx(ctx context.Context) (ValidationCtx, bool) {
+	val, ok := ctx.Value(validationContextKey{}).(ValidationCtx)
+	return val, ok
 }
 
 // NewProtocol instantiates a rewarding protocol instance.

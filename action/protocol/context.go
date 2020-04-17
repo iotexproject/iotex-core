@@ -26,8 +26,6 @@ type (
 
 	registryContextKey struct{}
 
-	validationContextKey struct{}
-
 	// TipInfo contains the tip block information
 	TipInfo struct {
 		Height    uint64
@@ -67,12 +65,6 @@ type (
 		IntrinsicGas uint64
 		// Nonce is the nonce of the action
 		Nonce uint64
-	}
-
-	// ValidationCtx provides validation auxiliary information.
-	ValidationCtx struct {
-		// Validated indicates validation has been done
-		Validated bool
 	}
 )
 
@@ -157,15 +149,4 @@ func MustGetActionCtx(ctx context.Context) ActionCtx {
 		log.S().Panic("Miss action context")
 	}
 	return ac
-}
-
-// WithValidationlCtx add ValidationCtx into context.
-func WithValidationlCtx(ctx context.Context, val ValidationCtx) context.Context {
-	return context.WithValue(ctx, validationContextKey{}, val)
-}
-
-// GetValidationCtx gets ValidationCtx
-func GetValidationCtx(ctx context.Context) (ValidationCtx, bool) {
-	p, ok := ctx.Value(validationContextKey{}).(ValidationCtx)
-	return p, ok
 }
