@@ -53,6 +53,8 @@ const (
 	ConfigError
 	// InstantiationError used when an error during instantiation
 	InstantiationError
+	// CompilerError used when an error occurs when using the solidity compiler
+	CompilerError
 )
 
 // MessageType marks the type of output message

@@ -67,6 +67,21 @@ func NewStringVarP(
 	}
 }
 
+// NewStringVar creates a new stringVar flag
+func NewStringVar(
+	label string,
+	defaultValue string,
+	description string,
+) Flag {
+	return &stringVarP{
+		flagBase: flagBase{
+			label:       label,
+			description: description,
+		},
+		defaultValue: defaultValue,
+	}
+}
+
 func (f *stringVarP) Value() interface{} {
 	return f.value
 }
