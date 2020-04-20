@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/bc"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/contract"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/node"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/update"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/version"
@@ -71,6 +72,7 @@ func NewIoctl() *cobra.Command {
 	rootCmd.AddCommand(node.NodeCmd)
 	rootCmd.AddCommand(version.VersionCmd)
 	rootCmd.AddCommand(update.UpdateCmd)
+	rootCmd.AddCommand(contract.ContractCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
 		config.TranslateInLang(flagOutputFormatUsages, config.UILanguage))
@@ -93,6 +95,7 @@ func NewXctl() *cobra.Command {
 	rootCmd.AddCommand(action.Xrc20Cmd)
 	rootCmd.AddCommand(bc.BCCmd)
 	rootCmd.AddCommand(version.VersionCmd)
+	rootCmd.AddCommand(contract.ContractCmd)
 	// TODO: add xctl's UpdateCmd
 
 	rootCmd.PersistentFlags().StringVarP(&output.Format, "output-format", "o", "",
