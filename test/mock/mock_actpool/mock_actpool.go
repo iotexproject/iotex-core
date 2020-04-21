@@ -31,6 +31,18 @@ func NewMockActPool(ctrl *gomock.Controller) *MockActPool {
 	return mock
 }
 
+// DeleteAction mocks base method
+func (m *MockActPool) DeleteAction(act action.SealedEnvelope) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteAction")
+}
+
+// DeleteAction indicates an expected call of DeleteAction
+func (mr *MockActPoolMockRecorder) DeleteAction(act interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAction", reflect.TypeOf((*MockActPool)(nil).DeleteAction), act)
+}
+
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockActPool) EXPECT() *MockActPoolMockRecorder {
 	return m.recorder

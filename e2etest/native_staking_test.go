@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -85,6 +86,7 @@ func TestNativeStaking(t *testing.T) {
 		chainID := cfg.Chain.ID
 		bc := svr.ChainService(chainID).Blockchain()
 		sf := svr.ChainService(chainID).StateFactory()
+		ap := svr.ChainService(chainID).ActionPool()
 		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
 
@@ -103,10 +105,10 @@ func TestNativeStaking(t *testing.T) {
 		require.NoError(err)
 
 		fixedTime := time.Unix(cfg.Genesis.Timestamp, 0)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr},
-			[]action.SealedEnvelope{register1}, fixedTime))
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand2Addr},
-			[]action.SealedEnvelope{register2}, fixedTime))
+		require.NoError(ap.Add(context.Background(), register1))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
+		require.NoError(ap.Add(context.Background(), register2))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check candidate state
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
@@ -132,12 +134,13 @@ func TestNativeStaking(t *testing.T) {
 		cs1, err := testutil.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
+		require.NoError(ap.Add(context.Background(), cs1))
 		cs2, err := testutil.SignedCreateStake(1, candidate1Name, vote.String(), 1, false,
 			nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
+		require.NoError(ap.Add(context.Background(), cs2))
 
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter1Addr, voter2Addr},
-			[]action.SealedEnvelope{cs1, cs2}, fixedTime))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check candidate state
 		expectedVotes := big.NewInt(0).Add(cand1Votes, big.NewInt(0).Mul(vote, big.NewInt(2)))
@@ -163,7 +166,9 @@ func TestNativeStaking(t *testing.T) {
 		cc, err := testutil.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
 			gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{cc}, fixedTime))
+		require.NoError(ap.Add(context.Background(), cc))
+
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check candidate state
 		expectedVotes = big.NewInt(0).Add(cand1Votes, vote)
@@ -174,7 +179,8 @@ func TestNativeStaking(t *testing.T) {
 		// transfer stake
 		ts, err := testutil.SignedTransferStake(2, voter2Addr.String(), voter1BucketIndex, nil, gasLimit, gasPrice, voter1PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter1Addr}, []action.SealedEnvelope{ts}, fixedTime))
+		require.NoError(ap.Add(context.Background(), ts))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check buckets
 		var bis staking.BucketIndices
@@ -193,38 +199,45 @@ func TestNativeStaking(t *testing.T) {
 		// deposit to stake
 		ds, err := testutil.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{ds}, fixedTime))
+		require.NoError(ap.Add(context.Background(), ds))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 		r, err := dao.GetReceiptByActionHash(ds.Hash(), 6)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), r.Status)
 
 		// restake
-		rs, err := testutil.SignedRestake(3, voter2BucketIndex, 1, true, nil,
+		rs, err := testutil.SignedRestake(4, voter2BucketIndex, 1, true, nil,
 			gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{rs}, fixedTime))
+		require.NoError(ap.Add(context.Background(), rs))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check candidate state
 		expectedVotes = big.NewInt(0).Add(selfStake, autoStakeVote)
 		require.NoError(checkCandidateState(sf, candidate2Name, cand2Addr.String(), selfStake, expectedVotes, cand2Addr))
 
 		// deposit to stake again
-		ds, err = testutil.SignedDepositToStake(3, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
+		ds, err = testutil.SignedDepositToStake(5, voter2BucketIndex, vote.String(), nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{ds}, fixedTime))
+		require.NoError(ap.Add(context.Background(), ds))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 
 		// check voter account state
 		require.NoError(checkAccountState(cfg, sf, ds, false, big.NewInt(0).Sub(initBalance, vote), voter2Addr))
 
 		// unstake voter stake
-		us, err := testutil.SignedReclaimStake(false, 4, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
+		us, err := testutil.SignedReclaimStake(false, 6, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, fixedTime))
+		require.NoError(ap.Add(context.Background(), us))
+		require.NoError(createAndCommitBlock(bc, ap, fixedTime))
 		r, err = dao.GetReceiptByActionHash(us.Hash(), 9)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), r.Status)
 		unstakeTime := fixedTime.Add(time.Duration(1) * 24 * time.Hour)
-		require.NoError(createAndCommitBlock(bc, []address.Address{voter2Addr}, []action.SealedEnvelope{us}, unstakeTime))
+		us, err = testutil.SignedReclaimStake(false, 7, voter1BucketIndex, nil, gasLimit, gasPrice, voter2PriKey)
+		require.NoError(err)
+		require.NoError(ap.Add(context.Background(), us))
+		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
 		// check candidate state
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
@@ -232,7 +245,8 @@ func TestNativeStaking(t *testing.T) {
 		// unstake self stake
 		us, err = testutil.SignedReclaimStake(false, 2, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{us}, unstakeTime))
+		require.NoError(ap.Add(context.Background(), us))
+		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 
 		// check candidate state
 		require.NoError(checkCandidateState(sf, candidate1Name, cand1Addr.String(), selfStake, cand1Votes, cand1Addr))
@@ -240,12 +254,15 @@ func TestNativeStaking(t *testing.T) {
 		// withdraw stake
 		ws, err := testutil.SignedReclaimStake(true, 3, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
 		require.NoError(err)
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, unstakeTime))
+		require.NoError(ap.Add(context.Background(), ws))
+		require.NoError(createAndCommitBlock(bc, ap, unstakeTime))
 		r, err = dao.GetReceiptByActionHash(ws.Hash(), 12)
 		require.NoError(err)
 		require.Equal(uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake), r.Status)
+		ws, err = testutil.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		require.NoError(ap.Add(context.Background(), ws))
 
-		require.NoError(createAndCommitBlock(bc, []address.Address{cand1Addr}, []action.SealedEnvelope{ws}, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
+		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 
 		// check buckets
 		_, err = sf.State(&bis, protocol.NamespaceOption(staking.StakingNameSpace),
@@ -280,6 +297,7 @@ func TestNativeStaking(t *testing.T) {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
@@ -355,17 +373,14 @@ func checkAccountState(
 	return nil
 }
 
-func createAndCommitBlock(bc blockchain.Blockchain, callers []address.Address, selps []action.SealedEnvelope, blkTime time.Time) error {
-	if len(callers) != len(selps) {
-		return errors.New("incorrect input")
-	}
-	accMap := make(map[string][]action.SealedEnvelope)
-	for i, caller := range callers {
-		accMap[caller.String()] = []action.SealedEnvelope{selps[i]}
-	}
-	blk, err := bc.MintNewBlock(accMap, blkTime)
+func createAndCommitBlock(bc blockchain.Blockchain, ap actpool.ActPool, blkTime time.Time) error {
+	blk, err := bc.MintNewBlock(blkTime)
 	if err != nil {
 		return err
 	}
-	return bc.CommitBlock(blk)
+	if err := bc.CommitBlock(blk); err != nil {
+		return err
+	}
+	ap.Reset()
+	return nil
 }

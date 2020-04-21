@@ -20,12 +20,12 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -70,12 +70,14 @@ func TestLocalCommit(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
+	ap := svr.ChainService(chainID).ActionPool()
 	require.NotNil(bc)
 	require.NotNil(sf)
+	require.NotNil(ap)
 
 	i27State, err := accountutil.AccountState(sf, identityset.Address(27).String())
 	require.NoError(err)
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.NotNil(svr.ChainService(chainID).ActionPool())
 	require.NotNil(svr.P2PAgent())
 
@@ -175,10 +177,12 @@ func TestLocalCommit(t *testing.T) {
 	registry := protocol.NewRegistry()
 	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
+	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		sf2,
+		factory.NewMinter(sf2, ap2),
 		blockchain.BoltDBDaoOption(sf2),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf2,
@@ -208,6 +212,7 @@ func TestLocalCommit(t *testing.T) {
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
+	require.NoError(ap2.Add(context.Background(), tsf1))
 	act1 := tsf1.Proto()
 	err = testutil.WaitUntil(10*time.Millisecond, 2*time.Second, func() (bool, error) {
 		if err := p.BroadcastOutbound(p2pCtx, act1); err != nil {
@@ -218,11 +223,7 @@ func TestLocalCommit(t *testing.T) {
 	})
 	require.NoError(err)
 
-	actionMap := svr.ChainService(chainID).ActionPool().PendingActionMap()
-	blk1, err := chain.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk1))
 
@@ -232,12 +233,8 @@ func TestLocalCommit(t *testing.T) {
 	tsf2, err := testutil.SignedTransfer(identityset.Address(31).String(), identityset.PrivateKey(33), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[identityset.Address(33).String()] = []action.SealedEnvelope{tsf2}
-	blk2, err := chain.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	require.NoError(ap2.Add(context.Background(), tsf2))
+	blk2, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk2))
 	// broadcast to P2P
@@ -257,12 +254,8 @@ func TestLocalCommit(t *testing.T) {
 	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[identityset.Address(29).String()] = []action.SealedEnvelope{tsf3}
-	blk3, err := chain.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	require.NoError(ap2.Add(context.Background(), tsf3))
+	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk3))
 	// broadcast to P2P
@@ -282,12 +275,8 @@ func TestLocalCommit(t *testing.T) {
 	tsf4, err := testutil.SignedTransfer(identityset.Address(32).String(), identityset.PrivateKey(27), s.Nonce+1, big.NewInt(1), []byte{}, 100000, big.NewInt(0))
 	require.NoError(err)
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{tsf4}
-	blk4, err := chain.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	require.NoError(ap2.Add(context.Background(), tsf4))
+	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(chain.CommitBlock(blk4))
 	// broadcast to P2P
@@ -394,12 +383,14 @@ func TestLocalSync(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
+	ap := svr.ChainService(chainID).ActionPool()
 	dao := svr.ChainService(chainID).BlockDAO()
 	require.NotNil(bc)
 	require.NotNil(sf)
+	require.NotNil(ap)
 	require.NotNil(dao)
 	require.NotNil(svr.P2PAgent())
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, ap))
 
 	blk, err := dao.GetBlockByHeight(1)
 	require.NoError(err)
@@ -520,6 +511,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Network.Port = testutil.RandomPort()
 
@@ -529,9 +521,11 @@ func TestStartExistingBlockchain(t *testing.T) {
 	chainID := cfg.Chain.ID
 	bc := svr.ChainService(chainID).Blockchain()
 	sf := svr.ChainService(chainID).StateFactory()
+	ap := svr.ChainService(chainID).ActionPool()
 	dao := svr.ChainService(chainID).BlockDAO()
 	require.NotNil(bc)
 	require.NotNil(sf)
+	require.NotNil(ap)
 	require.NotNil(dao)
 
 	defer func() {
@@ -540,7 +534,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 		testutil.CleanupPath(t, testIndexPath)
 	}()
 
-	require.NoError(addTestingTsfBlocks(bc))
+	require.NoError(addTestingTsfBlocks(bc, ap))
 	require.Equal(uint64(5), bc.TipHeight())
 
 	require.NoError(svr.Stop(ctx))

@@ -195,7 +195,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -213,10 +213,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	}()
 
 	h := chain.TipHeight()
-	blk, err := chain.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, blk))
@@ -256,7 +253,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap1),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NotNil(chain1)
@@ -280,7 +277,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
-		sf2,
+		factory.NewMinter(sf2, ap2),
 		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NotNil(chain2)
@@ -298,24 +295,15 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk1))
-	blk2, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk2))
-	blk3, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk3))
@@ -356,7 +344,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap1),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NoError(chain1.Start(ctx))
@@ -379,7 +367,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
-		sf2,
+		factory.NewMinter(sf2, ap2),
 		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NoError(chain2.Start(ctx))
@@ -397,24 +385,15 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	}()
 
 	// commit top
-	blk1, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk1))
-	blk2, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk2))
-	blk3, err := chain1.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk3))
@@ -448,7 +427,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap),
 		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
@@ -469,18 +448,12 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	blk, err := chain.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, blk))
 
-	blk, err = chain.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, blk))

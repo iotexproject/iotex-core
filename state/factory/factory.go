@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -77,7 +78,7 @@ type (
 		Register(protocol.Protocol) error
 		Validate(context.Context, *block.Block) error
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+		NewBlockBuilder(context.Context, actpool.ActPool, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 		SimulateExecution(context.Context, address.Address, *action.Execution, evm.GetBlockHash) ([]byte, *action.Receipt, error)
 		PutBlock(context.Context, *block.Block) error
 		DeleteTipBlock(*block.Block) error
@@ -433,7 +434,7 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 // NewBlockBuilder returns block builder which hasn't been signed yet
 func (sf *factory) NewBlockBuilder(
 	ctx context.Context,
-	actionMap map[string][]action.SealedEnvelope,
+	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	sf.mutex.Lock()
@@ -459,7 +460,7 @@ func (sf *factory) NewBlockBuilder(
 			}
 		}
 	}
-	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
+	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sf.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}

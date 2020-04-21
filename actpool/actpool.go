@@ -61,6 +61,8 @@ type ActPool interface {
 	GetGasSize() uint64
 	// GetGasCapacity returns the act pool gas capacity
 	GetGasCapacity() uint64
+	// DeleteAction deletes an invalid action from pool
+	DeleteAction(action.SealedEnvelope)
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
@@ -292,6 +294,12 @@ func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) err
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
 	return ap.validate(ctx, selp)
+}
+
+func (ap *actPool) DeleteAction(act action.SealedEnvelope) {
+	ap.mutex.RLock()
+	defer ap.mutex.RUnlock()
+	ap.removeInvalidActs([]action.SealedEnvelope{act})
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {

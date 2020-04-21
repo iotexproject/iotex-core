@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
@@ -78,7 +77,6 @@ type rollDPoSCtx struct {
 
 	// TODO: explorer dependency deleted at #1085, need to add api params here
 	chain             ChainManager
-	actPool           actpool.ActPool
 	broadcastHandler  scheme.Broadcast
 	roundCalc         *roundCalculator
 	eManagerDB        db.KVStore
@@ -99,7 +97,6 @@ func newRollDPoSCtx(
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
 	chain ChainManager,
-	actPool actpool.ActPool,
 	rp *rolldpos.Protocol,
 	broadcastHandler scheme.Broadcast,
 	delegatesByEpochFunc DelegatesByEpochFunc,
@@ -147,7 +144,6 @@ func newRollDPoSCtx(
 		encodedAddr:       encodedAddr,
 		priKey:            priKey,
 		chain:             chain,
-		actPool:           actPool,
 		broadcastHandler:  broadcastHandler,
 		clock:             clock,
 		roundCalc:         roundCalc,
@@ -488,8 +484,6 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	default:
 		return false, errors.Wrap(err, "error when committing a block")
 	}
-	// Remove transfers in this block from ActPool and reset ActPool state
-	ctx.actPool.Reset()
 	// Broadcast the committed block to the network
 	if blkProto := pendingBlock.ConvertToBlockPb(); blkProto != nil {
 		if err := ctx.broadcastHandler(blkProto); err != nil {
@@ -589,12 +583,7 @@ func (ctx *rollDPoSCtx) Active() bool {
 ///////////////////////////////////////////
 
 func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
-	actionMap := ctx.actPool.PendingActionMap()
-	ctx.logger().Debug("Pick actions from the action pool.", zap.Int("action", len(actionMap)))
-	blk, err := ctx.chain.MintNewBlock(
-		actionMap,
-		ctx.round.StartTime(),
-	)
+	blk, err := ctx.chain.MintNewBlock(ctx.round.StartTime())
 	if err != nil {
 		return nil, err
 	}

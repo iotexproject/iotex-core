@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/actpool/actioniterator"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
@@ -161,6 +162,7 @@ func (ws *workingSet) runAction(
 			return receipt, nil
 		}
 	}
+	// TODO (zhi): return error
 	return nil, nil
 }
 
@@ -351,7 +353,7 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 
 func (ws *workingSet) pickAndRunActions(
 	ctx context.Context,
-	actionMap map[string][]action.SealedEnvelope,
+	ap actpool.ActPool,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) ([]*action.Receipt, []action.SealedEnvelope, error) {
@@ -373,48 +375,49 @@ func (ws *workingSet) pickAndRunActions(
 
 	// initial action iterator
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	actionIterator := actioniterator.NewActionIterator(actionMap)
-	for {
-		nextAction, ok := actionIterator.Next()
-		if !ok {
-			break
-		}
-		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
-			for _, p := range reg.All() {
-				if validator, ok := p.(protocol.ActionValidator); ok {
-					if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
-						break
+	if ap != nil {
+		actionIterator := actioniterator.NewActionIterator(ap.PendingActionMap())
+		for {
+			nextAction, ok := actionIterator.Next()
+			if !ok {
+				break
+			}
+			if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+				for _, p := range reg.All() {
+					if validator, ok := p.(protocol.ActionValidator); ok {
+						if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
+							break
+						}
 					}
 				}
 			}
-		}
-		if err != nil {
-			actionIterator.PopAccount()
-			continue
-		}
-		receipt, err := ws.runAction(ctx, nextAction)
-		switch errors.Cause(err) {
-		case nil:
-			// do nothing
-		case action.ErrHitGasLimit:
-			actionIterator.PopAccount()
-			continue
-		default:
-			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
-		}
-		// TODO: if the action is not handled by any handler, receipt will be nil.
-		//  in this case, should this action be appended?
-		if receipt != nil {
-			blkCtx.GasLimit -= receipt.GasConsumed
-			ctx = protocol.WithBlockCtx(ctx, blkCtx)
-			receipts = append(receipts, receipt)
-		}
-		executedActions = append(executedActions, nextAction)
+			if err != nil {
+				ap.DeleteAction(nextAction)
+				actionIterator.PopAccount()
+				continue
+			}
+			receipt, err := ws.runAction(ctx, nextAction)
+			switch errors.Cause(err) {
+			case nil:
+				// do nothing
+			case action.ErrHitGasLimit:
+				actionIterator.PopAccount()
+				continue
+			default:
+				return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+			}
+			if receipt != nil {
+				blkCtx.GasLimit -= receipt.GasConsumed
+				ctx = protocol.WithBlockCtx(ctx, blkCtx)
+				receipts = append(receipts, receipt)
+			}
+			executedActions = append(executedActions, nextAction)
 
-		// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
-		// than certain threshold
-		if blkCtx.GasLimit < allowedBlockGasResidue {
-			break
+			// To prevent loop all actions in act_pool, we stop processing action when remaining gas is below
+			// than certain threshold
+			if blkCtx.GasLimit < allowedBlockGasResidue {
+				break
+			}
 		}
 	}
 
@@ -461,11 +464,11 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 
 func (ws *workingSet) CreateBuilder(
 	ctx context.Context,
-	actionMap map[string][]action.SealedEnvelope,
+	ap actpool.ActPool,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) (*block.Builder, error) {
-	rc, actions, err := ws.pickAndRunActions(ctx, actionMap, postSystemActions, allowedBlockGasResidue)
+	rc, actions, err := ws.pickAndRunActions(ctx, ap, postSystemActions, allowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}

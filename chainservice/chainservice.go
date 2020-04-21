@@ -213,7 +213,7 @@ func New(
 	}
 
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, actPool), chainOpts...)
 	if chain == nil {
 		panic("failed to create blockchain")
 	}
@@ -313,7 +313,7 @@ func New(
 		cfg.Genesis.FoundationBonusP2EndEpoch,
 	)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
+	consensus, err := consensus.NewConsensus(cfg, chain, sf, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
