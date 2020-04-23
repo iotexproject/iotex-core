@@ -243,6 +243,9 @@ func (p *injectProcessor) inject(workers *sync.WaitGroup, ticks <-chan uint64) {
 				}, bo); rerr != nil {
 					log.L().Error("Failed to get receipt.", zap.Error(rerr))
 				}
+				if response.ReceiptInfo.Receipt.Status != 1 {
+					log.L().Error("Receipt has failed status.", zap.Uint64("status", response.ReceiptInfo.Receipt.Status))
+				}
 			}
 		}()
 	}
