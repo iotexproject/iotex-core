@@ -276,8 +276,8 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)
 	address, _ := address.FromString(injectCfg.contract)
-	abiJsonVar, _ := abi.JSON(strings.NewReader(ABI_STRING))
-	contract := c.Contract(address, abiJsonVar)
+	abiJSONVar, _ := abi.JSON(strings.NewReader(_abiStr))
+	contract := c.Contract(address, abiJSONVar)
 
 	data := rand.Int63()
 	var dataBuf = make([]byte, 8)

@@ -1,6 +1,6 @@
 package cmd
 
-var ABI_STRING = `
+var _abiStr = `
 [
 	{
 		"constant": true,
