@@ -9,6 +9,7 @@ package util
 import (
 	"bytes"
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
@@ -190,4 +191,17 @@ func JwtAuth() (jwt metadata.MD, err error) {
 		return nil, err
 	}
 	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
+}
+
+// checkArgs used for check ioctl cmd arg(s)'s num
+func CheckArgs(validNum ...int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		for _, n := range validNum {
+			if len(args) == n {
+				return nil
+			}
+		}
+		nums := strings.Replace(strings.Trim(fmt.Sprint(validNum), "[]"), " ", " or ", -1)
+		return fmt.Errorf("accepts "+nums+" arg(s), received %d", len(args))
+	}
 }

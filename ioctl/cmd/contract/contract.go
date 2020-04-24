@@ -53,13 +53,6 @@ var (
 	}
 )
 
-// Flags
-var (
-	abiFileFlag    = flag.NewStringVarP("abi", "", "", "choose a abi file")
-	binFileFlag    = flag.NewStringVarP("bin", "", "", "choose a bin file")
-	sourceFileFlag = flag.NewStringVarP("source", "", "", "choose a source file")
-)
-
 // ContractCmd represents the contract command
 var ContractCmd = &cobra.Command{
 	Use:   config.TranslateInLang(contractCmdUses, config.UILanguage),
@@ -69,6 +62,7 @@ var ContractCmd = &cobra.Command{
 func init() {
 	ContractCmd.AddCommand(ContractCompileCmd)
 	ContractCmd.AddCommand(contractDeployCmd)
+	ContractCmd.AddCommand(contractInvokeCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -99,9 +93,4 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 		return true
 	}
 	return false
-}
-func registerWriteCommand(cmd *cobra.Command) {
-	abiFileFlag.RegisterCommand(cmd)
-	binFileFlag.RegisterCommand(cmd)
-	sourceFileFlag.RegisterCommand(cmd)
 }

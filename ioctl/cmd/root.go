@@ -7,7 +7,6 @@
 package cmd
 
 import (
-	"github.com/iotexproject/iotex-core/ioctl/cmd/contract"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
