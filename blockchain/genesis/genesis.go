@@ -83,7 +83,7 @@ func defaultConfig() Genesis {
 			VoteWeightCalConsts: VoteWeightCalConsts{
 				DurationLg: 1.2,
 				AutoStake:  1,
-				SelfStake:  1.05,
+				SelfStake:  1.06,
 			},
 			RegistrationConsts: RegistrationConsts{
 				Fee:          unit.ConvertIotxToRau(100).String(),

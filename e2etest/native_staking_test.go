@@ -37,7 +37,7 @@ const (
 	candidate1Name = "candidate1"
 	candidate2Name = "candidate2"
 	selfStake      = "1200000000000000000000000"
-	initVotes      = "1260000000000000053290706"
+	initVotes      = "1272000000000000063948846"
 	vote           = "100000000000000000000"
 	autoStakeVote  = "103801784016923925869"
 	initBalance    = "100000000000000000000000000"
