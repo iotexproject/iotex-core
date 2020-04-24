@@ -241,7 +241,7 @@ func (d *Candidate) toIoTeXTypes() *iotextypes.CandidateV2 {
 
 func (d *Candidate) toStateCandidate() *state.Candidate {
 	return &state.Candidate{
-		Address:       d.Owner.String(),
+		Address:       d.Operator.String(), // state need candidate operator not owner address
 		Votes:         new(big.Int).Set(d.Votes),
 		RewardAddress: d.Reward.String(),
 		CanName:       []byte(d.Name),
