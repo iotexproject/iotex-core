@@ -193,7 +193,7 @@ func JwtAuth() (jwt metadata.MD, err error) {
 	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
 }
 
-// checkArgs used for check ioctl cmd arg(s)'s num
+// CheckArgs used for check ioctl cmd arg(s)'s num
 func CheckArgs(validNum ...int) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {
 		for _, n := range validNum {
