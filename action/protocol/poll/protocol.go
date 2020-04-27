@@ -77,6 +77,7 @@ type (
 	// Protocol defines the protocol of handling votes
 	Protocol interface {
 		protocol.Protocol
+		protocol.ActionValidator
 		protocol.GenesisStateCreator
 		Delegates(context.Context, protocol.StateReader) (state.CandidateList, error)
 		NextDelegates(context.Context, protocol.StateReader) (state.CandidateList, error)

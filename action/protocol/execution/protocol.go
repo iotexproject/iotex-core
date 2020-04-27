@@ -66,10 +66,6 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if !ok {
 		return nil, nil
 	}
-	// Reject oversized exeuction
-	if exec.TotalSize() > ExecutionSizeLimit {
-		return nil, errors.Wrap(action.ErrActPool, "oversized data")
-	}
 	_, receipt, err := evm.ExecuteContract(ctx, sm, exec, p.getBlockHash, p.depositGas)
 
 	if err != nil {
@@ -77,6 +73,19 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	}
 
 	return receipt, nil
+}
+
+// Validate validates an execution
+func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.StateReader) error {
+	exec, ok := act.(*action.Execution)
+	if !ok {
+		return nil
+	}
+	// Reject oversize execution
+	if exec.TotalSize() > ExecutionSizeLimit {
+		return errors.Wrap(action.ErrActPool, "oversized data")
+	}
+	return nil
 }
 
 // ReadState read the state on blockchain via protocol

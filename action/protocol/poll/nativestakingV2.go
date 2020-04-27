@@ -69,10 +69,11 @@ func (ns *nativeStakingV2) CreatePostSystemActions(ctx context.Context, sr proto
 }
 
 func (ns *nativeStakingV2) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	if err := validate(ctx, sm, ns, act); err != nil {
-		return nil, err
-	}
 	return handle(ctx, act, sm, ns.candIndexer, ns.addr.String())
+}
+
+func (ns *nativeStakingV2) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	return validate(ctx, sr, ns, act)
 }
 
 func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {

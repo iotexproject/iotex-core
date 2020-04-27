@@ -140,6 +140,9 @@ func (ws *workingSet) runAction(
 	ctx context.Context,
 	elp action.SealedEnvelope,
 ) (*action.Receipt, error) {
+	if protocol.MustGetBlockCtx(ctx).GasLimit < protocol.MustGetActionCtx(ctx).IntrinsicGas {
+		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
+	}
 	// Handle action
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
@@ -316,6 +319,20 @@ func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelo
 }
 
 func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
+	var err error
+	reg := protocol.MustGetRegistry(ctx)
+	for _, act := range actions {
+		if ctx, err = withActionCtx(ctx, act); err != nil {
+			return nil, err
+		}
+		for _, p := range reg.All() {
+			if validator, ok := p.(protocol.ActionValidator); ok {
+				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
 	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
@@ -362,18 +379,28 @@ func (ws *workingSet) pickAndRunActions(
 		if !ok {
 			break
 		}
-		if ctx, err = withActionCtx(ctx, nextAction); err != nil {
+		if ctx, err = withActionCtx(ctx, nextAction); err == nil {
+			for _, p := range reg.All() {
+				if validator, ok := p.(protocol.ActionValidator); ok {
+					if err = validator.Validate(ctx, nextAction.Action(), ws); err != nil {
+						break
+					}
+				}
+			}
+		}
+		if err != nil {
 			actionIterator.PopAccount()
 			continue
 		}
-		snapshot := ws.snapshotFunc()
 		receipt, err := ws.runAction(ctx, nextAction)
-		if err != nil {
-			if err := ws.revertFunc(snapshot); err != nil {
-				return nil, nil, errors.Wrap(err, "failed to revert changes")
-			}
+		switch errors.Cause(err) {
+		case nil:
+			// do nothing
+		case action.ErrHitGasLimit:
 			actionIterator.PopAccount()
 			continue
+		default:
+			return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 		}
 		// TODO: if the action is not handled by any handler, receipt will be nil.
 		//  in this case, should this action be appended?

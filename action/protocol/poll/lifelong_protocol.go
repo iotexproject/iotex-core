@@ -70,6 +70,10 @@ func (p *lifeLongDelegatesProtocol) Handle(ctx context.Context, act action.Actio
 	return handle(ctx, act, sm, nil, p.addr.String())
 }
 
+func (p *lifeLongDelegatesProtocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	return validate(ctx, sr, p, act)
+}
+
 func (p *lifeLongDelegatesProtocol) CalculateCandidatesByHeight(ctx context.Context, _ protocol.StateReader, _ uint64) (state.CandidateList, error) {
 	return p.delegates, nil
 }
