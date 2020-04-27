@@ -133,6 +133,7 @@ func New(
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
 		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.GravityChainCeilingHeight = cfg.Genesis.GravityChainCeilingHeight
 		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
@@ -456,6 +457,9 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 		if err := cs.candidateIndexer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping candidate indexer")
 		}
+	}
+	if cs.electionCommittee != nil {
+		return cs.electionCommittee.Stop(ctx)
 	}
 	return nil
 }

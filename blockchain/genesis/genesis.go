@@ -63,6 +63,7 @@ func defaultConfig() Genesis {
 		Poll: Poll{
 			PollMode:                         "governanceMix",
 			EnableGravityChainVoting:         true,
+			GravityChainCeilingHeight:        19937937, // TODO: replace with accurate height before Fairbank launch
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
@@ -174,6 +175,8 @@ type (
 		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
 		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
 		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// GravityChainCeilingHeight is the height in gravity chain where the poll is no longer needed
+		GravityChainCeilingHeight uint64 `yaml:"gravityChainCeilingHeight"`
 		// GravityChainHeightInterval the height interval on gravity chain to pull delegate information
 		GravityChainHeightInterval uint64 `yaml:"gravityChainHeightInterval"`
 		// RegisterContractAddress is the address of register contract
