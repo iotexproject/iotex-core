@@ -298,6 +298,43 @@ func (mr *MockPostSystemActionsCreatorMockRecorder) CreatePostSystemActions(arg0
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePostSystemActions", reflect.TypeOf((*MockPostSystemActionsCreator)(nil).CreatePostSystemActions), arg0, arg1)
 }
 
+// MockActionValidator is a mock of ActionValidator interface
+type MockActionValidator struct {
+	ctrl     *gomock.Controller
+	recorder *MockActionValidatorMockRecorder
+}
+
+// MockActionValidatorMockRecorder is the mock recorder for MockActionValidator
+type MockActionValidatorMockRecorder struct {
+	mock *MockActionValidator
+}
+
+// NewMockActionValidator creates a new mock instance
+func NewMockActionValidator(ctrl *gomock.Controller) *MockActionValidator {
+	mock := &MockActionValidator{ctrl: ctrl}
+	mock.recorder = &MockActionValidatorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActionValidator) EXPECT() *MockActionValidatorMockRecorder {
+	return m.recorder
+}
+
+// Validate mocks base method
+func (m *MockActionValidator) Validate(arg0 context.Context, arg1 action.Action, arg2 StateReader) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Validate indicates an expected call of Validate
+func (mr *MockActionValidatorMockRecorder) Validate(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActionValidator)(nil).Validate), arg0, arg1, arg2)
+}
+
 // MockActionHandler is a mock of ActionHandler interface
 type MockActionHandler struct {
 	ctrl     *gomock.Controller

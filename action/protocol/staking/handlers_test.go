@@ -173,11 +173,12 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
 			nil, test.gasLimit, test.gasPrice)
 		require.NoError(err)
-		r, err := p.Handle(ctx, act, sm)
+		err = p.Validate(ctx, act, sm)
 		if test.err != nil {
 			require.EqualError(test.err, errors.Cause(err).Error())
 			continue
 		}
+		r, err := p.Handle(ctx, act, sm)
 		require.NoError(err)
 		require.Equal(uint64(test.status), r.Status)
 
@@ -284,28 +285,6 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_Success,
 		},
-		// caller.SubBalance,ErrNotEnoughBalance,cannot happen because fetchcaller already check
-		// settleAction,ErrHitGasLimit
-		{
-			1201000,
-			identityset.Address(27),
-			uint64(10),
-			"test",
-			identityset.Address(28).String(),
-			identityset.Address(29).String(),
-			identityset.Address(30).String(),
-			"1200000000000000000000000",
-			"",
-			uint32(10000),
-			false,
-			[]byte("payload"),
-			uint64(1000000),
-			uint64(1000),
-			big.NewInt(1000),
-			true,
-			action.ErrHitGasLimit,
-			iotextypes.ReceiptStatus_Failure,
-		},
 		// Upsert,check collision
 		{
 			1201000,
@@ -325,7 +304,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			big.NewInt(1000),
 			false,
 			nil,
-			iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
 		// invalid amount
 		{
@@ -410,8 +389,12 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+		if test.err != nil {
+			continue
+		}
 		r, err := p.Handle(ctx, act, sm)
-		require.Equal(test.err, errors.Cause(err))
+		require.NoError(err)
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
@@ -576,8 +559,8 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			"test2",
 			"",
 			"",
-			ErrInvalidCanName,
-			iotextypes.ReceiptStatus_Failure,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateConflict,
 		},
 		{
 			1201000,
@@ -662,8 +645,12 @@ func TestProtocol_handleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		require.Equal(test.err, errors.Cause(p.Validate(ctx, cu, sm)))
+		if test.err != nil {
+			continue
+		}
 		r, err := p.Handle(ctx, cu, sm)
-		require.Equal(test.err, errors.Cause(err))
+		require.NoError(err)
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
@@ -1399,8 +1386,12 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
+			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
+			if test.err != nil {
+				continue
+			}
 			r, err = p.Handle(ctx, act, sm)
-			require.Equal(test.err, errors.Cause(err))
+			require.NoError(err)
 		}
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)

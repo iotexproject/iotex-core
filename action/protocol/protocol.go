@@ -58,6 +58,11 @@ type PostSystemActionsCreator interface {
 	CreatePostSystemActions(context.Context, StateReader) ([]action.Envelope, error)
 }
 
+// ActionValidator is the interface of validating an action
+type ActionValidator interface {
+	Validate(context.Context, action.Action, StateReader) error
+}
+
 // ActionHandler is the interface for the action handlers. For each incoming action, the assembled actions will be
 // called one by one to process it. ActionHandler implementation is supposed to parse the sub-type of the action to
 // decide if it wants to handle this action or not.
