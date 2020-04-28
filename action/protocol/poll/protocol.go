@@ -51,14 +51,6 @@ var ErrDelegatesNotAsExpected = errors.New("delegates are not as expected")
 var ErrDelegatesNotExist = errors.New("delegates cannot be found")
 
 type (
-	validationContextKey struct{}
-
-	// ValidationCtx provides validation auxiliary information.
-	ValidationCtx struct {
-		// Validated indicates validation has been done
-		Validated bool
-	}
-
 	// GetCandidates returns the current candidates
 	GetCandidates func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error)
 
@@ -121,17 +113,6 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 	}
 
 	return pp
-}
-
-// WithValidationlCtx add ValidationCtx into context.
-func WithValidationlCtx(ctx context.Context, val ValidationCtx) context.Context {
-	return context.WithValue(ctx, validationContextKey{}, val)
-}
-
-// GetValidationCtx gets ValidationCtx
-func GetValidationCtx(ctx context.Context) (ValidationCtx, bool) {
-	val, ok := ctx.Value(validationContextKey{}).(ValidationCtx)
-	return val, ok
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
