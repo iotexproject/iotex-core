@@ -215,7 +215,8 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Reward additional bootstrap bonus
-	if epochNum <= a.foundationBonusLastEpoch {
+	fairBankEpochNum := rp.GetEpochNum(hu.FairbankBlockHeight()) // extend foundation bonus from fairbank to fairbank + 1 year
+	if epochNum <= a.foundationBonusLastEpoch || (epochNum >= fairBankEpochNum && epochNum <= fairBankEpochNum+a.foundationBonusLastEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
 			if _, ok := exemptAddrs[candidates[i].Address]; ok {
 				continue
