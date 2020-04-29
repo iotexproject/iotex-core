@@ -336,7 +336,7 @@ type (
 		// MaxNumActsPerPool indicates maximum number of actions the whole actpool can hold
 		MaxNumActsPerPool uint64 `yaml:"maxNumActsPerPool"`
 		// MaxGasLimitPerPool indicates maximum gas limit the whole actpool can hold
-		MaxGasLimitPerPool uint64
+		MaxGasLimitPerPool uint64 `yaml:"maxGasLimitPerPool"`
 		// MaxNumActsPerAcct indicates maximum number of actions an account queue can hold
 		MaxNumActsPerAcct uint64 `yaml:"maxNumActsPerAcct"`
 		// ActionExpiry defines how long an action will be kept in action pool.
