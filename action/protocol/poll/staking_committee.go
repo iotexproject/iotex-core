@@ -182,18 +182,15 @@ func (sc *stakingCommittee) CreatePostSystemActions(ctx context.Context, sr prot
 }
 
 func (sc *stakingCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	if err := validate(ctx, sm, sc, act); err != nil {
-		return nil, err
-	}
-	// validation passed, no need to validate() again
-	ctx = WithValidationlCtx(ctx, ValidationCtx{
-		Validated: true,
-	})
 	receipt, err := sc.governanceStaking.Handle(ctx, act, sm)
 	if err := sc.persistNativeBuckets(ctx, receipt, err); err != nil {
 		return nil, err
 	}
 	return receipt, err
+}
+
+func (sc *stakingCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	return validate(ctx, sr, sc, act)
 }
 
 func (sc *stakingCommittee) Name() string {

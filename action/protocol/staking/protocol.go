@@ -215,57 +215,55 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
-	if act == nil {
-		return nil, ErrNilAction
-	}
 	switch act := act.(type) {
 	case *action.CreateStake:
-		if err := p.validateCreateStake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
-		if err := p.validateUnstake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		if err := p.validateWithdrawStake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
-		if err := p.validateChangeCandidate(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
-		if err := p.validateTransferStake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		if err := p.validateDepositToStake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
-		if err := p.validateRestake(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		if err := p.validateCandidateRegister(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
-		if err := p.validateCandidateUpdate(ctx, act); err != nil {
-			return nil, err
-		}
 		return p.handleCandidateUpdate(ctx, act, csm)
 	}
 	return nil, nil
+}
+
+// Validate validates a staking message
+func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	if act == nil {
+		return ErrNilAction
+	}
+	switch act := act.(type) {
+	case *action.CreateStake:
+		return p.validateCreateStake(ctx, act)
+	case *action.Unstake:
+		return p.validateUnstake(ctx, act)
+	case *action.WithdrawStake:
+		return p.validateWithdrawStake(ctx, act)
+	case *action.ChangeCandidate:
+		return p.validateChangeCandidate(ctx, act)
+	case *action.TransferStake:
+		return p.validateTransferStake(ctx, act)
+	case *action.DepositToStake:
+		return p.validateDepositToStake(ctx, act)
+	case *action.Restake:
+		return p.validateRestake(ctx, act)
+	case *action.CandidateRegister:
+		return p.validateCandidateRegister(ctx, act)
+	case *action.CandidateUpdate:
+		return p.validateCandidateUpdate(ctx, act)
+	}
+	return nil
 }
 
 // ActiveCandidates returns all active candidates in candidate center
