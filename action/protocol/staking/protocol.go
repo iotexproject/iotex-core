@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -211,7 +212,16 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	return p.handle(ctx, act, csm)
+
+	r, err := p.handle(ctx, act, csm)
+	if err != nil {
+		if status, ok := canEarlyResolve(err); ok {
+			actionCtx := protocol.MustGetActionCtx(ctx)
+			gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+			return p.settleAction(ctx, csm, status, gasFee)
+		}
+	}
+	return r, err
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
@@ -341,4 +351,20 @@ func (p *Protocol) Name() string {
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
+}
+
+func canEarlyResolve(err error) (uint64, bool) {
+	cause := errors.Cause(err)
+	if cause == ErrInvalidCanName ||
+		cause == ErrInvalidOperator ||
+		cause == ErrInvalidSelfStkIndex {
+		return uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), true
+	}
+
+	if cause == ErrInvalidAmount ||
+		cause == ErrInvalidOwner ||
+		cause == ErrInvalidReward {
+		return uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), true
+	}
+	return 0, false
 }
