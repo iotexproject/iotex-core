@@ -16,6 +16,12 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/config"
+)
+
+const (
+	numOfEpochIn1year = uint64(8760)
 )
 
 // admin stores the admin data of the rewarding protocol
@@ -26,6 +32,8 @@ type admin struct {
 	foundationBonus                *big.Int
 	numDelegatesForFoundationBonus uint64
 	foundationBonusLastEpoch       uint64
+	foundationBonusP2StartEpoch    uint64
+	foundationBonusP2EndEpoch      uint64
 	productivityThreshold          uint64
 }
 
@@ -130,6 +138,12 @@ func (p *Protocol) CreateGenesisStates(
 	numDelegatesForFoundationBonus := bcCtx.Genesis.NumDelegatesForFoundationBonus
 	foundationBonusLastEpoch := bcCtx.Genesis.FoundationBonusLastEpoch
 	productivityThreshold := bcCtx.Genesis.ProductivityThreshold
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	rp := rolldpos.FindProtocol(protocol.MustGetRegistry(ctx))
+	foundationBonusP2StartEpoch := uint64(0)
+	if rp != nil {
+		foundationBonusP2StartEpoch = rp.GetEpochNum(hu.FairbankBlockHeight()) // extend foundation bonus from fairbank to fairbank + 1 year
+	}
 
 	if err := p.putState(
 		sm,
@@ -141,6 +155,8 @@ func (p *Protocol) CreateGenesisStates(
 			foundationBonus:                foundationBonus,
 			numDelegatesForFoundationBonus: numDelegatesForFoundationBonus,
 			foundationBonusLastEpoch:       foundationBonusLastEpoch,
+			foundationBonusP2StartEpoch:    foundationBonusP2StartEpoch,
+			foundationBonusP2EndEpoch:      foundationBonusP2StartEpoch + numOfEpochIn1year,
 			productivityThreshold:          productivityThreshold,
 		},
 	); err != nil {

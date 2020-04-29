@@ -180,7 +180,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		},
 	)
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
+		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
 			Genesis: ge,
 		},
