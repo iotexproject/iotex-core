@@ -557,14 +557,14 @@ func TestSDBNonce(t *testing.T) {
 
 func testNonce(sf Factory, t *testing.T) {
 	// Create two dummy iotex address
-	a := identityset.Address(28).String()
+	a := identityset.Address(28)
 	priKeyA := identityset.PrivateKey(28)
 	b := identityset.Address(29).String()
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(t, sf.Register(acc))
 	ge := genesis.Default
-	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[a.String()] = "100"
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -598,9 +598,21 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
+	intrinsicGas, err := selp.IntrinsicGas()
+	require.NoError(t, err)
+	ctx = protocol.WithActionCtx(
+		ctx,
+		protocol.ActionCtx{
+			Caller:       a,
+			ActionHash:   selp.Hash(),
+			GasPrice:     selp.GasPrice(),
+			Nonce:        selp.Nonce(),
+			IntrinsicGas: intrinsicGas,
+		},
+	)
 	_, err = ws.runAction(ctx, selp)
 	require.NoError(t, err)
-	state, err := accountutil.AccountState(sf, a)
+	state, err := accountutil.AccountState(sf, a.String())
 	require.NoError(t, err)
 	require.Equal(t, uint64(0), state.Nonce)
 
@@ -620,7 +632,7 @@ func testNonce(sf Factory, t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, sf.PutBlock(ctx, &blk))
-	state, err = accountutil.AccountState(sf, a)
+	state, err = accountutil.AccountState(sf, a.String())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), state.Nonce)
 }

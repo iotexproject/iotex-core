@@ -29,6 +29,18 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+func TestProtocol_ValidateTransfer(t *testing.T) {
+	require := require.New(t)
+	p := NewProtocol(rewarding.DepositGas)
+	t.Run("Oversized data", func(t *testing.T) {
+		tmpPayload := [32769]byte{}
+		payload := tmpPayload[:]
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0), big.NewInt(0))
+		require.NoError(err)
+		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), tsf, nil)))
+	})
+}
+
 func TestProtocol_HandleTransfer(t *testing.T) {
 	require := require.New(t)
 
@@ -183,14 +195,4 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 	require.NoError(err)
 	require.Equal(uint64(2), acct.Nonce)
 	require.Equal("20003", acct.Balance.String())
-
-	t.Run("Oversize data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		payload := tmpPayload[:]
-		tsf, err := action.NewTransfer(uint64(1), big.NewInt(1), "2", payload, uint64(0),
-			big.NewInt(0))
-		require.NoError(err)
-		_, err = p.Handle(ctx, tsf, sm)
-		require.Equal(action.ErrActPool, errors.Cause(err))
-	})
 }

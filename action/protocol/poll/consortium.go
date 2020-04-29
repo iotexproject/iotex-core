@@ -159,10 +159,11 @@ func (cc *consortiumCommittee) CreatePostSystemActions(ctx context.Context, sr p
 }
 
 func (cc *consortiumCommittee) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	if err := validate(ctx, sm, cc, act); err != nil {
-		return nil, err
-	}
 	return handle(ctx, act, sm, cc.indexer, cc.addr.String())
+}
+
+func (cc *consortiumCommittee) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	return validate(ctx, sr, cc, act)
 }
 
 func (cc *consortiumCommittee) ReadState(

@@ -581,7 +581,8 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if err := csm.Upsert(c); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", c.Owner.String())
+		log.L().Debug("failed to put state of candidate", zap.Error(err))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
 	}
 
 	log := p.createLog(ctx, HandleCandidateUpdate, nil, actCtx.Caller, nil)
@@ -598,10 +599,6 @@ func (p *Protocol) settleAction(
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-
-	if blkCtx.GasLimit < actionCtx.IntrinsicGas {
-		return nil, errors.Wrap(action.ErrHitGasLimit, "block gas limit exceeded")
-	}
 	if err := p.depositGas(ctx, sm, gasFee); err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
