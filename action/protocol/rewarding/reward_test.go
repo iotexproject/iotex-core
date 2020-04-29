@@ -314,7 +314,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 					identityset.Address(1).String(): 10,
 				},
 				nil
-		})
+		}, 0, 0)
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,

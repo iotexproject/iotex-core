@@ -78,7 +78,7 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		}).AnyTimes()
 
 	p := NewProtocol(rewarding.DepositGas)
-	reward := rewarding.NewProtocol(nil)
+	reward := rewarding.NewProtocol(nil, 0, 0)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
 	rp := rolldpos.NewProtocol(1, 1, 1)
