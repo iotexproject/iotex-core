@@ -581,8 +581,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	if err := csm.Upsert(c); err != nil {
-		log.L().Debug("failed to put state of candidate", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
+		return nil, errors.Wrapf(err, "failed to put state of candidate %s", c.Owner.String())
 	}
 
 	log := p.createLog(ctx, HandleCandidateUpdate, nil, actCtx.Caller, nil)
