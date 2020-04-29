@@ -308,7 +308,10 @@ func New(
 	rewardingProtocol := rewarding.NewProtocol(
 		func(start uint64, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
-		})
+		},
+		cfg.Genesis.FoundationBonusP2StartEpoch,
+		cfg.Genesis.FoundationBonusP2EndEpoch,
+	)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
 	if err != nil {

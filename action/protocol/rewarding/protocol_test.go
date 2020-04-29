@@ -84,7 +84,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 					identityset.Address(31).String(): 2,
 				},
 				nil
-		})
+		},
+		genesis.Default.FoundationBonusP2StartEpoch,
+		genesis.Default.FoundationBonusP2EndEpoch,
+	)
 	candidates := []*state.Candidate{
 		{
 			Address:       identityset.Address(27).String(),
@@ -288,7 +291,7 @@ func TestProtocol_Handle(t *testing.T) {
 	p := NewProtocol(
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
-		})
+		}, 0, 0)
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))

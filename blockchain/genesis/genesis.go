@@ -79,6 +79,8 @@ func defaultConfig() Genesis {
 			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
+			FoundationBonusP2StartEpoch:    0, // TODO: replace with fair bank epoch
+			FoundationBonusP2EndEpoch:      0, // TODO: replace with fair bank epoch  + 8760
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -235,8 +237,11 @@ type (
 		NumDelegatesForFoundationBonus uint64 `yaml:"numDelegatesForFoundationBonus"`
 		// FoundationBonusLastEpoch is the last epoch number that bootstrap bonus will be granted
 		FoundationBonusLastEpoch uint64 `yaml:"foundationBonusLastEpoch"`
-		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
-		// epoch reward
+		// FoundationBonusP2StartEpoch is the start epoch number for part 2 foundation bonus
+		FoundationBonusP2StartEpoch uint64 `yaml:"foundationBonusP2StartEpoch"`
+		// FoundationBonusP2EndEpoch is the end epoch number for part 2 foundation bonus
+		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
+		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 	}
 	// Staking contains the configs for staking protocol

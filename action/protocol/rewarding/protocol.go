@@ -46,14 +46,18 @@ type Productivity func(uint64, uint64) (map[string]uint64, error)
 // reward amount, users to donate tokens to the fund, block producers to grant them block and epoch reward and,
 // beneficiaries to claim the balance into their personal account.
 type Protocol struct {
-	productivity Productivity
-	keyPrefix    []byte
-	addr         address.Address
+	productivity                Productivity
+	keyPrefix                   []byte
+	addr                        address.Address
+	foundationBonusP2StartEpoch uint64
+	foundationBonusP2EndEpoch   uint64
 }
 
 // NewProtocol instantiates a rewarding protocol instance.
 func NewProtocol(
 	productivity Productivity,
+	foundationBonusP2Start uint64,
+	foundationBonusP2End uint64,
 ) *Protocol {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
@@ -61,9 +65,11 @@ func NewProtocol(
 		log.L().Panic("Error when constructing the address of rewarding protocol", zap.Error(err))
 	}
 	return &Protocol{
-		productivity: productivity,
-		keyPrefix:    h[:],
-		addr:         addr,
+		productivity:                productivity,
+		keyPrefix:                   h[:],
+		addr:                        addr,
+		foundationBonusP2StartEpoch: foundationBonusP2Start,
+		foundationBonusP2EndEpoch:   foundationBonusP2End,
 	}
 }
 
@@ -98,7 +104,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-
 	return nil
 }
 
