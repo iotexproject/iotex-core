@@ -16,7 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -85,7 +84,6 @@ func NewConsensus(
 	cfg config.Config,
 	bc blockchain.Blockchain,
 	sf factory.Factory,
-	ap actpool.ActPool,
 	opts ...Option,
 ) (Consensus, error) {
 	var ops optionParams
@@ -105,7 +103,6 @@ func NewConsensus(
 			SetPriKey(cfg.ProducerPrivateKey()).
 			SetConfig(cfg).
 			SetChainManager(bc).
-			SetActPool(ap).
 			SetClock(clock).
 			SetBroadcast(ops.broadcastHandler).
 			SetDelegatesByEpochFunc(func(epochNum uint64) ([]string, error) {
@@ -150,9 +147,7 @@ func NewConsensus(
 		cs.scheme = scheme.NewNoop()
 	case config.StandaloneScheme:
 		mintBlockCB := func() (*block.Block, error) {
-			actionMap := ap.PendingActionMap()
-			log.Logger("consensus").Debug("Pick actions.", zap.Int("actions", len(actionMap)))
-			blk, err := bc.MintNewBlock(actionMap, clock.Now())
+			blk, err := bc.MintNewBlock(clock.Now())
 			if err != nil {
 				log.Logger("consensus").Error("Failed to mint a block.", zap.Error(err))
 				return nil, err
@@ -167,8 +162,6 @@ func NewConsensus(
 			if err != nil {
 				log.Logger("consensus").Info("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
 			}
-			// Remove transfers in this block from ActPool and reset ActPool state
-			ap.Reset()
 			return err
 		}
 		broadcastBlockCB := func(blk *block.Block) error {

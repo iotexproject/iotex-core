@@ -51,12 +51,12 @@ func TestStakingContract(t *testing.T) {
 		chainID := cfg.Chain.ID
 		bc := svr.ChainService(chainID).Blockchain()
 		sf := svr.ChainService(chainID).StateFactory()
+		ap := svr.ChainService(chainID).ActionPool()
 		dao := svr.ChainService(chainID).BlockDAO()
 		registry := svr.ChainService(chainID).Registry()
 		require.NotNil(bc)
 		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
-		addr0 := identityset.Address(26).String()
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
 		var s state.Account
 		_, err = sf.State(&s, protocol.LegacyKeyOption(state0))
@@ -70,12 +70,8 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 
 		deployHash := ex.Hash()
-		accMap := make(map[string][]action.SealedEnvelope)
-		accMap[addr0] = []action.SealedEnvelope{ex}
-		blk, err := bc.MintNewBlock(
-			accMap,
-			fixedTime,
-		)
+		require.NoError(ap.Add(context.Background(), ex))
+		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		r, err := dao.GetReceiptByActionHash(deployHash, 1)
@@ -89,8 +85,6 @@ func TestStakingContract(t *testing.T) {
 		numBucket := uint64(60)
 		fixedAmount := unit.ConvertIotxToRau(200)
 		for i := 0; i < numVoter; i++ {
-			accMap := make(map[string][]action.SealedEnvelope)
-			votes := []action.SealedEnvelope{}
 			sk := identityset.PrivateKey(i)
 			addr := identityset.Address(i).String()
 			for nonce := uint64(0); nonce < numBucket; nonce++ {
@@ -99,13 +93,9 @@ func TestStakingContract(t *testing.T) {
 				require.True(len(data) > 0)
 				ex, err := testutil.SignedExecution(r.ContractAddress, sk, nonce+1, fixedAmount, 1000000, big.NewInt(testutil.TestGasPriceInt64), data)
 				require.NoError(err)
-				votes = append(votes, ex)
+				require.NoError(ap.Add(context.Background(), ex))
 			}
-			accMap[addr] = votes
-			blk, err = bc.MintNewBlock(
-				accMap,
-				fixedTime,
-			)
+			blk, err = bc.MintNewBlock(fixedTime)
 			require.NoError(err)
 			require.NoError(bc.CommitBlock(blk))
 
@@ -205,6 +195,7 @@ func TestStakingContract(t *testing.T) {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
 
+	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath

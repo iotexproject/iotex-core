@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -136,7 +137,7 @@ func TestRoundInfo(t *testing.T) {
 	require.True(roundStartTime.Equal(time.Unix(1562382393, 0)))
 }
 
-func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.Protocol, poll.Protocol) {
+func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.ActPool, *rolldpos.Protocol, poll.Protocol) {
 	require := require.New(t)
 	cfg := config.Default
 
@@ -174,11 +175,12 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
-
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BoltDBDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
@@ -207,21 +209,18 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 	ctx := context.Background()
 	require.NoError(chain.Start(ctx))
 	for i := 0; i < 50; i++ {
-		blk, err := chain.MintNewBlock(
-			nil,
-			time.Unix(cfg.Genesis.Timestamp+int64(i), 0),
-		)
+		blk, err := chain.MintNewBlock(time.Unix(cfg.Genesis.Timestamp+int64(i), 0))
 		require.NoError(blk.Finalize(nil, time.Unix(cfg.Genesis.Timestamp+int64(i), 0)))
 		require.NoError(err)
 		require.NoError(chain.CommitBlock(blk))
 	}
 	require.Equal(uint64(50), chain.TipHeight())
 	require.NoError(err)
-	return chain, sf, rolldposProtocol, pp
+	return chain, sf, ap, rolldposProtocol, pp
 }
 
 func makeRoundCalculator(t *testing.T) *roundCalculator {
-	bc, sf, rp, pp := makeChain(t)
+	bc, sf, _, rp, pp := makeChain(t)
 	return &roundCalculator{
 		bc,
 		true,

@@ -12,6 +12,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 
 	"github.com/stretchr/testify/require"
@@ -51,11 +52,13 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -88,13 +91,9 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 		selp1, err := action.Sign(elp1, identityset.PrivateKey(0))
 		require.NoError(t, err)
 
-		actionMap := make(map[string][]action.SealedEnvelope)
-		actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp1}
+		require.NoError(t, ap.Add(context.Background(), selp1))
 
-		blk, err := bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(t, err)
 		require.Equal(t, 2, len(blk.Actions))
 		require.Equal(t, 2, len(blk.Receipts))
@@ -129,11 +128,13 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(t, err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(t, err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -149,12 +150,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	}()
 
 	for i := 0; i < 30; i++ {
-		actionMap := make(map[string][]action.SealedEnvelope)
-
-		blk, err := bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(t, err)
 		require.Equal(t, 1, len(blk.Actions))
 		require.Equal(t, 1, len(blk.Receipts))
@@ -185,8 +181,10 @@ func TestEstimateGasForAction(t *testing.T) {
 	cfg := config.Default
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption())
 	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(err)
 	blkMemDao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
-	bc := blockchain.NewBlockchain(cfg, blkMemDao, sf)
+	bc := blockchain.NewBlockchain(cfg, blkMemDao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)
 	gs := NewGasStation(bc, sf.SimulateExecution, blkMemDao, config.Default.API)

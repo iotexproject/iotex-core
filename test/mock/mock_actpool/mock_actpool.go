@@ -11,6 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
+	block "github.com/iotexproject/iotex-core/blockchain/block"
 )
 
 // MockActPool is a mock of ActPool interface
@@ -29,6 +30,32 @@ func NewMockActPool(ctrl *gomock.Controller) *MockActPool {
 	mock := &MockActPool{ctrl: ctrl}
 	mock.recorder = &MockActPoolMockRecorder{mock}
 	return mock
+}
+
+// DeleteAction mocks base method
+func (m *MockActPool) DeleteAction(act action.SealedEnvelope) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteAction", act)
+}
+
+// DeleteAction indicates an expected call of DeleteAction
+func (mr *MockActPoolMockRecorder) DeleteAction(act interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAction", reflect.TypeOf((*MockActPool)(nil).DeleteAction), act)
+}
+
+// ReceiveBlock mocks base method
+func (m *MockActPool) ReceiveBlock(blk *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReceiveBlock", blk)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReceiveBlock indicates an expected call of ReceiveBlock
+func (mr *MockActPoolMockRecorder) ReceiveBlock(blk interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockActPool)(nil).ReceiveBlock), blk)
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use

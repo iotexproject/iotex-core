@@ -83,10 +83,7 @@ type (
 		// For block operations
 		// MintNewBlock creates a new block with given actions
 		// Note: the coinbase transfer will be added to the given transfers when minting a new block
-		MintNewBlock(
-			actionMap map[string][]action.SealedEnvelope,
-			timestamp time.Time,
-		) (*block.Block, error)
+		MintNewBlock(timestamp time.Time) (*block.Block, error)
 		// CommitBlock validates and appends a block to the chain
 		CommitBlock(blk *block.Block) error
 		// ValidateBlock validates a new block before adding it to the blockchain
@@ -101,7 +98,7 @@ type (
 	// BlockBuilderFactory is the factory interface of block builder
 	BlockBuilderFactory interface {
 		// NewBlockBuilder creates block builder
-		NewBlockBuilder(context.Context, map[string][]action.SealedEnvelope, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
+		NewBlockBuilder(context.Context, func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error)
 	}
 )
 
@@ -384,10 +381,7 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 	), nil
 }
 
-func (bc *blockchain) MintNewBlock(
-	actionMap map[string][]action.SealedEnvelope,
-	timestamp time.Time,
-) (*block.Block, error) {
+func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 	mintNewBlockTimer := bc.timerFactory.NewTimer("MintNewBlock")
@@ -406,7 +400,6 @@ func (bc *blockchain) MintNewBlock(
 	minterPrivateKey := bc.config.ProducerPrivateKey()
 	blockBuilder, err := bc.bbf.NewBlockBuilder(
 		ctx,
-		actionMap,
 		func(elp action.Envelope) (action.SealedEnvelope, error) {
 			return action.Sign(elp, minterPrivateKey)
 		},

@@ -1796,7 +1796,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	}
 }
 
-func addTestingBlocks(bc blockchain.Blockchain) error {
+func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
 	addr1 := identityset.Address(28).String()
@@ -1813,34 +1813,37 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	}
 
 	blk1Time := testutil.TimestampNow()
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[addr0] = []action.SealedEnvelope{tsf}
-	blk, err := bc.MintNewBlock(
-		actionMap,
-		blk1Time,
-	)
+	if err := ap.Add(context.Background(), tsf); err != nil {
+		return err
+	}
+	blk, err := bc.MintNewBlock(blk1Time)
 	if err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
+	ap.Reset()
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
 	// Charlie transfer--> C
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
-	selps := make([]action.SealedEnvelope, 0)
 	for i, recipient := range recipients {
 		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
-		selps = append(selps, selp)
+		if err := ap.Add(context.Background(), selp); err != nil {
+			return err
+		}
 	}
 	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), selp); err != nil {
 		return err
 	}
 	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
@@ -1848,31 +1851,26 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	selps = append(selps, selp)
-	selps = append(selps, execution1)
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = selps
-	if blk, err = bc.MintNewBlock(
-		actionMap,
-		blk1Time.Add(time.Second),
-	); err != nil {
+	if err := ap.Add(context.Background(), execution1); err != nil {
+		return err
+	}
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
+	ap.Reset()
 
 	// Add block 3
 	// Empty actions
-	if blk, err = bc.MintNewBlock(
-		nil,
-		blk1Time.Add(time.Second*2),
-	); err != nil {
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 2)); err != nil {
 		return err
 	}
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
+	ap.Reset()
 
 	// Add block 4
 	// Charlie transfer--> C
@@ -1883,8 +1881,14 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf1); err != nil {
+		return err
+	}
 	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
 	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
@@ -1892,19 +1896,18 @@ func addTestingBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), execution1); err != nil {
+		return err
+	}
 	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
 	}
-
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{tsf1, execution1}
-	actionMap[addr1] = []action.SealedEnvelope{tsf2, execution2}
-	if blk, err = bc.MintNewBlock(
-		actionMap,
-		blk1Time.Add(time.Second*3),
-	); err != nil {
+	if err := ap.Add(context.Background(), execution2); err != nil {
+		return err
+	}
+	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
 		return err
 	}
 	return bc.CommitBlock(blk)
@@ -1945,41 +1948,46 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *systemlog.Indexer, factory.Factory, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *systemlog.Indexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
+	}
+	ap, err := setupActPool(sf, cfg.ActPool)
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
+	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	systemLogIndexer, err := systemlog.NewIndexer(db.NewMemKVStore())
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create systemlog indexer")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create systemlog indexer")
 	}
 	// create BlockDAO
 	// systemLogIndexer is not added into blockDao
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -2000,22 +2008,22 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		}, 0, 0)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 
-	return bc, dao, indexer, systemLogIndexer, sf, registry, nil
+	return bc, dao, indexer, systemLogIndexer, sf, ap, registry, nil
 }
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
@@ -2087,7 +2095,7 @@ func newConfig(t *testing.T) config.Config {
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	// TODO (zhi): revise
-	bc, dao, indexer, systemLogIndexer, sf, registry, err := setupChain(cfg)
+	bc, dao, indexer, systemLogIndexer, sf, ap, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -2098,9 +2106,8 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	if err := bc.Start(ctx); err != nil {
 		return nil, err
 	}
-
 	// Add testing blocks
-	if err := addTestingBlocks(bc); err != nil {
+	if err := addTestingBlocks(bc, ap); err != nil {
 		return nil, err
 	}
 
@@ -2108,13 +2115,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	if err := setupSystemLogIndexer(systemLogIndexer); err != nil {
 		return nil, err
 	}
-
-	var ap actpool.ActPool
 	if needActPool {
-		ap, err = setupActPool(sf, cfg.ActPool)
-		if err != nil {
-			return nil, err
-		}
 		// Add actions to actpool
 		ctx := protocol.WithRegistry(context.Background(), registry)
 		if err := addActsToActPool(ctx, ap); err != nil {

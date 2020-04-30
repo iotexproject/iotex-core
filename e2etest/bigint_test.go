@@ -21,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -39,11 +40,11 @@ const (
 func TestTransfer_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
-	bc, sf := prepareBlockchain(ctx, executor, r)
+	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
 	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
-	blk, err := prepareTransfer(bc, sf, r)
+	blk, err := prepareTransfer(bc, sf, ap, r)
 	r.NoError(err)
 	r.Equal(2, len(blk.Actions))
 	r.Error(bc.ValidateBlock(blk))
@@ -55,11 +56,11 @@ func TestTransfer_Negative(t *testing.T) {
 func TestAction_Negative(t *testing.T) {
 	r := require.New(t)
 	ctx := context.Background()
-	bc, sf := prepareBlockchain(ctx, executor, r)
+	bc, sf, ap := prepareBlockchain(ctx, executor, r)
 	defer r.NoError(bc.Stop(ctx))
 	stateBeforeTransfer, err := accountutil.AccountState(sf, executor)
 	r.NoError(err)
-	blk, err := prepareAction(bc, sf, r)
+	blk, err := prepareAction(bc, sf, ap, r)
 	r.NoError(err)
 	r.NotNil(blk)
 	r.Equal(2, len(blk.Actions))
@@ -69,7 +70,7 @@ func TestAction_Negative(t *testing.T) {
 	r.Equal(0, state.Balance.Cmp(stateBeforeTransfer.Balance))
 }
 
-func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory) {
+func prepareBlockchain(ctx context.Context, executor string, r *require.Assertions) (blockchain.Blockchain, factory.Factory, actpool.ActPool) {
 	cfg := config.Default
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
@@ -81,11 +82,13 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	r.NoError(err)
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf}, cfg.Chain.CompressBlock, cfg.DB)
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -102,10 +105,10 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 		Genesis: cfg.Genesis,
 	})
 	r.NoError(sf.Start(ctx))
-	return bc, sf
+	return bc, sf, ap
 }
 
-func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
+func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewTransfer(1, big.NewInt(-10000), recipient, nil, uint64(1000000), big.NewInt(9000000000000))
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -114,10 +117,10 @@ func prepareTransfer(bc blockchain.Blockchain, sf factory.Factory, r *require.As
 		SetGasLimit(exec.GasLimit()).
 		SetGasPrice(exec.GasPrice()).
 		Build()
-	return prepare(bc, sf, elp, r)
+	return prepare(bc, sf, ap, elp, r)
 }
 
-func prepareAction(bc blockchain.Blockchain, sf factory.Factory, r *require.Assertions) (*block.Block, error) {
+func prepareAction(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, r *require.Assertions) (*block.Block, error) {
 	exec, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(-100), uint64(1000000), big.NewInt(9000000000000), []byte{})
 	r.NoError(err)
 	builder := &action.EnvelopeBuilder{}
@@ -126,20 +129,16 @@ func prepareAction(bc blockchain.Blockchain, sf factory.Factory, r *require.Asse
 		SetGasLimit(exec.GasLimit()).
 		SetGasPrice(exec.GasPrice()).
 		Build()
-	return prepare(bc, sf, elp, r)
+	return prepare(bc, sf, ap, elp, r)
 }
 
-func prepare(bc blockchain.Blockchain, sf factory.Factory, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
+func prepare(bc blockchain.Blockchain, sf factory.Factory, ap actpool.ActPool, elp action.Envelope, r *require.Assertions) (*block.Block, error) {
 	priKey, err := crypto.HexStringToPrivateKey(executorPriKey)
 	r.NoError(err)
 	selp, err := action.Sign(elp, priKey)
 	r.NoError(err)
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[executor] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	r.NoError(ap.Add(context.Background(), selp))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	r.NoError(err)
 	// when validate/commit a blk, the workingset and receipts of blk should be nil
 	blk.Receipts = nil

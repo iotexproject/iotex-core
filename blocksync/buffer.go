@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -36,7 +35,6 @@ type blockBuffer struct {
 	mu           sync.RWMutex
 	blocks       map[uint64]*block.Block
 	bc           blockchain.Blockchain
-	ap           actpool.ActPool
 	cs           consensus.Consensus
 	bufferSize   uint64
 	intervalSize uint64
@@ -79,7 +77,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 			break
 		}
 		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.ap, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
+		if err := commitBlock(b.bc, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
 			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected || errors.Cause(err) == db.ErrNotExist {
 				l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
 			} else {

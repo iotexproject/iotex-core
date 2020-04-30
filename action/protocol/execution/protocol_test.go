@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -215,6 +216,7 @@ func runExecution(
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
+	ap actpool.ActPool,
 	ecfg *ExecutionConfig,
 	contractAddr string,
 ) ([]byte, *action.Receipt, error) {
@@ -256,12 +258,10 @@ func runExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[ecfg.Executor().String()] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	if err := ap.Add(context.Background(), selp); err != nil {
+		return nil, nil, err
+	}
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -276,7 +276,7 @@ func runExecution(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	r *require.Assertions,
-) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO) {
+) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool) {
 	cfg := config.Default
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -284,6 +284,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
@@ -298,6 +299,8 @@ func (sct *SmartContractTest) prepareBlockchain(
 	// create state factory
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	r.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	r.NoError(err)
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
@@ -307,7 +310,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.BlockValidatorOption(block.NewValidator(
 			sf,
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -321,20 +324,21 @@ func (sct *SmartContractTest) prepareBlockchain(
 	r.NoError(execution.Register(registry))
 	r.NoError(bc.Start(ctx))
 
-	return bc, sf, dao
+	return bc, sf, dao, ap
 }
 
 func (sct *SmartContractTest) deployContracts(
 	bc blockchain.Blockchain,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
+	ap actpool.ActPool,
 	r *require.Assertions,
 ) (contractAddresses []string) {
 	for i, contract := range sct.Deployments {
 		if contract.AppendContractAddress {
 			contract.ContractAddressToAppend = contractAddresses[contract.ContractIndexToAppend]
 		}
-		_, receipt, err := runExecution(bc, sf, dao, &contract, action.EmptyAddress)
+		_, receipt, err := runExecution(bc, sf, dao, ap, &contract, action.EmptyAddress)
 		r.NoError(err)
 		r.NotNil(receipt)
 		if sct.InitGenesis.IsBering {
@@ -372,13 +376,13 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, sf, dao := sct.prepareBlockchain(ctx, r)
+	bc, sf, dao, ap := sct.prepareBlockchain(ctx, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
 
 	// deploy smart contract
-	contractAddresses := sct.deployContracts(bc, sf, dao, r)
+	contractAddresses := sct.deployContracts(bc, sf, dao, ap, r)
 	if len(contractAddresses) == 0 {
 		return
 	}
@@ -389,7 +393,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if exec.AppendContractAddress {
 			exec.ContractAddressToAppend = contractAddresses[exec.ContractIndexToAppend]
 		}
-		retval, receipt, err := runExecution(bc, sf, dao, &exec, contractAddr)
+		retval, receipt, err := runExecution(bc, sf, dao, ap, &exec, contractAddr)
 		r.NoError(err)
 		r.NotNil(receipt)
 
@@ -482,6 +486,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Chain.IndexDBPath = testIndexPath
 		cfg.Chain.EnableAsyncIndexWrite = false
 		cfg.Genesis.EnableGravityChainVoting = false
+		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol(rewarding.DepositGas)
@@ -490,6 +495,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(rp.Register(registry))
 		// create state factory
 		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+		require.NoError(err)
+		ap, err := actpool.NewActPool(sf, cfg.ActPool)
 		require.NoError(err)
 		// create indexer
 		cfg.DB.DbPath = cfg.Chain.IndexDBPath
@@ -502,7 +509,7 @@ func TestProtocol_Handle(t *testing.T) {
 		bc := blockchain.NewBlockchain(
 			cfg,
 			dao,
-			sf,
+			factory.NewMinter(sf, ap),
 			blockchain.BlockValidatorOption(block.NewValidator(
 				sf,
 				protocol.NewGenericValidator(sf, accountutil.AccountState),
@@ -527,12 +534,8 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
-		actionMap := make(map[string][]action.SealedEnvelope)
-		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err := bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		require.NoError(ap.Add(context.Background(), selp))
+		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -580,12 +583,8 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Infof("execution %+v", execution)
 
-		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		require.NoError(ap.Add(context.Background(), selp))
+		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -618,12 +617,8 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
-		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		require.NoError(ap.Add(context.Background(), selp))
+		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
@@ -644,12 +639,8 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
-		actionMap = make(map[string][]action.SealedEnvelope)
-		actionMap[identityset.Address(27).String()] = []action.SealedEnvelope{selp}
-		blk, err = bc.MintNewBlock(
-			actionMap,
-			testutil.TimestampNow(),
-		)
+		require.NoError(ap.Add(context.Background(), selp))
+		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))

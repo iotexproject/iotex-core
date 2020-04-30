@@ -22,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_factory"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -124,7 +124,7 @@ func TestActQueuePendingActs(t *testing.T) {
 	defer ctrl.Finish()
 	require := require.New(t)
 	cfg := config.Default
-	sf := mock_factory.NewMockFactory(ctrl)
+	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sf.EXPECT().State(gomock.Any(), gomock.Any()).Do(func(accountState *state.Account, _ protocol.StateOption) {
 		accountState.Nonce = uint64(1)
 	}).Return(uint64(0), nil).Times(1)

@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -919,7 +920,10 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	selp2, err := action.Sign(elp, priKeyB)
 	require.NoError(err)
 	accMap[identityset.Address(29).String()] = []action.SealedEnvelope{selp2}
-
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	ap := mock_actpool.NewMockActPool(ctrl)
+	ap.EXPECT().PendingActionMap().Return(accMap).Times(1)
 	gasLimit := uint64(1000000)
 	ctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -932,7 +936,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
 	)
 
-	blkBuilder, err := factory.NewBlockBuilder(ctx, accMap, nil)
+	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
 	blk, err := blkBuilder.SignAndBuild(identityset.PrivateKey(27))
