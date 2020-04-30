@@ -16,7 +16,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -314,7 +313,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 			protocol.NewGenericValidator(sf, accountutil.AccountState),
 		)),
 	)
-	reward := rewarding.NewProtocol(nil)
+	reward := rewarding.NewProtocol(nil, 0, 0)
 	r.NoError(reward.Register(registry))
 
 	r.NotNil(bc)
@@ -442,6 +441,21 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 			// TODO: check value of logs
 		}
 	}
+}
+
+func TestProtocol_Validate(t *testing.T) {
+	require := require.New(t)
+	p := NewProtocol(func(uint64) (hash.Hash256, error) {
+		return hash.ZeroHash256, nil
+	}, rewarding.DepositGas)
+
+	t.Run("Oversized data", func(t *testing.T) {
+		tmpPayload := [32769]byte{}
+		data := tmpPayload[:]
+		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+		require.NoError(err)
+		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
+	})
 }
 
 func TestProtocol_Handle(t *testing.T) {
@@ -766,21 +780,6 @@ func TestProtocol_Handle(t *testing.T) {
 	// infiniteloop-bering
 	t.Run("infiniteloop-bering", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
-	})
-
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	protocol := NewProtocol(func(uint64) (hash.Hash256, error) {
-		return hash.ZeroHash256, nil
-	}, rewarding.DepositGas)
-
-	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		data := tmpPayload[:]
-		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
-		require.NoError(t, err)
-		_, err = protocol.Handle(context.Background(), ex, nil)
-		require.Equal(t, action.ErrActPool, errors.Cause(err))
 	})
 }
 

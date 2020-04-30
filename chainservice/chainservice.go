@@ -133,6 +133,7 @@ func New(
 	if cfg.Genesis.EnableGravityChainVoting {
 		committeeConfig := cfg.Chain.Committee
 		committeeConfig.GravityChainStartHeight = cfg.Genesis.GravityChainStartHeight
+		committeeConfig.GravityChainCeilingHeight = cfg.Genesis.GravityChainCeilingHeight
 		committeeConfig.GravityChainHeightInterval = cfg.Genesis.GravityChainHeightInterval
 		committeeConfig.RegisterContractAddress = cfg.Genesis.RegisterContractAddress
 		committeeConfig.StakingContractAddress = cfg.Genesis.StakingContractAddress
@@ -307,7 +308,10 @@ func New(
 	rewardingProtocol := rewarding.NewProtocol(
 		func(start uint64, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
-		})
+		},
+		cfg.Genesis.FoundationBonusP2StartEpoch,
+		cfg.Genesis.FoundationBonusP2EndEpoch,
+	)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
 	if err != nil {
@@ -456,6 +460,9 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 		if err := cs.candidateIndexer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping candidate indexer")
 		}
+	}
+	if cs.electionCommittee != nil {
+		return cs.electionCommittee.Stop(ctx)
 	}
 	return nil
 }

@@ -108,10 +108,11 @@ func (p *governanceChainCommitteeProtocol) CreatePreStates(ctx context.Context, 
 }
 
 func (p *governanceChainCommitteeProtocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	if err := validate(ctx, sm, p, act); err != nil {
-		return nil, err
-	}
 	return handle(ctx, act, sm, p.indexer, p.addr.String())
+}
+
+func (p *governanceChainCommitteeProtocol) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	return validate(ctx, sr, p, act)
 }
 
 func (p *governanceChainCommitteeProtocol) candidatesByGravityChainHeight(height uint64) (state.CandidateList, error) {

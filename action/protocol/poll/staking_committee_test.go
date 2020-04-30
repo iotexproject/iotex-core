@@ -275,7 +275,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
-		_, err = p.Handle(ctx2, selp2.Action(), sm2)
+		err = p.Validate(ctx2, selp2.Action(), sm2)
 		require.True(strings.Contains(err.Error(), "Only producer could create this protocol"))
 	})
 
@@ -311,7 +311,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
-		_, err = p.Handle(ctx3, selp3.Action(), sm3)
+		err = p.Validate(ctx3, selp3.Action(), sm3)
 		require.True(strings.Contains(err.Error(), "duplicate candidate"))
 	})
 
@@ -346,7 +346,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
-		_, err = p4.Handle(ctx4, selp4.Action(), sm4)
+		err = p4.Validate(ctx4, selp4.Action(), sm4)
 		require.True(strings.Contains(err.Error(), "the proposed delegate list length"))
 	})
 
@@ -380,7 +380,7 @@ func TestHandle_StakingCommittee(t *testing.T) {
 				Caller: caller,
 			},
 		)
-		_, err = p5.Handle(ctx5, selp5.Action(), sm5)
+		err = p5.Validate(ctx5, selp5.Action(), sm5)
 		require.True(strings.Contains(err.Error(), "delegates are not as expected"))
 	})
 }

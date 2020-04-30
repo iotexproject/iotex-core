@@ -63,6 +63,7 @@ func defaultConfig() Genesis {
 		Poll: Poll{
 			PollMode:                         "governanceMix",
 			EnableGravityChainVoting:         true,
+			GravityChainCeilingHeight:        19937937, // TODO: replace with accurate height before Fairbank launch
 			ProbationEpochPeriod:             6,
 			ProbationIntensityRate:           90,
 			UnproductiveDelegateMaxCacheSize: 20,
@@ -78,6 +79,8 @@ func defaultConfig() Genesis {
 			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
+			FoundationBonusP2StartEpoch:    0, // TODO: replace with fair bank epoch
+			FoundationBonusP2EndEpoch:      0, // TODO: replace with fair bank epoch  + 8760
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
@@ -174,6 +177,8 @@ type (
 		EnableGravityChainVoting bool `yaml:"enableGravityChainVoting"`
 		// GravityChainStartHeight is the height in gravity chain where the init poll result stored
 		GravityChainStartHeight uint64 `yaml:"gravityChainStartHeight"`
+		// GravityChainCeilingHeight is the height in gravity chain where the poll is no longer needed
+		GravityChainCeilingHeight uint64 `yaml:"gravityChainCeilingHeight"`
 		// GravityChainHeightInterval the height interval on gravity chain to pull delegate information
 		GravityChainHeightInterval uint64 `yaml:"gravityChainHeightInterval"`
 		// RegisterContractAddress is the address of register contract
@@ -232,8 +237,11 @@ type (
 		NumDelegatesForFoundationBonus uint64 `yaml:"numDelegatesForFoundationBonus"`
 		// FoundationBonusLastEpoch is the last epoch number that bootstrap bonus will be granted
 		FoundationBonusLastEpoch uint64 `yaml:"foundationBonusLastEpoch"`
-		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach to get the
-		// epoch reward
+		// FoundationBonusP2StartEpoch is the start epoch number for part 2 foundation bonus
+		FoundationBonusP2StartEpoch uint64 `yaml:"foundationBonusP2StartEpoch"`
+		// FoundationBonusP2EndEpoch is the end epoch number for part 2 foundation bonus
+		FoundationBonusP2EndEpoch uint64 `yaml:"foundationBonusP2EndEpoch"`
+		// ProductivityThreshold is the percentage number that a delegate's productivity needs to reach not to get probation
 		ProductivityThreshold uint64 `yaml:"productivityThreshold"`
 	}
 	// Staking contains the configs for staking protocol

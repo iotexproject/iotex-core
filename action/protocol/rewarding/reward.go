@@ -215,7 +215,7 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	// Reward additional bootstrap bonus
-	if epochNum <= a.foundationBonusLastEpoch {
+	if epochNum <= a.foundationBonusLastEpoch || (epochNum >= p.foundationBonusP2StartEpoch && epochNum <= p.foundationBonusP2EndEpoch) {
 		for i, count := 0, uint64(0); i < len(candidates) && count < a.numDelegatesForFoundationBonus; i++ {
 			if _, ok := exemptAddrs[candidates[i].Address]; ok {
 				continue

@@ -313,7 +313,8 @@ func calculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake
 	if remainingTime > 0 {
 		weight += math.Log(math.Ceil(remainingTime/86400)*(1+m)) / math.Log(c.DurationLg) / 100
 	}
-	if selfStake {
+	if selfStake && v.AutoStake && v.StakedDuration >= time.Duration(91)*24*time.Hour {
+		// self-stake extra bonus requires enable auto-stake for at least 3 months
 		weight *= c.SelfStake
 	}
 

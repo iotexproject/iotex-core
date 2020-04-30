@@ -93,6 +93,11 @@ func (sc *stakingCommand) Handle(ctx context.Context, act action.Action, sm prot
 	return sc.stakingV1.Handle(ctx, act, sm)
 }
 
+func (sc *stakingCommand) Validate(ctx context.Context, act action.Action, sr protocol.StateReader) error {
+	// no height here,  v1 v2 has the same validate method, so directly use common one
+	return validate(ctx, sr, sc, act)
+}
+
 func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
 	if sc.useV2ByHeight(ctx, height) {
 		return sc.stakingV2.CalculateCandidatesByHeight(ctx, sr, height)

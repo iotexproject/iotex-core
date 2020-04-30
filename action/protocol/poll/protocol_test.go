@@ -77,15 +77,3 @@ func TestMustGetProtocol(t *testing.T) {
 	require.NoError(p.Register(re))
 	require.NotNil(FindProtocol(re))
 }
-
-func TestGetValidationCtx(t *testing.T) {
-	require := require.New(t)
-	pCtx := ValidationCtx{
-		Validated: true,
-	}
-	ctx := WithValidationlCtx(context.Background(), pCtx)
-	require.NotNil(ctx)
-	ret, ok := GetValidationCtx(ctx)
-	require.True(ok)
-	require.Equal(true, ret.Validated)
-}

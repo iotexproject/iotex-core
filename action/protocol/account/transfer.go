@@ -40,10 +40,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrapf(err, "failed to load or create the account of sender %s", actionCtx.Caller.String())
 	}
 
-	if blkCtx.GasLimit < actionCtx.IntrinsicGas {
-		return nil, action.ErrHitGasLimit
-	}
-
 	gasFee := big.NewInt(0).Mul(tsf.GasPrice(), big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	if big.NewInt(0).Add(tsf.Amount(), gasFee).Cmp(sender.Balance) == 1 {
 		return nil, errors.Wrapf(

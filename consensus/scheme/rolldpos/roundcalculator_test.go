@@ -196,6 +196,8 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, *rolldpos.
 		func(start uint64, end uint64) (map[string]uint64, error) {
 			return blockchain.Productivity(chain, start, end)
 		},
+		0,
+		0,
 	)
 	require.NoError(rewardingProtocol.Register(registry))
 	acc := account.NewProtocol(rewarding.DepositGas)
