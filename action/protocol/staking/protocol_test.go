@@ -94,8 +94,9 @@ func TestProtocol(t *testing.T) {
 	}
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
-		_, err := putBucketAndIndex(sm, vb)
+		index, err := putBucketAndIndex(sm, vb)
 		r.NoError(err)
+		r.Equal(index, vb.Index)
 	}
 
 	// load candidates from stateDB and verify

@@ -121,8 +121,8 @@ func TestNativeStaking(t *testing.T) {
 		// get self-stake index from receipts
 		r1, err := dao.GetReceiptByActionHash(register1.Hash(), 1)
 		require.NoError(err)
-		require.Equal(1, len(r1.Logs))
-		selfstakeIndex1 := byteutil.BytesToUint64BigEndian(r1.Logs[0].Data)
+		require.Equal(3, len(r1.Logs[0].Topics))
+		selfstakeIndex1 := byteutil.BytesToUint64BigEndian(r1.Logs[0].Topics[1][24:])
 
 		// create two stakes from two voters
 		voter1Addr := identityset.Address(2)
@@ -153,14 +153,14 @@ func TestNativeStaking(t *testing.T) {
 		// get bucket index from receipts
 		r1, err = dao.GetReceiptByActionHash(cs1.Hash(), 3)
 		require.NoError(err)
-		require.Equal(1, len(r1.Logs))
+		require.Equal(3, len(r1.Logs[0].Topics))
 
 		r2, err := dao.GetReceiptByActionHash(cs2.Hash(), 3)
 		require.NoError(err)
-		require.Equal(1, len(r2.Logs))
+		require.Equal(3, len(r2.Logs[0].Topics))
 
-		voter1BucketIndex := byteutil.BytesToUint64BigEndian(r1.Logs[0].Data)
-		voter2BucketIndex := byteutil.BytesToUint64BigEndian(r2.Logs[0].Data)
+		voter1BucketIndex := byteutil.BytesToUint64BigEndian(r1.Logs[0].Topics[1][24:])
+		voter2BucketIndex := byteutil.BytesToUint64BigEndian(r2.Logs[0].Topics[1][24:])
 
 		// change candidate
 		cc, err := testutil.SignedChangeCandidate(2, candidate2Name, voter2BucketIndex, nil,
