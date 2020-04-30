@@ -7,13 +7,12 @@
 package blocksync
 
 import (
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus"
 )
 
-func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Consensus, blk *block.Block) error {
+func commitBlock(bc blockchain.Blockchain, cs consensus.Consensus, blk *block.Block) error {
 	if err := cs.ValidateBlockFooter(blk); err != nil {
 		return err
 	}
@@ -24,7 +23,5 @@ func commitBlock(bc blockchain.Blockchain, ap actpool.ActPool, cs consensus.Cons
 		return err
 	}
 	cs.Calibrate(blk.Height())
-	// remove transfers in this block from ActPool and reset ActPool state
-	ap.Reset()
 	return nil
 }

@@ -217,6 +217,9 @@ func New(
 	if chain == nil {
 		panic("failed to create blockchain")
 	}
+	if err := chain.AddSubscriber(actPool); err != nil {
+		return nil, errors.Wrap(err, "failed to add subscriber: action pool.")
+	}
 	// config asks for a standalone indexer
 	var indexBuilder *blockindex.IndexBuilder
 	if gateway && cfg.Chain.EnableAsyncIndexWrite {
@@ -321,7 +324,6 @@ func New(
 		cfg,
 		chain,
 		dao,
-		actPool,
 		consensus,
 		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
 			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})

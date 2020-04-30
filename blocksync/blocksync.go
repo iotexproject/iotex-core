@@ -13,7 +13,6 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
@@ -86,14 +85,12 @@ func NewBlockSyncer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
 	dao BlockDAO,
-	ap actpool.ActPool,
 	cs consensus.Consensus,
 	opts ...Option,
 ) (BlockSync, error) {
 	buf := &blockBuffer{
 		blocks:       make(map[uint64]*block.Block),
 		bc:           chain,
-		ap:           ap,
 		cs:           cs,
 		bufferSize:   cfg.BlockSync.BufferSize,
 		intervalSize: cfg.BlockSync.IntervalSize,

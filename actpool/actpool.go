@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -63,6 +64,8 @@ type ActPool interface {
 	GetGasCapacity() uint64
 	// DeleteAction deletes an invalid action from pool
 	DeleteAction(action.SealedEnvelope)
+	// ReceiveBlock will be called when a new block is committed
+	ReceiveBlock(*block.Block) error
 
 	AddActionEnvelopeValidators(...action.SealedEnvelopeValidator)
 }
@@ -154,6 +157,14 @@ func (ap *actPool) Reset() {
 	defer ap.mutex.Unlock()
 
 	ap.reset()
+}
+
+func (ap *actPool) ReceiveBlock(*block.Block) error {
+	ap.mutex.Lock()
+	defer ap.mutex.Unlock()
+
+	ap.reset()
+	return nil
 }
 
 // PendingActionIterator returns an action interator with all accepted actions

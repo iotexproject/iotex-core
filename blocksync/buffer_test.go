@@ -67,7 +67,6 @@ func TestBlockBufferFlush(t *testing.T) {
 
 	b := blockBuffer{
 		bc:         chain,
-		ap:         ap,
 		cs:         cs,
 		blocks:     make(map[uint64]*block.Block),
 		bufferSize: 16,
@@ -164,7 +163,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	b := blockBuffer{
 		bc:           chain,
-		ap:           ap,
 		cs:           cs,
 		blocks:       make(map[uint64]*block.Block),
 		bufferSize:   16,
