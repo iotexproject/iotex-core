@@ -63,7 +63,7 @@ type ActPool interface {
 	// GetGasCapacity returns the act pool gas capacity
 	GetGasCapacity() uint64
 	// DeleteAction deletes an invalid action from pool
-	DeleteAction(action.SealedEnvelope)
+	DeleteAction(action.SealedEnvelope) error
 	// ReceiveBlock will be called when a new block is committed
 	ReceiveBlock(*block.Block) error
 
@@ -307,10 +307,17 @@ func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) err
 	return ap.validate(ctx, selp)
 }
 
-func (ap *actPool) DeleteAction(act action.SealedEnvelope) {
+func (ap *actPool) DeleteAction(act action.SealedEnvelope) error {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
-	ap.removeInvalidActs([]action.SealedEnvelope{act})
+	caller, err := address.FromBytes(act.SrcPubkey().Hash())
+	if err != nil {
+		return err
+	}
+	pendingActs := ap.accountActs[caller.String()].AllActs()
+	ap.removeInvalidActs(pendingActs)
+	delete(ap.accountActs, caller.String())
+	return nil
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
@@ -449,7 +456,7 @@ func (ap *actPool) removeInvalidActs(acts []action.SealedEnvelope) {
 		log.L().Debug("Removed invalidated action.", log.Hex("hash", hash[:]))
 		delete(ap.allActions, hash)
 		intrinsicGas, _ := act.IntrinsicGas()
-		ap.gasInPool -= intrinsicGas
+		ap.subGasFromPool(intrinsicGas)
 		//del actions in destination map
 		ap.deleteAccountDestinationActions(act)
 	}
@@ -502,4 +509,12 @@ func (ap *actPool) reset() {
 		queue.SetPendingNonce(pendingNonce)
 		ap.updateAccount(from)
 	}
+}
+
+func (ap *actPool) subGasFromPool(gas uint64) {
+	if ap.gasInPool < gas {
+		ap.gasInPool = 0
+		return
+	}
+	ap.gasInPool -= gas
 }

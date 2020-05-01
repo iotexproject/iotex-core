@@ -392,7 +392,9 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
-				ap.DeleteAction(nextAction)
+				if err := ap.DeleteAction(nextAction); err != nil {
+					return nil, nil, err
+				}
 				actionIterator.PopAccount()
 				continue
 			}

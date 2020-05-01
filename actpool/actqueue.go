@@ -113,7 +113,7 @@ func (q *actQueue) Overlaps(act action.SealedEnvelope) bool {
 func (q *actQueue) Put(act action.SealedEnvelope) error {
 	nonce := act.Nonce()
 	if _, exist := q.items[nonce]; exist {
-		return errors.Wrapf(action.ErrNonce, "duplicate nonce")
+		return errors.Wrap(action.ErrNonce, "duplicate nonce")
 	}
 	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
 	q.items[nonce] = act
