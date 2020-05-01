@@ -6,12 +6,12 @@ package mock_actpool
 
 import (
 	context "context"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	hash "github.com/iotexproject/go-pkgs/hash"
+	address "github.com/iotexproject/iotex-address/address"
 	action "github.com/iotexproject/iotex-core/action"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
+	reflect "reflect"
 )
 
 // MockActPool is a mock of ActPool interface
@@ -32,35 +32,23 @@ func NewMockActPool(ctrl *gomock.Controller) *MockActPool {
 	return mock
 }
 
-// DeleteAction mocks base method
-func (m *MockActPool) DeleteAction(act action.SealedEnvelope) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "DeleteAction", act)
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockActPool) EXPECT() *MockActPoolMockRecorder {
+	return m.recorder
 }
 
-// DeleteAction indicates an expected call of DeleteAction
-func (mr *MockActPoolMockRecorder) DeleteAction(act interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAction", reflect.TypeOf((*MockActPool)(nil).DeleteAction), act)
-}
-
-// ReceiveBlock mocks base method
-func (m *MockActPool) ReceiveBlock(blk *block.Block) error {
+// Validate mocks base method
+func (m *MockActPool) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReceiveBlock", blk)
+	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReceiveBlock indicates an expected call of ReceiveBlock
-func (mr *MockActPoolMockRecorder) ReceiveBlock(blk interface{}) *gomock.Call {
+// Validate indicates an expected call of Validate
+func (mr *MockActPoolMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockActPool)(nil).ReceiveBlock), blk)
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockActPool) EXPECT() *MockActPoolMockRecorder {
-	return m.recorder
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActPool)(nil).Validate), arg0, arg1)
 }
 
 // Reset mocks base method
@@ -203,6 +191,32 @@ func (mr *MockActPoolMockRecorder) GetGasCapacity() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGasCapacity", reflect.TypeOf((*MockActPool)(nil).GetGasCapacity))
 }
 
+// DeleteAction mocks base method
+func (m *MockActPool) DeleteAction(arg0 address.Address) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "DeleteAction", arg0)
+}
+
+// DeleteAction indicates an expected call of DeleteAction
+func (mr *MockActPoolMockRecorder) DeleteAction(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAction", reflect.TypeOf((*MockActPool)(nil).DeleteAction), arg0)
+}
+
+// ReceiveBlock mocks base method
+func (m *MockActPool) ReceiveBlock(arg0 *block.Block) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReceiveBlock", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReceiveBlock indicates an expected call of ReceiveBlock
+func (mr *MockActPoolMockRecorder) ReceiveBlock(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReceiveBlock", reflect.TypeOf((*MockActPool)(nil).ReceiveBlock), arg0)
+}
+
 // AddActionEnvelopeValidators mocks base method
 func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...action.SealedEnvelopeValidator) {
 	m.ctrl.T.Helper()
@@ -217,18 +231,4 @@ func (m *MockActPool) AddActionEnvelopeValidators(arg0 ...action.SealedEnvelopeV
 func (mr *MockActPoolMockRecorder) AddActionEnvelopeValidators(arg0 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddActionEnvelopeValidators", reflect.TypeOf((*MockActPool)(nil).AddActionEnvelopeValidators), arg0...)
-}
-
-// Validate mocks base method
-func (m *MockActPool) Validate(arg0 context.Context, arg1 action.SealedEnvelope) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Validate", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AddActionEnvelopeValidators indicates an expected call of AddActionEnvelopeValidators
-func (mr *MockActPoolMockRecorder) Validate(arg0 interface{}, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockActPool)(nil).Validate), arg0, arg1)
 }

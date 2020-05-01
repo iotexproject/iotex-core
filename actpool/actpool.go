@@ -63,7 +63,7 @@ type ActPool interface {
 	// GetGasCapacity returns the act pool gas capacity
 	GetGasCapacity() uint64
 	// DeleteAction deletes an invalid action from pool
-	DeleteAction(action.SealedEnvelope) error
+	DeleteAction(address.Address)
 	// ReceiveBlock will be called when a new block is committed
 	ReceiveBlock(*block.Block) error
 
@@ -307,17 +307,12 @@ func (ap *actPool) Validate(ctx context.Context, selp action.SealedEnvelope) err
 	return ap.validate(ctx, selp)
 }
 
-func (ap *actPool) DeleteAction(act action.SealedEnvelope) error {
+func (ap *actPool) DeleteAction(caller address.Address) {
 	ap.mutex.RLock()
 	defer ap.mutex.RUnlock()
-	caller, err := address.FromBytes(act.SrcPubkey().Hash())
-	if err != nil {
-		return err
-	}
 	pendingActs := ap.accountActs[caller.String()].AllActs()
 	ap.removeInvalidActs(pendingActs)
 	delete(ap.accountActs, caller.String())
-	return nil
 }
 
 func (ap *actPool) validate(ctx context.Context, selp action.SealedEnvelope) error {
