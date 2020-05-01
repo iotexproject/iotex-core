@@ -392,7 +392,11 @@ func (ws *workingSet) pickAndRunActions(
 				}
 			}
 			if err != nil {
-				ap.DeleteAction(nextAction)
+				caller, err := address.FromBytes(nextAction.SrcPubkey().Hash())
+				if err != nil {
+					return nil, nil, err
+				}
+				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
 				continue
 			}
