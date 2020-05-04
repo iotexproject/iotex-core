@@ -56,8 +56,9 @@ var (
 )
 
 type (
-	// CanContinueToCommitBlock indicates a non-critical error and returns the receipt statue
-	CanContinueToCommitBlock interface {
+	// ReceiptError indicates a non-critical error with corresponding receipt status
+	ReceiptError interface {
+		Error() string
 		ReceiptStatus() uint64
 	}
 
@@ -256,7 +257,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), topics)
 	}
 
-	if receiptErr, ok := err.(CanContinueToCommitBlock); ok {
+	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Info("Non-critical error when processing staking action", zap.Error(err))
 		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), topics)
 	}
