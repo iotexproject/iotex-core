@@ -1,7 +1,6 @@
 #!/bin/sh
 
-# This install script is intended to download and install the latest available
-# release of the ioctl dependency manager for Golang.
+# This install script is intended to install solc release supported.
 #
 # It attempts to identify the current platform and an error will be thrown if
 # the platform is not supported.
@@ -16,8 +15,8 @@
 
 set -e
 
-RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
-S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
+LINUX_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.4.25/solidity-ubuntu-trusty.zip"
+WINDOWS_RELEASES_URL="https://github.com/ethereum/solidity/releases/download/v0.4.25/solidity-windows.zip"
 INSTALL_DIRECTORY='/usr/local/bin'
 
 downloadJSON() {
@@ -91,9 +90,9 @@ initOS() {
         freebsd) OS='freebsd';;
         mingw*) OS='windows';;
         msys*) OS='windows';;
-	cygwin*)
-	    OS='windows'
-	    OS_CYGWIN=1
+	    cygwin*)
+            OS='windows'
+            OS_CYGWIN=1
 	    ;;
         *) echo "OS ${OS} is not supported by this installation script"; exit 1;;
     esac
@@ -105,48 +104,48 @@ initArch
 initOS
 
 # assemble expected release artifact name
-if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
-    # ppc64 and ppc64le are only supported on Linux.
-    echo "${OS}-${ARCH} is not supported by this instalation script"
+if [ "$OS" = "darwin" ]; then
+    sudo brew install solidity@4
 else
-    BINARY="ioctl-${OS}-${ARCH}"
+    if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
+        # ppc64 and ppc64le are only supported on Linux.
+        echo "${OS}-${ARCH} is not supported by this installation script"
+    fi
+
+    # add .exe if on windows
+    if [ "$OS" = "windows" ]; then
+        BINARY_URL=WINDOWS_RELEASES_URL
+    else
+        BINARY_URL=LINUX_RELEASES_URL
+    fi
+#
+#    if [ -z "$CLI_RELEASE_TAG" ]; then
+#        downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
+#        CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
+#    fi
+#
+#    else
+#        # fetch the real release data to make sure it exists before we attempt a download
+#        downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
+#        BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
+#    fi
+
+    DOWNLOAD_FILE=$(mktemp)
+
+    downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
+
+    echo "Setting executable permissions."
+    chmod +x "$DOWNLOAD_FILE"
+
+    INSTALL_NAME="solc"
+
+    if [ "$OS" = "windows" ]; then
+        INSTALL_NAME="$INSTALL_NAME.exe"
+        echo "Moving executable to $HOME/$INSTALL_NAME"
+        mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
+    else
+        echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
+        sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+    fi
 fi
-
-# add .exe if on windows
-if [ "$OS" = "windows" ]; then
-    BINARY="$BINARY.exe"
-fi
-
-if [ -z "$CLI_RELEASE_TAG" ]; then
-    downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
-    CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
-fi
-
-if [ "$1" = "unstable" ]; then
-    BINARY_URL="$S3URL/$BINARY"
-
-else
-    # fetch the real release data to make sure it exists before we attempt a download
-    downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
-    BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
-fi
-
-DOWNLOAD_FILE=$(mktemp)
-
-downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
-
-echo "Setting executable permissions."
-chmod +x "$DOWNLOAD_FILE"
-
-INSTALL_NAME="ioctl"
-
-if [ "$OS" = "windows" ]; then
-    INSTALL_NAME="$INSTALL_NAME.exe"
-    echo "Moving executable to $HOME/$INSTALL_NAME"
-    mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
-else
-    echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-    sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
-fi
-
 
