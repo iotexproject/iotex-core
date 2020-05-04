@@ -111,7 +111,9 @@ else
     fi
 
     # add .exe if on windows
+    INSTALL_NAME="solc"
     if [ "$OS" = "windows" ]; then
+        INSTALL_NAME="$INSTALL_NAME.exe"
         BINARY_URL="$WINDOWS_RELEASES_URL"
     else
         BINARY_URL="$LINUX_RELEASES_URL"
@@ -121,11 +123,6 @@ else
 
     downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
     unzip -o "$DOWNLOAD_FILE" -d /tmp
-
-    INSTALL_NAME="solc"
-    if [ "$OS" = "windows" ]; then
-        INSTALL_NAME="$INSTALL_NAME.exe"
-    fi
 
     echo "Setting executable permissions."
     chmod +x /tmp/"$INSTALL_NAME"
