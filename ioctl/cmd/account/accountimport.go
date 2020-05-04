@@ -141,6 +141,7 @@ func accountImportKey(args []string) error {
 	output.PrintQuery(fmt.Sprintf("#%s: Enter your private key, "+
 		"which will not be exposed on the screen.", alias))
 	privateKey, err := readPasswordFromStdin()
+	privateKey = util.TrimHexPrefix(privateKey)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
