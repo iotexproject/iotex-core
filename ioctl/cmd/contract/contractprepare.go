@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"fmt"
 	"os/exec"
 
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -41,9 +42,10 @@ var ContractPrepareCmd = &cobra.Command{
 }
 
 func prepare() error {
-	_, err := compiler.SolidityVersion(solCompiler)
+	solc, err := compiler.SolidityVersion(solCompiler)
 	if err != nil {
 		cmdString := "curl --silent https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh"
+
 		cmd := exec.Command("bash", "-c", cmdString)
 		output.PrintResult("Preparing solidity compiler ...\n")
 
@@ -51,6 +53,12 @@ func prepare() error {
 		if err != nil {
 			return output.NewError(output.UpdateError, "failed to prepare solc", nil)
 		}
+	}
+
+	if !checkCompilerVersion(solc) {
+		return output.NewError(output.CompilerError,
+			fmt.Sprintf("unsupported solc version %d.%d.%d, expects solc version ^0.4.24",
+				solc.Major, solc.Minor, solc.Patch), nil)
 	}
 
 	output.PrintResult("Solidity compiler is ready now.")
