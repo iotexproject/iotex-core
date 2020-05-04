@@ -13,15 +13,18 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -52,24 +55,31 @@ var (
 	TotalBucketKey   = append([]byte{_const}, []byte("totalBucket")...)
 )
 
-// Protocol defines the protocol of handling staking
-type Protocol struct {
-	addr       address.Address
-	depositGas DepositGas
-	config     Configuration
-}
+type (
+	// CanContinueToCommitBlock indicates a non-critical error and returns the receipt statue
+	CanContinueToCommitBlock interface {
+		ReceiptStatus() uint64
+	}
 
-// Configuration is the staking protocol configuration.
-type Configuration struct {
-	VoteWeightCalConsts   genesis.VoteWeightCalConsts
-	RegistrationConsts    RegistrationConsts
-	WithdrawWaitingPeriod time.Duration
-	MinStakeAmount        *big.Int
-	BootstrapCandidates   []genesis.BootstrapCandidate
-}
+	// Protocol defines the protocol of handling staking
+	Protocol struct {
+		addr       address.Address
+		depositGas DepositGas
+		config     Configuration
+	}
 
-// DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+	// Configuration is the staking protocol configuration.
+	Configuration struct {
+		VoteWeightCalConsts   genesis.VoteWeightCalConsts
+		RegistrationConsts    RegistrationConsts
+		WithdrawWaitingPeriod time.Duration
+		MinStakeAmount        *big.Int
+		BootstrapCandidates   []genesis.BootstrapCandidate
+	}
+
+	// DepositGas deposits gas to some pool
+	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+)
 
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) {
@@ -217,7 +227,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var topics action.Topics
-	var err protocol.HandleError
+	var err error
 
 	switch act := act.(type) {
 	case *action.CreateStake:
@@ -242,10 +252,15 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return nil, nil
 	}
 
-	if err.CanContinueToCommitBlock() {
-		return p.settleAction(ctx, csm, err.ReceiptStatus(), topics)
+	if err == nil {
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), topics)
 	}
-	return nil, err.Error()
+
+	if receiptErr, ok := err.(CanContinueToCommitBlock); ok {
+		log.L().Info("Non-critical error when processing staking action", zap.Error(err))
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), topics)
+	}
+	return nil, err
 }
 
 // Validate validates a staking message
