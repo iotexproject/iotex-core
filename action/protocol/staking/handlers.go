@@ -8,28 +8,19 @@ package staking
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
-
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
-)
-
-var (
-	// ErrNilParameters is the error when parameter is nil
-	ErrNilParameters = errors.New("parameter is nil")
 )
 
 const (
@@ -53,382 +44,382 @@ const (
 	HandleCandidateUpdate = "candidateUpdate"
 )
 
-type fetchError struct {
+// Errors and vars
+var (
+	ErrNilParameters = errors.New("parameter is nil")
+	errCandNotExist  = &handleError{
+		err:           ErrInvalidOwner,
+		failureStatus: iotextypes.ReceiptStatus_ErrCandidateNotExist,
+	}
+)
+
+type handleError struct {
 	err           error
 	failureStatus iotextypes.ReceiptStatus
 }
 
-func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, csm CandidateStateManager) (*action.Receipt, error) {
+func (h *handleError) Error() string {
+	return h.err.Error()
+}
+
+func (h *handleError) ReceiptStatus() uint64 {
+	return uint64(h.failureStatus)
+}
+
+func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleCreateStake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	staker, gasFee, fetchErr := fetchCaller(ctx, csm, act.Amount())
+	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
 	// Create new bucket and bucket index
 	candidate := csm.GetByName(act.Candidate())
 	if candidate == nil {
-		log.L().Debug("Error when finding candidate in candidate center", zap.Error(ErrInvalidCanName))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := putBucketAndIndex(csm, bucket)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to put bucket")
+		return topics, err
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucketIdx)), hash.BytesToHash256(candidate.Owner.Bytes()))
 
 	// update candidate
 	weightedVote := p.calculateVoteWeight(bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
-		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
+		return topics, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
 	// update staker balance
 	if err := staker.SubBalance(act.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actionCtx.Caller.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of staker %s", actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	// put updated staker's account state to trie
 	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), staker); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+		return topics, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
-
-	log := p.createLog(ctx, HandleCreateStake, candidate.Owner, actionCtx.Caller, byteutil.Uint64ToBytesBigEndian(bucketIdx))
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleUnstake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	_, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)), hash.BytesToHash256(bucket.Candidate.Bytes()))
 
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return nil, errCandNotExist
 	}
 
 	if bucket.AutoStake {
-		err := errors.New("AutoStake should be disabled first in order to unstake")
-		log.L().Debug("Error when unstaking bucket", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
+		return topics, &handleError{
+			err:           errors.New("AutoStake should be disabled first in order to unstake"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
 	}
 
 	if blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
-		err := fmt.Errorf("bucket is not ready to be unstaked, current time %s, required time %s",
-			blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
-		log.L().Debug("Error when unstaking bucket", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity), gasFee)
+		return topics, &handleError{
+			err:           errors.New("bucket is not ready to be unstaked"),
+			failureStatus: iotextypes.ReceiptStatus_ErrUnstakeBeforeMaturity,
+		}
 	}
 
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
-		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
+		return topics, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
 	weightedVote := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.SubVote(weightedVote); err != nil {
-		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	// clear candidate's self stake if the bucket is self staking
 	if csm.ContainsSelfStakingBucket(act.BucketIndex()) {
 		candidate.SelfStake = big.NewInt(0)
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+		return topics, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
-
-	log := p.createLog(ctx, HandleUnstake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleWithdrawStake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	withdrawer, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)), hash.BytesToHash256(bucket.Candidate.Bytes()))
 
 	// check unstake time
 	if bucket.UnstakeStartTime.Unix() == 0 {
-		err := errors.New("bucket has not been unstaked")
-		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake), gasFee)
+		return topics, &handleError{
+			err:           errors.New("bucket has not been unstaked"),
+			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
+		}
 	}
 
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
-		err := fmt.Errorf("stake is not ready to withdraw, current time %s, required time %s",
-			blkCtx.BlockTimeStamp, bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod))
-		log.L().Debug("Error when withdrawing bucket", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity), gasFee)
+		return topics, &handleError{
+			err:           errors.New("stake is not ready to withdraw"),
+			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity,
+		}
 	}
 
 	// delete bucket and bucket index
-	if err := delBucket(csm, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
-	}
-	if err := delCandBucketIndex(csm, bucket.Candidate, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete bucket index for candidate %s", bucket.Candidate.String())
-	}
-	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete bucket index for voter %s", bucket.Owner.String())
+	if err := delBucketAndIndex(csm, bucket.Owner, bucket.Candidate, act.BucketIndex()); err != nil {
+		return topics, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 
 	// update withdrawer balance
 	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the balance of withdrawer %s", actionCtx.Caller.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of withdrawer %s", actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+		}
 	}
 	// put updated withdrawer's account state to trie
 	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), withdrawer); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+		return topics, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
-
-	log := p.createLog(ctx, HandleWithdrawStake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleChangeCandidate))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
 	candidate := csm.GetByName(act.Candidate())
 	if candidate == nil {
-		log.L().Debug("Error when finding candidate in candidate center", zap.Error(ErrInvalidCanName))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), true, false)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
+		hash.BytesToHash256(bucket.Candidate.Bytes()),
+		hash.BytesToHash256(candidate.Owner.Bytes()))
 
 	prevCandidate := csm.GetByOwner(bucket.Candidate)
 	if prevCandidate == nil {
-		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 
 	// update bucket index
 	if err := delCandBucketIndex(csm, bucket.Candidate, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
+		return topics, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
 	}
 	if err := putCandBucketIndex(csm, candidate.Owner, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.Owner.String())
+		return topics, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.Owner.String())
 	}
 	// update bucket
 	bucket.Candidate = candidate.Owner
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
-		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
+		return topics, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
-
-	weightedVotes := p.calculateVoteWeight(bucket, false)
 
 	// update previous candidate
+	weightedVotes := p.calculateVoteWeight(bucket, false)
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	if err := csm.Upsert(prevCandidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of previous candidate %s", prevCandidate.Owner.String())
+		return topics, csmErrorToHandleError(prevCandidate.Owner.String(), err)
 	}
 
 	// update current candidate
 	if err := candidate.AddVote(weightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", candidate.Owner.String())
+		return topics, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
-
-	log := p.createLog(ctx, HandleChangeCandidate, candidate.Owner, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleTransferStake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), true, false)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
+		hash.BytesToHash256(act.VoterAddress().Bytes()),
+		hash.BytesToHash256(bucket.Candidate.Bytes()))
 
 	// update bucket index
 	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
+		return topics, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
 	if err := putVoterBucketIndex(csm, act.VoterAddress(), act.BucketIndex()); err != nil {
-		return nil, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
+		return topics, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
 	}
 
 	// update bucket
 	bucket.Owner = act.VoterAddress()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
-		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
+		return topics, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
-
-	log := p.createLog(ctx, HandleTransferStake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleDepositToStake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	depositor, gasFee, fetchErr := fetchCaller(ctx, csm, act.Amount())
+	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), false, true)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), false, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
+		hash.BytesToHash256(bucket.Owner.Bytes()),
+		hash.BytesToHash256(bucket.Candidate.Bytes()))
 	if !bucket.AutoStake {
-		err := errors.New("deposit is only allowed on auto-stake bucket")
-		log.L().Debug("Error when depositing to stake", zap.Error(err))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
+		return topics, &handleError{
+			err:           errors.New("deposit is only allowed on auto-stake bucket"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
 	}
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedAmount.Add(bucket.StakedAmount, act.Amount())
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
-		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
+		return topics, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
 	// update candidate
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.AddVote(weightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", bucket.Candidate.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+		}
 	}
 	if csm.ContainsSelfStakingBucket(act.BucketIndex()) {
 		if err := candidate.AddSelfStake(act.Amount()); err != nil {
-			return nil, errors.Wrapf(err, "failed to add self stake for candidate %s", bucket.Candidate.String())
+			return topics, &handleError{
+				err:           errors.Wrapf(err, "failed to add self stake for candidate %s", candidate.Owner.String()),
+				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+			}
 		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+		return topics, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
 	// update depositor balance
 	if err := depositor.SubBalance(act.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the balance of depositor %s", actionCtx.Caller.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of depositor %s", actionCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	// put updated depositor's account state to trie
 	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), depositor); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+		return topics, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
-
-	log := p.createLog(ctx, HandleDepositToStake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleRestake))}
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
-	_, gasFee, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
+	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(ctx, csm, act.BucketIndex(), true, true)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching bucket", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)), hash.BytesToHash256(bucket.Candidate.Bytes()))
 
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
-		log.L().Debug("cannot find candidate in candidate center", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
@@ -438,53 +429,56 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		// in case of reducing the duration
 		if bucket.AutoStake {
 			// if auto-stake on, user can't reduce duration
-			err := errors.New("AutoStake should be disabled first in order to reduce duration")
-			log.L().Debug("Error when restaking bucket", zap.Error(err))
-			return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrInvalidBucketType), gasFee)
+			return topics, &handleError{
+				err:           errors.New("AutoStake should be disabled first in order to reduce duration"),
+				failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+			}
 		} else if blkCtx.BlockTimeStamp.Before(bucket.StakeStartTime.Add(bucket.StakedDuration)) {
 			// if auto-stake off and maturity is not enough
-			err := fmt.Errorf("bucket is not ready to be able to reduce duration, current time %s, required time %s",
-				blkCtx.BlockTimeStamp, bucket.StakeStartTime.Add(bucket.StakedDuration))
-			log.L().Debug("Error when restaking bucket", zap.Error(err))
-			return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrReduceDurationBeforeMaturity), gasFee)
+			return topics, &handleError{
+				err:           errors.New("bucket is not ready to be able to reduce duration"),
+				failureStatus: iotextypes.ReceiptStatus_ErrReduceDurationBeforeMaturity,
+			}
 		}
 	}
 	bucket.StakedDuration = actDuration
 	bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	bucket.AutoStake = act.AutoStake()
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
-		return nil, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner)
+		return topics, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
 	// update candidate
 	if err := candidate.SubVote(prevWeightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	weightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.AddVote(weightedVotes); err != nil {
-		return nil, errors.Wrapf(err, "failed to add vote for candidate %s", bucket.Candidate.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
+		}
 	}
 	if err := csm.Upsert(candidate); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", bucket.Candidate.String())
+		return topics, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
-
-	log := p.createLog(ctx, HandleRestake, nil, actionCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleCandidateRegister))}
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
-	caller, gasFee, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
+	caller, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
 	owner := actCtx.Caller
@@ -496,26 +490,33 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	ownerExist := c != nil
 	// cannot collide with existing owner (with selfstake != 0)
 	if ownerExist && c.SelfStake.Cmp(big.NewInt(0)) != 0 {
-		log.L().Debug("collide with existing owner", zap.Error(ErrAlreadyExist))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateAlreadyExist), gasFee)
+		return topics, &handleError{
+			err:           ErrInvalidOwner,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		}
 	}
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
-		log.L().Debug("collide with existing name", zap.Error(ErrInvalidCanName))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
+		return topics, &handleError{
+			err:           ErrInvalidCanName,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+		}
 	}
 	// cannot collide with existing operator address
 	if csm.ContainsOperator(act.OperatorAddress()) &&
 		(!ownerExist || !address.Equal(act.OperatorAddress(), c.Operator)) {
-		log.L().Debug("collide with existing operator address", zap.Error(ErrInvalidOperator))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), gasFee)
+		return topics, &handleError{
+			err:           ErrInvalidOperator,
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
+		}
 	}
 
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := putBucketAndIndex(csm, bucket)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to put bucket")
+		return topics, err
 	}
+	topics = append(topics, hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucketIdx)), hash.BytesToHash256(owner.Bytes()))
 
 	c = &Candidate{
 		Owner:              owner,
@@ -528,44 +529,42 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	if err := csm.Upsert(c); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", owner.String())
+		return topics, csmErrorToHandleError(owner.String(), err)
 	}
 
 	// update caller balance
 	if err := caller.SubBalance(act.Amount()); err != nil {
-		return nil, errors.Wrapf(err, "failed to update the balance of staker %s", actCtx.Caller.String())
+		return topics, &handleError{
+			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
+			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
+		}
 	}
 	// put updated caller's account state to trie
 	if err := accountutil.StoreAccount(csm, actCtx.Caller.String(), caller); err != nil {
-		return nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
+		return topics, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
 
 	// put registrationFee to reward pool
 	if err := p.depositGas(ctx, csm, registrationFee); err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
+		return topics, errors.Wrap(err, "failed to deposit gas")
 	}
-
-	log := p.createLog(ctx, HandleCandidateRegister, owner, actCtx.Caller, byteutil.Uint64ToBytesBigEndian(bucketIdx))
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
+	return topics, nil
 }
 
-func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,
+) (action.Topics, error) {
+	topics := action.Topics{hash.BytesToHash256([]byte(HandleCandidateUpdate))}
 	actCtx := protocol.MustGetActionCtx(ctx)
 
-	_, gasFee, fetchErr := fetchCaller(ctx, csm, new(big.Int))
+	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		if fetchErr.failureStatus == iotextypes.ReceiptStatus_Failure {
-			return nil, fetchErr.err
-		}
-		log.L().Debug("Error when fetching caller", zap.Error(fetchErr.err))
-		return p.settleAction(ctx, csm, uint64(fetchErr.failureStatus), gasFee)
+		return topics, fetchErr
 	}
 
 	// only owner can update candidate
 	c := csm.GetByOwner(actCtx.Caller)
 	if c == nil {
-		log.L().Debug("Error only owner can update candidate", zap.Error(ErrInvalidOwner))
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), gasFee)
+		return topics, errCandNotExist
 	}
 
 	if len(act.Name()) != 0 {
@@ -579,64 +578,24 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	if act.RewardAddress() != nil {
 		c.Reward = act.RewardAddress()
 	}
+	topics = append(topics, hash.BytesToHash256(c.Owner.Bytes()))
 
 	if err := csm.Upsert(c); err != nil {
-		return nil, errors.Wrapf(err, "failed to put state of candidate %s", c.Owner.String())
+		return topics, csmErrorToHandleError(c.Owner.String(), err)
 	}
-
-	log := p.createLog(ctx, HandleCandidateUpdate, nil, actCtx.Caller, nil)
-	return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), gasFee, log)
-}
-
-// settleAccount deposits gas fee and updates caller's nonce
-func (p *Protocol) settleAction(
-	ctx context.Context,
-	sm protocol.StateManager,
-	status uint64,
-	gasFee *big.Int,
-	logs ...*action.Log,
-) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	if err := p.depositGas(ctx, sm, gasFee); err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
-		return nil, errors.Wrap(err, "failed to update nonce")
-	}
-	return &action.Receipt{
-		Status:          status,
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-		Logs:            logs,
-	}, nil
-}
-
-func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addr.Bytes()))
-	if err != nil {
-		return err
-	}
-	// TODO: this check shouldn't be necessary
-	if nonce > acc.Nonce {
-		acc.Nonce = nonce
-	}
-	return accountutil.StoreAccount(sm, addr.String(), acc)
+	return topics, nil
 }
 
 func (p *Protocol) fetchBucket(
-	ctx context.Context,
 	sr CandidateStateManager,
+	caller address.Address,
 	index uint64,
 	checkOwner bool,
 	allowSelfStaking bool,
-) (*VoteBucket, *fetchError) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
+) (*VoteBucket, error) {
 	bucket, err := getBucket(sr, index)
 	if err != nil {
-		fetchErr := &fetchError{
+		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
 			failureStatus: iotextypes.ReceiptStatus_Failure,
 		}
@@ -645,47 +604,19 @@ func (p *Protocol) fetchBucket(
 		}
 		return nil, fetchErr
 	}
-	if checkOwner && !address.Equal(bucket.Owner, actionCtx.Caller) {
-		fetchErr := &fetchError{
-			err: fmt.Errorf("bucket owner does not match action caller, bucket owner %s, action caller %s",
-				bucket.Owner.String(), actionCtx.Caller.String()),
+	if checkOwner && !address.Equal(bucket.Owner, caller) {
+		return nil, &handleError{
+			err:           errors.New("bucket owner does not match action caller"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
-		return nil, fetchErr
 	}
 	if !allowSelfStaking && sr.ContainsSelfStakingBucket(index) {
-		fetchErr := &fetchError{
+		return nil, &handleError{
 			err:           errors.New("self staking bucket cannot be processed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
-		return nil, fetchErr
 	}
 	return bucket, nil
-}
-
-func (p *Protocol) createLog(
-	ctx context.Context,
-	handlerName string,
-	candidateAddr,
-	voterAddr address.Address,
-	data []byte,
-) *action.Log {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-
-	topics := []hash.Hash256{hash.Hash256b([]byte(handlerName))}
-	if candidateAddr != nil {
-		topics = append(topics, hash.Hash256b(candidateAddr.Bytes()))
-	}
-	topics = append(topics, hash.Hash256b(voterAddr.Bytes()))
-
-	return &action.Log{
-		Address:     p.addr.String(),
-		Topics:      topics,
-		Data:        data,
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-	}
 }
 
 func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
@@ -704,33 +635,67 @@ func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, er
 	return index, nil
 }
 
-func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, *big.Int, *fetchError) {
+func delBucketAndIndex(sm protocol.StateManager, owner, cand address.Address, index uint64) error {
+	if err := delBucket(sm, index); err != nil {
+		return errors.Wrap(err, "failed to delete bucket")
+	}
+
+	if err := delVoterBucketIndex(sm, owner, index); err != nil {
+		return errors.Wrap(err, "failed to delete bucket index")
+	}
+
+	if err := delCandBucketIndex(sm, cand, index); err != nil {
+		return errors.Wrap(err, "failed to delete candidate index")
+	}
+	return nil
+}
+
+func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
 	caller, err := accountutil.LoadAccount(sr, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
-		return nil, nil, &fetchError{
+		return nil, &handleError{
 			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_Failure,
 		}
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
 	// check caller's balance
-	if big.NewInt(0).Add(amount, gasFee).Cmp(caller.Balance) == 1 {
-		fetchErr := &fetchError{
-			err: errors.Wrapf(
-				state.ErrNotEnoughBalance,
-				"caller %s balance %s, required amount %s",
-				actionCtx.Caller.String(),
-				caller.Balance,
-				big.NewInt(0).Add(amount, gasFee),
-			),
+	if gasFee.Add(amount, gasFee).Cmp(caller.Balance) == 1 {
+		return nil, &handleError{
+			err:           errors.Wrapf(state.ErrNotEnoughBalance, "caller %s balance not enough", actionCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
-		if gasFee.Cmp(caller.Balance) == 1 {
-			gasFee = caller.Balance
-		}
-		return nil, gasFee, fetchErr
 	}
-	return caller, gasFee, nil
+	return caller, nil
+}
+
+func csmErrorToHandleError(caller string, err error) error {
+	hErr := &handleError{
+		err: errors.Wrapf(err, "failed to put candidate %s", caller),
+	}
+
+	switch errors.Cause(err) {
+	case ErrInvalidCanName:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
+		return hErr
+	case ErrInvalidOperator:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
+		return hErr
+	case ErrInvalidSelfStkIndex:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateConflict
+		return hErr
+	case ErrInvalidAmount:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
+		return hErr
+	case ErrInvalidOwner:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
+		return hErr
+	case ErrInvalidReward:
+		hErr.failureStatus = iotextypes.ReceiptStatus_ErrCandidateNotExist
+		return hErr
+	default:
+		return err
+	}
 }

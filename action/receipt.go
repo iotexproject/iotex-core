@@ -30,26 +30,31 @@ func IsSystemLog(l *Log) bool {
 	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
 }
 
-// Receipt represents the result of a contract
-type Receipt struct {
-	Status          uint64
-	BlockHeight     uint64
-	ActionHash      hash.Hash256
-	GasConsumed     uint64
-	ContractAddress string
-	Logs            []*Log
-}
+type (
+	// Topics are data items of a transaction, such as send/recipient address
+	Topics []hash.Hash256
 
-// Log stores an evm contract event
-type Log struct {
-	Address            string
-	Topics             []hash.Hash256
-	Data               []byte
-	BlockHeight        uint64
-	ActionHash         hash.Hash256
-	Index              uint
-	NotFixTopicCopyBug bool
-}
+	// Receipt represents the result of a contract
+	Receipt struct {
+		Status          uint64
+		BlockHeight     uint64
+		ActionHash      hash.Hash256
+		GasConsumed     uint64
+		ContractAddress string
+		Logs            []*Log
+	}
+
+	// Log stores an evm contract event
+	Log struct {
+		Address            string
+		Topics             Topics
+		Data               []byte
+		BlockHeight        uint64
+		ActionHash         hash.Hash256
+		Index              uint
+		NotFixTopicCopyBug bool
+	}
+)
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
 func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {

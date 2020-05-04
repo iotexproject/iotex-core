@@ -438,7 +438,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	}
 }
 
-func TestProtocol_handleCandidateUpdate(t *testing.T) {
+func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
