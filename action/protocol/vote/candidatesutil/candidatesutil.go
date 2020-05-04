@@ -33,10 +33,10 @@ const CurCandidateKey = "CurrentCandidateList."
 const NxtCandidateKey = "NextCandidateList."
 
 // CurProbationKey is the key of current probation list
-const CurProbationKey = "CurrentProbationKey."
+const CurProbationKey = "CurrentKickoutKey."
 
 // NxtProbationKey is the key of next probation list
-const NxtProbationKey = "NextProbationKey."
+const NxtProbationKey = "NextKickoutKey."
 
 // UnproductiveDelegateKey is the key of unproductive Delegate struct
 const UnproductiveDelegateKey = "UnproductiveDelegateKey."

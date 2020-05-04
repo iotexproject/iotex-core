@@ -24,7 +24,7 @@ var (
 	// CandidateNamespace is a namespace to store raw candidate
 	CandidateNamespace = "candidates"
 	// ProbationNamespace is a namespace to store probationlist
-	ProbationNamespace = "probation"
+	ProbationNamespace = "kickout"
 	// ErrIndexerNotExist is an error that shows not exist in candidate indexer DB
 	ErrIndexerNotExist = errors.New("not exist in DB")
 )
