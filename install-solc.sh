@@ -6,12 +6,10 @@
 # the platform is not supported.
 #
 # Environment variables:
-# - INSTALL_DIRECTORY (optional): defaults to $GOPATH/bin (if $GOPATH exists) 
-#   or /usr/local/bin (else)
-# - CLI_RELEASE_TAG (optional): defaults to fetching the latest release
+# - INSTALL_DIRECTORY (optional): defaults to /usr/local/bin or $HOME (windows)
 #
 # You can install using this script:
-# $ curl https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-cli.sh | sh
+# $ curl https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh
 
 set -e
 
@@ -114,38 +112,30 @@ else
 
     # add .exe if on windows
     if [ "$OS" = "windows" ]; then
-        BINARY_URL=WINDOWS_RELEASES_URL
+        BINARY_URL="$WINDOWS_RELEASES_URL"
     else
-        BINARY_URL=LINUX_RELEASES_URL
+        BINARY_URL="$LINUX_RELEASES_URL"
     fi
-#
-#    if [ -z "$CLI_RELEASE_TAG" ]; then
-#        downloadJSON LATEST_RELEASE "$RELEASES_URL/latest"
-#        CLI_RELEASE_TAG=$(echo "${LATEST_RELEASE}" | tr -s '\n' ' ' | sed 's/.*"tag_name":"//' | sed 's/".*//' )
-#    fi
-#
-#    else
-#        # fetch the real release data to make sure it exists before we attempt a download
-#        downloadJSON RELEASE_DATA "$RELEASES_URL/tag/$CLI_RELEASE_TAG"
-#        BINARY_URL="$RELEASES_URL/download/$CLI_RELEASE_TAG/$BINARY"
-#    fi
 
     DOWNLOAD_FILE=$(mktemp)
 
     downloadFile "$BINARY_URL" "$DOWNLOAD_FILE"
-
-    echo "Setting executable permissions."
-    chmod +x "$DOWNLOAD_FILE"
+    unzip -o "$DOWNLOAD_FILE" -d /tmp
 
     INSTALL_NAME="solc"
-
     if [ "$OS" = "windows" ]; then
         INSTALL_NAME="$INSTALL_NAME.exe"
+    fi
+
+    echo "Setting executable permissions."
+    chmod +x /tmp/"$INSTALL_NAME"
+
+    if [ "$OS" = "windows" ]; then
         echo "Moving executable to $HOME/$INSTALL_NAME"
-        mv "$DOWNLOAD_FILE" "$HOME/$INSTALL_NAME"
+        mv /tmp/"$INSTALL_NAME" "$HOME/$INSTALL_NAME"
     else
         echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
-        sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
+        sudo mv /tmp/"$INSTALL_NAME" "$INSTALL_DIRECTORY/$INSTALL_NAME"
     fi
 fi
 
