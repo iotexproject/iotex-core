@@ -93,6 +93,11 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Goldengate, blkCtx.BlockHeight) {
+		if err := sh.updateCurrentEpochMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
+			return errors.Wrap(err, "faild to update current epoch meta")
+		}
+	}
 	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
 		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for probation and write into state DB
 		unqualifiedList, err := sh.CalculateProbationList(ctx, sm, epochNum+1)
@@ -377,7 +382,7 @@ func (sh *Slasher) CalculateProbationList(
 			}
 		}
 		// calculate upd of epochNum-1 (latest)
-		uq, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
+		uq, err := sh.calculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
@@ -416,7 +421,7 @@ func (sh *Slasher) CalculateProbationList(
 		}
 		probationMap[addr]--
 	}
-	addList, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
+	addList, err := sh.calculateUnproductiveDelegates(ctx, sm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 	}
@@ -440,23 +445,45 @@ func (sh *Slasher) CalculateProbationList(
 	return nextProbationlist, setUnproductiveDelegates(sm, upd)
 }
 
-func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr protocol.StateReader, rp *rolldpos.Protocol, epochNum uint64) ([]string, error) {
+func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	delegates, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}
-	numBlks, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, sh.productivity)
-	if err != nil {
-		return nil, err
-	}
-	// The current block is not included, so add it
-	numBlks++
-	if _, ok := produce[blkCtx.Producer.String()]; ok {
-		produce[blkCtx.Producer.String()]++
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	var numBlks uint64
+	var produce map[string]uint64
+	if hu.IsPre(config.Goldengate, blkCtx.BlockHeight) {
+		numBlks, produce, err = rp.ProductivityByEpoch(
+			epochNum,
+			bcCtx.Tip.Height,
+			sh.productivity,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// The current block is not included, so add it
+		numBlks++
+		if _, ok := produce[blkCtx.Producer.String()]; ok {
+			produce[blkCtx.Producer.String()]++
+		} else {
+			produce[blkCtx.Producer.String()] = 1
+		}
 	} else {
-		produce[blkCtx.Producer.String()] = 1
+		numBlks, produce, err = rp.ProductivityByEpoch(
+			epochNum,
+			bcCtx.Tip.Height+1,
+			func(start, end uint64) (map[string]uint64, error) {
+				return currentEpochProductivity(sr, start, end)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, abp := range delegates {
@@ -472,6 +499,25 @@ func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr
 		}
 	}
 	return unqualified, nil
+}
+
+func (sh *Slasher) updateCurrentEpochMeta(ctx context.Context, sm protocol.StateManager) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	epochStartHeight := rp.GetEpochHeight(epochNum)
+	var epochMeta *vote.EpochMeta
+	var err error
+	if blkCtx.BlockHeight == epochStartHeight {
+		epochMeta = vote.NewEpochMeta(epochNum)
+	} else {
+		epochMeta, err = epochMetaFromDB(sm)
+		if err != nil {
+			return err
+		}
+	}
+	epochMeta.AddBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
+	return setCurrentEpochMeta(sm, epochMeta)
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
@@ -547,4 +593,27 @@ func filterCandidates(
 		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
 	}
 	return verifiedCandidates, nil
+}
+
+// currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
+func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64) (map[string]uint64, error) {
+	stats := make(map[string]uint64)
+	epochMeta, err := epochMetaFromDB(sr)
+	if err != nil {
+		return nil, err
+	}
+	for _, blockmeta := range epochMeta.BlockMetas {
+		if blockmeta.Height < start {
+			return nil, errors.New("block meta height is out of range")
+		}
+		if blockmeta.Height > end {
+			break
+		}
+		if _, ok := stats[blockmeta.Producer]; ok {
+			stats[blockmeta.Producer]++
+		} else {
+			stats[blockmeta.Producer] = 1
+		}
+	}
+	return stats, nil
 }

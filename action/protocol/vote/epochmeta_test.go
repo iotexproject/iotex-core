@@ -24,7 +24,7 @@ func TestEpochMetaSerializeAndDeserialize(t *testing.T) {
 	em.AddBlockMeta(uint64(2), identityset.Address(2).String(), testutil.TimestampNow())
 	em.AddBlockMeta(uint64(3), identityset.Address(3).String(), testutil.TimestampNow())
 
-	ss, err := em.Serialize() 
+	ss, err := em.Serialize()
 	require.NoError(err)
 	em2 := &EpochMeta{}
 	require.NoError(em2.Deserialize(ss))

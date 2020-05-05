@@ -41,6 +41,9 @@ const NxtProbationKey = "NextKickoutKey."
 // UnproductiveDelegateKey is the key of unproductive Delegate struct
 const UnproductiveDelegateKey = "UnproductiveDelegateKey."
 
+// EpochMetaKey is the key of epoch meta struct
+const EpochMetaKey = "EpochMetaKey."
+
 // CandidatesFromDB returns array of Candidates in candidate pool of a given height or current epoch
 func CandidatesFromDB(sr protocol.StateReader, height uint64, beforeEaster bool, epochStartPoint bool) ([]*state.Candidate, uint64, error) {
 	var candidates state.CandidateList

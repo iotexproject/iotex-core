@@ -18,19 +18,19 @@ import (
 
 type EpochMeta struct {
 	EpochNumber uint64
-	BlockMetas []*BlockMeta
+	BlockMetas  []*BlockMeta
 }
 
 func NewEpochMeta(epochNumber uint64) *EpochMeta {
 	return &EpochMeta{
 		EpochNumber: epochNumber,
-		BlockMetas: make([]*BlockMeta, 0),
+		BlockMetas:  make([]*BlockMeta, 0),
 	}
 }
 
 func (em *EpochMeta) AddBlockMeta(height uint64, producer string, mintTime time.Time) {
 	elem := &BlockMeta{
-		Height: height,
+		Height:   height,
 		Producer: producer,
 		MintTime: mintTime.UTC(),
 	}
@@ -43,7 +43,7 @@ func (em *EpochMeta) Serialize() ([]byte, error) {
 	pb, err := em.Proto()
 	if err != nil {
 		return nil, err
-	} 
+	}
 	return proto.Marshal(pb)
 }
 
@@ -58,12 +58,12 @@ func (em *EpochMeta) Proto() (*epochmetapb.EpochMeta, error) {
 		blockMetasPb = append(blockMetasPb, bmProto)
 	}
 	return &epochmetapb.EpochMeta{
-		BlockMetas:    blockMetasPb,
-		EpochNumber:   em.EpochNumber,
+		BlockMetas:  blockMetasPb,
+		EpochNumber: em.EpochNumber,
 	}, nil
 }
 
-// Deserialize deserializes bytes to epochMeta 
+// Deserialize deserializes bytes to epochMeta
 func (em *EpochMeta) Deserialize(buf []byte) error {
 	epochMetapb := &epochmetapb.EpochMeta{}
 	if err := proto.Unmarshal(buf, epochMetapb); err != nil {
@@ -90,18 +90,17 @@ func (em *EpochMeta) LoadProto(epochMetapb *epochmetapb.EpochMeta) error {
 }
 
 type BlockMeta struct {
-	Height 		uint64
-	Producer 	string 	
-	MintTime 	time.Time
+	Height   uint64
+	Producer string
+	MintTime time.Time
 }
-
 
 // Serialize serializes BlockMeta struct to bytes
 func (bm *BlockMeta) Serialize() ([]byte, error) {
 	pb, err := bm.Proto()
 	if err != nil {
 		return nil, err
-	} 
+	}
 	return proto.Marshal(pb)
 }
 
@@ -112,13 +111,13 @@ func (bm *BlockMeta) Proto() (*epochmetapb.BlockMeta, error) {
 		return nil, err
 	}
 	return &epochmetapb.BlockMeta{
-		BlockHeight:	bm.Height,
-		BlockProducer:	bm.Producer,
-		BlockTime:		blkTime,
+		BlockHeight:   bm.Height,
+		BlockProducer: bm.Producer,
+		BlockTime:     blkTime,
 	}, nil
 }
 
-// Deserialize deserializes bytes to blockMeta 
+// Deserialize deserializes bytes to blockMeta
 func (bm *BlockMeta) Deserialize(buf []byte) error {
 	epochMetapb := &epochmetapb.BlockMeta{}
 	if err := proto.Unmarshal(buf, epochMetapb); err != nil {

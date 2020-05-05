@@ -78,6 +78,8 @@ type (
 		// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 		// TODO: remove height, and read it from state reader
 		CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
+		// CalculateCandidatesByHeight calculates unproductive delegate on current epoch
+		CalculateUnproductiveDelegates(context.Context, protocol.StateReader) ([]string, error)
 	}
 )
 

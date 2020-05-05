@@ -309,9 +309,6 @@ func New(
 	}
 	// TODO: rewarding protocol for standalone mode is weird, rDPoSProtocol could be passed via context
 	rewardingProtocol := rewarding.NewProtocol(
-		func(start uint64, end uint64) (map[string]uint64, error) {
-			return blockchain.Productivity(chain, start, end)
-		},
 		cfg.Genesis.FoundationBonusP2StartEpoch,
 		cfg.Genesis.FoundationBonusP2EndEpoch,
 	)

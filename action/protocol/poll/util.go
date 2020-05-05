@@ -304,3 +304,33 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	}
 	return stateHeight, nil
 }
+
+// setCurrentEpochMeta sets the epochmeta struct with epoch meta key
+func setCurrentEpochMeta(
+	sm protocol.StateManager,
+	epochmeta *vote.EpochMeta,
+) error {
+	emkey := candidatesutil.ConstructKey(candidatesutil.EpochMetaKey)
+	_, err := sm.PutState(epochmeta, protocol.KeyOption(emkey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
+}
+
+// EpochMetaFromDB returns latest epoch meta struct
+func epochMetaFromDB(sr protocol.StateReader) (*vote.EpochMeta, error) {
+	epochMeta := &vote.EpochMeta{}
+	epochMetaKey := candidatesutil.ConstructKey(candidatesutil.EpochMetaKey)
+	stateHeight, err := sr.State(
+		epochMeta,
+		protocol.KeyOption(epochMetaKey[:]),
+		protocol.NamespaceOption(protocol.SystemNamespace),
+	)
+	log.L().Debug(
+		"EpochMetaFromDB",
+		zap.Uint64("state height", stateHeight),
+		zap.Error(err),
+	)
+	if err == nil {
+		return epochMeta, nil
+	}
+	return nil, err
+}
