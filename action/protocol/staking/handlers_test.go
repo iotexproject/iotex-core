@@ -70,7 +70,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(putCandidate(sm, candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	v, err := p.Start(context.Background(), sm)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
+	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
 	require.True(ok)
@@ -2119,6 +2122,9 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
@@ -2152,7 +2158,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(putCandidate(sm, candidate2))
-	v, err := p.Start(context.Background(), sm)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
+	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
 	require.True(ok)

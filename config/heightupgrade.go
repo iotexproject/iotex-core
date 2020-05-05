@@ -22,6 +22,7 @@ const (
 	Daytona
 	Easter
 	Fairbank
+	FbkMigration
 )
 
 type (
@@ -35,14 +36,15 @@ type (
 	// however, DardanellesHeight is set to 360(2k + 1) + 1 (instead of 720k + 1)
 	// so height afterwards must be set to 360(2k + 1) + 1
 	HeightUpgrade struct {
-		pacificHeight     uint64
-		aleutianHeight    uint64
-		beringHeight      uint64
-		cookHeight        uint64
-		dardanellesHeight uint64
-		daytonaHeight     uint64
-		easterHeight      uint64
-		fairbankHeight    uint64
+		pacificHeight      uint64
+		aleutianHeight     uint64
+		beringHeight       uint64
+		cookHeight         uint64
+		dardanellesHeight  uint64
+		daytonaHeight      uint64
+		easterHeight       uint64
+		fairbankHeight     uint64
+		fbkMigrationHeight uint64
 	}
 )
 
@@ -57,6 +59,7 @@ func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 		cfg.DaytonaBlockHeight,
 		cfg.EasterBlockHeight,
 		cfg.FairbankBlockHeight,
+		cfg.FbkMigrationBlockHeight,
 	}
 }
 
@@ -80,6 +83,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.easterHeight
 	case Fairbank:
 		h = hu.fairbankHeight
+	case FbkMigration:
+		h = hu.fbkMigrationHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -114,3 +119,6 @@ func (hu *HeightUpgrade) EasterBlockHeight() uint64 { return hu.easterHeight }
 
 // FairbankBlockHeight returns the fairbank height
 func (hu *HeightUpgrade) FairbankBlockHeight() uint64 { return hu.fairbankHeight }
+
+// FbkMigrationBlockHeight returns the fairbank migration height
+func (hu *HeightUpgrade) FbkMigrationBlockHeight() uint64 { return hu.fbkMigrationHeight }
