@@ -22,14 +22,14 @@ import (
 var (
 	stake2AddCmdUses = map[config.Language]string{
 		config.English: "add BUCKET_INDEX AMOUNT_IOTX [DATA]" +
-			"[-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "add 桶索引 IOTX数量 [数据]" +
-			"[-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "add 票索引 IOTX数量 [数据]" +
+			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2AddCmdShorts = map[config.Language]string{
-		config.English: "add deposit to stake on IoTeX blockchain",
-		config.Chinese: "在区块链上添加质押的存款",
+		config.English: "Add IOTX to bucket on IoTeX blockchain",
+		config.Chinese: "添加IOTX到IoTeX区块链上的投票",
 	}
 )
 

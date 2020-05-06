@@ -23,13 +23,13 @@ var (
 	stake2TransferCmdUses = map[config.Language]string{
 		config.English: "transfer (ALIAS|VOTE_ADDRESS) BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "transfer (别名|投票地址) 桶索引 [数据]" +
+		config.Chinese: "transfer (别名|投票地址) 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2TransferCmdShorts = map[config.Language]string{
-		config.English: "transfer transfers stake ownership on IoTeX blockchain",
-		config.Chinese: "在区块链上转移质押",
+		config.English: "Transfer bucket ownership on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上转移投票所有权",
 	}
 )
 

@@ -22,19 +22,19 @@ var (
 	stake2WithDrawCmdUses = map[config.Language]string{
 		config.English: "withdraw BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "withdraw 桶索引 [数据]" +
+		config.Chinese: "withdraw 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	stake2WithDrawCmdShorts = map[config.Language]string{
-		config.English: "Withdraw form bucket on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上撤回表单存储桶",
+		config.English: "Withdraw bucket from IoTeX blockchain",
+		config.Chinese: "提取IoTeX区块链上的投票",
 	}
 )
 
 // stake2WithdrawCmd represents the stake2 withdraw command
 var stake2WithdrawCmd = &cobra.Command{
-	Use:   config.TranslateInLang(withDrawCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(withDrawCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(stake2WithDrawCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(stake2WithDrawCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

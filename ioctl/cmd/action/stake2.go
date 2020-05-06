@@ -7,9 +7,13 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 // Multi-language support
@@ -52,4 +56,17 @@ func init() {
 	Stake2Cmd.AddCommand(stake2ChangeCmd)
 	Stake2Cmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint", config.ReadConfig.Endpoint, config.TranslateInLang(stake2FlagEndpointUsages, config.UILanguage))
 	Stake2Cmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(stake2FlagInsecureUsages, config.UILanguage))
+}
+
+func parseStakeDuration(stakeDurationString string) (*big.Int, error) {
+	stakeDuration, ok := new(big.Int).SetString(stakeDurationString, 10)
+	if !ok {
+		return nil, output.NewError(output.ConvertError, "failed to convert stake duration", nil)
+	}
+
+	if err := validator.ValidateStakeDuration(stakeDuration); err != nil {
+		return nil, output.NewError(output.ValidationError, "invalid stake duration", err)
+	}
+
+	return stakeDuration, nil
 }
