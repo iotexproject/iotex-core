@@ -110,10 +110,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
-	recipientAddr, err = address.FromString(tsf.Recipient())
-	if err != nil {
-		errors.Wrap(err, "failed to convert recipient address")
-	}
 	// put updated recipient's state to trie
 	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
