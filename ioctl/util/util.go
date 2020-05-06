@@ -204,6 +204,7 @@ func CheckArgs(validNum ...int) cobra.PositionalArgs {
 		nums := strings.Replace(strings.Trim(fmt.Sprint(validNum), "[]"), " ", " or ", -1)
 		return fmt.Errorf("accepts "+nums+" arg(s), received %d", len(args))
 	}
+}
 
 // TrimHexPrefix removes 0x prefix from a string if it has
 func TrimHexPrefix(s string) string {
