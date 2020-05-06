@@ -191,3 +191,8 @@ func JwtAuth() (jwt metadata.MD, err error) {
 	}
 	return metadata.Pairs("authorization", "bearer "+string(jwtString)), nil
 }
+
+// TrimHexPrefix removes 0x prefix from a string if it has
+func TrimHexPrefix(s string) string {
+	return strings.TrimPrefix(s, "0x")
+}
