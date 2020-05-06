@@ -397,7 +397,7 @@ func (p *Protocol) settleAction(
 	if actionCtx.Nonce > acc.Nonce {
 		acc.Nonce = actionCtx.Nonce
 	}
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc); err != nil {
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return nil, errors.Wrap(err, "failed to update nonce")
 	}
 	r := action.Receipt{

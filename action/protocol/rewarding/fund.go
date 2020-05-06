@@ -73,7 +73,7 @@ func (p *Protocol) Deposit(
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc); err != nil {
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
 		return err
 	}
 	// Add balance to fund
