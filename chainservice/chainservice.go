@@ -213,9 +213,12 @@ func New(
 	}
 
 	// create Blockchain
-	chain := blockchain.NewBlockchain(cfg, dao, sf, chainOpts...)
+	chain := blockchain.NewBlockchain(cfg, dao, factory.NewMinter(sf, actPool), chainOpts...)
 	if chain == nil {
 		panic("failed to create blockchain")
+	}
+	if err := chain.AddSubscriber(actPool); err != nil {
+		return nil, errors.Wrap(err, "failed to add subscriber: action pool.")
 	}
 	// config asks for a standalone indexer
 	var indexBuilder *blockindex.IndexBuilder
@@ -313,7 +316,7 @@ func New(
 		cfg.Genesis.FoundationBonusP2EndEpoch,
 	)
 	// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
-	consensus, err := consensus.NewConsensus(cfg, chain, sf, actPool, copts...)
+	consensus, err := consensus.NewConsensus(cfg, chain, sf, copts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
@@ -321,7 +324,6 @@ func New(
 		cfg,
 		chain,
 		dao,
-		actPool,
 		consensus,
 		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
 			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})

@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -272,7 +273,7 @@ func (sdb *stateDB) Validate(ctx context.Context, blk *block.Block) error {
 // NewBlockBuilder returns block builder which hasn't been signed yet
 func (sdb *stateDB) NewBlockBuilder(
 	ctx context.Context,
-	actionMap map[string][]action.SealedEnvelope,
+	ap actpool.ActPool,
 	sign func(action.Envelope) (action.SealedEnvelope, error),
 ) (*block.Builder, error) {
 	sdb.mutex.Lock()
@@ -298,7 +299,7 @@ func (sdb *stateDB) NewBlockBuilder(
 			}
 		}
 	}
-	blkBuilder, err := ws.CreateBuilder(ctx, actionMap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
+	blkBuilder, err := ws.CreateBuilder(ctx, ap, postSystemActions, sdb.cfg.Chain.AllowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}

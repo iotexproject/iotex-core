@@ -17,9 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -48,10 +46,7 @@ type ChainManager interface {
 	BlockFooterByHeight(height uint64) (*block.Footer, error)
 	// MintNewBlock creates a new block with given actions
 	// Note: the coinbase transfer will be added to the given transfers when minting a new block
-	MintNewBlock(
-		actionMap map[string][]action.SealedEnvelope,
-		timestamp time.Time,
-	) (*block.Block, error)
+	MintNewBlock(timestamp time.Time) (*block.Block, error)
 	// CommitBlock validates and appends a block to the chain
 	CommitBlock(blk *block.Block) error
 	// ValidateBlock validates a new block before adding it to the blockchain
@@ -240,7 +235,6 @@ type Builder struct {
 	encodedAddr      string
 	priKey           crypto.PrivateKey
 	chain            ChainManager
-	actPool          actpool.ActPool
 	broadcastHandler scheme.Broadcast
 	clock            clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
@@ -277,12 +271,6 @@ func (b *Builder) SetChainManager(chain ChainManager) *Builder {
 	return b
 }
 
-// SetActPool sets the action pool APIs
-func (b *Builder) SetActPool(actPool actpool.ActPool) *Builder {
-	b.actPool = actPool
-	return b
-}
-
 // SetBroadcast sets the broadcast callback
 func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
 	b.broadcastHandler = broadcastHandler
@@ -314,9 +302,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.chain == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "blockchain APIs is nil")
 	}
-	if b.actPool == nil {
-		return nil, errors.Wrap(ErrNewRollDPoS, "action pool APIs is nil")
-	}
 	if b.broadcastHandler == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
 	}
@@ -331,7 +316,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.cfg.Consensus.RollDPoS.ToleratedOvertime,
 		b.cfg.Genesis.TimeBasedRotation,
 		b.chain,
-		b.actPool,
 		b.rp,
 		b.broadcastHandler,
 		b.delegatesByEpochFunc,

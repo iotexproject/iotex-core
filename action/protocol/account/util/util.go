@@ -67,13 +67,9 @@ func LoadAccount(sm protocol.StateReader, addrHash hash.Hash160) (*state.Account
 }
 
 // StoreAccount puts updated account state to trie
-func StoreAccount(sm protocol.StateManager, encodedAddr string, account *state.Account) error {
-	addr, err := address.FromString(encodedAddr)
-	if err != nil {
-		return errors.Wrap(err, "failed to get address public key hash from encoded address")
-	}
+func StoreAccount(sm protocol.StateManager, addr address.Address, account *state.Account) error {
 	addrHash := hash.BytesToHash160(addr.Bytes())
-	_, err = sm.PutState(account, protocol.LegacyKeyOption(addrHash))
+	_, err := sm.PutState(account, protocol.LegacyKeyOption(addrHash))
 	return err
 }
 

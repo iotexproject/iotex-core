@@ -283,7 +283,7 @@ func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address,
 	if nonce > acc.Nonce {
 		acc.Nonce = nonce
 	}
-	return accountutil.StoreAccount(sm, addr.String(), acc)
+	return accountutil.StoreAccount(sm, addr, acc)
 }
 
 func (p *Protocol) createReceipt(

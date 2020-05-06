@@ -83,7 +83,9 @@ func TestProtocol(t *testing.T) {
 	r.NotNil(stk)
 	r.NoError(err)
 
-	ctx := context.Background()
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	buckets, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
@@ -94,8 +96,9 @@ func TestProtocol(t *testing.T) {
 	}
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
-		_, err := putBucketAndIndex(sm, vb)
+		index, err := putBucketAndIndex(sm, vb)
 		r.NoError(err)
+		r.Equal(index, vb.Index)
 	}
 
 	// load candidates from stateDB and verify

@@ -183,18 +183,18 @@ func (mr *MockBlockchainMockRecorder) Context() *gomock.Call {
 }
 
 // MintNewBlock mocks base method
-func (m *MockBlockchain) MintNewBlock(actionMap map[string][]action.SealedEnvelope, timestamp time.Time) (*block.Block, error) {
+func (m *MockBlockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MintNewBlock", actionMap, timestamp)
+	ret := m.ctrl.Call(m, "MintNewBlock", timestamp)
 	ret0, _ := ret[0].(*block.Block)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // MintNewBlock indicates an expected call of MintNewBlock
-func (mr *MockBlockchainMockRecorder) MintNewBlock(actionMap, timestamp interface{}) *gomock.Call {
+func (mr *MockBlockchainMockRecorder) MintNewBlock(timestamp interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), actionMap, timestamp)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MintNewBlock", reflect.TypeOf((*MockBlockchain)(nil).MintNewBlock), timestamp)
 }
 
 // CommitBlock mocks base method
@@ -277,16 +277,16 @@ func (m *MockBlockBuilderFactory) EXPECT() *MockBlockBuilderFactoryMockRecorder 
 }
 
 // NewBlockBuilder mocks base method
-func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
+func (m *MockBlockBuilderFactory) NewBlockBuilder(arg0 context.Context, arg1 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1)
 	ret0, _ := ret[0].(*block.Builder)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NewBlockBuilder indicates an expected call of NewBlockBuilder
-func (mr *MockBlockBuilderFactoryMockRecorder) NewBlockBuilder(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockBlockBuilderFactoryMockRecorder) NewBlockBuilder(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockBlockBuilderFactory)(nil).NewBlockBuilder), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewBlockBuilder", reflect.TypeOf((*MockBlockBuilderFactory)(nil).NewBlockBuilder), arg0, arg1)
 }

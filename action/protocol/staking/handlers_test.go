@@ -70,7 +70,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(putCandidate(sm, candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	v, err := p.Start(context.Background(), sm)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
+	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
 	require.True(ok)
@@ -438,7 +441,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	}
 }
 
-func TestProtocol_handleCandidateUpdate(t *testing.T) {
+func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -2119,6 +2122,9 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
+	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
@@ -2152,7 +2158,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(putCandidate(sm, candidate2))
-	v, err := p.Start(context.Background(), sm)
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
+	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(CandidateCenter)
 	require.True(ok)
@@ -2169,7 +2178,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 		return err
 	}
 	account.Balance = unit.ConvertIotxToRau(balance)
-	return accountutil.StoreAccount(sm, addr.String(), account)
+	return accountutil.StoreAccount(sm, addr, account)
 }
 
 func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) error {
@@ -2180,5 +2189,5 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
-	return accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc)
+	return accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }

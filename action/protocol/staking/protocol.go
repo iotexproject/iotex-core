@@ -12,16 +12,20 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -48,29 +52,37 @@ const (
 
 // Errors
 var (
-	ErrAlreadyExist  = errors.New("candidate already exist")
 	ErrTypeAssertion = errors.New("failed type assertion")
 	TotalBucketKey   = append([]byte{_const}, []byte("totalBucket")...)
 )
 
-// Protocol defines the protocol of handling staking
-type Protocol struct {
-	addr       address.Address
-	depositGas DepositGas
-	config     Configuration
-}
+type (
+	// ReceiptError indicates a non-critical error with corresponding receipt status
+	ReceiptError interface {
+		Error() string
+		ReceiptStatus() uint64
+	}
 
-// Configuration is the staking protocol configuration.
-type Configuration struct {
-	VoteWeightCalConsts   genesis.VoteWeightCalConsts
-	RegistrationConsts    RegistrationConsts
-	WithdrawWaitingPeriod time.Duration
-	MinStakeAmount        *big.Int
-	BootstrapCandidates   []genesis.BootstrapCandidate
-}
+	// Protocol defines the protocol of handling staking
+	Protocol struct {
+		addr       address.Address
+		depositGas DepositGas
+		config     Configuration
+		hu         config.HeightUpgrade
+	}
 
-// DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+	// Configuration is the staking protocol configuration.
+	Configuration struct {
+		VoteWeightCalConsts   genesis.VoteWeightCalConsts
+		RegistrationConsts    RegistrationConsts
+		WithdrawWaitingPeriod time.Duration
+		MinStakeAmount        *big.Int
+		BootstrapCandidates   []genesis.BootstrapCandidate
+	}
+
+	// DepositGas deposits gas to some pool
+	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+)
 
 // NewProtocol instantiates the protocol of staking
 func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) {
@@ -113,6 +125,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+
 	// load view from SR
 	c, err := createCandCenter(sr)
 	if err != nil {
@@ -213,39 +228,47 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 		return nil, err
 	}
 
-	r, err := p.handle(ctx, act, csm)
-	if err != nil {
-		if status, ok := canEarlyResolve(err); ok {
-			actionCtx := protocol.MustGetActionCtx(ctx)
-			gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-			return p.settleAction(ctx, csm, status, gasFee)
-		}
-	}
-	return r, err
+	return p.handle(ctx, act, csm)
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+	var (
+		rLog *receiptLog
+		err  error
+	)
+
 	switch act := act.(type) {
 	case *action.CreateStake:
-		return p.handleCreateStake(ctx, act, csm)
+		rLog, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
-		return p.handleUnstake(ctx, act, csm)
+		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		return p.handleWithdrawStake(ctx, act, csm)
+		rLog, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
-		return p.handleChangeCandidate(ctx, act, csm)
+		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
-		return p.handleTransferStake(ctx, act, csm)
+		rLog, err = p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		return p.handleDepositToStake(ctx, act, csm)
+		rLog, err = p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
-		return p.handleRestake(ctx, act, csm)
+		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		return p.handleCandidateRegister(ctx, act, csm)
+		rLog, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
-		return p.handleCandidateUpdate(ctx, act, csm)
+		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
+	default:
+		return nil, nil
 	}
-	return nil, nil
+
+	if err == nil {
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), rLog.Build(ctx, err))
+	}
+
+	if receiptErr, ok := err.(ReceiptError); ok {
+		log.L().Info("Non-critical error when processing staking action", zap.Error(err))
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), rLog.Build(ctx, err))
+	}
+	return nil, err
 }
 
 // Validate validates a staking message
@@ -353,18 +376,39 @@ func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
 }
 
-func canEarlyResolve(err error) (uint64, bool) {
-	cause := errors.Cause(err)
-	if cause == ErrInvalidCanName ||
-		cause == ErrInvalidOperator ||
-		cause == ErrInvalidSelfStkIndex {
-		return uint64(iotextypes.ReceiptStatus_ErrCandidateConflict), true
+// settleAccount deposits gas fee and updates caller's nonce
+func (p *Protocol) settleAction(
+	ctx context.Context,
+	sm protocol.StateManager,
+	status uint64,
+	log *action.Log,
+) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	if err := p.depositGas(ctx, sm, gasFee); err != nil {
+		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-
-	if cause == ErrInvalidAmount ||
-		cause == ErrInvalidOwner ||
-		cause == ErrInvalidReward {
-		return uint64(iotextypes.ReceiptStatus_ErrCandidateNotExist), true
+	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	if err != nil {
+		return nil, err
 	}
-	return 0, false
+	// TODO: this check shouldn't be necessary
+	if actionCtx.Nonce > acc.Nonce {
+		acc.Nonce = actionCtx.Nonce
+	}
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
+		return nil, errors.Wrap(err, "failed to update nonce")
+	}
+	r := action.Receipt{
+		Status:          status,
+		BlockHeight:     blkCtx.BlockHeight,
+		ActionHash:      actionCtx.ActionHash,
+		GasConsumed:     actionCtx.IntrinsicGas,
+		ContractAddress: p.addr.String(),
+	}
+	if log != nil {
+		r.Logs = []*action.Log{log}
+	}
+	return &r, nil
 }

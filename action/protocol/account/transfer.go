@@ -73,7 +73,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		// update sender Nonce
 		accountutil.SetNonce(tsf, sender)
 		// put updated sender's state to trie
-		if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
+		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
@@ -99,7 +99,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	// update sender Nonce
 	accountutil.SetNonce(tsf, sender)
 	// put updated sender's state to trie
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), sender); err != nil {
+	if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 	// check recipient
@@ -110,9 +110,8 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	if err := recipient.AddBalance(tsf.Amount()); err != nil {
 		return nil, errors.Wrapf(err, "failed to update the Balance of recipient %s", tsf.Recipient())
 	}
-
 	// put updated recipient's state to trie
-	if err := accountutil.StoreAccount(sm, tsf.Recipient(), recipient); err != nil {
+	if err := accountutil.StoreAccount(sm, recipientAddr, recipient); err != nil {
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 

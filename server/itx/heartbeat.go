@@ -148,6 +148,7 @@ func (h *HeartbeatHandler) Log() {
 		heartbeatMtc.WithLabelValues("pendingRolldposEvents", chainIDStr).Set(float64(numPendingEvts))
 		heartbeatMtc.WithLabelValues("blockchainHeight", chainIDStr).Set(float64(height))
 		heartbeatMtc.WithLabelValues("actpoolSize", chainIDStr).Set(float64(actPoolSize))
+		heartbeatMtc.WithLabelValues("actpoolGasInPool", chainIDStr).Set(float64(c.ActionPool().GetGasSize()))
 		heartbeatMtc.WithLabelValues("actpoolCapacity", chainIDStr).Set(float64(actPoolCapacity))
 		heartbeatMtc.WithLabelValues("targetHeight", chainIDStr).Set(float64(targetHeight))
 		heartbeatMtc.WithLabelValues("packageVersion", version.PackageVersion).Set(1)

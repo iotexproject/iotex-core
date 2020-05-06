@@ -7,9 +7,11 @@
 package e2etest
 
 import (
+	"context"
 	"io/ioutil"
 	"math/big"
 
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/test/identityset"
 
 	"github.com/pkg/errors"
@@ -20,7 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func addTestingTsfBlocks(bc blockchain.Blockchain) error {
+func addTestingTsfBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	// Add block 1
 	tsf0, _ := action.NewTransfer(
 		1,
@@ -38,12 +40,10 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
-	actionMap := make(map[string][]action.SealedEnvelope)
-	actionMap[identityset.Address(0).String()] = []action.SealedEnvelope{selp}
-	blk, err := bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	if err := ap.Add(context.Background(), selp); err != nil {
+		return err
+	}
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
 	}
@@ -68,33 +68,46 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf1); err != nil {
+		return err
+	}
 	tsf2, err := testutil.SignedTransfer(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
 	tsf3, err := testutil.SignedTransfer(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf3); err != nil {
+		return err
+	}
 	tsf4, err := testutil.SignedTransfer(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf4); err != nil {
 		return err
 	}
 	tsf5, err := testutil.SignedTransfer(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf5); err != nil {
+		return err
+	}
 	tsf6, err := testutil.SignedTransfer(addr6, priKey0, 6, big.NewInt(5<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf6); err != nil {
+		return err
+	}
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr0] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	blk, err = bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
 	}
@@ -108,29 +121,38 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf1); err != nil {
+		return err
+	}
 	tsf2, err = testutil.SignedTransfer(addr2, priKey3, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
 	tsf3, err = testutil.SignedTransfer(addr4, priKey3, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf3); err != nil {
+		return err
+	}
 	tsf4, err = testutil.SignedTransfer(addr5, priKey3, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf4); err != nil {
 		return err
 	}
 	tsf5, err = testutil.SignedTransfer(addr0, priKey3, 5, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr3] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5}
-	blk, err = bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	if err := ap.Add(context.Background(), tsf5); err != nil {
+		return err
+	}
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
 	}
@@ -144,25 +166,32 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf1); err != nil {
+		return err
+	}
 	tsf2, err = testutil.SignedTransfer(addr5, priKey4, 2, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
 	tsf3, err = testutil.SignedTransfer(addr6, priKey4, 3, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf3); err != nil {
+		return err
+	}
 	tsf4, err = testutil.SignedTransfer(addr0, priKey4, 4, big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf4); err != nil {
+		return err
+	}
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr4] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4}
-	blk, err = bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
 	}
@@ -176,33 +205,46 @@ func addTestingTsfBlocks(bc blockchain.Blockchain) error {
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf1); err != nil {
+		return err
+	}
 	tsf2, err = testutil.SignedTransfer(addr2, priKey5, 2, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
 	tsf3, err = testutil.SignedTransfer(addr3, priKey5, 3, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf3); err != nil {
+		return err
+	}
 	tsf4, err = testutil.SignedTransfer(addr4, priKey5, 4, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
+		return err
+	}
+	if err := ap.Add(context.Background(), tsf4); err != nil {
 		return err
 	}
 	tsf5, err = testutil.SignedTransfer(addr6, priKey5, 5, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf5); err != nil {
+		return err
+	}
 	tsf6, err = testutil.SignedTransfer(addr0, priKey5, 6, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	if err := ap.Add(context.Background(), tsf6); err != nil {
+		return err
+	}
 
-	actionMap = make(map[string][]action.SealedEnvelope)
-	actionMap[addr5] = []action.SealedEnvelope{tsf1, tsf2, tsf3, tsf4, tsf5, tsf6}
-	blk, err = bc.MintNewBlock(
-		actionMap,
-		testutil.TimestampNow(),
-	)
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
 		return err
 	}

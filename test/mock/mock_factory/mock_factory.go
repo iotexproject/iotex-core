@@ -11,6 +11,7 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	protocol "github.com/iotexproject/iotex-core/action/protocol"
 	evm "github.com/iotexproject/iotex-core/action/protocol/execution/evm"
+	actpool "github.com/iotexproject/iotex-core/actpool"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	state "github.com/iotexproject/iotex-core/state"
 	reflect "reflect"
@@ -166,7 +167,7 @@ func (mr *MockFactoryMockRecorder) Validate(arg0, arg1 interface{}) *gomock.Call
 }
 
 // NewBlockBuilder mocks base method
-func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 map[string][]action.SealedEnvelope, arg2 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
+func (m *MockFactory) NewBlockBuilder(arg0 context.Context, arg1 actpool.ActPool, arg2 func(action.Envelope) (action.SealedEnvelope, error)) (*block.Builder, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBlockBuilder", arg0, arg1, arg2)
 	ret0, _ := ret[0].(*block.Builder)

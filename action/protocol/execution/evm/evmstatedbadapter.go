@@ -147,7 +147,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 		stateDB.logError(err)
 		return
 	}
-	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
+	if err := accountutil.StoreAccount(stateDB.sm, addr, state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)
 	}
@@ -183,7 +183,7 @@ func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.In
 		stateDB.logError(err)
 		return
 	}
-	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), state); err != nil {
+	if err := accountutil.StoreAccount(stateDB.sm, addr, state); err != nil {
 		log.L().Error("Failed to update pending account changes to trie.", zap.Error(err))
 		stateDB.logError(err)
 	}
@@ -242,7 +242,7 @@ func (stateDB *StateDBAdapter) SetNonce(evmAddr common.Address, nonce uint64) {
 		zap.String("address", addr.String()),
 		zap.Uint64("nonce", nonce))
 	s.Nonce = nonce
-	if err := accountutil.StoreAccount(stateDB.sm, addr.String(), s); err != nil {
+	if err := accountutil.StoreAccount(stateDB.sm, addr, s); err != nil {
 		log.L().Error("Failed to set nonce.", zap.Error(err))
 		stateDB.logError(err)
 	}

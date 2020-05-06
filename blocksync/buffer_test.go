@@ -50,7 +50,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.InMemDaoOption(sf),
 		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
@@ -67,7 +67,6 @@ func TestBlockBufferFlush(t *testing.T) {
 
 	b := blockBuffer{
 		bc:         chain,
-		ap:         ap,
 		cs:         cs,
 		blocks:     make(map[uint64]*block.Block),
 		bufferSize: 16,
@@ -76,10 +75,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	assert.Equal(false, moved)
 	assert.Equal(bCheckinSkipNil, re)
 
-	blk, err := chain.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	moved, re = b.Flush(blk)
 	assert.Equal(true, moved)
@@ -145,17 +141,17 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(rp.Register(registry))
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap)
+	require.NoError(err)
 	chain := blockchain.NewBlockchain(
 		cfg,
 		nil,
-		sf,
+		factory.NewMinter(sf, ap),
 		blockchain.InMemDaoOption(sf),
 	)
 	require.NotNil(chain)
 	require.NoError(chain.Start(ctx))
-	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
-	require.NotNil(ap)
-	require.NoError(err)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
@@ -167,7 +163,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	b := blockBuffer{
 		bc:           chain,
-		ap:           ap,
 		cs:           cs,
 		blocks:       make(map[uint64]*block.Block),
 		bufferSize:   16,
@@ -280,10 +275,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
 	assert.Len(b.GetBlocksIntervalsToSync(1), 2)
 
-	blk, err = chain.MintNewBlock(
-		nil,
-		testutil.TimestampNow(),
-	)
+	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	b.Flush(blk)
 	// There should always have at least 1 interval range to sync
