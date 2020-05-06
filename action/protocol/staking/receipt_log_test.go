@@ -25,12 +25,11 @@ func TestReceiptLog(t *testing.T) {
 
 	h := hash.Hash160b([]byte(protocolID))
 	addr, _ := address.FromBytes(h[:])
-	addrString := addr.String()
 	cand := identityset.Address(5)
 	voter := identityset.Address(11)
 	index := byteutil.Uint64ToBytesBigEndian(1)
 	b1 := cand.Bytes()
-	//b2 := voter.Bytes()
+	b2 := voter.Bytes()
 
 	ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
 		ActionHash: hash.Hash256b([]byte("test-action")),
@@ -48,7 +47,7 @@ func TestReceiptLog(t *testing.T) {
 		data   []byte
 	}{
 		{
-			addrString,
+			addr.String(),
 			HandleCreateStake,
 			[][]byte{index, b1},
 			cand,
@@ -56,7 +55,7 @@ func TestReceiptLog(t *testing.T) {
 			index,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleUnstake,
 			[][]byte{index, b1},
 			nil,
@@ -64,7 +63,7 @@ func TestReceiptLog(t *testing.T) {
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleWithdrawStake,
 			[][]byte{index, b1},
 			nil,
@@ -72,31 +71,31 @@ func TestReceiptLog(t *testing.T) {
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleChangeCandidate,
-			[][]byte{index, b1},
+			[][]byte{index, b1, b2},
 			cand,
 			voter,
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleTransferStake,
-			[][]byte{index, b1},
+			[][]byte{index, b2, b1},
 			nil,
 			voter,
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleDepositToStake,
-			[][]byte{index, b1},
+			[][]byte{index, b2, b1},
 			nil,
 			voter,
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleRestake,
 			[][]byte{index, b1},
 			nil,
@@ -104,7 +103,7 @@ func TestReceiptLog(t *testing.T) {
 			nil,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleCandidateRegister,
 			[][]byte{index, b1},
 			cand,
@@ -112,13 +111,19 @@ func TestReceiptLog(t *testing.T) {
 			index,
 		},
 		{
-			addrString,
+			addr.String(),
 			HandleCandidateUpdate,
 			[][]byte{index, b1},
 			nil,
 			voter,
 			nil,
 		},
+	}
+
+	postFb := &action.Log{
+		Address:     addr.String(),
+		BlockHeight: 6,
+		ActionHash:  hash.Hash256b([]byte("test-action")),
 	}
 
 	for _, v := range logTests {
@@ -129,7 +134,18 @@ func TestReceiptLog(t *testing.T) {
 		log.SetData(v.data)
 		r.Nil(log.Build(ctx))
 		log.SetSuccess()
-		r.EqualValues(log.Build(ctx), createLog(ctx, v.name, v.cand, v.voter, v.data))
+		r.Equal(createLog(ctx, v.name, v.cand, v.voter, v.data), log.Build(ctx))
+
+		log = newReceiptLog(v.addr, v.name, true)
+		log.AddTopics(v.topics...)
+		log.AddAddress(v.cand)
+		log.AddAddress(v.voter)
+		log.SetData(v.data)
+		postFb.Topics = action.Topics{hash.BytesToHash256([]byte(v.name))}
+		for i := range v.topics {
+			postFb.Topics = append(postFb.Topics, hash.BytesToHash256(v.topics[i]))
+		}
+		r.Equal(postFb, log.Build(ctx))
 	}
 }
 
