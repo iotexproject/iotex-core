@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -178,7 +180,11 @@ func setCandidates(
 				return err
 			}
 		}
-		if err := accountutil.StoreAccount(sm, candidate.Address, delegate); err != nil {
+		candAddr, err := address.FromString(candidate.Address)
+		if err != nil {
+			errors.Wrap(err, "failed to convert candidate address")
+		}
+		if err := accountutil.StoreAccount(sm, candAddr, delegate); err != nil {
 			return errors.Wrap(err, "failed to update pending account changes to trie")
 		}
 		log.L().Debug(

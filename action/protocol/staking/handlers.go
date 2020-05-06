@@ -109,7 +109,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		}
 	}
 	// put updated staker's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), staker); err != nil {
+	if err := accountutil.StoreAccount(csm, actionCtx.Caller, staker); err != nil {
 		return log, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
@@ -225,7 +225,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		}
 	}
 	// put updated withdrawer's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), withdrawer); err != nil {
+	if err := accountutil.StoreAccount(csm, actionCtx.Caller, withdrawer); err != nil {
 		return log, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
@@ -404,7 +404,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		}
 	}
 	// put updated depositor's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller.String(), depositor); err != nil {
+	if err := accountutil.StoreAccount(csm, actionCtx.Caller, depositor); err != nil {
 		return log, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
@@ -554,7 +554,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 	// put updated caller's account state to trie
-	if err := accountutil.StoreAccount(csm, actCtx.Caller.String(), caller); err != nil {
+	if err := accountutil.StoreAccount(csm, actCtx.Caller, caller); err != nil {
 		return log, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
 

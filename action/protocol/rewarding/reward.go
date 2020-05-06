@@ -365,7 +365,7 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 		return err
 	}
 	primAcc.Balance = big.NewInt(0).Add(primAcc.Balance, amount)
-	return accountutil.StoreAccount(sm, addr.String(), primAcc)
+	return accountutil.StoreAccount(sm, addr, primAcc)
 }
 
 func (p *Protocol) updateRewardHistory(sm protocol.StateManager, prefix []byte, index uint64) error {

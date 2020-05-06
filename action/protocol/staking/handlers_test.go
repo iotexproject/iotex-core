@@ -2178,7 +2178,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 		return err
 	}
 	account.Balance = unit.ConvertIotxToRau(balance)
-	return accountutil.StoreAccount(sm, addr.String(), account)
+	return accountutil.StoreAccount(sm, addr, account)
 }
 
 func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) error {
@@ -2189,5 +2189,5 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 		return err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
-	return accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc)
+	return accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
