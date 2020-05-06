@@ -261,12 +261,12 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	}
 
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), rLog.Build(ctx))
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), rLog.Build(ctx, err))
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Info("Non-critical error when processing staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), rLog.Build(ctx))
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), rLog.Build(ctx, err))
 	}
 	return nil, err
 }

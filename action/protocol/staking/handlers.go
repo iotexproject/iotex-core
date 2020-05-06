@@ -70,8 +70,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleCreateStake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -117,7 +116,6 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	log.AddAddress(candidate.Owner)
 	log.AddAddress(actionCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -125,8 +123,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleUnstake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleUnstake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -180,7 +177,6 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -188,8 +184,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -235,7 +230,6 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -243,8 +237,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -305,7 +298,6 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 	log.AddAddress(candidate.Owner)
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -313,8 +305,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleTransferStake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleTransferStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -342,7 +333,6 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -350,8 +340,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleDepositToStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -420,7 +409,6 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -428,8 +416,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleRestake, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleRestake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -492,7 +479,6 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -500,8 +486,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 ) (*receiptLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
@@ -581,7 +566,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(owner)
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
-	log.SetSuccess()
 	return log, nil
 }
 
@@ -589,8 +573,7 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 ) (*receiptLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFairbankMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
-	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, postFairbankMigration)
+	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -621,7 +604,6 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 	}
 
 	log.AddAddress(actCtx.Caller)
-	log.SetSuccess()
 	return log, nil
 }
 

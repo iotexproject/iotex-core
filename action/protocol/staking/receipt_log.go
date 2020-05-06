@@ -21,7 +21,6 @@ type receiptLog struct {
 	topics                action.Topics
 	data                  []byte
 	postFairbankMigration bool
-	success               bool
 }
 
 func newReceiptLog(addr, topic string, postFairbankMigration bool) *receiptLog {
@@ -56,11 +55,7 @@ func (r *receiptLog) SetData(data []byte) {
 	r.data = data
 }
 
-func (r *receiptLog) SetSuccess() {
-	r.success = true
-}
-
-func (r *receiptLog) Build(ctx context.Context) *action.Log {
+func (r *receiptLog) Build(ctx context.Context, err error) *action.Log {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
@@ -75,7 +70,7 @@ func (r *receiptLog) Build(ctx context.Context) *action.Log {
 		return &log
 	}
 
-	if r.success {
+	if err == nil {
 		log.Data = r.data
 		return &log
 	}
