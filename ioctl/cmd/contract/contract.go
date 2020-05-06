@@ -61,6 +61,8 @@ var ContractCmd = &cobra.Command{
 
 func init() {
 	ContractCmd.AddCommand(ContractCompileCmd)
+	ContractCmd.AddCommand(contractDeployCmd)
+	ContractCmd.AddCommand(contractInvokeCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
