@@ -55,6 +55,7 @@ func defaultConfig() Genesis {
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
 			EasterBlockHeight:       4478761,
+			FbkMigrationBlockHeight: 4330441,
 			FairbankBlockHeight:     4339081,
 		},
 		Account: Account{
@@ -161,6 +162,8 @@ type (
 		DaytonaBlockHeight uint64 `yaml:"daytonaBlockHeight"`
 		// EasterBlockHeight is the start height of probation for slashing
 		EasterBlockHeight uint64 `yaml:"easterHeight"`
+		// FbkMigrationBlockHeight is the start height for fairbank migration
+		FbkMigrationBlockHeight uint64 `yaml:"fbkMigrationHeight"`
 		// FairbankBlockHeight is the start height to switch to native staking V2
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
 	}
