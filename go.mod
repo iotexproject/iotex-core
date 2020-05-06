@@ -7,7 +7,6 @@ require (
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-sql-driver/mysql v1.4.1
-	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.2
@@ -20,7 +19,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.17-0.20200424232423-683b3d35aa4b
-	github.com/iotexproject/iotex-proto v0.2.6-0.20200430231351-bb43c1237b9e
+	github.com/iotexproject/iotex-proto v0.2.6-0.20200505190257-e2f09feaf98a
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0

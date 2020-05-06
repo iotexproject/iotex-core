@@ -380,6 +380,7 @@ func TestNativeStaking(t *testing.T) {
 	cfg.Consensus.Scheme = config.NOOPScheme
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.BootstrapCandidates = testInitCands
+	cfg.Genesis.FbkMigrationBlockHeight = 1
 
 	t.Run("test native staking", func(t *testing.T) {
 		testNativeStaking(cfg, t)

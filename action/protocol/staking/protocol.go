@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -67,6 +68,7 @@ type (
 		addr       address.Address
 		depositGas DepositGas
 		config     Configuration
+		hu         config.HeightUpgrade
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -123,6 +125,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+
 	// load view from SR
 	c, err := createCandCenter(sr)
 	if err != nil {
@@ -227,39 +232,41 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
-	var topics action.Topics
-	var err error
+	var (
+		rLog *receiptLog
+		err  error
+	)
 
 	switch act := act.(type) {
 	case *action.CreateStake:
-		topics, err = p.handleCreateStake(ctx, act, csm)
+		rLog, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
-		topics, err = p.handleUnstake(ctx, act, csm)
+		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		topics, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
-		topics, err = p.handleChangeCandidate(ctx, act, csm)
+		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
-		topics, err = p.handleTransferStake(ctx, act, csm)
+		rLog, err = p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		topics, err = p.handleDepositToStake(ctx, act, csm)
+		rLog, err = p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
-		topics, err = p.handleRestake(ctx, act, csm)
+		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		topics, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
-		topics, err = p.handleCandidateUpdate(ctx, act, csm)
+		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
 
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), topics)
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), rLog.Build(ctx, err))
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Info("Non-critical error when processing staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), topics)
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), rLog.Build(ctx, err))
 	}
 	return nil, err
 }
@@ -374,7 +381,7 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	status uint64,
-	topics action.Topics,
+	log *action.Log,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -393,19 +400,15 @@ func (p *Protocol) settleAction(
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller.String(), acc); err != nil {
 		return nil, errors.Wrap(err, "failed to update nonce")
 	}
-	return &action.Receipt{
+	r := action.Receipt{
 		Status:          status,
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
-		Logs: []*action.Log{
-			{
-				Address:     p.addr.String(),
-				Topics:      topics,
-				BlockHeight: blkCtx.BlockHeight,
-				ActionHash:  actionCtx.ActionHash,
-			},
-		},
-	}, nil
+	}
+	if log != nil {
+		r.Logs = []*action.Log{log}
+	}
+	return &r, nil
 }

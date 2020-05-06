@@ -83,7 +83,9 @@ func TestProtocol(t *testing.T) {
 	r.NotNil(stk)
 	r.NoError(err)
 
-	ctx := context.Background()
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	buckets, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
