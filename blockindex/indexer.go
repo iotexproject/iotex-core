@@ -66,6 +66,7 @@ type (
 		genesisHash hash.Hash256
 		kvStore     db.KVStoreWithRange
 		batch       batch.KVStoreBatch
+		cBatch      batch.KVStoreBatch
 		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
 		tac         db.CountingIndex
@@ -84,6 +85,7 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	x := blockIndexer{
 		kvStore:     kvRange,
 		batch:       batch.NewBatch(),
+		cBatch:      batch.NewBatch(),
 		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,
 	}
@@ -172,7 +174,7 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
 		return err
 	}
-	return x.commit()
+	return x.kvStore.WriteBatch(x.batch)
 }
 
 // Height return the blockchain height
@@ -293,14 +295,19 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	if height != x.tbk.Size() {
 		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size())
 	}
+
 	// index hash --> height
 	hash := blk.HashBlock()
 	x.batch.Put(blockHashToHeightNS, hash[hashOffset:], byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
+
 	// index height --> block hash, number of actions, and total transfer amount
 	bd := &blockIndex{
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
+	if err := x.tbk.UseBatch(x.cBatch); err != nil {
+		return err
+	}
 	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
 		return errors.Wrapf(err, "failed to put block %d index", height)
 	}
@@ -308,6 +315,9 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
 	ad := (&actionIndex{
 		blkHeight: blk.Height()}).Serialize()
+	if err := x.tac.UseBatch(x.cBatch); err != nil {
+		return err
+	}
 	// index actions in the block
 	for _, selp := range blk.Actions {
 		actHash := selp.Hash()
@@ -328,7 +338,7 @@ func (x *blockIndexer) commit() error {
 	var commitErr error
 	for k, v := range x.dirtyAddr {
 		if commitErr == nil {
-			if err := v.Commit(); err != nil {
+			if err := v.AddTotalSize(); err != nil {
 				commitErr = err
 			}
 		}
@@ -338,10 +348,13 @@ func (x *blockIndexer) commit() error {
 		return commitErr
 	}
 	// total block and total action index
-	if err := x.tbk.Commit(); err != nil {
+	if err := x.tbk.AddTotalSize(); err != nil {
 		return err
 	}
-	if err := x.tac.Commit(); err != nil {
+	if err := x.tac.AddTotalSize(); err != nil {
+		return err
+	}
+	if err := db.CommitWithFillPercent(x.kvStore, x.cBatch, 1.0); err != nil {
 		return err
 	}
 	return x.kvStore.WriteBatch(x.batch)
@@ -360,6 +373,9 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 		var err error
 		indexer, err = db.NewCountingIndexNX(x.kvStore, addr)
 		if err != nil {
+			return nil, err
+		}
+		if err := indexer.UseBatch(x.cBatch); err != nil {
 			return nil, err
 		}
 		x.dirtyAddr[address] = indexer
