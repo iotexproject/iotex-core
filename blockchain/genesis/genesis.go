@@ -62,7 +62,7 @@ func defaultConfig() Genesis {
 			InitBalanceMap: make(map[string]string),
 		},
 		Poll: Poll{
-			PollMode:                         "governanceMix",
+			PollMode:                         "nativeMix",
 			EnableGravityChainVoting:         true,
 			GravityChainCeilingHeight:        19937937, // TODO: replace with accurate height before Fairbank launch
 			ProbationEpochPeriod:             6,
