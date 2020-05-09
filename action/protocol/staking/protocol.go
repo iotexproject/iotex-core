@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -65,10 +67,12 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr       address.Address
-		depositGas DepositGas
-		config     Configuration
-		hu         config.HeightUpgrade
+		addr                address.Address
+		depositGas          DepositGas
+		config              Configuration
+		hu                  config.HeightUpgrade
+		candidateV2Indexer  *CandidateV2Indexer
+		voteBucketV2Indexer *VoteBucketV2Indexer
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -85,7 +89,7 @@ type (
 )
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candidateV2Indexer *CandidateV2Indexer, voteBucketV2Indexer *VoteBucketV2Indexer) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -119,7 +123,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 			MinStakeAmount:        minStakeAmount,
 			BootstrapCandidates:   cfg.BootstrapCandidates,
 		},
-		depositGas: depositGas,
+		depositGas:          depositGas,
+		candidateV2Indexer:  candidateV2Indexer,
+		voteBucketV2Indexer: voteBucketV2Indexer,
 	}, nil
 }
 
@@ -227,8 +233,50 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
+	receipt, err := p.handle(ctx, act, csm)
+	if err != nil {
+		return nil, err
+	}
+	// add stakingv2 indexer here
+	p.handleIndexerV2(ctx, act, sm)
+	return receipt, nil
+}
 
-	return p.handle(ctx, act, csm)
+func (p *Protocol) handleIndexerV2(ctx context.Context, act action.Action, sm protocol.StateManager) error {
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
+	fmt.Println("handleIndexerV2", epochStartHeight, blkCtx.BlockHeight)
+	if epochStartHeight != blkCtx.BlockHeight {
+		return nil
+	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	// only for after fairbank
+	if hu.IsPre(config.Fairbank, epochStartHeight) {
+		return nil
+	}
+	if p.voteBucketV2Indexer != nil {
+		buckets, err := getAllBucketsV2(sm)
+		if err != nil {
+			return err
+		}
+		err = p.voteBucketV2Indexer.Put(epochStartHeight, buckets)
+		if err != nil {
+			return err
+		}
+	}
+	if p.voteBucketV2Indexer != nil {
+		candidateListV2, err := getAllCandidates(sm)
+		if err != nil {
+			return err
+		}
+		err = p.candidateV2Indexer.Put(epochStartHeight, candidateListV2)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
@@ -334,16 +382,31 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate center")
 	}
-
+	// using offset as height for test
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	var resp proto.Message
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
+		offset := uint64(r.GetBuckets().GetPagination().GetOffset())
+		epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(offset))
+		fmt.Println("ReadStakingDataMethod_BUCKETS", epochStartHeight, offset)
+		if p.hu.IsPost(config.Fairbank, epochStartHeight) && p.voteBucketV2Indexer != nil {
+			fmt.Println("ReadStakingDataMethod_BUCKETS voteBucketV2Indexer", epochStartHeight, offset)
+			return p.voteBucketV2Indexer.Get(epochStartHeight)
+		}
 		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
 		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
+		offset := uint64(r.GetCandidates().GetPagination().GetOffset())
+		epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(offset))
+		fmt.Println("ReadStakingDataMethod_CANDIDATES", epochStartHeight, offset)
+		if p.hu.IsPost(config.Fairbank, epochStartHeight) && p.candidateV2Indexer != nil {
+			fmt.Println("ReadStakingDataMethod_CANDIDATES candidateV2Indexer", epochStartHeight, offset)
+			return p.candidateV2Indexer.Get(epochStartHeight)
+		}
 		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
 		resp, err = readStateCandidateByName(ctx, center, r.GetCandidateByName())

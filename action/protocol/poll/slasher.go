@@ -122,8 +122,6 @@ func (sh *Slasher) ReadState(
 	ctx context.Context,
 	sr protocol.StateReader,
 	indexer *CandidateIndexer,
-	candidateV2Indexer *CandidateV2Indexer,
-	voteBucketV2Indexer *VoteBucketV2Indexer,
 	method []byte,
 	args ...[]byte,
 ) ([]byte, error) {
@@ -140,9 +138,6 @@ func (sh *Slasher) ReadState(
 	}
 	switch string(method) {
 	case "CandidatesByEpoch":
-		if sh.hu.IsPost(config.Fairbank, epochStartHeight) && candidateV2Indexer != nil {
-			return candidateV2Indexer.Get(epochStartHeight)
-		}
 		if indexer != nil {
 			candidates, err := sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
 			if err == nil {
@@ -159,10 +154,6 @@ func (sh *Slasher) ReadState(
 			return nil, err
 		}
 		return candidates.Serialize()
-	case "VoteBucketsByEpoch":
-		if sh.hu.IsPost(config.Fairbank, epochStartHeight) && voteBucketV2Indexer != nil {
-			return voteBucketV2Indexer.Get(epochStartHeight)
-		}
 	case "BlockProducersByEpoch":
 		if indexer != nil {
 			blockProducers, err := sh.GetBPFromIndexer(ctx, epochStartHeight)

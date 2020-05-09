@@ -4,10 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package poll
+package staking
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -20,51 +21,58 @@ import (
 )
 
 var (
-	// CandidateV2Namespace is a namespace to store candidates with epoch start height
-	CandidateV2Namespace = "candidatesV2"
+	// VoteBucketV2Namespace is a namespace to store vote buckets with epoch start height
+	VoteBucketV2Namespace = "votebucketV2"
 )
 
-// CandidateV2Indexer is an indexer to store candidates by given height
-type CandidateV2Indexer struct {
+// VoteBucketV2Indexer is an indexer to store vote buckets by given height
+type VoteBucketV2Indexer struct {
 	mutex   sync.RWMutex
 	kvStore db.KVStore
 }
 
-// NewCandidateV2Indexer creates a new CandidateV2Indexer
-func NewCandidateV2Indexer(kv db.KVStore) (*CandidateV2Indexer, error) {
+// NewVoteBucketV2Indexer creates a new VoteBucketIndexer
+func NewVoteBucketV2Indexer(kv db.KVStore) (*VoteBucketV2Indexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
-	x := CandidateV2Indexer{
+	x := VoteBucketV2Indexer{
 		kvStore: kv,
 	}
 	return &x, nil
 }
 
 // Start starts the indexer
-func (vb *CandidateV2Indexer) Start(ctx context.Context) error {
+func (vb *VoteBucketV2Indexer) Start(ctx context.Context) error {
 	return vb.kvStore.Start(ctx)
 }
 
 // Stop stops the indexer
-func (vb *CandidateV2Indexer) Stop(ctx context.Context) error {
+func (vb *VoteBucketV2Indexer) Stop(ctx context.Context) error {
 	return vb.kvStore.Stop(ctx)
 }
 
 // Put puts vote buckets into indexer
-func (vb *CandidateV2Indexer) Put(height uint64, candidates *iotextypes.CandidateListV2) error {
+func (vb *VoteBucketV2Indexer) Put(height uint64, buckets *iotextypes.VoteBucketList) error {
 	vb.mutex.Lock()
 	defer vb.mutex.Unlock()
-	candidatesBytes, err := proto.Marshal(candidates)
+	bucketsBytes, err := proto.Marshal(buckets)
 	if err != nil {
 		return err
 	}
-	return vb.kvStore.Put(CandidateV2Namespace, byteutil.Uint64ToBytes(height), candidatesBytes)
+	for _, b := range buckets.Buckets {
+		fmt.Println("VoteBucketV2Indexer Put", height, b)
+	}
+	return vb.kvStore.Put(VoteBucketV2Namespace, byteutil.Uint64ToBytes(height), bucketsBytes)
 }
 
 // Get gets vote buckets from indexer given epoch start height
-func (vb *CandidateV2Indexer) Get(height uint64) ([]byte, error) {
+func (vb *VoteBucketV2Indexer) Get(height uint64) ([]byte, error) {
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
-	return vb.kvStore.Get(CandidateV2Namespace, byteutil.Uint64ToBytes(height))
+	ret, err := vb.kvStore.Get(VoteBucketV2Namespace, byteutil.Uint64ToBytes(height))
+	if errors.Cause(err) == db.ErrNotExist {
+		return proto.Marshal(&iotextypes.VoteBucketList{})
+	}
+	return ret, err
 }

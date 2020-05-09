@@ -61,8 +61,8 @@ type ChainService struct {
 	api                *api.Server
 	indexBuilder       *blockindex.IndexBuilder
 	candidateIndexer   *poll.CandidateIndexer
-	candidateV2Indexer *poll.CandidateV2Indexer
-	voteBucketV2Index  *poll.VoteBucketV2Indexer
+	candidateV2Indexer *staking.CandidateV2Indexer
+	voteBucketV2Index  *staking.VoteBucketV2Indexer
 	registry           *protocol.Registry
 }
 
@@ -103,8 +103,8 @@ func New(
 		indexer            blockindex.Indexer
 		systemLogIndex     *systemlog.Indexer
 		candidateIndexer   *poll.CandidateIndexer
-		candidateV2Indexer *poll.CandidateV2Indexer
-		voteBucketV2Index  *poll.VoteBucketV2Indexer
+		candidateV2Indexer *staking.CandidateV2Indexer
+		voteBucketV2Index  *staking.VoteBucketV2Indexer
 		err                error
 		ops                optionParams
 	)
@@ -186,11 +186,13 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		candidateV2Indexer, err = poll.NewCandidateV2Indexer(db.NewBoltDB(cfg.DB))
+		cfg.DB.DbPath = cfg.Chain.CandidateIndexV2DBPath
+		candidateV2Indexer, err = staking.NewCandidateV2Indexer(db.NewBoltDB(cfg.DB))
 		if err != nil {
 			return nil, err
 		}
-		voteBucketV2Index, err = poll.NewVoteBucketV2Indexer(db.NewBoltDB(cfg.DB))
+		cfg.DB.DbPath = cfg.Chain.VoteBucketIndexV2DBPath
+		voteBucketV2Index, err = staking.NewVoteBucketV2Indexer(db.NewBoltDB(cfg.DB))
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +256,7 @@ func New(
 	)
 	// staking protocol need to be put in registry before poll protocol when enabling
 	if cfg.Chain.EnableStakingProtocol {
-		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, cfg.Genesis.Staking)
+		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, cfg.Genesis.Staking, candidateV2Indexer, voteBucketV2Index)
 		if err != nil {
 			return nil, err
 		}
@@ -273,8 +275,6 @@ func New(
 		pollProtocol, err = poll.NewProtocol(
 			cfg,
 			candidateIndexer,
-			candidateV2Indexer,
-			voteBucketV2Index,
 			func(ctx context.Context, contract string, params []byte, correctGas bool) ([]byte, error) {
 				gasLimit := uint64(1000000)
 				if correctGas {

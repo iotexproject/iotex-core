@@ -94,6 +94,10 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
+		candidateIndexV2DBPath := fmt.Sprintf("./candidateV2.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, candidateIndexV2DBPath)
+		voteBucketV2DBPath := fmt.Sprintf("./voteBucketV2.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, voteBucketV2DBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPAdminPort := 9009 + i
@@ -102,6 +106,8 @@ func main() {
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
+		config.Chain.CandidateIndexV2DBPath = candidateIndexV2DBPath
+		config.Chain.VoteBucketIndexV2DBPath = voteBucketV2DBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		config.System.SystemLogDBPath = systemLogDBPath
 		if i == 0 {
@@ -436,7 +442,7 @@ func newConfig(
 	//selfStakingThreshold: "1200000000000000000000000"
 	//stakingContractAddress: 0x87c9dbff0016af23f5b1ab9b8e072124ab729193
 	//voteThreshold: "100000000000000000000"
-	cfg.Genesis.ScoreThreshold = "200000000000000000"
+	//cfg.Genesis.ScoreThreshold = "200000000000000000"
 	cfg.Genesis.FairbankBlockHeight = 10
 	cfg.Genesis.InitBalanceMap = make(map[string]string)
 	for _, a := range addr {
