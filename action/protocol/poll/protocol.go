@@ -119,6 +119,8 @@ func MustGetProtocol(registry *protocol.Registry) Protocol {
 func NewProtocol(
 	cfg config.Config,
 	candidateIndexer *CandidateIndexer,
+	candidateV2Indexer *CandidateV2Indexer,
+	voteBucketV2Indexer *VoteBucketV2Indexer,
 	readContract ReadContract,
 	getCandidates GetCandidates,
 	getprobationList GetProbationList,
@@ -206,7 +208,7 @@ func NewProtocol(
 	case _modeGovernanceMix:
 		return stakingV1, nil
 	case _modeNativeMix, _modeNative:
-		stakingV2, err := newNativeStakingV2(candidateIndexer, slasher, scoreThreshold, stakingProto)
+		stakingV2, err := newNativeStakingV2(candidateIndexer, candidateV2Indexer, voteBucketV2Indexer, slasher, scoreThreshold, stakingProto)
 		if err != nil {
 			return nil, err
 		}

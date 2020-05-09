@@ -286,6 +286,14 @@ func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
 	return buckets, nil
 }
 
+func GetAllBucketsV2(sr protocol.StateReader) (ret *iotextypes.VoteBucketList, err error) {
+	allBuckets, err := getAllBuckets(sr)
+	if err != nil {
+		return
+	}
+	return toIoTeXTypesVoteBucketList(allBuckets)
+}
+
 func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
 	buckets := make([]*VoteBucket, 0, len(indices))
 	for _, i := range indices {
