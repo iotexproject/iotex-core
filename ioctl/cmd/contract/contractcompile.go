@@ -22,10 +22,12 @@ var (
 	binOut string
 )
 
+// TODO: remove source flag and support multi-file compiling
+
 // Multi-language support
 var (
 	contractCompileCmdUses = map[config.Language]string{
-		config.English: "compile CONTRACT_NAME --abi-out ABI_PATH --bin-out BIN_PATH",
+		config.English: "compile CONTRACT_NAME --source CODE_PATH --abi-out ABI_PATH --bin-out BIN_PATH",
 		config.Chinese: "compile 合约名 --abi-out ABI路径 --bin-out BIN路径",
 	}
 	contractCompileCmdShorts = map[config.Language]string{
@@ -57,6 +59,8 @@ var ContractCompileCmd = &cobra.Command{
 func init() {
 	sourceFlag.RegisterCommand(ContractCompileCmd)
 	sourceFlag.MarkFlagRequired(ContractCompileCmd)
+	withArgumentsFlag.RegisterCommand(contractDeploySolCmd)
+	withArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
 	ContractCompileCmd.Flags().StringVar(&abiOut, "abi-out", "",
 		config.TranslateInLang(flagAbiOutUsage, config.UILanguage))
 	ContractCompileCmd.Flags().StringVar(&binOut, "bin-out", "",

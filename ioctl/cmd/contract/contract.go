@@ -8,7 +8,10 @@ package contract
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/spf13/cobra"
 
@@ -23,6 +26,8 @@ const solCompiler = "solc"
 var (
 	sourceFlag = flag.NewStringVar("source", "",
 		config.TranslateInLang(flagSourceUsage, config.UILanguage))
+	withArgumentsFlag = flag.NewStringVar("with-arguments", "",
+		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
 )
 
 // Multi-language support
@@ -47,9 +52,9 @@ var (
 		config.English: "set source code file path",
 		config.Chinese: "设定代码文件路径",
 	}
-	flagVersionUsage = map[config.Language]string{
-		config.English: "set solidity version",
-		config.Chinese: "设定solidity版本",
+	flagWithArgumentsUsage = map[config.Language]string{
+		config.English: "pass arguments",
+		config.Chinese: "传入参数",
 	}
 )
 
@@ -94,4 +99,17 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 		return true
 	}
 	return false
+}
+
+func readAbi(abiFile string) (*abi.ABI, error) {
+	abiByte, err := ioutil.ReadFile(abiFile)
+	if err != nil {
+		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
+	}
+
+	abi, err := abi.JSON(strings.NewReader(string(abiByte)))
+	if err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to unmarshal abi", err)
+	}
+	return &abi, nil
 }
