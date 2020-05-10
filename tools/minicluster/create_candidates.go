@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"time"
 
 	"github.com/iotexproject/iotex-core/tools/util"
@@ -142,7 +143,7 @@ func getAllCandidateNames(chainClient iotexapi.APIServiceClient) ([]string, erro
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("staking"),
 		MethodName: methodName,
-		Arguments:  [][]byte{arg},
+		Arguments:  [][]byte{arg, []byte(strconv.FormatUint(1, 10))},
 	}
 	res, err := chainClient.ReadState(context.Background(), request)
 	if err != nil {

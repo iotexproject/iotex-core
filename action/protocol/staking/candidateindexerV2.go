@@ -8,7 +8,6 @@ package staking
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -60,21 +59,32 @@ func (vb *CandidateV2Indexer) Put(height uint64, candidates *iotextypes.Candidat
 	if err != nil {
 		return err
 	}
-	for _, cand := range candidates.Candidates {
-		fmt.Println("CandidateV2Indexer Put", height, cand)
-	}
-
 	return vb.kvStore.Put(CandidateV2Namespace, byteutil.Uint64ToBytes(height), candidatesBytes)
 }
 
 // Get gets vote buckets from indexer given epoch start height
-func (vb *CandidateV2Indexer) Get(height uint64) ([]byte, error) {
+func (vb *CandidateV2Indexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
-
+	candidateList := &iotextypes.CandidateListV2{}
 	ret, err := vb.kvStore.Get(CandidateV2Namespace, byteutil.Uint64ToBytes(height))
 	if errors.Cause(err) == db.ErrNotExist {
+		return proto.Marshal(candidateList)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := proto.Unmarshal(ret, candidateList); err != nil {
+		return nil, err
+	}
+	length := uint32(len(candidateList.Candidates))
+	if offset >= length {
 		return proto.Marshal(&iotextypes.CandidateListV2{})
 	}
-	return ret, err
+	end := offset + limit
+	if end > uint32(len(candidateList.Candidates)) {
+		end = uint32(len(candidateList.Candidates))
+	}
+	candidateList.Candidates = candidateList.Candidates[offset:end]
+	return proto.Marshal(candidateList)
 }

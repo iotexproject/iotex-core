@@ -8,7 +8,6 @@ package staking
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/gogo/protobuf/proto"
@@ -60,19 +59,32 @@ func (vb *VoteBucketV2Indexer) Put(height uint64, buckets *iotextypes.VoteBucket
 	if err != nil {
 		return err
 	}
-	for _, b := range buckets.Buckets {
-		fmt.Println("VoteBucketV2Indexer Put", height, b)
-	}
 	return vb.kvStore.Put(VoteBucketV2Namespace, byteutil.Uint64ToBytes(height), bucketsBytes)
 }
 
 // Get gets vote buckets from indexer given epoch start height
-func (vb *VoteBucketV2Indexer) Get(height uint64) ([]byte, error) {
+func (vb *VoteBucketV2Indexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
+	buckets := &iotextypes.VoteBucketList{}
 	ret, err := vb.kvStore.Get(VoteBucketV2Namespace, byteutil.Uint64ToBytes(height))
 	if errors.Cause(err) == db.ErrNotExist {
+		return proto.Marshal(buckets)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := proto.Unmarshal(ret, buckets); err != nil {
+		return nil, err
+	}
+	length := uint32(len(buckets.Buckets))
+	if offset >= length {
 		return proto.Marshal(&iotextypes.VoteBucketList{})
 	}
-	return ret, err
+	end := offset + limit
+	if end > uint32(len(buckets.Buckets)) {
+		end = uint32(len(buckets.Buckets))
+	}
+	buckets.Buckets = buckets.Buckets[offset:end]
+	return proto.Marshal(buckets)
 }
