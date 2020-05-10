@@ -67,12 +67,12 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr                address.Address
-		depositGas          DepositGas
-		config              Configuration
-		hu                  config.HeightUpgrade
-		candidateV2Indexer  *CandidateV2Indexer
-		voteBucketV2Indexer *VoteBucketV2Indexer
+		addr                     address.Address
+		depositGas               DepositGas
+		config                   Configuration
+		hu                       config.HeightUpgrade
+		stakingCandidatesIndexer *StakingCandidatesIndexer
+		stakingBucketsIndexer    *StakingBucketsIndexer
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -89,7 +89,7 @@ type (
 )
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candidateV2Indexer *CandidateV2Indexer, voteBucketV2Indexer *VoteBucketV2Indexer) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg genesis.Staking, stakingCandidatesIndexer *StakingCandidatesIndexer, stakingBucketsIndexer *StakingBucketsIndexer) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -123,9 +123,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candidateV2Indexer 
 			MinStakeAmount:        minStakeAmount,
 			BootstrapCandidates:   cfg.BootstrapCandidates,
 		},
-		depositGas:          depositGas,
-		candidateV2Indexer:  candidateV2Indexer,
-		voteBucketV2Indexer: voteBucketV2Indexer,
+		depositGas:               depositGas,
+		stakingCandidatesIndexer: stakingCandidatesIndexer,
+		stakingBucketsIndexer:    stakingBucketsIndexer,
 	}, nil
 }
 
@@ -237,12 +237,16 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	// add stakingv2 indexer here
-	go p.handleIndexerV2(ctx, act, sm)
+
+	if err = p.handleStakingIndexer(ctx, sm, center); err != nil {
+		log.L().Error("error when processing staking indexer", zap.Error(err))
+		return nil, err
+	}
+
 	return receipt, nil
 }
 
-func (p *Protocol) handleIndexerV2(ctx context.Context, act action.Action, sm protocol.StateManager) error {
+func (p *Protocol) handleStakingIndexer(ctx context.Context, sm protocol.StateManager, center CandidateCenter) error {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
@@ -255,22 +259,19 @@ func (p *Protocol) handleIndexerV2(ctx context.Context, act action.Action, sm pr
 	if hu.IsPre(config.Fairbank, epochStartHeight) {
 		return nil
 	}
-	if p.voteBucketV2Indexer != nil {
-		buckets, err := getAllBucketsV2(sm)
+	if p.stakingBucketsIndexer != nil {
+		buckets, err := getStakingBuckets(sm)
 		if err != nil {
 			return err
 		}
-		err = p.voteBucketV2Indexer.Put(epochStartHeight, buckets)
+		err = p.stakingBucketsIndexer.Put(epochStartHeight, buckets)
 		if err != nil {
 			return err
 		}
 	}
-	if p.voteBucketV2Indexer != nil {
-		candidateListV2, err := getAllCandidates(sm)
-		if err != nil {
-			return err
-		}
-		err = p.candidateV2Indexer.Put(epochStartHeight, candidateListV2)
+	if p.stakingCandidatesIndexer != nil {
+		candidateList := toIoTeXTypesCandidateListV2(center.All())
+		err := p.stakingCandidatesIndexer.Put(epochStartHeight, candidateList)
 		if err != nil {
 			return err
 		}
@@ -369,7 +370,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err := proto.Unmarshal(method, &m); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal method name")
 	}
-	if len(args) != 2 {
+	if len(args) < 1 {
 		return nil, errors.Errorf("invalid number of arguments %d", len(args))
 	}
 	r := iotexapi.ReadStakingDataRequest{}
@@ -378,12 +379,16 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	}
 	// get height arg
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochStartHeight := uint64(1)
-	height, err := strconv.ParseUint(string(args[1]), 10, 64)
-	if err != nil {
-		return nil, err
+	var err error
+	height := uint64(0)
+	epochStartHeight := uint64(0)
+	if len(args) == 2 {
+		height, err = strconv.ParseUint(string(args[1]), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(height))
 	}
-	epochStartHeight = rp.GetEpochHeight(rp.GetEpochNum(height))
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate center")
@@ -391,8 +396,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	var resp proto.Message
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		if p.hu.IsPost(config.Fairbank, epochStartHeight) && p.voteBucketV2Indexer != nil {
-			return p.voteBucketV2Indexer.Get(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+		if epochStartHeight != 0 && p.stakingBucketsIndexer != nil {
+			return p.stakingBucketsIndexer.Get(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
 		}
 		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
@@ -400,8 +405,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
 		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		if p.hu.IsPost(config.Fairbank, epochStartHeight) && p.candidateV2Indexer != nil {
-			return p.candidateV2Indexer.Get(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
+		if epochStartHeight != 0 && p.stakingCandidatesIndexer != nil {
+			return p.stakingCandidatesIndexer.Get(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
 		}
 		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:

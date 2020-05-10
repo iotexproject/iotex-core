@@ -20,54 +20,54 @@ import (
 )
 
 var (
-	// CandidateV2Namespace is a namespace to store candidates with epoch start height
-	CandidateV2Namespace = "candidatesV2"
+	// StakingCandidateNamespace is a namespace to store candidates with epoch start height
+	StakingCandidateNamespace = "stakingCandidates"
 )
 
-// CandidateV2Indexer is an indexer to store candidates by given height
-type CandidateV2Indexer struct {
+// StakingCandidatesIndexer is an indexer to store candidates by given height
+type StakingCandidatesIndexer struct {
 	mutex   sync.RWMutex
 	kvStore db.KVStore
 }
 
-// NewCandidateV2Indexer creates a new CandidateV2Indexer
-func NewCandidateV2Indexer(kv db.KVStore) (*CandidateV2Indexer, error) {
+// NewStakingCandidatesIndexer creates a new StakingCandidatesIndexer
+func NewStakingCandidatesIndexer(kv db.KVStore) (*StakingCandidatesIndexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
-	x := CandidateV2Indexer{
+	x := StakingCandidatesIndexer{
 		kvStore: kv,
 	}
 	return &x, nil
 }
 
 // Start starts the indexer
-func (vb *CandidateV2Indexer) Start(ctx context.Context) error {
+func (vb *StakingCandidatesIndexer) Start(ctx context.Context) error {
 	return vb.kvStore.Start(ctx)
 }
 
 // Stop stops the indexer
-func (vb *CandidateV2Indexer) Stop(ctx context.Context) error {
+func (vb *StakingCandidatesIndexer) Stop(ctx context.Context) error {
 	return vb.kvStore.Stop(ctx)
 }
 
 // Put puts vote buckets into indexer
-func (vb *CandidateV2Indexer) Put(height uint64, candidates *iotextypes.CandidateListV2) error {
+func (vb *StakingCandidatesIndexer) Put(height uint64, candidates *iotextypes.CandidateListV2) error {
 	vb.mutex.Lock()
 	defer vb.mutex.Unlock()
 	candidatesBytes, err := proto.Marshal(candidates)
 	if err != nil {
 		return err
 	}
-	return vb.kvStore.Put(CandidateV2Namespace, byteutil.Uint64ToBytes(height), candidatesBytes)
+	return vb.kvStore.Put(StakingCandidateNamespace, byteutil.Uint64ToBytes(height), candidatesBytes)
 }
 
 // Get gets vote buckets from indexer given epoch start height
-func (vb *CandidateV2Indexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
+func (vb *StakingCandidatesIndexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
 	candidateList := &iotextypes.CandidateListV2{}
-	ret, err := vb.kvStore.Get(CandidateV2Namespace, byteutil.Uint64ToBytes(height))
+	ret, err := vb.kvStore.Get(StakingCandidateNamespace, byteutil.Uint64ToBytes(height))
 	if errors.Cause(err) == db.ErrNotExist {
 		return proto.Marshal(candidateList)
 	}

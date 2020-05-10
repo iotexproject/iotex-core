@@ -136,7 +136,7 @@ func getAllBuckets(chainClient iotexapi.APIServiceClient) ([]string, error) {
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("staking"),
 		MethodName: methodName,
-		Arguments:  [][]byte{arg, []byte(strconv.FormatUint(1, 10))},
+		Arguments:  [][]byte{arg, []byte(strconv.FormatUint(10, 10))},
 	}
 	res, err := chainClient.ReadState(context.Background(), request)
 	if err != nil {

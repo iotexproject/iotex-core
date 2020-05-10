@@ -94,10 +94,10 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		candidateIndexV2DBPath := fmt.Sprintf("./candidateV2.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, candidateIndexV2DBPath)
-		voteBucketV2DBPath := fmt.Sprintf("./voteBucketV2.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, voteBucketV2DBPath)
+		stakingCandidatesIndexDBPath := fmt.Sprintf("./stakingCandidates.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, stakingCandidatesIndexDBPath)
+		stakingBucketsIndexDBPath := fmt.Sprintf("./stakingBuckets.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, stakingBucketsIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPAdminPort := 9009 + i
@@ -106,8 +106,8 @@ func main() {
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
-		config.Chain.CandidateIndexV2DBPath = candidateIndexV2DBPath
-		config.Chain.VoteBucketIndexV2DBPath = voteBucketV2DBPath
+		config.Chain.StakingCandidatesIndexDBPath = stakingCandidatesIndexDBPath
+		config.Chain.StakingBucketsIndexDBPath = stakingBucketsIndexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		config.System.SystemLogDBPath = systemLogDBPath
 		if i == 0 {
@@ -267,7 +267,6 @@ func main() {
 		pendingActionMap := new(sync.Map)
 
 		log.L().Info("Start action injections.")
-		time.Sleep(time.Second * 50)
 		injectCandidates(chainAddrs)
 		fmt.Println("-------------------------------------------------")
 		time.Sleep(time.Second * 10)
@@ -438,12 +437,7 @@ func newConfig(
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
-	//scoreThreshold: "2000000000000000000000000"
-	//selfStakingThreshold: "1200000000000000000000000"
-	//stakingContractAddress: 0x87c9dbff0016af23f5b1ab9b8e072124ab729193
-	//voteThreshold: "100000000000000000000"
-	//cfg.Genesis.ScoreThreshold = "200000000000000000"
-	cfg.Genesis.FairbankBlockHeight = 10
+	cfg.Genesis.FairbankBlockHeight = 1
 	cfg.Genesis.InitBalanceMap = make(map[string]string)
 	for _, a := range addr {
 		cfg.Genesis.InitBalanceMap[a.EncodedAddr] = "1000000000000000000000000000000000000000000"

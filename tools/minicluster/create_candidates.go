@@ -25,13 +25,10 @@ import (
 )
 
 const (
-	charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-
+	charset        = "abcdefghijklmnopqrstuvwxyz0123456789"
 	chainEndpoint  = "127.0.0.1:14014"
 	privateKey     = "414efa99dfac6f4095d6954713fb0085268d400d6a05a8ae8a69b5b1c10b4bed"
 	accountAddress = "io1ph0u2psnd7muq5xv9623rmxdsxc4uapxhzpg02"
-
-	existingOperatorAddr = "io1cs32huf9hg92em6vhmyf5qt6a9h02yys46zpe0"
 )
 
 func injectCandidates(addrs []*util.AddressKey) {
@@ -56,11 +53,6 @@ func injectCandidates(addrs []*util.AddressKey) {
 		log.L().Fatal("Failed to derive address from public key", zap.Error(err))
 	}
 	fmt.Println("/////////////////////inject addr:", addr.String())
-
-	//candidateNames, err := getAllCandidateNames(chainClient)
-	//if err != nil {
-	//	log.L().Fatal("Failed to get all candidate names", zap.Error(err))
-	//}
 	time.Sleep(5 * time.Second)
 
 	rand.Seed(time.Now().Unix())
@@ -75,29 +67,13 @@ func injectCandidates(addrs []*util.AddressKey) {
 	candNumber := uint64(1)
 	for startNonce < initNonce+uint64(27) {
 		for nonce := startNonce; nonce < startNonce+count; nonce++ {
-			//private, err := crypto.GenerateKey()
-			//if err != nil {
-			//	log.L().Fatal("Failed to generate new key for a new account", zap.Error(err))
-			//}
-			//addr, err := address.FromBytes(private.PublicKey().Hash())
-			//if err != nil {
-			//	log.L().Fatal("Failed to derive address from public key", zap.Error(err))
-			//}
-
 			fixedAmount := unit.ConvertIotxToRau(3000000).String()
 			b := make([]byte, 6)
 			for i := range b {
 				b[i] = charset[rand.Intn(len(charset))]
 			}
 			candidateName := string(b)
-			//if candNumber == uint64(2) {
-			//	candidateName = candidateNames[rand.Intn(len(candidateNames))]
-			//}
 			operatorAddr := addrs[nonce%27].EncodedAddr
-			//if candNumber == uint64(3) {
-			//	operatorAddr = existingOperatorAddr
-			//}
-
 			cr, err := testutil.SignedCandidateRegister(nonce, candidateName, operatorAddr, addrs[nonce%27].EncodedAddr, addrs[nonce%27].EncodedAddr, fixedAmount, 1, false, nil, 1000000, big.NewInt(unit.Qev), sk)
 			if err != nil {
 				log.L().Fatal("Failed to create create_bucket", zap.Error(err))
@@ -143,7 +119,7 @@ func getAllCandidateNames(chainClient iotexapi.APIServiceClient) ([]string, erro
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("staking"),
 		MethodName: methodName,
-		Arguments:  [][]byte{arg, []byte(strconv.FormatUint(1, 10))},
+		Arguments:  [][]byte{arg, []byte(strconv.FormatUint(10, 10))},
 	}
 	res, err := chainClient.ReadState(context.Background(), request)
 	if err != nil {
