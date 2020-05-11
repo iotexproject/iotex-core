@@ -280,11 +280,16 @@ func TestProtocol_Handle(t *testing.T) {
 	sm.EXPECT().Snapshot().Return(1).AnyTimes()
 	sm.EXPECT().Revert(gomock.Any()).Return(nil).AnyTimes()
 
+	cfg.Genesis.NumSubEpochs = 15
 	rp := rolldpos.NewProtocol(
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
 		cfg.Genesis.NumSubEpochs,
+		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
+	require.Equal(t, cfg.Genesis.FairbankBlockHeight, rp.GetEpochHeight(cfg.Genesis.FoundationBonusP2StartEpoch))
+	require.Equal(t, cfg.Genesis.FoundationBonusP2StartEpoch, rp.GetEpochNum(cfg.Genesis.FairbankBlockHeight))
+	require.Equal(t, cfg.Genesis.FoundationBonusP2EndEpoch, cfg.Genesis.FoundationBonusP2StartEpoch+24*365)
 	require.NoError(t, rp.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(t, pp.Register(registry))

@@ -55,7 +55,7 @@ func defaultConfig() Genesis {
 			DardanellesBlockHeight:  1816201,
 			DaytonaBlockHeight:      3238921,
 			EasterBlockHeight:       4478761,
-			FbkMigrationBlockHeight: 5159881,
+			FbkMigrationBlockHeight: 5157001,
 			FairbankBlockHeight:     5165641,
 		},
 		Account: Account{
@@ -80,8 +80,8 @@ func defaultConfig() Genesis {
 			FoundationBonusStr:             unit.ConvertIotxToRau(80).String(),
 			NumDelegatesForFoundationBonus: 36,
 			FoundationBonusLastEpoch:       8760,
-			FoundationBonusP2StartEpoch:    0, // TODO: replace with fair bank epoch
-			FoundationBonusP2EndEpoch:      0, // TODO: replace with fair bank epoch  + 8760
+			FoundationBonusP2StartEpoch:    9698,
+			FoundationBonusP2EndEpoch:      18458,
 		},
 		Staking: Staking{
 			VoteWeightCalConsts: VoteWeightCalConsts{
