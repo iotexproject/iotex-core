@@ -448,7 +448,8 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	}
 	receipts, err := ws.process(ctx, blk.RunnableActions().Actions())
 	if err != nil {
-		log.L().Panic("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
+		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
+		return err
 	}
 
 	digest, err := ws.digest()
