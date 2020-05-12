@@ -24,35 +24,35 @@ var (
 	StakingBucketsNamespace = "stakingBuckets"
 )
 
-// StakingBucketsIndexer is an indexer to store vote buckets by given height
-type StakingBucketsIndexer struct {
+// BucketsIndexer is an indexer to store vote buckets by given height
+type BucketsIndexer struct {
 	mutex   sync.RWMutex
 	kvStore db.KVStore
 }
 
 // NewStakingBucketsIndexer creates a new StakingBucketsIndexer
-func NewStakingBucketsIndexer(kv db.KVStore) (*StakingBucketsIndexer, error) {
+func NewStakingBucketsIndexer(kv db.KVStore) (*BucketsIndexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
-	x := StakingBucketsIndexer{
+	x := BucketsIndexer{
 		kvStore: kv,
 	}
 	return &x, nil
 }
 
 // Start starts the indexer
-func (vb *StakingBucketsIndexer) Start(ctx context.Context) error {
+func (vb *BucketsIndexer) Start(ctx context.Context) error {
 	return vb.kvStore.Start(ctx)
 }
 
 // Stop stops the indexer
-func (vb *StakingBucketsIndexer) Stop(ctx context.Context) error {
+func (vb *BucketsIndexer) Stop(ctx context.Context) error {
 	return vb.kvStore.Stop(ctx)
 }
 
 // Put puts vote buckets into indexer
-func (vb *StakingBucketsIndexer) Put(height uint64, buckets *iotextypes.VoteBucketList) error {
+func (vb *BucketsIndexer) Put(height uint64, buckets *iotextypes.VoteBucketList) error {
 	vb.mutex.Lock()
 	defer vb.mutex.Unlock()
 	bucketsBytes, err := proto.Marshal(buckets)
@@ -63,7 +63,7 @@ func (vb *StakingBucketsIndexer) Put(height uint64, buckets *iotextypes.VoteBuck
 }
 
 // Get gets vote buckets from indexer given epoch start height
-func (vb *StakingBucketsIndexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
+func (vb *BucketsIndexer) Get(height uint64, offset, limit uint32) ([]byte, error) {
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
 	buckets := &iotextypes.VoteBucketList{}

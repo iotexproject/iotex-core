@@ -61,8 +61,8 @@ type ChainService struct {
 	api                      *api.Server
 	indexBuilder             *blockindex.IndexBuilder
 	candidateIndexer         *poll.CandidateIndexer
-	stakingCandidatesIndexer *staking.StakingCandidatesIndexer
-	stakingBucketsIndexer    *staking.StakingBucketsIndexer
+	stakingCandidatesIndexer *staking.CandidatesIndexer
+	stakingBucketsIndexer    *staking.BucketsIndexer
 	registry                 *protocol.Registry
 }
 
@@ -103,8 +103,8 @@ func New(
 		indexer                  blockindex.Indexer
 		systemLogIndex           *systemlog.Indexer
 		candidateIndexer         *poll.CandidateIndexer
-		stakingCandidatesIndexer *staking.StakingCandidatesIndexer
-		stakingBucketsIndexer    *staking.StakingBucketsIndexer
+		stakingCandidatesIndexer *staking.CandidatesIndexer
+		stakingBucketsIndexer    *staking.BucketsIndexer
 		err                      error
 		ops                      optionParams
 	)
