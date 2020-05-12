@@ -16,7 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote/epochmetapb"
 )
 
-// EpochMeta is a struct to store current epoch metadata in order to calculate current epoch's block productivity  
+// EpochMeta is a struct to store current epoch metadata in order to calculate current epoch's block productivity
 type EpochMeta struct {
 	EpochNumber uint64
 	BlockMetas  []*BlockMeta
@@ -30,7 +30,7 @@ func NewEpochMeta(epochNumber uint64) *EpochMeta {
 	}
 }
 
-// AddBlockMeta adds new blockmeta into epochmeta  
+// AddBlockMeta adds new blockmeta into epochmeta
 func (em *EpochMeta) AddBlockMeta(height uint64, producer string, mintTime time.Time) {
 	elem := &BlockMeta{
 		Height:   height,
@@ -92,7 +92,7 @@ func (em *EpochMeta) LoadProto(epochMetapb *epochmetapb.EpochMeta) error {
 	return nil
 }
 
-// BlockMeta is a struct to store block metadata 
+// BlockMeta is a struct to store block metadata
 type BlockMeta struct {
 	Height   uint64
 	Producer string
