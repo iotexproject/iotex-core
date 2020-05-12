@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -71,10 +72,18 @@ func TestCountingIndex(t *testing.T) {
 		index, err = GetCountingIndex(kv, bucket)
 		require.NoError(err)
 		// write another 100 entries
-		for i := 200; i < 300; i++ {
+		for i := 200; i < 250; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
 			require.NoError(index.Add(h[:], false))
 		}
+		require.EqualValues(250, index.Size())
+		// use external batch
+		require.NoError(index.UseBatch(batch.NewBatch()))
+		for i := 250; i < 300; i++ {
+			h := hash.Hash160b([]byte(strconv.Itoa(i)))
+			require.NoError(index.Add(h[:], true))
+		}
+		require.NoError(index.Commit())
 		require.EqualValues(300, index.Size())
 
 		_, err = index.Range(248, 0)

@@ -41,6 +41,10 @@ type (
 		Close()
 		// Commit commits the batch
 		Commit() error
+		// UseBatch
+		UseBatch(batch.KVStoreBatch) error
+		// AddTotalSize
+		AddTotalSize() error
 	}
 
 	// countingIndex is CountingIndex implementation based on KVStore
@@ -117,7 +121,7 @@ func (c *countingIndex) Add(value []byte, inBatch bool) error {
 	b := batch.NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
-	if err := c.commit(b); err != nil {
+	if err := CommitWithFillPercent(c.kvStore, b, 1.0); err != nil {
 		return err
 	}
 	c.size++
@@ -164,7 +168,7 @@ func (c *countingIndex) Revert(count uint64) error {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
 	}
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
-	if err := c.commit(b); err != nil {
+	if err := CommitWithFillPercent(c.kvStore, b, 1.0); err != nil {
 		return err
 	}
 	c.size = start
@@ -184,18 +188,28 @@ func (c *countingIndex) Commit() error {
 		return nil
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
-	if err := c.commit(c.batch); err != nil {
+	if err := CommitWithFillPercent(c.kvStore, c.batch, 1.0); err != nil {
 		return err
 	}
 	c.batch = nil
 	return nil
 }
 
-func (c *countingIndex) commit(b batch.KVStoreBatch) error {
-	if kvFillPercent, ok := c.kvStore.(KVStoreWithBucketFillPercent); ok {
-		// set an aggressive fill percent
-		// b/c counting index only appends, further inserts to the bucket would never split the page
-		return kvFillPercent.WriteBatchWithFillPercent(b, 1.0)
+// UseBatch sets a (usually common) batch for the counting index to use
+func (c *countingIndex) UseBatch(b batch.KVStoreBatch) error {
+	if b == nil {
+		return ErrInvalid
 	}
-	return c.kvStore.WriteBatch(b)
+	c.batch = b
+	return nil
+}
+
+// AddTotalSize updates the total size before committing the (usually common) batch
+func (c *countingIndex) AddTotalSize() error {
+	if c.batch == nil {
+		return ErrInvalid
+	}
+	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	c.batch = nil
+	return nil
 }
