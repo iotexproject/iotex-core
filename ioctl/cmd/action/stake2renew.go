@@ -21,14 +21,14 @@ import (
 var (
 	stake2RenewCmdUses = map[config.Language]string{
 		config.English: "renew BUCKET_INDEX STAKE_DURATION [DATA] [--auto-restake]" +
-			"[-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "renew 桶索引 权益持续时间 [数据] [--auto-restake]" +
-			"[-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "renew 票索引 投票持续时间 [数据] [--auto-restake]" +
+			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2RenewCmdShorts = map[config.Language]string{
-		config.English: "renew bucket on IoTeX blockchain",
-		config.Chinese: "更新IoTeX区块链上的存储桶",
+		config.English: "Renew bucket on IoTeX blockchain",
+		config.Chinese: "更新IoTeX区块链上的投票",
 	}
 
 	stake2RenewFlagAutoRestakeUsages = map[config.Language]string{
@@ -38,7 +38,8 @@ var (
 )
 
 // stake2RenewCmd represents the stake2 renew command
-var stake2RenewCmd = &cobra.Command{Use: config.TranslateInLang(stake2RenewCmdUses, config.UILanguage),
+var stake2RenewCmd = &cobra.Command{
+	Use:   config.TranslateInLang(stake2RenewCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2RenewCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,7 +50,8 @@ var stake2RenewCmd = &cobra.Command{Use: config.TranslateInLang(stake2RenewCmdUs
 
 func init() {
 	registerWriteCommand(stake2RenewCmd)
-	stake2RenewCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false, config.TranslateInLang(stake2RenewFlagAutoRestakeUsages, config.UILanguage))
+	stake2RenewCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
+		config.TranslateInLang(stake2RenewFlagAutoRestakeUsages, config.UILanguage))
 }
 
 func stake2Renew(args []string) error {

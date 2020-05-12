@@ -20,21 +20,21 @@ import (
 // Multi-language support
 var (
 	stake2ReleaseCmdUses = map[config.Language]string{
-		config.English: "release BUCKET_INDEX [DATA] " +
+		config.English: "release BUCKET_INDEX [DATA]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "release 桶索引 [数据] " +
+		config.Chinese: "release 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	stake2ReleaseCmdShorts = map[config.Language]string{
 		config.English: "Release bucket on IoTeX blockchain",
-		config.Chinese: "释放IoTeX区块链上的存储桶",
+		config.Chinese: "撤回IoTeX区块链上的投票",
 	}
 )
 
 // stake2ReleaseCmd represents the stake2 release command
 var stake2ReleaseCmd = &cobra.Command{
-	Use:   config.TranslateInLang(releaseCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(releaseCmdShorts, config.UILanguage),
+	Use:   config.TranslateInLang(stake2ReleaseCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(stake2ReleaseCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

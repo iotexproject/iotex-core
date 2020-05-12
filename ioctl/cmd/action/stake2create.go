@@ -21,13 +21,15 @@ import (
 // Multi-language support
 var (
 	stake2CreateCmdUses = map[config.Language]string{
-		config.English: "create AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-restake]",
-		config.Chinese: "create IOTX数量 候选人姓名 权益持续时间 [数据] [--auto-restake]",
+		config.English: "create AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-restake" +
+			"] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASP_RICE] [-P PASSWORD] [-y]",
+		config.Chinese: "create IOTX数量 候选人名字 投票持续时间 [数据] [--auto-restake" +
+			"] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2CreateCmdShorts = map[config.Language]string{
-		config.English: "create stake on IoTeX blockchain",
-		config.Chinese: "在区块链上创建质押",
+		config.English: "Create bucket on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上创建投票",
 	}
 	stake2CreateFlagAutoRestakeUsages = map[config.Language]string{
 		config.English: "auto restake without power decay",
@@ -36,7 +38,8 @@ var (
 )
 
 // stake2CreateCmd represents the stake2 create command
-var stake2CreateCmd = &cobra.Command{Use: config.TranslateInLang(stake2CreateCmdUses, config.UILanguage),
+var stake2CreateCmd = &cobra.Command{
+	Use:   config.TranslateInLang(stake2CreateCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2CreateCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
