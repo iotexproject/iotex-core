@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/action/protocol/staking"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -240,6 +241,11 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 	if len(receipt.ContractAddress) != 0 {
 		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
+	}
+	if len(receipt.Logs) > 0 {
+		if index, ok := staking.BucketIndexFromReceiptLog(receipt.Logs[0]); ok {
+			result += fmt.Sprintf("\nbucket index: %d", index)
+		}
 	}
 	return result
 }

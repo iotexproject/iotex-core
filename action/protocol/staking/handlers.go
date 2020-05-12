@@ -720,3 +720,20 @@ func csmErrorToHandleError(caller string, err error) error {
 		return err
 	}
 }
+
+// BucketIndexFromReceiptLog extracts bucket index from log
+func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
+	if log == nil || len(log.Topics) < 2 {
+		return 0, false
+	}
+
+	switch hash.BytesToHash256(log.Topics[0]) {
+	case hash.BytesToHash256([]byte(HandleCreateStake)), hash.BytesToHash256([]byte(HandleUnstake)),
+		hash.BytesToHash256([]byte(HandleWithdrawStake)), hash.BytesToHash256([]byte(HandleChangeCandidate)),
+		hash.BytesToHash256([]byte(HandleTransferStake)), hash.BytesToHash256([]byte(HandleDepositToStake)),
+		hash.BytesToHash256([]byte(HandleRestake)), hash.BytesToHash256([]byte(HandleCandidateRegister)):
+		return byteutil.BytesToUint64BigEndian(log.Topics[1][24:]), true
+	default:
+		return 0, false
+	}
+}

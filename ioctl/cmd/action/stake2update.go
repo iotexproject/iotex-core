@@ -21,12 +21,12 @@ var (
 	stake2UpdateCmdUses = map[config.Language]string{
 		config.English: "update NAME (ALIAS|OPERATOR_ADDRESS) (ALIAS|REWARD_ADDRESS)" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "update 姓名 (别名|操作者地址) (别名|奖励地址)" +
+		config.Chinese: "update 名字 (别名|操作者地址) (别名|奖励地址)" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	stake2UpdateCmdShorts = map[config.Language]string{
-		config.English: "Update IOTX to bucket on IoTeX blockchain",
-		config.Chinese: "将IOTX添加到IoTeX区块链上的存储桶中",
+		config.English: "Update candidate on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上更新候选人",
 	}
 )
 
