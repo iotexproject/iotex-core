@@ -103,18 +103,18 @@ var (
 			PrivateNetworkPSK: "",
 		},
 		Chain: Chain{
-			ChainDBPath:                    "/var/data/chain.db",
-			TrieDBPath:                     "/var/data/trie.db",
-			IndexDBPath:                    "/var/data/index.db",
-			CandidateIndexDBPath:           "/var/data/candidate.index.db",
+			ChainDBPath:                  "/var/data/chain.db",
+			TrieDBPath:                   "/var/data/trie.db",
+			IndexDBPath:                  "/var/data/index.db",
+			CandidateIndexDBPath:         "/var/data/candidate.index.db",
 			StakingCandidatesIndexDBPath: "/var/data/stakingCandidates.index.db",
 			StakingBucketsIndexDBPath:    "/var/data/stakingBuckets.index.db",
-			ID:                             1,
-			Address:                        "",
-			ProducerPrivKey:                generateRandomKey(SigP256k1),
-			SignatureScheme:                []string{SigP256k1},
-			EmptyGenesis:                   false,
-			GravityChainDB:                 DB{DbPath: "/var/data/poll.db", NumRetries: 10},
+			ID:                           1,
+			Address:                      "",
+			ProducerPrivKey:              generateRandomKey(SigP256k1),
+			SignatureScheme:              []string{SigP256k1},
+			EmptyGenesis:                 false,
+			GravityChainDB:               DB{DbPath: "/var/data/poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -228,19 +228,19 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath                    string           `yaml:"chainDBPath"`
-		TrieDBPath                     string           `yaml:"trieDBPath"`
-		IndexDBPath                    string           `yaml:"indexDBPath"`
-		CandidateIndexDBPath           string           `yaml:"candidateIndexDBPath"`
+		ChainDBPath                  string           `yaml:"chainDBPath"`
+		TrieDBPath                   string           `yaml:"trieDBPath"`
+		IndexDBPath                  string           `yaml:"indexDBPath"`
+		CandidateIndexDBPath         string           `yaml:"candidateIndexDBPath"`
 		StakingCandidatesIndexDBPath string           `yaml:"stakingCandidatesIndexDBPath"`
 		StakingBucketsIndexDBPath    string           `yaml:"stakingBucketsIndexDBPath"`
-		ID                             uint32           `yaml:"id"`
-		Address                        string           `yaml:"address"`
-		ProducerPrivKey                string           `yaml:"producerPrivKey"`
-		SignatureScheme                []string         `yaml:"signatureScheme"`
-		EmptyGenesis                   bool             `yaml:"emptyGenesis"`
-		GravityChainDB                 DB               `yaml:"gravityChainDB"`
-		Committee                      committee.Config `yaml:"committee"`
+		ID                           uint32           `yaml:"id"`
+		Address                      string           `yaml:"address"`
+		ProducerPrivKey              string           `yaml:"producerPrivKey"`
+		SignatureScheme              []string         `yaml:"signatureScheme"`
+		EmptyGenesis                 bool             `yaml:"emptyGenesis"`
+		GravityChainDB               DB               `yaml:"gravityChainDB"`
+		Committee                    committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
