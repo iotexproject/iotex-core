@@ -380,10 +380,9 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	// get height arg
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	var err error
-	height := uint64(0)
-	epochStartHeight := uint64(0)
+	var epochStartHeight uint64
 	if len(args) == 2 {
-		height, err = strconv.ParseUint(string(args[1]), 10, 64)
+		height, err := strconv.ParseUint(string(args[1]), 10, 64)
 		if err != nil {
 			return nil, err
 		}

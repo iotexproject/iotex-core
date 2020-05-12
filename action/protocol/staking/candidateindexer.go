@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	// StakingCandidateNamespace is a namespace to store candidates with epoch start height
-	StakingCandidateNamespace = "stakingCandidates"
+	// StakingCandidatesNamespace is a namespace to store candidates with epoch start height
+	StakingCandidatesNamespace = "stakingCandidates"
 )
 
 // StakingCandidatesIndexer is an indexer to store candidates by given height
@@ -59,7 +59,7 @@ func (vb *StakingCandidatesIndexer) Put(height uint64, candidates *iotextypes.Ca
 	if err != nil {
 		return err
 	}
-	return vb.kvStore.Put(StakingCandidateNamespace, byteutil.Uint64ToBytes(height), candidatesBytes)
+	return vb.kvStore.Put(StakingCandidatesNamespace, byteutil.Uint64ToBytes(height), candidatesBytes)
 }
 
 // Get gets vote buckets from indexer given epoch start height
@@ -67,7 +67,7 @@ func (vb *StakingCandidatesIndexer) Get(height uint64, offset, limit uint32) ([]
 	vb.mutex.RLock()
 	defer vb.mutex.RUnlock()
 	candidateList := &iotextypes.CandidateListV2{}
-	ret, err := vb.kvStore.Get(StakingCandidateNamespace, byteutil.Uint64ToBytes(height))
+	ret, err := vb.kvStore.Get(StakingCandidatesNamespace, byteutil.Uint64ToBytes(height))
 	if errors.Cause(err) == db.ErrNotExist {
 		return proto.Marshal(candidateList)
 	}

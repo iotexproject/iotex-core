@@ -56,7 +56,7 @@ func main() {
 	// switch of fp token smart contract test. Default is false
 	var testFpToken bool
 
-	flag.IntVar(&timeout, "timeout", 10000000, "duration of running nightly build")
+	flag.IntVar(&timeout, "timeout", 100, "duration of running nightly build")
 	flag.Float64Var(&aps, "aps", 1, "actions to be injected per second")
 	flag.StringVar(&deployExecData, "deploy-data", "608060405234801561001057600080fd5b506102f5806100206000396000f3006080604052600436106100615763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632885ad2c8114610066578063797d9fbd14610070578063cd5e3c5d14610091578063d0e30db0146100b8575b600080fd5b61006e6100c0565b005b61006e73ffffffffffffffffffffffffffffffffffffffff600435166100cb565b34801561009d57600080fd5b506100a6610159565b60408051918252519081900360200190f35b61006e610229565b6100c9336100cb565b565b60006100d5610159565b6040805182815290519192507fbae72e55df73720e0f671f4d20a331df0c0dc31092fda6c573f35ff7f37f283e919081900360200190a160405173ffffffffffffffffffffffffffffffffffffffff8316906305f5e100830280156108fc02916000818181858888f19350505050158015610154573d6000803e3d6000fd5b505050565b604080514460208083019190915260001943014082840152825180830384018152606090920192839052815160009360059361021a9360029391929182918401908083835b602083106101bd5780518252601f19909201916020918201910161019e565b51815160209384036101000a600019018019909216911617905260405191909301945091925050808303816000865af11580156101fe573d6000803e3d6000fd5b5050506040513d602081101561021357600080fd5b5051610261565b81151561022357fe5b06905090565b60408051348152905133917fe1fffcc4923d04b559f4d29a8bfc6cda04eb5b0d3c460751c2402c5c5cc9109c919081900360200190a2565b600080805b60208110156102c25780600101602060ff160360080260020a848260208110151561028d57fe5b7f010000000000000000000000000000000000000000000000000000000000000091901a810204029190910190600101610266565b50929150505600a165627a7a72305820a426929891673b0a04d7163b60113d28e7d0f48ea667680ba48126c182b872c10029",
 		"smart contract deployment data")
@@ -94,20 +94,14 @@ func main() {
 		dbFilePaths = append(dbFilePaths, systemLogDBPath)
 		candidateIndexDBPath := fmt.Sprintf("./candidate.index%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, candidateIndexDBPath)
-		stakingCandidatesIndexDBPath := fmt.Sprintf("./stakingCandidates.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, stakingCandidatesIndexDBPath)
-		stakingBucketsIndexDBPath := fmt.Sprintf("./stakingBuckets.index%d.db", i+1)
-		dbFilePaths = append(dbFilePaths, stakingBucketsIndexDBPath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPAdminPort := 9009 + i
-		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort, chainAddrs)
+		config := newConfig(chainAddrs[i].PriKey, networkPort, apiPort, HTTPAdminPort)
 		config.Chain.ChainDBPath = chainDBPath
 		config.Chain.TrieDBPath = trieDBPath
 		config.Chain.IndexDBPath = indexDBPath
 		config.Chain.CandidateIndexDBPath = candidateIndexDBPath
-		config.Chain.StakingCandidatesIndexDBPath = stakingCandidatesIndexDBPath
-		config.Chain.StakingBucketsIndexDBPath = stakingBucketsIndexDBPath
 		config.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		config.System.SystemLogDBPath = systemLogDBPath
 		if i == 0 {
@@ -267,10 +261,7 @@ func main() {
 		pendingActionMap := new(sync.Map)
 
 		log.L().Info("Start action injections.")
-		injectCandidates(chainAddrs)
-		fmt.Println("-------------------------------------------------")
-		time.Sleep(time.Second * 10)
-		injectBuckets()
+
 		wg := &sync.WaitGroup{}
 		util.InjectByAps(wg, aps, counter, transferGasLimit, transferGasPrice, transferPayload, voteGasLimit,
 			voteGasPrice, contract, executionAmount, executionGasLimit, executionGasPrice, interactExecData, fpToken,
@@ -393,7 +384,6 @@ func main() {
 		}
 		deleteDBFiles = true
 	}
-
 }
 
 func newConfig(
@@ -401,7 +391,6 @@ func newConfig(
 	networkPort,
 	apiPort int,
 	HTTPAdminPort int,
-	addr []*util.AddressKey,
 ) config.Config {
 	cfg := config.Default
 
@@ -437,10 +426,5 @@ func newConfig(
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.PollMode = "lifeLong"
-	cfg.Genesis.FairbankBlockHeight = 1
-	cfg.Genesis.InitBalanceMap = make(map[string]string)
-	for _, a := range addr {
-		cfg.Genesis.InitBalanceMap[a.EncodedAddr] = "1000000000000000000000000000000000000000000"
-	}
 	return cfg
 }

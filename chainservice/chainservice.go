@@ -427,12 +427,12 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	}
 	if cs.stakingCandidatesIndexer != nil {
 		if err := cs.stakingCandidatesIndexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting candidateV2 indexer")
+			return errors.Wrap(err, "error when starting staking candidates indexer")
 		}
 	}
 	if cs.stakingBucketsIndexer != nil {
 		if err := cs.stakingBucketsIndexer.Start(ctx); err != nil {
-			return errors.Wrap(err, "error when starting vote bucketV2 indexer")
+			return errors.Wrap(err, "error when starting staking buckets indexer")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
@@ -491,12 +491,12 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	}
 	if cs.stakingCandidatesIndexer != nil {
 		if err := cs.stakingCandidatesIndexer.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping candidate indexer")
+			return errors.Wrap(err, "error when stopping staking candidates indexer")
 		}
 	}
 	if cs.stakingBucketsIndexer != nil {
 		if err := cs.stakingBucketsIndexer.Stop(ctx); err != nil {
-			return errors.Wrap(err, "error when stopping vote bucketV2 indexer")
+			return errors.Wrap(err, "error when stopping staking buckets indexer")
 		}
 	}
 	if cs.electionCommittee != nil {
