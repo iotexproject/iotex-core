@@ -93,7 +93,7 @@ func defaultConfig() Genesis {
 				Fee:          unit.ConvertIotxToRau(100).String(),
 				MinSelfStake: unit.ConvertIotxToRau(1200000).String(),
 			},
-			WithdrawWaitingPeriod: 14 * 24 * time.Hour,
+			WithdrawWaitingPeriod: 3 * 24 * time.Hour,
 			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
 		},
