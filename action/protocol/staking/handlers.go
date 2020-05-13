@@ -34,8 +34,9 @@ const (
 	HandleRestake           = "restake"
 	HandleCandidateRegister = "candidateRegister"
 	HandleCandidateUpdate   = "candidateUpdate"
-	_withdrawWaitingTime    = 14 * 24 * time.Hour
 )
+
+const _withdrawWaitingTime = 14 * 24 * time.Hour // to maintain backward compatibility with r0.11 code
 
 // Errors and vars
 var (
