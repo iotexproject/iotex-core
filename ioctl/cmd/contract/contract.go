@@ -60,6 +60,7 @@ var ContractCmd = &cobra.Command{
 }
 
 func init() {
+	ContractCmd.AddCommand(ContractPrepareCmd)
 	ContractCmd.AddCommand(ContractCompileCmd)
 	ContractCmd.AddCommand(contractDeployCmd)
 	ContractCmd.AddCommand(contractInvokeCmd)
