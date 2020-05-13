@@ -22,13 +22,13 @@ import (
 var (
 	stake2ChangeCmdUses = map[config.Language]string{
 		config.English: "change CANDIDATE_NAME BUCKET_INDEX [DATA]" +
-			"[-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "change 候选人姓名 桶索引 [数据]" +
+			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "change 候选人名字 票索引 [数据]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 	stake2ChangeCmdShorts = map[config.Language]string{
 		config.English: "Change stake candidate",
-		config.Chinese: "改变质押候选人",
+		config.Chinese: "在IoTeX区块链上改变投票候选人",
 	}
 )
 
