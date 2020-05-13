@@ -14,8 +14,6 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/iotexproject/iotex-core/ioctl/util"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/spf13/cobra"
@@ -23,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 const solCompiler = "solc"

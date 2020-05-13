@@ -44,3 +44,5 @@ func TestParseArguments(t *testing.T) {
 	fmt.Printf(hex.EncodeToString(bytecode))
 	r.True(bytes.Equal(expect, bytecode))
 }
+
+// TODO: more tests later
