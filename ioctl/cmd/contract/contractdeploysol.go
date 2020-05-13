@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -42,6 +43,10 @@ var contractDeploySolCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	withArgumentsFlag.RegisterCommand(contractDeploySolCmd)
+}
+
 func contractDeploySol(args []string) error {
 	codePath := args[0]
 	contractName := args[1]
@@ -60,7 +65,25 @@ func contractDeploySol(args []string) error {
 		return output.NewError(output.ConvertError, "failed to decode bytecode", err)
 	}
 
-	// TODO: handle inputs
+	if withArgumentsFlag.Value().(string) != "" {
+		abiByte, err := json.Marshal(contract.Info.AbiDefinition)
+		if err != nil {
+			return output.NewError(output.SerializationError, "failed to marshal abi", err)
+		}
+
+		abi, err := parseAbi(abiByte)
+		if err != nil {
+			return err
+		}
+
+		// Constructor's method name is "" (empty string)
+		packedArg, err := packArguments(abi, "", withArgumentsFlag.Value().(string))
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		}
+
+		bytecode = append(bytecode, packedArg...)
+	}
 
 	amount := big.NewInt(0)
 	return action.Execute("", amount, bytecode)

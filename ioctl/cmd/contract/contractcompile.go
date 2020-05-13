@@ -59,13 +59,13 @@ var ContractCompileCmd = &cobra.Command{
 func init() {
 	sourceFlag.RegisterCommand(ContractCompileCmd)
 	sourceFlag.MarkFlagRequired(ContractCompileCmd)
-	withArgumentsFlag.RegisterCommand(contractDeploySolCmd)
-	withArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
+
 	ContractCompileCmd.Flags().StringVar(&abiOut, "abi-out", "",
 		config.TranslateInLang(flagAbiOutUsage, config.UILanguage))
+	ContractCompileCmd.MarkFlagRequired("abi-out")
+
 	ContractCompileCmd.Flags().StringVar(&binOut, "bin-out", "",
 		config.TranslateInLang(flagBinOutUsage, config.UILanguage))
-	ContractCompileCmd.MarkFlagRequired("abi-out")
 	ContractCompileCmd.MarkFlagRequired("bin-out")
 }
 

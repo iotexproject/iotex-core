@@ -7,9 +7,14 @@
 package contract
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"reflect"
 	"strings"
+
+	"github.com/iotexproject/iotex-core/ioctl/util"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -21,6 +26,9 @@ import (
 )
 
 const solCompiler = "solc"
+
+// ErrInvalidArg indicates argument is invalid
+var ErrInvalidArg = errors.New("invalid argument")
 
 // Flags
 var (
@@ -53,8 +61,8 @@ var (
 		config.Chinese: "设定代码文件路径",
 	}
 	flagWithArgumentsUsage = map[config.Language]string{
-		config.English: "pass arguments",
-		config.Chinese: "传入参数",
+		config.English: "pass arguments in JSON format",
+		config.Chinese: "按照JSON格式传入参数",
 	}
 )
 
@@ -101,15 +109,90 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 	return false
 }
 
-func readAbi(abiFile string) (*abi.ABI, error) {
-	abiByte, err := ioutil.ReadFile(abiFile)
+func readAbiFile(abiFile string) (*abi.ABI, error) {
+	abiBytes, err := ioutil.ReadFile(abiFile)
 	if err != nil {
 		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
 	}
 
-	abi, err := abi.JSON(strings.NewReader(string(abiByte)))
+	return parseAbi(abiBytes)
+}
+
+func parseAbi(abiBytes []byte) (*abi.ABI, error) {
+	parsedAbi, err := abi.JSON(strings.NewReader(string(abiBytes)))
 	if err != nil {
 		return nil, output.NewError(output.SerializationError, "failed to unmarshal abi", err)
 	}
-	return &abi, nil
+	return &parsedAbi, nil
+}
+
+func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]byte, error) {
+	rowArguments, err := parseInput(rowInput)
+	if err != nil {
+		return nil, err
+	}
+
+	method, ok := targetAbi.Methods[targetMethod]
+	if !ok {
+		return nil, output.NewError(output.InputError, "invalid method name", nil)
+	}
+
+	arguments := make([]interface{}, 0, len(method.Inputs))
+	for _, param := range method.Inputs {
+		rowArg, ok := rowArguments[param.Name]
+		if !ok {
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
+		}
+		arg, err := parseArgument(&param.Type, rowArg)
+		if err != nil {
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
+		}
+		arguments = append(arguments, arg)
+	}
+	fmt.Println(reflect.ValueOf(arguments[0]).Type(), reflect.ValueOf(arguments[0]).Kind())
+	return targetAbi.Pack(targetMethod, arguments...)
+}
+
+func parseInput(rowInput string) (map[string]interface{}, error) {
+	var input map[string]interface{}
+	if err := json.Unmarshal([]byte(rowInput), &input); err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to unmarshal arguments", err)
+	}
+	return input, nil
+}
+
+func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
+	fmt.Println(t.Type, t.Kind, t.Elem, t.Size, t.T)
+	// TODO: more type handler needed
+	switch t.T {
+	case abi.SliceTy, abi.ArrayTy:
+		// TODO: this slice solution cannot be accepted by ether's abi.Pack
+		if reflect.TypeOf(arg).Kind() != reflect.Slice {
+			return nil, ErrInvalidArg
+		}
+
+		list := make([]interface{}, 0, t.Size)
+		s := reflect.ValueOf(arg)
+		for i := 0; i < s.Len(); i++ {
+			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
+			if err != nil {
+				return nil, ErrInvalidArg
+			}
+			list = append(list, ele)
+		}
+		arg = list
+	case abi.AddressTy:
+		addrString, ok := arg.(string)
+		if !ok {
+			return nil, ErrInvalidArg
+		}
+
+		addr, err := util.IoAddrToEvmAddr(addrString)
+		if err != nil {
+			return nil, err
+		}
+
+		arg = addr
+	}
+	return arg, nil
 }

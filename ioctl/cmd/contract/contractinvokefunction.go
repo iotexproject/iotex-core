@@ -42,18 +42,22 @@ var contractInvokeFunctionCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	withArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
+}
+
 func contractInvokeFunction(args []string) error {
 	contract, err := util.Address(args[0])
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
 
-	abi, err := readAbi(args[1])
+	abi, err := readAbiFile(args[1])
 	if err != nil {
 		return output.NewError(output.ReadFileError, "failed to read abi file "+args[1], err)
 	}
 
-	functionName := args[2]
+	methodName := args[2]
 
 	amount := big.NewInt(0)
 	if len(args) == 4 {
@@ -63,12 +67,9 @@ func contractInvokeFunction(args []string) error {
 		}
 	}
 
-	inputs := make([]interface{}, 0)
-	// TODO: parse inputs
-
-	bytecode, err := abi.Pack(functionName, inputs...)
+	bytecode, err := packArguments(abi, methodName, withArgumentsFlag.Value().(string))
 	if err != nil {
-		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
+		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
 	}
 
 	return action.Execute(contract, amount, bytecode)

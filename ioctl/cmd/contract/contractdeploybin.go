@@ -52,7 +52,18 @@ func contractDeployBin(args []string) error {
 		return output.NewError(output.ConvertError, "failed to decode bytecode", err)
 	}
 	if len(args) == 3 {
-		// TODO: handle inputs
+		abi, err := readAbiFile(args[1])
+		if err != nil {
+			return err
+		}
+
+		// Constructor's method name is "" (empty string)
+		packedArg, err := packArguments(abi, "", args[2])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		}
+
+		bytecode = append(bytecode, packedArg...)
 	}
 	amount := big.NewInt(0)
 	return action.Execute("", amount, bytecode)
