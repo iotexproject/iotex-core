@@ -38,7 +38,7 @@ var (
 
 // bcBlockCmd represents the bc Block command
 var bcBlockCmd = &cobra.Command{
-	Use:   "block [HEIGHT|HASH]",
+	Use:   config.TranslateInLang(bcBlockCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(bcBlockCmdShorts, config.UILanguage),
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -82,9 +82,9 @@ func getBlock(args []string) error {
 	}
 	var blockMeta *iotextypes.BlockMeta
 	if isHeight {
-		blockMeta, err = GetBlockMetaByHeight(height)
+		blockMeta, err = getBlockMetaByHeight(height)
 	} else {
-		blockMeta, err = GetBlockMetaByHash(args[0])
+		blockMeta, err = getBlockMetaByHash(args[0])
 	}
 	if err != nil {
 		return output.NewError(0, "failed to get block meta", err)
@@ -94,8 +94,8 @@ func getBlock(args []string) error {
 	return nil
 }
 
-// GetBlockMetaByHeight gets block metadata by height
-func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+// getBlockMetaByHeight gets block metadata by height
+func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -131,8 +131,8 @@ func GetBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 	return response.BlkMetas[0], nil
 }
 
-// GetBlockMetaByHash gets block metadata by hash
-func GetBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
+// getBlockMetaByHash gets block metadata by hash
+func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)

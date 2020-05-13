@@ -79,6 +79,16 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, c
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
+func readStateBucketByIndex(ctx context.Context, sr protocol.StateReader,
+	req *iotexapi.ReadStakingDataRequest_VoteBucketByIndex) (*iotextypes.VoteBucket, error) {
+	bucketIndex := req.GetIndex()
+	bucket, err := getBucket(sr, bucketIndex)
+	if err != nil {
+		return nil, err
+	}
+	return bucket.toIoTeXTypes()
+}
+
 func readStateCandidates(ctx context.Context, cc CandidateCenter,
 	req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, error) {
 	offset := int(req.GetPagination().GetOffset())
