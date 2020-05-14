@@ -9,10 +9,10 @@ package bc
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"time"
-	"math/big"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -53,18 +53,43 @@ var bcBucketCmd = &cobra.Command{
 }
 
 type bucket struct {
-	index 				uint64
-	owner 				string
-	candidate 			string 
-	stakedAmount		string
-	stakedDuration		uint32
-	createTime 			string
-	stakeStartTime		string
-	unstakeStartTime	string
+	index            uint64
+	owner            string
+	candidate        string
+	stakedAmount     string
+	stakedDuration   uint32
+	createTime       string
+	stakeStartTime   string
+	unstakeStartTime string
+}
+
+func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
+	amount, ok := big.NewInt(0).SetString(bucketpb.StakedAmount, 10)
+	if !ok {
+		return nil, output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
+	}
+	unstakeStartTimeFormat := "none"
+	unstakeTime, err := ptypes.Timestamp(bucketpb.UnstakeStartTime)
+	if err != nil {
+		return nil, err
+	}
+	if unstakeTime != time.Unix(0, 0).UTC() {
+		unstakeStartTimeFormat = ptypes.TimestampString(bucketpb.UnstakeStartTime)
+	}
+	return &bucket{
+		index:            bucketpb.Index,
+		owner:            bucketpb.Owner,
+		candidate:        bucketpb.CandidateAddress,
+		stakedAmount:     util.RauToString(amount, util.IotxDecimalNum),
+		stakedDuration:   bucketpb.StakedDuration,
+		createTime:       ptypes.TimestampString(bucketpb.CreateTime),
+		stakeStartTime:   ptypes.TimestampString(bucketpb.StakeStartTime),
+		unstakeStartTime: unstakeStartTimeFormat,
+	}, nil
 }
 
 func (b *bucket) String() string {
-	var lines []string 
+	var lines []string
 	lines = append(lines, "{")
 	lines = append(lines, fmt.Sprintf("index: %d", b.index))
 	lines = append(lines, fmt.Sprintf("owner: %s", b.owner))
@@ -79,8 +104,8 @@ func (b *bucket) String() string {
 }
 
 type bucketMessage struct {
-	Node   string            `json:"node"`
-	Bucket *bucket 			 `json:"bucket"`
+	Node   string  `json:"node"`
+	Bucket *bucket `json:"bucket"`
 }
 
 func (m *bucketMessage) String() string {
@@ -97,42 +122,17 @@ func getBucket(arg string) error {
 	if err != nil {
 		return err
 	}
-	b, err := getBucketByIndex(bucketindex)
+	bucketpb, err := getBucketByIndex(bucketindex)
 	if err != nil {
 		return err
 	}
-	amount, ok := big.NewInt(0).SetString(b.StakedAmount, 10)
-	if !ok {
-		return output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
-	}
-	createTime, err := ptypes.Timestamp(b.CreateTime)
+	bucket, err := newBucket(bucketpb)
 	if err != nil {
-		return output.NewError(output.ConvertError, "failed to convert to time", err)
+		return err
 	}
-	stakeStartTime, err := ptypes.Timestamp(b.StakeStartTime)
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to convert to time", err)
-	}
-	unstakeStartTime, err := ptypes.Timestamp(b.UnstakeStartTime)		
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to convert to time", err)
-	}
-	unstakeStartTimeFormat := "none"
-	if unstakeStartTime != time.Unix(0, 0).UTC() {
-		unstakeStartTimeFormat = unstakeStartTime.Format(time.RFC3339)
-	} 
-	message := bucketMessage{ 
-		Node: config.ReadConfig.Endpoint, 
-		Bucket: &bucket {
-			index: b.Index,
-			owner: b.Owner,
-			candidate: b.CandidateAddress,
-			stakedAmount: util.RauToString(amount, util.IotxDecimalNum),
-			stakedDuration: b.StakedDuration, 
-			createTime: createTime.Format(time.RFC3339), 
-			stakeStartTime: stakeStartTime.Format(time.RFC3339),
-			unstakeStartTime: unstakeStartTimeFormat,
-		},
+	message := bucketMessage{
+		Node:   config.ReadConfig.Endpoint,
+		Bucket: bucket,
 	}
 	fmt.Println(message.String())
 	return nil
