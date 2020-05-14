@@ -10,8 +10,12 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
+	"time"
+	"math/big"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -48,14 +52,40 @@ var bcBucketCmd = &cobra.Command{
 	},
 }
 
+type bucket struct {
+	index 				uint64
+	owner 				string
+	candidate 			string 
+	stakedAmount		string
+	stakedDuration		uint32
+	createTime 			string
+	stakeStartTime		string
+	unstakeStartTime	string
+}
+
+func (b *bucket) String() string {
+	var lines []string 
+	lines = append(lines, "{")
+	lines = append(lines, fmt.Sprintf("index: %d", b.index))
+	lines = append(lines, fmt.Sprintf("owner: %s", b.owner))
+	lines = append(lines, fmt.Sprintf("candidate: %s", b.candidate))
+	lines = append(lines, fmt.Sprintf("stakedAmount: %s IOTX", b.stakedAmount))
+	lines = append(lines, fmt.Sprintf("stakedDuration: %d days", b.stakedDuration))
+	lines = append(lines, fmt.Sprintf("createTime: %s", b.createTime))
+	lines = append(lines, fmt.Sprintf("stakeStartTime: %s", b.stakeStartTime))
+	lines = append(lines, fmt.Sprintf("unstakeStartTime: %s", b.unstakeStartTime))
+	lines = append(lines, "}")
+	return strings.Join(lines, "\n")
+}
+
 type bucketMessage struct {
-	Node   string                 `json:"node"`
-	Bucket *iotextypes.VoteBucket `json:"bucket"`
+	Node   string            `json:"node"`
+	Bucket *bucket 			 `json:"bucket"`
 }
 
 func (m *bucketMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, output.JSONString(m.Bucket))
+		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, m.Bucket.String())
 		return message
 	}
 	return output.FormatString(output.Result, m)
@@ -67,11 +97,43 @@ func getBucket(arg string) error {
 	if err != nil {
 		return err
 	}
-	bucket, err := getBucketByIndex(bucketindex)
+	b, err := getBucketByIndex(bucketindex)
 	if err != nil {
 		return err
 	}
-	message := bucketMessage{Node: config.ReadConfig.Endpoint, Bucket: bucket}
+	amount, ok := big.NewInt(0).SetString(b.StakedAmount, 10)
+	if !ok {
+		return output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
+	}
+	createTime, err := ptypes.Timestamp(b.CreateTime)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert to time", err)
+	}
+	stakeStartTime, err := ptypes.Timestamp(b.StakeStartTime)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert to time", err)
+	}
+	unstakeStartTime, err := ptypes.Timestamp(b.UnstakeStartTime)		
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert to time", err)
+	}
+	unstakeStartTimeFormat := "none"
+	if unstakeStartTime != time.Unix(0, 0).UTC() {
+		unstakeStartTimeFormat = unstakeStartTime.Format(time.RFC3339)
+	} 
+	message := bucketMessage{ 
+		Node: config.ReadConfig.Endpoint, 
+		Bucket: &bucket {
+			index: b.Index,
+			owner: b.Owner,
+			candidate: b.CandidateAddress,
+			stakedAmount: util.RauToString(amount, util.IotxDecimalNum),
+			stakedDuration: b.StakedDuration, 
+			createTime: createTime.Format(time.RFC3339), 
+			stakeStartTime: stakeStartTime.Format(time.RFC3339),
+			unstakeStartTime: unstakeStartTimeFormat,
+		},
+	}
 	fmt.Println(message.String())
 	return nil
 }
