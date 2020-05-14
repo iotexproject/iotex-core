@@ -109,10 +109,7 @@ func (m *delegatesMessage) String() string {
 		formatDataString := "%-41s   %-12s   %4d   %-" + strconv.Itoa(aliasLen) + "s   %-6s   %-6d   %-12s    %s"
 		lines = append(lines, fmt.Sprintf(formatTitleString,
 			"Address", "Name", "Rank", "Alias", "Status", "Blocks", "ProbatedStatus", "Votes"))
-		for i, bp := range m.Delegates {
-			if i == 36 {
-				lines = append(lines, "------------------------------")
-			}
+		for _, bp := range m.Delegates {
 			lines = append(lines, fmt.Sprintf(formatDataString, bp.Address, bp.Name, bp.Rank, bp.Alias, nodeStatus[bp.Active], bp.Production, probatedStatus[bp.ProbatedStatus], bp.Votes))
 		}
 		return strings.Join(lines, "\n")
@@ -288,7 +285,7 @@ func fillMessage(cli iotexapi.APIServiceClient, message *delegatesMessage, alias
 	}
 	addressMap := make(map[string]*iotextypes.CandidateV2)
 	for _, candidate := range cl.Candidates {
-		addressMap[candidate.OwnerAddress] = candidate
+		addressMap[candidate.OperatorAddress] = candidate
 	}
 	delegateAddressMap := make(map[string]struct{})
 	for _, m := range message.Delegates {
@@ -300,23 +297,29 @@ func fillMessage(cli iotexapi.APIServiceClient, message *delegatesMessage, alias
 			continue
 		}
 	}
-	for i, candidate := range cl.Candidates {
-		if _, ok := delegateAddressMap[candidate.OwnerAddress]; ok {
+	rank := len(message.Delegates) + 1
+	for _, candidate := range cl.Candidates {
+		if _, ok := delegateAddressMap[candidate.OperatorAddress]; ok {
 			continue
 		}
 		isProbated := false
 		if _, ok := pb.ProbationInfo[candidate.OwnerAddress]; ok {
 			isProbated = true
 		}
+		iotx, err := util.StringToIOTX(candidate.TotalWeightedVotes)
+		if err != nil {
+			return err
+		}
 		message.Delegates = append(message.Delegates, delegate{
-			Address:        candidate.OwnerAddress,
+			Address:        candidate.OperatorAddress,
 			Name:           candidate.Name,
-			Rank:           i + 25,
-			Alias:          alias[candidate.OwnerAddress],
-			Active:         active[candidate.OwnerAddress],
-			Votes:          candidate.TotalWeightedVotes,
+			Rank:           rank,
+			Alias:          alias[candidate.OperatorAddress],
+			Active:         active[candidate.OperatorAddress],
+			Votes:          iotx,
 			ProbatedStatus: isProbated,
 		})
+		rank++
 	}
 	return nil
 }
