@@ -13,7 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
+	
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -105,7 +106,7 @@ func init() {
 		completeness = false
 	}
 	if ReadConfig.FairBankHeight == 0 {
-		ReadConfig.FairBankHeight = 5165641
+		ReadConfig.FairBankHeight = config.Default.Genesis.FairbankBlockHeight
 	}
 	if !completeness {
 		err := writeConfig()
