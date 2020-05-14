@@ -10,11 +10,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
-	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -67,7 +64,7 @@ func (m *bucketlistMessage) String() string {
 		for _, bucket := range m.Bucketlist {
 			lines = append(lines, bucket.String())
 		}
-		return strings.Join(lines, "\n") 
+		return strings.Join(lines, "\n")
 	}
 	return output.FormatString(output.Result, m)
 }
@@ -82,41 +79,16 @@ func getBucketList(arg string) error {
 	if err != nil {
 		return err
 	}
-	var bucketlist[]*bucket
+	var bucketlist []*bucket
 	for _, b := range bl.Buckets {
-		amount, ok := big.NewInt(0).SetString(b.StakedAmount, 10)
-		if !ok {
-			return output.NewError(output.ConvertError, "failed to convert amount into big int", nil)
-		}
-		createTime, err := ptypes.Timestamp(b.CreateTime)
+		bucket, err := newBucket(b)
 		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert to time", err)
+			return err
 		}
-		stakeStartTime, err := ptypes.Timestamp(b.StakeStartTime)
-		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert to time", err)
-		}
-		unstakeStartTime, err := ptypes.Timestamp(b.UnstakeStartTime)		
-		if err != nil {
-			return output.NewError(output.ConvertError, "failed to convert to time", err)
-		}
-		unstakeStartTimeFormat := "none"
-		if unstakeStartTime != time.Unix(0, 0).UTC() {
-			unstakeStartTimeFormat = unstakeStartTime.Format(time.RFC3339)
-		} 
-		bucketlist = append(bucketlist, &bucket{
-			index: b.Index,
-			owner: b.Owner,
-			candidate: b.CandidateAddress,
-			stakedAmount: util.RauToString(amount, util.IotxDecimalNum),
-			stakedDuration: b.StakedDuration, 
-			createTime: createTime.Format(time.RFC3339), 
-			stakeStartTime: stakeStartTime.Format(time.RFC3339),
-			unstakeStartTime: unstakeStartTimeFormat,
-		})
+		bucketlist = append(bucketlist, bucket)
 	}
 	message := bucketlistMessage{
-		Node: config.ReadConfig.Endpoint, 
+		Node:       config.ReadConfig.Endpoint,
 		Bucketlist: bucketlist,
 	}
 	fmt.Println(message.String())
