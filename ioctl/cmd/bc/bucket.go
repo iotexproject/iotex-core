@@ -8,6 +8,7 @@ package bc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -184,9 +185,12 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 		}
 		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
 	}
-	Bucket := iotextypes.VoteBucket{}
-	if err := proto.Unmarshal(response.Data, &Bucket); err != nil {
+	buckets := iotextypes.VoteBucketList{}
+	if err := proto.Unmarshal(response.Data, &buckets); err != nil {
 		return nil, output.NewError(output.SerializationError, "failed to unmarshal response", err)
 	}
-	return &Bucket, nil
+	if len(buckets.GetBuckets()) == 0 {
+		return nil, output.NewError(output.SerializationError, "", errors.New("zero len response"))
+	}
+	return buckets.GetBuckets()[0], nil
 }
