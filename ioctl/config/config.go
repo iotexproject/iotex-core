@@ -13,7 +13,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
-
+	
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -63,6 +64,7 @@ type Config struct {
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
 	Language       string            `json:"language" yaml:"language"`
+	FairBankHeight uint64            `json:"fairbankHeight" yaml:"fairbankHeight"`
 }
 
 var (
@@ -102,6 +104,9 @@ func init() {
 	if ReadConfig.Language == "" {
 		ReadConfig.Language = supportedLanguage[0]
 		completeness = false
+	}
+	if ReadConfig.FairBankHeight == 0 {
+		ReadConfig.FairBankHeight = config.Default.Genesis.FairbankBlockHeight
 	}
 	if !completeness {
 		err := writeConfig()
