@@ -23,26 +23,20 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
+// constants
 const (
-	// HandleCreateStake is the handler name of createStake
-	HandleCreateStake = "createStake"
-	// HandleUnstake is the handler name of unstake
-	HandleUnstake = "unstake"
-	// HandleWithdrawStake is the handler name of withdrawStake
-	HandleWithdrawStake = "withdrawStake"
-	// HandleChangeCandidate is the handler name of changeCandidate
-	HandleChangeCandidate = "changeCandidate"
-	// HandleTransferStake is the handler name of transferStake
-	HandleTransferStake = "transferStake"
-	// HandleDepositToStake is the handler name of depositToStake
-	HandleDepositToStake = "depositToStake"
-	// HandleRestake is the handler name of restake
-	HandleRestake = "restake"
-	// HandleCandidateRegister is the handler name of candidateRegister
+	HandleCreateStake       = "createStake"
+	HandleUnstake           = "unstake"
+	HandleWithdrawStake     = "withdrawStake"
+	HandleChangeCandidate   = "changeCandidate"
+	HandleTransferStake     = "transferStake"
+	HandleDepositToStake    = "depositToStake"
+	HandleRestake           = "restake"
 	HandleCandidateRegister = "candidateRegister"
-	// HandleCandidateUpdate is the handler name of candidateUpdate
-	HandleCandidateUpdate = "candidateUpdate"
+	HandleCandidateUpdate   = "candidateUpdate"
 )
+
+const _withdrawWaitingTime = 14 * 24 * time.Hour // to maintain backward compatibility with r0.11 code
 
 // Errors and vars
 var (
@@ -184,7 +178,8 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	postFbkMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
+	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, postFbkMigration)
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -205,7 +200,11 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		}
 	}
 
-	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(p.config.WithdrawWaitingPeriod)) {
+	withdrawWaitTime := p.config.WithdrawWaitingPeriod
+	if !postFbkMigration {
+		withdrawWaitTime = _withdrawWaitingTime
+	}
+	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(withdrawWaitTime)) {
 		return log, &handleError{
 			err:           errors.New("stake is not ready to withdraw"),
 			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity,
