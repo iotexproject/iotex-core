@@ -63,6 +63,7 @@ type Config struct {
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
 	Language       string            `json:"language" yaml:"language"`
+	FairBankHeight uint64            `json:"fairbankHeight" yaml:"fairbankHeight"`
 }
 
 var (
@@ -102,6 +103,9 @@ func init() {
 	if ReadConfig.Language == "" {
 		ReadConfig.Language = supportedLanguage[0]
 		completeness = false
+	}
+	if ReadConfig.FairBankHeight == 0 {
+		ReadConfig.FairBankHeight = 5165641
 	}
 	if !completeness {
 		err := writeConfig()
