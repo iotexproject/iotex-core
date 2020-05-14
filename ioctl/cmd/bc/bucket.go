@@ -146,16 +146,16 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKET_BY_INDEX,
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
 	methodData, err := proto.Marshal(method)
 	if err != nil {
 		return nil, output.NewError(output.SerializationError, "failed to marshal read staking data method", err)
 	}
 	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketByIndex{
-			BucketByIndex: &iotexapi.ReadStakingDataRequest_VoteBucketByIndex{
-				Index: index,
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
+			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
+				Index: []uint64{index},
 			},
 		},
 	}

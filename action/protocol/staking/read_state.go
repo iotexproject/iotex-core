@@ -80,13 +80,12 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, c
 }
 
 func readStateBucketByIndex(ctx context.Context, sr protocol.StateReader,
-	req *iotexapi.ReadStakingDataRequest_VoteBucketByIndex) (*iotextypes.VoteBucket, error) {
-	bucketIndex := req.GetIndex()
-	bucket, err := getBucket(sr, bucketIndex)
+	req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, error) {
+	buckets, err := getBucketsWithIndices(sr, BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, err
 	}
-	return bucket.toIoTeXTypes()
+	return toIoTeXTypesVoteBucketList(buckets)
 }
 
 func readStateCandidates(ctx context.Context, cc CandidateCenter,
