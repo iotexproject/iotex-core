@@ -27,12 +27,12 @@ import (
 // Multi-language support
 var (
 	bcBucketCmdShorts = map[config.Language]string{
-		config.English: "Get bucket from block chain with given bucket index",
-		config.Chinese: "",
+		config.English: "Get bucket for given index on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上根据索引读取投票",
 	}
 	bcBucketUses = map[config.Language]string{
 		config.English: "bucket [BUCKET_INDEX]",
-		config.Chinese: "",
+		config.Chinese: "bucket [票索引]",
 	}
 )
 
@@ -64,6 +64,9 @@ func (m *bucketMessage) String() string {
 // getBucket get bucket from chain
 func getBucket(arg string) error {
 	bucketindex, err := strconv.ParseUint(arg, 10, 64)
+	if err != nil {
+		return err
+	}
 	bucket, err := getBucketByIndex(bucketindex)
 	if err != nil {
 		return err

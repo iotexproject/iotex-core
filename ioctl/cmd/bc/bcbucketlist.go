@@ -27,12 +27,12 @@ import (
 // Multi-language support
 var (
 	bcBucketListCmdShorts = map[config.Language]string{
-		config.English: "Get bucket list from block chain with given address",
-		config.Chinese: "",
+		config.English: "Get bucket list for given address on IoTeX blockchain",
+		config.Chinese: "在IoTeX区块链上读取账户地址的投票列表",
 	}
 	bcBucketListUses = map[config.Language]string{
 		config.English: "bucketlist [ALIAS|ADDRESS]",
-		config.Chinese: "",
+		config.Chinese: "bucketlist [别名|地址]",
 	}
 )
 
