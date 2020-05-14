@@ -94,5 +94,6 @@ func compile(args []string) error {
 	if err := ioutil.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
 		return output.NewError(output.WriteFileError, "failed to write bin file", err)
 	}
+	output.PrintResult("Compile complete")
 	return nil
 }
