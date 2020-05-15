@@ -64,7 +64,7 @@ type Config struct {
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
 	Language       string            `json:"language" yaml:"language"`
-	FairBankHeight uint64            `json:"fairbankHeight" yaml:"fairbankHeight"`
+	Nsv2height     uint64            `json:"nsv2height" yaml:"nsv2height"`
 }
 
 var (
@@ -105,8 +105,8 @@ func init() {
 		ReadConfig.Language = supportedLanguage[0]
 		completeness = false
 	}
-	if ReadConfig.FairBankHeight == 0 {
-		ReadConfig.FairBankHeight = config.Default.Genesis.FairbankBlockHeight
+	if ReadConfig.Nsv2height == 0 {
+		ReadConfig.Nsv2height = config.Default.Genesis.FairbankBlockHeight
 	}
 	if !completeness {
 		err := writeConfig()

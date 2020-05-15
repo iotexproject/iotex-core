@@ -31,8 +31,8 @@ const (
 
 var (
 	supportedLanguage = []string{"English", "中文"}
-	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language"}
-	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "all"}
+	validArgs         = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height"}
+	validGetArgs      = []string{"endpoint", "wallet", "explorer", "defaultacc", "language", "nsv2height", "all"}
 	validExpl         = []string{"iotexscan", "iotxplorer"}
 	endpointCompile   = regexp.MustCompile("^" + endpointPattern + "$")
 )
@@ -148,6 +148,9 @@ func Get(arg string) error {
 		return nil
 	case "language":
 		output.PrintResult(ReadConfig.Language)
+		return nil
+	case "nsv2height":
+		fmt.Println(ReadConfig.Nsv2height)
 		return nil
 	case "all":
 		fmt.Println(ReadConfig.String())
@@ -267,6 +270,12 @@ func set(args []string) error {
 					args[1], supportedLanguage), nil)
 		}
 		ReadConfig.Language = supportedLanguage[language]
+	case "nsv2height":
+		height, err := strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return output.NewError(output.ValidationError, "invalid height", nil)
+		}
+		ReadConfig.Nsv2height = height
 	}
 	err := writeConfig()
 	if err != nil {
