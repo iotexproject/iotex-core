@@ -348,5 +348,5 @@ func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
 
 func blockMetaKey(blkheight uint64) []byte {
 	key := []byte{_blockmeta}
-	return append(key, byteutil.Uint64ToBytesBigEndian(blkheight % 720)...) // we need to define 720 as config variable 
+	return append(key, byteutil.Uint64ToBytesBigEndian(blkheight%720)...) // we need to define 720 as config variable
 }

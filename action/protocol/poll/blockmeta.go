@@ -23,6 +23,7 @@ type BlockMeta struct {
 	MintTime time.Time
 }
 
+// NewBlockMeta constructs new blockmeta struct with given fieldss
 func NewBlockMeta(height uint64, producer string, mintTime time.Time) *BlockMeta {
 	return &BlockMeta{
 		Height:   height,
