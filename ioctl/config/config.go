@@ -64,7 +64,7 @@ type Config struct {
 	DefaultAccount Context           `json:"defaultAccount" yaml:"defaultAccount"`
 	Explorer       string            `json:"explorer" yaml:"explorer"`
 	Language       string            `json:"language" yaml:"language"`
-	Nsv2height     uint64            `json:"nsv2height " yaml:"nsv2height"`
+	Nsv2height     uint64            `json:"nsv2height" yaml:"nsv2height"`
 }
 
 var (
