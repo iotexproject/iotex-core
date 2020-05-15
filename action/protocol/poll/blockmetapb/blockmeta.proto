@@ -8,14 +8,9 @@
 //      protoc --go_out=plugins=grpc:. *.proto
 
 syntax = "proto3";
-package epochmetapb;
+package blockmetapb;
 
 import "google/protobuf/timestamp.proto";
-
-message EpochMeta {
-  uint64 epochNumber = 1;
-  repeated BlockMeta blockMetas = 2;
-}
 
 message BlockMeta {
   uint64 blockHeight = 1;

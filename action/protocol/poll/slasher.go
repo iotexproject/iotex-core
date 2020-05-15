@@ -503,21 +503,8 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 
 func (sh *Slasher) updateCurrentEpochMeta(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	epochStartHeight := rp.GetEpochHeight(epochNum)
-	var epochMeta *vote.EpochMeta
-	var err error
-	if blkCtx.BlockHeight == epochStartHeight {
-		epochMeta = vote.NewEpochMeta(epochNum)
-	} else {
-		epochMeta, err = epochMetaFromDB(sm)
-		if err != nil {
-			return err
-		}
-	}
-	epochMeta.AddBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
-	return setCurrentEpochMeta(sm, epochMeta)
+	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
+	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight)
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
@@ -598,22 +585,25 @@ func filterCandidates(
 // currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
 func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64) (map[string]uint64, error) {
 	stats := make(map[string]uint64)
-	epochMeta, err := epochMetaFromDB(sr)
+	blockmetas, err := allBlockMetasFromDB(sr)
 	if err != nil {
 		return nil, err
 	}
-	for _, blockmeta := range epochMeta.BlockMetas {
-		if blockmeta.Height < start {
-			return nil, errors.New("block meta height is out of range")
-		}
-		if blockmeta.Height > end {
-			break
+	expectedCount := end - start + 1
+	count := uint64(0)
+	for _, blockmeta := range blockmetas {
+		if blockmeta.Height < start || blockmeta.Height > end {
+			continue
 		}
 		if _, ok := stats[blockmeta.Producer]; ok {
 			stats[blockmeta.Producer]++
 		} else {
 			stats[blockmeta.Producer] = 1
 		}
+		count++
+	}
+	if expectedCount != count {
+		return nil, errors.New("block metas from stateDB doesn't have enough data for given start, end height")
 	}
 	return stats, nil
 }

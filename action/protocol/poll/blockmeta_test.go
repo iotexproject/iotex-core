@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package vote
+package poll
 
 import (
 	"testing"
@@ -18,20 +18,12 @@ import (
 func TestEpochMetaSerializeAndDeserialize(t *testing.T) {
 	require := require.New(t)
 
-	epochNum := uint64(100)
-	em := NewEpochMeta(epochNum)
-	em.AddBlockMeta(uint64(1), identityset.Address(1).String(), testutil.TimestampNow())
-	em.AddBlockMeta(uint64(2), identityset.Address(2).String(), testutil.TimestampNow())
-	em.AddBlockMeta(uint64(3), identityset.Address(3).String(), testutil.TimestampNow())
-
-	ss, err := em.Serialize()
+	bm1 := NewBlockMeta(uint64(1), identityset.Address(1).String(), testutil.TimestampNow())
+	ss, err := bm1.Serialize()
 	require.NoError(err)
-	em2 := &EpochMeta{}
-	require.NoError(em2.Deserialize(ss))
-	require.Equal(em.EpochNumber, em2.EpochNumber)
-	for i, blockmeta := range em.BlockMetas {
-		require.Equal(blockmeta.Height, em2.BlockMetas[i].Height)
-		require.Equal(blockmeta.Producer, em2.BlockMetas[i].Producer)
-		require.Equal(blockmeta.MintTime, em2.BlockMetas[i].MintTime)
-	}
+	bm2 := &BlockMeta{}
+	require.NoError(bm2.Deserialize(ss))
+	require.Equal(bm1.Height, bm2.Height)
+	require.Equal(bm1.Producer, bm2.Producer)
+	require.Equal(bm1.MintTime, bm2.MintTime)
 }

@@ -7,6 +7,7 @@
 package poll
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -25,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -305,32 +307,46 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 	return stateHeight, nil
 }
 
-// setCurrentEpochMeta sets the epochmeta struct with epoch meta key
-func setCurrentEpochMeta(
+// setCurrentBlockMeta sets the block meta struct with block meta key
+func setCurrentBlockMeta(
 	sm protocol.StateManager,
-	epochmeta *vote.EpochMeta,
+	blockmeta *BlockMeta,
+	height uint64,
 ) error {
-	emkey := candidatesutil.ConstructKey(candidatesutil.EpochMetaKey)
-	_, err := sm.PutState(epochmeta, protocol.KeyOption(emkey[:]), protocol.NamespaceOption(protocol.SystemNamespace))
+	key := blockMetaKey(height)
+	_, err := sm.PutState(blockmeta, protocol.KeyOption(key), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
-// EpochMetaFromDB returns latest epoch meta struct
-func epochMetaFromDB(sr protocol.StateReader) (*vote.EpochMeta, error) {
-	epochMeta := &vote.EpochMeta{}
-	epochMetaKey := candidatesutil.ConstructKey(candidatesutil.EpochMetaKey)
-	stateHeight, err := sr.State(
-		epochMeta,
-		protocol.KeyOption(epochMetaKey[:]),
+// allBlockMetasFromDB returns all latest block meta structs
+func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
+	maxKey := []byte{_blockmeta + 1}
+	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			return bytes.HasPrefix(k, []byte{_blockmeta})
+		}, blockMetaKey(0), maxKey),
 	)
+	if err != nil {
+		return nil, err
+	}
 	log.L().Debug(
-		"EpochMetaFromDB",
+		"allBockMetasFromDB",
 		zap.Uint64("state height", stateHeight),
 		zap.Error(err),
 	)
-	if err == nil {
-		return epochMeta, nil
+	blockmetas := make([]*BlockMeta, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		bm := &BlockMeta{}
+		if err := iter.Next(bm); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize block meta")
+		}
+		blockmetas = append(blockmetas, bm)
 	}
-	return nil, err
+	return blockmetas, nil
+}
+
+func blockMetaKey(blkheight uint64) []byte {
+	key := []byte{_blockmeta}
+	return append(key, byteutil.Uint64ToBytesBigEndian(blkheight % 720)...) // we need to define 720 as config variable 
 }
