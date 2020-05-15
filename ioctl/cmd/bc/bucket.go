@@ -59,6 +59,7 @@ type bucket struct {
 	candidate        string
 	stakedAmount     string
 	stakedDuration   uint32
+	autoStake        bool
 	createTime       string
 	stakeStartTime   string
 	unstakeStartTime string
@@ -83,6 +84,7 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 		candidate:        bucketpb.CandidateAddress,
 		stakedAmount:     util.RauToString(amount, util.IotxDecimalNum),
 		stakedDuration:   bucketpb.StakedDuration,
+		autoStake:        bucketpb.AutoStake,
 		createTime:       ptypes.TimestampString(bucketpb.CreateTime),
 		stakeStartTime:   ptypes.TimestampString(bucketpb.StakeStartTime),
 		unstakeStartTime: unstakeStartTimeFormat,
@@ -97,6 +99,7 @@ func (b *bucket) String() string {
 	lines = append(lines, fmt.Sprintf("candidate: %s", b.candidate))
 	lines = append(lines, fmt.Sprintf("stakedAmount: %s IOTX", b.stakedAmount))
 	lines = append(lines, fmt.Sprintf("stakedDuration: %d days", b.stakedDuration))
+	lines = append(lines, fmt.Sprintf("autoStake: %v", b.autoStake))
 	lines = append(lines, fmt.Sprintf("createTime: %s", b.createTime))
 	lines = append(lines, fmt.Sprintf("stakeStartTime: %s", b.stakeStartTime))
 	lines = append(lines, fmt.Sprintf("unstakeStartTime: %s", b.unstakeStartTime))
