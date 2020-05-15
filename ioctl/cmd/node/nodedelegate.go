@@ -149,7 +149,7 @@ func delegates() error {
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
-	if epochData.Height >= config.ReadConfig.FairBankHeight {
+	if epochData.Height >= config.ReadConfig.Nsv2height {
 		return delegatesV2(probationList, response, &message)
 	}
 	for rank, bp := range response.BlockProducersInfo {
