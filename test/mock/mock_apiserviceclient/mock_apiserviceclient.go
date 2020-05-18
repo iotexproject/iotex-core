@@ -375,26 +375,6 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
 }
 
-// GetVotes mocks base method
-func (m *MockServiceClient) GetVotes(ctx context.Context, in *iotexapi.GetVotesRequest, opts ...grpc.CallOption) (*iotexapi.GetVotesResponse, error) {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{ctx, in}
-	for _, a := range opts {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "GetVotes", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetVotesResponse)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetVotes indicates an expected call of GetVotes
-func (mr *MockServiceClientMockRecorder) GetVotes(ctx, in interface{}, opts ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetVotes", reflect.TypeOf((*MockServiceClient)(nil).GetVotes), varargs...)
-}
-
 // StreamBlocks mocks base method
 func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error) {
 	m.ctrl.T.Helper()
