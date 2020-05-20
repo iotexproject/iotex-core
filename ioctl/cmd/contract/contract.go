@@ -124,10 +124,11 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 
 	if targetMethod == "" {
 		method = targetAbi.Constructor
-	}
-	method, ok = targetAbi.Methods[targetMethod]
-	if !ok {
-		return nil, output.NewError(output.InputError, "invalid method name", nil)
+	} else {
+		method, ok = targetAbi.Methods[targetMethod]
+		if !ok {
+			return nil, output.NewError(output.InputError, "invalid method name", nil)
+		}
 	}
 
 	arguments := make([]interface{}, 0, len(method.Inputs))
