@@ -7,12 +7,9 @@
 package contract
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"reflect"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
@@ -21,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 const solCompiler = "solc"
@@ -117,21 +113,19 @@ func readAbiFile(abiFile string) (*abi.ABI, error) {
 	return parseAbi(abiBytes)
 }
 
-func parseAbi(abiBytes []byte) (*abi.ABI, error) {
-	parsedAbi, err := abi.JSON(strings.NewReader(string(abiBytes)))
-	if err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to unmarshal abi", err)
-	}
-	return &parsedAbi, nil
-}
-
 func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]byte, error) {
+	var method abi.Method
+	var ok bool
+
 	rowArguments, err := parseInput(rowInput)
 	if err != nil {
 		return nil, err
 	}
 
-	method, ok := targetAbi.Methods[targetMethod]
+	if targetMethod == "" {
+		method = targetAbi.Constructor
+	}
+	method, ok = targetAbi.Methods[targetMethod]
 	if !ok {
 		return nil, output.NewError(output.InputError, "invalid method name", nil)
 	}
@@ -148,50 +142,5 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 		}
 		arguments = append(arguments, arg)
 	}
-	fmt.Println(reflect.ValueOf(arguments[0]).Type(), reflect.ValueOf(arguments[0]).Kind())
 	return targetAbi.Pack(targetMethod, arguments...)
-}
-
-func parseInput(rowInput string) (map[string]interface{}, error) {
-	var input map[string]interface{}
-	if err := json.Unmarshal([]byte(rowInput), &input); err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to unmarshal arguments", err)
-	}
-	return input, nil
-}
-
-func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
-	fmt.Println(t.Type, t.Kind, t.Elem, t.Size, t.T)
-	// TODO: more type handler needed
-	switch t.T {
-	case abi.SliceTy, abi.ArrayTy:
-		// TODO: this slice solution cannot be accepted by ether's abi.Pack
-		if reflect.TypeOf(arg).Kind() != reflect.Slice {
-			return nil, ErrInvalidArg
-		}
-
-		list := make([]interface{}, 0, t.Size)
-		s := reflect.ValueOf(arg)
-		for i := 0; i < s.Len(); i++ {
-			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
-			if err != nil {
-				return nil, ErrInvalidArg
-			}
-			list = append(list, ele)
-		}
-		arg = list
-	case abi.AddressTy:
-		addrString, ok := arg.(string)
-		if !ok {
-			return nil, ErrInvalidArg
-		}
-
-		addr, err := util.IoAddrToEvmAddr(addrString)
-		if err != nil {
-			return nil, err
-		}
-
-		arg = addr
-	}
-	return arg, nil
 }

@@ -22,44 +22,21 @@
     "type": "function"
   },
   {
-    "anonymous": false,
+    "constant": false,
     "inputs": [
       {
-        "indexed": false,
-        "name": "recipient",
-        "type": "address"
+        "name": "a",
+        "type": "int248[5]"
       },
       {
-        "indexed": false,
-        "name": "amount",
-        "type": "uint256"
+        "name": "b",
+        "type": "uint8[3]"
       }
     ],
-    "name": "Transfer",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "refund",
-        "type": "uint256"
-      }
-    ],
-    "name": "Refund",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "name": "payload",
-        "type": "string"
-      }
-    ],
-    "name": "Payload",
-    "type": "event"
+    "name": "testArray",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]
