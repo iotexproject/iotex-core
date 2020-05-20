@@ -38,5 +38,51 @@
     "payable": false,
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "t",
+        "type": "bytes"
+      }
+    ],
+    "name": "testBytes",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "t",
+        "type": "bytes3"
+      }
+    ],
+    "name": "testFixedBytes",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "a",
+        "type": "bool"
+      },
+      {
+        "name": "s",
+        "type": "string"
+      }
+    ],
+    "name": "testBoolAndString",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]
