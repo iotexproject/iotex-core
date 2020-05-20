@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 const solCompiler = "solc"
@@ -144,4 +146,8 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 		arguments = append(arguments, arg)
 	}
 	return targetAbi.Pack(targetMethod, arguments...)
+}
+
+func decodeBytecode(bytecode string) ([]byte, error) {
+	return hex.DecodeString(util.TrimHexPrefix(bytecode))
 }

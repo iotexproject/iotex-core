@@ -7,6 +7,8 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
@@ -53,7 +55,7 @@ func read(arg string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
-	result, err := Read(contract, bytecode)
+	result, err := Read(contract, big.NewInt(0), bytecode)
 	if err != nil {
 		return output.NewError(0, "failed to Read contract", err)
 	}

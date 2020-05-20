@@ -7,12 +7,9 @@
 package contract
 
 import (
-	"encoding/hex"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -37,8 +34,4 @@ func init() {
 	contractDeployCmd.AddCommand(contractDeployBytecodeCmd)
 	contractDeployCmd.AddCommand(contractDeployBinCmd)
 	contractDeployCmd.AddCommand(contractDeploySolCmd)
-}
-
-func decodeBytecode(bytecode string) ([]byte, error) {
-	return hex.DecodeString(util.TrimHexPrefix(bytecode))
 }

@@ -332,7 +332,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 }
 
 // Read reads smart contract on IoTeX blockchain
-func Read(contract address.Address, bytecode []byte) (string, error) {
+func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, error) {
 	caller, err := signer()
 	if err != nil {
 		caller = address.ZeroAddress
