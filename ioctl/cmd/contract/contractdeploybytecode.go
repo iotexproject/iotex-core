@@ -7,8 +7,11 @@
 package contract
 
 import (
+	"math/big"
+
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -18,7 +21,7 @@ import (
 var (
 	deployBytecodeCmdUses = map[config.Language]string{
 		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT]",
-		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化参数]",
+		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入]",
 	}
 	deployBytecodeCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bytecode on IoTeX blockchain",
@@ -39,5 +42,25 @@ var contractDeployBytecodeCmd = &cobra.Command{
 }
 
 func contractDeployBytecode(args []string) error {
-	return nil
+	bytecode, err := decodeBytecode(args[0])
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to decode bytecode", err)
+	}
+
+	if len(args) == 3 {
+		abi, err := readAbiFile(args[1])
+		if err != nil {
+			return err
+		}
+		// Constructor's method name is "" (empty string)
+		packedArg, err := packArguments(abi, "", args[2])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+		}
+
+		bytecode = append(bytecode, packedArg...)
+	}
+
+	amount := big.NewInt(0)
+	return action.Execute("", amount, bytecode)
 }
