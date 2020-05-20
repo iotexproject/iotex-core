@@ -8,8 +8,12 @@ package contract
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,9 +44,10 @@ func TestParseArguments(t *testing.T) {
 			"multiSend",
 			`{"recipients":["io1h8zxmdacge966wp6t90a02ncghaa6eptnftfqr","io14fmlh7zedcx7tn3k9k744v54nxnv8zky86tjhj"],"amounts":["3123132","123"],"payload":"PLEASE!!!"}`,
 		}, {
-			"0xba025b71000000000000000000000000000000000000000000000000000378294c919c62000000000000000000000000000000000000000000000000000000000001e0f30000000000000000000000000000000000000000000000000000000000000005fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf0d2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000",
+			"0xba025b7100000000000000000000000000000000000000011ade48e4922161024e211c62000000000000000000000000000000000000000000000000000000000001e0f30000000000000000000000000000000000000000000000000000000000000005fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf0d2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000",
 			"testArray",
-			`{"a":[976543703735394,123123,5,-12,-134958],"b":[1,2,0]}`,
+			// IntTy/Uintty larger than int64/uint64 should be passes by string, otherwise the precision losses
+			`{"a":["87543498528347976543703735394",123123,5,-12,-134958],"b":[1,2,0]}`,
 		},
 	}
 
@@ -52,7 +57,20 @@ func TestParseArguments(t *testing.T) {
 
 		bytecode, err := packArguments(testAbi, test.method, test.inputs)
 		r.NoError(err)
-		//fmt.Println(hex.EncodeToString(bytecode))
+		fmt.Println(hex.EncodeToString(bytecode))
 		r.True(bytes.Equal(expect, bytecode))
 	}
+}
+
+func TestType(t *testing.T) {
+	v := struct {
+		typ        string
+		components []abi.ArgumentMarshaling
+		input      interface{}
+		err        string
+	}{"uint256[3][3][3]", nil, [3][3][3]*big.Int{{{}}}, ""}
+	typ, err := abi.NewType(v.typ, v.components)
+	require.NoError(t, err)
+
+	fmt.Println(typ.Type, typ.T, typ.Size, typ.Kind, typ.Elem, typ.TupleElems, typ.TupleRawNames, typ.String())
 }
