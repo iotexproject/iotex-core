@@ -94,7 +94,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
-		if err := sh.updateCurrentEpochMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
+		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
 			return errors.Wrap(err, "faild to update current epoch meta")
 		}
 	}
@@ -501,7 +501,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	return unqualified, nil
 }
 
-func (sh *Slasher) updateCurrentEpochMeta(ctx context.Context, sm protocol.StateManager) error {
+func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
 	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight)
