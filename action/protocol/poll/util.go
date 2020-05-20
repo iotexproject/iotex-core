@@ -320,12 +320,12 @@ func setCurrentBlockMeta(
 
 // allBlockMetasFromDB returns all latest block meta structs
 func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
-	maxKey := []byte{_blockmeta + 1}
 	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
 		protocol.FilterOption(func(k, v []byte) bool {
-			return bytes.HasPrefix(k, []byte{_blockmeta})
-		}, blockMetaKey(0), maxKey),
+			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
+			return bytes.HasPrefix(k, prefix[:])
+		}, blockMetaKey(0), blockMetaMaxKey()),
 	)
 	if err != nil {
 		return nil, err
@@ -346,7 +346,14 @@ func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
 	return blockmetas, nil
 }
 
+// blockMetaKey returns key for storing block meta with prefix
 func blockMetaKey(blkheight uint64) []byte {
-	key := []byte{_blockmeta}
-	return append(key, byteutil.Uint64ToBytesBigEndian(blkheight%720)...) // we need to define 720 as config variable
+	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
+	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blkheight%720)...) // we need to define 720 as config variable
+}
+
+// blockMetaMaxKey returns max key for storing block meta
+func blockMetaMaxKey() []byte {
+	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
+	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(720)...) // we need to define 720 as config variable>
 }

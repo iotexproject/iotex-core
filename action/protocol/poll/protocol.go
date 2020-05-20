@@ -34,7 +34,7 @@ const (
 	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
 	_modeConsortium    = "consortium"
 
-	_blockmeta = byte(iota) // key prefix of storing blockmeta
+	blockMetaPrefix = "BlockMeta."
 )
 
 // ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
