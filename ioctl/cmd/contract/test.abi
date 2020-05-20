@@ -1,0 +1,42 @@
+[
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "recipients",
+        "type": "address[]"
+      },
+      {
+        "name": "amounts",
+        "type": "uint256[]"
+      },
+      {
+        "name": "payload",
+        "type": "string"
+      }
+    ],
+    "name": "multiSend",
+    "outputs": [],
+    "payable": true,
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "constant": false,
+    "inputs": [
+      {
+        "name": "a",
+        "type": "int248[5]"
+      },
+      {
+        "name": "b",
+        "type": "uint8[3]"
+      }
+    ],
+    "name": "testArray",
+    "outputs": [],
+    "payable": false,
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]
