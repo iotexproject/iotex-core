@@ -678,17 +678,6 @@ func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.AP
 	}
 }
 
-// GetVotes gets votes for req
-func (api *Server) GetVotes(
-	ctx context.Context,
-	in *iotexapi.GetVotesRequest,
-) (*iotexapi.GetVotesResponse, error) {
-	// This is a very weird API for iotex-core, which tries to fetch election result by ethereum height.
-	// Moreover, it relies on election committee but not the poll protocol.
-	// Before we are able to provide an API to query votes by iotex chain height, deleting this implementation as if it has been deprecated.
-	return nil, nil
-}
-
 // GetElectionBuckets returns the native election buckets.
 func (api *Server) GetElectionBuckets(
 	ctx context.Context,
