@@ -19,7 +19,7 @@ var (
 		config.Chinese: "deploy",
 	}
 	deployCmdShorts = map[config.Language]string{
-		config.English: "deploy smart contract of IoTeX blockchain",
+		config.English: "Deploy smart contract of IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链部署智能合约",
 	}
 )

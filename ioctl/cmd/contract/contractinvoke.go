@@ -19,7 +19,7 @@ var (
 		config.Chinese: "invoke",
 	}
 	invokeCmdShorts = map[config.Language]string{
-		config.English: "invoke smart contract on IoTex blockchain",
+		config.English: "Invoke smart contract on IoTex blockchain",
 		config.Chinese: "调用IoTex区块链上的智能合约",
 	}
 )

@@ -44,6 +44,10 @@ var contractTestFunctionCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	withArgumentsFlag.RegisterCommand(contractTestFunctionCmd)
+}
+
 func contractTestFunction(args []string) error {
 	addr, err := util.Address(args[0])
 	if err != nil {
