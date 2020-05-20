@@ -337,7 +337,7 @@ func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, e
 	if err != nil {
 		caller = address.ZeroAddress
 	}
-	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
+	exec, err := action.NewExecution(contract.String(), 0, amount, defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
 		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
 	}
