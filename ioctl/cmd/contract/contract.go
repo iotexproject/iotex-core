@@ -120,6 +120,10 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 	var method abi.Method
 	var ok bool
 
+	if rowInput == "" {
+		rowInput = "{}"
+	}
+
 	rowArguments, err := parseInput(rowInput)
 	if err != nil {
 		return nil, err

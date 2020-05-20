@@ -46,6 +46,10 @@ func TestParseArguments(t *testing.T) {
 			"testArray",
 			// IntTy/Uintty larger than int64/uint64 should be passes by string, otherwise the precision losses
 			`{"a":["87543498528347976543703735394",123123,5,-12,-134958],"b":[1,2,0]}`,
+		}, {
+			"0x2db6ad32",
+			"testEmpty",
+			"",
 		},
 	}
 
