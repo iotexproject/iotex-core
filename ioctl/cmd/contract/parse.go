@@ -8,7 +8,6 @@ package contract
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -38,7 +37,6 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 }
 
 func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
-	fmt.Println(t.Type, t.Kind, t.Elem, t.Size, t.T)
 	// TODO: more type handler needed
 	switch t.T {
 	case abi.SliceTy:

@@ -10,10 +10,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,17 +58,4 @@ func TestParseArguments(t *testing.T) {
 		fmt.Println(hex.EncodeToString(bytecode))
 		r.True(bytes.Equal(expect, bytecode))
 	}
-}
-
-func TestType(t *testing.T) {
-	v := struct {
-		typ        string
-		components []abi.ArgumentMarshaling
-		input      interface{}
-		err        string
-	}{"uint256[3][3][3]", nil, [3][3][3]*big.Int{{{}}}, ""}
-	typ, err := abi.NewType(v.typ, v.components)
-	require.NoError(t, err)
-
-	fmt.Println(typ.Type, typ.T, typ.Size, typ.Kind, typ.Elem, typ.TupleElems, typ.TupleRawNames, typ.String())
 }
