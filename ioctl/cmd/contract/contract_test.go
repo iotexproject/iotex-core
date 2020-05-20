@@ -19,7 +19,7 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(2, len(abi.Methods))
+	r.Equal(5, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
