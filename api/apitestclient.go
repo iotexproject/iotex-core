@@ -52,8 +52,6 @@ type ServiceClient interface {
 	GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByActionHashResponse, error)
 	// get evm transfers by block height
 	GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error)
-	// get a single address' votes
-	GetVotes(ctx context.Context, in *iotexapi.GetVotesRequest, opts ...grpc.CallOption) (*iotexapi.GetVotesResponse, error)
 	// get block info in stream
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get filtered logs in stream
