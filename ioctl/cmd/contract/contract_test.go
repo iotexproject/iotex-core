@@ -8,11 +8,7 @@ package contract
 
 import (
 	"bytes"
-	"fmt"
-	"math/big"
 	"testing"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/stretchr/testify/require"
 )
@@ -23,10 +19,8 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(1, len(abi.Methods))
+	r.Equal(2, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
-	r.Equal(3, len(abi.Events))
-	r.Equal("amount", abi.Events["Transfer"].Inputs[1].Name)
 }
 
 func TestParseArguments(t *testing.T) {
@@ -48,7 +42,7 @@ func TestParseArguments(t *testing.T) {
 		}, {
 			"0xba025b71000000000000000000000000000000000000000000000000000378294c919c62000000000000000000000000000000000000000000000000000000000001e0f30000000000000000000000000000000000000000000000000000000000000005fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf0d2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000",
 			"testArray",
-			`{"a":["976543703735394","123123","5","-12","-134958"],"b":[1,2,0]}`,
+			`{"a":[976543703735394,123123,5,-12,-134958],"b":[1,2,0]}`,
 		},
 	}
 
@@ -62,18 +56,3 @@ func TestParseArguments(t *testing.T) {
 		r.True(bytes.Equal(expect, bytecode))
 	}
 }
-
-func TestType(t *testing.T) {
-	v := struct {
-		typ        string
-		components []abi.ArgumentMarshaling
-		input      interface{}
-		err        string
-	}{"uint256[3][3][3]", nil, [3][3][3]*big.Int{{{}}}, ""}
-	typ, err := abi.NewType(v.typ, v.components)
-	require.NoError(t, err)
-
-	fmt.Println(typ.Type, typ.T, typ.Size, typ.Kind, typ.Elem, typ.TupleElems, typ.TupleRawNames, typ.String())
-}
-
-// TODO: more tests later
