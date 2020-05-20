@@ -9,6 +9,7 @@ package contract
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
@@ -34,4 +35,7 @@ func init() {
 	contractDeployCmd.AddCommand(contractDeployBytecodeCmd)
 	contractDeployCmd.AddCommand(contractDeployBinCmd)
 	contractDeployCmd.AddCommand(contractDeploySolCmd)
+	action.RegisterWriteCommand(contractDeployBytecodeCmd)
+	action.RegisterWriteCommand(contractDeployBinCmd)
+	action.RegisterWriteCommand(contractDeploySolCmd)
 }

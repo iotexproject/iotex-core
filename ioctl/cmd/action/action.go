@@ -124,7 +124,7 @@ func nonce(executor string) (uint64, error) {
 	return accountMeta.PendingNonce, nil
 }
 
-func registerWriteCommand(cmd *cobra.Command) {
+func RegisterWriteCommand(cmd *cobra.Command) {
 	gasLimitFlag.RegisterCommand(cmd)
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)

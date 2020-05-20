@@ -49,7 +49,7 @@ var stake2RenewCmd = &cobra.Command{
 	}}
 
 func init() {
-	registerWriteCommand(stake2RenewCmd)
+	RegisterWriteCommand(stake2RenewCmd)
 	stake2RenewCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
 		config.TranslateInLang(stake2RenewFlagAutoRestakeUsages, config.UILanguage))
 }
