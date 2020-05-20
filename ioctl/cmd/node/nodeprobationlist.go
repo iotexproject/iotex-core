@@ -48,7 +48,7 @@ type probationListMessage struct {
 
 func (m *probationListMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("EpochNumber : %d, IntensityRate : %d\nProbationList : %s",
+		message := fmt.Sprintf("EpochNumber : %d, IntensityRate : %d%%\nProbationList : %s",
 			m.EpochNumber,
 			m.IntensityRate,
 			output.JSONString(m.DelegateList),
@@ -83,7 +83,7 @@ func probationlist() error {
 	for addr, _ := range probationlist.ProbationInfo {
 		message.DelegateList = append(message.DelegateList, addr)
 	}
-	
+
 	fmt.Println(message.String())
 	return nil
 }
