@@ -44,7 +44,7 @@ var xrc20TransferFromCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(xrc20TransferFromCmd)
+	RegisterWriteCommand(xrc20TransferFromCmd)
 }
 
 func transferFrom(args []string) error {

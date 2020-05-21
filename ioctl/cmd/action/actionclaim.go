@@ -40,7 +40,7 @@ var actionClaimCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(actionClaimCmd)
+	RegisterWriteCommand(actionClaimCmd)
 }
 
 func claim(args []string) error {

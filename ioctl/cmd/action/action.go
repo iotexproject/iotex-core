@@ -124,7 +124,8 @@ func nonce(executor string) (uint64, error) {
 	return accountMeta.PendingNonce, nil
 }
 
-func registerWriteCommand(cmd *cobra.Command) {
+// RegisterWriteCommand registers action flags for command
+func RegisterWriteCommand(cmd *cobra.Command) {
 	gasLimitFlag.RegisterCommand(cmd)
 	gasPriceFlag.RegisterCommand(cmd)
 	signerFlag.RegisterCommand(cmd)
@@ -332,12 +333,12 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 }
 
 // Read reads smart contract on IoTeX blockchain
-func Read(contract address.Address, bytecode []byte) (string, error) {
+func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, error) {
 	caller, err := signer()
 	if err != nil {
 		caller = address.ZeroAddress
 	}
-	exec, err := action.NewExecution(contract.String(), 0, big.NewInt(0), defaultGasLimit, defaultGasPrice, bytecode)
+	exec, err := action.NewExecution(contract.String(), 0, amount, defaultGasLimit, defaultGasPrice, bytecode)
 	if err != nil {
 		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
 	}
