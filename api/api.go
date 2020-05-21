@@ -473,17 +473,37 @@ func (api *Server) EstimateGasForAction(ctx context.Context, in *iotexapi.Estima
 	return &iotexapi.EstimateGasForActionResponse{Gas: estimateGas}, nil
 }
 
-// EstimateActionGasConsumption estimate gas consume for execution and transfer
-func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
+// EstimateActionGasConsumption estimate gas consume for action without signature
+func (api *Server) EstimateActionGasConsumption(ctx context.Context, in *iotexapi.EstimateActionGasConsumptionRequest) (respone *iotexapi.EstimateActionGasConsumptionResponse, err error) {
+	respone = &iotexapi.EstimateActionGasConsumptionResponse{}
 	switch {
 	case in.GetExecution() != nil:
 		request := in.GetExecution()
 		return api.estimateActionGasConsumptionForExecution(request, in.GetCallerAddress())
 	case in.GetTransfer() != nil:
-		request := in.GetTransfer()
-		return api.estimateActionGasConsumptionForTransfer(request)
+		respone.Gas = uint64(len(in.GetTransfer().Payload))*action.TransferPayloadGas + action.TransferBaseIntrinsicGas
+	case in.GetStakeCreate() != nil:
+		respone.Gas = uint64(len(in.GetStakeCreate().Payload))*action.CreateStakePayloadGas + action.CreateStakeBaseIntrinsicGas
+	case in.GetStakeUnstake() != nil:
+		respone.Gas = uint64(len(in.GetStakeUnstake().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
+	case in.GetStakeWithdraw() != nil:
+		respone.Gas = uint64(len(in.GetStakeWithdraw().Payload))*action.ReclaimStakePayloadGas + action.ReclaimStakeBaseIntrinsicGas
+	case in.GetStakeAddDeposit() != nil:
+		respone.Gas = uint64(len(in.GetStakeAddDeposit().Payload))*action.DepositToStakePayloadGas + action.DepositToStakeBaseIntrinsicGas
+	case in.GetStakeRestake() != nil:
+		respone.Gas = uint64(len(in.GetStakeRestake().Payload))*action.RestakePayloadGas + action.RestakeBaseIntrinsicGas
+	case in.GetStakeChangeCandidate() != nil:
+		respone.Gas = uint64(len(in.GetStakeChangeCandidate().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
+	case in.GetStakeTransferOwnership() != nil:
+		respone.Gas = uint64(len(in.GetStakeTransferOwnership().Payload))*action.MoveStakePayloadGas + action.MoveStakeBaseIntrinsicGas
+	case in.GetCandidateRegister() != nil:
+		respone.Gas = uint64(len(in.GetCandidateRegister().Payload))*action.CandidateRegisterPayloadGas + action.CandidateRegisterBaseIntrinsicGas
+	case in.GetCandidateUpdate() != nil:
+		respone.Gas = action.CandidateUpdateBaseIntrinsicGas
+	default:
+		return nil, status.Error(codes.InvalidArgument, "invalid argument")
 	}
-	return nil, status.Error(codes.InvalidArgument, "invalid argument")
+	return
 }
 
 // GetEpochMeta gets epoch metadata
