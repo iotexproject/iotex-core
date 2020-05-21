@@ -26,7 +26,7 @@ var (
 	}
 
 	registerCmdShorts = map[config.Language]string{
-		config.English: "register a candidate",
+		config.English: "Register a candidate",
 		config.Chinese: "在IoTeX区块链上注册候选人",
 	}
 )
