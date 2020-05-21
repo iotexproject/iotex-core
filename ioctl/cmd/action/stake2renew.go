@@ -20,20 +20,15 @@ import (
 // Multi-language support
 var (
 	stake2RenewCmdUses = map[config.Language]string{
-		config.English: "renew BUCKET_INDEX STAKE_DURATION [DATA] [--auto-restake]" +
+		config.English: "renew BUCKET_INDEX STAKE_DURATION [DATA] [--auto-stake]" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "renew 票索引 投票持续时间 [数据] [--auto-restake]" +
+		config.Chinese: "renew 票索引 投票持续时间 [数据] [--auto-stake]" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2RenewCmdShorts = map[config.Language]string{
 		config.English: "Renew bucket on IoTeX blockchain",
 		config.Chinese: "更新IoTeX区块链上的投票",
-	}
-
-	stake2RenewFlagAutoRestakeUsages = map[config.Language]string{
-		config.English: "auto restake without power decay",
-		config.Chinese: "自动质押，权重不会衰减",
 	}
 )
 
@@ -50,8 +45,8 @@ var stake2RenewCmd = &cobra.Command{
 
 func init() {
 	RegisterWriteCommand(stake2RenewCmd)
-	stake2RenewCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
-		config.TranslateInLang(stake2RenewFlagAutoRestakeUsages, config.UILanguage))
+	stake2RenewCmd.Flags().BoolVar(&stake2AutoStake, "auto-stake", false,
+		config.TranslateInLang(stake2FlagAutoStakeUsages, config.UILanguage))
 }
 
 func stake2Renew(args []string) error {
@@ -91,7 +86,7 @@ func stake2Renew(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	s2r, err := action.NewRestake(nonce, bucketIndex, duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
+	s2r, err := action.NewRestake(nonce, bucketIndex, duration, stake2AutoStake, payload, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a restake instance", err)
 	}
