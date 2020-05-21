@@ -23,7 +23,7 @@ var (
 		config.Chinese: "stake2",
 	}
 	stake2CmdShorts = map[config.Language]string{
-		config.English: "support native staking from ioctl",
+		config.English: "Support native staking of IoTeX blockchain",
 		config.Chinese: "支持来自ioctl的本地质押",
 	}
 	stake2FlagEndpointUsages = map[config.Language]string{
