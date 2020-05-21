@@ -80,7 +80,7 @@ func probationlist() error {
 		IntensityRate: probationlist.IntensityRate,
 		DelegateList:  make([]string, 0),
 	}
-	for addr, _ := range probationlist.ProbationInfo {
+	for addr := range probationlist.ProbationInfo {
 		message.DelegateList = append(message.DelegateList, addr)
 	}
 
