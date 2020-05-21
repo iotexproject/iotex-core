@@ -23,7 +23,7 @@ import (
 // Multi-language support
 var (
 	xrc20CmdShorts = map[config.Language]string{
-		config.English: "Support ERC20 standard command-line from ioctl",
+		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
 	xrc20CmdUses = map[config.Language]string{
