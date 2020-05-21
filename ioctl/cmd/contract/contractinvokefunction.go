@@ -7,8 +7,11 @@
 package contract
 
 import (
+	"math/big"
+
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -17,8 +20,9 @@ import (
 // Multi-language support
 var (
 	invokeFunctionCmdUses = map[config.Language]string{
-		config.English: "function (CONTRACT_ADDRESS|ALIAS) FUNCTION_NAME [ABI_PATH INVOKE_INPUT]",
-		config.Chinese: "function (合约地址|别名) 函数名 [ABI文件路径 调用初始化输入]",
+		config.English: "function (CONTRACT_ADDRESS|ALIAS) ABI_PATH FUNCTION_NAME [AMOUNT_IOTX] " +
+			"[--with-arguments INVOKE_INPUT]",
+		config.Chinese: "function (合约地址|别名) ABI文件路径 函数名 [IOTX数量] [--with-arguments 调用输入]",
 	}
 	invokeFunctionCmdShorts = map[config.Language]string{
 		config.English: "invoke smart contract on IoTex blockchain with function name",
@@ -30,7 +34,7 @@ var (
 var contractInvokeFunctionCmd = &cobra.Command{
 	Use:   config.TranslateInLang(invokeFunctionCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(invokeFunctionCmdShorts, config.UILanguage),
-	Args:  util.CheckArgs(1, 3),
+	Args:  util.CheckArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := contractInvokeFunction(args)
@@ -38,6 +42,35 @@ var contractInvokeFunctionCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	withArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
+}
+
 func contractInvokeFunction(args []string) error {
-	return nil
+	contract, err := util.Address(args[0])
+	if err != nil {
+		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+
+	abi, err := readAbiFile(args[1])
+	if err != nil {
+		return output.NewError(output.ReadFileError, "failed to read abi file "+args[1], err)
+	}
+
+	methodName := args[2]
+
+	amount := big.NewInt(0)
+	if len(args) == 4 {
+		amount, err = util.StringToRau(args[3], util.IotxDecimalNum)
+		if err != nil {
+			return output.NewError(output.ConvertError, "invalid amount", err)
+		}
+	}
+
+	bytecode, err := packArguments(abi, methodName, withArgumentsFlag.Value().(string))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
+	}
+
+	return action.Execute(contract, amount, bytecode)
 }
