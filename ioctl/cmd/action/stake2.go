@@ -35,8 +35,8 @@ var (
 		config.Chinese: "一次不安全的连接（默认为false)",
 	}
 	stake2FlagAutoStakeUsages = map[config.Language]string{
-		config.English: "auto stake boost: the voting power will not decrease until disable it",
-		config.Chinese: "",
+		config.English: "auto-stake boost: the voting power will not decrease",
+		config.Chinese: "自动质押，权重不会衰减",
 	}
 )
 
