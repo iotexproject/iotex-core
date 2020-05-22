@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -18,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 const solCompiler = "solc"
@@ -72,6 +74,7 @@ func init() {
 	ContractCmd.AddCommand(ContractCompileCmd)
 	ContractCmd.AddCommand(contractDeployCmd)
 	ContractCmd.AddCommand(contractInvokeCmd)
+	ContractCmd.AddCommand(contractTestCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -117,6 +120,10 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 	var method abi.Method
 	var ok bool
 
+	if rowInput == "" {
+		rowInput = "{}"
+	}
+
 	rowArguments, err := parseInput(rowInput)
 	if err != nil {
 		return nil, err
@@ -144,4 +151,8 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 		arguments = append(arguments, arg)
 	}
 	return targetAbi.Pack(targetMethod, arguments...)
+}
+
+func decodeBytecode(bytecode string) ([]byte, error) {
+	return hex.DecodeString(util.TrimHexPrefix(bytecode))
 }

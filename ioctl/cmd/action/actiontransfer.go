@@ -43,7 +43,7 @@ var actionTransferCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(actionTransferCmd)
+	RegisterWriteCommand(actionTransferCmd)
 }
 
 func transfer(args []string) error {

@@ -50,7 +50,7 @@ var stake2CreateCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(stake2CreateCmd)
+	RegisterWriteCommand(stake2CreateCmd)
 	stake2CreateCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
 		config.TranslateInLang(stake2CreateFlagAutoRestakeUsages, config.UILanguage))
 }
