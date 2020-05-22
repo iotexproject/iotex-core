@@ -37,8 +37,20 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 }
 
 func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
-	// TODO: more type handler needed
 	switch t.T {
+	default:
+		return nil, ErrInvalidArg
+
+	case abi.BoolTy:
+		if reflect.TypeOf(arg).Kind() != reflect.Bool {
+			return nil, ErrInvalidArg
+		}
+
+	case abi.StringTy:
+		if reflect.TypeOf(arg).Kind() != reflect.String {
+			return nil, ErrInvalidArg
+		}
+
 	case abi.SliceTy:
 		if reflect.TypeOf(arg).Kind() != reflect.Slice {
 			return nil, ErrInvalidArg
@@ -50,7 +62,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		for i := 0; i < s.Len(); i++ {
 			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
-				return nil, ErrInvalidArg
+				return nil, err
 			}
 			slice = reflect.Append(slice, reflect.ValueOf(ele))
 		}
@@ -69,7 +81,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		for i := 0; i < s.Len(); i++ {
 			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
-				return nil, ErrInvalidArg
+				return nil, err
 			}
 			array.Index(i).Set(reflect.ValueOf(ele))
 		}
@@ -89,7 +101,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		} else {
 			arg, err = util.IoAddrToEvmAddr(addrString)
 			if err != nil {
-				return nil, ErrInvalidArg
+				return nil, err
 			}
 		}
 
@@ -140,7 +152,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		}
 
 		if err != nil {
-			return nil, ErrInvalidArg
+			return nil, err
 		}
 
 	// support both number & string input
@@ -194,8 +206,49 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 		}
 
 		if err != nil {
+			return nil, err
+		}
+
+	case abi.BytesTy:
+		if reflect.TypeOf(arg).Kind() != reflect.String {
 			return nil, ErrInvalidArg
 		}
+
+		bytecode, err := decodeBytecode(arg.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		bytes := reflect.MakeSlice(t.Type, 0, len(bytecode))
+
+		for _, oneByte := range bytecode {
+			bytes = reflect.Append(bytes, reflect.ValueOf(oneByte))
+		}
+
+		arg = bytes.Interface()
+
+	case abi.FixedBytesTy, abi.FunctionTy:
+		if reflect.TypeOf(arg).Kind() != reflect.String {
+			return nil, ErrInvalidArg
+		}
+
+		bytecode, err := decodeBytecode(arg.(string))
+		if err != nil {
+			return nil, err
+		}
+
+		if t.Size != len(bytecode) {
+			return nil, ErrInvalidArg
+		}
+
+		bytesType := reflect.ArrayOf(t.Size, reflect.TypeOf(uint8(0)))
+		bytes := reflect.New(bytesType).Elem()
+
+		for i, oneByte := range bytecode {
+			bytes.Index(i).Set(reflect.ValueOf(oneByte))
+		}
+
+		arg = bytes.Interface()
 
 	}
 	return arg, nil

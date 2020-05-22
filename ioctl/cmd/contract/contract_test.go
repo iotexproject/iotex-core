@@ -8,8 +8,6 @@ package contract
 
 import (
 	"bytes"
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -21,7 +19,7 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(3, len(abi.Methods))
+	r.Equal(5, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
@@ -44,12 +42,20 @@ func TestParseArguments(t *testing.T) {
 		}, {
 			"0xba025b7100000000000000000000000000000000000000011ade48e4922161024e211c62000000000000000000000000000000000000000000000000000000000001e0f30000000000000000000000000000000000000000000000000000000000000005fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffdf0d2000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000",
 			"testArray",
-			// IntTy/Uintty larger than int64/uint64 should be passes by string, otherwise the precision losses
+			// IntTy/UintTy larger than int64/uint64 should be passes by string, otherwise the precision losses
 			`{"a":["87543498528347976543703735394",123123,5,-12,-134958],"b":[1,2,0]}`,
 		}, {
-			"0x2db6ad32",
-			"testEmpty",
-			"",
+			"0x3ca8b1a70000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000001007a675668798ab73482982748287842900000000000000000000000000000000",
+			"testBytes",
+			`{"t":"0x07a675668798ab734829827482878429"}`,
+		}, {
+			"0x901e5dda1221120000000000000000000000000000000000000000000000000000000000",
+			"testFixedBytes",
+			`{"t":"0x122112"}`,
+		}, {
+			"0x1bfc56c6000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000010496f54655820426c6f636b636861696e00000000000000000000000000000000",
+			"testBoolAndString",
+			`{"a":true,"s":"IoTeX Blockchain"}`,
 		},
 	}
 
@@ -59,7 +65,7 @@ func TestParseArguments(t *testing.T) {
 
 		bytecode, err := packArguments(testAbi, test.method, test.inputs)
 		r.NoError(err)
-		fmt.Println(hex.EncodeToString(bytecode))
+
 		r.True(bytes.Equal(expect, bytecode))
 	}
 }
