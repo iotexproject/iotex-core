@@ -46,7 +46,7 @@ var stake2AddCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(stake2AddCmd)
+	RegisterWriteCommand(stake2AddCmd)
 }
 
 func stake2Add(args []string) error {

@@ -44,7 +44,7 @@ var xrc20ApproveCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(xrc20ApproveCmd)
+	RegisterWriteCommand(xrc20ApproveCmd)
 }
 
 func approve(args []string) error {

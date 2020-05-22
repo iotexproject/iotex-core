@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -19,32 +21,37 @@ import (
 
 // Multi-language support
 var (
-	invokeBytecodeCmdUses = map[config.Language]string{
+	testBytecodeCmdUses = map[config.Language]string{
 		config.English: "bytecode (CONTRACT_ADDRESS|ALIAS) PACKED_ARGUMENTS [AMOUNT_IOTX]",
 		config.Chinese: "bytecode (合约地址|别名) 已打包参数 [IOTX数量]",
 	}
-	invokeBytecodeCmdShorts = map[config.Language]string{
-		config.English: "invoke smart contract on IoTex blockchain with packed arguments",
-		config.Chinese: "invoke 通过 已打包参数方式 调用IoTex区块链上的智能合约",
+	testBytecodeCmdShorts = map[config.Language]string{
+		config.English: "test smart contract on IoTex blockchain with packed arguments",
+		config.Chinese: "传入bytecode测试IoTex区块链上的智能合约",
 	}
 )
 
-// contractInvokeBytecodeCmd represents the contract invoke bytecode command
-var contractInvokeBytecodeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(invokeBytecodeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(invokeBytecodeCmdShorts, config.UILanguage),
+// contractTestBytecodeCmd represents the contract test bytecode command
+var contractTestBytecodeCmd = &cobra.Command{
+	Use:   config.TranslateInLang(testBytecodeCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(testBytecodeCmdShorts, config.UILanguage),
 	Args:  cobra.RangeArgs(2, 3),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := contractInvokeBytecode(args)
+		err := contractTestBytecode(args)
 		return output.PrintError(err)
 	},
 }
 
-func contractInvokeBytecode(args []string) error {
-	contract, err := util.Address(args[0])
+func contractTestBytecode(args []string) error {
+	addr, err := util.Address(args[0])
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+
+	contract, err := address.FromString(addr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert string into address", err)
 	}
 
 	bytecode, err := decodeBytecode(args[1])
@@ -60,5 +67,11 @@ func contractInvokeBytecode(args []string) error {
 		}
 	}
 
-	return action.Execute(contract, amount, bytecode)
+	result, err := action.Read(contract, amount, bytecode)
+	if err != nil {
+		return err
+	}
+
+	output.PrintResult("return: " + result)
+	return nil
 }

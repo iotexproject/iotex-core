@@ -11,6 +11,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -19,37 +21,42 @@ import (
 
 // Multi-language support
 var (
-	invokeFunctionCmdUses = map[config.Language]string{
+	testFunctionCmdUses = map[config.Language]string{
 		config.English: "function (CONTRACT_ADDRESS|ALIAS) ABI_PATH FUNCTION_NAME [AMOUNT_IOTX] " +
 			"[--with-arguments INVOKE_INPUT]",
 		config.Chinese: "function (合约地址|别名) ABI文件路径 函数名 [IOTX数量] [--with-arguments 调用输入]",
 	}
-	invokeFunctionCmdShorts = map[config.Language]string{
-		config.English: "invoke smart contract on IoTex blockchain with function name",
-		config.Chinese: "invoke 通过 函数名方式 调用IoTex区块链上的智能合约",
+	testFunctionCmdShorts = map[config.Language]string{
+		config.English: "test smart contract on IoTex blockchain with function name",
+		config.Chinese: "调用函数测试IoTex区块链上的智能合约",
 	}
 )
 
-// contractInvokeFunctionCmd represents the contract invoke function command
-var contractInvokeFunctionCmd = &cobra.Command{
-	Use:   config.TranslateInLang(invokeFunctionCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(invokeFunctionCmdShorts, config.UILanguage),
-	Args:  util.CheckArgs(3, 4),
+// contractTestFunctionCmd represents the contract test bytecode command
+var contractTestFunctionCmd = &cobra.Command{
+	Use:   config.TranslateInLang(testFunctionCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(testFunctionCmdShorts, config.UILanguage),
+	Args:  cobra.RangeArgs(3, 4),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := contractInvokeFunction(args)
+		err := contractTestFunction(args)
 		return output.PrintError(err)
 	},
 }
 
 func init() {
-	withArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
+	withArgumentsFlag.RegisterCommand(contractTestFunctionCmd)
 }
 
-func contractInvokeFunction(args []string) error {
-	contract, err := util.Address(args[0])
+func contractTestFunction(args []string) error {
+	addr, err := util.Address(args[0])
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
+	}
+
+	contract, err := address.FromString(addr)
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert string into address", err)
 	}
 
 	abi, err := readAbiFile(args[1])
@@ -72,5 +79,11 @@ func contractInvokeFunction(args []string) error {
 		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
 	}
 
-	return action.Execute(contract, amount, bytecode)
+	result, err := action.Read(contract, amount, bytecode)
+	if err != nil {
+		return err
+	}
+
+	output.PrintResult("return: " + result)
+	return nil
 }

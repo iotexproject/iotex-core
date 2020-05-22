@@ -41,6 +41,7 @@ var NodeCmd = &cobra.Command{
 func init() {
 	NodeCmd.AddCommand(nodeDelegateCmd)
 	NodeCmd.AddCommand(nodeRewardCmd)
+	NodeCmd.AddCommand(nodeProbationlistCmd)
 	NodeCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,

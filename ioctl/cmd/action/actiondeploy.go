@@ -42,7 +42,7 @@ var actionDeployCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(actionDeployCmd)
+	RegisterWriteCommand(actionDeployCmd)
 	bytecodeFlag.RegisterCommand(actionDeployCmd)
 	bytecodeFlag.MarkFlagRequired(actionDeployCmd)
 }

@@ -23,7 +23,7 @@ var (
 		config.Chinese: "stake2",
 	}
 	stake2CmdShorts = map[config.Language]string{
-		config.English: "support native staking from ioctl",
+		config.English: "Support native staking of IoTeX blockchain",
 		config.Chinese: "支持来自ioctl的本地质押",
 	}
 	stake2FlagEndpointUsages = map[config.Language]string{
@@ -34,9 +34,13 @@ var (
 		config.English: "insecure connection for once (default false)",
 		config.Chinese: "一次不安全的连接（默认为false)",
 	}
+	stake2FlagAutoStakeUsages = map[config.Language]string{
+		config.English: "auto-stake boost: the voting power will not decrease",
+		config.Chinese: "自动质押，权重不会衰减",
+	}
 )
 
-var stake2AutoRestake bool
+var stake2AutoStake bool
 
 //Stake2Cmd represent stake2 command
 var Stake2Cmd = &cobra.Command{

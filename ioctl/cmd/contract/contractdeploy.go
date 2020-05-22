@@ -9,6 +9,7 @@ package contract
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
@@ -19,7 +20,7 @@ var (
 		config.Chinese: "deploy",
 	}
 	deployCmdShorts = map[config.Language]string{
-		config.English: "deploy smart contract of IoTeX blockchain",
+		config.English: "Deploy smart contract of IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链部署智能合约",
 	}
 )
@@ -34,4 +35,7 @@ func init() {
 	contractDeployCmd.AddCommand(contractDeployBytecodeCmd)
 	contractDeployCmd.AddCommand(contractDeployBinCmd)
 	contractDeployCmd.AddCommand(contractDeploySolCmd)
+	action.RegisterWriteCommand(contractDeployBytecodeCmd)
+	action.RegisterWriteCommand(contractDeployBinCmd)
+	action.RegisterWriteCommand(contractDeploySolCmd)
 }

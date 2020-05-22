@@ -7,22 +7,32 @@
 package contract
 
 import (
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/ioutil"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/compiler"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 const solCompiler = "solc"
+
+// ErrInvalidArg indicates argument is invalid
+var ErrInvalidArg = errors.New("invalid argument")
 
 // Flags
 var (
 	sourceFlag = flag.NewStringVar("source", "",
 		config.TranslateInLang(flagSourceUsage, config.UILanguage))
+	withArgumentsFlag = flag.NewStringVar("with-arguments", "",
+		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
 )
 
 // Multi-language support
@@ -47,9 +57,9 @@ var (
 		config.English: "set source code file path",
 		config.Chinese: "设定代码文件路径",
 	}
-	flagVersionUsage = map[config.Language]string{
-		config.English: "set solidity version",
-		config.Chinese: "设定solidity版本",
+	flagWithArgumentsUsage = map[config.Language]string{
+		config.English: "pass arguments in JSON format",
+		config.Chinese: "按照JSON格式传入参数",
 	}
 )
 
@@ -64,6 +74,7 @@ func init() {
 	ContractCmd.AddCommand(ContractCompileCmd)
 	ContractCmd.AddCommand(contractDeployCmd)
 	ContractCmd.AddCommand(contractInvokeCmd)
+	ContractCmd.AddCommand(contractTestCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
@@ -94,4 +105,54 @@ func checkCompilerVersion(solc *compiler.Solidity) bool {
 		return true
 	}
 	return false
+}
+
+func readAbiFile(abiFile string) (*abi.ABI, error) {
+	abiBytes, err := ioutil.ReadFile(abiFile)
+	if err != nil {
+		return nil, output.NewError(output.ReadFileError, "failed to read abi file", err)
+	}
+
+	return parseAbi(abiBytes)
+}
+
+func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]byte, error) {
+	var method abi.Method
+	var ok bool
+
+	if rowInput == "" {
+		rowInput = "{}"
+	}
+
+	rowArguments, err := parseInput(rowInput)
+	if err != nil {
+		return nil, err
+	}
+
+	if targetMethod == "" {
+		method = targetAbi.Constructor
+	} else {
+		method, ok = targetAbi.Methods[targetMethod]
+		if !ok {
+			return nil, output.NewError(output.InputError, "invalid method name", nil)
+		}
+	}
+
+	arguments := make([]interface{}, 0, len(method.Inputs))
+	for _, param := range method.Inputs {
+		rowArg, ok := rowArguments[param.Name]
+		if !ok {
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
+		}
+		arg, err := parseArgument(&param.Type, rowArg)
+		if err != nil {
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
+		}
+		arguments = append(arguments, arg)
+	}
+	return targetAbi.Pack(targetMethod, arguments...)
+}
+
+func decodeBytecode(bytecode string) ([]byte, error) {
+	return hex.DecodeString(util.TrimHexPrefix(bytecode))
 }
