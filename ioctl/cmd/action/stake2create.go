@@ -21,19 +21,15 @@ import (
 // Multi-language support
 var (
 	stake2CreateCmdUses = map[config.Language]string{
-		config.English: "create AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-restake" +
+		config.English: "create AMOUNT_IOTX CANDIDATE_NAME STAKE_DURATION [DATA] [--auto-stake" +
 			"] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GASP_RICE] [-P PASSWORD] [-y]",
-		config.Chinese: "create IOTX数量 候选人名字 投票持续时间 [数据] [--auto-restake" +
+		config.Chinese: "create IOTX数量 候选人名字 投票持续时间 [数据] [--auto-stake" +
 			"] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	stake2CreateCmdShorts = map[config.Language]string{
 		config.English: "Create bucket on IoTeX blockchain",
 		config.Chinese: "在IoTeX区块链上创建投票",
-	}
-	stake2CreateFlagAutoRestakeUsages = map[config.Language]string{
-		config.English: "auto restake without power decay",
-		config.Chinese: "自动质押，权重不会衰减",
 	}
 )
 
@@ -51,8 +47,8 @@ var stake2CreateCmd = &cobra.Command{
 
 func init() {
 	RegisterWriteCommand(stake2CreateCmd)
-	stake2CreateCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false,
-		config.TranslateInLang(stake2CreateFlagAutoRestakeUsages, config.UILanguage))
+	stake2CreateCmd.Flags().BoolVar(&stake2AutoStake, "auto-stake", false,
+		config.TranslateInLang(stake2FlagAutoStakeUsages, config.UILanguage))
 }
 
 func stake2Create(args []string) error {
@@ -98,7 +94,7 @@ func stake2Create(args []string) error {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
 
-	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, stake2AutoRestake, data, gasLimit, gasPriceRau)
+	s2c, err := action.NewCreateStake(nonce, candidateName, amountStringInRau, duration, stake2AutoStake, data, gasLimit, gasPriceRau)
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a createStake instance", err)
 	}

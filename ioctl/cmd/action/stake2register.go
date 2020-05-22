@@ -21,18 +21,13 @@ import (
 // Multi-language support
 var (
 	registerCmdUses = map[config.Language]string{
-		config.English: "register NAME (ALIAS|OPERATO_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-restake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）IOTX数量 质押持续时间 [数据] [--auto-restake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
+		config.English: "register NAME (ALIAS|OPERATO_ADDRESS) (ALIAS|REWARD_ADDRESS) (ALIAS|OWNER_ADDRESS) AMOUNT_IOTX STAKE_DURATION [DATA] [--auto-stake] [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
+		config.Chinese: "register 名字 (别名|操作者地址）（别名|奖励地址）（别名|所有者地址）IOTX数量 质押持续时间 [数据] [--auto-stake] [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
 	registerCmdShorts = map[config.Language]string{
-		config.English: "register a candidate",
+		config.English: "Register a candidate",
 		config.Chinese: "在IoTeX区块链上注册候选人",
-	}
-
-	stake2FlagRegisterAutoRestakeUsages = map[config.Language]string{
-		config.English: "auto restake without power decay",
-		config.Chinese: "自动质押，权重不会衰减",
 	}
 )
 
@@ -50,7 +45,7 @@ var stake2RegisterCmd = &cobra.Command{
 
 func init() {
 	RegisterWriteCommand(stake2RegisterCmd)
-	stake2RegisterCmd.Flags().BoolVar(&stake2AutoRestake, "auto-restake", false, config.TranslateInLang(stake2FlagRegisterAutoRestakeUsages, config.UILanguage))
+	stake2RegisterCmd.Flags().BoolVar(&stake2AutoStake, "auto-stake", false, config.TranslateInLang(stake2FlagAutoStakeUsages, config.UILanguage))
 }
 
 func register(args []string) error {
@@ -108,7 +103,7 @@ func register(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoRestake, payload, gasLimit, gasPriceRau)
+	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountInRau.String(), duration, stake2AutoStake, payload, gasLimit, gasPriceRau)
 
 	if err != nil {
 		return output.NewError(output.InstantiationError, "failed to make a candidateRegister instance", err)
