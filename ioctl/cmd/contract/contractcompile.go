@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -22,17 +23,15 @@ var (
 	binOut string
 )
 
-// TODO: remove source flag and support multi-file compiling
-
 // Multi-language support
 var (
 	contractCompileCmdUses = map[config.Language]string{
-		config.English: "compile CONTRACT_NAME --source CODE_PATH --abi-out ABI_PATH --bin-out BIN_PATH",
-		config.Chinese: "compile 合约名 --abi-out ABI路径 --bin-out BIN路径",
+		config.English: "compile CONTRACT_NAME [CODE_FILES...] [--abi-out ABI_PATH] [--bin-out BIN_PATH]",
+		config.Chinese: "compile 合约名 [代码文件...] [--abi-out ABI路径] [--bin-out BIN路径]",
 	}
 	contractCompileCmdShorts = map[config.Language]string{
-		config.English: "Compile smart contract of IoTeX blockchain from source code",
-		config.Chinese: "编译IoTeX区块链的智能合约代码",
+		config.English: "Compile smart contract of IoTeX blockchain from source code file(s).",
+		config.Chinese: "编译IoTeX区块链的智能合约代码,支持多文件编译",
 	}
 	flagAbiOutUsage = map[config.Language]string{
 		config.English: "set abi file output path",
@@ -48,7 +47,7 @@ var (
 var ContractCompileCmd = &cobra.Command{
 	Use:   config.TranslateInLang(contractCompileCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(contractCompileCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := compile(args)
@@ -57,29 +56,48 @@ var ContractCompileCmd = &cobra.Command{
 }
 
 func init() {
-	sourceFlag.RegisterCommand(ContractCompileCmd)
-	sourceFlag.MarkFlagRequired(ContractCompileCmd)
-
 	ContractCompileCmd.Flags().StringVar(&abiOut, "abi-out", "",
 		config.TranslateInLang(flagAbiOutUsage, config.UILanguage))
-	ContractCompileCmd.MarkFlagRequired("abi-out")
 
 	ContractCompileCmd.Flags().StringVar(&binOut, "bin-out", "",
 		config.TranslateInLang(flagBinOutUsage, config.UILanguage))
-	ContractCompileCmd.MarkFlagRequired("bin-out")
 }
 
 func compile(args []string) error {
-	contractName := sourceFlag.Value().(string) + ":" + args[0]
+	contractName := args[0]
 
-	contracts, err := Compile(sourceFlag.Value().(string))
+	files := args[1:]
+	if len(files) == 0 {
+		dirInfo, err := ioutil.ReadDir("./")
+		if err != nil {
+			return output.NewError(output.ReadFileError, "failed to get current directory", err)
+		}
+
+		for _, fileInfo := range dirInfo {
+			if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".sol") {
+				files = append(files, fileInfo.Name())
+			}
+		}
+
+		if len(files) == 0 {
+			return output.NewError(output.InputError, "failed to get source file(s)", nil)
+		}
+	}
+
+	contracts, err := Compile(files...)
 	if err != nil {
 		return output.NewError(0, "failed to compile", err)
 	}
 
+	for name := range contracts {
+		if strings.HasSuffix(name, contractName) {
+			contractName = name
+		}
+	}
+
 	contract, ok := contracts[contractName]
 	if !ok {
-		return output.NewError(output.CompilerError, fmt.Sprintf("failed to get contract from %s", contractName), nil)
+		return output.NewError(output.CompilerError, fmt.Sprintf("failed to find out contract %s", contractName), nil)
 	}
 
 	abiByte, err := json.Marshal(contract.Info.AbiDefinition)
@@ -87,13 +105,25 @@ func compile(args []string) error {
 		return output.NewError(output.SerializationError, "failed to marshal abi", err)
 	}
 
-	if err := ioutil.WriteFile(abiOut, abiByte, 0600); err != nil {
-		return output.NewError(output.WriteFileError, "failed to write abi file", err)
+	result := []string{
+		fmt.Sprintf("======= %s =======", contractName),
+		fmt.Sprintf("Binary:\n%s", contract.Code),
+		fmt.Sprintf("Contract JSON ABI\n%s", string(abiByte)),
 	}
-	// bin file starts with "0x" prefix
-	if err := ioutil.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
-		return output.NewError(output.WriteFileError, "failed to write bin file", err)
+	output.PrintResult(strings.Join(result, "\n"))
+
+	if binOut != "" {
+		// bin file starts with "0x" prefix
+		if err := ioutil.WriteFile(binOut, []byte(contract.Code), 0600); err != nil {
+			return output.NewError(output.WriteFileError, "failed to write bin file", err)
+		}
 	}
-	output.PrintResult("Compile complete")
+
+	if abiOut != "" {
+		if err := ioutil.WriteFile(abiOut, abiByte, 0600); err != nil {
+			return output.NewError(output.WriteFileError, "failed to write abi file", err)
+		}
+	}
+
 	return nil
 }

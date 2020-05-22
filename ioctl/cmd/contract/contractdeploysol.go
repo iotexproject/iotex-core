@@ -9,7 +9,9 @@ package contract
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -21,12 +23,12 @@ import (
 // Multi-language support
 var (
 	deploySolCmdUses = map[config.Language]string{
-		config.English: "sol CODE_PATH CONTRACT_NAME [--with-arguments INIT_INPUT]",
-		config.Chinese: "sol 源代码文件路径 合约名 [--with-arguments 初始化输入]",
+		config.English: "sol CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT]",
+		config.Chinese: "sol 合约名 [代码文件...] [--with-arguments 初始化输入]",
 	}
 	deploySolCmdShorts = map[config.Language]string{
-		config.English: "deploy smart contract with sol on IoTeX blockchain",
-		config.Chinese: "deploy 使用 sol 方式在 IoTex区块链上部署智能合约",
+		config.English: "deploy smart contract with sol files on IoTeX blockchain",
+		config.Chinese: "使用sol文件在IoTex区块链上部署智能合约",
 	}
 )
 
@@ -34,7 +36,7 @@ var (
 var contractDeploySolCmd = &cobra.Command{
 	Use:   config.TranslateInLang(deploySolCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(deploySolCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(2),
+	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := contractDeploySol(args)
@@ -47,16 +49,40 @@ func init() {
 }
 
 func contractDeploySol(args []string) error {
-	codePath := args[0]
-	contractName := args[1]
-	contracts, err := Compile(codePath)
+	contractName := args[0]
+
+	files := args[1:]
+	if len(files) == 0 {
+		dirInfo, err := ioutil.ReadDir("./")
+		if err != nil {
+			return output.NewError(output.ReadFileError, "failed to get current directory", err)
+		}
+
+		for _, fileInfo := range dirInfo {
+			if !fileInfo.IsDir() && strings.HasSuffix(fileInfo.Name(), ".sol") {
+				files = append(files, fileInfo.Name())
+			}
+		}
+
+		if len(files) == 0 {
+			return output.NewError(output.InputError, "failed to get source file(s)", nil)
+		}
+	}
+
+	contracts, err := Compile(files...)
 	if err != nil {
 		return output.NewError(0, "failed to compile", err)
 	}
 
+	for name := range contracts {
+		if strings.HasSuffix(name, contractName) {
+			contractName = name
+		}
+	}
+
 	contract, ok := contracts[contractName]
 	if !ok {
-		return output.NewError(output.CompilerError, fmt.Sprintf("failed to get contract from %s", contractName), nil)
+		return output.NewError(output.CompilerError, fmt.Sprintf("failed to find out contract %s", contractName), nil)
 	}
 
 	bytecode, err := decodeBytecode(contract.Code)
