@@ -35,6 +35,7 @@ type Slasher struct {
 	indexer               *CandidateIndexer
 	numCandidateDelegates uint64
 	numDelegates          uint64
+	numOfBlocksByEpoch    uint64
 	prodThreshold         uint64
 	probationEpochPeriod  uint64
 	maxProbationPeriod    uint64
@@ -49,7 +50,7 @@ func NewSlasher(
 	getProbationList GetProbationList,
 	getUnprodDelegate GetUnproductiveDelegate,
 	indexer *CandidateIndexer,
-	numCandidateDelegates, numDelegates, thres, koPeriod, maxKoPeriod uint64,
+	numCandidateDelegates, numDelegates, dardanellesNumSubEpochs, thres, koPeriod, maxKoPeriod uint64,
 	koIntensity uint32,
 ) (*Slasher, error) {
 	return &Slasher{
@@ -61,6 +62,7 @@ func NewSlasher(
 		indexer:               indexer,
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
+		numOfBlocksByEpoch:    numDelegates * dardanellesNumSubEpochs,
 		prodThreshold:         thres,
 		probationEpochPeriod:  koPeriod,
 		maxProbationPeriod:    maxKoPeriod,
@@ -478,7 +480,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 			epochNum,
 			bcCtx.Tip.Height+1,
 			func(start, end uint64) (map[string]uint64, error) {
-				return currentEpochProductivity(sr, start, end)
+				return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
 			},
 		)
 		if err != nil {
@@ -504,7 +506,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
-	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight)
+	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight, sh.numOfBlocksByEpoch)
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
@@ -583,9 +585,9 @@ func filterCandidates(
 }
 
 // currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
-func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64) (map[string]uint64, error) {
+func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64, numOfBlocksByEpoch uint64) (map[string]uint64, error) {
 	stats := make(map[string]uint64)
-	blockmetas, err := allBlockMetasFromDB(sr)
+	blockmetas, err := allBlockMetasFromDB(sr, numOfBlocksByEpoch)
 	if err != nil {
 		return nil, err
 	}

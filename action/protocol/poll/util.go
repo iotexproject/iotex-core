@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -312,20 +313,21 @@ func setCurrentBlockMeta(
 	sm protocol.StateManager,
 	blockmeta *BlockMeta,
 	height uint64,
+	blocksInEpoch uint64,
 ) error {
-	key := blockMetaKey(height)
+	key := blockMetaKey(height, blocksInEpoch)
 	_, err := sm.PutState(blockmeta, protocol.KeyOption(key), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
 // allBlockMetasFromDB returns all latest block meta structs
-func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
+func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*BlockMeta, error) {
 	stateHeight, iter, err := sr.States(
 		protocol.NamespaceOption(protocol.SystemNamespace),
 		protocol.FilterOption(func(k, v []byte) bool {
 			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
 			return bytes.HasPrefix(k, prefix[:])
-		}, blockMetaKey(0), blockMetaMaxKey()),
+		}, blockMetaKey(0, blocksInEpoch), blockMetaKey(math.MaxUint64, blocksInEpoch)),
 	)
 	if err != nil {
 		return nil, err
@@ -347,13 +349,10 @@ func allBlockMetasFromDB(sr protocol.StateReader) ([]*BlockMeta, error) {
 }
 
 // blockMetaKey returns key for storing block meta with prefix
-func blockMetaKey(blkheight uint64) []byte {
+func blockMetaKey(blkHeight uint64, blocksInEpoch uint64) []byte {
 	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
-	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blkheight%720)...) // we need to define 720 as config variable
-}
-
-// blockMetaMaxKey returns max key for storing block meta
-func blockMetaMaxKey() []byte {
-	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
-	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(720)...) // we need to define 720 as config variable>
+	if blkHeight == math.MaxUint64 {
+		return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blocksInEpoch)...)
+	}
+	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blkHeight%blocksInEpoch)...)
 }

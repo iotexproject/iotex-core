@@ -343,6 +343,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
+		cfg.Genesis.DardanellesNumSubEpochs,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,

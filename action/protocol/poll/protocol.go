@@ -157,6 +157,7 @@ func NewProtocol(
 			candidateIndexer,
 			genesisConfig.NumCandidateDelegates,
 			genesisConfig.NumDelegates,
+			genesisConfig.DardanellesNumSubEpochs,
 			genesisConfig.ProductivityThreshold,
 			genesisConfig.ProbationEpochPeriod,
 			genesisConfig.UnproductiveDelegateMaxCacheSize,
