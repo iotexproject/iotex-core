@@ -24,6 +24,7 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(6, Easter)
 	require.Equal(7, Fairbank)
 	require.Equal(8, FbkMigration)
+	require.Equal(9, Greenland)
 
 	cfg := Default
 	cfg.Genesis.PacificBlockHeight = uint64(432001)
@@ -47,6 +48,8 @@ func TestNewHeightChange(t *testing.T) {
 	require.True(hu.IsPost(Fairbank, uint64(5165641)))
 	require.True(hu.IsPre(FbkMigration, uint64(5157000)))
 	require.True(hu.IsPost(FbkMigration, uint64(5157001)))
+	require.True(hu.IsPre(Greenland, uint64(5553720)))
+	require.True(hu.IsPost(Greenland, uint64(5553721)))
 	require.Panics(func() {
 		hu.IsPost(-1, 0)
 	})
@@ -60,4 +63,5 @@ func TestNewHeightChange(t *testing.T) {
 	require.Equal(hu.EasterBlockHeight(), uint64(4478761))
 	require.Equal(hu.FairbankBlockHeight(), uint64(5165641))
 	require.Equal(hu.FbkMigrationBlockHeight(), uint64(5157001))
+	require.Equal(hu.GreenlandBlockHeight(), uint64(5553721))
 }

@@ -35,6 +35,7 @@ type Slasher struct {
 	indexer               *CandidateIndexer
 	numCandidateDelegates uint64
 	numDelegates          uint64
+	numOfBlocksByEpoch    uint64
 	prodThreshold         uint64
 	probationEpochPeriod  uint64
 	maxProbationPeriod    uint64
@@ -49,7 +50,7 @@ func NewSlasher(
 	getProbationList GetProbationList,
 	getUnprodDelegate GetUnproductiveDelegate,
 	indexer *CandidateIndexer,
-	numCandidateDelegates, numDelegates, thres, koPeriod, maxKoPeriod uint64,
+	numCandidateDelegates, numDelegates, dardanellesNumSubEpochs, thres, koPeriod, maxKoPeriod uint64,
 	koIntensity uint32,
 ) (*Slasher, error) {
 	return &Slasher{
@@ -61,6 +62,7 @@ func NewSlasher(
 		indexer:               indexer,
 		numCandidateDelegates: numCandidateDelegates,
 		numDelegates:          numDelegates,
+		numOfBlocksByEpoch:    numDelegates * dardanellesNumSubEpochs,
 		prodThreshold:         thres,
 		probationEpochPeriod:  koPeriod,
 		maxProbationPeriod:    maxKoPeriod,
@@ -93,6 +95,11 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
+			return errors.Wrap(err, "faild to update current epoch meta")
+		}
+	}
 	if blkCtx.BlockHeight == epochLastHeight && hu.IsPost(config.Easter, nextEpochStartHeight) {
 		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for probation and write into state DB
 		unqualifiedList, err := sh.CalculateProbationList(ctx, sm, epochNum+1)
@@ -377,7 +384,7 @@ func (sh *Slasher) CalculateProbationList(
 			}
 		}
 		// calculate upd of epochNum-1 (latest)
-		uq, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
+		uq, err := sh.calculateUnproductiveDelegates(ctx, sm)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 		}
@@ -416,7 +423,7 @@ func (sh *Slasher) CalculateProbationList(
 		}
 		probationMap[addr]--
 	}
-	addList, err := sh.calculateUnproductiveDelegatesByEpoch(ctx, sm, rp, epochNum-1)
+	addList, err := sh.calculateUnproductiveDelegates(ctx, sm)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to calculate current epoch upd %d", epochNum-1)
 	}
@@ -440,23 +447,45 @@ func (sh *Slasher) CalculateProbationList(
 	return nextProbationlist, setUnproductiveDelegates(sm, upd)
 }
 
-func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr protocol.StateReader, rp *rolldpos.Protocol, epochNum uint64) ([]string, error) {
+func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	delegates, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}
-	numBlks, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, sh.productivity)
-	if err != nil {
-		return nil, err
-	}
-	// The current block is not included, so add it
-	numBlks++
-	if _, ok := produce[blkCtx.Producer.String()]; ok {
-		produce[blkCtx.Producer.String()]++
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	var numBlks uint64
+	var produce map[string]uint64
+	if hu.IsPre(config.Greenland, blkCtx.BlockHeight) {
+		numBlks, produce, err = rp.ProductivityByEpoch(
+			epochNum,
+			bcCtx.Tip.Height,
+			sh.productivity,
+		)
+		if err != nil {
+			return nil, err
+		}
+		// The current block is not included, so add it
+		numBlks++
+		if _, ok := produce[blkCtx.Producer.String()]; ok {
+			produce[blkCtx.Producer.String()]++
+		} else {
+			produce[blkCtx.Producer.String()] = 1
+		}
 	} else {
-		produce[blkCtx.Producer.String()] = 1
+		numBlks, produce, err = rp.ProductivityByEpoch(
+			epochNum,
+			bcCtx.Tip.Height+1,
+			func(start, end uint64) (map[string]uint64, error) {
+				return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
+			},
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for _, abp := range delegates {
@@ -472,6 +501,12 @@ func (sh *Slasher) calculateUnproductiveDelegatesByEpoch(ctx context.Context, sr
 		}
 	}
 	return unqualified, nil
+}
+
+func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
+	return setCurrentBlockMeta(sm, currentBlockMeta, blkCtx.BlockHeight, sh.numOfBlocksByEpoch)
 }
 
 // calculateBlockProducer calculates block producer by given candidate list
@@ -547,4 +582,30 @@ func filterCandidates(
 		verifiedCandidates = append(verifiedCandidates, candidatesMap[name])
 	}
 	return verifiedCandidates, nil
+}
+
+// currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
+func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64, numOfBlocksByEpoch uint64) (map[string]uint64, error) {
+	stats := make(map[string]uint64)
+	blockmetas, err := allBlockMetasFromDB(sr, numOfBlocksByEpoch)
+	if err != nil {
+		return nil, err
+	}
+	expectedCount := end - start + 1
+	count := uint64(0)
+	for _, blockmeta := range blockmetas {
+		if blockmeta.Height < start || blockmeta.Height > end {
+			continue
+		}
+		if _, ok := stats[blockmeta.Producer]; ok {
+			stats[blockmeta.Producer]++
+		} else {
+			stats[blockmeta.Producer] = 1
+		}
+		count++
+	}
+	if expectedCount != count {
+		return nil, errors.New("block metas from stateDB doesn't have enough data for given start, end height")
+	}
+	return stats, nil
 }

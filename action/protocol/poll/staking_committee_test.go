@@ -110,6 +110,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 		nil,
 		cfg.Genesis.NumCandidateDelegates,
 		cfg.Genesis.NumDelegates,
+		cfg.Genesis.DardanellesNumSubEpochs,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,

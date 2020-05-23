@@ -103,7 +103,6 @@ type (
 )
 
 // Productivity returns the map of the number of blocks produced per delegate in given epoch
-// TODO: implement reading current epoch meta from state factory
 func Productivity(bc Blockchain, startHeight uint64, endHeight uint64) (map[string]uint64, error) {
 	stats := make(map[string]uint64)
 	for i := startHeight; i <= endHeight; i++ {
