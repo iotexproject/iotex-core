@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.12
-	github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b
+	github.com/iotexproject/go-pkgs v0.1.2-0.20200523040337-5f1d9ddaa8ee
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.2.18

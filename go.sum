@@ -157,8 +157,8 @@ github.com/iotexproject/go-p2p v0.2.12 h1:xLn8RVDZjMDbupMxGClp5sO+fPBesvFg+uNgRs
 github.com/iotexproject/go-p2p v0.2.12/go.mod h1:RDVrUSjtHO5G/h1uhPfILcOqR7gRVPYvFnrc2kHyQek=
 github.com/iotexproject/go-pkgs v0.1.1 h1:AyWJf8jqOg4aMSrxi+MInFFBZhTvSm0LCu1o08heijk=
 github.com/iotexproject/go-pkgs v0.1.1/go.mod h1:U3Mb0Wm6XtYpFRODg3pe34DEaWhFwqI2Q5xZK6hji2I=
-github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b h1:ztTFq2YLN4Wd4aNbbnjsFis1/N9LZ5Jcq6hSGuK+Niw=
-github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b/go.mod h1:vP6jDCmhY5F4jtWD1hf1BTlY5hu+0q0oqALfBL7pY+k=
+github.com/iotexproject/go-pkgs v0.1.2-0.20200523040337-5f1d9ddaa8ee h1:LxYC2EoAgk2BeFJJ6kdXiTLZxAo7LXG1cdNT4yG8GvY=
+github.com/iotexproject/go-pkgs v0.1.2-0.20200523040337-5f1d9ddaa8ee/go.mod h1:vP6jDCmhY5F4jtWD1hf1BTlY5hu+0q0oqALfBL7pY+k=
 github.com/iotexproject/iotex-address v0.2.1 h1:ZJH2ajx5OBrbaRJ0ZWlWUo685zr5kjWijVjtmUrm42E=
 github.com/iotexproject/iotex-address v0.2.1/go.mod h1:ONmTqmg6zO7VWF9TcWN+UrreFr/xpazlv9PWOALbLFA=
 github.com/iotexproject/iotex-antenna-go/v2 v2.3.2 h1:xCJa1QYV/f9cSF9z32fFmfTcGb8sYvn1No+uDlgwABA=
@@ -168,8 +168,6 @@ github.com/iotexproject/iotex-election v0.2.18/go.mod h1:8GJZXtJeTaqOypPaQNzPWqC
 github.com/iotexproject/iotex-proto v0.2.1-0.20190814190638-f74c55ffedf5/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
 github.com/iotexproject/iotex-proto v0.2.5 h1:SYdl9Lqb0LYfFf3sfw92fN8GY3bthfCvGmltz+2uvDQ=
 github.com/iotexproject/iotex-proto v0.2.5/go.mod h1:962P5o0qlB5sqRT07TJBMX31i2u309kzDqqwCg+cGz0=
-github.com/iotexproject/iotex-proto v0.3.0 h1:xMfUTEEzARJAmev33hPqM7TtwgcMbu4pXEFzvvVQEoM=
-github.com/iotexproject/iotex-proto v0.3.0/go.mod h1:xKA4yUbg208k1j3+t10Pe7IzT6uHcP+/4rsDanF4Q58=
 github.com/iotexproject/iotex-proto v0.3.1-0.20200517033504-27fc88c338bb h1:TKVaYtfp5rvauC39ZKR7rA1nU0D6AzAi/4Wv4C74UrE=
 github.com/iotexproject/iotex-proto v0.3.1-0.20200517033504-27fc88c338bb/go.mod h1:xKA4yUbg208k1j3+t10Pe7IzT6uHcP+/4rsDanF4Q58=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
