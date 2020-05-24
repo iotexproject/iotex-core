@@ -24,7 +24,7 @@ var (
 		config.Chinese: "prepare",
 	}
 	prepareCmdShorts = map[config.Language]string{
-		config.English: "prepare solidity compiler",
+		config.English: "Prepare solidity compiler",
 		config.Chinese: "准备solidity编译器",
 	}
 )

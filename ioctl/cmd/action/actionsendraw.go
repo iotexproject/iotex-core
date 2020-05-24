@@ -43,7 +43,7 @@ var actionSendRawCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(actionSendRawCmd)
+	RegisterWriteCommand(actionSendRawCmd)
 }
 
 func sendRaw(arg string) error {

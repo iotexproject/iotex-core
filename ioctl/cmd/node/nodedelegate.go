@@ -51,15 +51,10 @@ var (
 		config.English: "specify specific epoch",
 		config.Chinese: "指定特定epoch",
 	}
-	flagNextEpochUsages = map[config.Language]string{
-		config.English: "query delegate of upcoming epoch",
-		config.Chinese: "查询即将到来的epoch的委托",
-	}
 )
 
 var (
 	epochNum       uint64
-	nextEpoch      bool
 	nodeStatus     map[bool]string
 	probatedStatus map[bool]string
 )
@@ -120,8 +115,6 @@ func (m *delegatesMessage) String() string {
 func init() {
 	nodeDelegateCmd.Flags().Uint64VarP(&epochNum, "epoch-num", "e", 0,
 		config.TranslateInLang(flagEpochNumUsages, config.UILanguage))
-	nodeDelegateCmd.Flags().BoolVarP(&nextEpoch, "next-epoch", "n", false,
-		config.TranslateInLang(flagNextEpochUsages, config.UILanguage))
 	nodeStatus = map[bool]string{true: "active", false: ""}
 	probatedStatus = map[bool]string{true: "probated", false: ""}
 }

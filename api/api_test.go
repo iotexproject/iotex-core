@@ -1064,6 +1064,7 @@ func TestServer_GetChainMeta(t *testing.T) {
 				nil,
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Genesis.DardanellesNumSubEpochs,
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
@@ -1478,6 +1479,7 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				indexer,
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Genesis.DardanellesNumSubEpochs,
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
@@ -1547,6 +1549,7 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				indexer,
 				test.numCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Genesis.DardanellesNumSubEpochs,
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
@@ -1616,6 +1619,7 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				indexer,
 				cfg.Genesis.NumCandidateDelegates,
 				test.numDelegates,
+				cfg.Genesis.DardanellesNumSubEpochs,
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
@@ -1743,6 +1747,7 @@ func TestServer_GetEpochMeta(t *testing.T) {
 				indexer,
 				cfg.Genesis.NumCandidateDelegates,
 				cfg.Genesis.NumDelegates,
+				cfg.Genesis.DardanellesNumSubEpochs,
 				cfg.Genesis.ProductivityThreshold,
 				cfg.Genesis.ProbationEpochPeriod,
 				cfg.Genesis.UnproductiveDelegateMaxCacheSize,
@@ -2140,10 +2145,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		genesis.Default.NumSubEpochs,
 		rolldpos.EnableDardanellesSubEpoch(cfg.Genesis.DardanellesBlockHeight, cfg.Genesis.DardanellesNumSubEpochs),
 	)
-	r := rewarding.NewProtocol(
-		func(uint64, uint64) (map[string]uint64, error) {
-			return nil, nil
-		}, 0, 0)
+	r := rewarding.NewProtocol(0, 0)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, err

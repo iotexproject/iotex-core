@@ -44,7 +44,7 @@ var stake2WithdrawCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(stake2WithdrawCmd)
+	RegisterWriteCommand(stake2WithdrawCmd)
 }
 
 func stake2Withdraw(args []string) error {

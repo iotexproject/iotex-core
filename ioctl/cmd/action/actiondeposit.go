@@ -41,7 +41,7 @@ var actionDepositCmd = &cobra.Command{
 }
 
 func init() {
-	registerWriteCommand(actionDepositCmd)
+	RegisterWriteCommand(actionDepositCmd)
 }
 
 func deposit(args []string) error {

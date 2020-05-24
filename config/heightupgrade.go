@@ -23,6 +23,7 @@ const (
 	Easter
 	Fairbank
 	FbkMigration
+	Greenland
 )
 
 type (
@@ -45,6 +46,7 @@ type (
 		easterHeight       uint64
 		fairbankHeight     uint64
 		fbkMigrationHeight uint64
+		greanlandHeight    uint64
 	}
 )
 
@@ -60,6 +62,7 @@ func NewHeightUpgrade(cfg *genesis.Genesis) HeightUpgrade {
 		cfg.EasterBlockHeight,
 		cfg.FairbankBlockHeight,
 		cfg.FbkMigrationBlockHeight,
+		cfg.GreenlandBlockHeight,
 	}
 }
 
@@ -85,6 +88,8 @@ func (hu *HeightUpgrade) IsPost(name HeightName, height uint64) bool {
 		h = hu.fairbankHeight
 	case FbkMigration:
 		h = hu.fbkMigrationHeight
+	case Greenland:
+		h = hu.greanlandHeight
 	default:
 		log.Panic("invalid height name!")
 	}
@@ -122,3 +127,6 @@ func (hu *HeightUpgrade) FairbankBlockHeight() uint64 { return hu.fairbankHeight
 
 // FbkMigrationBlockHeight returns the fairbank migration height
 func (hu *HeightUpgrade) FbkMigrationBlockHeight() uint64 { return hu.fbkMigrationHeight }
+
+// GreenlandBlockHeight returns the greenland height
+func (hu *HeightUpgrade) GreenlandBlockHeight() uint64 { return hu.greanlandHeight }

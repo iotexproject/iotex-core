@@ -23,7 +23,7 @@ import (
 // Multi-language support
 var (
 	xrc20CmdShorts = map[config.Language]string{
-		config.English: "Support ERC20 standard command-line from ioctl",
+		config.English: "Support ERC20 standard command-line",
 		config.Chinese: "使ioctl命令行支持ERC20标准",
 	}
 	xrc20CmdUses = map[config.Language]string{
@@ -93,7 +93,7 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	if err != nil {
 		return nil, output.NewError(output.ConvertError, "failed to decode 313ce567", err)
 	}
-	result, err := Read(contract, decimalBytecode)
+	result, err := Read(contract, big.NewInt(0), decimalBytecode)
 	if err != nil {
 		return nil, output.NewError(0, "failed to read contract", err)
 	}
