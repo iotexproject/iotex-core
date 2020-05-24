@@ -7,6 +7,7 @@
 package factory
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math/big"
@@ -378,6 +379,26 @@ func TestHistoryState(t *testing.T) {
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
 
+func TestFactoryStates(t *testing.T) {
+	r := require.New(t)
+	var err error
+	cfg := config.Default
+
+	// using factory
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	r.NoError(err)
+	sf, err := NewFactory(cfg, DefaultTrieOption())
+	r.NoError(err)
+	testFactoryStates(sf, t)
+
+	// using stateDB
+	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
+	r.NoError(err)
+	sf, err = NewStateDB(cfg, DefaultStateDBOption())
+	r.NoError(err)
+	testFactoryStates(sf, t)
+}
+
 func TestSDBState(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
@@ -535,6 +556,117 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	}
 }
 
+func testFactoryStates(sf Factory, t *testing.T) {
+	// Create a dummy iotex address
+	a := identityset.Address(28).String()
+	b := identityset.Address(31).String()
+	priKeyA := identityset.PrivateKey(28)
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(t, sf.Register(acc))
+	ge := genesis.Default
+	ge.InitBalanceMap = make(map[string]string)
+	ge.InitBalanceMap[a] = "100"
+	ge.InitBalanceMap[b] = "100"
+	gasLimit := uint64(1000000)
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: ge,
+		},
+	)
+	require.NoError(t, sf.Start(ctx))
+	defer func() {
+		require.NoError(t, sf.Stop(ctx))
+	}()
+	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
+	require.NoError(t, err)
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(tsf).SetGasLimit(20000).Build()
+	selp, err := action.Sign(elp, priKeyA)
+	require.NoError(t, err)
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: 1,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(1).
+		SetPrevBlockHash(hash.ZeroHash256).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions([]action.SealedEnvelope{selp}...).
+		SignAndBuild(identityset.PrivateKey(27))
+	require.NoError(t, err)
+	require.NoError(t, sf.PutBlock(ctx, &blk))
+
+	// case I: check KeyOption
+	keyOpt := protocol.KeyOption([]byte(""))
+	_, _, err = sf.States(keyOpt)
+	require.Equal(t, ErrNotSupported, errors.Cause(err))
+
+	// case II: check without cond and namespace,key not exists
+	filterOpt := protocol.FilterOption(nil, []byte("1"), []byte("2"))
+	_, _, err = sf.States(filterOpt)
+	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
+
+	// case III: check without cond,with AccountKVNamespace namespace,key not exists
+	filterOpt = protocol.FilterOption(nil, []byte("1"), []byte("2"))
+	namespaceOpt := protocol.NamespaceOption(AccountKVNamespace)
+	_, _, err = sf.States(filterOpt, namespaceOpt)
+	require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
+
+	// case IV: check without cond,with AccountKVNamespace namespace
+	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
+	height, iter, err := sf.States(namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	// two accounts and one CurrentHeightKey
+	require.Equal(t, 3, iter.Size())
+	accounts := make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		err = iter.Next(c)
+		if err != nil {
+			continue
+		}
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+	require.Equal(t, uint64(110), accounts[1].Balance.Uint64())
+
+	// case V: check cond,with AccountKVNamespace namespace
+	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
+	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
+	cond := func(k, v []byte) bool {
+		if bytes.Equal(k, addrHash[:]) {
+			return true
+		}
+		return false
+	}
+	condOpt := protocol.FilterOption(cond, nil, nil)
+	height, iter, err = sf.States(condOpt, namespaceOpt)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), height)
+	require.Equal(t, 1, iter.Size())
+	accounts = make([]*state.Account, 0)
+	for i := 0; i < iter.Size(); i++ {
+		c := &state.Account{}
+		require.NoError(t, iter.Next(c))
+		accounts = append(accounts, c)
+	}
+	require.Equal(t, uint64(90), accounts[0].Balance.Uint64())
+}
+
 func TestNonce(t *testing.T) {
 	testTriePath, err := testutil.PathOfTempFile(triePath)
 	require.NoError(t, err)
@@ -545,6 +677,7 @@ func TestNonce(t *testing.T) {
 	require.NoError(t, err)
 	testNonce(sf, t)
 }
+
 func TestSDBNonce(t *testing.T) {
 	testDBPath, err := testutil.PathOfTempFile(stateDBPath)
 	require.NoError(t, err)
