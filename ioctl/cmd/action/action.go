@@ -239,35 +239,41 @@ func SendRaw(selp *iotextypes.Action) error {
 
 // SendAction sends signed action to blockchain
 func SendAction(elp action.Envelope, signer string) error {
-	var (
-		prvKey           crypto.PrivateKey
-		err              error
-		prvKeyOrPassword string
-	)
-	if !account.IsSignerExist(signer) {
+	var prvKey crypto.PrivateKey
+	var err error
+
+	if account.IsSignerExist(signer) {
+		// Get signer's password
+		password := passwordFlag.Value().(string)
+		if password == "" {
+			output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
+			password, err = util.ReadSecretFromStdin()
+			if err != nil {
+				return output.NewError(output.InputError, "failed to get password", err)
+			}
+		}
+
+		prvKey, err = account.LocalAccountToPrivateKey(signer, password)
+		if err != nil {
+			return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
+		}
+
+	} else {
+		// Get private key
 		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
-		prvKeyOrPassword, err = util.ReadSecretFromStdin()
+		prvKeyString, err := util.ReadSecretFromStdin()
 		if err != nil {
 			return output.NewError(output.InputError, "failed to get private key", err)
 		}
-		prvKey, err = crypto.HexStringToPrivateKey(prvKeyOrPassword)
+
+		prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
 		if err != nil {
 			return output.NewError(output.InputError, "failed to HexString private key", err)
 		}
-	} else if passwordFlag.Value() == "" {
-		output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
-		prvKeyOrPassword, err = util.ReadSecretFromStdin()
-		if err != nil {
-			return output.NewError(output.InputError, "failed to get password", err)
-		}
-	} else {
-		prvKeyOrPassword = passwordFlag.Value().(string)
 	}
-	prvKey, err = account.LocalAccountToPrivateKey(signer, prvKeyOrPassword)
-	if err != nil {
-		return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
-	}
+
 	defer prvKey.Zero()
+
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
 	if err != nil {
@@ -276,23 +282,26 @@ func SendAction(elp action.Envelope, signer string) error {
 	if err := isBalanceEnough(signer, sealed); err != nil {
 		return output.NewError(0, "failed to pass balance check", err) // TODO: undefined error
 	}
-	selp := sealed.Proto()
 
+	selp := sealed.Proto()
 	actionInfo, err := printActionProto(selp)
 	if err != nil {
 		return output.NewError(0, "failed to print action proto message", err)
 	}
+
 	if yesFlag.Value() == false {
 		var confirm string
 		info := fmt.Sprintln(actionInfo + "\nPlease confirm your action.\n")
 		message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 		fmt.Println(message.String())
+
 		fmt.Scanf("%s", &confirm)
 		if !strings.EqualFold(confirm, "yes") {
 			output.PrintResult("quit")
 			return nil
 		}
 	}
+
 	return SendRaw(selp)
 }
 
