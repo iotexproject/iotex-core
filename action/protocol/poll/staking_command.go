@@ -105,6 +105,16 @@ func (sc *stakingCommand) CalculateCandidatesByHeight(ctx context.Context, sr pr
 	return sc.stakingV1.CalculateCandidatesByHeight(ctx, sr, height)
 }
 
+func (sc *stakingCommand) CalculateUnproductiveDelegates(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([]string, error) {
+	if sc.useV2(ctx, sr) {
+		sc.stakingV2.CalculateUnproductiveDelegates(ctx, sr)
+	}
+	return sc.stakingV1.CalculateUnproductiveDelegates(ctx, sr)
+}
+
 // Delegates returns exact number of delegates of current epoch
 func (sc *stakingCommand) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
 	if sc.useV2(ctx, sr) {

@@ -142,6 +142,7 @@ func (p *Protocol) GrantEpochReward(
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	pp := poll.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	if err := p.assertNoRewardYet(sm, epochRewardHistoryKeyPrefix, epochNum); err != nil {
 		return nil, err
@@ -165,19 +166,24 @@ func (p *Protocol) GrantEpochReward(
 	}
 
 	var err error
-	uqd := make(map[string]bool)
+	uqdMap := make(map[string]bool)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if hu.IsPre(config.Easter, epochStartHeight) {
 		// Get unqualified delegate list
-		if uqd, err = p.unqualifiedDelegates(ctx, sm, rp, epochNum, a.productivityThreshold); err != nil {
+		uqd, err := pp.CalculateUnproductiveDelegates(ctx, sm)
+		if err != nil {
 			return nil, err
 		}
+		for _, addr := range uqd {
+			uqdMap[addr] = true
+		}
+
 	}
 	candidates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Candidates(ctx, sm)
 	if err != nil {
 		return nil, err
 	}
-	addrs, amounts, err := p.splitEpochReward(epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqd)
+	addrs, amounts, err := p.splitEpochReward(epochStartHeight, sm, candidates, a.epochReward, a.numDelegatesForEpochReward, exemptAddrs, uqdMap)
 	if err != nil {
 		return nil, err
 	}
@@ -430,45 +436,6 @@ func (p *Protocol) splitEpochReward(
 		amounts = append(amounts, amountPerAddr)
 	}
 	return rewardAddrs, amounts, nil
-}
-
-func (p *Protocol) unqualifiedDelegates(
-	ctx context.Context,
-	sm protocol.StateManager,
-	rp *rolldpos.Protocol,
-	epochNum uint64,
-	productivityThreshold uint64,
-) (map[string]bool, error) {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	delegates, err := poll.MustGetProtocol(protocol.MustGetRegistry(ctx)).Delegates(ctx, sm)
-	if err != nil {
-		return nil, err
-	}
-	unqualifiedDelegates := make(map[string]bool, 0)
-	numBlks, produce, err := rp.ProductivityByEpoch(epochNum, bcCtx.Tip.Height, p.productivity)
-	if err != nil {
-		return nil, err
-	}
-	// The current block is not included, so add it
-	numBlks++
-	if _, ok := produce[blkCtx.Producer.String()]; ok {
-		produce[blkCtx.Producer.String()]++
-	} else {
-		produce[blkCtx.Producer.String()] = 1
-	}
-	for _, abp := range delegates {
-		if _, ok := produce[abp.Address]; !ok {
-			produce[abp.Address] = 0
-		}
-	}
-	expectedNumBlks := numBlks / uint64(len(produce))
-	for addr, actualNumBlks := range produce {
-		if actualNumBlks*100/expectedNumBlks < productivityThreshold {
-			unqualifiedDelegates[addr] = true
-		}
-	}
-	return unqualifiedDelegates, nil
 }
 
 func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, index uint64) error {

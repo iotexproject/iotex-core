@@ -164,6 +164,13 @@ func (p *governanceChainCommitteeProtocol) CalculateCandidatesByHeight(ctx conte
 	return p.candidatesByGravityChainHeight(gravityHeight)
 }
 
+func (p *governanceChainCommitteeProtocol) CalculateUnproductiveDelegates(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([]string, error) {
+	return p.sh.calculateUnproductiveDelegates(ctx, sr)
+}
+
 func (p *governanceChainCommitteeProtocol) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
 	return p.sh.GetActiveBlockProducers(ctx, sr, false)
 }

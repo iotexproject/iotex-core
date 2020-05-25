@@ -57,6 +57,7 @@ func defaultConfig() Genesis {
 			EasterBlockHeight:       4478761,
 			FbkMigrationBlockHeight: 5157001,
 			FairbankBlockHeight:     5165641,
+			GreenlandBlockHeight:    5553721,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -166,6 +167,8 @@ type (
 		FbkMigrationBlockHeight uint64 `yaml:"fbkMigrationHeight"`
 		// FairbankBlockHeight is the start height to switch to native staking V2
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
+		// GreenlandBlockHeight is the start height of storing latest 720 block meta
+		GreenlandBlockHeight uint64 `yaml:"greenlandHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {

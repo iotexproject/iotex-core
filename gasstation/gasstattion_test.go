@@ -66,7 +66,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, 0, 0)
+	rewardingProtocol := rewarding.NewProtocol(0, 0)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {
@@ -142,7 +142,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	)
 	ep := execution.NewProtocol(blkMemDao.GetBlockHash, rewarding.DepositGas)
 	require.NoError(t, ep.Register(registry))
-	rewardingProtocol := rewarding.NewProtocol(nil, 0, 0)
+	rewardingProtocol := rewarding.NewProtocol(0, 0)
 	require.NoError(t, rewardingProtocol.Register(registry))
 	require.NoError(t, bc.Start(ctx))
 	defer func() {

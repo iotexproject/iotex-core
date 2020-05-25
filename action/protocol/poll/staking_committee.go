@@ -234,6 +234,13 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 	return sc.mergeCandidates(cand, nativeVotes, bcCtx.Tip.Timestamp), nil
 }
 
+func (sc *stakingCommittee) CalculateUnproductiveDelegates(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([]string, error) {
+	return sc.governanceStaking.CalculateUnproductiveDelegates(ctx, sr)
+}
+
 func (sc *stakingCommittee) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
 	return sc.governanceStaking.Delegates(ctx, sr)
 }

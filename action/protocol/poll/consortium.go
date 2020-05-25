@@ -194,6 +194,13 @@ func (cc *consortiumCommittee) CalculateCandidatesByHeight(ctx context.Context, 
 	return cc.readDelegates(ctx)
 }
 
+func (cc *consortiumCommittee) CalculateUnproductiveDelegates(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([]string, error) {
+	return nil, nil
+}
+
 func (cc *consortiumCommittee) Delegates(ctx context.Context, _ protocol.StateReader) (state.CandidateList, error) {
 	return cc.readDelegates(ctx)
 }
