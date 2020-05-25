@@ -29,8 +29,6 @@ var ErrInvalidArg = errors.New("invalid argument")
 
 // Flags
 var (
-	sourceFlag = flag.NewStringVar("source", "",
-		config.TranslateInLang(flagSourceUsage, config.UILanguage))
 	withArgumentsFlag = flag.NewStringVar("with-arguments", "",
 		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
 )
@@ -52,10 +50,6 @@ var (
 	flagInsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
-	}
-	flagSourceUsage = map[config.Language]string{
-		config.English: "set source code file path",
-		config.Chinese: "设定代码文件路径",
 	}
 	flagWithArgumentsUsage = map[config.Language]string{
 		config.English: "pass arguments in JSON format",
