@@ -186,6 +186,7 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		indexer,
 		2,
 		2,
+		cfg.Genesis.DardanellesNumSubEpochs,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,

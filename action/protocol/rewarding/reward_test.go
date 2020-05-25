@@ -307,14 +307,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		}).AnyTimes()
 	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
 
-	p := NewProtocol(
-		func(uint64, uint64) (map[string]uint64, error) {
-			return map[string]uint64{
-					identityset.Address(0).String(): 9,
-					identityset.Address(1).String(): 10,
-				},
-				nil
-		}, 0, 0)
+	p := NewProtocol(0, 0)
 	rp := rolldpos.NewProtocol(
 		genesis.Default.NumCandidateDelegates,
 		genesis.Default.NumDelegates,
@@ -337,7 +330,10 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	slasher, err := poll.NewSlasher(
 		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
-			return nil, nil
+			return map[string]uint64{
+				identityset.Address(0).String(): 9,
+				identityset.Address(1).String(): 10,
+			}, nil
 		},
 		func(protocol.StateReader, uint64, bool, bool) ([]*state.Candidate, uint64, error) {
 			return abps, 0, nil
@@ -347,6 +343,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		nil,
 		2,
 		2,
+		cfg.Genesis.DardanellesNumSubEpochs,
 		cfg.Genesis.ProductivityThreshold,
 		cfg.Genesis.ProbationEpochPeriod,
 		cfg.Genesis.UnproductiveDelegateMaxCacheSize,
