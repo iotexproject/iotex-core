@@ -33,6 +33,8 @@ const (
 	_modeNative        = "native"        // only use go naitve staking
 	_modeNativeMix     = "nativeMix"     // native with backward compatibility for governanceMix before fairbank
 	_modeConsortium    = "consortium"
+
+	blockMetaPrefix = "BlockMeta."
 )
 
 // ErrInconsistentHeight is an error that result of "readFromStateDB" is not consistent with others
@@ -78,6 +80,8 @@ type (
 		// CalculateCandidatesByHeight calculates candidate and returns candidates by chain height
 		// TODO: remove height, and read it from state reader
 		CalculateCandidatesByHeight(context.Context, protocol.StateReader, uint64) (state.CandidateList, error)
+		// CalculateUnproductiveDelegates calculates unproductive delegate on current epoch
+		CalculateUnproductiveDelegates(context.Context, protocol.StateReader) ([]string, error)
 	}
 )
 
@@ -153,6 +157,7 @@ func NewProtocol(
 			candidateIndexer,
 			genesisConfig.NumCandidateDelegates,
 			genesisConfig.NumDelegates,
+			genesisConfig.DardanellesNumSubEpochs,
 			genesisConfig.ProductivityThreshold,
 			genesisConfig.ProbationEpochPeriod,
 			genesisConfig.UnproductiveDelegateMaxCacheSize,

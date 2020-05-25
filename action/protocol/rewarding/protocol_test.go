@@ -75,16 +75,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 		genesis.Default.NumSubEpochs,
 	)
 	p := NewProtocol(
-		func(uint64, uint64) (map[string]uint64, error) {
-			return map[string]uint64{
-					identityset.Address(27).String(): 3,
-					identityset.Address(28).String(): 7,
-					identityset.Address(29).String(): 1,
-					identityset.Address(30).String(): 6,
-					identityset.Address(31).String(): 2,
-				},
-				nil
-		},
 		genesis.Default.FoundationBonusP2StartEpoch,
 		genesis.Default.FoundationBonusP2EndEpoch,
 	)
@@ -153,6 +143,12 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	pp.EXPECT().Register(gomock.Any()).DoAndReturn(func(reg *protocol.Registry) error {
 		return reg.Register("poll", pp)
 	}).AnyTimes()
+	pp.EXPECT().CalculateUnproductiveDelegates(gomock.Any(), gomock.Any()).Return(
+		[]string{
+			identityset.Address(29).String(),
+			identityset.Address(31).String(),
+		}, nil,
+	).AnyTimes()
 	require.NoError(t, rp.Register(registry))
 	require.NoError(t, pp.Register(registry))
 	require.NoError(t, p.Register(registry))
@@ -293,10 +289,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, rp.Register(registry))
 	pp := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
 	require.NoError(t, pp.Register(registry))
-	p := NewProtocol(
-		func(uint64, uint64) (map[string]uint64, error) {
-			return nil, nil
-		}, 0, 0)
+	p := NewProtocol(0, 0)
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))

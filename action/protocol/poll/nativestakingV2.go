@@ -86,6 +86,13 @@ func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr p
 	return ns.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp), nil
 }
 
+func (ns *nativeStakingV2) CalculateUnproductiveDelegates(
+	ctx context.Context,
+	sr protocol.StateReader,
+) ([]string, error) {
+	return ns.slasher.calculateUnproductiveDelegates(ctx, sr)
+}
+
 // Delegates returns exact number of delegates of current epoch
 func (ns *nativeStakingV2) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
 	return ns.slasher.GetActiveBlockProducers(ctx, sr, false)

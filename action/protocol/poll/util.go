@@ -7,8 +7,10 @@
 package poll
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -25,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -303,4 +306,53 @@ func shiftProbationList(sm protocol.StateManager) (uint64, error) {
 		return 0, errors.Wrap(ErrInconsistentHeight, "failed to shift probationlist")
 	}
 	return stateHeight, nil
+}
+
+// setCurrentBlockMeta sets the block meta struct with block meta key
+func setCurrentBlockMeta(
+	sm protocol.StateManager,
+	blockmeta *BlockMeta,
+	height uint64,
+	blocksInEpoch uint64,
+) error {
+	key := blockMetaKey(height, blocksInEpoch)
+	_, err := sm.PutState(blockmeta, protocol.KeyOption(key), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
+}
+
+// allBlockMetasFromDB returns all latest block meta structs
+func allBlockMetasFromDB(sr protocol.StateReader, blocksInEpoch uint64) ([]*BlockMeta, error) {
+	stateHeight, iter, err := sr.States(
+		protocol.NamespaceOption(protocol.SystemNamespace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			prefix := candidatesutil.ConstructKey(blockMetaPrefix)
+			return bytes.HasPrefix(k, prefix[:])
+		}, blockMetaKey(0, blocksInEpoch), blockMetaKey(math.MaxUint64, blocksInEpoch)),
+	)
+	if err != nil {
+		return nil, err
+	}
+	log.L().Debug(
+		"allBockMetasFromDB",
+		zap.Uint64("state height", stateHeight),
+		zap.Error(err),
+	)
+	blockmetas := make([]*BlockMeta, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		bm := &BlockMeta{}
+		if err := iter.Next(bm); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize block meta")
+		}
+		blockmetas = append(blockmetas, bm)
+	}
+	return blockmetas, nil
+}
+
+// blockMetaKey returns key for storing block meta with prefix
+func blockMetaKey(blkHeight uint64, blocksInEpoch uint64) []byte {
+	prefixKey := candidatesutil.ConstructKey(blockMetaPrefix)
+	if blkHeight == math.MaxUint64 {
+		return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blocksInEpoch)...)
+	}
+	return append(prefixKey[:], byteutil.Uint64ToBytesBigEndian(blkHeight%blocksInEpoch)...)
 }
