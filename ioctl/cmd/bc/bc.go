@@ -127,7 +127,7 @@ func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadS
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
-		Height: 	strconv.FormatUint(epochStartHeight, 10),
+		Height:     strconv.FormatUint(epochStartHeight, 10),
 	}
 	ctx := context.Background()
 

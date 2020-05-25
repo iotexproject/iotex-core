@@ -194,7 +194,7 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
-		Height: 	strconv.FormatUint(epochMeta.EpochData.Height,10),
+		Height:     strconv.FormatUint(epochMeta.EpochData.Height, 10),
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
