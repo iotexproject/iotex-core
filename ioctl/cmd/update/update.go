@@ -70,7 +70,7 @@ func update() error {
 	output.PrintResult(fmt.Sprintf("Downloading the latest %s version ...\n", versionType))
 	err := cmd.Run()
 	if err != nil {
-		return output.NewError(output.UpdateError, "failed to update ioctl", nil)
+		return output.NewError(output.UpdateError, "failed to update ioctl", err)
 	}
 	output.PrintResult("ioctl is up-to-date now.")
 	return nil
