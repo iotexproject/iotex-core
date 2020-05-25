@@ -71,7 +71,11 @@ func probationlist() error {
 		}
 		epochNum = chainMeta.Epoch.Num
 	}
-	probationlist, err := getProbationList(epochNum)
+	response, err := bc.GetEpochMeta(epochNum)
+	if err != nil {
+		return output.NewError(0, "failed to get epoch meta", err)
+	}
+	probationlist, err := getProbationList(epochNum, response.EpochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
