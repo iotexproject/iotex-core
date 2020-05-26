@@ -121,7 +121,7 @@ func writeToFile(alias, addr string) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	output.PrintResult(fmt.Sprintf("New account #%s is created. Keep your password, "+
-		"or your will lose your private key.", alias))
+		"or you will lose your private key.", alias))
 	return nil
 }
 func readPasswordFromStdin() (string, error) {
