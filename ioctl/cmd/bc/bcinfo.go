@@ -20,7 +20,7 @@ import (
 // Multi-language support
 var (
 	bcInfoCmdShorts = map[config.Language]string{
-		config.English: "Get current block chain information",
+		config.English: "Get current blockchain information",
 		config.Chinese: "获取当前区块链信息",
 	}
 	bcInfoCmdUses = map[config.Language]string{
@@ -54,7 +54,7 @@ func (m *infoMessage) String() string {
 	return output.FormatString(output.Result, m)
 }
 
-// bcInfo get current information of block chain from server
+// bcInfo get current information of blockchain from server
 func bcInfo() error {
 	chainMeta, err := GetChainMeta()
 	if err != nil {
