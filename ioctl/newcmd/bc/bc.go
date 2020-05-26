@@ -25,7 +25,7 @@ import (
 // Multi-language support
 var (
 	bcCmdShorts = map[config.Language]string{
-		config.English: "Deal with block chain of IoTeX blockchain",
+		config.English: "Deal with blockchain of IoTeX blockchain",
 		config.Chinese: "处理IoTeX区块链上的区块",
 	}
 	bcCmdUses = map[config.Language]string{
@@ -70,7 +70,7 @@ func NewBCCmd(client ioctl.Client) *cobra.Command {
 	return bc
 }
 
-// GetChainMeta gets block chain metadata
+// GetChainMeta gets blockchain metadata
 func GetChainMeta(client ioctl.Client) (*iotextypes.ChainMeta, error) {
 	var endpoint string
 	var insecure bool
