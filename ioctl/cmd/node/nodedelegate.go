@@ -138,7 +138,7 @@ func delegates() error {
 		StartBlock:  int(epochData.Height),
 		TotalBlocks: int(response.TotalBlocks),
 	}
-	probationList, err := getProbationList(epochNum)
+	probationList, err := getProbationList(epochNum, epochData.Height)
 	if err != nil {
 		return output.NewError(0, "failed to get probation list", err)
 	}
@@ -194,6 +194,7 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Height:     strconv.FormatUint(epochMeta.EpochData.Height, 10),
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {
@@ -257,8 +258,8 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 	return nil
 }
 
-func getProbationList(epochNum uint64) (*vote.ProbationList, error) {
-	probationListRes, err := bc.GetProbationList(epochNum)
+func getProbationList(epochNum uint64, epochStartHeight uint64) (*vote.ProbationList, error) {
+	probationListRes, err := bc.GetProbationList(epochNum, epochStartHeight)
 	if err != nil {
 		return nil, err
 	}

@@ -115,7 +115,7 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 }
 
 // GetProbationList gets probation list
-func GetProbationList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
+func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -127,6 +127,7 @@ func GetProbationList(epochNum uint64) (*iotexapi.ReadStateResponse, error) {
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Height:     strconv.FormatUint(epochStartHeight, 10),
 	}
 	ctx := context.Background()
 
