@@ -86,6 +86,6 @@ func accountCreateAdd(args []string) error {
 			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 	}
 	output.PrintResult(fmt.Sprintf("New account \"%s\" is created.\n"+
-		"Please Keep your password, or your will lose your private key.", alias))
+		"Please Keep your password, or you will lose your private key.", alias))
 	return nil
 }
