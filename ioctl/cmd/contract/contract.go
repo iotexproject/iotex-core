@@ -94,7 +94,9 @@ func Compile(sourceFiles ...string) (map[string]*compiler.Contract, error) {
 }
 
 func checkCompilerVersion(solc *compiler.Solidity) bool {
-	// TODO: may support 0.5.0 later, need to make sure range of valid version
+	if solc.Major == 0 && solc.Minor == 5 {
+		return true
+	}
 	if solc.Major == 0 && solc.Minor == 4 && solc.Patch >= 24 {
 		return true
 	}
