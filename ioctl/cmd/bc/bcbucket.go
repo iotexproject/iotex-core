@@ -130,6 +130,9 @@ func getBucket(arg string) error {
 	if err != nil {
 		return err
 	}
+	if bucketpb == nil {
+		return errors.New("The bucket has been withdrawn")
+	}
 	bucket, err := newBucket(bucketpb)
 	if err != nil {
 		return err

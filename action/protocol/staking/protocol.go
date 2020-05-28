@@ -52,8 +52,9 @@ const (
 
 // Errors
 var (
-	ErrTypeAssertion = errors.New("failed type assertion")
-	TotalBucketKey   = append([]byte{_const}, []byte("totalBucket")...)
+	ErrTypeAssertion   = errors.New("failed type assertion")
+	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
+	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
 )
 
 type (
@@ -344,7 +345,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
 		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, err = readStateBucketByIndex(ctx, sr, r.GetBucketsByIndexes())
+		resp, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
