@@ -206,11 +206,22 @@ func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
 
 func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
-	if _, err := sr.State(
+	var err error
+	if _, err = sr.State(
 		&vb,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
+	}
+	var tc totalBucketCount
+	if _, err := sr.State(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+	if errors.Cause(err) == state.ErrStateNotExist && index < tc.Count() {
+		return nil, ErrWithdrawnBucket
 	}
 	return &vb, nil
 }
@@ -290,7 +301,7 @@ func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*V
 	buckets := make([]*VoteBucket, 0, len(indices))
 	for _, i := range indices {
 		b, err := getBucket(sr, i)
-		if err != nil {
+		if err != nil && err != ErrWithdrawnBucket {
 			return buckets, err
 		}
 		buckets = append(buckets, b)
