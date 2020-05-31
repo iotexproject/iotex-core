@@ -7,8 +7,11 @@
 package contract
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -82,6 +85,16 @@ func contractTestFunction(args []string) error {
 	result, err := action.Read(contract, amount, bytecode)
 	if err != nil {
 		return err
+	}
+
+	v, err := parseOutput(abi, methodName, result)
+	if err == nil {
+		ethAddr, ok := v.(common.Address)
+		if ok {
+			result = "0x" + hex.EncodeToString(ethAddr[:])
+		} else {
+			result = fmt.Sprint(v)
+		}
 	}
 
 	output.PrintResult("return: " + result)
