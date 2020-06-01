@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"math/big"
 	"reflect"
@@ -34,6 +35,19 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 		return nil, output.NewError(output.SerializationError, "failed to unmarshal arguments", err)
 	}
 	return input, nil
+}
+
+func parseOutput(abi *abi.ABI, targetMethod string, result string) (interface{}, error) {
+	resultBytes, err := hex.DecodeString(result)
+	if err != nil {
+		return nil, output.NewError(output.ConvertError, "failed to decode result", err)
+	}
+
+	var v interface{}
+	if err := abi.Unpack(&v, targetMethod, resultBytes); err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to parse output", err)
+	}
+	return v, nil
 }
 
 func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {

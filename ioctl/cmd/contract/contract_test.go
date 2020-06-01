@@ -8,7 +8,11 @@ package contract
 
 import (
 	"bytes"
+	"encoding/hex"
+	"fmt"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/stretchr/testify/require"
 )
@@ -19,7 +23,7 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(5, len(abi.Methods))
+	r.Equal(9, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
@@ -67,5 +71,47 @@ func TestParseArguments(t *testing.T) {
 		r.NoError(err)
 
 		r.True(bytes.Equal(expect, bytecode))
+	}
+}
+
+func TestParseOutput(t *testing.T) {
+	r := require.New(t)
+
+	testAbiFile := "test.abi"
+	testAbi, err := readAbiFile(testAbiFile)
+	r.NoError(err)
+
+	tests := []struct {
+		expectResult string
+		method       string
+		outputs      string
+	}{
+		{
+			"0",
+			"minTips",
+			"0000000000000000000000000000000000000000000000000000000000000000",
+		},
+		{
+			"0xc7f43fab2ca353d29ce0da04851ab74f45b09593",
+			"owner",
+			"000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
+		},
+		{
+			"Hello World",
+			"getMessage",
+			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
+		},
+	}
+
+	for _, test := range tests {
+		v, err := parseOutput(testAbi, test.method, test.outputs)
+		r.NoError(err)
+
+		addr, ok := v.(common.Address)
+		if ok {
+			r.Equal(test.expectResult, "0x"+hex.EncodeToString(addr[:]))
+		} else {
+			r.Equal(test.expectResult, fmt.Sprint(v))
+		}
 	}
 }
