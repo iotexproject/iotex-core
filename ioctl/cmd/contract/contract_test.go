@@ -23,7 +23,7 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(5, len(abi.Methods))
+	r.Equal(9, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
@@ -97,7 +97,7 @@ func TestParseOutput(t *testing.T) {
 			"000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
 		},
 		{
-			"Hello World.",
+			"Hello World",
 			"getMessage",
 			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
 		},
