@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 )
 
 // Multi-language support
@@ -30,6 +31,7 @@ var (
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
 	}
+	allFlag = flag.BoolVarP("all", "a", false, "returns all delegates")
 )
 
 // NodeCmd represents the node command
@@ -46,4 +48,5 @@ func init() {
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	NodeCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
+	allFlag.RegisterCommand(nodeDelegateCmd)
 }

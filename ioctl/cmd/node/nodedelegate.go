@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -35,13 +36,14 @@ import (
 const (
 	protocolID          = "staking"
 	readCandidatesLimit = 20000
+	defaultDelegateNum  = 36
 )
 
 // Multi-language support
 var (
 	delegateCmdUses = map[config.Language]string{
-		config.English: "delegate [-e epoch-num|-n]",
-		config.Chinese: "delegate [-e epoch数|-n]",
+		config.English: "delegate [-e epoch-num|-n] [-a]",
+		config.Chinese: "delegate [-e epoch数|-n] [-a]",
 	}
 	delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
@@ -73,14 +75,15 @@ var nodeDelegateCmd = &cobra.Command{
 }
 
 type delegate struct {
-	Address        string `json:"address"`
-	Name           string `json:"string"`
-	Rank           int    `json:"rank"`
-	Alias          string `json:"alias"`
-	Active         bool   `json:"active"`
-	Production     int    `json:"production"`
-	Votes          string `json:"votes"`
-	ProbatedStatus bool   `json:"probatedStatus"`
+	Address            string   `json:"address"`
+	Name               string   `json:"string"`
+	Rank               int      `json:"rank"`
+	Alias              string   `json:"alias"`
+	Active             bool     `json:"active"`
+	Production         int      `json:"production"`
+	Votes              string   `json:"votes"`
+	ProbatedStatus     bool     `json:"probatedStatus"`
+	TotalWeightedVotes *big.Int `json:"totalWeightedVotes"`
 }
 
 type delegatesMessage struct {
@@ -166,8 +169,7 @@ func delegates() error {
 		}
 		message.Delegates = append(message.Delegates, delegate)
 	}
-	fmt.Println(message.String())
-	return nil
+	return sortAndPrint(&message)
 }
 
 func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaResponse, message *delegatesMessage) error {
@@ -254,6 +256,34 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 		})
 	}
 	fillMessage(cli, message, aliases, isActive, pb)
+	return sortAndPrint(message)
+}
+
+func sortAndPrint(message *delegatesMessage) error {
+	if allFlag.Value() == false && len(message.Delegates) > defaultDelegateNum {
+		message.Delegates = message.Delegates[:defaultDelegateNum]
+		fmt.Println(message.String())
+		return nil
+	}
+	for i := defaultDelegateNum; i < len(message.Delegates); i++ {
+		totalWeightedVotes, ok := big.NewFloat(0).SetString(message.Delegates[i].Votes)
+		if !ok {
+			return errors.New("string convert to big float")
+		}
+		totalWeightedVotesInt, _ := totalWeightedVotes.Int(nil)
+		message.Delegates[i].TotalWeightedVotes = totalWeightedVotesInt
+	}
+	if len(message.Delegates) > defaultDelegateNum {
+		latter := message.Delegates[defaultDelegateNum:]
+		message.Delegates = message.Delegates[:defaultDelegateNum]
+		sort.SliceStable(latter, func(i, j int) bool {
+			return latter[i].TotalWeightedVotes.Cmp(latter[j].TotalWeightedVotes) > 0
+		})
+		for i, t := range latter {
+			t.Rank = defaultDelegateNum + i + 1
+			message.Delegates = append(message.Delegates, t)
+		}
+	}
 	fmt.Println(message.String())
 	return nil
 }
