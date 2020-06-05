@@ -94,15 +94,15 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 func (b *bucket) String() string {
 	var lines []string
 	lines = append(lines, "{")
-	lines = append(lines, fmt.Sprintf("index: %d", b.index))
-	lines = append(lines, fmt.Sprintf("owner: %s", b.owner))
-	lines = append(lines, fmt.Sprintf("candidate: %s", b.candidate))
-	lines = append(lines, fmt.Sprintf("stakedAmount: %s IOTX", b.stakedAmount))
-	lines = append(lines, fmt.Sprintf("stakedDuration: %d days", b.stakedDuration))
-	lines = append(lines, fmt.Sprintf("autoStake: %v", b.autoStake))
-	lines = append(lines, fmt.Sprintf("createTime: %s", b.createTime))
-	lines = append(lines, fmt.Sprintf("stakeStartTime: %s", b.stakeStartTime))
-	lines = append(lines, fmt.Sprintf("unstakeStartTime: %s", b.unstakeStartTime))
+	lines = append(lines, fmt.Sprintf("	index: %d", b.index))
+	lines = append(lines, fmt.Sprintf("	owner: %s", b.owner))
+	lines = append(lines, fmt.Sprintf("	candidate: %s", b.candidate))
+	lines = append(lines, fmt.Sprintf("	stakedAmount: %s IOTX", b.stakedAmount))
+	lines = append(lines, fmt.Sprintf("	stakedDuration: %d days", b.stakedDuration))
+	lines = append(lines, fmt.Sprintf("	autoStake: %v", b.autoStake))
+	lines = append(lines, fmt.Sprintf("	createTime: %s", b.createTime))
+	lines = append(lines, fmt.Sprintf("	stakeStartTime: %s", b.stakeStartTime))
+	lines = append(lines, fmt.Sprintf("	unstakeStartTime: %s", b.unstakeStartTime))
 	lines = append(lines, "}")
 	return strings.Join(lines, "\n")
 }
@@ -114,7 +114,7 @@ type bucketMessage struct {
 
 func (m *bucketMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s", m.Node, m.Bucket.String())
+		message := fmt.Sprintf(m.Bucket.String())
 		return message
 	}
 	return output.FormatString(output.Result, m)
