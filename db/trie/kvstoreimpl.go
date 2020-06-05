@@ -30,12 +30,67 @@ func init() {
 	prometheus.MustRegister(trieKeystoreMtc)
 }
 
-// kvStoreImpl defines a kvStore with fixed bucket and cache layer for trie.
-// It may be used in other cases as well
-type kvStoreImpl struct {
-	lc     lifecycle.Lifecycle
-	bucket string
-	dao    db.KVStoreBasic
+type (
+	// kvStoreImpl defines a kvStore with fixed bucket and cache layer for trie.
+	// It may be used in other cases as well
+	kvStoreImpl struct {
+		lc     lifecycle.Lifecycle
+		bucket string
+		dao    db.KVStoreBasic
+	}
+
+	mKeyType [32]byte
+
+	inMemKVStore struct {
+		kvpairs map[mKeyType][]byte
+	}
+)
+
+func castKeyType(k []byte) mKeyType {
+	var c mKeyType
+	copy(c[:], k)
+
+	return c
+}
+
+// newInMemKVStore defines a kv store in memory
+func newInMemKVStore() KVStore {
+	return &inMemKVStore{kvpairs: map[mKeyType][]byte{}}
+}
+
+func (s *inMemKVStore) Start(ctx context.Context) error {
+	return nil
+}
+
+func (s *inMemKVStore) Stop(ctx context.Context) error {
+	return nil
+}
+
+func (s *inMemKVStore) Put(k []byte, v []byte) error {
+	dbKey := castKeyType(k)
+	s.kvpairs[dbKey] = v
+
+	return nil
+}
+
+func (s *inMemKVStore) Get(k []byte) ([]byte, error) {
+	dbKey := castKeyType(k)
+	v, ok := s.kvpairs[dbKey]
+	if !ok {
+		return nil, ErrNotExist
+	}
+	return v, nil
+}
+
+func (s *inMemKVStore) Delete(k []byte) error {
+	dbKey := castKeyType(k)
+	delete(s.kvpairs, dbKey)
+
+	return nil
+}
+
+func (s *inMemKVStore) Purge(tag, k []byte) error {
+	return nil
 }
 
 // NewKVStore creates a new KVStore
