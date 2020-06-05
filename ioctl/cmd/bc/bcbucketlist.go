@@ -60,9 +60,13 @@ type bucketlistMessage struct {
 func (m *bucketlistMessage) String() string {
 	if output.Format == "" {
 		var lines []string
-		lines = append(lines, fmt.Sprintf("Blockchain Node: %s", m.Node))
-		for _, bucket := range m.Bucketlist {
-			lines = append(lines, bucket.String())
+		if len(m.Bucketlist) == 0 {
+			lines = append(lines, "Empty bucketlist with given address")
+		} else {
+			lines = append(lines, fmt.Sprintf("Blockchain Node: %s", m.Node))
+			for _, bucket := range m.Bucketlist {
+				lines = append(lines, bucket.String())
+			}
 		}
 		return strings.Join(lines, "\n")
 	}
