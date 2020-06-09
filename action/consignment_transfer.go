@@ -9,12 +9,15 @@ package action
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 
 	"github.com/ethereum/go-ethereum/accounts"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 )
+
+const _reclaim = "This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain"
 
 type (
 	// a consignment is a transaction signed by transferee which contains an embedded message signed by transferor
@@ -46,18 +49,25 @@ type (
 
 	// ConsignMsg is the consignment message
 	ConsignMsg struct {
-		Index     int    `json:"index"`
+		Type      string `json:"type"`
+		Index     int    `json:"bucket"`
 		Nonce     int    `json:"nonce"`
 		Recipient string `json:"recipient"`
-		Comment   string `json:"comment"`
+		Reclaim   string `json:"reclaim"`
+	}
+
+	// ConsignJSON is the JSON format of a consignment, it contains a message (which is ConsignMsg), and a signature
+	ConsignJSON struct {
+		Msg string `json:"msg"`
+		Sig string `json:"sig"`
 	}
 
 	consignment struct {
-		Msg        string `json:"msg"`
-		Sig        string `json:"sig"`
-		consignMsg ConsignMsg
-		signer     address.Address
-		recipient  address.Address
+		ConsignJSON
+		index     uint64
+		nonce     uint64
+		signer    address.Address
+		recipient address.Address
 	}
 )
 
@@ -68,12 +78,21 @@ func NewConsignment(data []byte) (Consignment, error) {
 		return nil, err
 	}
 
+	// parse embedded msg
+	msg := ConsignMsg{}
+	if err := json.Unmarshal([]byte(c.Msg), &msg); err != nil {
+		return nil, err
+	}
+	if msg.Reclaim != _reclaim {
+		return nil, errors.New("reclaim text does not match")
+	}
+
 	// verify signature
 	sig, err := hex.DecodeString(c.Sig)
 	if err != nil {
 		return nil, err
 	}
-	pk, err := RecoverPubkeyFromEccSig([]byte(c.Msg), sig)
+	pk, err := RecoverPubkeyFromEccSig(msg.Type, []byte(c.Msg), sig)
 	if err != nil {
 		return nil, err
 	}
@@ -81,15 +100,12 @@ func NewConsignment(data []byte) (Consignment, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// parse embedded msg
-	if err := json.Unmarshal([]byte(c.Msg), &c.consignMsg); err != nil {
-		return nil, err
-	}
-	c.recipient, err = address.FromString(c.consignMsg.Recipient)
+	c.recipient, err = address.FromString(msg.Recipient)
 	if err != nil {
 		return nil, err
 	}
+	c.index = uint64(msg.Index)
+	c.nonce = uint64(msg.Nonce)
 	return &c, nil
 }
 
@@ -102,30 +118,35 @@ func (c *consignment) Transferee() address.Address {
 }
 
 func (c *consignment) AssetID() uint64 {
-	return uint64(c.consignMsg.Index)
+	return c.index
 }
 
 func (c *consignment) TransfereeNonce() uint64 {
-	return uint64(c.consignMsg.Nonce)
+	return c.nonce
 }
 
 // RecoverPubkeyFromEccSig recovers public key from ECC signature
-func RecoverPubkeyFromEccSig(msg, sig []byte) (crypto.PublicKey, error) {
-	h := msgHash(msg)
-	for i := range h {
-		pk, err := crypto.RecoverPubkey(h[i], sig)
-		if err != nil {
-			continue
-		}
-		if pk.Verify(h[i], sig) {
-			return pk, nil
-		}
+func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey, error) {
+	h, err := msgHash(sigType, msg)
+	if err != nil {
+		return nil, err
+	}
+	pk, err := crypto.RecoverPubkey(h, sig)
+	if err != nil {
+		return nil, err
+	}
+	if pk.Verify(h, sig) {
+		return pk, nil
 	}
 	return nil, crypto.ErrInvalidKey
 }
 
-func msgHash(msg []byte) [][]byte {
-	h1, _ := accounts.TextAndHash(msg) // Ethereum's way to calculate hash for the given message
-	// TODO: add hash calculation for other ECC algorithms or coins
-	return [][]byte{h1}
+func msgHash(sigType string, msg []byte) ([]byte, error) {
+	switch sigType {
+	case "Ethereum":
+		h, _ := accounts.TextAndHash(msg)
+		return h, nil
+	default:
+		return nil, errors.New("signature type not supported")
+	}
 }

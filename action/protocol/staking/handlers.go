@@ -318,14 +318,13 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
-	// check if the payload contains a valid consignment transfer
 	newOwner := act.VoterAddress()
-	if consignment, ok := p.handleConsignmentTransfer(blkCtx, actionCtx, act, bucket); ok {
-		newOwner = consignment.Transferee()
-	} else {
-		// regular transfer, verify caller owns the bucket
-		if !address.Equal(bucket.Owner, actionCtx.Caller) {
-			return nil, &handleError{
+	if !address.Equal(bucket.Owner, actionCtx.Caller) {
+		// check if the payload contains a valid consignment transfer
+		if consignment, ok := p.handleConsignmentTransfer(blkCtx, actionCtx, act, bucket); ok {
+			newOwner = consignment.Transferee()
+		} else {
+			return log, &handleError{
 				err:           errors.New("bucket owner does not match action caller"),
 				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 			}

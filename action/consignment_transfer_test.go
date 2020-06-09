@@ -39,13 +39,13 @@ var (
 			"f93a97fae37fdadab6d49b74e3f3e4bee707ea2f007e08007bcc356cb283665b",
 			"e28fb729d1f8b841d36c2688571886a077e1f1529b239aa02d4ae1da84cdf5a37e7656e13d374d4fdf3010e75bcd3629a36765e941f2e427c8c4529c1f713caf01",
 		},
-		// sample sig https://etherscan.io/verifySig/2070
+		// sample sig https://etherscan.io/verifySig/2079
 		{
 			"ac1ec44e4f0ca7d172b7803f6836de87fb72b309",
 			"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks",
-			"{\"index\":47,\"nonce\":136,\"recipient\":\"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks\",\"comment\":\"This is to certify I am transferring the bucket with said index to said recipient\"}",
-			"6b8f2a5dd41d73c0926992010d9f3c6a7f4b16aaa32d65aa74bfdab102d309fd",
-			"1f1da2bc16b79ada4fae83dd008779e36f4df7430b875ad7893ade0c2bc3b7c34239d3da06fc0051d31dbf00496295f1e15b461bee675a3ff075696593e25bc41b",
+			"{\"type\":\"Ethereum\",\"bucket\":47,\"nonce\":136,\"recipient\":\"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks\",\"reclaim\":\"This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain\"}",
+			"ce7937213ec491a14992345a3162556fff200dca972a317bc4cae88092e8a6f7",
+			"7069f7159f484a73378f7992398d924700894f0640cff9c3eb980a327082ed91283d4d1a0a9eba572b022dd369ac73bc44a953db4849405507819a5ca5d0cb5e1c",
 		},
 	}
 )
@@ -55,7 +55,7 @@ func TestVerifyEccSig(t *testing.T) {
 
 	for _, v := range sigTests {
 		sig, _ := hex.DecodeString(v.sig)
-		pk, err := RecoverPubkeyFromEccSig([]byte(v.msg), sig)
+		pk, err := RecoverPubkeyFromEccSig("Ethereum", []byte(v.msg), sig)
 		r.NoError(err)
 		r.Equal(v.signer, hex.EncodeToString(pk.Hash()))
 		h, _ := hex.DecodeString(v.hash)
@@ -66,7 +66,7 @@ func TestVerifyEccSig(t *testing.T) {
 	for _, v := range sigTests {
 		sig, _ := hex.DecodeString(v.sig)
 		sig[rand.Intn(len(sig))]++
-		pk, err := RecoverPubkeyFromEccSig([]byte(v.msg), sig)
+		pk, err := RecoverPubkeyFromEccSig("Ethereum", []byte(v.msg), sig)
 		if err == nil {
 			r.NotEqual(v.signer, hex.EncodeToString(pk.Hash()))
 		}
@@ -79,16 +79,17 @@ func TestConsignmentTransfer(t *testing.T) {
 	// generate payload from tests
 	v := sigTests[2]
 	msg := ConsignMsg{
+		Type:      "Ethereum",
 		Index:     47,
 		Nonce:     136,
 		Recipient: v.recipient,
-		Comment:   "This is to certify I am transferring the bucket with said index to said recipient",
+		Reclaim:   _reclaim,
 	}
 	b, err := json.Marshal(msg)
 	r.NoError(err)
 	r.Equal(v.msg, string(b))
 
-	c := &consignment{
+	c := &ConsignJSON{
 		Msg: v.msg,
 		Sig: v.sig,
 	}
