@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -311,28 +312,66 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		return log, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), false, false)
 	if fetchErr != nil {
 		return log, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
+	newOwner := act.VoterAddress()
+	if !address.Equal(bucket.Owner, actionCtx.Caller) {
+		// check if the payload contains a valid consignment transfer
+		if consignment, ok := p.handleConsignmentTransfer(blkCtx, actionCtx, act, bucket); ok {
+			newOwner = consignment.Transferee()
+		} else {
+			return log, &handleError{
+				err:           errors.New("bucket owner does not match action caller"),
+				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+			}
+		}
+	}
+
 	// update bucket index
 	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
-	if err := putVoterBucketIndex(csm, act.VoterAddress(), act.BucketIndex()); err != nil {
+	if err := putVoterBucketIndex(csm, newOwner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
 	}
 
 	// update bucket
-	bucket.Owner = act.VoterAddress()
+	bucket.Owner = newOwner
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
 	log.AddAddress(actionCtx.Caller)
 	return log, nil
+}
+
+func (p *Protocol) handleConsignmentTransfer(
+	blkCtx protocol.BlockCtx,
+	actCtx protocol.ActionCtx,
+	act *action.TransferStake,
+	bucket *VoteBucket) (action.Consignment, bool) {
+	if p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) || len(act.Payload()) == 0 {
+		return nil, false
+	}
+
+	con, err := action.NewConsignment(act.Payload())
+	if err != nil {
+		return nil, false
+	}
+
+	// a consignment transfer is valid if:
+	// (1) signer owns the bucket
+	// (2) designated transferee matches the action caller
+	// (3) designated asset ID matches bucket index
+	// (4) nonce matches the action caller's nonce
+	return con, address.Equal(con.Transferor(), bucket.Owner) &&
+		address.Equal(con.Transferee(), actCtx.Caller) &&
+		con.AssetID() == bucket.Index &&
+		con.TransfereeNonce() == actCtx.Nonce
 }
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager,
