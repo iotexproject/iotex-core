@@ -80,7 +80,7 @@ func TestConsignmentTransfer(t *testing.T) {
 	v := sigTests[2]
 	msg := ConsignMsg{
 		Type:      "Ethereum",
-		Index:     47,
+		BucketIdx: 47,
 		Nonce:     136,
 		Recipient: v.recipient,
 		Reclaim:   _reclaim,
