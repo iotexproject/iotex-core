@@ -63,8 +63,10 @@ func stake2Transfer(args []string) error {
 
 	var payload []byte
 	if len(args) == 3 {
-		payload = make([]byte, 2*len([]byte(args[2])))
-		hex.Encode(payload, []byte(args[2]))
+		payload, err = hex.DecodeString(args[2])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
 	}
 
 	sender, err := signer()
@@ -97,5 +99,4 @@ func stake2Transfer(args []string) error {
 			SetGasLimit(gasLimit).
 			SetAction(s2t).Build(),
 		sender)
-
 }

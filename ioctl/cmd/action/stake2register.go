@@ -80,8 +80,10 @@ func register(args []string) error {
 
 	var payload []byte
 	if len(args) == 7 {
-		payload = make([]byte, 2*len([]byte(args[6])))
-		hex.Encode(payload, []byte(args[6]))
+		payload, err = hex.DecodeString(args[6])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
 	}
 
 	sender, err := signer()
