@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package merklepatriciatree
+package mptrie
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -17,14 +17,14 @@ import (
 const radix = 256
 
 type branchNode struct {
-	mpt    *merklePatriciaTree
+	mpt    *merklePatriciaTrie
 	hashes map[byte][]byte
 	isRoot bool
 	ser    []byte
 }
 
 func newBranchNode(
-	mpt *merklePatriciaTree,
+	mpt *merklePatriciaTrie,
 	children map[byte]node,
 ) (*branchNode, error) {
 	bnode := &branchNode{mpt: mpt, hashes: map[byte][]byte{}}
@@ -42,7 +42,7 @@ func newBranchNode(
 	return bnode, nil
 }
 
-func newBranchNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.BranchPb) *branchNode {
+func newBranchNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.BranchPb) *branchNode {
 	b, err := newBranchNode(mpt, nil)
 	if err != nil {
 		panic(err)

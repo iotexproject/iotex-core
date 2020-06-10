@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package merklepatriciatree
+package mptrie
 
 import (
 	"bytes"
@@ -16,14 +16,14 @@ import (
 )
 
 type leafNode struct {
-	mpt   *merklePatriciaTree
+	mpt   *merklePatriciaTrie
 	key   keyType
 	value []byte
 	ser   []byte
 }
 
 func newLeafNode(
-	mpt *merklePatriciaTree,
+	mpt *merklePatriciaTrie,
 	key keyType,
 	value []byte,
 ) (*leafNode, error) {
@@ -34,7 +34,7 @@ func newLeafNode(
 	return l, nil
 }
 
-func newLeafNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.LeafPb) *leafNode {
+func newLeafNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.LeafPb) *leafNode {
 	return &leafNode{mpt: mpt, key: pb.Path, value: pb.Value}
 }
 

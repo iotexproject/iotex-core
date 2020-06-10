@@ -14,7 +14,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/merklepatriciatree"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -56,7 +56,7 @@ type (
 )
 
 func (c *contract) Iterator() (trie.Iterator, error) {
-	return merklepatriciatree.NewLeafIterator(c.trie)
+	return mptrie.NewLeafIterator(c.trie)
 }
 
 // GetState get the committed value of a key
@@ -169,19 +169,19 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		committed: make(map[hash.Hash256][]byte),
 		sm:        sm,
 	}
-	options := []merklepatriciatree.Option{
-		merklepatriciatree.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
-		merklepatriciatree.KeyLengthOption(len(hash.Hash256{})),
-		merklepatriciatree.HashFuncOption(func(data []byte) []byte {
+	options := []mptrie.Option{
+		mptrie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
+		mptrie.KeyLengthOption(len(hash.Hash256{})),
+		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addr[:], data...))
 			return h[:]
 		}),
 	}
 	if account.Root != hash.ZeroHash256 {
-		options = append(options, merklepatriciatree.RootHashOption(account.Root[:]))
+		options = append(options, mptrie.RootHashOption(account.Root[:]))
 	}
 
-	tr, err := merklepatriciatree.New(options...)
+	tr, err := mptrie.New(options...)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create storage trie for new contract")
 	}

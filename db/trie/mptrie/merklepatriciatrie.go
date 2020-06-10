@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package merklepatriciatree
+package mptrie
 
 import (
 	"bytes"
@@ -37,7 +37,7 @@ type (
 	// HashFunc defines a function to generate the hash which will be used as key in db
 	HashFunc func([]byte) []byte
 
-	merklePatriciaTree struct {
+	merklePatriciaTrie struct {
 		mutex       sync.RWMutex
 		keyLength   int
 		root        branch
@@ -56,11 +56,11 @@ func DefaultHashFunc(data []byte) []byte {
 }
 
 // Option sets parameters for SameKeyLenTrieContext construction parameter
-type Option func(*merklePatriciaTree) error
+type Option func(*merklePatriciaTrie) error
 
 // KeyLengthOption sets the length of the keys saved in trie
 func KeyLengthOption(len int) Option {
-	return func(mpt *merklePatriciaTree) error {
+	return func(mpt *merklePatriciaTrie) error {
 		if len <= 0 || len > 128 {
 			return errors.New("invalid key length")
 		}
@@ -71,7 +71,7 @@ func KeyLengthOption(len int) Option {
 
 // RootHashOption sets the root hash for the trie
 func RootHashOption(h []byte) Option {
-	return func(mpt *merklePatriciaTree) error {
+	return func(mpt *merklePatriciaTrie) error {
 		mpt.rootHash = make([]byte, len(h))
 		copy(mpt.rootHash, h)
 		return nil
@@ -80,7 +80,7 @@ func RootHashOption(h []byte) Option {
 
 // HashFuncOption sets the hash func for the trie
 func HashFuncOption(hashFunc HashFunc) Option {
-	return func(mpt *merklePatriciaTree) error {
+	return func(mpt *merklePatriciaTrie) error {
 		mpt.hashFunc = hashFunc
 		return nil
 	}
@@ -88,7 +88,7 @@ func HashFuncOption(hashFunc HashFunc) Option {
 
 // KVStoreOption sets the kvStore for the trie
 func KVStoreOption(kvStore trie.KVStore) Option {
-	return func(mpt *merklePatriciaTree) error {
+	return func(mpt *merklePatriciaTrie) error {
 		mpt.kvStore = kvStore
 		return nil
 	}
@@ -96,7 +96,7 @@ func KVStoreOption(kvStore trie.KVStore) Option {
 
 // New creates a trie with DB filename
 func New(options ...Option) (trie.Trie, error) {
-	t := &merklePatriciaTree{
+	t := &merklePatriciaTrie{
 		keyLength: 20,
 		hashFunc:  DefaultHashFunc,
 	}
@@ -115,33 +115,33 @@ func New(options ...Option) (trie.Trie, error) {
 	return t, nil
 }
 
-func (mpt *merklePatriciaTree) Start(ctx context.Context) error {
+func (mpt *merklePatriciaTrie) Start(ctx context.Context) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
 	return mpt.setRootHash(mpt.rootHash)
 }
 
-func (mpt *merklePatriciaTree) Stop(_ context.Context) error {
+func (mpt *merklePatriciaTrie) Stop(_ context.Context) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) RootHash() []byte {
+func (mpt *merklePatriciaTrie) RootHash() []byte {
 	return mpt.rootHash
 }
 
-func (mpt *merklePatriciaTree) SetRootHash(rootHash []byte) error {
+func (mpt *merklePatriciaTrie) SetRootHash(rootHash []byte) error {
 	mpt.mutex.Lock()
 	defer mpt.mutex.Unlock()
 
 	return mpt.setRootHash(rootHash)
 }
 
-func (mpt *merklePatriciaTree) IsEmpty() bool {
+func (mpt *merklePatriciaTrie) IsEmpty() bool {
 	return mpt.isEmptyRootHash(mpt.rootHash)
 }
 
-func (mpt *merklePatriciaTree) Get(key []byte) ([]byte, error) {
+func (mpt *merklePatriciaTrie) Get(key []byte) ([]byte, error) {
 	trieMtc.WithLabelValues("root", "Get").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
@@ -157,7 +157,7 @@ func (mpt *merklePatriciaTree) Get(key []byte) ([]byte, error) {
 	return nil, trie.ErrInvalidTrie
 }
 
-func (mpt *merklePatriciaTree) Delete(key []byte) error {
+func (mpt *merklePatriciaTrie) Delete(key []byte) error {
 	trieMtc.WithLabelValues("root", "Delete").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
@@ -176,7 +176,7 @@ func (mpt *merklePatriciaTree) Delete(key []byte) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) Upsert(key []byte, value []byte) error {
+func (mpt *merklePatriciaTrie) Upsert(key []byte, value []byte) error {
 	trieMtc.WithLabelValues("root", "Upsert").Inc()
 	kt, err := mpt.checkKeyType(key)
 	if err != nil {
@@ -195,11 +195,11 @@ func (mpt *merklePatriciaTree) Upsert(key []byte, value []byte) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) isEmptyRootHash(h []byte) bool {
+func (mpt *merklePatriciaTrie) isEmptyRootHash(h []byte) bool {
 	return bytes.Equal(h, mpt.emptyRootHash())
 }
 
-func (mpt *merklePatriciaTree) emptyRootHash() []byte {
+func (mpt *merklePatriciaTrie) emptyRootHash() []byte {
 	bn, err := newBranchNode(mpt, nil)
 	if err != nil {
 		panic(err)
@@ -207,7 +207,7 @@ func (mpt *merklePatriciaTree) emptyRootHash() []byte {
 	return mpt.nodeHash(bn)
 }
 
-func (mpt *merklePatriciaTree) setRootHash(rootHash []byte) error {
+func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 	root := mpt.emptyRoot()
 	emptyRootHash := mpt.nodeHash(root)
 	if len(rootHash) == 0 || bytes.Equal(rootHash, emptyRootHash) {
@@ -227,7 +227,7 @@ func (mpt *merklePatriciaTree) setRootHash(rootHash []byte) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) resetRoot(newRoot branch) {
+func (mpt *merklePatriciaTrie) resetRoot(newRoot branch) {
 	mpt.root = newRoot
 	mpt.root.markAsRoot()
 	h := mpt.nodeHash(newRoot)
@@ -235,7 +235,7 @@ func (mpt *merklePatriciaTree) resetRoot(newRoot branch) {
 	copy(mpt.rootHash, h)
 }
 
-func (mpt *merklePatriciaTree) checkKeyType(key []byte) (keyType, error) {
+func (mpt *merklePatriciaTrie) checkKeyType(key []byte) (keyType, error) {
 	if len(key) != mpt.keyLength {
 		return nil, errors.Errorf("invalid key length %d", len(key))
 	}
@@ -245,14 +245,14 @@ func (mpt *merklePatriciaTree) checkKeyType(key []byte) (keyType, error) {
 	return kt, nil
 }
 
-func (mpt *merklePatriciaTree) nodeHash(tn node) []byte {
+func (mpt *merklePatriciaTrie) nodeHash(tn node) []byte {
 	if tn == nil {
 		panic("unexpected nil node to hash")
 	}
 	return mpt.hashFunc(tn.serialize())
 }
 
-func (mpt *merklePatriciaTree) emptyRoot() branch {
+func (mpt *merklePatriciaTrie) emptyRoot() branch {
 	bn, err := newBranchNode(mpt, nil)
 	if err != nil {
 		panic(err)
@@ -260,17 +260,17 @@ func (mpt *merklePatriciaTree) emptyRoot() branch {
 	return bn
 }
 
-func (mpt *merklePatriciaTree) deleteNode(tn node) error {
+func (mpt *merklePatriciaTrie) deleteNode(tn node) error {
 	return mpt.kvStore.Delete(mpt.nodeHash(tn))
 }
 
-func (mpt *merklePatriciaTree) putNode(tn node) error {
+func (mpt *merklePatriciaTrie) putNode(tn node) error {
 	h := mpt.nodeHash(tn)
 	s := tn.serialize()
 	return mpt.kvStore.Put(h, s)
 }
 
-func (mpt *merklePatriciaTree) loadNode(key []byte) (node, error) {
+func (mpt *merklePatriciaTrie) loadNode(key []byte) (node, error) {
 	s, err := mpt.kvStore.Get(key)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get key %x", key)

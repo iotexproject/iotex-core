@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package merklepatriciatree
+package mptrie
 
 import (
 	"github.com/golang/protobuf/proto"
@@ -15,14 +15,14 @@ import (
 
 // extensionNode defines a node with a path and point to a child node
 type extensionNode struct {
-	mpt       *merklePatriciaTree
+	mpt       *merklePatriciaTrie
 	path      []byte
 	childHash []byte
 	ser       []byte
 }
 
 func newExtensionNode(
-	mpt *merklePatriciaTree,
+	mpt *merklePatriciaTrie,
 	path []byte,
 	child node,
 ) (*extensionNode, error) {
@@ -33,7 +33,7 @@ func newExtensionNode(
 	return e, nil
 }
 
-func newExtensionNodeFromProtoPb(mpt *merklePatriciaTree, pb *triepb.ExtendPb) *extensionNode {
+func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
 	return &extensionNode{mpt: mpt, path: pb.Path, childHash: pb.Value}
 }
 

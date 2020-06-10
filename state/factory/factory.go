@@ -31,7 +31,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
-	"github.com/iotexproject/iotex-core/db/trie/merklepatriciatree"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -162,7 +162,7 @@ func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (tr
 	default:
 		return nil, err
 	}
-	return merklepatriciatree.NewTwoLayerTrie(dbForTrie, rootKey), nil
+	return mptrie.NewTwoLayerTrie(dbForTrie, rootKey), nil
 }
 
 // NewFactory creates a new state factory

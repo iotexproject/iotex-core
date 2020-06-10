@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package merklepatriciatree
+package mptrie
 
 import (
 	"github.com/pkg/errors"
@@ -14,13 +14,13 @@ import (
 
 // LeafIterator defines an iterator to go through all the leaves under given node
 type LeafIterator struct {
-	mpt   *merklePatriciaTree
+	mpt   *merklePatriciaTrie
 	stack []node
 }
 
 // NewLeafIterator returns a new leaf iterator
 func NewLeafIterator(tr trie.Trie) (trie.Iterator, error) {
-	mpt, ok := tr.(*merklePatriciaTree)
+	mpt, ok := tr.(*merklePatriciaTrie)
 	if !ok {
 		return nil, errors.New("trie is not supported type")
 	}
