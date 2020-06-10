@@ -39,13 +39,13 @@ var (
 			"f93a97fae37fdadab6d49b74e3f3e4bee707ea2f007e08007bcc356cb283665b",
 			"e28fb729d1f8b841d36c2688571886a077e1f1529b239aa02d4ae1da84cdf5a37e7656e13d374d4fdf3010e75bcd3629a36765e941f2e427c8c4529c1f713caf01",
 		},
-		// sample sig https://etherscan.io/verifySig/2079
+		// sample sig https://etherscan.io/verifySig/2080
 		{
 			"ac1ec44e4f0ca7d172b7803f6836de87fb72b309",
 			"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks",
-			"{\"type\":\"Ethereum\",\"bucket\":47,\"nonce\":136,\"recipient\":\"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks\",\"reclaim\":\"This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain\"}",
-			"ce7937213ec491a14992345a3162556fff200dca972a317bc4cae88092e8a6f7",
-			"7069f7159f484a73378f7992398d924700894f0640cff9c3eb980a327082ed91283d4d1a0a9eba572b022dd369ac73bc44a953db4849405507819a5ca5d0cb5e1c",
+			"{\"bucket\":47,\"nonce\":136,\"recipient\":\"io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks\",\"reclaim\":\"This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain\"}",
+			"baf289f37b913e736ff4e31c6f4b021c242b88416b7c528738766206e42735cc",
+			"0de7d21eb2fe2a81529e0927803a1ed918d002f4502f68aed913d941d88b3d454917a462755d241baad44199fb53c9126028ccbeeab0bd74eee30849aa0e1b391b",
 		},
 	}
 )
@@ -78,9 +78,8 @@ func TestConsignmentTransfer(t *testing.T) {
 
 	// generate payload from tests
 	v := sigTests[2]
-	msg := ConsignMsg{
-		Type:      "Ethereum",
-		Index:     47,
+	msg := ConsignMsgEther{
+		BucketIdx: 47,
 		Nonce:     136,
 		Recipient: v.recipient,
 		Reclaim:   _reclaim,
@@ -90,8 +89,9 @@ func TestConsignmentTransfer(t *testing.T) {
 	r.Equal(v.msg, string(b))
 
 	c := &ConsignJSON{
-		Msg: v.msg,
-		Sig: v.sig,
+		Type: "Ethereum",
+		Msg:  v.msg,
+		Sig:  v.sig,
 	}
 	b, err = json.Marshal(c)
 	r.NoError(err)
@@ -103,4 +103,12 @@ func TestConsignmentTransfer(t *testing.T) {
 	r.Equal(v.recipient, con.Transferee().String())
 	r.EqualValues(47, con.AssetID())
 	r.EqualValues(136, con.TransfereeNonce())
+
+	// test unsupported signature type
+	c.Type = "Trezor"
+	b, err = json.Marshal(c)
+	r.NoError(err)
+	con, err = NewConsignment(b)
+	r.Equal(ErrNotSupported, err)
+	r.Nil(con)
 }

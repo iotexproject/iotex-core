@@ -17,7 +17,14 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 )
 
-const _reclaim = "This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain"
+const (
+	_reclaim = "This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain"
+)
+
+// Errors
+var (
+	ErrNotSupported = errors.New("signature type not supported")
+)
 
 type (
 	// a consignment is a transaction signed by transferee which contains an embedded message signed by transferor
@@ -47,23 +54,22 @@ type (
 		TransfereeNonce() uint64
 	}
 
-	// ConsignMsg is the consignment message
-	ConsignMsg struct {
-		Type      string `json:"type"`
-		Index     int    `json:"bucket"`
+	// ConsignMsgEther is the consignment message format of Ethereum
+	ConsignMsgEther struct {
+		BucketIdx int    `json:"bucket"`
 		Nonce     int    `json:"nonce"`
 		Recipient string `json:"recipient"`
 		Reclaim   string `json:"reclaim"`
 	}
 
-	// ConsignJSON is the JSON format of a consignment, it contains a message (which is ConsignMsg), and a signature
+	// ConsignJSON is the JSON format of a consignment, it contains the type, message, and signature
 	ConsignJSON struct {
-		Msg string `json:"msg"`
-		Sig string `json:"sig"`
+		Type string `json:"type"`
+		Msg  string `json:"msg"`
+		Sig  string `json:"sig"`
 	}
 
 	consignment struct {
-		ConsignJSON
 		index     uint64
 		nonce     uint64
 		signer    address.Address
@@ -73,13 +79,22 @@ type (
 
 // NewConsignment creates a consignment from data
 func NewConsignment(data []byte) (Consignment, error) {
-	c := consignment{}
+	c := ConsignJSON{}
 	if err := json.Unmarshal(data, &c); err != nil {
 		return nil, err
 	}
 
+	switch c.Type {
+	case "Ethereum":
+		return processConsignmentEther(c)
+	default:
+		return nil, ErrNotSupported
+	}
+}
+
+func processConsignmentEther(c ConsignJSON) (Consignment, error) {
 	// parse embedded msg
-	msg := ConsignMsg{}
+	msg := ConsignMsgEther{}
 	if err := json.Unmarshal([]byte(c.Msg), &msg); err != nil {
 		return nil, err
 	}
@@ -92,21 +107,23 @@ func NewConsignment(data []byte) (Consignment, error) {
 	if err != nil {
 		return nil, err
 	}
-	pk, err := RecoverPubkeyFromEccSig(msg.Type, []byte(c.Msg), sig)
+	pk, err := RecoverPubkeyFromEccSig(c.Type, []byte(c.Msg), sig)
 	if err != nil {
 		return nil, err
 	}
-	c.signer, err = address.FromBytes(pk.Hash())
+
+	con := consignment{}
+	con.signer, err = address.FromBytes(pk.Hash())
 	if err != nil {
 		return nil, err
 	}
-	c.recipient, err = address.FromString(msg.Recipient)
+	con.recipient, err = address.FromString(msg.Recipient)
 	if err != nil {
 		return nil, err
 	}
-	c.index = uint64(msg.Index)
-	c.nonce = uint64(msg.Nonce)
-	return &c, nil
+	con.index = uint64(msg.BucketIdx)
+	con.nonce = uint64(msg.Nonce)
+	return &con, nil
 }
 
 func (c *consignment) Transferor() address.Address {
@@ -147,6 +164,6 @@ func msgHash(sigType string, msg []byte) ([]byte, error) {
 		h, _ := accounts.TextAndHash(msg)
 		return h, nil
 	default:
-		return nil, errors.New("signature type not supported")
+		return nil, ErrNotSupported
 	}
 }
