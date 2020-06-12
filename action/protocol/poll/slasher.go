@@ -586,6 +586,10 @@ func filterCandidates(
 
 // currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
 func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64, numOfBlocksByEpoch uint64) (map[string]uint64, error) {
+	log.L().Debug("Read current epoch productivity",
+		zap.Uint64("start height", start),
+		zap.Uint64("end height", end),
+	)
 	stats := make(map[string]uint64)
 	blockmetas, err := allBlockMetasFromDB(sr, numOfBlocksByEpoch)
 	if err != nil {
@@ -597,6 +601,8 @@ func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64,
 		if blockmeta.Height < start || blockmeta.Height > end {
 			continue
 		}
+		log.L().Debug("Block Meta exists",
+			zap.Uint64("Fetching height", blockmeta.Height))
 		if _, ok := stats[blockmeta.Producer]; ok {
 			stats[blockmeta.Producer]++
 		} else {
@@ -605,6 +611,11 @@ func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64,
 		count++
 	}
 	if expectedCount != count {
+		log.L().Debug(
+			"block metas from stateDB count is not same as expected",
+			zap.Uint64("expected", expectedCount),
+			zap.Uint64("actual", count),
+		)
 		return nil, errors.New("block metas from stateDB doesn't have enough data for given start, end height")
 	}
 	return stats, nil
