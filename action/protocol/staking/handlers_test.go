@@ -1813,25 +1813,10 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	defer ctrl.Finish()
 
 	tests := []struct {
-		// create stake fields
-		caller        address.Address
-		amount        string
-		afterTransfer uint64
-		initBalance   int64
-		// action fields
-		index       uint64
 		bucketOwner string
-		gasPrice    *big.Int
-		gasLimit    uint64
-		nonce       uint64
-		// block context
-		blkHeight    uint64
-		blkTimestamp time.Time
-		blkGasLimit  uint64
-		// NewTransferStake fields
-		to            address.Address
-		toInitBalance uint64
-
+		blkHeight   uint64
+		to          address.Address
+		// consignment fields
 		nilPayload  bool
 		consignType string
 		reclaim     string
@@ -1842,20 +1827,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	}{
 		// case I: p.hu.IsPre(config.Greenland, blkCtx.BlockHeight)
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			1000,
-			0,
 			identityset.PrivateKey(2).HexString(),
-			big.NewInt(unit.Qev),
-			10000,
 			1,
-			1,
-			time.Now(),
-			10000,
 			identityset.Address(3),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -1866,20 +1840,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case II: len(act.Payload()) == 0
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			1000,
-			0,
 			identityset.PrivateKey(2).HexString(),
-			big.NewInt(unit.Qev),
-			10000,
-			1,
 			5553821,
-			time.Now(),
-			10000,
 			identityset.Address(3),
-			1,
 			true,
 			"Ethereum",
 			_reclaim,
@@ -1890,20 +1853,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case III: type is not Ethereum
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			1000,
-			0,
 			identityset.PrivateKey(2).HexString(),
-			big.NewInt(unit.Qev),
-			10000,
-			1,
 			5553821,
-			time.Now(),
-			10000,
 			identityset.Address(3),
-			1,
 			false,
 			"xx",
 			_reclaim,
@@ -1914,20 +1866,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case IV: msg.Reclaim != _reclaim
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			1000,
-			0,
 			identityset.PrivateKey(2).HexString(),
-			big.NewInt(unit.Qev),
-			10000,
-			1,
 			5553821,
-			time.Now(),
-			10000,
 			identityset.Address(3),
-			1,
 			false,
 			"Ethereum",
 			"wrong reclaim",
@@ -1938,20 +1879,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case V: RecoverPubkeyFromEccSig error
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			1000,
-			0,
 			identityset.PrivateKey(2).HexString(),
-			big.NewInt(unit.Qev),
-			10000,
-			1,
 			5553821,
-			time.Now(),
-			10000,
 			identityset.Address(3),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -1962,20 +1892,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case VI: transferor is not bucket.Owner
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			10000000,
-			0,
 			identityset.PrivateKey(31).HexString(),
-			big.NewInt(unit.Qev),
-			1000000,
-			1,
 			5553821,
-			time.Now(),
-			10000000,
 			identityset.Address(1),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -1986,20 +1905,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case VII: transferee is not actCtx.Caller
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			10000000,
-			0,
 			identityset.PrivateKey(32).HexString(),
-			big.NewInt(unit.Qev),
-			1000000,
-			1,
 			5553821,
-			time.Now(),
-			10000000,
 			identityset.Address(3),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -2010,20 +1918,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case VIII: signed asset id is not equal to bucket.Index
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			10000000,
-			0,
 			identityset.PrivateKey(32).HexString(),
-			big.NewInt(unit.Qev),
-			1000000,
-			1,
 			5553821,
-			time.Now(),
-			10000000,
 			identityset.Address(1),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -2034,20 +1931,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case IX: transfereeNonce is not equal to actCtx.Nonce
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			10000000,
-			0,
 			identityset.PrivateKey(32).HexString(),
-			big.NewInt(unit.Qev),
-			1000000,
-			1,
 			5553821,
-			time.Now(),
-			10000000,
 			identityset.Address(1),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -2058,20 +1944,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 		// case X: success
 		{
-			identityset.Address(1),
-			"100000000000000000000",
-			0,
-			10000000,
-			0,
 			identityset.PrivateKey(32).HexString(),
-			big.NewInt(unit.Qev),
-			1000000,
-			1,
 			5553821,
-			time.Now(),
-			10000000,
 			identityset.Address(1),
-			1,
 			false,
 			"Ethereum",
 			_reclaim,
@@ -2083,10 +1958,14 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 	}
 	for _, test := range tests {
 		sm, p, cand1, cand2, cc := initAll(t, ctrl)
-		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		initCreateStake(t, sm, identityset.Address(32), test.initBalance, test.gasPrice, test.gasLimit, 1, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, cand2, test.amount, false)
-
-		initCreateStake(t, sm, identityset.Address(31), test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, cand1, test.amount, false)
+		caller := identityset.Address(1)
+		initBalance := int64(1000)
+		require.NoError(setupAccount(sm, caller, initBalance))
+		stakeAmount := "100000000000000000000"
+		gasPrice := big.NewInt(unit.Qev)
+		gasLimit := uint64(10000)
+		initCreateStake(t, sm, identityset.Address(32), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand2, stakeAmount, false)
+		initCreateStake(t, sm, identityset.Address(31), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand1, stakeAmount, false)
 
 		// transfer to test.to through consignment
 		var consign []byte
@@ -2094,21 +1973,21 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			consign = newconsignment(require, int(test.sigIndex), int(test.sigNonce), test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
 		}
 
-		act, err := action.NewTransferStake(test.nonce, identityset.Address(1).String(), test.index, consign, test.gasLimit, test.gasPrice)
+		act, err := action.NewTransferStake(1, caller.String(), 0, consign, gasLimit, gasPrice)
 		require.NoError(err)
 		intrinsic, err := act.IntrinsicGas()
 		require.NoError(err)
 
 		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-			Caller:       test.caller,
-			GasPrice:     test.gasPrice,
+			Caller:       caller,
+			GasPrice:     gasPrice,
 			IntrinsicGas: intrinsic,
-			Nonce:        test.nonce,
+			Nonce:        1,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			BlockHeight:    test.blkHeight,
 			BlockTimeStamp: time.Now(),
-			GasLimit:       test.blkGasLimit,
+			GasLimit:       gasLimit,
 		})
 		r, err := p.Handle(ctx, act, sm)
 		require.NoError(err)
@@ -2131,32 +2010,32 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			require.NoError(err)
 			require.Equal(cand2.Owner, bucket.Candidate)
 			require.Equal(test.to.String(), bucket.Owner.String())
-			require.Equal(test.amount, bucket.StakedAmount.String())
+			require.Equal(stakeAmount, bucket.StakedAmount.String())
 
 			// test candidate
 			candidate, err := getCandidate(sm, cand1.Owner)
 			require.NoError(err)
-			require.LessOrEqual(test.afterTransfer, candidate.Votes.Uint64())
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, cc)
 			require.NoError(err)
 			candidate = csm.GetByOwner(cand1.Owner)
 			require.NotNil(candidate)
-			require.LessOrEqual(test.afterTransfer, candidate.Votes.Uint64())
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			require.Equal(cand1.Name, candidate.Name)
 			require.Equal(cand1.Operator, candidate.Operator)
 			require.Equal(cand1.Reward, candidate.Reward)
 			require.Equal(cand1.Owner, candidate.Owner)
-			require.LessOrEqual(test.afterTransfer, candidate.Votes.Uint64())
-			require.LessOrEqual(test.afterTransfer, candidate.SelfStake.Uint64())
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
+			require.LessOrEqual(uint64(0), candidate.SelfStake.Uint64())
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(caller.Bytes()))
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce, caller.Nonce)
+			require.Equal(uint64(1), caller.Nonce)
 			total := big.NewInt(0)
-			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost))
+			require.Equal(unit.ConvertIotxToRau(initBalance), total.Add(total, caller.Balance).Add(total, actCost))
 		}
 	}
 }
