@@ -9,6 +9,8 @@ package contract
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -19,6 +21,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+)
+
+// ErrInvalidArg indicates argument is invalid
+var (
+	ErrInvalidArg = errors.New("invalid argument")
 )
 
 func parseAbi(abiBytes []byte) (*abi.ABI, error) {
@@ -50,7 +57,8 @@ func parseOutput(abi *abi.ABI, targetMethod string, result string) (interface{},
 	return v, nil
 }
 
-func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
+// parseInputArgument parses input's argument as golang variable
+func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 	switch t.T {
 	default:
 		return nil, ErrInvalidArg
@@ -74,7 +82,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		s := reflect.ValueOf(arg)
 		for i := 0; i < s.Len(); i++ {
-			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
+			ele, err := parseInputArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -93,7 +101,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		s := reflect.ValueOf(arg)
 		for i := 0; i < s.Len(); i++ {
-			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
+			ele, err := parseInputArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -266,4 +274,51 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 	}
 	return arg, nil
+}
+
+// parseOutputArgument parses output's argument as human-readable string
+func parseOutputArgument(v interface{}, t abi.Type) (string, bool) {
+	str := fmt.Sprint(v)
+	ok := true
+
+	// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
+	switch t.T {
+	case abi.IntTy, abi.UintTy:
+		if reflect.TypeOf(v) == reflect.TypeOf(big.Int{}) {
+			var bigInt *big.Int
+			bigInt, ok = v.(*big.Int)
+			if ok {
+				str = bigInt.String()
+			}
+		}
+		// other integer types (int8,uint16,...) can be handled by fmt.Sprint(v)
+
+	case abi.AddressTy:
+		var ethAddr common.Address
+		ethAddr, ok = v.(common.Address)
+		if ok {
+			str = ethAddr.String()
+		}
+
+	case abi.HashTy:
+		var ethHash common.Hash
+		ethHash, ok = v.(common.Hash)
+		if ok {
+			str = ethHash.String()
+		}
+
+	case abi.BytesTy:
+		var bytes []byte
+		bytes, ok = v.([]byte)
+		if ok {
+			str = "0x" + hex.EncodeToString(bytes)
+		}
+
+	case abi.FixedBytesTy, abi.FunctionTy:
+		size := reflect.TypeOf(v).Len()
+		bytes := reflect.ValueOf(v).Slice(0, size).Bytes()
+		str = "0x" + hex.EncodeToString(bytes)
+	}
+
+	return str, ok
 }
