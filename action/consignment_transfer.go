@@ -158,6 +158,7 @@ func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey,
 	return nil, crypto.ErrInvalidKey
 }
 
+// MsgHash calculate the hash of msg
 func MsgHash(sigType string, msg []byte) ([]byte, error) {
 	switch sigType {
 	case "Ethereum":
