@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -2092,7 +2091,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		// transfer to test.to through consignment
 		var consign []byte
 		if !test.nilPayload {
-			consign = newconsignment(t, int(test.sigIndex), int(test.sigNonce), test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
+			consign = newconsignment(require, int(test.sigIndex), int(test.sigNonce), test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
 		}
 
 		act, err := action.NewTransferStake(test.nonce, identityset.Address(1).String(), test.index, consign, test.gasLimit, test.gasPrice)
@@ -2728,8 +2727,7 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	return accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
 
-func newconsignment(t *testing.T, bucketIdx, nonce int, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
-	r := require.New(t)
+func newconsignment(r *require.Assertions, bucketIdx, nonce int, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
 	msg := action.ConsignMsgEther{
 		BucketIdx: bucketIdx,
 		Nonce:     nonce,
@@ -2738,7 +2736,10 @@ func newconsignment(t *testing.T, bucketIdx, nonce int, senderPrivate, recipient
 	}
 	b, err := json.Marshal(msg)
 	r.NoError(err)
-	h, _ := accounts.TextAndHash(b)
+	h, err := action.MsgHash(consignTpye, b)
+	if err != nil {
+		h = []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	}
 	sk, err := crypto.HexStringToPrivateKey(senderPrivate)
 	r.NoError(err)
 	sig, err := sk.Sign(h)
