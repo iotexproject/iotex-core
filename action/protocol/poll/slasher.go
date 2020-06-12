@@ -598,8 +598,6 @@ func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64,
 		if blockmeta.Height < start || blockmeta.Height > end {
 			continue
 		}
-		log.L().Debug("Block Meta exists",
-			zap.Uint64("Fetching height", blockmeta.Height))
 		if _, ok := stats[blockmeta.Producer]; ok {
 			stats[blockmeta.Producer]++
 		} else {
