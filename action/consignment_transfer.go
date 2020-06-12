@@ -144,7 +144,7 @@ func (c *consignment) TransfereeNonce() uint64 {
 
 // RecoverPubkeyFromEccSig recovers public key from ECC signature
 func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey, error) {
-	h, err := msgHash(sigType, msg)
+	h, err := MsgHash(sigType, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,8 @@ func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey,
 	return nil, crypto.ErrInvalidKey
 }
 
-func msgHash(sigType string, msg []byte) ([]byte, error) {
+// MsgHash calculate the hash of msg
+func MsgHash(sigType string, msg []byte) ([]byte, error) {
 	switch sigType {
 	case "Ethereum":
 		h, _ := accounts.TextAndHash(msg)
