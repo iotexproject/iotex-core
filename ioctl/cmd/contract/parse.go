@@ -277,47 +277,82 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 }
 
 // parseOutputArgument parses output's argument as human-readable string
-func parseOutputArgument(v interface{}, t abi.Type) (string, bool) {
+func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 	str := fmt.Sprint(v)
-	ok := true
+	ok := false
 
 	// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
 	switch t.T {
+	case abi.TupleTy:
+		if reflect.TypeOf(v).Kind() == reflect.Struct {
+			tupleStr := make([]string, 0, len(t.TupleElems))
+			for i, elem := range t.TupleElems {
+				elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
+				tupleStr = append(tupleStr, elemStr)
+			}
+
+			str = "{" + strings.Join(tupleStr, " ") + "}"
+			ok = true
+		}
+
+	case abi.SliceTy, abi.ArrayTy:
+		if reflect.TypeOf(v).Kind() == reflect.Slice || reflect.TypeOf(v).Kind() == reflect.Array {
+			sliceStr := make([]string, 0, t.Size)
+			for i := 0; i < t.Size; i++ {
+				elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Index(i).Interface(), t.Elem)
+				sliceStr = append(sliceStr, elemStr)
+			}
+
+			str = "[" + strings.Join(sliceStr, " ") + "]"
+			ok = true
+		}
+
 	case abi.IntTy, abi.UintTy:
-		if reflect.TypeOf(v) == reflect.TypeOf(big.Int{}) {
+		if reflect.TypeOf(v) == reflect.TypeOf(big.NewInt(0)) {
 			var bigInt *big.Int
 			bigInt, ok = v.(*big.Int)
 			if ok {
 				str = bigInt.String()
 			}
+		} else if 2 <= reflect.TypeOf(v).Kind() && reflect.TypeOf(v).Kind() <= 11 {
+			// other integer types (int8,uint16,...) can be handled by fmt.Sprint(v)
+			ok = true
 		}
-		// other integer types (int8,uint16,...) can be handled by fmt.Sprint(v)
 
 	case abi.AddressTy:
-		var ethAddr common.Address
-		ethAddr, ok = v.(common.Address)
-		if ok {
-			str = ethAddr.String()
+		if reflect.TypeOf(v) == reflect.TypeOf(common.Address{}) {
+			var ethAddr common.Address
+			ethAddr, ok = v.(common.Address)
+			if ok {
+				str = ethAddr.String()
+			}
 		}
 
 	case abi.HashTy:
-		var ethHash common.Hash
-		ethHash, ok = v.(common.Hash)
-		if ok {
-			str = ethHash.String()
+		if reflect.TypeOf(v) == reflect.TypeOf(common.Hash{}) {
+			var ethHash common.Hash
+			ethHash, ok = v.(common.Hash)
+			if ok {
+				str = ethHash.String()
+			}
 		}
 
 	case abi.BytesTy:
-		var bytes []byte
-		bytes, ok = v.([]byte)
-		if ok {
-			str = "0x" + hex.EncodeToString(bytes)
+		if reflect.TypeOf(v) == reflect.TypeOf([]byte{}) {
+			var bytes []byte
+			bytes, ok = v.([]byte)
+			if ok {
+				str = "0x" + hex.EncodeToString(bytes)
+			}
 		}
 
 	case abi.FixedBytesTy, abi.FunctionTy:
-		size := reflect.TypeOf(v).Len()
-		bytes := reflect.ValueOf(v).Slice(0, size).Bytes()
-		str = "0x" + hex.EncodeToString(bytes)
+		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeOf(byte(0)) {
+			size := reflect.TypeOf(v).Len()
+			bytes := reflect.ValueOf(v).Slice(0, size).Bytes()
+			str = "0x" + hex.EncodeToString(bytes)
+			ok = true
+		}
 	}
 
 	return str, ok
