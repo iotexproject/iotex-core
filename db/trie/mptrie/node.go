@@ -4,40 +4,37 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package mptrie
 
 type (
 	keyType []byte
-
-	// NodeType is the type of a trie node
-	NodeType int
 )
 
-const (
-	// BRANCH is an internal node type of length 1 and multiple child
-	BRANCH NodeType = iota + 1
-	// LEAF is a leaf node with value
-	LEAF
-	// EXTENSION is a spefic type of branch with only one child
-	EXTENSION
-)
+type node interface {
+	search(keyType, uint8) node
+	delete(keyType, uint8) (node, error)
+	upsert(keyType, uint8, []byte) (node, error)
 
-// Node defines the interface of a trie node
-// Note: all the key-value pairs should be of the same length of keys
-type Node interface {
-	// Type returns the type of a node
-	Type() NodeType
+	serialize() []byte
+}
+
+type leaf interface {
+	node
 	// Key returns the key of a node, only leaf has key
 	Key() []byte
 	// Value returns the value of a node, only leaf has value
 	Value() []byte
+}
 
-	children(Trie) ([]Node, error)
-	search(Trie, keyType, uint8) Node
-	delete(Trie, keyType, uint8) (Node, error)
-	upsert(Trie, keyType, uint8, []byte) (Node, error)
+type extension interface {
+	node
+	child() (node, error)
+}
 
-	serialize() []byte
+type branch interface {
+	node
+	children() ([]node, error)
+	markAsRoot()
 }
 
 // key1 should not be longer than key2

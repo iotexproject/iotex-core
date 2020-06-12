@@ -4,32 +4,35 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package mptrie
 
 import (
 	"context"
 	"encoding/hex"
 
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/db/trie"
 )
 
-// TwoLayerTrie is a trie data structure with two layers
-type TwoLayerTrie struct {
-	layerOne Trie
-	layerTwo map[string]Trie
-	kvStore  KVStore
-	rootKey  string
-}
+type (
+	twoLayerTrie struct {
+		layerOne trie.Trie
+		layerTwo map[string]trie.Trie
+		kvStore  trie.KVStore
+		rootKey  string
+	}
+)
 
 // NewTwoLayerTrie creates a two layer trie
-func NewTwoLayerTrie(dbForTrie KVStore, rootKey string) *TwoLayerTrie {
-	return &TwoLayerTrie{
+func NewTwoLayerTrie(dbForTrie trie.KVStore, rootKey string) trie.TwoLayerTrie {
+	return &twoLayerTrie{
 		kvStore: dbForTrie,
 		rootKey: rootKey,
 	}
 }
 
-func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie, error) {
+func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
 	hk := hex.EncodeToString(key)
 	if lt, ok := tlt.layerTwo[hk]; ok {
 		return lt, nil
@@ -37,7 +40,7 @@ func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie,
 	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen)}
 	value, err := tlt.layerOne.Get(key)
 	switch errors.Cause(err) {
-	case ErrNotExist:
+	case trie.ErrNotExist:
 		// start an empty trie
 	case nil:
 		opts = append(opts, RootHashOption(value))
@@ -45,30 +48,32 @@ func (tlt *TwoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (Trie,
 		return nil, err
 	}
 
-	lt, err := NewTrie(opts...)
+	lt, err := New(opts...)
 	if err != nil {
 		return nil, err
 	}
 	return lt, lt.Start(context.Background())
 }
 
-// Start starts the layer one trie
-func (tlt *TwoLayerTrie) Start(ctx context.Context) error {
-	layerOne, err := NewTrie(
+func (tlt *twoLayerTrie) Start(ctx context.Context) error {
+	rootHash, err := tlt.kvStore.Get([]byte(tlt.rootKey))
+	if errors.Cause(err) == trie.ErrNotExist {
+		rootHash = nil
+	}
+	layerOne, err := New(
 		KVStoreOption(tlt.kvStore),
-		RootKeyOption(tlt.rootKey),
+		RootHashOption(rootHash),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
 	}
 	tlt.layerOne = layerOne
-	tlt.layerTwo = make(map[string]Trie)
+	tlt.layerTwo = make(map[string]trie.Trie)
 
 	return tlt.layerOne.Start(ctx)
 }
 
-// Stop stops the layer one trie
-func (tlt *TwoLayerTrie) Stop(ctx context.Context) error {
+func (tlt *twoLayerTrie) Stop(ctx context.Context) error {
 	for _, lt := range tlt.layerTwo {
 		if err := lt.Stop(ctx); err != nil {
 			return err
@@ -77,18 +82,29 @@ func (tlt *TwoLayerTrie) Stop(ctx context.Context) error {
 	return tlt.layerOne.Stop(ctx)
 }
 
-// RootHash returns the layer one trie root
-func (tlt *TwoLayerTrie) RootHash() []byte {
+func (tlt *twoLayerTrie) IsEmpty() bool {
+	return tlt.layerOne.IsEmpty()
+}
+
+func (tlt *twoLayerTrie) RootHash() []byte {
 	return tlt.layerOne.RootHash()
 }
 
-// SetRootHash sets root hash for layer one trie
-func (tlt *TwoLayerTrie) SetRootHash(rh []byte) error {
-	return tlt.layerOne.SetRootHash(rh)
+func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
+	for key, lt := range tlt.layerTwo {
+		if err := lt.Stop(context.Background()); err != nil {
+			return err
+		}
+		delete(tlt.layerTwo, key)
+	}
+	if err := tlt.layerOne.SetRootHash(rh); err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// Get returns the value in layer two
-func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
+func (tlt *twoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return nil, err
@@ -97,8 +113,7 @@ func (tlt *TwoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, er
 	return layerTwo.Get(layerTwoKey)
 }
 
-// Upsert upserts an item in layer two
-func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
+func (tlt *twoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
@@ -110,8 +125,7 @@ func (tlt *TwoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []
 	return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
 }
 
-// Delete deletes an item in layer two
-func (tlt *TwoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
+func (tlt *twoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
 	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
