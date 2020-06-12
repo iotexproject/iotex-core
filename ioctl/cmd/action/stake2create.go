@@ -69,10 +69,12 @@ func stake2Create(args []string) error {
 	}
 	duration := uint32(stakeDuration.Uint64())
 
-	data := []byte{}
+	var data []byte
 	if len(args) == 4 {
-		data = make([]byte, 2*len([]byte(args[3])))
-		hex.Encode(data, []byte(args[3]))
+		data, err = hex.DecodeString(args[3])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
 	}
 
 	sender, err := signer()

@@ -53,10 +53,12 @@ func stake2Release(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
-	data := []byte{}
+	var data []byte
 	if len(args) == 2 {
-		data = make([]byte, 2*len([]byte(args[1])))
-		hex.Encode(data, []byte(args[1]))
+		data, err = hex.DecodeString(args[1])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
 	}
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
