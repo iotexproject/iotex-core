@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
+	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -1471,16 +1472,16 @@ func BalanceOfContract(contract, genesisAccount string, kv db.KVStore, t *testin
 	addrHash := hash.BytesToHash160(addr.Bytes())
 	dbForTrie, err := trie.NewKVStore(evm.ContractKVNameSpace, kv)
 	require.NoError(err)
-	options := []trie.Option{
-		trie.KVStoreOption(dbForTrie),
-		trie.KeyLengthOption(len(hash.Hash256{})),
-		trie.HashFuncOption(func(data []byte) []byte {
+	options := []mptrie.Option{
+		mptrie.KVStoreOption(dbForTrie),
+		mptrie.KeyLengthOption(len(hash.Hash256{})),
+		mptrie.HashFuncOption(func(data []byte) []byte {
 			h := hash.Hash256b(append(addrHash[:], data...))
 			return h[:]
 		}),
 	}
-	options = append(options, trie.RootHashOption(root[:]))
-	tr, err := trie.NewTrie(options...)
+	options = append(options, mptrie.RootHashOption(root[:]))
+	tr, err := mptrie.New(options...)
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	defer tr.Stop(context.Background())

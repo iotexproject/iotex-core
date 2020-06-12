@@ -7,6 +7,7 @@ require (
 	github.com/ethereum/go-ethereum v1.8.27
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/gogo/protobuf v1.2.1
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9
 	github.com/golang/mock v1.4.0
 	github.com/golang/protobuf v1.3.2
