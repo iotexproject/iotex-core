@@ -96,7 +96,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
-		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
+		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
 			return errors.Wrap(err, "faild to update current epoch meta")
 		}
 	}
@@ -465,27 +465,24 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 			bcCtx.Tip.Height,
 			sh.productivity,
 		)
-		if err != nil {
-			return nil, err
-		}
-		// The current block is not included, so add it
-		numBlks++
-		if _, ok := produce[blkCtx.Producer.String()]; ok {
-			produce[blkCtx.Producer.String()]++
-		} else {
-			produce[blkCtx.Producer.String()] = 1
-		}
 	} else {
 		numBlks, produce, err = rp.ProductivityByEpoch(
 			epochNum,
-			bcCtx.Tip.Height+1,
+			bcCtx.Tip.Height,
 			func(start, end uint64) (map[string]uint64, error) {
 				return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
 			},
 		)
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so add it
+	numBlks++
+	if _, ok := produce[blkCtx.Producer.String()]; ok {
+		produce[blkCtx.Producer.String()]++
+	} else {
+		produce[blkCtx.Producer.String()] = 1
 	}
 
 	for _, abp := range delegates {
