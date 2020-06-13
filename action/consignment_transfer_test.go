@@ -78,22 +78,9 @@ func TestConsignmentTransfer(t *testing.T) {
 
 	// generate payload from tests
 	v := sigTests[2]
-	msg := ConsignMsgEther{
-		BucketIdx: 47,
-		Nonce:     136,
-		Recipient: v.recipient,
-		Reclaim:   _reclaim,
-	}
-	b, err := json.Marshal(msg)
-	r.NoError(err)
-	r.Equal(v.msg, string(b))
-
-	c := &ConsignJSON{
-		Type: "Ethereum",
-		Msg:  v.msg,
-		Sig:  v.sig,
-	}
-	b, err = json.Marshal(c)
+	b, err := NewConsignJSON("Trezor", v.recipient, v.sig, 47, 136)
+	r.Equal(ErrNotSupported, err)
+	b, err = NewConsignJSON("Ethereum", v.recipient, v.sig, 47, 136)
 	r.NoError(err)
 
 	// process the payload as a consignment transfer
@@ -105,7 +92,11 @@ func TestConsignmentTransfer(t *testing.T) {
 	r.EqualValues(136, con.TransfereeNonce())
 
 	// test unsupported signature type
-	c.Type = "Trezor"
+	c := &ConsignJSON{
+		Type: "Trezor",
+		Msg:  v.msg,
+		Sig:  v.sig,
+	}
 	b, err = json.Marshal(c)
 	r.NoError(err)
 	con, err = NewConsignment(b)

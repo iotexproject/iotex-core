@@ -55,6 +55,7 @@ func init() {
 	Stake2Cmd.AddCommand(stake2UpdateCmd)
 	Stake2Cmd.AddCommand(stake2AddCmd)
 	Stake2Cmd.AddCommand(stake2TransferCmd)
+	Stake2Cmd.AddCommand(stake2ReclaimCmd)
 	Stake2Cmd.AddCommand(stake2ReleaseCmd)
 	Stake2Cmd.AddCommand(stake2RegisterCmd)
 	Stake2Cmd.AddCommand(stake2ChangeCmd)
