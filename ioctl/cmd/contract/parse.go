@@ -44,17 +44,31 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 	return input, nil
 }
 
-func parseOutput(abi *abi.ABI, targetMethod string, result string) (interface{}, error) {
+func parseOutput(abi *abi.ABI, targetMethod string, result string) (string, error) {
 	resultBytes, err := hex.DecodeString(result)
 	if err != nil {
-		return nil, output.NewError(output.ConvertError, "failed to decode result", err)
+		return "", output.NewError(output.ConvertError, "failed to decode result", err)
 	}
 
 	var v interface{}
 	if err := abi.Unpack(&v, targetMethod, resultBytes); err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to parse output", err)
+		return "", output.NewError(output.SerializationError, "failed to parse output", err)
 	}
-	return v, nil
+
+	var resultStr string
+	outputArgs := abi.Methods[targetMethod].Outputs
+	if len(outputArgs) == 1 {
+		resultStr, _ = parseOutputArgument(v, &outputArgs[0].Type)
+	} else {
+		tupleStr := make([]string, 0, len(outputArgs))
+		for i, elem := range outputArgs {
+			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), &elem.Type)
+			tupleStr = append(tupleStr, elemStr)
+		}
+		resultStr = "{" + strings.Join(tupleStr, " ") + "}"
+	}
+
+	return resultStr, nil
 }
 
 // parseInputArgument parses input's argument as golang variable
@@ -328,15 +342,6 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 			}
 		}
 
-	case abi.HashTy:
-		if reflect.TypeOf(v) == reflect.TypeOf(common.Hash{}) {
-			var ethHash common.Hash
-			ethHash, ok = v.(common.Hash)
-			if ok {
-				str = ethHash.String()
-			}
-		}
-
 	case abi.BytesTy:
 		if reflect.TypeOf(v) == reflect.TypeOf([]byte{}) {
 			var bytes []byte
@@ -348,9 +353,11 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 
 	case abi.FixedBytesTy, abi.FunctionTy:
 		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeOf(byte(0)) {
-			size := reflect.TypeOf(v).Len()
-			bytes := reflect.ValueOf(v).Slice(0, size).Bytes()
-			str = "0x" + hex.EncodeToString(bytes)
+			bytesValue := reflect.ValueOf(v)
+			byteSlice := reflect.MakeSlice(reflect.TypeOf([]byte{}), bytesValue.Len(), bytesValue.Len())
+			reflect.Copy(byteSlice, bytesValue)
+
+			str = "0x" + hex.EncodeToString(byteSlice.Bytes())
 			ok = true
 		}
 	}
