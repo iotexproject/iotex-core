@@ -295,30 +295,38 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 	str := fmt.Sprint(v)
 	ok := false
 
-	// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
 	switch t.T {
+	case abi.StringTy, abi.BoolTy:
+		// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
+		ok = true
+
 	case abi.TupleTy:
 		if reflect.TypeOf(v).Kind() == reflect.Struct {
+			ok = true
+
 			tupleStr := make([]string, 0, len(t.TupleElems))
 			for i, elem := range t.TupleElems {
-				elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
+				elemStr, elemOk := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
 				tupleStr = append(tupleStr, elemStr)
+				ok = ok && elemOk
 			}
 
 			str = "{" + strings.Join(tupleStr, " ") + "}"
-			ok = true
 		}
 
 	case abi.SliceTy, abi.ArrayTy:
 		if reflect.TypeOf(v).Kind() == reflect.Slice || reflect.TypeOf(v).Kind() == reflect.Array {
-			sliceStr := make([]string, 0, t.Size)
-			for i := 0; i < t.Size; i++ {
-				elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Index(i).Interface(), t.Elem)
+			ok = true
+
+			value := reflect.ValueOf(v)
+			sliceStr := make([]string, 0, value.Len())
+			for i := 0; i < value.Len(); i++ {
+				elemStr, elemOk := parseOutputArgument(value.Index(i).Interface(), t.Elem)
 				sliceStr = append(sliceStr, elemStr)
+				ok = ok && elemOk
 			}
 
 			str = "[" + strings.Join(sliceStr, " ") + "]"
-			ok = true
 		}
 
 	case abi.IntTy, abi.UintTy:
