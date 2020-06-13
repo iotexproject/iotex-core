@@ -7,7 +7,10 @@
 package action
 
 import (
+	"bufio"
 	"encoding/hex"
+	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -20,9 +23,9 @@ import (
 // Multi-language support
 var (
 	stake2ReclaimCmdUses = map[config.Language]string{
-		config.English: "reclaim BUCKET_INDEX SIGNATURE TYPE" +
+		config.English: "reclaim BUCKET_INDEX TYPE" +
 			" [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
-		config.Chinese: "reclaim 票索引 签名 类型" +
+		config.Chinese: "reclaim 票索引 类型" +
 			" [-s 签署人] [-n NONCE] [-l GAS限制] [-p GAS价格] [-P 密码] [-y]",
 	}
 
@@ -36,7 +39,7 @@ var (
 var stake2ReclaimCmd = &cobra.Command{
 	Use:   config.TranslateInLang(stake2ReclaimCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(stake2ReclaimCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := stake2Reclaim(args)
@@ -62,12 +65,24 @@ func stake2Reclaim(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get nonce ", err)
 	}
-	if _, err = hex.DecodeString(args[1]); err != nil {
-		return output.NewError(output.ConvertError, "failed to process signature", err)
+
+	// construct consignment message
+	msg, err := action.NewConsignMsg(args[1], sender, bucketIndex, nonce)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to create reclaim message", err)
 	}
+	fmt.Printf("Here's the reclaim message:\n\n")
+	fmt.Println(string(msg))
+
+	// ask user to input signature
+	sig, err := readSigFromStdin(args)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to generate signature", err)
+	}
+	fmt.Println()
 
 	// construct consignment JSON
-	payload, err := action.NewConsignJSON(args[2], sender, args[1], bucketIndex, nonce)
+	payload, err := action.NewConsignJSON(args[1], sender, sig, bucketIndex, nonce)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to create reclaim JSON", err)
 	}
@@ -94,4 +109,29 @@ func stake2Reclaim(args []string) error {
 			SetGasLimit(gasLimit).
 			SetAction(s2t).Build(),
 		sender)
+}
+
+func readSigFromStdin(args []string) (string, error) {
+	sig := "\nUse HDWallet or off-line sign this message on " + args[1] + " using the private key of bucket " + args[0] + "'s owner"
+	fmt.Printf(sig)
+	fmt.Printf("\nPaste the signature, and hit Enter:\n")
+
+	reader := bufio.NewReader(os.Stdin)
+	sig, err := reader.ReadString('\n')
+	if err != nil {
+		return "", output.NewError(output.InputError, "failed to read signature", err)
+	}
+	if len(sig) <= 2 {
+		return "", output.NewError(output.InputError, "invalid signature", err)
+	}
+
+	// remove possible 0x at beginning and the trailing \n
+	if sig[0] == '0' && sig[1] == 'x' {
+		sig = sig[2:]
+	}
+	sig = sig[:len(sig)-1]
+	if _, err = hex.DecodeString(sig); err != nil {
+		return "", output.NewError(output.ConvertError, "failed to decode signature", err)
+	}
+	return sig, nil
 }
