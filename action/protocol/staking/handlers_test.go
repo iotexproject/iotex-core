@@ -8,6 +8,8 @@ package staking
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"math/big"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -26,6 +29,10 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+)
+
+const (
+	_reclaim = "This is to certify I am transferring the ownership of said bucket to said recipient on IoTeX blockchain"
 )
 
 // Delete should only be used by test
@@ -1800,6 +1807,239 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 	}
 }
 
+func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	tests := []struct {
+		bucketOwner string
+		blkHeight   uint64
+		to          address.Address
+		// consignment fields
+		nilPayload  bool
+		consignType string
+		reclaim     string
+		wrongSig    bool
+		sigIndex    uint64
+		sigNonce    uint64
+		status      iotextypes.ReceiptStatus
+	}{
+		// case I: p.hu.IsPre(config.Greenland, blkCtx.BlockHeight)
+		{
+			identityset.PrivateKey(2).HexString(),
+			1,
+			identityset.Address(3),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case II: len(act.Payload()) == 0
+		{
+			identityset.PrivateKey(2).HexString(),
+			5553821,
+			identityset.Address(3),
+			true,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case III: type is not Ethereum
+		{
+			identityset.PrivateKey(2).HexString(),
+			5553821,
+			identityset.Address(3),
+			false,
+			"xx",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case IV: msg.Reclaim != _reclaim
+		{
+			identityset.PrivateKey(2).HexString(),
+			5553821,
+			identityset.Address(3),
+			false,
+			"Ethereum",
+			"wrong reclaim",
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case V: RecoverPubkeyFromEccSig error
+		{
+			identityset.PrivateKey(2).HexString(),
+			5553821,
+			identityset.Address(3),
+			false,
+			"Ethereum",
+			_reclaim,
+			true,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case VI: transferor is not bucket.Owner
+		{
+			identityset.PrivateKey(31).HexString(),
+			5553821,
+			identityset.Address(1),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case VII: transferee is not actCtx.Caller
+		{
+			identityset.PrivateKey(32).HexString(),
+			5553821,
+			identityset.Address(3),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case VIII: signed asset id is not equal to bucket.Index
+		{
+			identityset.PrivateKey(32).HexString(),
+			5553821,
+			identityset.Address(1),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			1,
+			1,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case IX: transfereeNonce is not equal to actCtx.Nonce
+		{
+			identityset.PrivateKey(32).HexString(),
+			5553821,
+			identityset.Address(1),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			2,
+			iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
+		},
+		// case X: success
+		{
+			identityset.PrivateKey(32).HexString(),
+			5553821,
+			identityset.Address(1),
+			false,
+			"Ethereum",
+			_reclaim,
+			false,
+			0,
+			1,
+			iotextypes.ReceiptStatus_Success,
+		},
+	}
+	for _, test := range tests {
+		sm, p, cand1, cand2, cc := initAll(t, ctrl)
+		caller := identityset.Address(1)
+		initBalance := int64(1000)
+		require.NoError(setupAccount(sm, caller, initBalance))
+		stakeAmount := "100000000000000000000"
+		gasPrice := big.NewInt(unit.Qev)
+		gasLimit := uint64(10000)
+		initCreateStake(t, sm, identityset.Address(32), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand2, stakeAmount, false)
+		initCreateStake(t, sm, identityset.Address(31), initBalance, gasPrice, gasLimit, 1, test.blkHeight, time.Now(), gasLimit, p, cand1, stakeAmount, false)
+
+		// transfer to test.to through consignment
+		var consign []byte
+		if !test.nilPayload {
+			consign = newconsignment(require, int(test.sigIndex), int(test.sigNonce), test.bucketOwner, test.to.String(), test.consignType, test.reclaim, test.wrongSig)
+		}
+
+		act, err := action.NewTransferStake(1, caller.String(), 0, consign, gasLimit, gasPrice)
+		require.NoError(err)
+		intrinsic, err := act.IntrinsicGas()
+		require.NoError(err)
+
+		ctx := protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
+			Caller:       caller,
+			GasPrice:     gasPrice,
+			IntrinsicGas: intrinsic,
+			Nonce:        1,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight:    test.blkHeight,
+			BlockTimeStamp: time.Now(),
+			GasLimit:       gasLimit,
+		})
+		r, err := p.Handle(ctx, act, sm)
+		require.NoError(err)
+		if r != nil {
+			require.Equal(uint64(test.status), r.Status)
+		} else {
+			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
+		}
+
+		if test.status == iotextypes.ReceiptStatus_Success {
+			// test bucket index and bucket
+			bucketIndices, err := getCandBucketIndices(sm, cand2.Owner)
+			require.NoError(err)
+			require.Equal(1, len(*bucketIndices))
+			bucketIndices, err = getVoterBucketIndices(sm, test.to)
+			require.NoError(err)
+			require.Equal(1, len(*bucketIndices))
+			indices := *bucketIndices
+			bucket, err := getBucket(sm, indices[0])
+			require.NoError(err)
+			require.Equal(cand2.Owner, bucket.Candidate)
+			require.Equal(test.to.String(), bucket.Owner.String())
+			require.Equal(stakeAmount, bucket.StakedAmount.String())
+
+			// test candidate
+			candidate, err := getCandidate(sm, cand1.Owner)
+			require.NoError(err)
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
+			csm, err := NewCandidateStateManager(sm, cc)
+			require.NoError(err)
+			candidate = csm.GetByOwner(cand1.Owner)
+			require.NotNil(candidate)
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
+			require.Equal(cand1.Name, candidate.Name)
+			require.Equal(cand1.Operator, candidate.Operator)
+			require.Equal(cand1.Reward, candidate.Reward)
+			require.Equal(cand1.Owner, candidate.Owner)
+			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
+			require.LessOrEqual(uint64(0), candidate.SelfStake.Uint64())
+
+			// test staker's account
+			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(caller.Bytes()))
+			require.NoError(err)
+			actCost, err := act.Cost()
+			require.NoError(err)
+			require.Equal(uint64(1), caller.Nonce)
+			total := big.NewInt(0)
+			require.Equal(unit.ConvertIotxToRau(initBalance), total.Add(total, caller.Balance).Add(total, actCost))
+		}
+	}
+}
+
 func TestProtocol_HandleRestake(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
@@ -2364,4 +2604,34 @@ func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) 
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
 	return accountutil.StoreAccount(sm, actionCtx.Caller, acc)
+}
+
+func newconsignment(r *require.Assertions, bucketIdx, nonce int, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
+	msg := action.ConsignMsgEther{
+		BucketIdx: bucketIdx,
+		Nonce:     nonce,
+		Recipient: recipient,
+		Reclaim:   reclaim,
+	}
+	b, err := json.Marshal(msg)
+	r.NoError(err)
+	h, err := action.MsgHash(consignTpye, b)
+	if err != nil {
+		h = []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	}
+	sk, err := crypto.HexStringToPrivateKey(senderPrivate)
+	r.NoError(err)
+	sig, err := sk.Sign(h)
+	r.NoError(err)
+	c := &action.ConsignJSON{
+		Type: consignTpye,
+		Msg:  string(b),
+		Sig:  hex.EncodeToString(sig),
+	}
+	if wrongSig {
+		c.Sig = "123456"
+	}
+	b, err = json.Marshal(c)
+	r.NoError(err)
+	return b
 }
