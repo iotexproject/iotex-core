@@ -141,5 +141,29 @@
     "payable": false,
     "stateMutability": "view",
     "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "int256",
+        "name": "a",
+        "type": "int256"
+      }
+    ],
+    "name": "testTuple",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "i",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address[2]",
+        "name": "abc",
+        "type": "address[2]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ]

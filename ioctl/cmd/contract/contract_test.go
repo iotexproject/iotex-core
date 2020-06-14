@@ -25,7 +25,7 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(9, len(abi.Methods))
+	r.Equal(10, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
@@ -102,6 +102,11 @@ func TestParseOutput(t *testing.T) {
 			"Hello World",
 			"getMessage",
 			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
+		},
+		{
+			"{17 [0x0000000000000000000000000000000000000000 0xc7F43FaB2ca353d29cE0DA04851aB74f45B09593]}",
+			"testTuple",
+			"00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
 		},
 	}
 
@@ -191,7 +196,6 @@ func TestParseOutputArgument(t *testing.T) {
 		t, err := abi.NewType(test.t, test.components)
 		r.NoError(err)
 		result, ok := parseOutputArgument(test.v, &t)
-		fmt.Println(result, ok)
 		r.True(ok)
 		r.Equal(test.expect, result)
 	}

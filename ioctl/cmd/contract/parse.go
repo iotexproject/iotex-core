@@ -44,25 +44,43 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 	return input, nil
 }
 
-func parseOutput(abi *abi.ABI, targetMethod string, result string) (string, error) {
+func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string, error) {
 	resultBytes, err := hex.DecodeString(result)
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "failed to decode result", err)
 	}
 
-	var v interface{}
-	if err := abi.Unpack(&v, targetMethod, resultBytes); err != nil {
-		return "", output.NewError(output.SerializationError, "failed to parse output", err)
-	}
-
 	var resultStr string
-	outputArgs := abi.Methods[targetMethod].Outputs
+
+	outputArgs := targetAbi.Methods[targetMethod].Outputs
 	if len(outputArgs) == 1 {
+		var v interface{}
+		if err := targetAbi.Unpack(&v, targetMethod, resultBytes); err != nil {
+			return "", output.NewError(output.SerializationError, "failed to parse output", err)
+		}
+
 		resultStr, _ = parseOutputArgument(v, &outputArgs[0].Type)
 	} else {
+		fields := make([]reflect.StructField, 0, len(outputArgs))
+		for _, arg := range outputArgs {
+			if abi.ToCamelCase(arg.Name) == "" {
+				return "", output.NewError(output.ConvertError, "invalid name for public struct field", nil)
+			}
+			fields = append(fields, reflect.StructField{
+				Name: abi.ToCamelCase(arg.Name),
+				Type: arg.Type.Type,
+				Tag:  reflect.StructTag("json:\"" + arg.Name + "\""),
+			})
+		}
+
+		v := reflect.New(reflect.StructOf(fields)).Interface()
+		if err := targetAbi.Unpack(v, targetMethod, resultBytes); err != nil {
+			return "", output.NewError(output.SerializationError, "failed to parse output", err)
+		}
+
 		tupleStr := make([]string, 0, len(outputArgs))
 		for i, elem := range outputArgs {
-			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), &elem.Type)
+			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Elem().Field(i).Interface(), &elem.Type)
 			tupleStr = append(tupleStr, elemStr)
 		}
 		resultStr = "{" + strings.Join(tupleStr, " ") + "}"
