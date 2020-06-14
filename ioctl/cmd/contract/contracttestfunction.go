@@ -85,7 +85,7 @@ func contractTestFunction(args []string) error {
 	}
 
 	result, err := parseOutput(abi, methodName, rowResult)
-	if err == nil {
+	if err != nil {
 		result = rowResult
 	}
 

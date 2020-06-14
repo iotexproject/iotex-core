@@ -81,7 +81,7 @@ func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string
 		tupleStr := make([]string, 0, len(outputArgs))
 		for i, elem := range outputArgs {
 			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Elem().Field(i).Interface(), &elem.Type)
-			tupleStr = append(tupleStr, elemStr)
+			tupleStr = append(tupleStr, elem.Name+":"+elemStr)
 		}
 		resultStr = "{" + strings.Join(tupleStr, " ") + "}"
 	}
@@ -325,7 +325,7 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 			tupleStr := make([]string, 0, len(t.TupleElems))
 			for i, elem := range t.TupleElems {
 				elemStr, elemOk := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
-				tupleStr = append(tupleStr, elemStr)
+				tupleStr = append(tupleStr, t.TupleRawNames[i]+":"+elemStr)
 				ok = ok && elemOk
 			}
 
