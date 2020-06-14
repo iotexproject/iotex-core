@@ -9,6 +9,8 @@ package contract
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -19,6 +21,11 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+)
+
+// ErrInvalidArg indicates argument is invalid
+var (
+	ErrInvalidArg = errors.New("invalid argument")
 )
 
 func parseAbi(abiBytes []byte) (*abi.ABI, error) {
@@ -37,20 +44,53 @@ func parseInput(rowInput string) (map[string]interface{}, error) {
 	return input, nil
 }
 
-func parseOutput(abi *abi.ABI, targetMethod string, result string) (interface{}, error) {
+func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string, error) {
 	resultBytes, err := hex.DecodeString(result)
 	if err != nil {
-		return nil, output.NewError(output.ConvertError, "failed to decode result", err)
+		return "", output.NewError(output.ConvertError, "failed to decode result", err)
 	}
 
-	var v interface{}
-	if err := abi.Unpack(&v, targetMethod, resultBytes); err != nil {
-		return nil, output.NewError(output.SerializationError, "failed to parse output", err)
+	var resultStr string
+
+	outputArgs := targetAbi.Methods[targetMethod].Outputs
+	if len(outputArgs) == 1 {
+		var v interface{}
+		if err := targetAbi.Unpack(&v, targetMethod, resultBytes); err != nil {
+			return "", output.NewError(output.SerializationError, "failed to parse output", err)
+		}
+
+		resultStr, _ = parseOutputArgument(v, &outputArgs[0].Type)
+	} else {
+		fields := make([]reflect.StructField, 0, len(outputArgs))
+		for _, arg := range outputArgs {
+			if abi.ToCamelCase(arg.Name) == "" {
+				return "", output.NewError(output.ConvertError, "invalid name for public struct field", nil)
+			}
+			fields = append(fields, reflect.StructField{
+				Name: abi.ToCamelCase(arg.Name),
+				Type: arg.Type.Type,
+				Tag:  reflect.StructTag("json:\"" + arg.Name + "\""),
+			})
+		}
+
+		v := reflect.New(reflect.StructOf(fields)).Interface()
+		if err := targetAbi.Unpack(v, targetMethod, resultBytes); err != nil {
+			return "", output.NewError(output.SerializationError, "failed to parse output", err)
+		}
+
+		tupleStr := make([]string, 0, len(outputArgs))
+		for i, elem := range outputArgs {
+			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Elem().Field(i).Interface(), &elem.Type)
+			tupleStr = append(tupleStr, elem.Name+":"+elemStr)
+		}
+		resultStr = "{" + strings.Join(tupleStr, " ") + "}"
 	}
-	return v, nil
+
+	return resultStr, nil
 }
 
-func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
+// parseInputArgument parses input's argument as golang variable
+func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 	switch t.T {
 	default:
 		return nil, ErrInvalidArg
@@ -74,7 +114,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		s := reflect.ValueOf(arg)
 		for i := 0; i < s.Len(); i++ {
-			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
+			ele, err := parseInputArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -93,7 +133,7 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 		s := reflect.ValueOf(arg)
 		for i := 0; i < s.Len(); i++ {
-			ele, err := parseArgument(t.Elem, s.Index(i).Interface())
+			ele, err := parseInputArgument(t.Elem, s.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
@@ -266,4 +306,87 @@ func parseArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 
 	}
 	return arg, nil
+}
+
+// parseOutputArgument parses output's argument as human-readable string
+func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
+	str := fmt.Sprint(v)
+	ok := false
+
+	switch t.T {
+	case abi.StringTy, abi.BoolTy:
+		// case abi.StringTy & abi.BoolTy can be handled by fmt.Sprint()
+		ok = true
+
+	case abi.TupleTy:
+		if reflect.TypeOf(v).Kind() == reflect.Struct {
+			ok = true
+
+			tupleStr := make([]string, 0, len(t.TupleElems))
+			for i, elem := range t.TupleElems {
+				elemStr, elemOk := parseOutputArgument(reflect.ValueOf(v).Field(i).Interface(), elem)
+				tupleStr = append(tupleStr, t.TupleRawNames[i]+":"+elemStr)
+				ok = ok && elemOk
+			}
+
+			str = "{" + strings.Join(tupleStr, " ") + "}"
+		}
+
+	case abi.SliceTy, abi.ArrayTy:
+		if reflect.TypeOf(v).Kind() == reflect.Slice || reflect.TypeOf(v).Kind() == reflect.Array {
+			ok = true
+
+			value := reflect.ValueOf(v)
+			sliceStr := make([]string, 0, value.Len())
+			for i := 0; i < value.Len(); i++ {
+				elemStr, elemOk := parseOutputArgument(value.Index(i).Interface(), t.Elem)
+				sliceStr = append(sliceStr, elemStr)
+				ok = ok && elemOk
+			}
+
+			str = "[" + strings.Join(sliceStr, " ") + "]"
+		}
+
+	case abi.IntTy, abi.UintTy:
+		if reflect.TypeOf(v) == reflect.TypeOf(big.NewInt(0)) {
+			var bigInt *big.Int
+			bigInt, ok = v.(*big.Int)
+			if ok {
+				str = bigInt.String()
+			}
+		} else if 2 <= reflect.TypeOf(v).Kind() && reflect.TypeOf(v).Kind() <= 11 {
+			// other integer types (int8,uint16,...) can be handled by fmt.Sprint(v)
+			ok = true
+		}
+
+	case abi.AddressTy:
+		if reflect.TypeOf(v) == reflect.TypeOf(common.Address{}) {
+			var ethAddr common.Address
+			ethAddr, ok = v.(common.Address)
+			if ok {
+				str = ethAddr.String()
+			}
+		}
+
+	case abi.BytesTy:
+		if reflect.TypeOf(v) == reflect.TypeOf([]byte{}) {
+			var bytes []byte
+			bytes, ok = v.([]byte)
+			if ok {
+				str = "0x" + hex.EncodeToString(bytes)
+			}
+		}
+
+	case abi.FixedBytesTy, abi.FunctionTy:
+		if reflect.TypeOf(v).Kind() == reflect.Array && reflect.TypeOf(v).Elem() == reflect.TypeOf(byte(0)) {
+			bytesValue := reflect.ValueOf(v)
+			byteSlice := reflect.MakeSlice(reflect.TypeOf([]byte{}), bytesValue.Len(), bytesValue.Len())
+			reflect.Copy(byteSlice, bytesValue)
+
+			str = "0x" + hex.EncodeToString(byteSlice.Bytes())
+			ok = true
+		}
+	}
+
+	return str, ok
 }
