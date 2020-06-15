@@ -96,7 +96,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
-		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil { // it should be prior to calculate probation list
+		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
 			return errors.Wrap(err, "faild to update current epoch meta")
 		}
 	}
@@ -457,35 +457,26 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 		return nil, err
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	var numBlks uint64
-	var produce map[string]uint64
-	if hu.IsPre(config.Greenland, blkCtx.BlockHeight) {
-		numBlks, produce, err = rp.ProductivityByEpoch(
-			epochNum,
-			bcCtx.Tip.Height,
-			sh.productivity,
-		)
-		if err != nil {
-			return nil, err
+	productivityFunc := sh.productivity
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
+			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
 		}
-		// The current block is not included, so add it
-		numBlks++
-		if _, ok := produce[blkCtx.Producer.String()]; ok {
-			produce[blkCtx.Producer.String()]++
-		} else {
-			produce[blkCtx.Producer.String()] = 1
-		}
+	}
+	numBlks, produce, err := rp.ProductivityByEpoch(
+		epochNum,
+		bcCtx.Tip.Height,
+		productivityFunc,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so add it
+	numBlks++
+	if _, ok := produce[blkCtx.Producer.String()]; ok {
+		produce[blkCtx.Producer.String()]++
 	} else {
-		numBlks, produce, err = rp.ProductivityByEpoch(
-			epochNum,
-			bcCtx.Tip.Height+1,
-			func(start, end uint64) (map[string]uint64, error) {
-				return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
-			},
-		)
-		if err != nil {
-			return nil, err
-		}
+		produce[blkCtx.Producer.String()] = 1
 	}
 
 	for _, abp := range delegates {
@@ -586,6 +577,10 @@ func filterCandidates(
 
 // currentEpochProductivity returns the map of the number of blocks produced per delegate of current epoch
 func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64, numOfBlocksByEpoch uint64) (map[string]uint64, error) {
+	log.L().Debug("Read current epoch productivity",
+		zap.Uint64("start height", start),
+		zap.Uint64("end height", end),
+	)
 	stats := make(map[string]uint64)
 	blockmetas, err := allBlockMetasFromDB(sr, numOfBlocksByEpoch)
 	if err != nil {
@@ -605,6 +600,11 @@ func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64,
 		count++
 	}
 	if expectedCount != count {
+		log.L().Debug(
+			"block metas from stateDB count is not same as expected",
+			zap.Uint64("expected", expectedCount),
+			zap.Uint64("actual", count),
+		)
 		return nil, errors.New("block metas from stateDB doesn't have enough data for given start, end height")
 	}
 	return stats, nil
