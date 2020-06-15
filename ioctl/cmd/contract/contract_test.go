@@ -8,12 +8,12 @@ package contract
 
 import (
 	"bytes"
-	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,11 +23,11 @@ func TestParseAbiFile(t *testing.T) {
 	abi, err := readAbiFile(testAbiFile)
 	r.NoError(err)
 	r.Equal("", abi.Constructor.Name)
-	r.Equal(9, len(abi.Methods))
+	r.Equal(10, len(abi.Methods))
 	r.Equal("recipients", abi.Methods["multiSend"].Inputs[0].Name)
 }
 
-func TestParseArguments(t *testing.T) {
+func TestParseInput(t *testing.T) {
 	r := require.New(t)
 
 	testAbiFile := "test.abi"
@@ -92,7 +92,7 @@ func TestParseOutput(t *testing.T) {
 			"0000000000000000000000000000000000000000000000000000000000000000",
 		},
 		{
-			"0xc7f43fab2ca353d29ce0da04851ab74f45b09593",
+			"0xc7F43FaB2ca353d29cE0DA04851aB74f45B09593",
 			"owner",
 			"000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
 		},
@@ -101,17 +101,100 @@ func TestParseOutput(t *testing.T) {
 			"getMessage",
 			"0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000b48656c6c6f20576f726c64000000000000000000000000000000000000000000",
 		},
+		{
+			"{i:17 abc:[0x0000000000000000000000000000000000000000 0xc7F43FaB2ca353d29cE0DA04851aB74f45B09593]}",
+			"testTuple",
+			"00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c7f43fab2ca353d29ce0da04851ab74f45b09593",
+		},
 	}
 
 	for _, test := range tests {
 		v, err := parseOutput(testAbi, test.method, test.outputs)
 		r.NoError(err)
+		r.Equal(test.expectResult, fmt.Sprint(v))
+	}
+}
 
-		addr, ok := v.(common.Address)
-		if ok {
-			r.Equal(test.expectResult, "0x"+hex.EncodeToString(addr[:]))
-		} else {
-			r.Equal(test.expectResult, fmt.Sprint(v))
-		}
+func TestParseOutputArgument(t *testing.T) {
+	r := require.New(t)
+
+	bigInt, _ := new(big.Int).SetString("2346783498523230921101011", 10)
+	var bytes31 [31]byte
+	var bytes24 [24]byte
+	copy(bytes31[:], "test byte31313131313131313131")
+	copy(bytes24[:], "test function (=24-byte)")
+
+	tests := []struct {
+		v          interface{}
+		t          string
+		components []abi.ArgumentMarshaling
+		expect     string
+	}{
+		{
+			int16(-3),
+			"int16",
+			nil,
+			"-3",
+		},
+		{
+			uint64(98237478346),
+			"uint64",
+			nil,
+			"98237478346",
+		},
+		{
+			bigInt,
+			"uint233",
+			nil,
+			"2346783498523230921101011",
+		},
+		{
+			common.HexToAddress("c7F43FaB2ca353d29cE0DA04851aB74f45B09593"),
+			"address",
+			nil,
+			"0xc7F43FaB2ca353d29cE0DA04851aB74f45B09593",
+		},
+		{
+			[]byte("test bytes"),
+			"bytes",
+			nil,
+			"0x74657374206279746573",
+		},
+		{
+			bytes31,
+			"bytes31",
+			nil,
+			"0x74657374206279746533313331333133313331333133313331333133310000",
+		},
+		{
+			[5]string{"IoTeX blockchain", "Raullen", "MenloPark", "2020/06/13", "Frank-is-testing!"},
+			"string[5]",
+			nil,
+			"[IoTeX blockchain Raullen MenloPark 2020/06/13 Frank-is-testing!]",
+		},
+		{
+			[][31]byte{bytes31, bytes31},
+			"bytes31[]",
+			nil,
+			"[0x74657374206279746533313331333133313331333133313331333133310000 0x74657374206279746533313331333133313331333133313331333133310000]",
+		},
+		{
+			struct {
+				A string
+				B [24]byte
+				C []*big.Int
+			}{"tuple test!", bytes24, []*big.Int{big.NewInt(-123), bigInt, big.NewInt(0)}},
+			"tuple",
+			[]abi.ArgumentMarshaling{{Name: "a", Type: "string"}, {Name: "b", Type: "bytes24"}, {Name: "c", Type: "int256[]"}},
+			"{a:tuple test! b:0x746573742066756e6374696f6e20283d32342d6279746529 c:[-123 2346783498523230921101011 0]}",
+		},
+	}
+
+	for _, test := range tests {
+		t, err := abi.NewType(test.t, test.components)
+		r.NoError(err)
+		result, ok := parseOutputArgument(test.v, &t)
+		r.True(ok)
+		r.Equal(test.expect, result)
 	}
 }

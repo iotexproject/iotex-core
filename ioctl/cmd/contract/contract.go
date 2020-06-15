@@ -8,7 +8,6 @@ package contract
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/ioutil"
 
@@ -23,9 +22,6 @@ import (
 )
 
 const solCompiler = "solc"
-
-// ErrInvalidArg indicates argument is invalid
-var ErrInvalidArg = errors.New("invalid argument")
 
 // Flags
 var (
@@ -140,7 +136,7 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 		if !ok {
 			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
 		}
-		arg, err := parseArgument(&param.Type, rowArg)
+		arg, err := parseInputArgument(&param.Type, rowArg)
 		if err != nil {
 			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
 		}
