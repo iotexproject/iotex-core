@@ -457,23 +457,17 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 		return nil, err
 	}
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	var numBlks uint64
-	var produce map[string]uint64
-	if hu.IsPre(config.Greenland, blkCtx.BlockHeight) {
-		numBlks, produce, err = rp.ProductivityByEpoch(
-			epochNum,
-			bcCtx.Tip.Height,
-			sh.productivity,
-		)
-	} else {
-		numBlks, produce, err = rp.ProductivityByEpoch(
-			epochNum,
-			bcCtx.Tip.Height,
-			func(start, end uint64) (map[string]uint64, error) {
-				return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
-			},
-		)
+	productivityFunc := sh.productivity
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
+			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
+		}
 	}
+	numBlks, produce, err := rp.ProductivityByEpoch(
+		epochNum,
+		bcCtx.Tip.Height,
+		productivityFunc,
+	)
 	if err != nil {
 		return nil, err
 	}
