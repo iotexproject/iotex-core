@@ -142,9 +142,48 @@ func (c *consignment) TransfereeNonce() uint64 {
 	return c.nonce
 }
 
+// NewConsignMsg creates a consignment message from inputs
+func NewConsignMsg(sigType, recipient string, bucketIdx, nonce uint64) ([]byte, error) {
+	switch sigType {
+	case "Ethereum":
+		msg := ConsignMsgEther{
+			BucketIdx: int(bucketIdx),
+			Nonce:     int(nonce),
+			Recipient: recipient,
+			Reclaim:   _reclaim,
+		}
+		msgBytes, err := json.Marshal(msg)
+		if err != nil {
+			return nil, err
+		}
+		return msgBytes, nil
+	default:
+		return nil, ErrNotSupported
+	}
+}
+
+// NewConsignJSON creates a consignment JSON from inputs
+func NewConsignJSON(sigType, recipient, sig string, bucketIdx, nonce uint64) ([]byte, error) {
+	msgBytes, err := NewConsignMsg(sigType, recipient, bucketIdx, nonce)
+	if err != nil {
+		return nil, err
+	}
+
+	msgJSON := ConsignJSON{
+		Type: sigType,
+		Msg:  string(msgBytes),
+		Sig:  sig,
+	}
+	msgBytes, err = json.Marshal(msgJSON)
+	if err != nil {
+		return nil, err
+	}
+	return msgBytes, nil
+}
+
 // RecoverPubkeyFromEccSig recovers public key from ECC signature
 func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey, error) {
-	h, err := msgHash(sigType, msg)
+	h, err := MsgHash(sigType, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +197,8 @@ func RecoverPubkeyFromEccSig(sigType string, msg, sig []byte) (crypto.PublicKey,
 	return nil, crypto.ErrInvalidKey
 }
 
-func msgHash(sigType string, msg []byte) ([]byte, error) {
+// MsgHash calculate the hash of msg
+func MsgHash(sigType string, msg []byte) ([]byte, error) {
 	switch sigType {
 	case "Ethereum":
 		h, _ := accounts.TextAndHash(msg)

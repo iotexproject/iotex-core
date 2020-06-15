@@ -61,10 +61,12 @@ func stake2Add(args []string) error {
 		return output.NewError(output.ConvertError, "invalid amount", err)
 	}
 
-	data := []byte{}
+	var data []byte
 	if len(args) == 3 {
-		data = make([]byte, 2*len([]byte(args[2])))
-		hex.Encode(data, []byte(args[2]))
+		data, err = hex.DecodeString(args[2])
+		if err != nil {
+			return output.NewError(output.ConvertError, "failed to decode data", err)
+		}
 	}
 
 	sender, err := signer()

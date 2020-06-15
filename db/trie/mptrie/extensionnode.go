@@ -4,118 +4,98 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package trie
+package mptrie
 
 import (
 	"github.com/golang/protobuf/proto"
 
+	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
 )
 
 // extensionNode defines a node with a path and point to a child node
 type extensionNode struct {
+	mpt       *merklePatriciaTrie
 	path      []byte
 	childHash []byte
 	ser       []byte
 }
 
-func newExtensionNodeAndPutIntoDB(
-	tr Trie,
+func newExtensionNode(
+	mpt *merklePatriciaTrie,
 	path []byte,
-	child Node,
+	child node,
 ) (*extensionNode, error) {
-	e := &extensionNode{path: path, childHash: tr.nodeHash(child)}
-	if err := tr.putNodeIntoDB(e); err != nil {
+	e := &extensionNode{mpt: mpt, path: path, childHash: mpt.nodeHash(child)}
+	if err := mpt.putNode(e); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-func newExtensionNodeFromProtoPb(pb *triepb.ExtendPb) *extensionNode {
-	return &extensionNode{path: pb.Path, childHash: pb.Value}
+func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
+	return &extensionNode{mpt: mpt, path: pb.Path, childHash: pb.Value}
 }
 
-func (e *extensionNode) Type() NodeType {
-	return EXTENSION
-}
-
-func (e *extensionNode) Key() []byte {
-	return nil
-}
-
-func (e *extensionNode) Value() []byte {
-	return nil
-}
-
-func (e *extensionNode) children(tr Trie) ([]Node, error) {
-	trieMtc.WithLabelValues("extensionNode", "children").Inc()
-	child, err := e.child(tr)
-	if err != nil {
-		return nil, err
-	}
-
-	return []Node{child}, nil
-}
-
-func (e *extensionNode) delete(tr Trie, key keyType, offset uint8) (Node, error) {
+func (e *extensionNode) delete(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("extensionNode", "delete").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
-		return nil, ErrNotExist
+		return nil, trie.ErrNotExist
 	}
-	child, err := e.child(tr)
+	child, err := e.child()
 	if err != nil {
 		return nil, err
 	}
-	newChild, err := child.delete(tr, key, offset+matched)
+	newChild, err := child.delete(key, offset+matched)
 	if err != nil {
 		return nil, err
 	}
 	if newChild == nil {
-		return nil, tr.deleteNodeFromDB(e)
+		return nil, e.mpt.deleteNode(e)
 	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		if err := tr.deleteNodeFromDB(e); err != nil {
+		if err := e.mpt.deleteNode(e); err != nil {
 			return nil, err
 		}
-		return node.updatePath(tr, append(e.path, node.path...))
+		return node.updatePath(append(e.path, node.path...))
 	case *leafNode:
-		if err := tr.deleteNodeFromDB(e); err != nil {
+		if err := e.mpt.deleteNode(e); err != nil {
 			return nil, err
 		}
 		return node, nil
 	default:
-		return e.updateChild(tr, node)
+		return e.updateChild(node)
 	}
 }
 
-func (e *extensionNode) upsert(tr Trie, key keyType, offset uint8, value []byte) (Node, error) {
+func (e *extensionNode) upsert(key keyType, offset uint8, value []byte) (node, error) {
 	trieMtc.WithLabelValues("extensionNode", "upsert").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
-		child, err := e.child(tr)
+		child, err := e.child()
 		if err != nil {
 			return nil, err
 		}
-		newChild, err := child.upsert(tr, key, offset+matched, value)
+		newChild, err := child.upsert(key, offset+matched, value)
 		if err != nil {
 			return nil, err
 		}
-		return e.updateChild(tr, newChild)
+		return e.updateChild(newChild)
 	}
 	eb := e.path[matched]
-	enode, err := e.updatePath(tr, e.path[matched+1:])
+	enode, err := e.updatePath(e.path[matched+1:])
 	if err != nil {
 		return nil, err
 	}
-	lnode, err := newLeafNodeAndPutIntoDB(tr, key, value)
+	lnode, err := newLeafNode(e.mpt, key, value)
 	if err != nil {
 		return nil, err
 	}
-	bnode, err := newBranchNodeAndPutIntoDB(
-		tr,
-		map[byte]Node{
+	bnode, err := newBranchNode(
+		e.mpt,
+		map[byte]node{
 			eb:                  enode,
 			key[offset+matched]: lnode,
 		},
@@ -126,21 +106,21 @@ func (e *extensionNode) upsert(tr Trie, key keyType, offset uint8, value []byte)
 	if matched == 0 {
 		return bnode, nil
 	}
-	return newExtensionNodeAndPutIntoDB(tr, key[offset:offset+matched], bnode)
+	return newExtensionNode(e.mpt, key[offset:offset+matched], bnode)
 }
 
-func (e *extensionNode) search(tr Trie, key keyType, offset uint8) Node {
+func (e *extensionNode) search(key keyType, offset uint8) node {
 	trieMtc.WithLabelValues("extensionNode", "search").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil
 	}
-	child, err := e.child(tr)
+	child, err := e.child()
 	if err != nil {
 		return nil
 	}
 
-	return child.search(tr, key, offset+matched)
+	return child.search(key, offset+matched)
 }
 
 func (e *extensionNode) serialize() []byte {
@@ -165,33 +145,34 @@ func (e *extensionNode) serialize() []byte {
 	return e.ser
 }
 
-func (e *extensionNode) child(tr Trie) (Node, error) {
-	return tr.loadNodeFromDB(e.childHash)
+func (e *extensionNode) child() (node, error) {
+	trieMtc.WithLabelValues("extensionNode", "child").Inc()
+	return e.mpt.loadNode(e.childHash)
 }
 
 func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 	return commonPrefixLength(e.path, key)
 }
 
-func (e *extensionNode) updatePath(tr Trie, path []byte) (*extensionNode, error) {
-	if err := tr.deleteNodeFromDB(e); err != nil {
+func (e *extensionNode) updatePath(path []byte) (*extensionNode, error) {
+	if err := e.mpt.deleteNode(e); err != nil {
 		return nil, err
 	}
 	e.path = path
 	e.ser = nil
-	if err := tr.putNodeIntoDB(e); err != nil {
+	if err := e.mpt.putNode(e); err != nil {
 		return nil, err
 	}
 	return e, nil
 }
 
-func (e *extensionNode) updateChild(tr Trie, newChild Node) (*extensionNode, error) {
-	if err := tr.deleteNodeFromDB(e); err != nil {
+func (e *extensionNode) updateChild(newChild node) (*extensionNode, error) {
+	if err := e.mpt.deleteNode(e); err != nil {
 		return nil, err
 	}
-	e.childHash = tr.nodeHash(newChild)
+	e.childHash = e.mpt.nodeHash(newChild)
 	e.ser = nil
-	if err := tr.putNodeIntoDB(e); err != nil {
+	if err := e.mpt.putNode(e); err != nil {
 		return nil, err
 	}
 	return e, nil

@@ -53,8 +53,8 @@ func castKeyType(k []byte) mKeyType {
 	return c
 }
 
-// newInMemKVStore defines a kv store in memory
-func newInMemKVStore() KVStore {
+// NewMemKVStore defines a kv store in memory
+func NewMemKVStore() KVStore {
 	return &inMemKVStore{kvpairs: map[mKeyType][]byte{}}
 }
 
