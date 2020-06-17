@@ -17,21 +17,21 @@ const (
 
 type (
 	authenticationStruct struct {
-		Id           string `json:"id,omitempty"`
+		ID           string `json:"id,omitempty"`
 		Type         string `json:"type,omitempty"`
 		Controller   string `json:"controller,omitempty"`
 		PublicKeyHex string `json:"publicKeyHex,omitempty"`
 	}
-	// DIDDoc is the DID document struct
-	DIDDoc struct {
+	// Doc is the DID document struct
+	Doc struct {
 		Context        string                 `json:"@context,omitempty"`
-		Id             string                 `json:"id,omitempty"`
+		ID             string                 `json:"id,omitempty"`
 		Authentication []authenticationStruct `json:"authentication,omitempty"`
 	}
 )
 
-func newDIDDoc() *DIDDoc {
-	return &DIDDoc{
+func newDIDDoc() *Doc {
+	return &Doc{
 		Context: "https://www.w3.org/ns/did/v1",
 	}
 }

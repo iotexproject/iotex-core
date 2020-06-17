@@ -81,7 +81,7 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 	if err != nil {
 		return "", output.NewError(output.AddressError, "", err)
 	}
-	doc.Id = DIDPrefix + ethAddress.String()
+	doc.ID = DIDPrefix + ethAddress.String()
 	uncompressed := pri.PublicKey().HexString()
 	x := uncompressed[2:66]
 	last := uncompressed[129:]
@@ -96,9 +96,9 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 		compressed = "03" + x
 	}
 	authentication := authenticationStruct{
-		Id:           doc.Id + DIDOwner,
+		ID:           doc.ID + DIDOwner,
 		Type:         DIDAuthType,
-		Controller:   doc.Id,
+		Controller:   doc.ID,
 		PublicKeyHex: compressed,
 	}
 	doc.Authentication = append(doc.Authentication, authentication)
