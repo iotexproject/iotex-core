@@ -7,9 +7,12 @@
 package did
 
 const (
-	DIDPrefix   = "did:io:"
+	// DIDPrefix is the prefix string
+	DIDPrefix = "did:io:"
+	// DIDAuthType is the authentication type
 	DIDAuthType = "Secp256k1VerificationKey2018"
-	DIDOwner    = "#owner"
+	// DIDOwner is the suffix string
+	DIDOwner = "#owner"
 )
 
 type (
@@ -19,6 +22,7 @@ type (
 		Controller   string `json:"controller,omitempty"`
 		PublicKeyHex string `json:"publicKeyHex,omitempty"`
 	}
+	// DIDDoc is the DID document struct
 	DIDDoc struct {
 		Context        string                 `json:"@context,omitempty"`
 		Id             string                 `json:"id,omitempty"`
