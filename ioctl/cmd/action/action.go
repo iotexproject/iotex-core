@@ -108,6 +108,7 @@ func decodeBytecode() ([]byte, error) {
 	return hex.DecodeString(util.TrimHexPrefix(bytecodeFlag.Value().(string)))
 }
 
+// Signer returns signer's address
 func Signer() (address string, err error) {
 	return util.GetAddress(signerFlag.Value().(string))
 }
