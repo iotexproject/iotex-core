@@ -10,7 +10,7 @@ const (
 	// DIDPrefix is the prefix string
 	DIDPrefix = "did:io:"
 	// DIDAuthType is the authentication type
-	DIDAuthType = "Secp256k1VerificationKey2018"
+	DIDAuthType = "EcdsaSecp256k1VerificationKey2019"
 	// DIDOwner is the suffix string
 	DIDOwner = "#owner"
 )
