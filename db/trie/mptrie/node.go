@@ -1,4 +1,4 @@
-// Copyright (c) 2018 IoTeX
+// Copyright (c) 2020 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -6,36 +6,51 @@
 
 package mptrie
 
-type (
-	keyType []byte
+import (
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 )
 
-type node interface {
-	search(keyType, uint8) node
-	delete(keyType, uint8) (node, error)
-	upsert(keyType, uint8, []byte) (node, error)
+// ErrNoData is an error when a hash node has no corresponding data
+var ErrNoData = errors.New("no data in hash node")
 
-	serialize() []byte
-}
+type (
+	keyType []byte
 
-type leaf interface {
-	node
-	// Key returns the key of a node, only leaf has key
-	Key() []byte
-	// Value returns the value of a node, only leaf has value
-	Value() []byte
-}
+	node interface {
+		Search(keyType, uint8) (node, error)
+		Delete(keyType, uint8) (node, error)
+		Upsert(keyType, uint8, []byte) (node, error)
+		Hash() ([]byte, error)
+	}
 
-type extension interface {
-	node
-	child() (node, error)
-}
+	serializable interface {
+		node
+		hash() ([]byte, error)
+		proto() (proto.Message, error)
+		delete() error
+		store() (node, error)
+	}
 
-type branch interface {
-	node
-	children() ([]node, error)
-	markAsRoot()
-}
+	leaf interface {
+		node
+		// Key returns the key of a node, only leaf has key
+		Key() []byte
+		// Value returns the value of a node, only leaf has value
+		Value() []byte
+	}
+
+	extension interface {
+		node
+		Child() node
+	}
+
+	branch interface {
+		node
+		Children() []node
+		MarkAsRoot()
+	}
+)
 
 // key1 should not be longer than key2
 func commonPrefixLength(key1, key2 []byte) uint8 {

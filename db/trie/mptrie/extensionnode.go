@@ -15,77 +15,80 @@ import (
 
 // extensionNode defines a node with a path and point to a child node
 type extensionNode struct {
-	mpt       *merklePatriciaTrie
-	path      []byte
-	childHash []byte
-	ser       []byte
+	cacheNode
+	path  []byte
+	child node
 }
 
 func newExtensionNode(
 	mpt *merklePatriciaTrie,
 	path []byte,
 	child node,
-) (*extensionNode, error) {
-	e := &extensionNode{mpt: mpt, path: path, childHash: mpt.nodeHash(child)}
-	if err := mpt.putNode(e); err != nil {
-		return nil, err
+) (node, error) {
+	e := &extensionNode{
+		cacheNode: cacheNode{
+			mpt: mpt,
+		},
+		path:  path,
+		child: child,
 	}
-	return e, nil
+	e.cacheNode.serializable = e
+	return e.store()
 }
 
 func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
-	return &extensionNode{mpt: mpt, path: pb.Path, childHash: pb.Value}
+	e := &extensionNode{
+		cacheNode: cacheNode{mpt: mpt},
+		path:      pb.Path,
+		child:     newHashNode(mpt, pb.Value),
+	}
+	e.cacheNode.serializable = e
+	return e
 }
 
-func (e *extensionNode) delete(key keyType, offset uint8) (node, error) {
+func (e *extensionNode) Delete(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("extensionNode", "delete").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
 		return nil, trie.ErrNotExist
 	}
-	child, err := e.child()
-	if err != nil {
-		return nil, err
-	}
-	newChild, err := child.delete(key, offset+matched)
+	newChild, err := e.child.Delete(key, offset+matched)
 	if err != nil {
 		return nil, err
 	}
 	if newChild == nil {
-		return nil, e.mpt.deleteNode(e)
+		return nil, e.delete()
+	}
+	if hn, ok := newChild.(*hashNode); ok {
+		if newChild, err = hn.LoadNode(); err != nil {
+			return nil, err
+		}
 	}
 	switch node := newChild.(type) {
 	case *extensionNode:
-		if err := e.mpt.deleteNode(e); err != nil {
-			return nil, err
-		}
-		return node.updatePath(append(e.path, node.path...))
-	case *leafNode:
-		if err := e.mpt.deleteNode(e); err != nil {
+		return node.updatePath(append(e.path, node.path...), false)
+	case *branchNode:
+		return e.updateChild(node, false)
+	default:
+		if err := e.delete(); err != nil {
 			return nil, err
 		}
 		return node, nil
-	default:
-		return e.updateChild(node)
 	}
 }
 
-func (e *extensionNode) upsert(key keyType, offset uint8, value []byte) (node, error) {
+func (e *extensionNode) Upsert(key keyType, offset uint8, value []byte) (node, error) {
 	trieMtc.WithLabelValues("extensionNode", "upsert").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched == uint8(len(e.path)) {
-		child, err := e.child()
+		newChild, err := e.child.Upsert(key, offset+matched, value)
 		if err != nil {
 			return nil, err
 		}
-		newChild, err := child.upsert(key, offset+matched, value)
-		if err != nil {
-			return nil, err
-		}
-		return e.updateChild(newChild)
+		return e.updateChild(newChild, true)
 	}
 	eb := e.path[matched]
-	enode, err := e.updatePath(e.path[matched+1:])
+	enode, err := e.updatePath(e.path[matched+1:], true)
 	if err != nil {
 		return nil, err
 	}
@@ -109,71 +112,70 @@ func (e *extensionNode) upsert(key keyType, offset uint8, value []byte) (node, e
 	return newExtensionNode(e.mpt, key[offset:offset+matched], bnode)
 }
 
-func (e *extensionNode) search(key keyType, offset uint8) node {
+func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 	trieMtc.WithLabelValues("extensionNode", "search").Inc()
 	matched := e.commonPrefixLength(key[offset:])
 	if matched != uint8(len(e.path)) {
-		return nil
-	}
-	child, err := e.child()
-	if err != nil {
-		return nil
+		return nil, trie.ErrNotExist
 	}
 
-	return child.search(key, offset+matched)
+	return e.child.Search(key, offset+matched)
 }
 
-func (e *extensionNode) serialize() []byte {
-	trieMtc.WithLabelValues("extensionNode", "serialize").Inc()
-	if e.ser != nil {
-		return e.ser
+func (e *extensionNode) proto() (proto.Message, error) {
+	trieMtc.WithLabelValues("extensionNode", "proto").Inc()
+	h, err := e.child.Hash()
+	if err != nil {
+		return nil, err
 	}
-	pb := &triepb.NodePb{
+	return &triepb.NodePb{
 		Node: &triepb.NodePb_Extend{
 			Extend: &triepb.ExtendPb{
 				Path:  e.path,
-				Value: e.childHash,
+				Value: h,
 			},
 		},
-	}
-	ser, err := proto.Marshal(pb)
-	if err != nil {
-		panic("failed to marshal an extension node")
-	}
-	e.ser = ser
-
-	return e.ser
+	}, nil
 }
 
-func (e *extensionNode) child() (node, error) {
+func (e *extensionNode) Child() node {
 	trieMtc.WithLabelValues("extensionNode", "child").Inc()
-	return e.mpt.loadNode(e.childHash)
+	return e.child
 }
 
 func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 	return commonPrefixLength(e.path, key)
 }
 
-func (e *extensionNode) updatePath(path []byte) (*extensionNode, error) {
-	if err := e.mpt.deleteNode(e); err != nil {
+func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
+	if err := e.delete(); err != nil {
 		return nil, err
 	}
 	e.path = path
-	e.ser = nil
-	if err := e.mpt.putNode(e); err != nil {
+
+	hn, err := e.store()
+	if err != nil {
 		return nil, err
+	}
+	if hashnode {
+		return hn, nil
 	}
 	return e, nil
 }
 
-func (e *extensionNode) updateChild(newChild node) (*extensionNode, error) {
-	if err := e.mpt.deleteNode(e); err != nil {
+func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) {
+	err := e.delete()
+	if err != nil {
 		return nil, err
 	}
-	e.childHash = e.mpt.nodeHash(newChild)
-	e.ser = nil
-	if err := e.mpt.putNode(e); err != nil {
+	e.child = newChild
+
+	hn, err := e.store()
+	if err != nil {
 		return nil, err
+	}
+	if hashnode {
+		return hn, nil
 	}
 	return e, nil
 }
