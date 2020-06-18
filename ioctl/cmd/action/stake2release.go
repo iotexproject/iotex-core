@@ -64,7 +64,7 @@ func stake2Release(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get gas price", err)
 	}
-	sender, err := signer()
+	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}

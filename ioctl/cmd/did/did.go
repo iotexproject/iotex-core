@@ -31,5 +31,5 @@ var DIDCmd = &cobra.Command{
 }
 
 func init() {
-	DIDCmd.AddCommand(generateCmd)
+	DIDCmd.AddCommand(didGenerateCmd)
 }

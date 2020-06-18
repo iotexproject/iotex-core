@@ -52,7 +52,7 @@ func claim(args []string) error {
 	if len(args) == 2 {
 		payload = []byte(args[1])
 	}
-	sender, err := signer()
+	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}

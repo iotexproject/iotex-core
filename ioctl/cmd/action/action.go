@@ -108,7 +108,7 @@ func decodeBytecode() ([]byte, error) {
 	return hex.DecodeString(util.TrimHexPrefix(bytecodeFlag.Value().(string)))
 }
 
-func signer() (address string, err error) {
+func Signer() (address string, err error) {
 	return util.GetAddress(signerFlag.Value().(string))
 }
 
@@ -311,7 +311,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 	if err != nil {
 		return output.NewError(0, "failed to get gas price", err)
 	}
-	signer, err := signer()
+	signer, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
@@ -343,7 +343,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 
 // Read reads smart contract on IoTeX blockchain
 func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, error) {
-	caller, err := signer()
+	caller, err := Signer()
 	if err != nil {
 		caller = address.ZeroAddress
 	}

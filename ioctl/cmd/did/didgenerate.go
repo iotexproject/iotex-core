@@ -7,19 +7,18 @@
 package did
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
-
-var signer string
 
 // Multi-language support
 var (
@@ -37,8 +36,8 @@ var (
 	}
 )
 
-// generateCmd represents the generate command
-var generateCmd = &cobra.Command{
+// didGenerateCmd represents the generate command
+var didGenerateCmd = &cobra.Command{
 	Use:   config.TranslateInLang(generateCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(generateCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(0),
@@ -50,11 +49,11 @@ var generateCmd = &cobra.Command{
 }
 
 func init() {
-	generateCmd.Flags().StringVarP(&signer, "signer", "s", "", config.TranslateInLang(flagSignerUsages, config.UILanguage))
+	action.RegisterWriteCommand(didGenerateCmd)
 }
 
 func generate() error {
-	addr, err := util.GetAddress(signer)
+	addr, err := action.Signer()
 	if err != nil {
 		return output.NewError(output.InputError, "failed to get signer addr", err)
 	}
@@ -82,25 +81,24 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 		return "", output.NewError(output.AddressError, "", err)
 	}
 	doc.ID = DIDPrefix + ethAddress.String()
-	uncompressed := pri.PublicKey().HexString()
-	x := uncompressed[2:66]
-	last := uncompressed[129:]
-	lastNum, err := strconv.ParseInt(last, 16, 64)
-	if err != nil {
-		return "", output.NewError(output.ConvertError, "", err)
-	}
-	var compressed string
-	if lastNum%2 == 0 {
-		compressed = "02" + x
-	} else {
-		compressed = "03" + x
-	}
 	authentication := authenticationStruct{
-		ID:           doc.ID + DIDOwner,
-		Type:         DIDAuthType,
-		Controller:   doc.ID,
-		PublicKeyHex: compressed,
+		ID:         doc.ID + DIDOwner,
+		Type:       DIDAuthType,
+		Controller: doc.ID,
 	}
+	uncompressed := pri.PublicKey().Bytes()
+	if len(uncompressed) == 33 && (uncompressed[0] == 2 || uncompressed[0] == 3) {
+		authentication.PublicKeyHex = hex.EncodeToString(uncompressed)
+	} else if len(uncompressed) == 65 && uncompressed[0] == 4 {
+		lastNum := uncompressed[64]
+		authentication.PublicKeyHex = hex.EncodeToString(uncompressed[1:33])
+		if lastNum%2 == 0 {
+			authentication.PublicKeyHex = "02" + authentication.PublicKeyHex
+		} else {
+			authentication.PublicKeyHex = "03" + authentication.PublicKeyHex
+		}
+	}
+
 	doc.Authentication = append(doc.Authentication, authentication)
 	msg, err := json.MarshalIndent(doc, "", "  ")
 	if err != nil {
