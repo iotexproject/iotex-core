@@ -42,7 +42,7 @@ var xrc20AllowanceCmd = &cobra.Command{
 }
 
 func allowance(arg string) error {
-	caller, err := signer()
+	caller, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signer address", err)
 	}
