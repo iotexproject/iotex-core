@@ -97,6 +97,8 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 		} else {
 			authentication.PublicKeyHex = "03" + authentication.PublicKeyHex
 		}
+	} else {
+		return "", output.NewError(output.CryptoError, "invalid public key", nil)
 	}
 
 	doc.Authentication = append(doc.Authentication, authentication)
