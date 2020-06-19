@@ -144,12 +144,16 @@ func TestRegisterOrForceRegister(t *testing.T) {
 
 	registry := protocol.NewRegistry()
 	require.NoError(p.Register(registry))
+	require.Error(p.Register(registry))
 	require.NoError(p.ForceRegister(registry))
 
 	foundP := FindProtocol(registry)
 	require.Equal(p, foundP)
 
 	require.Nil(FindProtocol(nil))
+
+	registry = protocol.NewRegistry()
+	require.Nil(FindProtocol(registry))
 }
 
 func TestAssertZeroBlockHeight(t *testing.T) {
