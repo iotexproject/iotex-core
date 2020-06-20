@@ -162,6 +162,7 @@ func TestAssertZeroBlockHeight(t *testing.T) {
 
 	p := NewProtocol(rewarding.DepositGas)
 	require.NoError(p.assertZeroBlockHeight(0))
+	// should return an error if height is not zero
 	require.Error(p.assertZeroBlockHeight(1))
 }
 
