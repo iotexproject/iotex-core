@@ -278,6 +278,13 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			), blk); err != nil {
 				return err
 			}
+			if i%5000 == 0 {
+				log.L().Info(
+					"indexer is catching up.",
+					zap.Int("indexer", ii),
+					zap.Uint64("height", i),
+				)
+			}
 		}
 		log.L().Info(
 			"indexer is up to date.",
