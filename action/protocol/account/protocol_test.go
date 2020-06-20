@@ -156,6 +156,7 @@ func TestRegisterOrForceRegister(t *testing.T) {
 	require.Nil(FindProtocol(registry))
 }
 
+// TestAssertZeroBlockHeight tests the assertZeroBlockHeight funcs
 func TestAssertZeroBlockHeight(t *testing.T) {
 	require := require.New(t)
 
