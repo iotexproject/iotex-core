@@ -195,26 +195,16 @@ func (tc *totalBucketCount) Count() uint64 {
 	return tc.count
 }
 
-func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
-	var tc totalBucketCount
-	_, err := sr.State(
-		&tc,
-		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(TotalBucketKey))
-	return tc.count, err
-}
-
-func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
+func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
 	var vb VoteBucket
 	var err error
-	if _, err = sr.State(
-		&vb,
+	if _, err = csm.State(&vb,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return nil, err
 	}
 	var tc totalBucketCount
-	if _, err := sr.State(
+	if _, err := csm.State(
 		&tc,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
@@ -226,21 +216,21 @@ func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
 	return &vb, nil
 }
 
-func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) error {
-	if _, err := getBucket(sm, index); err != nil {
+func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
+	if _, err := csm.getBucket(index); err != nil {
 		return err
 	}
 
-	_, err := sm.PutState(
+	_, err := csm.PutState(
 		bucket,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
 
-func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
+func (csm *candSM) putBucket(bucket *VoteBucket) (uint64, error) {
 	var tc totalBucketCount
-	if _, err := sm.State(
+	if _, err := csm.State(
 		&tc,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
@@ -250,31 +240,31 @@ func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
 	index := tc.Count()
 	// Add index inside bucket
 	bucket.Index = index
-	if _, err := sm.PutState(
+	if _, err := csm.PutState(
 		bucket,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index))); err != nil {
 		return 0, err
 	}
 	tc.count++
-	_, err := sm.PutState(
+	_, err := csm.PutState(
 		&tc,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(TotalBucketKey))
 	return index, err
 }
 
-func delBucket(sm protocol.StateManager, index uint64) error {
-	_, err := sm.DelState(
+func (csm *candSM) delBucket(index uint64) error {
+	_, err := csm.DelState(
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(bucketKey(index)))
 	return err
 }
 
-func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
+func (csm *candSM) getAllBuckets() ([]*VoteBucket, error) {
 	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
 	maxKey := []byte{_bucket + 1}
-	_, iter, err := sr.States(
+	_, iter, err := csm.States(
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.FilterOption(func(k, v []byte) bool {
 			return bytes.HasPrefix(k, []byte{_bucket})
@@ -297,10 +287,10 @@ func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
 	return buckets, nil
 }
 
-func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
+func (csm *candSM) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
 	buckets := make([]*VoteBucket, 0, len(indices))
 	for _, i := range indices {
-		b, err := getBucket(sr, i)
+		b, err := csm.getBucket(i)
 		if err != nil && err != ErrWithdrawnBucket {
 			return buckets, err
 		}

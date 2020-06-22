@@ -30,6 +30,16 @@ type (
 		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
 		Commit() error
+
+		// private functions
+		getBucket(index uint64) (*VoteBucket, error)
+		updateBucket(index uint64, bucket *VoteBucket) error
+		putBucket(bucket *VoteBucket) (uint64, error)
+		delBucket(index uint64) error
+		getAllBuckets() ([]*VoteBucket, error)
+		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
+		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
+		delBucketAndIndex(owner, cand address.Address, index uint64) error
 	}
 
 	candSM struct {

@@ -177,7 +177,7 @@ func (p *Protocol) CreateGenesisStates(
 			return ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		bucketIdx, err := csm.putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}

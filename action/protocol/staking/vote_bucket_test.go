@@ -266,15 +266,10 @@ func TestGetPutStaking(t *testing.T) {
 
 		vb := NewVoteBucket(addr, identityset.Address(1), big.NewInt(2100000000), 21*uint32(e.index+1), time.Now(), true)
 
-		count, err := getTotalBucketCount(sm)
+		count, err := putBucket(sm, vb)
 		require.NoError(err)
 		require.Equal(e.index, count)
-		count, err = putBucket(sm, vb)
-		require.NoError(err)
-		require.Equal(e.index, count)
-		count, err = getTotalBucketCount(sm)
-		require.NoError(err)
-		require.Equal(e.index+1, count)
+
 		vb1, err := getBucket(sm, e.index)
 		require.NoError(err)
 		require.Equal(e.index, vb1.Index)

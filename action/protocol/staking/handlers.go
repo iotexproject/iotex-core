@@ -78,7 +78,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return log, errCandNotExist
 	}
 	bucket := NewVoteBucket(candidate.Owner, actionCtx.Caller, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := putBucketAndIndex(csm, bucket)
+	bucketIdx, err := csm.putBucketAndIndex(bucket)
 	if err != nil {
 		return log, err
 	}
@@ -152,7 +152,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 
 	// update bucket
 	bucket.UnstakeStartTime = blkCtx.BlockTimeStamp.UTC()
-	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -213,7 +213,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// delete bucket and bucket index
-	if err := delBucketAndIndex(csm, bucket.Owner, bucket.Candidate, act.BucketIndex()); err != nil {
+	if err := csm.delBucketAndIndex(bucket.Owner, bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 
@@ -269,7 +269,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 	// update bucket
 	bucket.Candidate = candidate.Owner
-	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -341,7 +341,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 
 	// update bucket
 	bucket.Owner = newOwner
-	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -404,7 +404,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedAmount.Add(bucket.StakedAmount, act.Amount())
-	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -494,7 +494,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	bucket.StakedDuration = actDuration
 	bucket.StakeStartTime = blkCtx.BlockTimeStamp.UTC()
 	bucket.AutoStake = act.AutoStake()
-	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
+	if err := csm.updateBucket(act.BucketIndex(), bucket); err != nil {
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
@@ -564,7 +564,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
-	bucketIdx, err := putBucketAndIndex(csm, bucket)
+	bucketIdx, err := csm.putBucketAndIndex(bucket)
 	if err != nil {
 		return log, err
 	}
@@ -652,7 +652,7 @@ func (p *Protocol) fetchBucket(
 	checkOwner bool,
 	allowSelfStaking bool,
 ) (*VoteBucket, error) {
-	bucket, err := getBucket(sr, index)
+	bucket, err := sr.getBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
@@ -678,32 +678,32 @@ func (p *Protocol) fetchBucket(
 	return bucket, nil
 }
 
-func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
-	index, err := putBucket(sm, bucket)
+func (csm *candSM) putBucketAndIndex(bucket *VoteBucket) (uint64, error) {
+	index, err := csm.putBucket(bucket)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	if err := putVoterBucketIndex(sm, bucket.Owner, index); err != nil {
+	if err := putVoterBucketIndex(csm, bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
 	}
 
-	if err := putCandBucketIndex(sm, bucket.Candidate, index); err != nil {
+	if err := putCandBucketIndex(csm, bucket.Candidate, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put candidate index")
 	}
 	return index, nil
 }
 
-func delBucketAndIndex(sm protocol.StateManager, owner, cand address.Address, index uint64) error {
-	if err := delBucket(sm, index); err != nil {
+func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) error {
+	if err := csm.delBucket(index); err != nil {
 		return errors.Wrap(err, "failed to delete bucket")
 	}
 
-	if err := delVoterBucketIndex(sm, owner, index); err != nil {
+	if err := delVoterBucketIndex(csm, owner, index); err != nil {
 		return errors.Wrap(err, "failed to delete bucket index")
 	}
 
-	if err := delCandBucketIndex(sm, cand, index); err != nil {
+	if err := delCandBucketIndex(csm, cand, index); err != nil {
 		return errors.Wrap(err, "failed to delete candidate index")
 	}
 	return nil

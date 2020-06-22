@@ -8,9 +8,9 @@ package staking
 
 import (
 	"context"
+	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -19,7 +19,7 @@ import (
 
 func readStateBuckets(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, error) {
-	all, err := getAllBuckets(sr)
+	all, err := sr.(CandidateStateManager).getAllBuckets() // TODO remove this panic code after draft feedback
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	if indices == nil || err != nil {
 		return nil, err
 	}
-	buckets, err := getBucketsWithIndices(sr, *indices)
+	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, c
 	if indices == nil || err != nil {
 		return nil, err
 	}
-	buckets, err := getBucketsWithIndices(sr, *indices)
+	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, c
 
 func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, error) {
-	buckets, err := getBucketsWithIndices(sr, BucketIndices(req.GetIndex()))
+	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, err
 	}
