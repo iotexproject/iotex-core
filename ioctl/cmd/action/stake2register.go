@@ -86,7 +86,7 @@ func register(args []string) error {
 		}
 	}
 
-	sender, err := signer()
+	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}

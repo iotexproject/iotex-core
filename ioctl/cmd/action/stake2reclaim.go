@@ -57,7 +57,7 @@ func stake2Reclaim(args []string) error {
 		return output.NewError(output.ConvertError, "failed to convert bucket index", nil)
 	}
 
-	sender, err := signer()
+	sender, err := Signer()
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get signed address", err)
 	}

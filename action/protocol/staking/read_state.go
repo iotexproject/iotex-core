@@ -106,6 +106,19 @@ func readStateCandidateByName(ctx context.Context, cc CandidateCenter,
 	return c.toIoTeXTypes(), nil
 }
 
+func readStateCandidateByAddress(ctx context.Context, cc CandidateCenter,
+	req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, error) {
+	owner, err := address.FromString(req.GetOwnerAddr())
+	if err != nil {
+		return nil, err
+	}
+	c := cc.GetByOwner(owner)
+	if c == nil {
+		return &iotextypes.CandidateV2{}, nil
+	}
+	return c.toIoTeXTypes(), nil
+}
+
 func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
 	res := iotextypes.VoteBucketList{
 		Buckets: make([]*iotextypes.VoteBucket, 0, len(buckets)),
