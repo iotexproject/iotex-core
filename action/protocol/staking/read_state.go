@@ -8,7 +8,6 @@ package staking
 
 import (
 	"context"
-	"github.com/iotexproject/iotex-core/action/protocol"
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/state"
@@ -17,9 +16,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-func readStateBuckets(ctx context.Context, sr protocol.StateReader,
+func readStateBuckets(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBuckets) (*iotextypes.VoteBucketList, error) {
-	all, err := sr.(CandidateStateManager).getAllBuckets() // TODO remove this panic code after draft feedback
+	all, err := csr.getAllBuckets()
 	if err != nil {
 		return nil, err
 	}
@@ -30,20 +29,20 @@ func readStateBuckets(ctx context.Context, sr protocol.StateReader,
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
+func readStateBucketsByVoter(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByVoter) (*iotextypes.VoteBucketList, error) {
 	voter, err := address.FromString(req.GetVoterAddress())
 	if err != nil {
 		return nil, err
 	}
-	indices, err := getVoterBucketIndices(sr, voter)
+	indices, err := csr.getVoterBucketIndices(voter)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, nil
 	}
 	if indices == nil || err != nil {
 		return nil, err
 	}
-	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(*indices)
+	buckets, err := csr.getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, err
 	}
@@ -54,21 +53,21 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, cc CandidateCenter,
+func readStateBucketsByCandidate(ctx context.Context, csr CandidateStateReader, cc CandidateCenter,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, error) {
 	c := cc.GetByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.VoteBucketList{}, nil
 	}
 
-	indices, err := getCandBucketIndices(sr, c.Owner)
+	indices, err := csr.getCandBucketIndices(c.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, nil
 	}
 	if indices == nil || err != nil {
 		return nil, err
 	}
-	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(*indices)
+	buckets, err := csr.getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, err
 	}
@@ -79,9 +78,9 @@ func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, c
 	return toIoTeXTypesVoteBucketList(buckets)
 }
 
-func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
+func readStateBucketByIndices(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes) (*iotextypes.VoteBucketList, error) {
-	buckets, err := sr.(CandidateStateManager).getBucketsWithIndices(BucketIndices(req.GetIndex()))
+	buckets, err := csr.getBucketsWithIndices(BucketIndices(req.GetIndex()))
 	if err != nil {
 		return nil, err
 	}

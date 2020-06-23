@@ -7,6 +7,7 @@
 package staking
 
 import (
+	"bytes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
@@ -33,13 +34,18 @@ type (
 
 		// private functions
 		getBucket(index uint64) (*VoteBucket, error)
+		getAllBuckets() ([]*VoteBucket, error)
+		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		updateBucket(index uint64, bucket *VoteBucket) error
 		putBucket(bucket *VoteBucket) (uint64, error)
 		delBucket(index uint64) error
-		getAllBuckets() ([]*VoteBucket, error)
-		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)
 		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
 		delBucketAndIndex(owner, cand address.Address, index uint64) error
+
+		putVoterBucketIndex(addr address.Address, index uint64) error
+		delVoterBucketIndex(addr address.Address, index uint64) error
+		putCandBucketIndex(addr address.Address, index uint64) error
+		delCandBucketIndex(addr address.Address, index uint64) error
 	}
 
 	candSM struct {
@@ -113,60 +119,6 @@ func (csm *candSM) Commit() error {
 	return csm.WriteView(protocolID, csm.CandidateCenter)
 }
 
-func getOrCreateCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
-	c, err := getCandCenter(sr)
-	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			cc, err := createCandCenter(sr)
-			return cc, err
-		}
-		return nil, err
-	}
-	return c, nil
-}
-
-func getCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
-	v, err := sr.ReadView(protocolID)
-	if err != nil {
-		return nil, err
-	}
-
-	if center, ok := v.(CandidateCenter); ok {
-		return center, nil
-	}
-	return nil, errors.Wrap(ErrTypeAssertion, "expecting CandidateCenter")
-}
-
-func createCandCenter(sr protocol.StateReader) (CandidateCenter, error) {
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCandidateCenter(all)
-}
-
-func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
-	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, nil
-}
-
 func retrieveDeltaFromSM(sm protocol.StateManager) (CandidateList, error) {
 	v, err := sm.Unload(protocolID)
 	if err != nil {
@@ -187,4 +139,108 @@ func retrieveDeltaFromSM(sm protocol.StateManager) (CandidateList, error) {
 		return nil, errors.Wrap(err, "failed to retrieveDeltaFromSM")
 	}
 	return l, nil
+}
+
+func (csm *candSM) getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error) {
+	buckets := make([]*VoteBucket, 0, len(indices))
+	for _, i := range indices {
+		b, err := csm.getBucket(i)
+		if err != nil && err != ErrWithdrawnBucket {
+			return buckets, err
+		}
+		buckets = append(buckets, b)
+	}
+	return buckets, nil
+}
+
+func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
+	var vb VoteBucket
+	var err error
+	if _, err = csm.State(&vb,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(bucketKey(index))); err != nil {
+		return nil, err
+	}
+	var tc totalBucketCount
+	if _, err := csm.State(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, err
+	}
+	if errors.Cause(err) == state.ErrStateNotExist && index < tc.Count() {
+		return nil, ErrWithdrawnBucket
+	}
+	return &vb, nil
+}
+
+func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
+	if _, err := csm.getBucket(index); err != nil {
+		return err
+	}
+
+	_, err := csm.PutState(
+		bucket,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(bucketKey(index)))
+	return err
+}
+
+func (csm *candSM) putBucket(bucket *VoteBucket) (uint64, error) {
+	var tc totalBucketCount
+	if _, err := csm.State(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return 0, err
+	}
+
+	index := tc.Count()
+	// Add index inside bucket
+	bucket.Index = index
+	if _, err := csm.PutState(
+		bucket,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(bucketKey(index))); err != nil {
+		return 0, err
+	}
+	tc.count++
+	_, err := csm.PutState(
+		&tc,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(TotalBucketKey))
+	return index, err
+}
+
+func (csm *candSM) delBucket(index uint64) error {
+	_, err := csm.DelState(
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(bucketKey(index)))
+	return err
+}
+
+func (csm *candSM) getAllBuckets() ([]*VoteBucket, error) {
+	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
+	maxKey := []byte{_bucket + 1}
+	_, iter, err := csm.States(
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.FilterOption(func(k, v []byte) bool {
+			return bytes.HasPrefix(k, []byte{_bucket})
+		}, bucketKey(0), maxKey))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	buckets := make([]*VoteBucket, 0, iter.Size())
+	for i := 0; i < iter.Size(); i++ {
+		vb := &VoteBucket{}
+		if err := iter.Next(vb); err != nil {
+			return nil, errors.Wrapf(err, "failed to deserialize bucket")
+		}
+		buckets = append(buckets, vb)
+	}
+	return buckets, nil
 }

@@ -264,10 +264,10 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update bucket index
-	if err := delCandBucketIndex(csm, bucket.Candidate, act.BucketIndex()); err != nil {
+	if err := csm.delCandBucketIndex(bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
 	}
-	if err := putCandBucketIndex(csm, candidate.Owner, act.BucketIndex()); err != nil {
+	if err := csm.putCandBucketIndex(candidate.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to put candidate bucket index for candidate %s", candidate.Owner.String())
 	}
 	// update bucket
@@ -335,10 +335,10 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 
 	// update bucket index
-	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
+	if err := csm.delVoterBucketIndex(bucket.Owner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete voter bucket index for voter %s", bucket.Owner.String())
 	}
-	if err := putVoterBucketIndex(csm, newOwner, act.BucketIndex()); err != nil {
+	if err := csm.putVoterBucketIndex(newOwner, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to put candidate bucket index for voter %s", act.VoterAddress().String())
 	}
 
@@ -687,11 +687,11 @@ func (csm *candSM) putBucketAndIndex(bucket *VoteBucket) (uint64, error) {
 		return 0, errors.Wrap(err, "failed to put bucket")
 	}
 
-	if err := putVoterBucketIndex(csm, bucket.Owner, index); err != nil {
+	if err := csm.putVoterBucketIndex(bucket.Owner, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put bucket index")
 	}
 
-	if err := putCandBucketIndex(csm, bucket.Candidate, index); err != nil {
+	if err := csm.putCandBucketIndex(bucket.Candidate, index); err != nil {
 		return 0, errors.Wrap(err, "failed to put candidate index")
 	}
 	return index, nil
@@ -702,11 +702,11 @@ func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) 
 		return errors.Wrap(err, "failed to delete bucket")
 	}
 
-	if err := delVoterBucketIndex(csm, owner, index); err != nil {
+	if err := csm.delVoterBucketIndex(owner, index); err != nil {
 		return errors.Wrap(err, "failed to delete bucket index")
 	}
 
-	if err := delCandBucketIndex(csm, cand, index); err != nil {
+	if err := csm.delCandBucketIndex(cand, index); err != nil {
 		return errors.Wrap(err, "failed to delete candidate index")
 	}
 	return nil

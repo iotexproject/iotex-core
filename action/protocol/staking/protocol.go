@@ -129,8 +129,12 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
 
+	csr, err := NewCandidateStateReader(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create candidate state reader")
+	}
 	// load view from SR
-	c, err := createCandCenter(sr)
+	c, err := csr.createCandCenter()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -146,7 +150,11 @@ func (p *Protocol) CreateGenesisStates(
 		return nil
 	}
 
-	center, err := getCandCenter(sm)
+	csr, err := NewCandidateStateReader(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state reader")
+	}
+	center, err := csr.getCandCenter()
 	if err != nil {
 		return errors.Wrap(err, "failed to create CandidateStateManager")
 	}
@@ -203,7 +211,12 @@ func (p *Protocol) CreateGenesisStates(
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	center, err := getCandCenter(sm)
+	csr, err := NewCandidateStateReader(sm)
+	if err != nil {
+		return errors.Wrap(err, "failed to create candidate state reader")
+	}
+
+	center, err := csr.getCandCenter()
 	if err != nil {
 		return errors.Wrap(err, "failed to commit candidate change in Commit")
 	}
@@ -219,7 +232,12 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	center, err := getCandCenter(sm)
+	csr, err := NewCandidateStateReader(sm)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create candidate state reader")
+	}
+
+	center, err := csr.getCandCenter()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to Handle action")
 	}
@@ -302,7 +320,12 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	center, err := getOrCreateCandCenter(sr)
+	csr, err := NewCandidateStateReader(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create candidate state reader")
+	}
+
+	center, err := csr.getOrCreateCandCenter()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
@@ -331,7 +354,11 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	center, err := getOrCreateCandCenter(sr)
+	csr, err := NewCandidateStateReader(sr)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create candidate state reader")
+	}
+	center, err := csr.getOrCreateCandCenter()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get candidate center")
 	}
@@ -339,13 +366,13 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	var resp proto.Message
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, err = readStateBuckets(ctx, csr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, err = readStateBucketsByVoter(ctx, csr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
+		resp, err = readStateBucketsByCandidate(ctx, csr, center, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, err = readStateBucketByIndices(ctx, csr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:

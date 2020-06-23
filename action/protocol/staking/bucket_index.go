@@ -68,9 +68,9 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, error) {
+func (csr *candSR) getBucketIndices(key []byte) (*BucketIndices, error) {
 	var bis BucketIndices
-	if _, err := sr.State(
+	if _, err := csr.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil {
@@ -79,25 +79,25 @@ func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, erro
 	return &bis, nil
 }
 
-func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
+func (csm *candSM) putBucketIndex(key []byte, index uint64) error {
 	var bis BucketIndices
-	if _, err := sm.State(
+	if _, err := csm.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
 	bis.addBucketIndex(index)
-	_, err := sm.PutState(
+	_, err := csm.PutState(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key))
 	return err
 }
 
-func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
+func (csm *candSM) delBucketIndex(key []byte, index uint64) error {
 	var bis BucketIndices
-	if _, err := sm.State(
+	if _, err := csm.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(key)); err != nil {
@@ -107,11 +107,11 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 
 	var err error
 	if len(bis) == 0 {
-		_, err = sm.DelState(
+		_, err = csm.DelState(
 			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
 	} else {
-		_, err = sm.PutState(
+		_, err = csm.PutState(
 			&bis,
 			protocol.NamespaceOption(StakingNameSpace),
 			protocol.KeyOption(key))
@@ -119,28 +119,28 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	return err
 }
 
-func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
+func (csr *candSR) getVoterBucketIndices(addr address.Address) (*BucketIndices, error) {
+	return csr.getBucketIndices(addrKeyWithPrefix(addr, _voterIndex))
 }
 
-func putVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+func (csm *candSM) putVoterBucketIndex(addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
+func (csm *candSM) delVoterBucketIndex(addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
-	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
+func (csr *candSR) getCandBucketIndices(addr address.Address) (*BucketIndices, error) {
+	return csr.getBucketIndices(addrKeyWithPrefix(addr, _candIndex))
 }
 
-func putCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return putBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
+func (csm *candSM) putCandBucketIndex(addr address.Address, index uint64) error {
+	return csm.putBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
 }
 
-func delCandBucketIndex(sm protocol.StateManager, addr address.Address, index uint64) error {
-	return delBucketIndex(sm, addrKeyWithPrefix(addr, _candIndex), index)
+func (csm *candSM) delCandBucketIndex(addr address.Address, index uint64) error {
+	return csm.delBucketIndex(addrKeyWithPrefix(addr, _candIndex), index)
 }
 
 func addrKeyWithPrefix(addr address.Address, prefix byte) []byte {
