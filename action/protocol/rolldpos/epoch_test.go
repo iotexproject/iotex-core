@@ -247,14 +247,15 @@ func productivity(epochStartHeight uint64, epochEndHeight uint64) (map[string]ui
 func TestProductivityByEpoch(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(23, 4, 3)
+	// test tip height 0 1 12 25 38 53 59 80 90 93 120
 	epochNum := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	tipHeight := []uint64{1, 1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
+	tipHeight := []uint64{0, 1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
 
-	expectedHeights := []uint64{1, 1, 0, 1, 2, 5, 0, 8, 6, 0, 12}
+	expectedHeights := []uint64{0, 1, 0, 1, 2, 5, 0, 8, 6, 0, 12}
 	var nilMap = map[string]uint64{}
 	nilMap = nil
 	expectedProduces := []map[string]uint64{
-		{"ret": 0},
+		{},
 		{"ret": 0},
 		nilMap,
 		{"ret": 0},
@@ -284,7 +285,7 @@ func TestProductivityByEpoch(t *testing.T) {
 		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum[i], tipHeight[i], productivity)
 		require.Equal(retHeight, expectedHeights[i])
 		require.Equal(retProduce, expectedProduces[i])
-		if i == 2 || i == 6 || i == 9 {
+		if expectedErrors[i] != nil {
 			require.EqualError(retError, expectedErrors[i].Error())
 		} else {
 			require.NoError(retError)
