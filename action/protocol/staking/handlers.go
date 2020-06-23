@@ -230,6 +230,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		log.AddTopics(bucket.StakedAmount.Bytes())
+	}
 	return log, nil
 }
 
