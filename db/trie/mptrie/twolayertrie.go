@@ -52,7 +52,13 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.
 	if err != nil {
 		return nil, err
 	}
-	return lt, lt.Start(context.Background())
+	if err := lt.Start(context.Background()); err != nil {
+		return nil, err
+	}
+
+	tlt.layerTwo[hk] = lt
+
+	return lt, nil
 }
 
 func (tlt *twoLayerTrie) Start(ctx context.Context) error {
