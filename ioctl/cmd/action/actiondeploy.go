@@ -7,20 +7,17 @@
 package action
 
 import (
-	"math/big"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
 var (
 	deployCmdShorts = map[config.Language]string{
-		config.English: "Deploy smart contract on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上部署智能合约",
+		config.English: "Deploy smart contract on IoTeX blockchain \nWarning: 'ioctl action deploy' has been deprecated, use 'ioctl contract deploy' instead",
+		config.Chinese: "在IoTeX区块链上部署智能合约 \nWarning: 'ioctl action deploy' 已被废弃, 使用 'ioctl contract deploy' 代替",
 	}
 	deployCmdUses = map[config.Language]string{
 		config.English: "deploy [AMOUNT_IOTX] [-s SIGNER] -b BYTE_CODE [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
@@ -36,28 +33,7 @@ var actionDeployCmd = &cobra.Command{
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := deploy(args)
-		return output.PrintError(err)
+		var err error
+		return output.NewError(output.RuntimeError, "'ioctl action deploy' has been deprecated, use 'ioctl contract deploy' instead", err)
 	},
-}
-
-func init() {
-	RegisterWriteCommand(actionDeployCmd)
-	bytecodeFlag.RegisterCommand(actionDeployCmd)
-	bytecodeFlag.MarkFlagRequired(actionDeployCmd)
-}
-
-func deploy(args []string) error {
-	bytecode, err := decodeBytecode()
-	if err != nil {
-		return output.NewError(output.FlagError, "invalid bytecode flag", err)
-	}
-	amount := big.NewInt(0)
-	if len(args) == 1 {
-		amount, err = util.StringToRau(args[0], util.IotxDecimalNum)
-		if err != nil {
-			return output.NewError(output.ConvertError, "invalid amount", err)
-		}
-	}
-	return Execute("", amount, bytecode)
 }
