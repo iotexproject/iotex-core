@@ -37,9 +37,3 @@ var actionDeployCmd = &cobra.Command{
 		return output.NewError(output.RuntimeError, "'ioctl action deploy' has been deprecated, use 'ioctl contract deploy' instead", err)
 	},
 }
-
-func init() {
-	RegisterWriteCommand(actionDeployCmd)
-	bytecodeFlag.RegisterCommand(actionDeployCmd)
-	bytecodeFlag.MarkFlagRequired(actionDeployCmd)
-}
