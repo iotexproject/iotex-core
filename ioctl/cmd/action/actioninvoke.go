@@ -37,9 +37,3 @@ var actionInvokeCmd = &cobra.Command{
 		return output.NewError(output.RuntimeError, "'ioctl action invoke' has been deprecated, use 'ioctl contract invoke' instead", err)
 	},
 }
-
-func init() {
-	RegisterWriteCommand(actionInvokeCmd)
-	bytecodeFlag.RegisterCommand(actionInvokeCmd)
-	bytecodeFlag.MarkFlagRequired(actionInvokeCmd)
-}
