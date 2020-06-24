@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
@@ -62,14 +63,13 @@ func TestLoadOrCreateAccountState(t *testing.T) {
 	s, err := accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal(s.Balance, state.EmptyAccount().Balance)
+
+	// create account
 	require.NoError(createAccount(sm, addrv1.String(), big.NewInt(5)))
 	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
 	require.NoError(err)
 	require.Equal("5", s.Balance.String())
-	s, err = accountutil.LoadAccount(sm, hash.BytesToHash160(addrv1.Bytes()))
-	require.NoError(err)
 	require.Equal(uint64(0x0), s.Nonce)
-	require.Equal("5", s.Balance.String())
 }
 
 func TestProtocol_Initialize(t *testing.T) {
@@ -121,8 +121,70 @@ func TestProtocol_Initialize(t *testing.T) {
 			sm,
 		),
 	)
+
+	ge.Account.InitBalanceMap[identityset.Address(1).String()] = "-1"
+	require.Error(
+		p.CreateGenesisStates(
+			ctx,
+			sm,
+		),
+	)
+
 	require.Error(createAccount(sm, identityset.Address(0).String(), big.NewInt(0)))
 	acc0, err := accountutil.LoadAccount(sm, hash.BytesToHash160(identityset.Address(0).Bytes()))
 	require.NoError(err)
 	require.Equal(big.NewInt(100), acc0.Balance)
+}
+
+func TestRegisterOrForceRegister(t *testing.T) {
+	require := require.New(t)
+
+	p := NewProtocol(rewarding.DepositGas)
+	require.Equal(protocolID, p.Name())
+
+	registry := protocol.NewRegistry()
+	require.NoError(p.Register(registry))
+	require.Error(p.Register(registry))
+	require.NoError(p.ForceRegister(registry))
+
+	foundP := FindProtocol(registry)
+	require.Equal(p, foundP)
+
+	require.Nil(FindProtocol(nil))
+
+	registry = protocol.NewRegistry()
+	require.Nil(FindProtocol(registry))
+}
+
+// TestAssertZeroBlockHeight tests the assertZeroBlockHeight funcs
+func TestAssertZeroBlockHeight(t *testing.T) {
+	require := require.New(t)
+
+	p := NewProtocol(rewarding.DepositGas)
+	require.NoError(p.assertZeroBlockHeight(0))
+	// should return an error if height is not zero
+	require.Error(p.assertZeroBlockHeight(1))
+}
+
+func TestAssertAmountsAndEqualLength(t *testing.T) {
+	require := require.New(t)
+
+	p := NewProtocol(rewarding.DepositGas)
+	amounts := []*big.Int{
+		big.NewInt(0),
+		big.NewInt(1),
+		big.NewInt(2),
+	}
+	require.NoError(p.assertAmounts(amounts))
+	amounts[0] = big.NewInt(-1)
+	require.Error(p.assertAmounts(amounts))
+
+	addrs := []address.Address{
+		&address.AddrV1{},
+		&address.AddrV1{},
+		&address.AddrV1{},
+	}
+	require.NoError(p.assertEqualLength(addrs, amounts))
+	addrs = addrs[:2]
+	require.Error(p.assertEqualLength(addrs, amounts))
 }
