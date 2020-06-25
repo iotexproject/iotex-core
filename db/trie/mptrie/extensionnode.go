@@ -27,8 +27,8 @@ func newExtensionNode(
 ) (node, error) {
 	e := &extensionNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
-			dirty, true,
+			mpt:   mpt,
+			dirty: true,
 		},
 		path:  path,
 		child: child,

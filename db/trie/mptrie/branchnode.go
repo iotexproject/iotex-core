@@ -31,7 +31,7 @@ func newBranchNode(
 	}
 	bnode := &branchNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
 			dirty: true,
 		},
 		children: children,
@@ -214,7 +214,6 @@ func (b *branchNode) Flush() error {
 	_, err := b.store()
 	return err
 }
-
 
 func (b *branchNode) updateChild(key byte, child node, hashnode bool) (node, error) {
 	if err := b.delete(); err != nil {

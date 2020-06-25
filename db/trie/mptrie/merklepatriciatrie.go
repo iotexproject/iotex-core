@@ -98,7 +98,7 @@ func KVStoreOption(kvStore trie.KVStore) Option {
 
 // AsyncOption enables async commit
 func AsyncOption() Option {
-	return func(mpt *merklePatriciaTree) error {
+	return func(mpt *merklePatriciaTrie) error {
 		mpt.async = true
 		return nil
 	}
@@ -140,7 +140,7 @@ func (mpt *merklePatriciaTrie) Stop(_ context.Context) error {
 	return nil
 }
 
-func (mpt *merklePatriciaTree) RootHash() ([]byte, error) {
+func (mpt *merklePatriciaTrie) RootHash() ([]byte, error) {
 	if mpt.async {
 		if err := mpt.root.Flush(); err != nil {
 			return nil, err
@@ -250,12 +250,11 @@ func (mpt *merklePatriciaTrie) setRootHash(rootHash []byte) error {
 		return errors.Wrapf(trie.ErrInvalidTrie, "root should be a branch")
 	}
 	root.MarkAsRoot()
-	mpt.resetRoot(root, rootHash)
 
-	return mpt.resetRoot(root)
+	return mpt.resetRoot(root, rootHash)
 }
 
-func (mpt *merklePatriciaTree) resetRoot(newRoot branch, rootHash []byte) error {
+func (mpt *merklePatriciaTrie) resetRoot(newRoot branch, rootHash []byte) error {
 	mpt.root = newRoot
 	if mpt.async {
 		return nil

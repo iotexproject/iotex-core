@@ -28,7 +28,7 @@ func newLeafNode(
 ) (node, error) {
 	l := &leafNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
 			dirty: true,
 		},
 		key:   key,
