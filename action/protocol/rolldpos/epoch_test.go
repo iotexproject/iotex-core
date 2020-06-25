@@ -3,10 +3,9 @@ package rolldpos
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
@@ -241,54 +240,61 @@ func TestGetSubEpochNum(t *testing.T) {
 }
 
 func productivity(epochStartHeight uint64, epochEndHeight uint64) (map[string]uint64, error) {
-	return map[string]uint64{"ret": epochEndHeight - epochStartHeight}, nil
+	if epochStartHeight == 0 || epochEndHeight == 0 {
+		return nil, errors.New("productivity error.")
+	}
+	return map[string]uint64{"ret": 0}, nil
 }
 
 func TestProductivityByEpoch(t *testing.T) {
 	require := require.New(t)
 	p := NewProtocol(23, 4, 3)
-	// test tip height 0 1 12 25 38 53 59 80 90 93 120
-	epochNum := []uint64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-	tipHeight := []uint64{0, 1, 12, 25, 38, 53, 59, 80, 90, 93, 120}
 
-	expectedHeights := []uint64{0, 1, 0, 1, 2, 5, 0, 8, 6, 0, 12}
-	var nilMap = map[string]uint64{}
-	nilMap = nil
-	expectedProduces := []map[string]uint64{
-		{},
-		{"ret": 0},
-		nilMap,
-		{"ret": 0},
-		{"ret": 1},
-		{"ret": 4},
-		nilMap,
-		{"ret": 7},
-		{"ret": 5},
-		nilMap,
-		{"ret": 11},
-	}
-	expectedErrors := []error{
-		nil,
-		nil,
-		errors.New("epoch number 2 is larger than current epoch number 1"),
-		nil,
-		nil,
-		nil,
-		errors.New("epoch number 6 is larger than current epoch number 5"),
-		nil,
-		nil,
-		errors.New("epoch number 9 is larger than current epoch number 8"),
-		nil,
-	}
+	t.Run("normal call", func(t *testing.T) {
+		epochNum := uint64(1)
+		tipHeight := uint64(1)
+		expectedHeights := uint64(1)
+		expectedProduces := map[string]uint64{"ret": 0}
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.NoError(retError)
+	})
 
-	for i := 0; i < len(epochNum); i++ {
-		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum[i], tipHeight[i], productivity)
-		require.Equal(retHeight, expectedHeights[i])
-		require.Equal(retProduce, expectedProduces[i])
-		if expectedErrors[i] != nil {
-			require.EqualError(retError, expectedErrors[i].Error())
-		} else {
-			require.NoError(retError)
-		}
-	}
+	t.Run("tipHeight param error", func(t *testing.T) {
+		epochNum := uint64(0)
+		tipHeight := uint64(0)
+		expectedHeights := uint64(0)
+		expectedProduces := map[string]uint64{}
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.NoError(retError)
+	})
+
+	t.Run("epochNum param error", func(t *testing.T) {
+		epochNum := uint64(2)
+		tipHeight := uint64(12)
+		expectedHeights := uint64(0)
+		var expectedProduces = map[string]uint64{}
+		expectedProduces = nil
+		expectedErrors := errors.New("epoch number 2 is larger than current epoch number 1")
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.EqualError(retError, expectedErrors.Error())
+	})
+
+	t.Run("productivity param error", func(t *testing.T) {
+		epochNum := uint64(0)
+		tipHeight := uint64(1)
+		expectedHeights := uint64(1)
+		var expectedProduces = map[string]uint64{}
+		expectedProduces = nil
+		expectedErrors := errors.New("productivity error.")
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.EqualError(retError, expectedErrors.Error())
+	})
 }
