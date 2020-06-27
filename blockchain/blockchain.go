@@ -465,18 +465,14 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		}, nil
 	}
-	tipHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return nil, err
-	}
-	header, err := bc.dao.Header(tipHash)
+	header, err := bc.dao.HeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	return &protocol.TipInfo{
 		Height:    tipHeight,
-		Hash:      tipHash,
+		Hash:      header.HashBlock(),
 		Timestamp: header.Timestamp(),
 	}, nil
 }
