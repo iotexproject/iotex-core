@@ -318,8 +318,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			if finalized {
 				return errors.New("Cannot finalize a working set twice")
 			}
+			rootHash, err := tlt.RootHash()
+			if err != nil {
+				return err
+			}
 			finalized = true
-			rootHash := tlt.RootHash()
 			flusher.KVStoreWithBuffer().MustPut(AccountKVNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(h))
 			flusher.KVStoreWithBuffer().MustPut(ArchiveTrieNamespace, []byte(ArchiveTrieRootKey), rootHash)
 			// Persist the historical accountTrie's root hash
@@ -335,7 +338,11 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			if err := flusher.Flush(); err != nil {
 				return errors.Wrap(err, "failed to Commit all changes to underlying DB in a batch")
 			}
-			if err := sf.twoLayerTrie.SetRootHash(tlt.RootHash()); err != nil {
+			rh, err := tlt.RootHash()
+			if err != nil {
+				return err
+			}
+			if err := sf.twoLayerTrie.SetRootHash(rh); err != nil {
 				return err
 			}
 			sf.currentChainHeight = h
@@ -348,8 +355,12 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return sf.protocolView.Load(name, v)
 		},
 		snapshotFunc: func() int {
+			rh, err := tlt.RootHash()
+			if err != nil {
+				log.L().Panic("failed to do snapshot", zap.Error(err))
+			}
 			s := flusher.KVStoreWithBuffer().Snapshot()
-			trieRoots[s] = tlt.RootHash()
+			trieRoots[s] = rh
 			return s
 		},
 		revertFunc: func(snapshot int) error {
@@ -620,7 +631,7 @@ func (sf *factory) ReadView(name string) (interface{}, error) {
 // private trie constructor functions
 //======================================
 
-func (sf *factory) rootHash() []byte {
+func (sf *factory) rootHash() ([]byte, error) {
 	return sf.twoLayerTrie.RootHash()
 }
 

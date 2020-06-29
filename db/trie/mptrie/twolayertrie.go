@@ -7,6 +7,7 @@
 package mptrie
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 
@@ -16,11 +17,16 @@ import (
 )
 
 type (
+	layerTwo struct {
+		tr         trie.Trie
+		dirty      bool
+		originHash []byte
+	}
 	twoLayerTrie struct {
-		layerOne trie.Trie
-		layerTwo map[string]trie.Trie
-		kvStore  trie.KVStore
-		rootKey  string
+		layerOne    trie.Trie
+		layerTwoMap map[string]*layerTwo
+		kvStore     trie.KVStore
+		rootKey     string
 	}
 )
 
@@ -32,12 +38,12 @@ func NewTwoLayerTrie(dbForTrie trie.KVStore, rootKey string) trie.TwoLayerTrie {
 	}
 }
 
-func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.Trie, error) {
+func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (*layerTwo, error) {
 	hk := hex.EncodeToString(key)
-	if lt, ok := tlt.layerTwo[hk]; ok {
+	if lt, ok := tlt.layerTwoMap[hk]; ok {
 		return lt, nil
 	}
-	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen)}
+	opts := []Option{KVStoreOption(tlt.kvStore), KeyLengthOption(layerTwoTrieKeyLen), AsyncOption()}
 	value, err := tlt.layerOne.Get(key)
 	switch errors.Cause(err) {
 	case trie.ErrNotExist:
@@ -55,10 +61,18 @@ func (tlt *twoLayerTrie) layerTwoTrie(key []byte, layerTwoTrieKeyLen int) (trie.
 	if err := lt.Start(context.Background()); err != nil {
 		return nil, err
 	}
+	h, err := lt.RootHash()
+	if err != nil {
+		return nil, err
+	}
 
-	tlt.layerTwo[hk] = lt
+	tlt.layerTwoMap[hk] = &layerTwo{
+		tr:         lt,
+		dirty:      false,
+		originHash: h,
+	}
 
-	return lt, nil
+	return tlt.layerTwoMap[hk], nil
 }
 
 func (tlt *twoLayerTrie) Start(ctx context.Context) error {
@@ -69,80 +83,109 @@ func (tlt *twoLayerTrie) Start(ctx context.Context) error {
 	layerOne, err := New(
 		KVStoreOption(tlt.kvStore),
 		RootHashOption(rootHash),
+		AsyncOption(),
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate trie for %s", tlt.rootKey)
 	}
 	tlt.layerOne = layerOne
-	tlt.layerTwo = make(map[string]trie.Trie)
+	tlt.layerTwoMap = make(map[string]*layerTwo)
 
 	return tlt.layerOne.Start(ctx)
 }
 
 func (tlt *twoLayerTrie) Stop(ctx context.Context) error {
-	for _, lt := range tlt.layerTwo {
-		if err := lt.Stop(ctx); err != nil {
-			return err
-		}
+	if err := tlt.flush(ctx); err != nil {
+		return err
 	}
+
 	return tlt.layerOne.Stop(ctx)
 }
 
-func (tlt *twoLayerTrie) IsEmpty() bool {
-	return tlt.layerOne.IsEmpty()
+func (tlt *twoLayerTrie) stop(ctx context.Context, hkey string, lt *layerTwo) (err error) {
+	key, err := hex.DecodeString(hkey)
+	if err != nil {
+		return err
+	}
+	if lt.dirty {
+		rh, err := lt.tr.RootHash()
+		if err != nil {
+			return err
+		}
+		if bytes.Compare(rh, lt.originHash) != 0 {
+			if lt.tr.IsEmpty() {
+				return tlt.layerOne.Delete(key)
+			}
+
+			return tlt.layerOne.Upsert(key, rh)
+		}
+	}
+
+	return lt.tr.Stop(ctx)
 }
 
-func (tlt *twoLayerTrie) RootHash() []byte {
+func (tlt *twoLayerTrie) flush(ctx context.Context) error {
+	for hkey, lt := range tlt.layerTwoMap {
+		if err := tlt.stop(ctx, hkey, lt); err != nil {
+			return err
+		}
+	}
+	tlt.layerTwoMap = make(map[string]*layerTwo)
+	_, err := tlt.layerOne.RootHash()
+	return err
+}
+
+func (tlt *twoLayerTrie) RootHash() ([]byte, error) {
+	if err := tlt.flush(context.Background()); err != nil {
+		return nil, err
+	}
 	return tlt.layerOne.RootHash()
 }
 
 func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
-	for key, lt := range tlt.layerTwo {
-		if err := lt.Stop(context.Background()); err != nil {
-			return err
-		}
-		delete(tlt.layerTwo, key)
-	}
 	if err := tlt.layerOne.SetRootHash(rh); err != nil {
 		return err
 	}
-
+	for _, lt := range tlt.layerTwoMap {
+		if err := lt.tr.Stop(context.Background()); err != nil {
+			return err
+		}
+	}
+	tlt.layerTwoMap = make(map[string]*layerTwo)
 	return nil
 }
 
 func (tlt *twoLayerTrie) Get(layerOneKey []byte, layerTwoKey []byte) ([]byte, error) {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
+	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return nil, err
 	}
 
-	return layerTwo.Get(layerTwoKey)
+	return lt.tr.Get(layerTwoKey)
 }
 
 func (tlt *twoLayerTrie) Upsert(layerOneKey []byte, layerTwoKey []byte, value []byte) error {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
+	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
 	}
-	if err := layerTwo.Upsert(layerTwoKey, value); err != nil {
+	if err := lt.tr.Upsert(layerTwoKey, value); err != nil {
 		return err
 	}
+	lt.dirty = true
 
-	return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
+	return nil
 }
 
 func (tlt *twoLayerTrie) Delete(layerOneKey []byte, layerTwoKey []byte) error {
-	layerTwo, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
+	lt, err := tlt.layerTwoTrie(layerOneKey, len(layerTwoKey))
 	if err != nil {
 		return err
 	}
-	if err := layerTwo.Delete(layerTwoKey); err != nil {
+	if err := lt.tr.Delete(layerTwoKey); err != nil {
 		return err
 	}
+	lt.dirty = true
 
-	if !layerTwo.IsEmpty() {
-		return tlt.layerOne.Upsert(layerOneKey, layerTwo.RootHash())
-	}
-
-	return tlt.layerOne.Delete(layerOneKey)
+	return nil
 }

@@ -22,12 +22,13 @@ type (
 		Delete(keyType, uint8) (node, error)
 		Upsert(keyType, uint8, []byte) (node, error)
 		Hash() ([]byte, error)
+		Flush() error
 	}
 
 	serializable interface {
 		node
-		hash() ([]byte, error)
-		proto() (proto.Message, error)
+		hash(flush bool) ([]byte, error)
+		proto(flush bool) (proto.Message, error)
 		delete() error
 		store() (node, error)
 	}
