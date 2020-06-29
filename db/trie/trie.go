@@ -42,7 +42,7 @@ type (
 		// Delete deletes an entry
 		Delete([]byte) error
 		// RootHash returns trie's root hash
-		RootHash() []byte
+		RootHash() ([]byte, error)
 		// SetRootHash sets a new root to trie
 		SetRootHash([]byte) error
 		// IsEmpty returns true is this is an empty trie
@@ -54,10 +54,8 @@ type (
 		Start(context.Context) error
 		// Stop stops the layer one trie
 		Stop(context.Context) error
-		// IsEmpty returns true is the layer one is an empty trie
-		IsEmpty() bool
 		// RootHash returns the layer one trie root
-		RootHash() []byte
+		RootHash() ([]byte, error)
 		// SetRootHash sets root hash for layer one trie
 		SetRootHash([]byte) error
 		// Get returns the value in layer two

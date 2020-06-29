@@ -27,13 +27,18 @@ func newExtensionNode(
 ) (node, error) {
 	e := &extensionNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
+			dirty: true,
 		},
 		path:  path,
 		child: child,
 	}
 	e.cacheNode.serializable = e
-	return e.store()
+
+	if !mpt.async {
+		return e.store()
+	}
+	return e, nil
 }
 
 func newExtensionNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.ExtendPb) *extensionNode {
@@ -122,8 +127,16 @@ func (e *extensionNode) Search(key keyType, offset uint8) (node, error) {
 	return e.child.Search(key, offset+matched)
 }
 
-func (e *extensionNode) proto() (proto.Message, error) {
+func (e *extensionNode) proto(flush bool) (proto.Message, error) {
 	trieMtc.WithLabelValues("extensionNode", "proto").Inc()
+	if flush {
+		if sn, ok := e.child.(serializable); ok {
+			_, err := sn.store()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	h, err := e.child.Hash()
 	if err != nil {
 		return nil, err
@@ -147,18 +160,29 @@ func (e *extensionNode) commonPrefixLength(key []byte) uint8 {
 	return commonPrefixLength(e.path, key)
 }
 
+func (e *extensionNode) Flush() error {
+	if err := e.child.Flush(); err != nil {
+		return err
+	}
+	_, err := e.store()
+	return err
+}
+
 func (e *extensionNode) updatePath(path []byte, hashnode bool) (node, error) {
 	if err := e.delete(); err != nil {
 		return nil, err
 	}
 	e.path = path
+	e.dirty = true
 
-	hn, err := e.store()
-	if err != nil {
-		return nil, err
-	}
-	if hashnode {
-		return hn, nil
+	if !e.mpt.async {
+		hn, err := e.store()
+		if err != nil {
+			return nil, err
+		}
+		if hashnode {
+			return hn, nil
+		}
 	}
 	return e, nil
 }
@@ -169,13 +193,16 @@ func (e *extensionNode) updateChild(newChild node, hashnode bool) (node, error) 
 		return nil, err
 	}
 	e.child = newChild
+	e.dirty = true
 
-	hn, err := e.store()
-	if err != nil {
-		return nil, err
-	}
-	if hashnode {
-		return hn, nil
+	if !e.mpt.async {
+		hn, err := e.store()
+		if err != nil {
+			return nil, err
+		}
+		if hashnode {
+			return hn, nil
+		}
 	}
 	return e, nil
 }

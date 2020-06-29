@@ -28,13 +28,17 @@ func newLeafNode(
 ) (node, error) {
 	l := &leafNode{
 		cacheNode: cacheNode{
-			mpt: mpt,
+			mpt:   mpt,
+			dirty: true,
 		},
 		key:   key,
 		value: value,
 	}
 	l.cacheNode.serializable = l
-	return l.store()
+	if !mpt.async {
+		return l.store()
+	}
+	return l, nil
 }
 
 func newLeafNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.LeafPb) *leafNode {
@@ -47,18 +51,6 @@ func newLeafNodeFromProtoPb(mpt *merklePatriciaTrie, pb *triepb.LeafPb) *leafNod
 	}
 	l.cacheNode.serializable = l
 	return l
-}
-
-func (l *leafNode) ToHashNode() (*hashNode, error) {
-	return l.toHashNode()
-}
-
-func (l *leafNode) toHashNode() (*hashNode, error) {
-	h, err := l.hash()
-	if err != nil {
-		return nil, err
-	}
-	return newHashNode(l.mpt, h), nil
 }
 
 func (l *leafNode) Key() []byte {
@@ -90,16 +82,20 @@ func (l *leafNode) Upsert(key keyType, offset uint8, value []byte) (node, error)
 	if err != nil {
 		return nil, err
 	}
-
-	hn, err := l.toHashNode()
-	if err != nil {
-		return nil, err
+	var oldLeaf node
+	if !l.mpt.async {
+		oldLeaf, err = l.store()
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		oldLeaf = l
 	}
 	bnode, err := newBranchNode(
 		l.mpt,
 		map[byte]node{
 			key[offset+matched]:   newl,
-			l.key[offset+matched]: hn,
+			l.key[offset+matched]: oldLeaf,
 		},
 	)
 	if err != nil {
@@ -121,7 +117,7 @@ func (l *leafNode) Search(key keyType, offset uint8) (node, error) {
 	return l, nil
 }
 
-func (l *leafNode) proto() (proto.Message, error) {
+func (l *leafNode) proto(_ bool) (proto.Message, error) {
 	trieMtc.WithLabelValues("leafNode", "proto").Inc()
 	return &triepb.NodePb{
 		Node: &triepb.NodePb_Leaf{
@@ -133,11 +129,19 @@ func (l *leafNode) proto() (proto.Message, error) {
 	}, nil
 }
 
+func (l *leafNode) Flush() error {
+	_, err := l.store()
+	return err
+}
+
 func (l *leafNode) updateValue(value []byte) (node, error) {
 	if err := l.delete(); err != nil {
 		return nil, err
 	}
 	l.value = value
-
-	return l.store()
+	l.dirty = true
+	if !l.mpt.async {
+		return l.store()
+	}
+	return l, nil
 }
