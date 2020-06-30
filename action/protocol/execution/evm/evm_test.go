@@ -136,7 +136,7 @@ func TestConstantinople(t *testing.T) {
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
-		ps, err := NewParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)
