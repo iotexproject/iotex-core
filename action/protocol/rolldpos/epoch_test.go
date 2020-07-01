@@ -241,7 +241,7 @@ func TestGetSubEpochNum(t *testing.T) {
 
 func productivity(epochStartHeight uint64, epochEndHeight uint64) (map[string]uint64, error) {
 	if epochStartHeight == 0 || epochEndHeight == 0 {
-		return nil, errors.New("productivity error.")
+		return nil, errors.New("productivity error")
 	}
 	return map[string]uint64{"ret": 0}, nil
 }
@@ -291,7 +291,7 @@ func TestProductivityByEpoch(t *testing.T) {
 		expectedHeights := uint64(1)
 		var expectedProduces = map[string]uint64{}
 		expectedProduces = nil
-		expectedErrors := errors.New("productivity error.")
+		expectedErrors := errors.New("productivity error")
 		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
 		require.Equal(retHeight, expectedHeights)
 		require.Equal(retProduce, expectedProduces)
