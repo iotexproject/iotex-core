@@ -68,7 +68,7 @@ func TestCreateContract(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
-	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hu.IsPost(config.Fairbank, 0), hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hu.IsPost(config.Greenland, 0), hash.ZeroHash256)
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
