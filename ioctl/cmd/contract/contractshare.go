@@ -7,6 +7,7 @@
 package contract
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,15 +18,21 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
+var iotexIDE string
+
 // Multi-language support
 var (
 	contractShareCmdUses = map[config.Language]string{
-		config.English: "share LOCAL_FOLDER_PATH",
-		config.Chinese: "share 本地文件路径",
+		config.English: "share LOCAL_FOLDER_PATH [--iotex-ide YOUR_IOTEX_IDE_URL_INSTANCE]",
+		config.Chinese: "share 本地文件路径 [--iotex-ide 你的IOTEX_IDE的URL]",
 	}
 	contractShareCmdShorts = map[config.Language]string{
-		config.English: "share a folder from your local computer to the IoTex smart contract dev.(https://ide.iotex.io/)",
-		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(https://ide.iotex.io/)",
+		config.English: "share a folder from your local computer to the IoTex smart contract dev.(default to https://ide.iotex.io/)",
+		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(默认为https://ide.iotex.io/)",
+	}
+	flagIoTexIDEUrlUsage = map[config.Language]string{
+		config.English: "set your IoTex IDE url instance",
+		config.Chinese: "设置自定义IoTexIDE Url",
 	}
 )
 
@@ -39,6 +46,10 @@ var contractShareCmd = &cobra.Command{
 		err := share(args)
 		return output.PrintError(err)
 	},
+}
+
+func init() {
+	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io/", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
 }
 
 func share(args []string) error {
@@ -63,14 +74,38 @@ func share(args []string) error {
 		output.NewError(output.RuntimeError, "remixd not ready, please run 'npm -g install remixd' and try again ", err)
 	}
 
-	cmdString := "remixd -s " + adsPath + " --remix-ide https://ide.iotex.io"
+	if len(iotexIDE) == 0 {
+		return output.NewError(output.FlagError, "failed to get iotex ide url instance", nil)
+	}
+
+	cmdString := "remixd -s " + adsPath + " --remix-ide " + iotexIDE
+
+	fmt.Println(cmdString)
 
 	cmd := exec.Command("bash", "-c", cmdString)
-	err = cmd.Run()
+	stdout, err := cmd.StdoutPipe()
+	cmd.Stderr = cmd.Stdout
+
 	if err != nil {
+		return err
+	}
+
+	if err = cmd.Start(); err != nil {
 		return output.NewError(output.RuntimeError, "failed to link-local folder(restart terminal and try again)", err)
 	}
-	output.PrintResult("local folder is linking to the IoTex-studio now")
+	for {
+		tmp := make([]byte, 1024)
+		_, err := stdout.Read(tmp)
+		fmt.Print(string(tmp))
+		if err != nil {
+			break
+		}
+	}
+
+	if err = cmd.Wait(); err != nil {
+		return output.NewError(output.RuntimeError, "failed to link-local folder(restart terminal and try again)", err)
+	}
+
 	return nil
 
 }
