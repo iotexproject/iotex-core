@@ -105,6 +105,6 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 	}
 
 	sum := sha256.Sum256(msg)
-	generatedMessage = string(msg) + "\n\nThe sha256 hash is:" + hex.EncodeToString(sum[:])
+	generatedMessage = string(msg) + "\n\nThe hex encoded SHA256 hash of the DID doc is:" + hex.EncodeToString(sum[:])
 	return
 }
