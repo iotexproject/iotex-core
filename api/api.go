@@ -193,7 +193,16 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 	}
-	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
+	tipHeight := api.bc.TipHeight()
+	header, err := api.bc.BlockHeaderByHeight(tipHeight)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	hash := header.HashBlock()
+	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta, BlockIdentifier: &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(hash[:]),
+		Height: tipHeight,
+	}}, nil
 }
 
 // GetActions returns actions
