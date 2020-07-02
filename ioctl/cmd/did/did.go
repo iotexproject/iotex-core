@@ -15,12 +15,12 @@ import (
 // Multi-language support
 var (
 	DIDCmdShorts = map[config.Language]string{
-		config.English: "Generate DID document",
-		config.Chinese: "产生DID document",
+		config.English: "DID command",
+		config.Chinese: "DID command",
 	}
 	DIDCmdUses = map[config.Language]string{
-		config.English: "did",
-		config.Chinese: "did",
+		config.English: "did command",
+		config.Chinese: "did command",
 	}
 )
 
@@ -32,4 +32,9 @@ var DIDCmd = &cobra.Command{
 
 func init() {
 	DIDCmd.AddCommand(didGenerateCmd)
+	DIDCmd.AddCommand(didRegisterCmd)
+	DIDCmd.AddCommand(didGetHashCmd)
+	DIDCmd.AddCommand(didGetURICmd)
+	DIDCmd.AddCommand(didUpdateCmd)
+	DIDCmd.AddCommand(didDeregisterCmd)
 }

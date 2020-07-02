@@ -30,10 +30,6 @@ var (
 		config.English: "generate [-s SIGNER]",
 		config.Chinese: "generate [-s 签署人]",
 	}
-	flagSignerUsages = map[config.Language]string{
-		config.English: "choose a signing account",
-		config.Chinese: "选择一个签名账户",
-	}
 )
 
 // didGenerateCmd represents the generate command
