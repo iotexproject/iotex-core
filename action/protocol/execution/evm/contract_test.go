@@ -68,7 +68,7 @@ func TestCreateContract(t *testing.T) {
 	_, err = accountutil.LoadOrCreateAccount(sm, addr.String())
 	require.NoError(err)
 	hu := config.NewHeightUpgrade(&cfg.Genesis)
-	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hash.ZeroHash256)
+	stateDB := NewStateDBAdapter(sm, 0, hu.IsPre(config.Aleutian, 0), hu.IsPost(config.Greenland, 0), hash.ZeroHash256)
 	contract := addr.Bytes()
 	var evmContract common.Address
 	copy(evmContract[:], contract[:])
@@ -97,12 +97,12 @@ func TestCreateContract(t *testing.T) {
 func TestLoadStoreCommit(t *testing.T) {
 	require := require.New(t)
 
-	testLoadStoreCommit := func(cfg config.Config, t *testing.T) {
+	testLoadStoreCommit := func(cfg config.Config, t *testing.T, enableAsync bool) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		sm, err := initMockStateManager(ctrl)
 		require.NoError(err)
-		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm)
+		cntr1, err := newContract(hash.BytesToHash160(c1[:]), &state.Account{}, sm, enableAsync)
 		require.NoError(err)
 
 		tests := []cntrTest{
@@ -202,28 +202,48 @@ func TestLoadStoreCommit(t *testing.T) {
 		}
 	}
 
-	testTriePath, err := testutil.PathOfTempFile("trie")
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(t, testTriePath)
-	}()
-
 	cfg := config.Default
-	cfg.Chain.TrieDBPath = testTriePath
-	t.Run("contract load/store with stateDB", func(t *testing.T) {
-		testLoadStoreCommit(cfg, t)
+	t.Run("contract load/store with stateDB, sync mode", func(t *testing.T) {
+		testTriePath, err := testutil.PathOfTempFile("trie")
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, testTriePath)
+		}()
+
+		cfg.Chain.TrieDBPath = testTriePath
+		testLoadStoreCommit(cfg, t, false)
+	})
+	t.Run("contract load/store with stateDB, async mode", func(t *testing.T) {
+		testTriePath, err := testutil.PathOfTempFile("trie")
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, testTriePath)
+		}()
+
+		cfg := config.Default
+		cfg.Chain.TrieDBPath = testTriePath
+		testLoadStoreCommit(cfg, t, true)
 	})
 
-	testTriePath2, err := testutil.PathOfTempFile("trie")
-	require.NoError(err)
-	defer func() {
-		testutil.CleanupPath(t, testTriePath2)
-	}()
-	cfg.Chain.EnableTrielessStateDB = false
-	cfg.Chain.TrieDBPath = testTriePath2
-
-	t.Run("contract load/store with trie", func(t *testing.T) {
-		testLoadStoreCommit(cfg, t)
+	t.Run("contract load/store with trie, sync mode", func(t *testing.T) {
+		testTriePath2, err := testutil.PathOfTempFile("trie")
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, testTriePath2)
+		}()
+		cfg.Chain.EnableTrielessStateDB = false
+		cfg.Chain.TrieDBPath = testTriePath2
+		testLoadStoreCommit(cfg, t, false)
+	})
+	t.Run("contract load/store with trie, async mode", func(t *testing.T) {
+		testTriePath2, err := testutil.PathOfTempFile("trie")
+		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, testTriePath2)
+		}()
+		cfg.Chain.EnableTrielessStateDB = false
+		cfg.Chain.TrieDBPath = testTriePath2
+		testLoadStoreCommit(cfg, t, true)
 	})
 }
 
@@ -231,22 +251,31 @@ func TestSnapshot(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm, err := initMockStateManager(ctrl)
-	require.NoError(err)
-	s := &state.Account{
-		Balance: big.NewInt(5),
+	testfunc := func(enableAsync bool) {
+		sm, err := initMockStateManager(ctrl)
+		require.NoError(err)
+		s := &state.Account{
+			Balance: big.NewInt(5),
+		}
+		c1, err := newContract(
+			hash.BytesToHash160(identityset.Address(28).Bytes()),
+			s,
+			sm,
+			enableAsync,
+		)
+		require.NoError(err)
+		require.NoError(c1.SetState(k2b, v2[:]))
+		c2 := c1.Snapshot()
+		require.NoError(c1.SelfState().AddBalance(big.NewInt(7)))
+		require.NoError(c1.SetState(k1b, v1[:]))
+		require.Equal(big.NewInt(12), c1.SelfState().Balance)
+		require.Equal(big.NewInt(5), c2.SelfState().Balance)
+		require.NotEqual(c1.RootHash(), c2.RootHash())
 	}
-	c1, err := newContract(
-		hash.BytesToHash160(identityset.Address(28).Bytes()),
-		s,
-		sm,
-	)
-	require.NoError(err)
-	require.NoError(c1.SetState(k2b, v2[:]))
-	c2 := c1.Snapshot()
-	require.NoError(c1.SelfState().AddBalance(big.NewInt(7)))
-	require.NoError(c1.SetState(k1b, v1[:]))
-	require.Equal(big.NewInt(12), c1.SelfState().Balance)
-	require.Equal(big.NewInt(5), c2.SelfState().Balance)
-	require.NotEqual(c1.RootHash(), c2.RootHash())
+	t.Run("sync mode", func(t *testing.T) {
+		testfunc(false)
+	})
+	t.Run("async mode", func(t *testing.T) {
+		testfunc(true)
+	})
 }
