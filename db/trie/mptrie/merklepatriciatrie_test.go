@@ -534,9 +534,18 @@ func TestCollision(t *testing.T) {
 }
 
 func Test4kEntries(t *testing.T) {
+	t.Run("test async mode", func(t *testing.T) {
+		test4kEntries(t, true)
+	})
+	t.Run("test sync mode", func(t *testing.T) {
+		test4kEntries(t, false)
+	})
+}
+
+func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4))
+	tr, err := New(KeyLengthOption(4), AsyncOption())
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	root, err := tr.RootHash()
