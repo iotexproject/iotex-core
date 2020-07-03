@@ -23,5 +23,5 @@ func TestReadView(t *testing.T){
 	retrdf,retErr := ws.ReadView("")
 	expectedErrors := errors.New("name : name does not exist")
 	require.EqualError(retErr, expectedErrors.Error())
-	require.Equal(retrdf, nil)
+	require.Equal(retrdf, "")
 }
