@@ -11,6 +11,7 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	db "github.com/iotexproject/iotex-core/db"
+	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	reflect "reflect"
 )
 
@@ -300,6 +301,35 @@ func (m *MockBlockDAO) FooterByHeight(arg0 uint64) (*block.Footer, error) {
 func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
+}
+
+// ContainsSystemLog mocks base method
+func (m *MockBlockDAO) ContainsSystemLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainsSystemLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ContainsSystemLog indicates an expected call of ContainsSystemLog
+func (mr *MockBlockDAOMockRecorder) ContainsSystemLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsSystemLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsSystemLog))
+}
+
+// GetSystemLog mocks base method
+func (m *MockBlockDAO) GetSystemLog(arg0 uint64) (*iotextypes.BlockSystemLog, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSystemLog", arg0)
+	ret0, _ := ret[0].(*iotextypes.BlockSystemLog)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSystemLog indicates an expected call of GetSystemLog
+func (mr *MockBlockDAOMockRecorder) GetSystemLog(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLog", reflect.TypeOf((*MockBlockDAO)(nil).GetSystemLog), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

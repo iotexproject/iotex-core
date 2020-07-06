@@ -809,6 +809,58 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: transfers}, nil
 }
 
+// GetSystemLogByActionHash returns system log by action hash
+func (api *Server) GetSystemLogByActionHash(
+	ctx context.Context,
+	in *iotexapi.GetSystemLogByActionHashRequest) (*iotexapi.GetSystemLogByActionHashResponse, error) {
+	if !api.hasActionIndex || api.indexer == nil {
+		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+
+	h, err := hex.DecodeString(in.ActionHash)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	actIndex, err := api.indexer.GetActionIndex(h)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	sysLog, err := api.dao.GetSystemLog(actIndex.BlockHeight())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for _, log := range sysLog.ActionSystemLog {
+		if in.ActionHash == hex.EncodeToString(log.ActionHash) {
+			return &iotexapi.GetSystemLogByActionHashResponse{
+				ActionSystemLog: log,
+			}, nil
+		}
+	}
+	return nil, status.Errorf(codes.NotFound, "system log not found for action %s", in.ActionHash)
+}
+
+// GetSystemLogByBlockHeight returns system log by block height
+func (api *Server) GetSystemLogByBlockHeight(
+	ctx context.Context,
+	in *iotexapi.GetSystemLogByBlockHeightRequest) (*iotexapi.GetSystemLogByBlockHeightResponse, error) {
+	tip, err := api.dao.Height()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if in.BlockHeight < 1 || in.BlockHeight >= tip {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
+	}
+
+	sysLog, err := api.dao.GetSystemLog(in.BlockHeight)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &iotexapi.GetSystemLogByBlockHeightResponse{BlockSystemLog: sysLog}, nil
+}
+
 // Start starts the API server
 func (api *Server) Start() error {
 	portStr := ":" + strconv.Itoa(api.cfg.API.Port)

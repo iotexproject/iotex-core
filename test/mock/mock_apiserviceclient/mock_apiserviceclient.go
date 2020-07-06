@@ -375,6 +375,46 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
 }
 
+// GetSystemLogByActionHash mocks base method
+func (m *MockServiceClient) GetSystemLogByActionHash(ctx context.Context, in *iotexapi.GetSystemLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetSystemLogByActionHashResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSystemLogByActionHash", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetSystemLogByActionHashResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSystemLogByActionHash indicates an expected call of GetSystemLogByActionHash
+func (mr *MockServiceClientMockRecorder) GetSystemLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetSystemLogByActionHash), varargs...)
+}
+
+// GetSystemLogByBlockHeight mocks base method
+func (m *MockServiceClient) GetSystemLogByBlockHeight(ctx context.Context, in *iotexapi.GetSystemLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetSystemLogByBlockHeightResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetSystemLogByBlockHeight", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetSystemLogByBlockHeightResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSystemLogByBlockHeight indicates an expected call of GetSystemLogByBlockHeight
+func (mr *MockServiceClientMockRecorder) GetSystemLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetSystemLogByBlockHeight), varargs...)
+}
+
 // StreamBlocks mocks base method
 func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error) {
 	m.ctrl.T.Helper()

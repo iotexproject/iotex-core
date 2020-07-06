@@ -49,6 +49,7 @@ const (
 	blockBodyNS              = "bbd"
 	blockFooterNS            = "bfr"
 	receiptsNS               = "rpt"
+	systemLogNS              = "syl"
 )
 
 var (
@@ -94,6 +95,8 @@ type (
 		KVStore() db.KVStore
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
+		ContainsSystemLog() bool
+		GetSystemLog(uint64) (*iotextypes.BlockSystemLog, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -160,11 +163,15 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
 	}
-	// set init height value
+	// set init height value and system log flag
 	if _, err = dao.kvStore.Get(blockNS, topHeightKey); err != nil &&
 		errors.Cause(err) == db.ErrNotExist {
-		if err := dao.kvStore.Put(blockNS, topHeightKey, make([]byte, 8)); err != nil {
+		zero8bytes := make([]byte, 8)
+		if err := dao.kvStore.Put(blockNS, topHeightKey, zero8bytes); err != nil {
 			return errors.Wrap(err, "failed to write initial value for top height")
+		}
+		if err := dao.kvStore.Put(systemLogNS, zero8bytes, []byte(systemLogNS)); err != nil {
+			return errors.Wrap(err, "failed to write initial value for system log")
 		}
 	}
 	tipHeight, err := dao.getTipHeight()
@@ -444,6 +451,23 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
+func (dao *blockDAO) ContainsSystemLog() bool {
+	sys, err := dao.kvStore.Get(systemLogNS, make([]byte, 8))
+	return err == nil && string(sys) == systemLogNS
+}
+
+func (dao *blockDAO) GetSystemLog(height uint64) (*iotextypes.BlockSystemLog, error) {
+	if !dao.ContainsSystemLog() {
+		return nil, db.ErrNotExist
+	}
+
+	logsBytes, err := dao.kvStore.Get(systemLogNS, heightKey(height))
+	if err != nil {
+		return nil, err
+	}
+	return action.DeserializeBlockSystemLogPb(logsBytes)
+}
+
 func (dao *blockDAO) indexFile(height uint64, index []byte) error {
 	dao.mutex.Lock()
 	defer dao.mutex.Unlock()
@@ -719,9 +743,15 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	}
 	batchForBlock := batch.NewBatch()
 	hash := blk.HashBlock()
+	heightKey := heightKey(blkHeight)
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
+	if dao.ContainsSystemLog() {
+		if sysLog := action.SystemLogFromReceipt(blk.Receipts); sysLog != nil {
+			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put system log")
+		}
+	}
 	kv, _, err := dao.getTopDB(blkHeight)
 	if err != nil {
 		return err
@@ -746,7 +776,6 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	heightValue := byteutil.Uint64ToBytes(blkHeight)
 	hashKey := hashKey(hash)
 	b.Put(blockHashHeightMappingNS, hashKey, heightValue, "failed to put hash -> height mapping")
-	heightKey := heightKey(blkHeight)
 	b.Put(blockHashHeightMappingNS, heightKey, hash[:], "failed to put height -> hash mapping")
 	tipHeight, err := dao.kvStore.Get(blockNS, topHeightKey)
 	if err != nil {
@@ -944,11 +973,23 @@ func (dao *blockDAO) openDB(idx uint64) (kvStore db.KVStore, index uint64, err e
 	defer dao.mutex.Unlock()
 	// open or create this db file
 	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
+	var newFile bool
+	_, err = os.Stat(cfg.DbPath)
+	if err != nil && os.IsNotExist(err) {
+		newFile = true
+	}
+
 	kvStore = db.NewBoltDB(cfg)
 	dao.kvStores.Store(idx, kvStore)
 	err = kvStore.Start(context.Background())
 	if err != nil {
 		return
+	}
+
+	if newFile {
+		if err = kvStore.Put(systemLogNS, make([]byte, 8), []byte(systemLogNS)); err != nil {
+			return
+		}
 	}
 	dao.lifecycle.Add(kvStore)
 	index = idx
