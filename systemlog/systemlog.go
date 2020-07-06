@@ -121,7 +121,7 @@ func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 
 		evmTransferList := &iotextypes.EvmTransferList{}
 		for _, l := range receipt.Logs {
-			if action.IsSystemLog(l) {
+			if action.IsEvmTransfer(l) {
 				// TODO: switch different kinds of system log
 				fromAddr, err := address.FromBytes(l.Topics[1][12:])
 				if err != nil {

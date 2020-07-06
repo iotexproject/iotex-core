@@ -104,9 +104,10 @@ func TestConvertLog(t *testing.T) {
 	require.Equal(log.ActionHash, log2.ActionHash)
 	require.Equal(log.Index, log2.Index)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
-	require.Equal(topics[2], log2.Topics[0])
-	require.Equal(topics[2], log2.Topics[1])
-	require.Equal(topics[2], log2.Topics[2])
+	last := len(log2.Topics) - 1
+	for _, v := range log2.Topics[:last] {
+		require.Equal(topics[last], v)
+	}
 
 	log.NotFixTopicCopyBug = false
 	typeLog = log.ConvertToLogPb()
@@ -135,9 +136,10 @@ func TestSerDerLog(t *testing.T) {
 	require.Equal(log.ActionHash, log2.ActionHash)
 	require.Equal(log.Index, log2.Index)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
-	require.Equal(topics[2], log2.Topics[0])
-	require.Equal(topics[2], log2.Topics[1])
-	require.Equal(topics[2], log2.Topics[2])
+	last := len(log2.Topics) - 1
+	for _, v := range log2.Topics[:last] {
+		require.Equal(topics[last], v)
+	}
 
 	log.NotFixTopicCopyBug = false
 	typeLog, err = log.Serialize()

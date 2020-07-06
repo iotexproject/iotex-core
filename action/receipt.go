@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -13,18 +13,55 @@ import (
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// InContractTransfer is topic for system log of evm transfer
-var InContractTransfer = common.Hash{} // 32 bytes with all zeros
+// constants
+const (
+	StakingProtocolID = "staking"
+)
+
+var (
+	// InContractTransfer is topic for system log of evm transfer
+	InContractTransfer = common.Hash{} // 32 bytes with all zeros
+
+	// BucketWithdraAmount is topic for bucket withdraw
+	BucketWithdraAmount = hash.BytesToHash256([]byte("withdrawAmount"))
+)
 
 // IsSystemLog checks whether a log is system log
-// lowerBound chooses the largest system log topic, which is InContractTransfer currently
 func IsSystemLog(l *Log) bool {
-	if len(l.Topics) == 0 {
+	return IsEvmTransfer(l) || IsWithdrawBucket(l)
+}
+
+// IsWithdrawBucket checks withdraw bucket log
+func IsWithdrawBucket(l *Log) bool {
+	if l == nil || len(l.Topics) == 0 {
+		return false
+	}
+
+	h := hash.Hash160b([]byte(StakingProtocolID))
+	addr, _ := address.FromBytes(h[:])
+	if l.Address != addr.String() {
+		return false
+	}
+
+	if l.Topics[0] != BucketWithdraAmount {
+		return false
+	}
+
+	if len(l.Topics) < 3 || l.Index != 1 {
+		panic("withdraw bucket log is corrupted")
+	}
+	return true
+}
+
+// IsEvmTransfer checks evm transfer log
+func IsEvmTransfer(l *Log) bool {
+	if l == nil || len(l.Topics) == 0 {
 		return false
 	}
 	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
