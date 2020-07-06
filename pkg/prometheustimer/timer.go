@@ -7,7 +7,7 @@
 package prometheustimer
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/facebookgo/clock"
 	"github.com/prometheus/client_golang/prometheus"
