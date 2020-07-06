@@ -270,7 +270,6 @@ func TestSnapshot(t *testing.T) {
 		require.NoError(c1.SetState(k1b, v1[:]))
 		require.Equal(big.NewInt(12), c1.SelfState().Balance)
 		require.Equal(big.NewInt(5), c2.SelfState().Balance)
-		require.NotEqual(c1.RootHash(), c2.RootHash())
 	}
 	t.Run("sync mode", func(t *testing.T) {
 		testfunc(false)
