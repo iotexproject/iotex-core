@@ -72,6 +72,9 @@ var (
 	suffixLen  = len(".db")
 	// ErrNotOpened indicates db is not opened
 	ErrNotOpened = errors.New("DB is not opened")
+
+	// ErrNotSupported indicates not supported
+	ErrNotSupported = errors.New("feature not supported")
 )
 
 type (
@@ -458,12 +461,12 @@ func (dao *blockDAO) ContainsSystemLog() bool {
 
 func (dao *blockDAO) GetSystemLog(height uint64) (*iotextypes.BlockSystemLog, error) {
 	if !dao.ContainsSystemLog() {
-		return nil, db.ErrNotExist
+		return nil, ErrNotSupported
 	}
 
 	logsBytes, err := dao.kvStore.Get(systemLogNS, heightKey(height))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get system log")
 	}
 	return block.DeserializeSystemLogPb(logsBytes)
 }

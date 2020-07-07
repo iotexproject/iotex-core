@@ -47,7 +47,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/systemlog"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -2091,33 +2090,29 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, *systemlog.Indexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	ap, err := setupActPool(sf, cfg.ActPool)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
-	}
-	systemLogIndexer, err := systemlog.NewIndexer(db.NewMemKVStore())
-	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create systemlog indexer")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
 	// systemLogIndexer is not added into blockDao
 	dao := blockdao.NewBlockDAO(db.NewMemKVStore(), []blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
 	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
@@ -2130,7 +2125,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		)),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -2148,22 +2143,22 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	r := rewarding.NewProtocol(0, 0)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
-	return bc, dao, indexer, systemLogIndexer, sf, ap, registry, nil
+	return bc, dao, indexer, sf, ap, registry, nil
 }
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
@@ -2175,36 +2170,6 @@ func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, erro
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 
 	return ap, nil
-}
-
-func setupSystemLogIndexer(indexer *systemlog.Indexer) error {
-	blk, err := block.NewTestingBuilder().
-		SetHeight(1).
-		SignAndBuild(identityset.PrivateKey(30))
-	if err != nil {
-		return err
-	}
-	emptyBlock, err := block.NewTestingBuilder().
-		SetHeight(2).
-		SignAndBuild(identityset.PrivateKey(30))
-	if err != nil {
-		return err
-	}
-	blk.Receipts = []*action.Receipt{testReceiptWithSystemLog}
-
-	ctx := context.Background()
-	if err := indexer.Start(ctx); err != nil {
-		return err
-	}
-
-	if err := indexer.PutBlock(ctx, &blk); err != nil {
-		return err
-	}
-	if err := indexer.PutBlock(ctx, &emptyBlock); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func newConfig(t *testing.T) config.Config {
@@ -2235,7 +2200,7 @@ func newConfig(t *testing.T) config.Config {
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	// TODO (zhi): revise
-	bc, dao, indexer, systemLogIndexer, sf, ap, registry, err := setupChain(cfg)
+	bc, dao, indexer, sf, ap, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -2251,10 +2216,6 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		return nil, err
 	}
 
-	// setup system log indexer
-	if err := setupSystemLogIndexer(systemLogIndexer); err != nil {
-		return nil, err
-	}
 	if needActPool {
 		// Add actions to actpool
 		ctx := protocol.WithRegistry(context.Background(), registry)
@@ -2264,16 +2225,15 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	svr := &Server{
-		bc:               bc,
-		sf:               sf,
-		dao:              dao,
-		indexer:          indexer,
-		systemLogIndexer: systemLogIndexer,
-		ap:               ap,
-		cfg:              cfg,
-		gs:               gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
-		registry:         registry,
-		hasActionIndex:   true,
+		bc:             bc,
+		sf:             sf,
+		dao:            dao,
+		indexer:        indexer,
+		ap:             ap,
+		cfg:            cfg,
+		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
+		registry:       registry,
+		hasActionIndex: true,
 	}
 
 	return svr, nil
