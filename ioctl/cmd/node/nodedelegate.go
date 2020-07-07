@@ -173,11 +173,6 @@ func delegates() error {
 }
 
 func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaResponse, message *delegatesMessage) error {
-	chainMeta, err := bc.GetChainMeta()
-	if err != nil {
-		return output.NewError(0, "failed to get chain meta", err)
-	}
-	epochNum = chainMeta.Epoch.Num
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -195,7 +190,7 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ActiveBlockProducersByEpoch"),
-		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochMeta.EpochData.Num, 10))},
 		Height:     strconv.FormatUint(epochMeta.EpochData.Height, 10),
 	}
 	abpResponse, err := cli.ReadState(ctx, request)
