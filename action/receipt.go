@@ -28,44 +28,9 @@ var (
 	// InContractTransfer is topic for system log of evm transfer
 	InContractTransfer = common.Hash{} // 32 bytes with all zeros
 
-	// BucketWithdraAmount is topic for bucket withdraw
-	BucketWithdraAmount = hash.BytesToHash256([]byte("withdrawAmount"))
+	// BucketWithdrawAmount is topic for bucket withdraw
+	BucketWithdrawAmount = hash.BytesToHash256([]byte("withdrawAmount"))
 )
-
-// IsSystemLog checks whether a log is system log
-func IsSystemLog(l *Log) bool {
-	return IsEvmTransfer(l) || IsWithdrawBucket(l)
-}
-
-// IsWithdrawBucket checks withdraw bucket log
-func IsWithdrawBucket(l *Log) bool {
-	if l == nil || len(l.Topics) == 0 {
-		return false
-	}
-
-	h := hash.Hash160b([]byte(StakingProtocolID))
-	addr, _ := address.FromBytes(h[:])
-	if l.Address != addr.String() {
-		return false
-	}
-
-	if l.Topics[0] != BucketWithdraAmount {
-		return false
-	}
-
-	if len(l.Topics) < 3 || l.Index != 1 {
-		panic("withdraw bucket log is corrupted")
-	}
-	return true
-}
-
-// IsEvmTransfer checks evm transfer log
-func IsEvmTransfer(l *Log) bool {
-	if l == nil || len(l.Topics) == 0 {
-		return false
-	}
-	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
-}
 
 type (
 	// Topics are data items of a transaction, such as send/recipient address
@@ -104,7 +69,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.Logs {
 		// exclude system log when calculating receipts' hash or storing logs
-		if !IsSystemLog(l) {
+		if !l.IsSystemLog() {
 			r.Logs = append(r.Logs, l.ConvertToLogPb())
 		}
 	}
@@ -198,4 +163,39 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
+}
+
+// IsSystemLog checks whether a log is system log
+func (log *Log) IsSystemLog() bool {
+	return log.IsEvmTransfer() || log.IsWithdrawBucket()
+}
+
+// IsWithdrawBucket checks withdraw bucket log
+func (log *Log) IsWithdrawBucket() bool {
+	if log == nil || len(log.Topics) == 0 {
+		return false
+	}
+
+	h := hash.Hash160b([]byte(StakingProtocolID))
+	addr, _ := address.FromBytes(h[:])
+	if log.Address != addr.String() {
+		return false
+	}
+
+	if log.Topics[0] != BucketWithdrawAmount {
+		return false
+	}
+
+	if len(log.Topics) < 3 || log.Index != 1 {
+		panic("withdraw bucket log is corrupted")
+	}
+	return true
+}
+
+// IsEvmTransfer checks evm transfer log
+func (log *Log) IsEvmTransfer() bool {
+	if log == nil || len(log.Topics) == 0 {
+		return false
+	}
+	return bytes.Compare(InContractTransfer[:], log.Topics[0][:]) >= 0
 }

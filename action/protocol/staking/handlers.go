@@ -238,7 +238,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	amountLog := action.Log{
 		Address: p.addr.String(),
 		Topics: action.Topics{
-			action.BucketWithdraAmount,
+			action.BucketWithdrawAmount,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
 		},
@@ -793,7 +793,7 @@ func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
 		hash.BytesToHash256([]byte(HandleWithdrawStake)), hash.BytesToHash256([]byte(HandleChangeCandidate)),
 		hash.BytesToHash256([]byte(HandleTransferStake)), hash.BytesToHash256([]byte(HandleDepositToStake)),
 		hash.BytesToHash256([]byte(HandleRestake)), hash.BytesToHash256([]byte(HandleCandidateRegister)),
-		action.BucketWithdraAmount:
+		action.BucketWithdrawAmount:
 		return byteutil.BytesToUint64BigEndian(log.Topics[1][24:]), true
 	default:
 		return 0, false

@@ -1281,9 +1281,11 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// check the special withdraw bucket log
 			require.Equal(2, len(r.Logs))
-			require.True(action.IsWithdrawBucket(r.Logs[1]))
-			require.Equal(action.BucketWithdraAmount, r.Logs[1].Topics[0])
-			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(r.Logs[1].Topics[1][24:]))
+			wLog := r.Logs[1]
+			require.True(wLog.IsWithdrawBucket())
+			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(wLog.Topics[1][24:]))
+			to, _ := address.FromBytes(wLog.Topics[2][12:])
+			require.True(address.Equal(caller, to))
 			amount := new(big.Int).SetBytes(r.Logs[1].Data)
 			require.Equal(test.amount, amount.String())
 

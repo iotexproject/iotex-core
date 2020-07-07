@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package action
+package block
 
 import (
 	"math/big"
@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -27,43 +28,43 @@ var (
 	recver      = identityset.Address(1)
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
 
-	evmTopics = []hash.Hash256{hash.BytesToHash256(InContractTransfer[:]), senderTopic, recverTopic}
-	evmLog    = &Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	evmTopics = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
+	evmLog    = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 
-	withdrawTopics = []hash.Hash256{BucketWithdraAmount, hash.ZeroHash256, senderTopic}
-	withdrawLog    = &Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, hash.ZeroHash256, senderTopic}
+	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 
-	normalLog = &Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	panicLog  = &Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	normalLog = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	panicLog  = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 
 	receiptTest = []struct {
-		r   *Receipt
+		r   *action.Receipt
 		num uint64
 	}{
 		{
 			// failed receipt
-			&Receipt{Status: uint64(iotextypes.ReceiptStatus_Failure)},
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Failure)},
 			0,
 		},
 		{
 			// success but not system log
-			&Receipt{
-				Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*Log{normalLog}},
+			&action.Receipt{
+				Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog}},
 			0,
 		},
 		{
 			// contain evm transfer
-			&Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*Log{evmLog}},
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{evmLog}},
 			1,
 		},
 		{
 			// contain withdraw bucket
-			&Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*Log{withdrawLog}},
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{withdrawLog}},
 			1,
 		},
 		{
 			// contain both
-			&Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*Log{evmLog, withdrawLog}},
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{evmLog, withdrawLog}},
 			2,
 		},
 	}
@@ -72,28 +73,28 @@ var (
 func TestIsSystemLog(t *testing.T) {
 	r := require.New(t)
 
-	r.True(IsEvmTransfer(evmLog))
-	r.False(IsEvmTransfer(withdrawLog))
-	r.False(IsEvmTransfer(normalLog))
-	r.False(IsEvmTransfer(panicLog))
+	r.True(evmLog.IsEvmTransfer())
+	r.False(withdrawLog.IsEvmTransfer())
+	r.False(normalLog.IsEvmTransfer())
+	r.False(panicLog.IsEvmTransfer())
 
-	r.True(IsWithdrawBucket(withdrawLog))
-	r.False(IsWithdrawBucket(evmLog))
-	r.False(IsWithdrawBucket(normalLog))
-	r.Panics(func() { IsWithdrawBucket(panicLog) })
+	r.True(withdrawLog.IsWithdrawBucket())
+	r.False(evmLog.IsWithdrawBucket())
+	r.False(normalLog.IsWithdrawBucket())
+	r.Panics(func() { panicLog.IsWithdrawBucket() })
 }
 
-func validateSystemLog(r *require.Assertions, log *Log, rec *TokenTxRecord) bool {
-	if !IsSystemLog(log) {
+func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
+	if !log.IsSystemLog() {
 		return false
 	}
 	txAmount := new(big.Int).SetBytes(log.Data)
 	r.Equal(txAmount.String(), rec.amount)
-	if IsEvmTransfer(log) {
+	if log.IsEvmTransfer() {
 		from, _ := address.FromBytes(log.Topics[1][12:])
 		r.Equal(from.String(), rec.sender)
 	}
-	if IsWithdrawBucket(log) {
+	if log.IsWithdrawBucket() {
 		r.Equal(log.Address, rec.sender)
 	}
 	to, _ := address.FromBytes(log.Topics[2][12:])
@@ -123,14 +124,14 @@ func TestSystemLogFromReceipt(t *testing.T) {
 
 	blkLog := SystemLogFromReceipt(nil)
 	r.Nil(blkLog)
-	blkLog = SystemLogFromReceipt([]*Receipt{})
+	blkLog = SystemLogFromReceipt([]*action.Receipt{})
 	r.Nil(blkLog)
-	blkLog = SystemLogFromReceipt([]*Receipt{&Receipt{
-		Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*Log{normalLog}},
+	blkLog = SystemLogFromReceipt([]*action.Receipt{&action.Receipt{
+		Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog}},
 	})
 	r.Nil(blkLog)
 
-	sysReceipts := []*Receipt{}
+	sysReceipts := []*action.Receipt{}
 	for i := range receiptTest {
 		if receiptTest[i].num > 0 {
 			sysReceipts = append(sysReceipts, receiptTest[i].r)
@@ -143,7 +144,7 @@ func TestSystemLogFromReceipt(t *testing.T) {
 	// test serialize/deserialize
 	b := blkLog.Serialize()
 	r.NotNil(b)
-	pb, err := DeserializeBlockSystemLogPb(b)
+	pb, err := DeserializeSystemLogPb(b)
 	r.NoError(err)
 
 	// verify block systemlog pb message

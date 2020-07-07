@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package action
+package block
 
 import (
 	"math/big"
@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -27,34 +28,22 @@ type (
 		recipient string
 	}
 
-	// SystemLog is system log in one action
-	SystemLog struct {
+	// ActionSystemLog is system log in one action
+	ActionSystemLog struct {
 		actHash   hash.Hash256
 		numTxs    uint64
 		txRecords []*TokenTxRecord
 	}
 
-	// BlockSystemLog is system log in one block
-	BlockSystemLog struct {
+	// SystemLog is system log in one block
+	SystemLog struct {
 		numActions uint64
-		actionLogs []*SystemLog
+		actionLogs []*ActionSystemLog
 	}
 )
 
-// Deserialize parse the byte stream into BlockSystemLog
-func (log *BlockSystemLog) Deserialize(buf []byte) error {
-	_, err := DeserializeBlockSystemLogPb(buf)
-	if err != nil {
-		return err
-	}
-
-	log.numActions = 0
-	log.actionLogs = log.actionLogs[:0]
-	return nil
-}
-
-// DeserializeBlockSystemLogPb parse the byte stream into BlockSystemLog Pb message
-func DeserializeBlockSystemLogPb(buf []byte) (*iotextypes.BlockSystemLog, error) {
+// DeserializeSystemLogPb parse the byte stream into SystemLog Pb message
+func DeserializeSystemLogPb(buf []byte) (*iotextypes.BlockSystemLog, error) {
 	pb := &iotextypes.BlockSystemLog{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return nil, err
@@ -62,12 +51,12 @@ func DeserializeBlockSystemLogPb(buf []byte) (*iotextypes.BlockSystemLog, error)
 	return pb, nil
 }
 
-// Serialize returns a serialized byte stream for BlockSystemLog
-func (log *BlockSystemLog) Serialize() []byte {
+// Serialize returns a serialized byte stream for SystemLog
+func (log *SystemLog) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(log.toProto()))
 }
 
-func (log *BlockSystemLog) toProto() *iotextypes.BlockSystemLog {
+func (log *SystemLog) toProto() *iotextypes.BlockSystemLog {
 	if len(log.actionLogs) == 0 {
 		return nil
 	}
@@ -88,7 +77,7 @@ func (log *BlockSystemLog) toProto() *iotextypes.BlockSystemLog {
 	return &sysLog
 }
 
-func (log *SystemLog) toProto() *iotextypes.ActionSystemLog {
+func (log *ActionSystemLog) toProto() *iotextypes.ActionSystemLog {
 	if len(log.txRecords) == 0 {
 		return nil
 	}
@@ -118,13 +107,13 @@ func (log *TokenTxRecord) toProto() *iotextypes.ActionSystemLog_Transaction {
 }
 
 // SystemLogFromReceipt returns system logs in the receipt
-func SystemLogFromReceipt(receipts []*Receipt) *BlockSystemLog {
+func SystemLogFromReceipt(receipts []*action.Receipt) *SystemLog {
 	if len(receipts) == 0 {
 		return nil
 	}
 
-	blkLog := BlockSystemLog{
-		actionLogs: []*SystemLog{},
+	blkLog := SystemLog{
+		actionLogs: []*ActionSystemLog{},
 	}
 	for _, r := range receipts {
 		if log := ReceiptSystemLog(r); log != nil {
@@ -140,12 +129,12 @@ func SystemLogFromReceipt(receipts []*Receipt) *BlockSystemLog {
 }
 
 // ReceiptSystemLog generates system log from receipt
-func ReceiptSystemLog(r *Receipt) *SystemLog {
+func ReceiptSystemLog(r *action.Receipt) *ActionSystemLog {
 	if r == nil || len(r.Logs) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
 
-	actionLog := SystemLog{
+	actionLog := ActionSystemLog{
 		actHash:   r.ActionHash,
 		txRecords: []*TokenTxRecord{},
 	}
@@ -163,18 +152,18 @@ func ReceiptSystemLog(r *Receipt) *SystemLog {
 }
 
 // LogTokenTxRecord generates token transaction record from log
-func LogTokenTxRecord(log *Log) *TokenTxRecord {
+func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
 	txRecord := TokenTxRecord{}
 
 	switch {
-	case IsEvmTransfer(log):
+	case log.IsEvmTransfer():
 		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
 		from, _ := address.FromBytes(log.Topics[1][12:])
 		txRecord.sender = from.String()
 		to, _ := address.FromBytes(log.Topics[2][12:])
 		txRecord.recipient = to.String()
 		return &txRecord
-	case IsWithdrawBucket(log):
+	case log.IsWithdrawBucket():
 		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
 		txRecord.sender = log.Address
 		to, _ := address.FromBytes(log.Topics[2][12:])

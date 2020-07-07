@@ -465,7 +465,7 @@ func (dao *blockDAO) GetSystemLog(height uint64) (*iotextypes.BlockSystemLog, er
 	if err != nil {
 		return nil, err
 	}
-	return action.DeserializeBlockSystemLogPb(logsBytes)
+	return block.DeserializeSystemLogPb(logsBytes)
 }
 
 func (dao *blockDAO) indexFile(height uint64, index []byte) error {
@@ -748,7 +748,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
 	if dao.ContainsSystemLog() {
-		if sysLog := action.SystemLogFromReceipt(blk.Receipts); sysLog != nil {
+		if sysLog := block.SystemLogFromReceipt(blk.Receipts); sysLog != nil {
 			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put system log")
 		}
 	}
@@ -870,7 +870,11 @@ func (dao *blockDAO) getTopDB(blkHeight uint64) (kvStore db.KVStore, index uint6
 	}
 	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
 	dat, err := os.Stat(longFileName)
-	if err != nil && os.IsNotExist(err) {
+	if err != nil {
+		if !os.IsNotExist(err) {
+			// something wrong getting FileInfo
+			return
+		}
 		// index the height --> file index mapping
 		if err = dao.indexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(topIndex)); err != nil {
 			return
@@ -975,7 +979,11 @@ func (dao *blockDAO) openDB(idx uint64) (kvStore db.KVStore, index uint64, err e
 	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
 	var newFile bool
 	_, err = os.Stat(cfg.DbPath)
-	if err != nil && os.IsNotExist(err) {
+	if err != nil {
+		if !os.IsNotExist(err) {
+			// something wrong getting FileInfo
+			return
+		}
 		newFile = true
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -121,7 +120,7 @@ func (x *Indexer) PutBlock(_ context.Context, blk *block.Block) error {
 
 		evmTransferList := &iotextypes.EvmTransferList{}
 		for _, l := range receipt.Logs {
-			if action.IsEvmTransfer(l) {
+			if l.IsEvmTransfer() {
 				// TODO: switch different kinds of system log
 				fromAddr, err := address.FromBytes(l.Topics[1][12:])
 				if err != nil {
