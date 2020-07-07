@@ -165,7 +165,7 @@ func TestBlockDAO(t *testing.T) {
 		defer func() {
 			require.NoError(dao.Stop(ctx))
 		}()
-		require.True(dao.ContainsSystemLog())
+		require.True(dao.ContainsImplicitTransferLog())
 
 		// receipts for the 3 blocks
 		receipts := [][]*action.Receipt{

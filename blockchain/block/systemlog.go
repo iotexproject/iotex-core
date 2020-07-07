@@ -28,62 +28,85 @@ type (
 		recipient string
 	}
 
-	// ActionSystemLog is system log in one action
-	ActionSystemLog struct {
+	// ImplictTransferLog is system log in one action
+	ImplictTransferLog struct {
 		actHash   hash.Hash256
 		numTxs    uint64
 		txRecords []*TokenTxRecord
 	}
 
-	// SystemLog is system log in one block
-	SystemLog struct {
+	// BlkImplictTransferLog is system log in one block
+	BlkImplictTransferLog struct {
 		numActions uint64
-		actionLogs []*ActionSystemLog
+		actionLogs []*ImplictTransferLog
 	}
 )
 
-// DeserializeSystemLogPb parse the byte stream into SystemLog Pb message
-func DeserializeSystemLogPb(buf []byte) (*iotextypes.BlockSystemLog, error) {
-	pb := &iotextypes.BlockSystemLog{}
+// NewImplictTransferLog creates a new ImplictTransferLog
+func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *ImplictTransferLog {
+	if len(records) == 0 {
+		return nil
+	}
+
+	return &ImplictTransferLog{
+		actHash:   actHash,
+		numTxs:    uint64(len(records)),
+		txRecords: records,
+	}
+}
+
+// NewTokenTxRecord creates a new TokenTxRecord
+func NewTokenTxRecord(amount, sender, recipient string) *TokenTxRecord {
+	return &TokenTxRecord{
+		amount:    amount,
+		sender:    sender,
+		recipient: recipient,
+	}
+}
+
+// DeserializeSystemLogPb parse the byte stream into BlkImplictTransferLog Pb message
+func DeserializeSystemLogPb(buf []byte) (*iotextypes.BlockImplicitTransferLog, error) {
+	pb := &iotextypes.BlockImplicitTransferLog{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
 }
 
-// Serialize returns a serialized byte stream for SystemLog
-func (log *SystemLog) Serialize() []byte {
+// Serialize returns a serialized byte stream for BlkImplictTransferLog
+func (log *BlkImplictTransferLog) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(log.toProto()))
 }
 
-func (log *SystemLog) toProto() *iotextypes.BlockSystemLog {
+func (log *BlkImplictTransferLog) toProto() *iotextypes.BlockImplicitTransferLog {
 	if len(log.actionLogs) == 0 {
 		return nil
 	}
 
-	sysLog := iotextypes.BlockSystemLog{
-		ActionSystemLog: []*iotextypes.ActionSystemLog{},
+	sysLog := iotextypes.BlockImplicitTransferLog{
+		ImplicitTransferLog: []*iotextypes.ImplicitTransferLog{},
 	}
 	for _, l := range log.actionLogs {
-		if log := l.toProto(); log != nil {
-			sysLog.ActionSystemLog = append(sysLog.ActionSystemLog, log)
+		if log := l.Proto(); log != nil {
+			sysLog.ImplicitTransferLog = append(sysLog.ImplicitTransferLog, log)
 			sysLog.NumTransactions++
 		}
 	}
 
-	if len(sysLog.ActionSystemLog) == 0 {
+	if len(sysLog.ImplicitTransferLog) == 0 {
 		return nil
 	}
 	return &sysLog
 }
 
-func (log *ActionSystemLog) toProto() *iotextypes.ActionSystemLog {
+func (log *ImplictTransferLog) Proto() *iotextypes.ImplicitTransferLog {
 	if len(log.txRecords) == 0 {
 		return nil
 	}
 
-	actionLog := iotextypes.ActionSystemLog{
-		Transactions: []*iotextypes.ActionSystemLog_Transaction{},
+	actionLog := iotextypes.ImplicitTransferLog{
+		ActionHash:   log.actHash[:],
+		Transactions: []*iotextypes.ImplicitTransferLog_Transaction{},
 	}
 	for _, l := range log.txRecords {
 		if record := l.toProto(); record != nil {
@@ -98,8 +121,8 @@ func (log *ActionSystemLog) toProto() *iotextypes.ActionSystemLog {
 	return &actionLog
 }
 
-func (log *TokenTxRecord) toProto() *iotextypes.ActionSystemLog_Transaction {
-	return &iotextypes.ActionSystemLog_Transaction{
+func (log *TokenTxRecord) toProto() *iotextypes.ImplicitTransferLog_Transaction {
+	return &iotextypes.ImplicitTransferLog_Transaction{
 		Amount:    log.amount,
 		Sender:    log.sender,
 		Recipient: log.recipient,
@@ -107,13 +130,13 @@ func (log *TokenTxRecord) toProto() *iotextypes.ActionSystemLog_Transaction {
 }
 
 // SystemLogFromReceipt returns system logs in the receipt
-func SystemLogFromReceipt(receipts []*action.Receipt) *SystemLog {
+func SystemLogFromReceipt(receipts []*action.Receipt) *BlkImplictTransferLog {
 	if len(receipts) == 0 {
 		return nil
 	}
 
-	blkLog := SystemLog{
-		actionLogs: []*ActionSystemLog{},
+	blkLog := BlkImplictTransferLog{
+		actionLogs: []*ImplictTransferLog{},
 	}
 	for _, r := range receipts {
 		if log := ReceiptSystemLog(r); log != nil {
@@ -129,12 +152,12 @@ func SystemLogFromReceipt(receipts []*action.Receipt) *SystemLog {
 }
 
 // ReceiptSystemLog generates system log from receipt
-func ReceiptSystemLog(r *action.Receipt) *ActionSystemLog {
+func ReceiptSystemLog(r *action.Receipt) *ImplictTransferLog {
 	if r == nil || len(r.Logs) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
 
-	actionLog := ActionSystemLog{
+	actionLog := ImplictTransferLog{
 		actHash:   r.ActionHash,
 		txRecords: []*TokenTxRecord{},
 	}

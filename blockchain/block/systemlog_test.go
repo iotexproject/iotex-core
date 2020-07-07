@@ -149,8 +149,8 @@ func TestSystemLogFromReceipt(t *testing.T) {
 
 	// verify block systemlog pb message
 	r.EqualValues(len(sysReceipts), pb.NumTransactions)
-	r.Equal(len(sysReceipts), len(pb.ActionSystemLog))
-	for i, sysLog := range pb.ActionSystemLog {
+	r.Equal(len(sysReceipts), len(pb.ImplicitTransferLog))
+	for i, sysLog := range pb.ImplicitTransferLog {
 		receipt := sysReceipts[i]
 		r.Equal(receipt.ActionHash, hash.BytesToHash256(sysLog.ActionHash))
 		r.EqualValues(len(receipt.Logs), sysLog.NumTransactions)

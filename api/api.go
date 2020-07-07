@@ -57,8 +57,7 @@ var (
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
 	// ErrAction indicates the error of action
-	ErrAction        = errors.New("invalid action")
-	candidateNameLen = 12
+	ErrAction = errors.New("invalid action")
 )
 
 // BroadcastOutbound sends a broadcast message to the whole network
@@ -769,13 +768,13 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 }
 
 // GetSystemLogByActionHash returns system log by action hash
-func (api *Server) GetSystemLogByActionHash(
+func (api *Server) GetImplicitTransferLogByActionHash(
 	ctx context.Context,
-	in *iotexapi.GetSystemLogByActionHashRequest) (*iotexapi.GetSystemLogByActionHashResponse, error) {
+	in *iotexapi.GetImplicitTransferLogByActionHashRequest) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
 	if !api.hasActionIndex || api.indexer == nil {
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
-	if !api.dao.ContainsSystemLog() {
+	if !api.dao.ContainsImplicitTransferLog() {
 		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
 	}
 
@@ -786,10 +785,13 @@ func (api *Server) GetSystemLogByActionHash(
 
 	actIndex, err := api.indexer.GetActionIndex(h)
 	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sysLog, err := api.dao.GetSystemLog(actIndex.BlockHeight())
+	sysLog, err := api.dao.GetImplicitTransferLog(actIndex.BlockHeight())
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -797,10 +799,10 @@ func (api *Server) GetSystemLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	for _, log := range sysLog.ActionSystemLog {
+	for _, log := range sysLog.ImplicitTransferLog {
 		if in.ActionHash == hex.EncodeToString(log.ActionHash) {
-			return &iotexapi.GetSystemLogByActionHashResponse{
-				ActionSystemLog: log,
+			return &iotexapi.GetImplicitTransferLogByActionHashResponse{
+				ImplicitTransferLog: log,
 			}, nil
 		}
 	}
@@ -808,10 +810,10 @@ func (api *Server) GetSystemLogByActionHash(
 }
 
 // GetSystemLogByBlockHeight returns system log by block height
-func (api *Server) GetSystemLogByBlockHeight(
+func (api *Server) GetImplicitTransferLogByBlockHeight(
 	ctx context.Context,
-	in *iotexapi.GetSystemLogByBlockHeightRequest) (*iotexapi.GetSystemLogByBlockHeightResponse, error) {
-	if !api.dao.ContainsSystemLog() {
+	in *iotexapi.GetImplicitTransferLogByBlockHeightRequest) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
+	if !api.dao.ContainsImplicitTransferLog() {
 		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
 	}
 
@@ -819,18 +821,18 @@ func (api *Server) GetSystemLogByBlockHeight(
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if in.BlockHeight < 1 || in.BlockHeight >= tip {
+	if in.BlockHeight < 1 || in.BlockHeight > tip {
 		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
 	}
 
-	sysLog, err := api.dao.GetSystemLog(in.BlockHeight)
+	sysLog, err := api.dao.GetImplicitTransferLog(in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &iotexapi.GetSystemLogByBlockHeightResponse{BlockSystemLog: sysLog}, nil
+	return &iotexapi.GetImplicitTransferLogByBlockHeightResponse{BlockImplicitTransferLog: sysLog}, nil
 }
 
 // Start starts the API server

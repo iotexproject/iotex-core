@@ -303,33 +303,33 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
-// ContainsSystemLog mocks base method
-func (m *MockBlockDAO) ContainsSystemLog() bool {
+// ContainsImplicitTransferLog mocks base method
+func (m *MockBlockDAO) ContainsImplicitTransferLog() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainsSystemLog")
+	ret := m.ctrl.Call(m, "ContainsImplicitTransferLog")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// ContainsSystemLog indicates an expected call of ContainsSystemLog
-func (mr *MockBlockDAOMockRecorder) ContainsSystemLog() *gomock.Call {
+// ContainsImplicitTransferLog indicates an expected call of ContainsImplicitTransferLog
+func (mr *MockBlockDAOMockRecorder) ContainsImplicitTransferLog() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsSystemLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsSystemLog))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsImplicitTransferLog))
 }
 
-// GetSystemLog mocks base method
-func (m *MockBlockDAO) GetSystemLog(arg0 uint64) (*iotextypes.BlockSystemLog, error) {
+// GetImplicitTransferLog mocks base method
+func (m *MockBlockDAO) GetImplicitTransferLog(arg0 uint64) (*iotextypes.BlockImplicitTransferLog, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSystemLog", arg0)
-	ret0, _ := ret[0].(*iotextypes.BlockSystemLog)
+	ret := m.ctrl.Call(m, "GetImplicitTransferLog", arg0)
+	ret0, _ := ret[0].(*iotextypes.BlockImplicitTransferLog)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSystemLog indicates an expected call of GetSystemLog
-func (mr *MockBlockDAOMockRecorder) GetSystemLog(arg0 interface{}) *gomock.Call {
+// GetImplicitTransferLog indicates an expected call of GetImplicitTransferLog
+func (mr *MockBlockDAOMockRecorder) GetImplicitTransferLog(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLog", reflect.TypeOf((*MockBlockDAO)(nil).GetSystemLog), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).GetImplicitTransferLog), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

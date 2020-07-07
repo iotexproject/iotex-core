@@ -98,8 +98,8 @@ type (
 		KVStore() db.KVStore
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
-		ContainsSystemLog() bool
-		GetSystemLog(uint64) (*iotextypes.BlockSystemLog, error)
+		ContainsImplicitTransferLog() bool
+		GetImplicitTransferLog(uint64) (*iotextypes.BlockImplicitTransferLog, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -454,13 +454,13 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func (dao *blockDAO) ContainsSystemLog() bool {
+func (dao *blockDAO) ContainsImplicitTransferLog() bool {
 	sys, err := dao.kvStore.Get(systemLogNS, make([]byte, 8))
 	return err == nil && string(sys) == systemLogNS
 }
 
-func (dao *blockDAO) GetSystemLog(height uint64) (*iotextypes.BlockSystemLog, error) {
-	if !dao.ContainsSystemLog() {
+func (dao *blockDAO) GetImplicitTransferLog(height uint64) (*iotextypes.BlockImplicitTransferLog, error) {
+	if !dao.ContainsImplicitTransferLog() {
 		return nil, ErrNotSupported
 	}
 
@@ -750,7 +750,7 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	if dao.ContainsSystemLog() {
+	if dao.ContainsImplicitTransferLog() {
 		if sysLog := block.SystemLogFromReceipt(blk.Receipts); sysLog != nil {
 			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put system log")
 		}

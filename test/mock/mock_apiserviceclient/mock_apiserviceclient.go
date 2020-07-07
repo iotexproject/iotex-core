@@ -375,44 +375,44 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
 }
 
-// GetSystemLogByActionHash mocks base method
-func (m *MockServiceClient) GetSystemLogByActionHash(ctx context.Context, in *iotexapi.GetSystemLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetSystemLogByActionHashResponse, error) {
+// GetImplicitTransferLogByActionHash mocks base method
+func (m *MockServiceClient) GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetImplicitTransferLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetSystemLogByActionHash", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetSystemLogByActionHashResponse)
+	ret := m.ctrl.Call(m, "GetImplicitTransferLogByActionHash", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByActionHashResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSystemLogByActionHash indicates an expected call of GetSystemLogByActionHash
-func (mr *MockServiceClientMockRecorder) GetSystemLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetImplicitTransferLogByActionHash indicates an expected call of GetImplicitTransferLogByActionHash
+func (mr *MockServiceClientMockRecorder) GetImplicitTransferLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetSystemLogByActionHash), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetImplicitTransferLogByActionHash), varargs...)
 }
 
-// GetSystemLogByBlockHeight mocks base method
-func (m *MockServiceClient) GetSystemLogByBlockHeight(ctx context.Context, in *iotexapi.GetSystemLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetSystemLogByBlockHeightResponse, error) {
+// GetImplicitTransferLogByBlockHeight mocks base method
+func (m *MockServiceClient) GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetImplicitTransferLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetSystemLogByBlockHeight", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetSystemLogByBlockHeightResponse)
+	ret := m.ctrl.Call(m, "GetImplicitTransferLogByBlockHeight", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByBlockHeightResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetSystemLogByBlockHeight indicates an expected call of GetSystemLogByBlockHeight
-func (mr *MockServiceClientMockRecorder) GetSystemLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetImplicitTransferLogByBlockHeight indicates an expected call of GetImplicitTransferLogByBlockHeight
+func (mr *MockServiceClientMockRecorder) GetImplicitTransferLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSystemLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetSystemLogByBlockHeight), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetImplicitTransferLogByBlockHeight), varargs...)
 }
 
 // StreamBlocks mocks base method
