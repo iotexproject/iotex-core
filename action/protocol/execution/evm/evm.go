@@ -67,8 +67,8 @@ type (
 	}
 )
 
-// NewParams creates a new context for use in the EVM.
-func NewParams(
+// newParams creates a new context for use in the EVM.
+func newParams(
 	ctx context.Context,
 	execution *action.Execution,
 	stateDB *StateDBAdapter,
@@ -159,9 +159,10 @@ func ExecuteContract(
 		sm,
 		blkCtx.BlockHeight,
 		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
+		hu.IsPost(config.Greenland, blkCtx.BlockHeight),
 		execution.Hash(),
 	)
-	ps, err := NewParams(ctx, execution, stateDB, getBlockHash)
+	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
 		return nil, nil, err
 	}

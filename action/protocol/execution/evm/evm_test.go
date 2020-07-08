@@ -130,13 +130,13 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), ex.Hash())
+		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hu.IsPost(config.Greenland, e.height), ex.Hash())
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
-		ps, err := NewParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)

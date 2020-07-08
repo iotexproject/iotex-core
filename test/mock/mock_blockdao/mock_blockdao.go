@@ -11,6 +11,7 @@ import (
 	action "github.com/iotexproject/iotex-core/action"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
 	db "github.com/iotexproject/iotex-core/db"
+	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	reflect "reflect"
 )
 
@@ -300,6 +301,35 @@ func (m *MockBlockDAO) FooterByHeight(arg0 uint64) (*block.Footer, error) {
 func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
+}
+
+// ContainsImplicitTransferLog mocks base method
+func (m *MockBlockDAO) ContainsImplicitTransferLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainsImplicitTransferLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ContainsImplicitTransferLog indicates an expected call of ContainsImplicitTransferLog
+func (mr *MockBlockDAOMockRecorder) ContainsImplicitTransferLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsImplicitTransferLog))
+}
+
+// GetImplicitTransferLog mocks base method
+func (m *MockBlockDAO) GetImplicitTransferLog(arg0 uint64) (*iotextypes.BlockImplicitTransferLog, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImplicitTransferLog", arg0)
+	ret0, _ := ret[0].(*iotextypes.BlockImplicitTransferLog)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImplicitTransferLog indicates an expected call of GetImplicitTransferLog
+func (mr *MockBlockDAOMockRecorder) GetImplicitTransferLog(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).GetImplicitTransferLog), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface
