@@ -68,8 +68,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.Logs {
-		// exclude system log when calculating receipts' hash or storing logs
-		if !l.IsSystemLog() {
+		// exclude implict transfer log when calculating receipts' hash or storing logs
+		if !l.IsImplicitTransfer() {
 			r.Logs = append(r.Logs, l.ConvertToLogPb())
 		}
 	}
@@ -165,8 +165,8 @@ func (log *Log) Deserialize(buf []byte) error {
 	return nil
 }
 
-// IsSystemLog checks whether a log is system log
-func (log *Log) IsSystemLog() bool {
+// IsImplicitTransfer checks whether a log is system log
+func (log *Log) IsImplicitTransfer() bool {
 	return log.IsEvmTransfer() || log.IsWithdrawBucket()
 }
 

@@ -1850,6 +1850,11 @@ func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
 		require.NoError(err)
 		require.Equal(log.Proto(), res.ImplicitTransferLog)
 	}
+
+	// check implicit transfer receiver balance
+	state, err := accountutil.LoadAccount(svr.sf, hash.BytesToHash160(identityset.Address(31).Bytes()))
+	require.NoError(err)
+	require.Equal(big.NewInt(5), state.Balance)
 }
 
 func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {

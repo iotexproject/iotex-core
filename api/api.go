@@ -7,6 +7,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math"
@@ -800,7 +801,7 @@ func (api *Server) GetImplicitTransferLogByActionHash(
 	}
 
 	for _, log := range sysLog.ImplicitTransferLog {
-		if in.ActionHash == hex.EncodeToString(log.ActionHash) {
+		if bytes.Compare(h, log.ActionHash) == 0 {
 			return &iotexapi.GetImplicitTransferLogByActionHashResponse{
 				ImplicitTransferLog: log,
 			}, nil

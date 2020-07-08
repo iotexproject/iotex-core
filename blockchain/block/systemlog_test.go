@@ -85,7 +85,7 @@ func TestIsSystemLog(t *testing.T) {
 }
 
 func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
-	if !log.IsSystemLog() {
+	if !log.IsImplicitTransfer() {
 		return false
 	}
 	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
