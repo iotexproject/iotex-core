@@ -2,7 +2,13 @@ package factory
 
 import (
 	"context"
-	"errors"
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -11,12 +17,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
-	"time"
-	//"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	//"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 func TestWriteReadView(t *testing.T) {
@@ -30,48 +30,28 @@ func TestWriteReadView(t *testing.T) {
 	require.NoError(sf.Start(ctx))
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 
-	t.Run("ReadView call error", func(t *testing.T) {
-		retrdf, retErr := ws.ReadView("")
-		expectedErrors := errors.New("name : name does not exist")
-		require.EqualError(retErr, expectedErrors.Error())
-		require.Equal(retrdf, nil)
-	})
+	var retrdf interface{}
+	var retErr error
+	retrdf, retErr = ws.ReadView("")
+	require.Equal(protocol.ErrNoName, errors.Cause(retErr))
+	require.Equal(retrdf, nil)
 
-	t.Run("WriteView ReadView normal call ", func(t *testing.T) {
-		require.NoError(ws.WriteView("test", "test"))
-		retrdf, retErr := ws.ReadView("test")
-		require.NoError(retErr)
-		require.Equal(retrdf, "test")
-	})
+	retrdf, retErr = ws.Unload("")
+	require.Equal(protocol.ErrNoName, errors.Cause(retErr))
+	require.Equal(retrdf, nil)
 
-	t.Run("Unload call error", func(t *testing.T) {
-		retrdf, retErr := ws.Unload("")
-		expectedErrors := errors.New("name : name does not exist")
-		require.EqualError(retErr, expectedErrors.Error())
-		require.Equal(retrdf, nil)
-	})
-
-	t.Run("Load Unload normal call ", func(t *testing.T) {
-		require.NoError(ws.Load("test", "test"))
-		retrdf, retErr := ws.Unload("test")
-		require.NoError(retErr)
-		require.Equal(retrdf, "test")
-	})
-}
-
-func TestProtocolDirty(t *testing.T) {
-	require := require.New(t)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(err)
-	ctx := protocol.WithBlockchainCtx(
-		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
-	)
-	require.NoError(sf.Start(ctx))
-	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.False(ws.ProtocolDirty("test"))
 
+	require.NoError(ws.WriteView("test", "test"))
+	retrdf, retErr = ws.ReadView("test")
+	require.NoError(retErr)
+	require.Equal(retrdf, "test")
+
 	require.NoError(ws.Load("test", "test"))
+	retrdf, retErr = ws.Unload("test")
+	require.NoError(retErr)
+	require.Equal(retrdf, "test")
+
 	require.True(ws.ProtocolDirty("test"))
 }
 
@@ -92,39 +72,36 @@ func TestValidateBlock(t *testing.T) {
 	)
 	require.NoError(sf.Start(zctx))
 
+	digestHash := hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
+		101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
+
 	t.Run("normal call", func(t *testing.T) {
-		blk := makeBlock(t, 0, hash.ZeroHash256, hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114, 101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0}))
+		blk := makeBlock(t, 1, hash.ZeroHash256, digestHash)
 		require.NoError(sf.Validate(zctx, blk))
 	})
 
 	t.Run("nonce error", func(t *testing.T) {
-		blk := makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114, 101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0}))
-		require.NoError(sf.Validate(zctx, blk))
+		blk := makeBlock(t, 3, hash.ZeroHash256, digestHash)
+		require.Equal(action.ErrNonce, errors.Cause(sf.Validate(zctx, blk)))
 	})
 
 	t.Run("root hash error", func(t *testing.T) {
-		blk := makeBlock(t, 0, hash.Hash256b([]byte("test")), hash.Hash256b([]byte("test")))
-		expectedErrors := errors.New("failed to validate block with workingset in factory:" +
-			" failed to verify delta state digest: delta state digest doesn't match, " +
-			"expected = 9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658, " +
-			"actual = b672c9597b38b451ea5fc53536e3fadd197b12f035f40a26122a66b8d7fa6e3f")
+		blk := makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash)
+		expectedErrors := errors.New("failed to validate block with workingset in factory: " +
+			"Failed to verify receipt root: receipt root hash does not match")
 		require.EqualError(sf.Validate(zctx, blk), expectedErrors.Error())
 	})
 
 	t.Run("delta state digest error", func(t *testing.T) {
-		blk := makeBlock(t, 0, hash.ZeroHash256, hash.Hash256b([]byte("test")))
-		expectedErrors := errors.New("failed to validate block with workingset in factory: " +
-			"failed to verify delta state digest: delta state digest doesn't match," +
-			" expected = 9c22ff5f21f0b81b113e63f7db6da94fedef11b2119b4088b89664fb9a3cb658, " +
-			"actual = b672c9597b38b451ea5fc53536e3fadd197b12f035f40a26122a66b8d7fa6e3f")
-		require.EqualError(sf.Validate(zctx, blk), expectedErrors.Error())
+		blk := makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test")))
+		require.Equal(block.ErrDeltaStateMismatch, errors.Cause(sf.Validate(zctx, blk)))
 	})
 
 }
 
-func makeBlock(tb testing.TB, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
+func makeBlock(tb *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
 	rand.Seed(time.Now().Unix())
-	sevlps := make([]action.SealedEnvelope, 0)
+	var sevlps []action.SealedEnvelope
 	r := rand.Int()
 	tsf, err := action.NewTransfer(
 		uint64(r),

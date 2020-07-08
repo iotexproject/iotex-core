@@ -20,6 +20,11 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
+// Errors
+var (
+	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
+)
+
 // Block defines the struct of block
 type Block struct {
 	Header
@@ -89,11 +94,8 @@ func (b *Block) Deserialize(buf []byte) error {
 // VerifyDeltaStateDigest verifies the delta state digest in header
 func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
 	if b.Header.deltaStateDigest != digest {
-		return errors.Errorf(
-			"delta state digest doesn't match, expected = %x, actual = %x",
-			b.Header.deltaStateDigest,
-			digest,
-		)
+		return errors.Wrapf(ErrDeltaStateMismatch, "expected = %x, actual = %x",
+			b.Header.deltaStateDigest, digest)
 	}
 	return nil
 }
