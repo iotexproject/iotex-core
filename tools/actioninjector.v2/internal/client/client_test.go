@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-core/systemlog"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_actpool"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -80,9 +79,8 @@ func TestClient(t *testing.T) {
 	})
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
-	systemLogIndexer, err := systemlog.NewIndexer(db.NewMemKVStore())
 	require.NoError(err)
-	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, systemLogIndexer, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()

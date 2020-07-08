@@ -48,10 +48,14 @@ type ServiceClient interface {
 	GetRawBlocks(ctx context.Context, in *iotexapi.GetRawBlocksRequest, opts ...grpc.CallOption) (*iotexapi.GetRawBlocksResponse, error)
 	// get logs filtered by contract address and topics
 	GetLogs(ctx context.Context, in *iotexapi.GetLogsRequest, opts ...grpc.CallOption) (*iotexapi.GetLogsResponse, error)
-	// get evm transfers by action hash
+	// deprecated
 	GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByActionHashResponse, error)
-	// get evm transfers by block height
+	// deprecated
 	GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error)
+	// get system log by action hash
+	GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetImplicitTransferLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error)
+	// get system log by block height
+	GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetImplicitTransferLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error)
 	// get block info in stream
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get filtered logs in stream

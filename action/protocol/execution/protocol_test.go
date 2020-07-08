@@ -492,7 +492,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 			numLog := 0
 			for _, l := range receipt.Logs {
-				if !action.IsSystemLog(l) {
+				if !l.IsImplicitTransfer() {
 					numLog++
 				}
 			}
