@@ -23,6 +23,7 @@ import (
 type (
 	// TokenTxRecord is a token transaction record
 	TokenTxRecord struct {
+		topic     []byte
 		amount    string
 		sender    string
 		recipient string
@@ -56,12 +57,15 @@ func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *Impl
 }
 
 // NewTokenTxRecord creates a new TokenTxRecord
-func NewTokenTxRecord(amount, sender, recipient string) *TokenTxRecord {
-	return &TokenTxRecord{
+func NewTokenTxRecord(topic []byte, amount, sender, recipient string) *TokenTxRecord {
+	rec := TokenTxRecord{
+		topic:     make([]byte, len(topic)),
 		amount:    amount,
 		sender:    sender,
 		recipient: recipient,
 	}
+	copy(rec.topic, topic)
+	return &rec
 }
 
 // DeserializeSystemLogPb parse the byte stream into BlkImplictTransferLog Pb message
@@ -99,6 +103,7 @@ func (log *BlkImplictTransferLog) toProto() *iotextypes.BlockImplicitTransferLog
 	return &sysLog
 }
 
+// Proto returns the pb message
 func (log *ImplictTransferLog) Proto() *iotextypes.ImplicitTransferLog {
 	if len(log.txRecords) == 0 {
 		return nil
@@ -123,6 +128,7 @@ func (log *ImplictTransferLog) Proto() *iotextypes.ImplicitTransferLog {
 
 func (log *TokenTxRecord) toProto() *iotextypes.ImplicitTransferLog_Transaction {
 	return &iotextypes.ImplicitTransferLog_Transaction{
+		Topic:     log.topic,
 		Amount:    log.amount,
 		Sender:    log.sender,
 		Recipient: log.recipient,
@@ -180,6 +186,8 @@ func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
 
 	switch {
 	case log.IsEvmTransfer():
+		txRecord.topic = make([]byte, len(log.Topics[0]))
+		copy(txRecord.topic, log.Topics[0][:])
 		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
 		from, _ := address.FromBytes(log.Topics[1][12:])
 		txRecord.sender = from.String()
@@ -187,6 +195,8 @@ func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
 		txRecord.recipient = to.String()
 		return &txRecord
 	case log.IsWithdrawBucket():
+		txRecord.topic = make([]byte, len(log.Topics[0]))
+		copy(txRecord.topic, log.Topics[0][:])
 		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
 		txRecord.sender = log.Address
 		to, _ := address.FromBytes(log.Topics[2][12:])

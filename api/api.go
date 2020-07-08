@@ -767,7 +767,7 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 	return nil, status.Error(codes.Unimplemented, "evm transfer index is deprecated, call GetSystemLogByBlockHeight instead")
 }
 
-// GetSystemLogByActionHash returns system log by action hash
+// GetImplicitTransferLogByActionHash returns implict transfer log by action hash
 func (api *Server) GetImplicitTransferLogByActionHash(
 	ctx context.Context,
 	in *iotexapi.GetImplicitTransferLogByActionHashRequest) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
@@ -809,7 +809,7 @@ func (api *Server) GetImplicitTransferLogByActionHash(
 	return nil, status.Errorf(codes.NotFound, "system log not found for action %s", in.ActionHash)
 }
 
-// GetSystemLogByBlockHeight returns system log by block height
+// GetImplicitTransferLogByBlockHeight returns implict transfer log by block height
 func (api *Server) GetImplicitTransferLogByBlockHeight(
 	ctx context.Context,
 	in *iotexapi.GetImplicitTransferLogByBlockHeightRequest) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {

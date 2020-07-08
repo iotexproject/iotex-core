@@ -88,6 +88,7 @@ func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecor
 	if !log.IsSystemLog() {
 		return false
 	}
+	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
 	txAmount := new(big.Int).SetBytes(log.Data)
 	r.Equal(txAmount.String(), rec.amount)
 	if log.IsEvmTransfer() {
@@ -158,6 +159,7 @@ func TestSystemLogFromReceipt(t *testing.T) {
 		for i, rec := range sysLog.Transactions {
 			// verify token tx record
 			rec := &TokenTxRecord{
+				topic:     rec.Topic,
 				amount:    rec.Amount,
 				sender:    rec.Sender,
 				recipient: rec.Recipient,

@@ -264,7 +264,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 
 	logs := []*action.Log{rLog.Build(ctx, err)}
 	if err == nil {
-		if aLog != nil && aLog.IsWithdrawBucket() {
+		if aLog != nil {
 			logs = append(logs, aLog)
 		}
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
