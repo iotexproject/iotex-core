@@ -162,11 +162,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	tipHeight, err := api.sf.Height()
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-	state, err := accountutil.AccountState(api.sf, in.Address)
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
