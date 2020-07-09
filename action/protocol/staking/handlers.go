@@ -176,7 +176,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 }
 
 func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, csm CandidateStateManager,
-) (*receiptLog, error) {
+) (*receiptLog, *action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	postFbkMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
@@ -184,18 +184,18 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
-		return log, fetchErr
+		return log, nil, fetchErr
 	}
 
 	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, true)
 	if fetchErr != nil {
-		return log, fetchErr
+		return log, nil, fetchErr
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
 	// check unstake time
 	if bucket.UnstakeStartTime.Unix() == 0 {
-		return log, &handleError{
+		return log, nil, &handleError{
 			err:           errors.New("bucket has not been unstaked"),
 			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
 		}
@@ -206,7 +206,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		withdrawWaitTime = _withdrawWaitingTime
 	}
 	if blkCtx.BlockTimeStamp.Before(bucket.UnstakeStartTime.Add(withdrawWaitTime)) {
-		return log, &handleError{
+		return log, nil, &handleError{
 			err:           errors.New("stake is not ready to withdraw"),
 			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity,
 		}
@@ -214,26 +214,40 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// delete bucket and bucket index
 	if err := delBucketAndIndex(csm, bucket.Owner, bucket.Candidate, act.BucketIndex()); err != nil {
-		return log, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
+		return log, nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 
 	// update withdrawer balance
 	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
-		return log, &handleError{
+		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update the balance of withdrawer %s", actionCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketAmount,
 		}
 	}
 	// put updated withdrawer's account state to trie
 	if err := accountutil.StoreAccount(csm, actionCtx.Caller, withdrawer); err != nil {
-		return log, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
+		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
 	log.AddAddress(actionCtx.Caller)
 	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
-		log.AddTopics(bucket.StakedAmount.Bytes())
+		log.SetData(bucket.StakedAmount.Bytes())
 	}
-	return log, nil
+
+	// generate withdraw amount log
+	amountLog := action.Log{
+		Address: p.addr.String(),
+		Topics: action.Topics{
+			action.BucketWithdrawAmount,
+			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
+			hash.BytesToHash256(actionCtx.Caller.Bytes()),
+		},
+		Data:        bucket.StakedAmount.Bytes(),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+		Index:       1,
+	}
+	return log, &amountLog, nil
 }
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager,
@@ -768,11 +782,18 @@ func BucketIndexFromReceiptLog(log *iotextypes.Log) (uint64, bool) {
 		return 0, false
 	}
 
+	h := hash.Hash160b([]byte(protocolID))
+	addr, _ := address.FromBytes(h[:])
+	if log.ContractAddress != addr.String() {
+		return 0, false
+	}
+
 	switch hash.BytesToHash256(log.Topics[0]) {
 	case hash.BytesToHash256([]byte(HandleCreateStake)), hash.BytesToHash256([]byte(HandleUnstake)),
 		hash.BytesToHash256([]byte(HandleWithdrawStake)), hash.BytesToHash256([]byte(HandleChangeCandidate)),
 		hash.BytesToHash256([]byte(HandleTransferStake)), hash.BytesToHash256([]byte(HandleDepositToStake)),
-		hash.BytesToHash256([]byte(HandleRestake)), hash.BytesToHash256([]byte(HandleCandidateRegister)):
+		hash.BytesToHash256([]byte(HandleRestake)), hash.BytesToHash256([]byte(HandleCandidateRegister)),
+		action.BucketWithdrawAmount:
 		return byteutil.BytesToUint64BigEndian(log.Topics[1][24:]), true
 	default:
 		return 0, false

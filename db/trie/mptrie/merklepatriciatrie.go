@@ -165,6 +165,9 @@ func (mpt *merklePatriciaTrie) SetRootHash(rootHash []byte) error {
 func (mpt *merklePatriciaTrie) IsEmpty() bool {
 	mpt.mutex.RLock()
 	defer mpt.mutex.RUnlock()
+	if mpt.async {
+		return mpt.root == nil || len(mpt.root.Children()) == 0
+	}
 
 	return mpt.isEmptyRootHash(mpt.rootHash)
 }

@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	duration  = uint32(1000)
+	autoStake = true
+)
+
 func TestRestake(t *testing.T) {
 	require := require.New(t)
 	stake, err := NewRestake(nonce, index, duration, autoStake, payload, gaslimit, gasprice)
