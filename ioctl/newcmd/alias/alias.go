@@ -43,15 +43,6 @@ var (
 	forceImport bool
 )
 
-//type alias struct {
-//	Name    string `json:"name" yaml:"name"`
-//	Address string `json:"address" yaml:"address"`
-//}
-//
-//type aliases struct {
-//	Aliases []alias `json:"aliases" yaml:"aliases"`
-//}
-
 // NewAliasCmd represents the alias command
 func NewAliasCmd(client ioctl.Client) *cobra.Command {
 	aliasShorts, _ := client.SelectTranslation(aliasCmdShorts)
