@@ -807,7 +807,7 @@ func (api *Server) GetImplicitTransferLogByActionHash(
 			}, nil
 		}
 	}
-	return nil, status.Errorf(codes.NotFound, "system log not found for action %s", in.ActionHash)
+	return nil, status.Errorf(codes.NotFound, "implicit transfer log not found for action %s", in.ActionHash)
 }
 
 // GetImplicitTransferLogByBlockHeight returns implict transfer log by block height
@@ -826,6 +826,13 @@ func (api *Server) GetImplicitTransferLogByBlockHeight(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
 	}
 
+	h, err := api.dao.GetBlockHash(in.BlockHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	sysLog, err := api.dao.GetImplicitTransferLog(in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
@@ -833,7 +840,14 @@ func (api *Server) GetImplicitTransferLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &iotexapi.GetImplicitTransferLogByBlockHeightResponse{BlockImplicitTransferLog: sysLog}, nil
+
+	return &iotexapi.GetImplicitTransferLogByBlockHeightResponse{
+		BlockImplicitTransferLog: sysLog,
+		BlockIdentifier: &iotextypes.BlockIdentifier{
+			Hash:   hex.EncodeToString(h[:]),
+			Height: in.BlockHeight,
+		},
+	}, nil
 }
 
 // Start starts the API server

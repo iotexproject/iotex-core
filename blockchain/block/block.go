@@ -121,3 +121,25 @@ func (b *Block) Finalize(endorsements []*endorsement.Endorsement, ts time.Time) 
 
 	return nil
 }
+
+// ImplicitTransferLog returns implicit transfer logs in the block
+func (b *Block) ImplicitTransferLog() *BlkImplictTransferLog {
+	if len(b.Receipts) == 0 {
+		return nil
+	}
+
+	blkLog := BlkImplictTransferLog{
+		actionLogs: []*ImplictTransferLog{},
+	}
+	for _, r := range b.Receipts {
+		if log := ReceiptImplicitTransferLog(r); log != nil {
+			blkLog.actionLogs = append(blkLog.actionLogs, log)
+			blkLog.numActions++
+		}
+	}
+
+	if blkLog.numActions == 0 {
+		return nil
+	}
+	return &blkLog
+}
