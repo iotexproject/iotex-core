@@ -162,7 +162,7 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
-	state, height, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
+	state, tipHeight, err := accountutil.AccountStateWithHeight(api.sf, in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -188,14 +188,14 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 	}
-	header, err := api.bc.BlockHeaderByHeight(height)
+	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	hash := header.HashBlock()
 	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta, BlockIdentifier: &iotextypes.BlockIdentifier{
 		Hash:   hex.EncodeToString(hash[:]),
-		Height: height,
+		Height: tipHeight,
 	}}, nil
 }
 
