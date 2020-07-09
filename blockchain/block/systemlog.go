@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// system log definitions
+// implicit transfer log definitions
 type (
 	// TokenTxRecord is a token transaction record
 	TokenTxRecord struct {
@@ -29,14 +29,14 @@ type (
 		recipient string
 	}
 
-	// ImplictTransferLog is system log in one action
+	// ImplictTransferLog is implicit transfer log in one action
 	ImplictTransferLog struct {
 		actHash   hash.Hash256
 		numTxs    uint64
 		txRecords []*TokenTxRecord
 	}
 
-	// BlkImplictTransferLog is system log in one block
+	// BlkImplictTransferLog is implicit transfer log in one block
 	BlkImplictTransferLog struct {
 		numActions uint64
 		actionLogs []*ImplictTransferLog
@@ -135,30 +135,8 @@ func (log *TokenTxRecord) toProto() *iotextypes.ImplicitTransferLog_Transaction 
 	}
 }
 
-// SystemLogFromReceipt returns system logs in the receipt
-func SystemLogFromReceipt(receipts []*action.Receipt) *BlkImplictTransferLog {
-	if len(receipts) == 0 {
-		return nil
-	}
-
-	blkLog := BlkImplictTransferLog{
-		actionLogs: []*ImplictTransferLog{},
-	}
-	for _, r := range receipts {
-		if log := ReceiptSystemLog(r); log != nil {
-			blkLog.actionLogs = append(blkLog.actionLogs, log)
-			blkLog.numActions++
-		}
-	}
-
-	if blkLog.numActions == 0 {
-		return nil
-	}
-	return &blkLog
-}
-
-// ReceiptSystemLog generates system log from receipt
-func ReceiptSystemLog(r *action.Receipt) *ImplictTransferLog {
+// ReceiptImplicitTransferLog generates implicit transfer log from receipt
+func ReceiptImplicitTransferLog(r *action.Receipt) *ImplictTransferLog {
 	if r == nil || len(r.Logs) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
