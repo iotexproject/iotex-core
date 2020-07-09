@@ -89,7 +89,7 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 	if err := c.trie.Upsert(key[:], value); err != nil {
 		return err
 	}
-	if ！c.async {
+	if !c.async {
 		rh, err := c.trie.RootHash()
 		if err != nil {
 			return err
