@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	// InContractTransfer is topic for system log of evm transfer
+	// InContractTransfer is topic for implicit transfer log of evm transfer
 	InContractTransfer = common.Hash{} // 32 bytes with all zeros
 
 	// BucketWithdrawAmount is topic for bucket withdraw
@@ -165,7 +165,7 @@ func (log *Log) Deserialize(buf []byte) error {
 	return nil
 }
 
-// IsImplicitTransfer checks whether a log is system log
+// IsImplicitTransfer checks whether a log is implicit transfer log
 func (log *Log) IsImplicitTransfer() bool {
 	return log.IsEvmTransfer() || log.IsWithdrawBucket()
 }

@@ -47,7 +47,7 @@ var (
 			0,
 		},
 		{
-			// success but not system log
+			// success but not implicit transfer log
 			&action.Receipt{
 				Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog}},
 			0,
@@ -107,7 +107,7 @@ func TestReceiptSystemLog(t *testing.T) {
 	r := require.New(t)
 
 	for _, v := range receiptTest {
-		sysLog := ReceiptSystemLog(v.r)
+		sysLog := ReceiptImplicitTransferLog(v.r)
 		if v.num > 0 {
 			r.Equal(v.r.ActionHash, sysLog.actHash)
 			r.EqualValues(v.num, sysLog.numTxs)
@@ -123,24 +123,30 @@ func TestReceiptSystemLog(t *testing.T) {
 func TestSystemLogFromReceipt(t *testing.T) {
 	r := require.New(t)
 
-	blkLog := SystemLogFromReceipt(nil)
+	blk := Block{}
+	blkLog := blk.ImplicitTransferLog()
 	r.Nil(blkLog)
-	blkLog = SystemLogFromReceipt([]*action.Receipt{})
+	blk.Receipts = []*action.Receipt{}
+	blkLog = blk.ImplicitTransferLog()
 	r.Nil(blkLog)
-	blkLog = SystemLogFromReceipt([]*action.Receipt{&action.Receipt{
-		Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog}},
+	// normal log is not implict transfer
+	blk.Receipts = append(blk.Receipts, &action.Receipt{
+		Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog},
 	})
+	blkLog = blk.ImplicitTransferLog()
 	r.Nil(blkLog)
 
-	sysReceipts := []*action.Receipt{}
+	blk.Receipts = blk.Receipts[:0]
+	implicitTransferNum := 0
 	for i := range receiptTest {
 		if receiptTest[i].num > 0 {
-			sysReceipts = append(sysReceipts, receiptTest[i].r)
+			blk.Receipts = append(blk.Receipts, receiptTest[i].r)
+			implicitTransferNum++
 		}
 	}
-	blkLog = SystemLogFromReceipt(sysReceipts)
-	r.EqualValues(len(sysReceipts), blkLog.numActions)
-	r.Equal(len(sysReceipts), len(blkLog.actionLogs))
+	blkLog = blk.ImplicitTransferLog()
+	r.EqualValues(implicitTransferNum, blkLog.numActions)
+	r.Equal(implicitTransferNum, len(blkLog.actionLogs))
 
 	// test serialize/deserialize
 	b := blkLog.Serialize()
@@ -149,10 +155,10 @@ func TestSystemLogFromReceipt(t *testing.T) {
 	r.NoError(err)
 
 	// verify block systemlog pb message
-	r.EqualValues(len(sysReceipts), pb.NumTransactions)
-	r.Equal(len(sysReceipts), len(pb.ImplicitTransferLog))
+	r.EqualValues(implicitTransferNum, pb.NumTransactions)
+	r.Equal(implicitTransferNum, len(pb.ImplicitTransferLog))
 	for i, sysLog := range pb.ImplicitTransferLog {
-		receipt := sysReceipts[i]
+		receipt := blk.Receipts[i]
 		r.Equal(receipt.ActionHash, hash.BytesToHash256(sysLog.ActionHash))
 		r.EqualValues(len(receipt.Logs), sysLog.NumTransactions)
 		r.Equal(len(receipt.Logs), len(sysLog.Transactions))
