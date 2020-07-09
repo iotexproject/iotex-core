@@ -86,18 +86,17 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 		c.GetState(key)
 	}
 	c.dirtyState = true
-	if c.async {
-		return c.trie.Upsert(key[:], value)
-	}
 	if err := c.trie.Upsert(key[:], value); err != nil {
 		return err
 	}
-	rh, err := c.trie.RootHash()
-	if err != nil {
-		return err
+	if ！c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			return err
+		}
+		// TODO (zhi): confirm whether we should update the root on err
+		c.Account.Root = hash.BytesToHash256(rh)
 	}
-	// TODO (zhi): confirm whether we should update the root on err
-	c.Account.Root = hash.BytesToHash256(rh)
 
 	return nil
 }
