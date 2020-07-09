@@ -23,6 +23,7 @@ import (
 // Errors
 var (
 	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
+	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
 )
 
 // Block defines the struct of block
@@ -103,7 +104,7 @@ func (b *Block) VerifyDeltaStateDigest(digest hash.Hash256) error {
 // VerifyReceiptRoot verifies the receipt root in header
 func (b *Block) VerifyReceiptRoot(root hash.Hash256) error {
 	if b.Header.receiptRoot != root {
-		return errors.New("receipt root hash does not match")
+		return ErrReceiptRootMismatch
 	}
 	return nil
 }

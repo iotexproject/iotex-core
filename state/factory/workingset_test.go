@@ -29,10 +29,9 @@ func TestWriteReadView(t *testing.T) {
 	)
 	require.NoError(sf.Start(ctx))
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
+	require.NoError(err)
 
-	var retrdf interface{}
-	var retErr error
-	retrdf, retErr = ws.ReadView("")
+	retrdf, retErr := ws.ReadView("")
 	require.Equal(protocol.ErrNoName, errors.Cause(retErr))
 	require.Equal(retrdf, nil)
 
@@ -87,16 +86,13 @@ func TestValidateBlock(t *testing.T) {
 
 	t.Run("root hash error", func(t *testing.T) {
 		blk := makeBlock(t, 1, hash.Hash256b([]byte("test")), digestHash)
-		expectedErrors := errors.New("failed to validate block with workingset in factory: " +
-			"Failed to verify receipt root: receipt root hash does not match")
-		require.EqualError(sf.Validate(zctx, blk), expectedErrors.Error())
+		require.Equal(block.ErrReceiptRootMismatch, errors.Cause(sf.Validate(zctx, blk)))
 	})
 
 	t.Run("delta state digest error", func(t *testing.T) {
 		blk := makeBlock(t, 1, hash.ZeroHash256, hash.Hash256b([]byte("test")))
 		require.Equal(block.ErrDeltaStateMismatch, errors.Cause(sf.Validate(zctx, blk)))
 	})
-
 }
 
 func makeBlock(tb *testing.T, nonce uint64, rootHash hash.Hash256, digest hash.Hash256) *block.Block {
