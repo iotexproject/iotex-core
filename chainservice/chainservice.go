@@ -45,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/systemlog"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -99,7 +98,6 @@ func New(
 	var (
 		indexers         []blockdao.BlockIndexer
 		indexer          blockindex.Indexer
-		systemLogIndex   *systemlog.Indexer
 		candidateIndexer *poll.CandidateIndexer
 		err              error
 		ops              optionParams
@@ -166,15 +164,6 @@ func New(
 		}
 		if !cfg.Chain.EnableAsyncIndexWrite {
 			indexers = append(indexers, indexer)
-		}
-		if cfg.Chain.EnableSystemLogIndexer {
-			// create system log indexer
-			cfg.DB.DbPath = cfg.System.SystemLogDBPath
-			systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))
-			if err != nil {
-				return nil, err
-			}
-			indexers = append(indexers, systemLogIndex)
 		}
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
@@ -339,7 +328,6 @@ func New(
 		sf,
 		dao,
 		indexer,
-		systemLogIndex,
 		actPool,
 		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {

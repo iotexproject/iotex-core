@@ -235,6 +235,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
 		rLog *receiptLog
+		aLog *action.Log
 		err  error
 	)
 
@@ -244,7 +245,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.Unstake:
 		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		rLog, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, aLog, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
 		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
@@ -261,13 +262,17 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return nil, nil
 	}
 
+	logs := []*action.Log{rLog.Build(ctx, err)}
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), rLog.Build(ctx, err))
+		if aLog != nil {
+			logs = append(logs, aLog)
+		}
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Debug("Non-critical error when processing staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), rLog.Build(ctx, err))
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs)
 	}
 	return nil, err
 }
@@ -386,7 +391,7 @@ func (p *Protocol) settleAction(
 	ctx context.Context,
 	sm protocol.StateManager,
 	status uint64,
-	log *action.Log,
+	logs []*action.Log,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -412,8 +417,8 @@ func (p *Protocol) settleAction(
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}
-	if log != nil {
-		r.Logs = []*action.Log{log}
+	if len(logs) != 0 {
+		r.Logs = logs
 	}
 	return &r, nil
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -30,6 +31,9 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(1), _bucket)
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
+
+	// 2 action constants are defined to avoid import cycle, make sure they match
+	r.Equal(protocolID, action.StakingProtocolID)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

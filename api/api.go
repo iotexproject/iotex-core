@@ -7,13 +7,13 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math"
 	"math/big"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -50,7 +50,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/systemlog"
 )
 
 var (
@@ -59,8 +58,7 @@ var (
 	// ErrReceipt indicates the error of receipt
 	ErrReceipt = errors.New("invalid receipt")
 	// ErrAction indicates the error of action
-	ErrAction        = errors.New("invalid action")
-	candidateNameLen = 12
+	ErrAction = errors.New("invalid action")
 )
 
 // BroadcastOutbound sends a broadcast message to the whole network
@@ -97,7 +95,6 @@ type Server struct {
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
-	systemLogIndexer  *systemlog.Indexer
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -116,7 +113,6 @@ func NewServer(
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
-	systemLogIndexer *systemlog.Indexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
@@ -142,7 +138,6 @@ func NewServer(
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
-		systemLogIndexer:  systemLogIndexer,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
@@ -167,6 +162,10 @@ func NewServer(
 
 // GetAccount returns the metadata of an account
 func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountRequest) (*iotexapi.GetAccountResponse, error) {
+	tipHeight, err := api.sf.Height()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	state, err := accountutil.AccountState(api.sf, in.Address)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -193,7 +192,15 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
 	}
-	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta}, nil
+	header, err := api.bc.BlockHeaderByHeight(tipHeight)
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	hash := header.HashBlock()
+	return &iotexapi.GetAccountResponse{AccountMeta: accountMeta, BlockIdentifier: &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(hash[:]),
+		Height: tipHeight,
+	}}, nil
 }
 
 // GetActions returns actions
@@ -753,48 +760,94 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 
 // GetEvmTransfersByActionHash returns evm transfers by action hash
 func (api *Server) GetEvmTransfersByActionHash(ctx context.Context, in *iotexapi.GetEvmTransfersByActionHashRequest) (*iotexapi.GetEvmTransfersByActionHashResponse, error) {
-	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
-	}
-
-	actHash, err := hash.HexStringToHash256(in.ActionHash)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-
-	transfers, err := api.systemLogIndexer.GetEvmTransfersByActionHash(actHash)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, "no such action with evm transfer")
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return &iotexapi.GetEvmTransfersByActionHashResponse{ActionEvmTransfers: transfers}, nil
+	return nil, status.Error(codes.Unimplemented, "evm transfer index is deprecated, call GetSystemLogByActionHash instead")
 }
 
 // GetEvmTransfersByBlockHeight returns evm transfers by block height
 func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error) {
-	if !api.hasActionIndex || api.systemLogIndexer == nil {
-		return nil, status.Error(codes.Unavailable, "evm transfer index not supported")
+	return nil, status.Error(codes.Unimplemented, "evm transfer index is deprecated, call GetSystemLogByBlockHeight instead")
+}
+
+// GetImplicitTransferLogByActionHash returns implict transfer log by action hash
+func (api *Server) GetImplicitTransferLogByActionHash(
+	ctx context.Context,
+	in *iotexapi.GetImplicitTransferLogByActionHashRequest) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
+	if !api.hasActionIndex || api.indexer == nil {
+		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
+	}
+	if !api.dao.ContainsImplicitTransferLog() {
+		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
 	}
 
-	if in.BlockHeight < 1 {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
+	h, err := hex.DecodeString(in.ActionHash)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	transfers, err := api.systemLogIndexer.GetEvmTransfersByBlockHeight(in.BlockHeight)
+	actIndex, err := api.indexer.GetActionIndex(h)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, "no such block with evm transfer")
-		}
-		if strings.Contains(err.Error(), systemlog.ErrHeightNotReached.Error()) {
-			return nil, status.Errorf(codes.InvalidArgument, "height = %d is higher than current height", in.BlockHeight)
+			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iotexapi.GetEvmTransfersByBlockHeightResponse{BlockEvmTransfers: transfers}, nil
+	sysLog, err := api.dao.GetImplicitTransferLog(actIndex.BlockHeight())
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	for _, log := range sysLog.ImplicitTransferLog {
+		if bytes.Compare(h, log.ActionHash) == 0 {
+			return &iotexapi.GetImplicitTransferLogByActionHashResponse{
+				ImplicitTransferLog: log,
+			}, nil
+		}
+	}
+	return nil, status.Errorf(codes.NotFound, "implicit transfer log not found for action %s", in.ActionHash)
+}
+
+// GetImplicitTransferLogByBlockHeight returns implict transfer log by block height
+func (api *Server) GetImplicitTransferLogByBlockHeight(
+	ctx context.Context,
+	in *iotexapi.GetImplicitTransferLogByBlockHeightRequest) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
+	if !api.dao.ContainsImplicitTransferLog() {
+		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
+	}
+
+	tip, err := api.dao.Height()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if in.BlockHeight < 1 || in.BlockHeight > tip {
+		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
+	}
+
+	h, err := api.dao.GetBlockHash(in.BlockHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	sysLog, err := api.dao.GetImplicitTransferLog(in.BlockHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &iotexapi.GetImplicitTransferLogByBlockHeightResponse{
+		BlockImplicitTransferLog: sysLog,
+		BlockIdentifier: &iotextypes.BlockIdentifier{
+			Hash:   hex.EncodeToString(h[:]),
+			Height: in.BlockHeight,
+		},
+	}, nil
 }
 
 // Start starts the API server

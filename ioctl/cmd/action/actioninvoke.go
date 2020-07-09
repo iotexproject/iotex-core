@@ -7,20 +7,17 @@
 package action
 
 import (
-	"math/big"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
 var (
 	invokeCmdShorts = map[config.Language]string{
-		config.English: "Invoke smart contract on IoTeX blockchain",
-		config.Chinese: "在IoTeX区块链上调用智能合约",
+		config.English: "Invoke smart contract on IoTeX blockchain\nWarning: 'ioctl action invoke' has been deprecated, use 'ioctl contract invoke' instead",
+		config.Chinese: "在IoTeX区块链上调用智能合约\nWarning: 'ioctl action invoke' 已被废弃, 使用 'ioctl contract invoke' 代替",
 	}
 	invokeCmdUses = map[config.Language]string{
 		config.English: "invoke (ALIAS|CONTRACT_ADDRESS) [AMOUNT_IOTX] -b BYTE_CODE [-s SIGNER] [-n NONCE] [-l GAS_LIMIT] [-p GAS_PRICE] [-P PASSWORD] [-y]",
@@ -36,32 +33,7 @@ var actionInvokeCmd = &cobra.Command{
 	Args:  cobra.RangeArgs(1, 2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := invoke(args)
-		return output.PrintError(err)
+		var err error
+		return output.NewError(output.RuntimeError, "'ioctl action invoke' has been deprecated, use 'ioctl contract invoke' instead", err)
 	},
-}
-
-func init() {
-	RegisterWriteCommand(actionInvokeCmd)
-	bytecodeFlag.RegisterCommand(actionInvokeCmd)
-	bytecodeFlag.MarkFlagRequired(actionInvokeCmd)
-}
-
-func invoke(args []string) error {
-	contract, err := util.Address(args[0])
-	if err != nil {
-		return output.NewError(output.AddressError, "failed to get contract address", err)
-	}
-	amount := big.NewInt(0)
-	if len(args) == 2 {
-		amount, err = util.StringToRau(args[1], util.IotxDecimalNum)
-		if err != nil {
-			return output.NewError(output.ConvertError, "invalid amount", err)
-		}
-	}
-	bytecode, err := decodeBytecode()
-	if err != nil {
-		return output.NewError(output.ConvertError, "invalid bytecode", err)
-	}
-	return Execute(contract, amount, bytecode)
 }
