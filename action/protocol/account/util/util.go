@@ -92,7 +92,7 @@ func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, 
 	return a, err
 }
 
-// AccountState returns the confirmed account state on the chain with what height the state is read from.
+// AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
 func AccountStateWithHeight(sr protocol.StateReader, encodedAddr string) (*state.Account, uint64, error) {
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
