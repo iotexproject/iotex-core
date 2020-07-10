@@ -333,8 +333,6 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	if fetchErr != nil {
 		return log, fetchErr
 	}
-	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
-
 	newOwner := act.VoterAddress()
 	if !address.Equal(bucket.Owner, actionCtx.Caller) {
 		// check if the payload contains a valid consignment transfer
@@ -347,6 +345,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 			}
 		}
 	}
+	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
 	// update bucket index
 	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {
