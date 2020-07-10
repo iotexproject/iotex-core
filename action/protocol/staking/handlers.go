@@ -96,6 +96,14 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), true, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update staker balance
 	if err := staker.SubBalance(act.Amount()); err != nil {
 		return log, nil, &handleError{
@@ -229,6 +237,14 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	// delete bucket and bucket index
 	if err := delBucketAndIndex(csm, bucket.Owner, bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
+	}
+
+	// update bucket pool
+	if err := csm.CreditBucketPool(bucket.StakedAmount, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
 	}
 
 	// update withdrawer balance
@@ -468,6 +484,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), false, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update depositor balance
 	if err := depositor.SubBalance(act.Amount()); err != nil {
 		return log, nil, &handleError{
@@ -629,6 +653,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	if err := csm.Upsert(c); err != nil {
 		return log, nil, nil, csmErrorToHandleError(owner.String(), err)
+	}
+
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), true, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+		return log, nil, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
 	}
 
 	// update caller balance

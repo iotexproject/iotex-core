@@ -143,10 +143,11 @@ func TestProtocol(t *testing.T) {
 
 	// load candidates from stateDB and verify
 	v, err := stk.Start(ctx, sm)
+	sm.WriteView(protocolID, v)
 	r.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	_, ok := v.(candidateBucketCenter)
 	r.True(ok)
-	csm, err := NewCandidateStateManager(sm, cc)
+	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
