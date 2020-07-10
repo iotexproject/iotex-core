@@ -237,6 +237,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		rLog *receiptLog
 		aLog *action.Log
 		err  error
+		logs []*action.Log
 	)
 
 	switch act := act.(type) {
@@ -262,7 +263,9 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return nil, nil
 	}
 
-	logs := []*action.Log{rLog.Build(ctx, err)}
+	if l := rLog.Build(ctx, err); l != nil {
+		logs = append(logs, l)
+	}
 	if err == nil {
 		if aLog != nil {
 			logs = append(logs, aLog)
