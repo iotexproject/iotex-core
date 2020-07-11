@@ -117,7 +117,7 @@ func getBlock(args []string) error {
 	}
 	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
 	if verbose {
-		actionInfos, err = getActionInfoByBlock(blockMeta.Hash, blockMeta.Height, uint64(blockMeta.NumActions))
+		actionInfos, err = getActionInfoByBlock(blockMeta.Height, uint64(blockMeta.NumActions))
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)
 		}
@@ -136,14 +136,13 @@ func getBlock(args []string) error {
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
-func getActionInfoByBlock(hash string, height uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
+func getActionInfoByBlock(height uint64, count uint64) ([]*iotexapi.ActionInfo, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	//request := iotexapi.GetActionsRequest{Lookup: &iotexapi.GetActionsRequest_ByBlk{ByBlk: &iotexapi.GetActionsByBlockRequest{BlkHash: hash, Start: height, Count: count}}}
 	request := iotexapi.GetActionsRequest{Lookup: &iotexapi.GetActionsRequest_ByIndex{ByIndex: &iotexapi.GetActionsByIndexRequest{Start: height, Count: count}}}
 	ctx := context.Background()
 
