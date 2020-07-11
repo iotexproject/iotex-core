@@ -24,18 +24,25 @@ var (
 	addr        = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
 	amount      = big.NewInt(100)
 	sender      = identityset.Address(0)
-	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recver      = identityset.Address(1)
+	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
 
-	evmTopics = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
-	evmLog    = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
-
-	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, hash.ZeroHash256, senderTopic}
+	evmTopics      = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
+	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, hash.BytesToHash256(stakingAddr.Bytes()), hash.ZeroHash256}
+	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, hash.BytesToHash256(stakingAddr.Bytes()), hash.ZeroHash256}
+	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	staking        = hash.Hash160b([]byte(action.StakingProtocolID))
+	stakingAddr, _ = address.FromBytes(staking[:])
+	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, hash.BytesToHash256(stakingAddr.Bytes()), senderTopic, hash.ZeroHash256}
 	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
-
-	normalLog = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	panicLog  = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, recverTopic, hash.ZeroHash256}
+	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	panicLog       = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, registerLog}
 
 	receiptTest = []struct {
 		r   *action.Receipt
@@ -63,9 +70,14 @@ var (
 			1,
 		},
 		{
+			// contain candidate register
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{registerLog}},
+			1,
+		},
+		{
 			// contain both
-			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{evmLog, withdrawLog}},
-			2,
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: allLogs},
+			5,
 		},
 	}
 )
@@ -73,15 +85,29 @@ var (
 func TestIsSystemLog(t *testing.T) {
 	r := require.New(t)
 
-	r.True(evmLog.IsEvmTransfer())
-	r.False(withdrawLog.IsEvmTransfer())
-	r.False(normalLog.IsEvmTransfer())
-	r.False(panicLog.IsEvmTransfer())
+	r.Equal(addr, stakingAddr.String())
+	for i, log := range allLogs {
+		r.Equal(i == 0, log.IsEvmTransfer())
+		r.Equal(i == 1, log.IsCreateBucket())
+		r.Equal(i == 2, log.IsDepositBucket())
+		r.Equal(i == 3, log.IsWithdrawBucket())
+		r.Equal(i == 4, log.IsCandidateRegister())
+	}
 
-	r.True(withdrawLog.IsWithdrawBucket())
-	r.False(evmLog.IsWithdrawBucket())
+	r.False(normalLog.IsEvmTransfer())
+	r.False(normalLog.IsCreateBucket())
+	r.False(normalLog.IsDepositBucket())
 	r.False(normalLog.IsWithdrawBucket())
+	r.False(normalLog.IsCandidateRegister())
+
+	r.False(panicLog.IsEvmTransfer())
+	r.Panics(func() { panicLog.IsCreateBucket() })
+	panicLog.Topics = depositTopics
+	r.Panics(func() { panicLog.IsDepositBucket() })
+	panicLog.Topics = withdrawTopics
 	r.Panics(func() { panicLog.IsWithdrawBucket() })
+	panicLog.Topics = registerTopics
+	r.Panics(func() { panicLog.IsCandidateRegister() })
 }
 
 func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
@@ -91,13 +117,8 @@ func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecor
 	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
 	txAmount := new(big.Int).SetBytes(log.Data)
 	r.Equal(txAmount.String(), rec.amount)
-	if log.IsEvmTransfer() {
-		from, _ := address.FromBytes(log.Topics[1][12:])
-		r.Equal(from.String(), rec.sender)
-	}
-	if log.IsWithdrawBucket() {
-		r.Equal(log.Address, rec.sender)
-	}
+	from, _ := address.FromBytes(log.Topics[1][12:])
+	r.Equal(from.String(), rec.sender)
 	to, _ := address.FromBytes(log.Topics[2][12:])
 	r.Equal(to.String(), rec.recipient)
 	return true
