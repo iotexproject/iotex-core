@@ -550,18 +550,27 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
-			// check the special candidate register log
-			require.Equal(2, len(r.Logs))
+			// check the special create bucket and candidate register log
+			require.Equal(3, len(r.Logs))
 			cLog := r.Logs[1]
-			require.True(cLog.IsCandidateRegister())
+			require.True(cLog.IsCreateBucket())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ := address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))
+			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amountStr, amount.String())
+			cLog = r.Logs[2]
+			require.True(cLog.IsCandidateRegister())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ = address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
 			h := hash.Hash160b([]byte(action.RewardingProtocolID))
 			rewardingAddr, _ := address.FromBytes(h[:])
-			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			to, _ = address.FromBytes(cLog.Topics[2][12:])
 			require.True(address.Equal(rewardingAddr, to))
-			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[1].Data))
+			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[2].Data))
 
 			// test candidate
 			candidate, err := getCandidate(sm, act.OwnerAddress())

@@ -196,7 +196,11 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 		return false
 	}
 
-	if len(log.Topics) < 4 || log.Index != 1 {
+	index := uint(1)
+	if topic == CandidateRegistrationFee {
+		index = 2
+	}
+	if len(log.Topics) < 4 || log.Index != index {
 		panic("staking implicit log is corrupted")
 	}
 	return true

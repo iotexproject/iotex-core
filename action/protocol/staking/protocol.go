@@ -259,7 +259,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.Restake:
 		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		rLog, registerLog, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, createLog, registerLog, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:

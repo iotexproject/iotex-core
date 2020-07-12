@@ -39,7 +39,7 @@ var (
 	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, hash.BytesToHash256(stakingAddr.Bytes()), senderTopic, hash.ZeroHash256}
 	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, recverTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 2, false}
 	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	panicLog       = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, registerLog}
