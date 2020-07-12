@@ -201,9 +201,23 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 		index = 2
 	}
 	if len(log.Topics) < 4 || log.Index != index {
-		panic("staking implicit log is corrupted")
+		return false
 	}
-	return true
+
+	switch {
+	case topic == BucketCreateAmount || topic == BucketDepositAmount:
+		// amount goes into staking bucket pool
+		return log.Topics[2] == hash.BytesToHash256(addr.Bytes())
+	case topic == BucketWithdrawAmount:
+		// amount comes out of staking bucket pool
+		return log.Topics[1] == hash.BytesToHash256(addr.Bytes())
+	case topic == CandidateRegistrationFee:
+		// amount goes into rewarding pool
+		reward := hash.Hash160b([]byte(RewardingProtocolID))
+		return log.Topics[2] == hash.BytesToHash256(reward[:])
+	default:
+		return false
+	}
 }
 
 // IsEvmTransfer checks evm transfer log

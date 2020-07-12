@@ -27,21 +27,23 @@ var (
 	recver      = identityset.Address(1)
 	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
+	reward      = hash.Hash160b([]byte(action.RewardingProtocolID))
+	rewardTopic = hash.BytesToHash256(reward[:])
 
-	evmTopics      = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
-	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
-	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, hash.BytesToHash256(stakingAddr.Bytes()), hash.ZeroHash256}
-	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
-	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, hash.BytesToHash256(stakingAddr.Bytes()), hash.ZeroHash256}
-	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 	staking        = hash.Hash160b([]byte(action.StakingProtocolID))
 	stakingAddr, _ = address.FromBytes(staking[:])
-	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, hash.BytesToHash256(stakingAddr.Bytes()), senderTopic, hash.ZeroHash256}
+	stakingTopic   = hash.BytesToHash256(staking[:])
+	evmTopics      = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
+	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, stakingTopic, hash.ZeroHash256}
+	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, stakingTopic, hash.ZeroHash256}
+	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, stakingTopic, senderTopic, hash.ZeroHash256}
 	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
-	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, recverTopic, hash.ZeroHash256}
+	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, rewardTopic, hash.ZeroHash256}
 	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 2, false}
 	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	panicLog       = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, registerLog}
 
 	receiptTest = []struct {
@@ -92,6 +94,34 @@ func TestIsSystemLog(t *testing.T) {
 		r.Equal(i == 2, log.IsDepositBucket())
 		r.Equal(i == 3, log.IsWithdrawBucket())
 		r.Equal(i == 4, log.IsCandidateRegister())
+
+		// test wrong index and wrong recipient
+		if log.IsCreateBucket() {
+			log.Index = 0
+			r.False(log.IsCreateBucket())
+			log.Index = 1
+			log.Topics[2] = recverTopic
+			r.False(log.IsCreateBucket())
+			log.Topics[2] = stakingTopic
+		}
+
+		if log.IsWithdrawBucket() {
+			log.Index = 0
+			r.False(log.IsWithdrawBucket())
+			log.Index = 1
+			log.Topics[1] = recverTopic
+			r.False(log.IsWithdrawBucket())
+			log.Topics[1] = stakingTopic
+		}
+
+		if log.IsCandidateRegister() {
+			log.Index = 0
+			r.False(log.IsCandidateRegister())
+			log.Index = 2
+			log.Topics[2] = recverTopic
+			r.False(log.IsCandidateRegister())
+			log.Topics[2] = rewardTopic
+		}
 	}
 
 	r.False(normalLog.IsEvmTransfer())
@@ -99,15 +129,6 @@ func TestIsSystemLog(t *testing.T) {
 	r.False(normalLog.IsDepositBucket())
 	r.False(normalLog.IsWithdrawBucket())
 	r.False(normalLog.IsCandidateRegister())
-
-	r.False(panicLog.IsEvmTransfer())
-	r.Panics(func() { panicLog.IsCreateBucket() })
-	panicLog.Topics = depositTopics
-	r.Panics(func() { panicLog.IsDepositBucket() })
-	panicLog.Topics = withdrawTopics
-	r.Panics(func() { panicLog.IsWithdrawBucket() })
-	panicLog.Topics = registerTopics
-	r.Panics(func() { panicLog.IsCandidateRegister() })
 }
 
 func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
