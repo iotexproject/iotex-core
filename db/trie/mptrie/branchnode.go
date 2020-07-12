@@ -80,8 +80,10 @@ func (b *branchNode) MarkAsRoot() {
 func (b *branchNode) Children() []node {
 	trieMtc.WithLabelValues("branchNode", "children").Inc()
 	children := []node{}
-	for _, child := range b.children {
-		children = append(children, child)
+	for index := 0; index < radix; index++ {
+		if c, ok := b.children[byte(index)]; ok {
+			children = append(children, c)
+		}
 	}
 
 	return children
@@ -206,9 +208,11 @@ func (b *branchNode) child(key byte) (node, error) {
 }
 
 func (b *branchNode) Flush() error {
-	for _, c := range b.children {
-		if err := c.Flush(); err != nil {
-			return err
+	for index := 0; index < radix; index++ {
+		if c, ok := b.children[byte(index)]; ok {
+			if err := c.Flush(); err != nil {
+				return err
+			}
 		}
 	}
 	_, err := b.store()
