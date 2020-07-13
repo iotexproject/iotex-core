@@ -10,7 +10,6 @@ import (
 	"context"
 	"math"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -341,7 +340,7 @@ func SimulateExecution(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
+			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(bcCtx.Genesis.BlockInterval),
 			GasLimit:       bcCtx.Genesis.BlockGasLimit,
 			Producer:       zeroAddr,
 		},
