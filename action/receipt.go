@@ -7,9 +7,6 @@
 package action
 
 import (
-	"bytes"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -27,22 +24,23 @@ const (
 
 var (
 	// InContractTransfer is topic for implicit transfer log of evm transfer
-	InContractTransfer = common.Hash{} // 32 bytes with all zeros
+	// 32 bytes with all zeros
+	InContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_IN_CONTRACT_TRANSFER)})
 
 	// BucketWithdrawAmount is topic for bucket withdraw
-	BucketWithdrawAmount = hash.BytesToHash256([]byte("withdrawAmount"))
+	BucketWithdrawAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_WITHDRAW_AMOUNT)})
 
 	// BucketCreateAmount is topic for bucket create
-	BucketCreateAmount = hash.BytesToHash256([]byte("createAmount"))
+	BucketCreateAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_CREATE_AMOUNT)})
 
 	// BucketDepositAmount is topic for bucket deposit
-	BucketDepositAmount = hash.BytesToHash256([]byte("depositAmount"))
+	BucketDepositAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_DEPOSIT_AMOUNT)})
 
 	// CandidateSelfStake is topic for candidate self-stake
-	CandidateSelfStake = hash.BytesToHash256([]byte("selfStake"))
+	CandidateSelfStake = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_SELF_STAKE)})
 
 	// CandidateRegistrationFee is topic for candidate register
-	CandidateRegistrationFee = hash.BytesToHash256([]byte("registrationFee"))
+	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_REGISTRATION_FEE)})
 )
 
 type (
@@ -199,11 +197,7 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 		return false
 	}
 
-	index := uint(1)
-	if topic == CandidateRegistrationFee {
-		index = 2
-	}
-	if len(log.Topics) < 4 || log.Index != index {
+	if len(log.Topics) < 4 {
 		return false
 	}
 
@@ -228,7 +222,7 @@ func (log *Log) IsEvmTransfer() bool {
 	if log == nil || len(log.Topics) == 0 {
 		return false
 	}
-	return bytes.Compare(InContractTransfer[:], log.Topics[0][:]) >= 0
+	return log.Topics[0] == InContractTransfer
 }
 
 // IsWithdrawBucket checks withdraw bucket log

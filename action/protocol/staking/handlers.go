@@ -124,7 +124,6 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Index:       1,
 	}
 	return log, &cLog, nil
 }
@@ -261,7 +260,6 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		Data:        bucket.StakedAmount.Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Index:       1,
 	}
 	return log, &amountLog, nil
 }
@@ -491,7 +489,6 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Index:       1,
 	}
 	return log, &dLog, nil
 }
@@ -663,7 +660,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
-		Index:       1,
 	}
 
 	// generate candidate register log
@@ -679,7 +675,6 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Data:        registrationFee.Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
-		Index:       2,
 	}
 	return log, &cLog, &rLog, nil
 }
