@@ -41,6 +41,9 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
 
+	// action.RewardingProtocolID is defined to avoid import cycle, make sure they match
+	require.Equal(t, protocolID, action.RewardingProtocolID)
+
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)

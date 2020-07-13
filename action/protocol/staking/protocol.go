@@ -234,29 +234,32 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog *receiptLog
-		aLog *action.Log
-		err  error
-		logs []*action.Log
+		rLog        *receiptLog
+		createLog   *action.Log
+		depositLog  *action.Log
+		withdrawLog *action.Log
+		registerLog *action.Log
+		err         error
+		logs        []*action.Log
 	)
 
 	switch act := act.(type) {
 	case *action.CreateStake:
-		rLog, err = p.handleCreateStake(ctx, act, csm)
+		rLog, createLog, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
 		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		rLog, aLog, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, withdrawLog, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
 		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
 		rLog, err = p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		rLog, err = p.handleDepositToStake(ctx, act, csm)
+		rLog, depositLog, err = p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
 		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		rLog, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, createLog, registerLog, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:
@@ -267,8 +270,17 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		if aLog != nil {
-			logs = append(logs, aLog)
+		if createLog != nil {
+			logs = append(logs, createLog)
+		}
+		if depositLog != nil {
+			logs = append(logs, depositLog)
+		}
+		if withdrawLog != nil {
+			logs = append(logs, withdrawLog)
+		}
+		if registerLog != nil {
+			logs = append(logs, registerLog)
 		}
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
 	}
