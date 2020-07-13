@@ -553,7 +553,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			// check the special create bucket and candidate register log
 			require.Equal(3, len(r.Logs))
 			cLog := r.Logs[1]
-			require.True(cLog.IsCreateBucket())
+			require.True(cLog.IsCandidateSelfStake())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ := address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))

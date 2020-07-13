@@ -651,11 +651,11 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	// generate create amount log
+	// generate self-stake log
 	cLog := action.Log{
 		Address: p.addr.String(),
 		Topics: action.Topics{
-			action.BucketCreateAmount,
+			action.CandidateSelfStake,
 			hash.BytesToHash256(actCtx.Caller.Bytes()),
 			hash.BytesToHash256(p.addr.Bytes()),
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),

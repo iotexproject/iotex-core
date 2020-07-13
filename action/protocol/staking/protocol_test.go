@@ -45,6 +45,7 @@ func TestImplicitLog(t *testing.T) {
 		[][]byte{action.BucketCreateAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
 		[][]byte{action.BucketDepositAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
 		[][]byte{action.BucketWithdrawAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
+		[][]byte{action.CandidateSelfStake[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
 		[][]byte{action.CandidateRegistrationFee[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
 	}
 	for _, v := range implicitTopis {
@@ -52,6 +53,9 @@ func TestImplicitLog(t *testing.T) {
 		_, ok := BucketIndexFromReceiptLog(log)
 		require.False(ok)
 	}
+	log.Topics = [][]byte{h[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]}
+	_, ok = BucketIndexFromReceiptLog(log)
+	require.True(ok)
 }
 
 func TestProtocol(t *testing.T) {

@@ -38,6 +38,9 @@ var (
 	// BucketDepositAmount is topic for bucket deposit
 	BucketDepositAmount = hash.BytesToHash256([]byte("depositAmount"))
 
+	// CandidateSelfStake is topic for candidate self-stake
+	CandidateSelfStake = hash.BytesToHash256([]byte("selfStake"))
+
 	// CandidateRegistrationFee is topic for candidate register
 	CandidateRegistrationFee = hash.BytesToHash256([]byte("registrationFee"))
 )
@@ -178,7 +181,7 @@ func (log *Log) Deserialize(buf []byte) error {
 // IsImplicitTransfer checks whether a log is implicit transfer log
 func (log *Log) IsImplicitTransfer() bool {
 	return log.IsEvmTransfer() || log.IsCreateBucket() || log.IsDepositBucket() ||
-		log.IsWithdrawBucket() || log.IsCandidateRegister()
+		log.IsWithdrawBucket() || log.IsCandidateRegister() || log.IsCandidateSelfStake()
 }
 
 func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
@@ -205,7 +208,7 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 	}
 
 	switch {
-	case topic == BucketCreateAmount || topic == BucketDepositAmount:
+	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
 		// amount goes into staking bucket pool
 		return log.Topics[2] == hash.BytesToHash256(addr.Bytes())
 	case topic == BucketWithdrawAmount:
@@ -246,4 +249,9 @@ func (log *Log) IsDepositBucket() bool {
 // IsCandidateRegister checks candidate register log
 func (log *Log) IsCandidateRegister() bool {
 	return log.isStakingImplicitLog(CandidateRegistrationFee)
+}
+
+// IsCandidateSelfStake checks candidate self-stake log
+func (log *Log) IsCandidateSelfStake() bool {
+	return log.isStakingImplicitLog(CandidateSelfStake)
 }

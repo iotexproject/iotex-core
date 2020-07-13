@@ -41,10 +41,12 @@ var (
 	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, stakingTopic, senderTopic, hash.ZeroHash256}
 	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, stakingTopic, hash.ZeroHash256}
+	selfstakeLog   = &action.Log{addr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
 	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, rewardTopic, hash.ZeroHash256}
 	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 2, false}
 	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, registerLog}
+	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
 	receiptTest = []struct {
 		r   *action.Receipt
@@ -67,8 +69,23 @@ var (
 			1,
 		},
 		{
+			// contain create bucket
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{createLog}},
+			1,
+		},
+		{
+			// contain deposit bucket
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{depositLog}},
+			1,
+		},
+		{
 			// contain withdraw bucket
 			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{withdrawLog}},
+			1,
+		},
+		{
+			// contain candidate self-stake
+			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{selfstakeLog}},
 			1,
 		},
 		{
@@ -77,9 +94,9 @@ var (
 			1,
 		},
 		{
-			// contain both
+			// contain all
 			&action.Receipt{Status: uint64(iotextypes.ReceiptStatus_Success), Logs: allLogs},
-			5,
+			6,
 		},
 	}
 )
@@ -93,7 +110,8 @@ func TestIsSystemLog(t *testing.T) {
 		r.Equal(i == 1, log.IsCreateBucket())
 		r.Equal(i == 2, log.IsDepositBucket())
 		r.Equal(i == 3, log.IsWithdrawBucket())
-		r.Equal(i == 4, log.IsCandidateRegister())
+		r.Equal(i == 4, log.IsCandidateSelfStake())
+		r.Equal(i == 5, log.IsCandidateRegister())
 
 		// test wrong index and wrong recipient
 		if log.IsCreateBucket() {
@@ -128,6 +146,7 @@ func TestIsSystemLog(t *testing.T) {
 	r.False(normalLog.IsCreateBucket())
 	r.False(normalLog.IsDepositBucket())
 	r.False(normalLog.IsWithdrawBucket())
+	r.False(normalLog.IsCandidateSelfStake())
 	r.False(normalLog.IsCandidateRegister())
 }
 
