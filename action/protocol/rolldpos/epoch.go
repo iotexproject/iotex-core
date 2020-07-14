@@ -117,7 +117,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 			return nil, uint64(0), err
 		}
 		numSubEpochs := p.NumSubEpochs(height)
-		return []byte(strconv.FormatUint(numSubEpochs, 10)), height, nil
+		return []byte(strconv.FormatUint(numSubEpochs, 10)), tipHeight, nil
 	case "EpochNumber":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -127,7 +127,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 			return nil, uint64(0), err
 		}
 		epochNumber := p.GetEpochNum(height)
-		return []byte(strconv.FormatUint(epochNumber, 10)), height, nil
+		return []byte(strconv.FormatUint(epochNumber, 10)), tipHeight, nil
 	case "EpochHeight":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -137,7 +137,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 			return nil, uint64(0), err
 		}
 		epochHeight := p.GetEpochHeight(epochNumber)
-		return []byte(strconv.FormatUint(epochHeight, 10)), epochHeight, nil
+		return []byte(strconv.FormatUint(epochHeight, 10)), tipHeight, nil
 	case "EpochLastHeight":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -147,7 +147,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 			return nil, uint64(0), err
 		}
 		epochLastHeight := p.GetEpochLastBlockHeight(epochNumber)
-		return []byte(strconv.FormatUint(epochLastHeight, 10)), epochLastHeight, nil
+		return []byte(strconv.FormatUint(epochLastHeight, 10)), tipHeight, nil
 	case "SubEpochNumber":
 		if len(args) != 1 {
 			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
@@ -157,7 +157,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 			return nil, uint64(0), err
 		}
 		subEpochNumber := p.GetSubEpochNum(height)
-		return []byte(strconv.FormatUint(subEpochNumber, 10)), height, nil
+		return []byte(strconv.FormatUint(subEpochNumber, 10)), tipHeight, nil
 	default:
 		return nil, tipHeight, errors.New("corresponding method isn't found")
 	}

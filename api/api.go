@@ -452,10 +452,18 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	blkHash, err := api.dao.GetBlockHash(readStateHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	out := iotexapi.ReadStateResponse{
 		Data: data,
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Height: readStateHeight,
+			Hash:   hex.EncodeToString(blkHash[:]),
 		},
 	}
 	return &out, nil

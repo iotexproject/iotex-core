@@ -378,7 +378,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, uint64(0), err
 	}
-	bytes, err := proto.Marshal(resp)
+	data, err := proto.Marshal(resp)
 	if err != nil {
 		return nil, uint64(0), err
 	}
@@ -387,7 +387,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), err
 	}
 
-	return bytes, stateHeight, nil
+	return data, stateHeight, nil
 }
 
 // Register registers the protocol with a unique ID

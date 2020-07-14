@@ -154,11 +154,11 @@ func (sh *Slasher) ReadState(
 		if indexer != nil {
 			candidates, err := sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				bytes, err := candidates.Serialize()
+				data, err := candidates.Serialize()
 				if err != nil {
 					return nil, uint64(0), err
 				}
-				return bytes, epochStartHeight, nil
+				return data, epochStartHeight, nil
 			}
 			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
 				return nil, uint64(0), err
@@ -168,20 +168,20 @@ func (sh *Slasher) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		bytes, err := candidates.Serialize()
+		data, err := candidates.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		return bytes, height, nil
+		return data, height, nil
 	case "BlockProducersByEpoch":
 		if indexer != nil {
 			blockProducers, err := sh.GetBPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				bytes, err := blockProducers.Serialize()
+				data, err := blockProducers.Serialize()
 				if err != nil {
 					return nil, uint64(0), err
 				}
-				return bytes, epochStartHeight, nil
+				return data, epochStartHeight, nil
 			}
 			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
 				return nil, uint64(0), err
@@ -191,20 +191,20 @@ func (sh *Slasher) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		bytes, err := bp.Serialize()
+		data, err := bp.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		return bytes, height, nil
+		return data, height, nil
 	case "ActiveBlockProducersByEpoch":
 		if indexer != nil {
 			activeBlockProducers, err := sh.GetABPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				bytes, err := activeBlockProducers.Serialize()
+				data, err := activeBlockProducers.Serialize()
 				if err != nil {
 					return nil, uint64(0), err
 				}
-				return bytes, epochStartHeight, nil
+				return data, epochStartHeight, nil
 			}
 			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
 				return nil, uint64(0), err
@@ -214,20 +214,20 @@ func (sh *Slasher) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		bytes, err := abp.Serialize()
+		data, err := abp.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		return bytes, height, nil
+		return data, height, nil
 	case "ProbationListByEpoch":
 		if indexer != nil {
 			probationList, err := indexer.ProbationList(epochStartHeight)
 			if err == nil {
-				bytes, err := probationList.Serialize()
+				data, err := probationList.Serialize()
 				if err != nil {
 					return nil, uint64(0), err
 				}
-				return bytes, epochStartHeight, nil
+				return data, epochStartHeight, nil
 			}
 			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
 				return nil, uint64(0), err
@@ -237,11 +237,11 @@ func (sh *Slasher) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		bytes, err := probationList.Serialize()
+		data, err := probationList.Serialize()
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		return bytes, height, nil
+		return data, height, nil
 	default:
 		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
