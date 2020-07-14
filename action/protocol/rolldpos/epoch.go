@@ -110,51 +110,51 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return []byte(strconv.FormatUint(p.numDelegates, 10)), tipHeight, nil
 	case "NumSubEpochs":
 		if len(args) != 1 {
-			return nil, tipHeight, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		height, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, tipHeight, err
+			return nil, uint64(0), err
 		}
 		numSubEpochs := p.NumSubEpochs(height)
 		return []byte(strconv.FormatUint(numSubEpochs, 10)), height, nil
 	case "EpochNumber":
 		if len(args) != 1 {
-			return nil, tipHeight, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		height, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, tipHeight, err
+			return nil, uint64(0), err
 		}
 		epochNumber := p.GetEpochNum(height)
 		return []byte(strconv.FormatUint(epochNumber, 10)), height, nil
 	case "EpochHeight":
 		if len(args) != 1 {
-			return nil, tipHeight, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		epochNumber, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, tipHeight, err
+			return nil, uint64(0), err
 		}
 		epochHeight := p.GetEpochHeight(epochNumber)
 		return []byte(strconv.FormatUint(epochHeight, 10)), epochHeight, nil
 	case "EpochLastHeight":
 		if len(args) != 1 {
-			return nil, tipHeight, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		epochNumber, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, tipHeight, err
+			return nil, uint64(0), err
 		}
 		epochLastHeight := p.GetEpochLastBlockHeight(epochNumber)
 		return []byte(strconv.FormatUint(epochLastHeight, 10)), epochLastHeight, nil
 	case "SubEpochNumber":
 		if len(args) != 1 {
-			return nil, tipHeight, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		height, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, tipHeight, err
+			return nil, uint64(0), err
 		}
 		subEpochNumber := p.GetSubEpochNum(height)
 		return []byte(strconv.FormatUint(subEpochNumber, 10)), height, nil
