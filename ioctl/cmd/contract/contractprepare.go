@@ -45,13 +45,12 @@ func prepare() error {
 	solc, err := compiler.SolidityVersion(solCompiler)
 	if err != nil {
 		cmdString := "curl --silent https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh"
-
 		cmd := exec.Command("bash", "-c", cmdString)
 		output.PrintResult("Preparing solidity compiler ...\n")
 
 		err = cmd.Run()
 		if err != nil {
-			return output.NewError(output.UpdateError, "failed to prepare solc", nil)
+			return output.NewError(output.UpdateError, "failed to prepare solc", err)
 		}
 	}
 
