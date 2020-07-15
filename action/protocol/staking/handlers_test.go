@@ -194,6 +194,18 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		require.Equal(uint64(test.status), r.Status)
 
 		if test.status == iotextypes.ReceiptStatus_Success {
+			// check the special create bucket log
+			require.Equal(2, len(r.Logs))
+			cLog := r.Logs[1]
+			require.True(cLog.IsCreateBucket())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ := address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(stakerAddr, from))
+			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amount, amount.String())
+
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidateAddr)
 			require.NoError(err)
@@ -538,6 +550,28 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
+			// check the special create bucket and candidate register log
+			require.Equal(3, len(r.Logs))
+			cLog := r.Logs[1]
+			require.True(cLog.IsCandidateSelfStake())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ := address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amountStr, amount.String())
+			cLog = r.Logs[2]
+			require.True(cLog.IsCandidateRegister())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ = address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			h := hash.Hash160b([]byte(action.RewardingProtocolID))
+			rewardingAddr, _ := address.FromBytes(h[:])
+			to, _ = address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(rewardingAddr, to))
+			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[2].Data))
+
 			// test candidate
 			candidate, err := getCandidate(sm, act.OwnerAddress())
 			if act.OwnerAddress() == nil {
@@ -1283,7 +1317,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Equal(2, len(r.Logs))
 			wLog := r.Logs[1]
 			require.True(wLog.IsWithdrawBucket())
-			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(wLog.Topics[1][24:]))
+			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(wLog.Topics[3][24:]))
+			from, _ := address.FromBytes(wLog.Topics[1][12:])
+			require.True(address.Equal(p.addr, from))
 			to, _ := address.FromBytes(wLog.Topics[2][12:])
 			require.True(address.Equal(caller, to))
 			amount := new(big.Int).SetBytes(r.Logs[1].Data)
@@ -2445,6 +2481,18 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
+			// check the special deposit bucket log
+			require.Equal(2, len(r.Logs))
+			dLog := r.Logs[1]
+			require.True(dLog.IsDepositBucket())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(dLog.Topics[3][24:]))
+			from, _ := address.FromBytes(dLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			to, _ := address.FromBytes(dLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amount, amount.String())
+
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
@@ -2457,7 +2505,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
-			amount, _ := new(big.Int).SetString(test.amount, 10)
+			amount, _ = new(big.Int).SetString(test.amount, 10)
 			require.Zero(new(big.Int).Mul(amount, big.NewInt(2)).Cmp(bucket.StakedAmount))
 
 			// test candidate

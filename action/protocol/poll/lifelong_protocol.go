@@ -106,21 +106,26 @@ func (p *lifeLongDelegatesProtocol) ReadState(
 	sr protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
+) ([]byte, uint64, error) {
+	height, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
+	}
 	switch string(method) {
 	case "CandidatesByEpoch":
 		fallthrough
 	case "BlockProducersByEpoch":
 		fallthrough
 	case "ActiveBlockProducersByEpoch":
-		return p.readBlockProducers()
+		bp, err := p.readBlockProducers()
+		return bp, height, err
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
-		return args[0], nil
+		return args[0], height, nil
 	default:
-		return nil, errors.New("corresponding method isn't found")
+		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
 }
 
