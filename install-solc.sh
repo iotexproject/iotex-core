@@ -103,6 +103,9 @@ initOS
 
 # assemble expected release artifact name
 if [ "$OS" = "darwin" ]; then
+    brew update
+    brew upgrade
+    brew tap ethereum/ethereum
     brew install solidity@5
 else
     if [ "${OS}" != "linux" ] && { [ "${ARCH}" = "ppc64" ] || [ "${ARCH}" = "ppc64le" ];}; then
