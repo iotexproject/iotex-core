@@ -448,12 +448,23 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	if !ok {
 		return nil, status.Errorf(codes.Internal, "protocol %s isn't registered", string(in.ProtocolID))
 	}
-	data, err := api.readState(ctx, p, in.GetHeight(), in.MethodName, in.Arguments...)
+	data, readStateHeight, err := api.readState(ctx, p, in.GetHeight(), in.MethodName, in.Arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
+	blkHash, err := api.dao.GetBlockHash(readStateHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	out := iotexapi.ReadStateResponse{
 		Data: data,
+		BlockIdentifier: &iotextypes.BlockIdentifier{
+			Height: readStateHeight,
+			Hash:   hex.EncodeToString(blkHash[:]),
+		},
 	}
 	return &out, nil
 }
@@ -540,7 +551,7 @@ func (api *Server) GetEpochMeta(
 	methodName := []byte("ActiveBlockProducersByEpoch")
 	arguments := [][]byte{[]byte(strconv.FormatUint(in.EpochNumber, 10))}
 	height := strconv.FormatUint(epochHeight, 10)
-	data, err := api.readState(context.Background(), pp, height, methodName, arguments...)
+	data, _, err := api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -556,7 +567,7 @@ func (api *Server) GetEpochMeta(
 	}
 
 	methodName = []byte("BlockProducersByEpoch")
-	data, err = api.readState(context.Background(), pp, height, methodName, arguments...)
+	data, _, err = api.readState(context.Background(), pp, height, methodName, arguments...)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -879,7 +890,7 @@ func (api *Server) Stop() error {
 	return api.chainListener.Stop()
 }
 
-func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, error) {
+func (api *Server) readState(ctx context.Context, p protocol.Protocol, height string, methodName []byte, arguments ...[]byte) ([]byte, uint64, error) {
 	// TODO: need to complete the context
 	tipHeight := api.bc.TipHeight()
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
@@ -894,14 +905,14 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp == nil {
-		return nil, errors.New("rolldpos is not registered")
+		return nil, uint64(0), errors.New("rolldpos is not registered")
 	}
 
 	tipEpochNum := rp.GetEpochNum(tipHeight)
 	if height != "" {
 		inputHeight, err := strconv.ParseUint(height, 0, 64)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
 		inputEpochNum := rp.GetEpochNum(inputHeight)
 		if inputEpochNum < tipEpochNum {
@@ -1283,7 +1294,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	if pp := poll.FindProtocol(api.registry); pp != nil {
 		methodName := []byte("GetGravityChainStartHeight")
 		arguments := [][]byte{[]byte(strconv.FormatUint(epochHeight, 10))}
-		data, err := api.readState(context.Background(), pp, "", methodName, arguments...)
+		data, _, err := api.readState(context.Background(), pp, "", methodName, arguments...)
 		if err != nil {
 			return 0, err
 		}

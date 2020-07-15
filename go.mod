@@ -33,7 +33,7 @@ require (
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.4.0
-	go.etcd.io/bbolt v1.3.2
+	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
 	go.uber.org/zap v1.10.0

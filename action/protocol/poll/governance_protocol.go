@@ -172,19 +172,23 @@ func (p *governanceChainCommitteeProtocol) CalculateUnproductiveDelegates(
 }
 
 func (p *governanceChainCommitteeProtocol) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return p.sh.GetActiveBlockProducers(ctx, sr, false)
+	delegates, _, err := p.sh.GetActiveBlockProducers(ctx, sr, false)
+	return delegates, err
 }
 
 func (p *governanceChainCommitteeProtocol) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return p.sh.GetActiveBlockProducers(ctx, sr, true)
+	nextDelegates, _, err := p.sh.GetActiveBlockProducers(ctx, sr, true)
+	return nextDelegates, err
 }
 
 func (p *governanceChainCommitteeProtocol) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return p.sh.GetCandidates(ctx, sr, false)
+	candidates, _, err := p.sh.GetCandidates(ctx, sr, false)
+	return candidates, err
 }
 
 func (p *governanceChainCommitteeProtocol) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return p.sh.GetCandidates(ctx, sr, true)
+	candidates, _, err := p.sh.GetCandidates(ctx, sr, true)
+	return candidates, err
 }
 
 func (p *governanceChainCommitteeProtocol) ReadState(
@@ -192,21 +196,21 @@ func (p *governanceChainCommitteeProtocol) ReadState(
 	sr protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
+) ([]byte, uint64, error) {
 	switch string(method) {
 	case "GetGravityChainStartHeight":
 		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		nativeHeight, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
 		gravityStartheight, err := p.getGravityHeight(ctx, nativeHeight)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(strconv.FormatUint(gravityStartheight, 10)), nil
+		return []byte(strconv.FormatUint(gravityStartheight, 10)), nativeHeight, nil
 	default:
 		return p.sh.ReadState(ctx, sr, p.indexer, method, args...)
 	}
