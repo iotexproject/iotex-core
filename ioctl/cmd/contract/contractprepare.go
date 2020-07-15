@@ -42,7 +42,7 @@ var ContractPrepareCmd = &cobra.Command{
 }
 
 func prepare() error {
-	solc, err := compiler.SolidityVersion(solCompiler)
+	_, err := compiler.SolidityVersion(solCompiler)
 	if err != nil {
 		cmdString := "curl --silent https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh"
 		cmd := exec.Command("bash", "-c", cmdString)
@@ -53,6 +53,7 @@ func prepare() error {
 			return output.NewError(output.UpdateError, "failed to prepare solc", err)
 		}
 	}
+	solc, _ := compiler.SolidityVersion(solCompiler)
 
 	if !checkCompilerVersion(solc) {
 		return output.NewError(output.CompilerError,
