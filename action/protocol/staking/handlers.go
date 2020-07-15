@@ -739,6 +739,10 @@ func (p *Protocol) fetchBucket(
 		}
 		return nil, fetchErr
 	}
+
+	// ReceiptStatus_ErrUnauthorizedOperator indicates action caller is not bucket owner
+	// upon return, the action will be subject to check whether it contains a valid consignment transfer
+	// do NOT return this value in case changes are added in the future
 	if checkOwner && !address.Equal(bucket.Owner, caller) {
 		return bucket, &handleError{
 			err:           errors.New("bucket owner does not match action caller"),
