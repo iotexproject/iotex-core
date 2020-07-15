@@ -147,14 +147,14 @@ func (sc *stakingCommand) NextCandidates(ctx context.Context, sr protocol.StateR
 	return sc.stakingV1.NextCandidates(ctx, sr)
 }
 
-func (sc *stakingCommand) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (sc *stakingCommand) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	if sc.useV2(ctx, sr) {
-		res, err := sc.stakingV2.ReadState(ctx, sr, method, args...)
+		res, height, err := sc.stakingV2.ReadState(ctx, sr, method, args...)
 		if err != nil && sc.stakingV1 != nil {
 			// check if reading from v1 only method
 			return sc.stakingV1.ReadState(ctx, sr, method, args...)
 		}
-		return res, nil
+		return res, height, nil
 	}
 	return sc.stakingV1.ReadState(ctx, sr, method, args...)
 }

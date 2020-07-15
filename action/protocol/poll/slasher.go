@@ -131,15 +131,21 @@ func (sh *Slasher) ReadState(
 	indexer *CandidateIndexer,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
-	blkCtx := protocol.MustGetBlockCtx(ctx)
+) ([]byte, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(blkCtx.BlockHeight) // tip
+	targetHeight, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	epochNum := rp.GetEpochNum(targetHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	if len(args) != 0 {
-		epochNum, err := strconv.ParseUint(string(args[0]), 10, 64)
+		epochNumArg, err := strconv.ParseUint(string(args[0]), 10, 64)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
+		}
+		if epochNum != epochNumArg {
+			return nil, uint64(0), errors.New("Slasher ReadState arg epochNumber should be same as state reader height, need to set argument/height consistently")
 		}
 		epochStartHeight = rp.GetEpochHeight(epochNum)
 	}
@@ -148,81 +154,105 @@ func (sh *Slasher) ReadState(
 		if indexer != nil {
 			candidates, err := sh.GetCandidatesFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				return candidates.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
+				data, err := candidates.Serialize()
+				if err != nil {
+					return nil, uint64(0), err
 				}
+				return data, epochStartHeight, nil
+			}
+			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
+				return nil, uint64(0), err
 			}
 		}
-		candidates, err := sh.GetCandidates(ctx, sr, false)
+		candidates, height, err := sh.GetCandidates(ctx, sr, false)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return candidates.Serialize()
+		data, err := candidates.Serialize()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	case "BlockProducersByEpoch":
 		if indexer != nil {
 			blockProducers, err := sh.GetBPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				return blockProducers.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
+				data, err := blockProducers.Serialize()
+				if err != nil {
+					return nil, uint64(0), err
 				}
+				return data, epochStartHeight, nil
+			}
+			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
+				return nil, uint64(0), err
 			}
 		}
-		blockProducers, err := sh.GetBlockProducers(ctx, sr, false)
+		bp, height, err := sh.GetBlockProducers(ctx, sr, false)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return blockProducers.Serialize()
+		data, err := bp.Serialize()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	case "ActiveBlockProducersByEpoch":
 		if indexer != nil {
 			activeBlockProducers, err := sh.GetABPFromIndexer(ctx, epochStartHeight)
 			if err == nil {
-				return activeBlockProducers.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
+				data, err := activeBlockProducers.Serialize()
+				if err != nil {
+					return nil, uint64(0), err
 				}
+				return data, epochStartHeight, nil
+			}
+			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
+				return nil, uint64(0), err
 			}
 		}
-		activeBlockProducers, err := sh.GetActiveBlockProducers(ctx, sr, false)
+		abp, height, err := sh.GetActiveBlockProducers(ctx, sr, false)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return activeBlockProducers.Serialize()
+		data, err := abp.Serialize()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	case "ProbationListByEpoch":
 		if indexer != nil {
 			probationList, err := indexer.ProbationList(epochStartHeight)
 			if err == nil {
-				return probationList.Serialize()
-			}
-			if err != nil {
-				if errors.Cause(err) != ErrIndexerNotExist {
-					return nil, err
+				data, err := probationList.Serialize()
+				if err != nil {
+					return nil, uint64(0), err
 				}
+				return data, epochStartHeight, nil
+			}
+			if err != nil && errors.Cause(err) != ErrIndexerNotExist {
+				return nil, uint64(0), err
 			}
 		}
-		probationList, err := sh.GetProbationList(ctx, sr, false)
+		probationList, height, err := sh.GetProbationList(ctx, sr, false)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return probationList.Serialize()
+		data, err := probationList.Serialize()
+		if err != nil {
+			return nil, uint64(0), err
+		}
+		return data, height, nil
 	default:
-		return nil, errors.New("corresponding method isn't found")
+		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
 }
 
 // GetCandidates returns filtered candidate list
-func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
+func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
 	}
 	// make sure it's epochStartHeight
 	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(targetHeight))
@@ -233,39 +263,47 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 	beforeEaster := sh.hu.IsPre(config.Easter, targetEpochStartHeight)
 	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, beforeEaster, readFromNext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
+		return nil, uint64(0), errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
 	}
 	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
 	if rp.GetEpochNum(targetEpochStartHeight) < rp.GetEpochNum(stateHeight) {
-		return nil, errors.Wrap(ErrInconsistentHeight, "state factory epoch number became larger than target epoch number")
+		return nil, uint64(0), errors.Wrap(ErrInconsistentHeight, "state factory epoch number became larger than target epoch number")
 	}
 	if beforeEaster {
-		return candidates, nil
+		return candidates, stateHeight, nil
 	}
 	// After Easter height, probation unqualified delegates based on productivity
-	unqualifiedList, err := sh.GetProbationList(ctx, sr, readFromNext)
+	unqualifiedList, _, err := sh.GetProbationList(ctx, sr, readFromNext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get probation list at height %d", targetEpochStartHeight)
+		return nil, uint64(0), errors.Wrapf(err, "failed to get probation list at height %d", targetEpochStartHeight)
 	}
 	// recalculate the voting power for probationlist delegates
-	return filterCandidates(candidates, unqualifiedList, targetEpochStartHeight)
+	filteredCandidate, err := filterCandidates(candidates, unqualifiedList, targetEpochStartHeight)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return filteredCandidate, stateHeight, nil
 }
 
 // GetBlockProducers returns BP list
-func (sh *Slasher) GetBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
-	candidates, err := sh.GetCandidates(ctx, sr, readFromNext)
+func (sh *Slasher) GetBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, uint64, error) {
+	candidates, height, err := sh.GetCandidates(ctx, sr, readFromNext)
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
 	}
-	return sh.calculateBlockProducer(candidates)
+	bp, err := sh.calculateBlockProducer(candidates)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return bp, height, nil
 }
 
 // GetActiveBlockProducers returns active BP list
-func (sh *Slasher) GetActiveBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, error) {
+func (sh *Slasher) GetActiveBlockProducers(ctx context.Context, sr protocol.StateReader, readFromNext bool) (state.CandidateList, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
 	}
 	// make sure it's epochStartHeight
 	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(targetHeight))
@@ -273,11 +311,15 @@ func (sh *Slasher) GetActiveBlockProducers(ctx context.Context, sr protocol.Stat
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	blockProducers, err := sh.GetBlockProducers(ctx, sr, readFromNext)
+	blockProducers, height, err := sh.GetBlockProducers(ctx, sr, readFromNext)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to read block producers at height %d", targetEpochStartHeight)
+		return nil, uint64(0), errors.Wrapf(err, "failed to read block producers at height %d", targetEpochStartHeight)
 	}
-	return sh.calculateActiveBlockProducer(ctx, blockProducers, targetEpochStartHeight)
+	abp, err := sh.calculateActiveBlockProducer(ctx, blockProducers, targetEpochStartHeight)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	return abp, height, nil
 }
 
 // GetCandidatesFromIndexer returns candidate list from indexer
@@ -317,11 +359,11 @@ func (sh *Slasher) GetABPFromIndexer(ctx context.Context, epochStartHeight uint6
 }
 
 // GetProbationList returns the probation list at given epoch
-func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader, readFromNext bool) (*vote.ProbationList, error) {
+func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader, readFromNext bool) (*vote.ProbationList, uint64, error) {
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	targetHeight, err := sr.Height()
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
 	}
 	// make sure it's epochStartHeight
 	targetEpochStartHeight := rp.GetEpochHeight(rp.GetEpochHeight(targetHeight))
@@ -330,17 +372,17 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
 	if sh.hu.IsPre(config.Easter, targetEpochStartHeight) {
-		return nil, errors.New("Before Easter, there is no probation list in stateDB")
+		return nil, uint64(0), errors.New("Before Easter, there is no probation list in stateDB")
 	}
 	unqualifiedList, stateHeight, err := sh.getProbationList(sr, readFromNext)
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
 	}
 	// to catch the corner case that since the new block is committed, shift occurs in the middle of processing the request
 	if rp.GetEpochNum(targetEpochStartHeight) < rp.GetEpochNum(stateHeight) {
-		return nil, errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
+		return nil, uint64(0), errors.Wrap(ErrInconsistentHeight, "state factory tip epoch number became larger than target epoch number")
 	}
-	return unqualifiedList, nil
+	return unqualifiedList, stateHeight, nil
 }
 
 // CalculateProbationList calculates probation list according to productivity
@@ -452,7 +494,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
-	delegates, err := sh.GetActiveBlockProducers(ctx, sr, false)
+	delegates, _, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}

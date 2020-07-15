@@ -1,4 +1,4 @@
-FROM golang:1.13.5-stretch as build
+FROM golang:1.14.4-stretch as build
 
 WORKDIR apps/iotex-core
 

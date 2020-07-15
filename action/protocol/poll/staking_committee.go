@@ -257,7 +257,7 @@ func (sc *stakingCommittee) NextCandidates(ctx context.Context, sr protocol.Stat
 	return sc.governanceStaking.NextCandidates(ctx, sr)
 }
 
-func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	return sc.governanceStaking.ReadState(ctx, sr, method, args...)
 }
 
