@@ -53,7 +53,7 @@ func prepare() error {
 			return output.NewError(output.UpdateError, "failed to prepare solc", err)
 		}
 	}
-	solc, err := compiler.SolidityVersion(solCompiler)
+	solc, _ := compiler.SolidityVersion(solCompiler)
 
 	if !checkCompilerVersion(solc) {
 		return output.NewError(output.CompilerError,
