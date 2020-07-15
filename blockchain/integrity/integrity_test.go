@@ -615,12 +615,12 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	}
 	for i := uint64(0); i < 300; i++ {
 		tsf, err := testutil.SignedTransfer(addr1, priKey0, i+7, big.NewInt(2), bytes,
-			1000000, big.NewInt(testutil.TestGasPriceInt64))
+			19000, big.NewInt(testutil.TestGasPriceInt64))
 		require.NoError(t, err)
 		require.NoError(t, ap.Add(context.Background(), tsf))
 	}
 	transfer1, err := testutil.SignedTransfer(addr1, priKey3, 7, big.NewInt(2),
-		[]byte{}, 100000, big.NewInt(testutil.TestGasPriceInt64))
+		[]byte{}, 10000, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(t, err)
 	require.NoError(t, ap.Add(context.Background(), transfer1))
 
