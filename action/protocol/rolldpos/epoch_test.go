@@ -3,9 +3,12 @@ package rolldpos
 import (
 	"context"
 	"errors"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
@@ -66,13 +69,18 @@ func TestProtocol_ReadState(t *testing.T) {
 	arg1 := []byte("10")
 	arg2 := []byte("20")
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+
 	arg1Num, err := strconv.ParseUint(string(arg1), 10, 64)
 	require.NoError(err)
 
 	for i, method := range methods {
 
 		if i != 0 && i != 1 {
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1, arg2)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1, arg2)
 			require.Nil(result)
 			require.Error(err)
 		}
@@ -80,46 +88,46 @@ func TestProtocol_ReadState(t *testing.T) {
 		switch method {
 
 		case "NumCandidateDelegates":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.numCandidateDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumDelegates":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.numDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumSubEpochs":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.NumSubEpochs(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochNumber":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochHeight":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochLastHeight":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochLastBlockHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "SubEpochNumber":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetSubEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		default:
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Nil(result)
 			require.Error(err)
 

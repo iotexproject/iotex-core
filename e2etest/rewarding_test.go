@@ -118,7 +118,7 @@ func TestBlockReward(t *testing.T) {
 
 	blockReward, err := rp.BlockReward(ctx, sf)
 	require.NoError(t, err)
-	balance, err := rp.UnclaimedBalance(ctx, sf, addr)
+	balance, _, err := rp.UnclaimedBalance(ctx, sf, addr)
 	require.NoError(t, err)
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
@@ -326,7 +326,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
-					unClaimedBalances[rewardAddr.String()], err =
+					unClaimedBalances[rewardAddr.String()], _, err =
 						rps[0].UnclaimedBalance(context.Background(), sfs[0], rewardAddr)
 				}
 

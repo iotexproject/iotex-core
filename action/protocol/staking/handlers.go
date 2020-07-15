@@ -343,20 +343,19 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		return log, fetchErr
 	}
 
-	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), false, false)
-	if fetchErr != nil {
-		return log, fetchErr
-	}
 	newOwner := act.VoterAddress()
-	if !address.Equal(bucket.Owner, actionCtx.Caller) {
-		// check if the payload contains a valid consignment transfer
-		if consignment, ok := p.handleConsignmentTransfer(blkCtx, actionCtx, act, bucket); ok {
+	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
+	if fetchErr != nil {
+		if p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) ||
+			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
+			return log, fetchErr
+		}
+
+		// check whether the payload contains a valid consignment transfer
+		if consignment, ok := p.handleConsignmentTransfer(csm, actionCtx, act, bucket); ok {
 			newOwner = consignment.Transferee()
 		} else {
-			return log, &handleError{
-				err:           errors.New("bucket owner does not match action caller"),
-				failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
-			}
+			return log, fetchErr
 		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
@@ -380,11 +379,16 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 }
 
 func (p *Protocol) handleConsignmentTransfer(
-	blkCtx protocol.BlockCtx,
+	csm CandidateStateManager,
 	actCtx protocol.ActionCtx,
 	act *action.TransferStake,
 	bucket *VoteBucket) (action.Consignment, bool) {
-	if p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) || len(act.Payload()) == 0 {
+	if len(act.Payload()) == 0 {
+		return nil, false
+	}
+
+	// self-stake cannot be transferred
+	if csm.ContainsSelfStakingBucket(bucket.Index) {
 		return nil, false
 	}
 
@@ -723,7 +727,7 @@ func (p *Protocol) fetchBucket(
 	index uint64,
 	checkOwner bool,
 	allowSelfStaking bool,
-) (*VoteBucket, error) {
+) (*VoteBucket, ReceiptError) {
 	bucket, err := getBucket(sr, index)
 	if err != nil {
 		fetchErr := &handleError{
@@ -735,14 +739,18 @@ func (p *Protocol) fetchBucket(
 		}
 		return nil, fetchErr
 	}
+
+	// ReceiptStatus_ErrUnauthorizedOperator indicates action caller is not bucket owner
+	// upon return, the action will be subject to check whether it contains a valid consignment transfer
+	// do NOT return this value in case changes are added in the future
 	if checkOwner && !address.Equal(bucket.Owner, caller) {
-		return nil, &handleError{
+		return bucket, &handleError{
 			err:           errors.New("bucket owner does not match action caller"),
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
 	}
 	if !allowSelfStaking && sr.ContainsSelfStakingBucket(index) {
-		return nil, &handleError{
+		return bucket, &handleError{
 			err:           errors.New("self staking bucket cannot be processed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
@@ -781,7 +789,7 @@ func delBucketAndIndex(sm protocol.StateManager, owner, cand address.Address, in
 	return nil
 }
 
-func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, error) {
+func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
 	caller, err := accountutil.LoadAccount(sr, hash.BytesToHash160(actionCtx.Caller.Bytes()))

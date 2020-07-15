@@ -45,21 +45,18 @@ func prepare() error {
 	solc, err := compiler.SolidityVersion(solCompiler)
 	if err != nil {
 		cmdString := "curl --silent https://raw.githubusercontent.com/iotexproject/iotex-core/master/install-solc.sh | sh"
-
 		cmd := exec.Command("bash", "-c", cmdString)
 		output.PrintResult("Preparing solidity compiler ...\n")
 
 		err = cmd.Run()
 		if err != nil {
-			installGuide := "https://solidity.readthedocs.io/en/v0.4.25/installing-solidity.html"
-			return output.NewError(output.UpdateError, fmt.Sprintf("\nfailed to prepare solc\n\n"+
-				"you can install solidity 0.4.25 manually following:\n%s\n", installGuide), nil)
+			return output.NewError(output.UpdateError, "failed to prepare solc", err)
 		}
 	}
 
 	if !checkCompilerVersion(solc) {
 		return output.NewError(output.CompilerError,
-			fmt.Sprintf("unsupported solc version %d.%d.%d, expects solc version ^0.4.24",
+			fmt.Sprintf("unsupported solc version %d.%d.%d, expects solc version 0.5.17",
 				solc.Major, solc.Minor, solc.Patch), nil)
 	}
 

@@ -99,7 +99,7 @@ func (p *Protocol) GrantBlockReward(
 	rewardAddr, err := address.FromString(rewardAddrStr)
 
 	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
 	}
 	if err := p.updateAvailableBalance(sm, a.blockReward); err != nil {
@@ -151,13 +151,13 @@ func (p *Protocol) GrantEpochReward(
 		return nil, err
 	}
 	a := admin{}
-	if err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(sm, adminKey, &a); err != nil {
 		return nil, err
 	}
 
 	// Get the delegate list who exempts epoch reward
 	e := exempt{}
-	if err := p.state(sm, exemptKey, &e); err != nil {
+	if _, err := p.state(sm, exemptKey, &e); err != nil {
 		return nil, err
 	}
 	exemptAddrs := make(map[string]interface{})
@@ -294,22 +294,22 @@ func (p *Protocol) UnclaimedBalance(
 	ctx context.Context,
 	sm protocol.StateReader,
 	addr address.Address,
-) (*big.Int, error) {
+) (*big.Int, uint64, error) {
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
-	err := p.state(sm, accKey, &acc)
+	height, err := p.state(sm, accKey, &acc)
 	if err == nil {
-		return acc.balance, nil
+		return acc.balance, height, nil
 	}
 	if errors.Cause(err) == state.ErrStateNotExist {
-		return big.NewInt(0), nil
+		return big.NewInt(0), height, nil
 	}
-	return nil, err
+	return nil, height, err
 }
 
 func (p *Protocol) updateTotalBalance(sm protocol.StateManager, amount *big.Int) error {
 	f := fund{}
-	if err := p.state(sm, fundKey, &f); err != nil {
+	if _, err := p.state(sm, fundKey, &f); err != nil {
 		return err
 	}
 	totalBalance := big.NewInt(0).Sub(f.totalBalance, amount)
@@ -322,7 +322,7 @@ func (p *Protocol) updateTotalBalance(sm protocol.StateManager, amount *big.Int)
 
 func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.Int) error {
 	f := fund{}
-	if err := p.state(sm, fundKey, &f); err != nil {
+	if _, err := p.state(sm, fundKey, &f); err != nil {
 		return err
 	}
 	availableBalance := big.NewInt(0).Sub(f.unclaimedBalance, amount)
@@ -336,7 +336,7 @@ func (p *Protocol) updateAvailableBalance(sm protocol.StateManager, amount *big.
 func (p *Protocol) grantToAccount(sm protocol.StateManager, addr address.Address, amount *big.Int) error {
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
-	if err := p.state(sm, accKey, &acc); err != nil {
+	if _, err := p.state(sm, accKey, &acc); err != nil {
 		if errors.Cause(err) != state.ErrStateNotExist {
 			return err
 		}
@@ -352,7 +352,7 @@ func (p *Protocol) claimFromAccount(sm protocol.StateManager, addr address.Addre
 	// Update reward account
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
-	if err := p.state(sm, accKey, &acc); err != nil {
+	if _, err := p.state(sm, accKey, &acc); err != nil {
 		return err
 	}
 	balance := big.NewInt(0).Sub(acc.balance, amount)
@@ -442,7 +442,7 @@ func (p *Protocol) assertNoRewardYet(sm protocol.StateManager, prefix []byte, in
 	history := rewardHistory{}
 	var indexBytes [8]byte
 	enc.MachineEndian.PutUint64(indexBytes[:], index)
-	err := p.state(sm, append(prefix, indexBytes[:]...), &history)
+	_, err := p.state(sm, append(prefix, indexBytes[:]...), &history)
 	if err == nil {
 		return errors.Errorf("reward history already exists on index %d", index)
 	}
