@@ -19,7 +19,7 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.2-0.20200523040337-5f1d9ddaa8ee
 	github.com/iotexproject/iotex-address v0.2.1
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
-	github.com/iotexproject/iotex-election v0.2.18
+	github.com/iotexproject/iotex-election v0.3.2
 	github.com/iotexproject/iotex-proto v0.3.1-0.20200713201308-abf112fff818
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
@@ -40,7 +40,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200115085410-6d4e4cb37c7d
 	golang.org/x/net v0.0.0-20191204025024-5ee1b9f4859a
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	google.golang.org/genproto v0.0.0-20191203220235-3fa9dbf08042
 	google.golang.org/grpc v1.21.0
 	gopkg.in/yaml.v2 v2.2.2
