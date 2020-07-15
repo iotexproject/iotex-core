@@ -52,7 +52,7 @@ func (mr *MockProtocolMockRecorder) Handle(arg0, arg1, arg2 interface{}) *gomock
 }
 
 // ReadState mocks base method
-func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateReader, arg2 []byte, arg3 ...[]byte) ([]byte, error) {
+func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateReader, arg2 []byte, arg3 ...[]byte) ([]byte, uint64, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1, arg2}
 	for _, a := range arg3 {
@@ -60,8 +60,9 @@ func (m *MockProtocol) ReadState(arg0 context.Context, arg1 protocol.StateReader
 	}
 	ret := m.ctrl.Call(m, "ReadState", varargs...)
 	ret0, _ := ret[0].([]byte)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(uint64)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ReadState indicates an expected call of ReadState
