@@ -230,18 +230,18 @@ loop:
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval, pendingActionMap)
 			case 3:
-				executor, nonce := createExecutionInjection(counter, delegates)
+				sender, nonce := createExecutionInjection(counter, delegates)
 				go injectStake(
 					wg,
 					client,
-					executor,
+					sender,
 					nonce,
-					1,
-					1,
-					false,
-					uint64(voteGasLimit),
-					big.NewInt(voteGasPrice),
-					transferPayload,
+					"100",
+					10000,
+					true,
+					1000000,
+					big.NewInt(10),
+					"create state payload",
 					retryNum,
 					resetInterval,
 					pendingActionMap,
@@ -478,7 +478,7 @@ func injectStake(
 	c iotexapi.APIServiceClient,
 	sender *AddressKey,
 	nonce uint64,
-	amount int64,
+	amount string,
 	duration uint32,
 	autoStake bool,
 	gasLimit uint64,
@@ -488,7 +488,7 @@ func injectStake(
 	retryInterval int,
 	pendingActionMap *sync.Map,
 ) {
-	selp, _, err := createSignedStake(sender, nonce, sender.EncodedAddr, unit.ConvertIotxToRau(amount).String(), duration, autoStake, []byte(payload), gasLimit, gasPrice)
+	selp, _, err := createSignedStake(sender, nonce, sender.EncodedAddr, amount, duration, autoStake, []byte(payload), gasLimit, gasPrice)
 	if err != nil {
 		log.L().Fatal("Failed to inject Stake", zap.Error(err))
 	}
@@ -746,7 +746,15 @@ func CheckPendingActionList(
 						retErr = err
 						return false
 					}
-					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
+					cost, err := act.Cost()
+					if err != nil {
+						retErr = err
+						return false
+					}
+					updateStakeExpectedBalanceMap(balancemap,
+						executoraddr.String(),
+						act.Candidate(),
+						act.Amount(), cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
 					return false
@@ -761,6 +769,7 @@ func CheckPendingActionList(
 
 	return empty, retErr
 }
+
 func updateTransferExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
 	senderAddr string,
@@ -824,4 +833,23 @@ func updateExecutionExpectedBalanceMap(
 	}
 	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
 
+}
+
+func updateStakeExpectedBalanceMap(
+	balancemap *map[string]*big.Int,
+	senderAddr string,
+	candidate string,
+	amount *big.Int,
+	cost *big.Int,
+) {
+	// update sender balance
+	senderBalance := (*balancemap)[senderAddr]
+	if senderBalance.Cmp(cost) < 0 {
+		log.L().Fatal("Not enough balance")
+	}
+	(*balancemap)[senderAddr].Sub(senderBalance, cost)
+
+	// update candidate balance
+	recipientBalance := (*balancemap)[candidate]
+	(*balancemap)[candidate].Add(recipientBalance, amount)
 }
