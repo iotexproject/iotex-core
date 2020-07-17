@@ -144,8 +144,11 @@ func (sh *Slasher) ReadState(
 		if err != nil {
 			return nil, uint64(0), err
 		}
-		if epochNum != epochNumArg {
-			return nil, uint64(0), errors.New("Slasher ReadState arg epochNumber should be same as state reader height, need to set argument/height consistently")
+		if indexer == nil {
+			// consistency check between sr.height and epochNumArg in case of using state reader(not indexer)
+			if epochNum != epochNumArg {
+				return nil, uint64(0), errors.New("Slasher ReadState arg epochNumber should be same as state reader height, need to set argument/height consistently")
+			}
 		}
 		epochStartHeight = rp.GetEpochHeight(epochNum)
 	}
