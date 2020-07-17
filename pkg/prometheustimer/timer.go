@@ -28,6 +28,7 @@ type (
 		factory   *TimerFactory
 		labels    []string
 		startTime int64
+		ended     bool
 	}
 
 	// StopWatch is used to measure accumulation of multiple time slices.
@@ -36,6 +37,7 @@ type (
 		labels      []string
 		startTime   int64
 		accumulated int64
+		ended       bool
 	}
 )
 
@@ -83,10 +85,11 @@ func (factory *TimerFactory) NewTimer(labels ...string) *Timer {
 // End ends the timer
 func (timer *Timer) End() {
 	f := timer.factory
-	if f == nil {
+	if f == nil || timer.ended {
 		return
 	}
 	f.log(float64(f.now()-timer.startTime), timer.labels...)
+	timer.ended = true
 }
 
 func (factory *TimerFactory) log(value float64, labels ...string) {
@@ -139,8 +142,9 @@ func (sw *StopWatch) Start() {
 // End ends the StopWatch and log the total accumulated time.
 func (sw *StopWatch) End() {
 	f := sw.factory
-	if f == nil {
+	if f == nil || sw.ended {
 		return
 	}
 	f.log(float64(sw.accumulated), sw.labels...)
+	sw.ended = true
 }
