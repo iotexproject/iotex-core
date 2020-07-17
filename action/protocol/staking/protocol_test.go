@@ -41,19 +41,20 @@ func TestImplicitLog(t *testing.T) {
 	require.True(ok)
 
 	// verify implicit log topic does not collide with normal log
-	implicitTopis := [][][]byte{
-		[][]byte{action.BucketCreateAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
-		[][]byte{action.BucketDepositAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
-		[][]byte{action.BucketWithdrawAmount[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
-		[][]byte{action.CandidateSelfStake[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
-		[][]byte{action.CandidateRegistrationFee[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
+	implicitTopis := [][]byte{
+		action.InContractTransfer[:],
+		action.BucketCreateAmount[:],
+		action.BucketDepositAmount[:],
+		action.BucketWithdrawAmount[:],
+		action.CandidateSelfStake[:],
+		action.CandidateRegistrationFee[:],
 	}
 	for _, v := range implicitTopis {
-		log.Topics = v
+		log.Topics[0] = v
 		_, ok := BucketIndexFromReceiptLog(log)
 		require.False(ok)
 	}
-	log.Topics = [][]byte{h[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]}
+	log.Topics[0] = h[:]
 	_, ok = BucketIndexFromReceiptLog(log)
 	require.True(ok)
 }

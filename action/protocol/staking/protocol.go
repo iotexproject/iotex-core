@@ -338,22 +338,22 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	m := iotexapi.ReadStakingDataMethod{}
 	if err := proto.Unmarshal(method, &m); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal method name")
+		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal method name")
 	}
 	if len(args) != 1 {
-		return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 	}
 	r := iotexapi.ReadStakingDataRequest{}
 	if err := proto.Unmarshal(args[0], &r); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal request")
+		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get candidate center")
+		return nil, uint64(0), errors.Wrap(err, "failed to get candidate center")
 	}
 
 	var resp proto.Message
@@ -376,10 +376,18 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		err = errors.New("corresponding method isn't found")
 	}
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
+	}
+	data, err := proto.Marshal(resp)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	stateHeight, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
 	}
 
-	return proto.Marshal(resp)
+	return data, stateHeight, nil
 }
 
 // Register registers the protocol with a unique ID

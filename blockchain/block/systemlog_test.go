@@ -33,18 +33,18 @@ var (
 	staking        = hash.Hash160b([]byte(action.StakingProtocolID))
 	stakingAddr, _ = address.FromBytes(staking[:])
 	stakingTopic   = hash.BytesToHash256(staking[:])
-	evmTopics      = []hash.Hash256{hash.BytesToHash256(action.InContractTransfer[:]), senderTopic, recverTopic}
-	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	evmTopics      = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
+	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, stakingTopic, senderTopic, hash.ZeroHash256}
-	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, stakingTopic, hash.ZeroHash256}
-	selfstakeLog   = &action.Log{addr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 1, false}
+	selfstakeLog   = &action.Log{addr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, rewardTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 2, false}
+	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
@@ -113,29 +113,20 @@ func TestIsSystemLog(t *testing.T) {
 		r.Equal(i == 4, log.IsCandidateSelfStake())
 		r.Equal(i == 5, log.IsCandidateRegister())
 
-		// test wrong index and wrong recipient
+		// test wrong recipient
 		if log.IsCreateBucket() {
-			log.Index = 0
-			r.False(log.IsCreateBucket())
-			log.Index = 1
 			log.Topics[2] = recverTopic
 			r.False(log.IsCreateBucket())
 			log.Topics[2] = stakingTopic
 		}
 
 		if log.IsWithdrawBucket() {
-			log.Index = 0
-			r.False(log.IsWithdrawBucket())
-			log.Index = 1
 			log.Topics[1] = recverTopic
 			r.False(log.IsWithdrawBucket())
 			log.Topics[1] = stakingTopic
 		}
 
 		if log.IsCandidateRegister() {
-			log.Index = 0
-			r.False(log.IsCandidateRegister())
-			log.Index = 2
 			log.Topics[2] = recverTopic
 			r.False(log.IsCandidateRegister())
 			log.Topics[2] = rewardTopic

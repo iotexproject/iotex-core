@@ -8,6 +8,7 @@ package action
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
@@ -237,7 +238,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		fmt.Sprintf("actHash: %x\n", receipt.ActHash) +
 		fmt.Sprintf("blkHeight: %d\n", receipt.BlkHeight) +
 		fmt.Sprintf("gasConsumed: %d\n", receipt.GasConsumed) +
-		fmt.Sprintf("logs: %d", len(receipt.Logs))
+		printLogs(receipt.Logs)
 	if len(receipt.ContractAddress) != 0 {
 		result += fmt.Sprintf("\ncontractAddress: %s %s", receipt.ContractAddress,
 			Match(receipt.ContractAddress, "address"))
@@ -247,6 +248,24 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 			result += fmt.Sprintf("\nbucket index: %d", index)
 		}
 	}
+	return result
+}
+
+func printLogs(logs []*iotextypes.Log) string {
+	result := "logs:<\n"
+	for _, l := range logs {
+		result += fmt.Sprintf("  <\n") +
+			fmt.Sprintf("    contractAddress: %s\n", l.ContractAddress) +
+			"    topics:<\n"
+		for _, topic := range l.Topics {
+			result += fmt.Sprintf("      %s\n", hex.EncodeToString(topic))
+		}
+		result += "    >\n" +
+			fmt.Sprintf("    data: %s\n", hex.EncodeToString(l.Data)) +
+			"  >\n"
+
+	}
+	result += ">\n"
 	return result
 }
 
