@@ -98,12 +98,6 @@ func TestNewBCBlockCmd(t *testing.T) {
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
-	blockMeta = []*iotextypes.BlockMeta{
-		{
-			Hash:   "abcd",
-			Height: 1,
-		},
-	}
 	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
 	expectedError = errors.New("failed to get raw block")
 	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
@@ -116,6 +110,45 @@ func TestNewBCBlockCmd(t *testing.T) {
 	_, err = util.ExecuteCmd(cmd, "--verbose")
 	require.Error(t, err)
 	require.Equal(t, expectedErr, err)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
+	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
+	blockInfo := []*iotexapi.BlockInfo{
+		{
+			Block: &iotextypes.Block{
+				Body: &iotextypes.BlockBody{
+					Actions: []*iotextypes.Action{
+						&iotextypes.Action{
+							Core: &iotextypes.ActionCore{
+								Version:  1,
+								Nonce:    2,
+								GasLimit: 3,
+								GasPrice: "4",
+							},
+						},
+						&iotextypes.Action{
+							Core: &iotextypes.ActionCore{
+								Version:  5,
+								Nonce:    6,
+								GasLimit: 7,
+								GasPrice: "8",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	rawBlocksResponse := &iotexapi.GetRawBlocksResponse{Blocks: blockInfo}
+	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(rawBlocksResponse, nil).Times(1)
+
+	cmd = NewBCBlockCmd(client)
+	_, err = util.ExecuteCmd(cmd, "--verbose")
+	require.NoError(t, err)
 
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
 	client.EXPECT().Config().Return(cfg).Times(2)
