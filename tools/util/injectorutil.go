@@ -753,8 +753,7 @@ func CheckPendingActionList(
 					}
 					updateStakeExpectedBalanceMap(balancemap,
 						executoraddr.String(),
-						act.Candidate(),
-						act.Amount(), cost)
+						cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
 					return false
@@ -837,19 +836,13 @@ func updateExecutionExpectedBalanceMap(
 
 func updateStakeExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
-	senderAddr string,
-	candidate string,
-	amount *big.Int,
+	candidateAddr string,
 	cost *big.Int,
 ) {
 	// update sender balance
-	senderBalance := (*balancemap)[senderAddr]
+	senderBalance := (*balancemap)[candidateAddr]
 	if senderBalance.Cmp(cost) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
-	(*balancemap)[senderAddr].Sub(senderBalance, cost)
-
-	// update candidate balance
-	recipientBalance := (*balancemap)[candidate]
-	(*balancemap)[candidate].Add(recipientBalance, amount)
+	(*balancemap)[candidateAddr].Sub(senderBalance, cost)
 }
