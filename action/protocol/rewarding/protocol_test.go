@@ -233,10 +233,10 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	require.NoError(t, err)
 	assert.Equal(t, uint64(50), pt)
 
-	totalBalance, err := p.TotalBalance(ctx, sm)
+	totalBalance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), totalBalance)
-	availableBalance, err := p.AvailableBalance(ctx, sm)
+	availableBalance, _, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), availableBalance)
 
@@ -356,7 +356,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	receipt, err := p.Handle(ctx, se1.Action(), sm)
 	require.NoError(t, err)
-	balance, err := p.TotalBalance(ctx, sm)
+	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(2000000), balance)
 
@@ -389,7 +389,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 	receipt, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
-	balance, err = p.TotalBalance(ctx, sm)
+	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(1000000), balance)
 
@@ -443,23 +443,23 @@ func TestProtocol_Handle(t *testing.T) {
 	for _, ts := range testMethods {
 
 		if ts.input == "UnclaimedBalance" {
-			UnclaimedBalance, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
+			UnclaimedBalance, _, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
 			arg1 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
 			arg2 := []byte("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym8")
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(ts.input), arg1, arg2)
+			UnclaimedBalance, _, err = p.ReadState(ctx, sm, []byte(ts.input), arg1, arg2)
 			require.Nil(t, UnclaimedBalance)
 			require.Error(t, err)
 
-			UnclaimedBalance, err = p.ReadState(ctx, sm, []byte(ts.input), arg1)
+			UnclaimedBalance, _, err = p.ReadState(ctx, sm, []byte(ts.input), arg1)
 			require.Equal(t, ts.expect, UnclaimedBalance)
 			require.NoError(t, err)
 			continue
 		}
 
-		output, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
+		output, _, err := p.ReadState(ctx, sm, []byte(ts.input), nil)
 		require.NoError(t, err)
 		require.Equal(t, ts.expect, output)
 	}

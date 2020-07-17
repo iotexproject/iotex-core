@@ -27,7 +27,7 @@ const (
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	ActionHandler
-	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, error)
+	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, uint64, error)
 	Register(*Registry) error
 	ForceRegister(*Registry) error
 	Name() string

@@ -27,10 +27,10 @@ func TestProtocol_Fund(t *testing.T) {
 		// Deposit 5 token
 		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(5)))
 
-		totalBalance, err := p.TotalBalance(ctx, sm)
+		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), totalBalance)
-		availableBalance, err := p.AvailableBalance(ctx, sm)
+		availableBalance, _, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), availableBalance)
 		acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
