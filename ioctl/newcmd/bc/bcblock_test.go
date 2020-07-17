@@ -7,6 +7,7 @@
 package bc
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -28,16 +29,9 @@ func TestNewBCBlockCmd(t *testing.T) {
 	defer ctrl.Finish()
 
 	client := mock_ioctlclient.NewMockClient(ctrl)
-	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
 	cfg := config.Config{}
-	client.EXPECT().Config().Return(cfg).Times(2)
-
 	apiServiceClient := mock_apiserviceclient.NewMockServiceClient(ctrl)
-	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
-
 	chainMetaResponse := &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
-	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
-
 	blockMeta := []*iotextypes.BlockMeta{
 		{
 			Hash:   "abcd",
@@ -45,23 +39,90 @@ func TestNewBCBlockCmd(t *testing.T) {
 		},
 	}
 	blockMetaResponse := &iotexapi.GetBlockMetasResponse{BlkMetas: blockMeta}
-	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(3)
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
+	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(3)
 
 	cmd := NewBCBlockCmd(client)
 	_, err := util.ExecuteCmd(cmd)
 	require.NoError(t, err)
 
+	_, err = util.ExecuteCmd(cmd, "1")
+	require.NoError(t, err)
+
+	_, err = util.ExecuteCmd(cmd, "abcd")
+	require.NoError(t, err)
+
 	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
-	cfg = config.Config{}
 	client.EXPECT().Config().Return(cfg).Times(2)
 
-	apiServiceClient = mock_apiserviceclient.NewMockServiceClient(ctrl)
+	expectedError := errors.New("failed to dial grpc connection")
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(nil, expectedError).Times(1)
+
+	cmd = NewBCBlockCmd(client)
+	_, err = util.ExecuteCmd(cmd)
+	require.Error(t, err)
+	require.Equal(t, expectedError, err)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
 	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 
-	chainMetaResponse = &iotexapi.GetChainMetaResponse{ChainMeta: &iotextypes.ChainMeta{}}
+	expectedErr := output.ErrorMessage{
+		Code: 5,
+		Info: "invalid height: invalid number that is not positive",
+	}
+	err = output.ErrorMessage{}
+
+	cmd = NewBCBlockCmd(client)
+	_, err = util.ExecuteCmd(cmd, "0")
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+	expectedError = errors.New("failed to get chain meta")
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+
+	cmd = NewBCBlockCmd(client)
+	_, err = util.ExecuteCmd(cmd)
+	require.Error(t, err)
+	require.Equal(t, expectedError, err)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
+
+	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
+	blockMeta = []*iotextypes.BlockMeta{
+		{
+			Hash:   "abcd",
+			Height: 1,
+		},
+	}
+	apiServiceClient.EXPECT().GetBlockMetas(gomock.Any(), gomock.Any()).Return(blockMetaResponse, nil).Times(1)
+	expectedError = errors.New("failed to get raw block")
+	apiServiceClient.EXPECT().GetRawBlocks(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+	expectedErr = output.ErrorMessage{
+		Code: 3,
+		Info: "failed to get actions info: failed to invoke GetRawBlocks api: failed to get raw block",
+	}
+
+	cmd = NewBCBlockCmd(client)
+	_, err = util.ExecuteCmd(cmd, "--verbose")
+	require.Error(t, err)
+	require.Equal(t, expectedErr, err)
+
+	client.EXPECT().SelectTranslation(gomock.Any()).Return("", config.English).Times(5)
+	client.EXPECT().Config().Return(cfg).Times(2)
+	client.EXPECT().APIServiceClient(gomock.Any()).Return(apiServiceClient, nil).Times(1)
 	apiServiceClient.EXPECT().GetChainMeta(gomock.Any(), gomock.Any()).Return(chainMetaResponse, nil).Times(1)
 
-	expectedErr := output.ErrorMessage{
+	expectedErr = output.ErrorMessage{
 		Code: 3,
 		Info: "failed to get block meta: failed to invoke GetBlockMetas api: ",
 	}

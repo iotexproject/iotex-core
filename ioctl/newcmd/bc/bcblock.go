@@ -58,7 +58,7 @@ func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   bcBlockCmdUse,
 		Short: bcBlockCmdShort,
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			var height uint64
