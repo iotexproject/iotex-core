@@ -7,7 +7,6 @@
 package staking
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
@@ -25,7 +24,8 @@ const (
 )
 
 var (
-	bucketPoolAddr = hash.Hash160b([]byte(stakingBucketPool))
+	bucketPoolAddr    = hash.Hash160b([]byte(stakingBucketPool))
+	bucketPoolAddrKey = append([]byte{_const}, bucketPoolAddr[:]...)
 )
 
 // when a bucket is created, the amount of staked IOTX token is deducted from user, but does not transfer to any address
@@ -38,7 +38,8 @@ var (
 // 3. for future bucket withdrawal, the bucket amount will be deducted from bucket pool (so the pool is 'releasing' token)
 
 type (
-	bucketPool struct {
+	// BucketPool implements the bucket pool
+	BucketPool struct {
 		exist bool
 		total *totalAmount
 	}
@@ -87,9 +88,9 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 	return nil
 }
 
-// newBucketPool creates an instance of bucketPool
-func newBucketPool(sr protocol.StateReader) (*bucketPool, error) {
-	bp := bucketPool{
+// NewBucketPool creates an instance of BucketPool
+func NewBucketPool(sr protocol.StateReader) (*BucketPool, error) {
+	bp := BucketPool{
 		total: &totalAmount{
 			amount: big.NewInt(0),
 		},
@@ -102,7 +103,7 @@ func newBucketPool(sr protocol.StateReader) (*bucketPool, error) {
 	}
 
 	if bp.exist {
-		_, err := sr.State(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+		_, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return &bp, err
 	}
 
@@ -119,20 +120,18 @@ func newBucketPool(sr protocol.StateReader) (*bucketPool, error) {
 	return &bp, nil
 }
 
-func (bp *bucketPool) Total() *big.Int {
+// Total returns the total amount staked in bucket pool
+func (bp *BucketPool) Total() *big.Int {
 	return new(big.Int).Set(bp.total.amount)
 }
 
-func (bp *bucketPool) Count() uint64 {
+// Count returns the total number of buckets in bucket pool
+func (bp *BucketPool) Count() uint64 {
 	return bp.total.count
 }
 
-func (bp *bucketPool) Exist() bool {
-	return bp.exist
-}
-
-func (bp *bucketPool) poolExist(sr protocol.StateReader) (bool, error) {
-	_, err := sr.State(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+func (bp *BucketPool) poolExist(sr protocol.StateReader) (bool, error) {
+	_, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	if err == nil {
 		return true, nil
 	}
@@ -142,8 +141,9 @@ func (bp *bucketPool) poolExist(sr protocol.StateReader) (bool, error) {
 	return false, err
 }
 
-func (bp *bucketPool) Clone() *bucketPool {
-	pool := bucketPool{}
+// Clone returns a copy of the bucket pool
+func (bp *BucketPool) Clone() *BucketPool {
+	pool := BucketPool{}
 	pool.exist = bp.exist
 	pool.total = &totalAmount{
 		amount: new(big.Int).Set(bp.total.amount),
@@ -152,9 +152,10 @@ func (bp *bucketPool) Clone() *bucketPool {
 	return &pool
 }
 
-func (bp *bucketPool) SyncPool(sm protocol.StateManager) error {
+// SyncPool sync the data from state manager
+func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
 	if bp.exist {
-		_, err := sm.State(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 
@@ -170,13 +171,11 @@ func (bp *bucketPool) SyncPool(sm protocol.StateManager) error {
 	if err := bp.total.Deserialize(ser); err != nil {
 		return err
 	}
-	fmt.Printf("dirty bytes = %x\n", ser)
-	fmt.Println("===== amount", bp.total.amount.String())
-	fmt.Println("===== count", bp.total.count)
 	return nil
 }
 
-func (bp *bucketPool) Commit(sr protocol.StateReader) error {
+// Commit is called upon workingset commit
+func (bp *BucketPool) Commit(sr protocol.StateReader) error {
 	if bp.exist {
 		return nil
 	}
@@ -185,22 +184,16 @@ func (bp *bucketPool) Commit(sr protocol.StateReader) error {
 	// so re-check the existence here
 	var err error
 	bp.exist, err = bp.poolExist(sr)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("commit\n")
-	fmt.Println(">>>>> amount", bp.total.amount.String())
-	fmt.Println(">>>>>  count", bp.total.count)
-	return nil
+	return err
 }
 
-func (bp *bucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, create bool) error {
+// CreditPool subtracts staked amount out of the pool
+func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, create bool) error {
 	if bp.exist {
 		if err := bp.total.SubBalance(amount); err != nil {
 			return err
 		}
-		_, err := sm.PutState(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 
@@ -210,10 +203,11 @@ func (bp *bucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, crea
 	return bp.createOrStashPool(sm, create)
 }
 
-func (bp *bucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket, create bool) error {
+// DebitPool adds staked amount into the pool
+func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket, create bool) error {
 	if bp.exist {
 		bp.total.AddBalance(amount, newBucket)
-		_, err := sm.PutState(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 
@@ -221,10 +215,10 @@ func (bp *bucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBu
 	return bp.createOrStashPool(sm, create)
 }
 
-func (bp *bucketPool) createOrStashPool(sm protocol.StateManager, create bool) error {
+func (bp *BucketPool) createOrStashPool(sm protocol.StateManager, create bool) error {
 	if create {
 		// at Greenland height, create the staking protocol address
-		_, err := sm.PutState(bp.total, protocol.LegacyKeyOption(bucketPoolAddr))
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 	// stash pool total amount to sm
@@ -232,8 +226,5 @@ func (bp *bucketPool) createOrStashPool(sm protocol.StateManager, create bool) e
 	if err != nil {
 		return errors.Wrap(err, "failed to stash pending bucket pool")
 	}
-	fmt.Printf("stash\n")
-	fmt.Println("amount", bp.total.amount.String())
-	fmt.Println(" count", bp.total.count)
 	return sm.Load(stakingBucketPool, ser)
 }

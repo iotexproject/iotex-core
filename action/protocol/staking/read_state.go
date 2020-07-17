@@ -121,7 +121,7 @@ func readStateCandidateByAddress(ctx context.Context, cc CandidateCenter,
 	return c.toIoTeXTypes(), nil
 }
 
-func readStateTotalStakingAmount(ctx context.Context, bp *bucketPool,
+func readStateTotalStakingAmount(ctx context.Context, bp *BucketPool,
 	_ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, error) {
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr

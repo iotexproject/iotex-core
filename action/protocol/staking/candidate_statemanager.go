@@ -22,7 +22,7 @@ type (
 	candidateBucketCenter interface {
 		// TODO: remove CandidateCenter interface, return *candCenter
 		CandCenter() CandidateCenter
-		BucketPool() *bucketPool
+		BucketPool() *BucketPool
 	}
 
 	// CandidateStateManager is candidate state manager on top of StateManager
@@ -46,7 +46,7 @@ type (
 	candSM struct {
 		protocol.StateManager
 		candCenter *candCenter
-		bucketPool *bucketPool
+		bucketPool *BucketPool
 	}
 )
 
@@ -101,7 +101,7 @@ func (csm *candSM) CandCenter() CandidateCenter {
 	return csm.candCenter
 }
 
-func (csm *candSM) BucketPool() *bucketPool {
+func (csm *candSM) BucketPool() *BucketPool {
 	return csm.bucketPool
 }
 
@@ -218,7 +218,7 @@ func createCandCenter(sr protocol.StateReader) (candidateBucketCenter, error) {
 		return nil, err
 	}
 
-	pool, err := newBucketPool(sr)
+	pool, err := NewBucketPool(sr)
 	if err != nil {
 		return nil, err
 	}
