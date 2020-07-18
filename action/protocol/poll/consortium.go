@@ -171,8 +171,8 @@ func (cc *consortiumCommittee) ReadState(
 	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
-	return nil, nil
+) ([]byte, uint64, error) {
+	return nil, uint64(0), nil
 }
 
 // Register registers the protocol with a unique ID

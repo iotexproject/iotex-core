@@ -10,7 +10,6 @@ import (
 	"context"
 	"math"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -49,8 +48,12 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 
 	db.AddLog(&types.Log{
-		Topics: []common.Hash{action.InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
-		Data:   amount.Bytes(),
+		Topics: []common.Hash{
+			common.BytesToHash(action.InContractTransfer[:]),
+			common.BytesToHash(fromHash[:]),
+			common.BytesToHash(toHash[:]),
+		},
+		Data: amount.Bytes(),
 	})
 }
 
@@ -341,7 +344,7 @@ func SimulateExecution(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: time.Time{},
+			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(bcCtx.Genesis.BlockInterval),
 			GasLimit:       bcCtx.Genesis.BlockGasLimit,
 			Producer:       zeroAddr,
 		},

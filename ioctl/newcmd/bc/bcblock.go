@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2019 IoTeX
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -10,6 +10,8 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+
+	"github.com/iotexproject/iotex-core/ioctl"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
@@ -38,26 +40,97 @@ var (
 		config.English: "block [HEIGHT|HASH] [--verbose]",
 		config.Chinese: "block [高度|哈希] [--verbose]",
 	}
-	flagVerboseUsage = map[config.Language]string{
+	flagVerboseUsages = map[config.Language]string{
 		config.English: "returns block info and all actions within this block.",
 		config.Chinese: "返回区块信息和区块内的所有事务",
 	}
 )
 
-// bcBlockCmd represents the bc Block command
-var bcBlockCmd = &cobra.Command{
-	Use:   config.TranslateInLang(bcBlockCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(bcBlockCmdShorts, config.UILanguage),
-	Args:  cobra.MaximumNArgs(2),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cmd.SilenceUsage = true
-		err := getBlock(args)
-		return output.PrintError(err)
-	},
-}
+// NewBCBlockCmd represents the bc block command
+func NewBCBlockCmd(client ioctl.Client) *cobra.Command {
+	bcBlockCmdUse, _ := client.SelectTranslation(bcBlockCmdUses)
+	bcBlockCmdShort, _ := client.SelectTranslation(bcBlockCmdShorts)
 
-func init() {
-	bcBlockCmd.Flags().BoolVar(&verbose, "verbose", false, config.TranslateInLang(flagVerboseUsage, config.UILanguage))
+	var verbose bool
+	var endpoint string
+	var insecure bool
+
+	cmd := &cobra.Command{
+		Use:   bcBlockCmdUse,
+		Short: bcBlockCmdShort,
+		Args:  cobra.MaximumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.SilenceUsage = true
+			var height uint64
+			var err error
+			isHeight := true
+
+			apiServiceClient, err := client.APIServiceClient(ioctl.APIServiceConfig{
+				Endpoint: endpoint,
+				Insecure: insecure,
+			})
+			if err != nil {
+				return err
+			}
+
+			if len(args) != 0 {
+				height, err = strconv.ParseUint(args[0], 10, 64)
+				if err != nil {
+					isHeight = false
+				} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
+					return output.NewError(output.ValidationError, "invalid height", err)
+				}
+			} else {
+				chainMetaResponse, err := apiServiceClient.GetChainMeta(context.Background(), &iotexapi.GetChainMetaRequest{})
+				if err != nil {
+					return err
+				}
+				height = chainMetaResponse.ChainMeta.Height
+			}
+			var blockMeta *iotextypes.BlockMeta
+			var blocksInfo []*iotexapi.BlockInfo
+			if isHeight {
+				blockMeta, err = getBlockMetaByHeight(&apiServiceClient, height)
+			} else {
+				blockMeta, err = getBlockMetaByHash(&apiServiceClient, args[0])
+			}
+			if err != nil {
+				return output.NewError(0, "failed to get block meta", err)
+			}
+			blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
+			if verbose {
+				blocksInfo, err = getActionInfoWithinBlock(&apiServiceClient, blockMeta.Height, uint64(blockMeta.NumActions))
+				if err != nil {
+					return output.NewError(0, "failed to get actions info", err)
+				}
+				for _, ele := range blocksInfo {
+					for _, item := range ele.Block.Body.Actions {
+						actionInfo := actionInfo{
+							Version:      item.Core.Version,
+							Nonce:        item.Core.Nonce,
+							GasLimit:     item.Core.GasLimit,
+							GasPrice:     item.Core.GasPrice,
+							SenderPubKey: item.SenderPubKey,
+							Signature:    item.Signature,
+						}
+						blockInfoMessage.Actions = append(blockInfoMessage.Actions, actionInfo)
+					}
+				}
+			}
+			fmt.Println(blockInfoMessage.String())
+			return nil
+		},
+	}
+
+	flagVerboseUsage, _ := client.SelectTranslation(flagVerboseUsages)
+	flagEndpointUsage, _ := client.SelectTranslation(flagEndpointUsages)
+	flagInsecureUsage, _ := client.SelectTranslation(flagInsecureUsages)
+
+	cmd.PersistentFlags().BoolVar(&verbose, "verbose", false, flagVerboseUsage)
+	cmd.PersistentFlags().StringVar(&endpoint, "endpoint", client.Config().Endpoint, flagEndpointUsage)
+	cmd.PersistentFlags().BoolVar(&insecure, "insecure", !client.Config().SecureConnect, flagInsecureUsage)
+
+	return cmd
 }
 
 type blockMessage struct {
@@ -83,67 +156,8 @@ func (m *blockMessage) String() string {
 	return output.FormatString(output.Result, m)
 }
 
-// getBlock get block from block chain
-func getBlock(args []string) error {
-	var height uint64
-	var err error
-	isHeight := true
-	if len(args) != 0 {
-		height, err = strconv.ParseUint(args[0], 10, 64)
-		if err != nil {
-			isHeight = false
-		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return output.NewError(output.ValidationError, "invalid height", err)
-		}
-	} else {
-		chainMeta, err := GetChainMeta()
-		if err != nil {
-			return output.NewError(0, "failed to get chain meta", err)
-		}
-		height = chainMeta.Height
-	}
-	var blockMeta *iotextypes.BlockMeta
-	var blocksInfo []*iotexapi.BlockInfo
-	if isHeight {
-		blockMeta, err = getBlockMetaByHeight(height)
-	} else {
-		blockMeta, err = getBlockMetaByHash(args[0])
-	}
-	if err != nil {
-		return output.NewError(0, "failed to get block meta", err)
-	}
-	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
-	if verbose {
-		blocksInfo, err = getActionInfoWithinBlock(blockMeta.Height, uint64(blockMeta.NumActions))
-		if err != nil {
-			return output.NewError(0, "failed to get actions info", err)
-		}
-		for _, ele := range blocksInfo {
-			for _, item := range ele.Block.Body.Actions {
-				actionInfo := actionInfo{
-					Version:      item.Core.Version,
-					Nonce:        item.Core.Nonce,
-					GasLimit:     item.Core.GasLimit,
-					GasPrice:     item.Core.GasPrice,
-					SenderPubKey: item.SenderPubKey,
-					Signature:    item.Signature,
-				}
-				blockInfoMessage.Actions = append(blockInfoMessage.Actions, actionInfo)
-			}
-		}
-	}
-	fmt.Println(blockInfoMessage.String())
-	return nil
-}
-
 // getActionInfoByBlock gets action info by block hash with start index and action count
-func getActionInfoWithinBlock(height uint64, count uint64) ([]*iotexapi.BlockInfo, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
+func getActionInfoWithinBlock(cli *iotexapi.APIServiceClient, height uint64, count uint64) ([]*iotexapi.BlockInfo, error) {
 	request := iotexapi.GetRawBlocksRequest{StartHeight: height, Count: count, WithReceipts: true}
 	ctx := context.Background()
 
@@ -152,7 +166,7 @@ func getActionInfoWithinBlock(height uint64, count uint64) ([]*iotexapi.BlockInf
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := cli.GetRawBlocks(ctx, &request)
+	response, err := (*cli).GetRawBlocks(ctx, &request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -168,13 +182,7 @@ func getActionInfoWithinBlock(height uint64, count uint64) ([]*iotexapi.BlockInf
 }
 
 // getBlockMetaByHeight gets block metadata by height
-func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
+func getBlockMetaByHeight(cli *iotexapi.APIServiceClient, height uint64) (*iotextypes.BlockMeta, error) {
 	request := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
@@ -190,7 +198,7 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := cli.GetBlockMetas(ctx, request)
+	response, err := (*cli).GetBlockMetas(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {
@@ -205,13 +213,7 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 }
 
 // getBlockMetaByHash gets block metadata by hash
-func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
+func getBlockMetaByHash(cli *iotexapi.APIServiceClient, hash string) (*iotextypes.BlockMeta, error) {
 	request := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
 			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: hash},
@@ -224,7 +226,7 @@ func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
-	response, err := cli.GetBlockMetas(ctx, request)
+	response, err := (*cli).GetBlockMetas(ctx, request)
 	if err != nil {
 		sta, ok := status.FromError(err)
 		if ok {

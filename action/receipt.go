@@ -7,9 +7,6 @@
 package action
 
 import (
-	"bytes"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -21,15 +18,29 @@ import (
 
 // constants
 const (
-	StakingProtocolID = "staking"
+	StakingProtocolID   = "staking"
+	RewardingProtocolID = "rewarding"
 )
 
 var (
-	// InContractTransfer is topic for system log of evm transfer
-	InContractTransfer = common.Hash{} // 32 bytes with all zeros
+	// InContractTransfer is topic for implicit transfer log of evm transfer
+	// 32 bytes with all zeros
+	InContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_IN_CONTRACT_TRANSFER)})
 
 	// BucketWithdrawAmount is topic for bucket withdraw
-	BucketWithdrawAmount = hash.BytesToHash256([]byte("withdrawAmount"))
+	BucketWithdrawAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_WITHDRAW_AMOUNT)})
+
+	// BucketCreateAmount is topic for bucket create
+	BucketCreateAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_CREATE_AMOUNT)})
+
+	// BucketDepositAmount is topic for bucket deposit
+	BucketDepositAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_DEPOSIT_AMOUNT)})
+
+	// CandidateSelfStake is topic for candidate self-stake
+	CandidateSelfStake = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_SELF_STAKE)})
+
+	// CandidateRegistrationFee is topic for candidate register
+	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_REGISTRATION_FEE)})
 )
 
 type (
@@ -165,14 +176,14 @@ func (log *Log) Deserialize(buf []byte) error {
 	return nil
 }
 
-// IsImplicitTransfer checks whether a log is system log
+// IsImplicitTransfer checks whether a log is implicit transfer log
 func (log *Log) IsImplicitTransfer() bool {
-	return log.IsEvmTransfer() || log.IsWithdrawBucket()
+	return log.IsEvmTransfer() || log.IsCreateBucket() || log.IsDepositBucket() ||
+		log.IsWithdrawBucket() || log.IsCandidateRegister() || log.IsCandidateSelfStake()
 }
 
-// IsWithdrawBucket checks withdraw bucket log
-func (log *Log) IsWithdrawBucket() bool {
-	if log == nil || len(log.Topics) == 0 {
+func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
+	if len(log.Topics) == 0 {
 		return false
 	}
 
@@ -182,14 +193,28 @@ func (log *Log) IsWithdrawBucket() bool {
 		return false
 	}
 
-	if log.Topics[0] != BucketWithdrawAmount {
+	if log.Topics[0] != topic {
 		return false
 	}
 
-	if len(log.Topics) < 3 || log.Index != 1 {
-		panic("withdraw bucket log is corrupted")
+	if len(log.Topics) < 4 {
+		return false
 	}
-	return true
+
+	switch {
+	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
+		// amount goes into staking bucket pool
+		return log.Topics[2] == hash.BytesToHash256(addr.Bytes())
+	case topic == BucketWithdrawAmount:
+		// amount comes out of staking bucket pool
+		return log.Topics[1] == hash.BytesToHash256(addr.Bytes())
+	case topic == CandidateRegistrationFee:
+		// amount goes into rewarding pool
+		reward := hash.Hash160b([]byte(RewardingProtocolID))
+		return log.Topics[2] == hash.BytesToHash256(reward[:])
+	default:
+		return false
+	}
 }
 
 // IsEvmTransfer checks evm transfer log
@@ -197,5 +222,30 @@ func (log *Log) IsEvmTransfer() bool {
 	if log == nil || len(log.Topics) == 0 {
 		return false
 	}
-	return bytes.Compare(InContractTransfer[:], log.Topics[0][:]) >= 0
+	return log.Topics[0] == InContractTransfer
+}
+
+// IsWithdrawBucket checks withdraw bucket log
+func (log *Log) IsWithdrawBucket() bool {
+	return log.isStakingImplicitLog(BucketWithdrawAmount)
+}
+
+// IsCreateBucket checks create bucket log
+func (log *Log) IsCreateBucket() bool {
+	return log.isStakingImplicitLog(BucketCreateAmount)
+}
+
+// IsDepositBucket checks deposit bucket log
+func (log *Log) IsDepositBucket() bool {
+	return log.isStakingImplicitLog(BucketDepositAmount)
+}
+
+// IsCandidateRegister checks candidate register log
+func (log *Log) IsCandidateRegister() bool {
+	return log.isStakingImplicitLog(CandidateRegistrationFee)
+}
+
+// IsCandidateSelfStake checks candidate self-stake log
+func (log *Log) IsCandidateSelfStake() bool {
+	return log.isStakingImplicitLog(CandidateSelfStake)
 }

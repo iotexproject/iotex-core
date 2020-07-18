@@ -234,38 +234,53 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog *receiptLog
-		aLog *action.Log
-		err  error
+		rLog        *receiptLog
+		createLog   *action.Log
+		depositLog  *action.Log
+		withdrawLog *action.Log
+		registerLog *action.Log
+		err         error
+		logs        []*action.Log
 	)
 
 	switch act := act.(type) {
 	case *action.CreateStake:
-		rLog, err = p.handleCreateStake(ctx, act, csm)
+		rLog, createLog, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
 		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		rLog, aLog, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, withdrawLog, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
 		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
 		rLog, err = p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		rLog, err = p.handleDepositToStake(ctx, act, csm)
+		rLog, depositLog, err = p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
 		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		rLog, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, createLog, registerLog, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:
 		return nil, nil
 	}
 
-	logs := []*action.Log{rLog.Build(ctx, err)}
+	if l := rLog.Build(ctx, err); l != nil {
+		logs = append(logs, l)
+	}
 	if err == nil {
-		if aLog != nil {
-			logs = append(logs, aLog)
+		if createLog != nil {
+			logs = append(logs, createLog)
+		}
+		if depositLog != nil {
+			logs = append(logs, depositLog)
+		}
+		if withdrawLog != nil {
+			logs = append(logs, withdrawLog)
+		}
+		if registerLog != nil {
+			logs = append(logs, registerLog)
 		}
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
 	}
@@ -323,22 +338,22 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	m := iotexapi.ReadStakingDataMethod{}
 	if err := proto.Unmarshal(method, &m); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal method name")
+		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal method name")
 	}
 	if len(args) != 1 {
-		return nil, errors.Errorf("invalid number of arguments %d", len(args))
+		return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 	}
 	r := iotexapi.ReadStakingDataRequest{}
 	if err := proto.Unmarshal(args[0], &r); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal request")
+		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
 	center, err := getOrCreateCandCenter(sr)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get candidate center")
+		return nil, uint64(0), errors.Wrap(err, "failed to get candidate center")
 	}
 
 	var resp proto.Message
@@ -361,10 +376,18 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		err = errors.New("corresponding method isn't found")
 	}
 	if err != nil {
-		return nil, err
+		return nil, uint64(0), err
+	}
+	data, err := proto.Marshal(resp)
+	if err != nil {
+		return nil, uint64(0), err
+	}
+	stateHeight, err := sr.Height()
+	if err != nil {
+		return nil, uint64(0), err
 	}
 
-	return proto.Marshal(resp)
+	return data, stateHeight, nil
 }
 
 // Register registers the protocol with a unique ID

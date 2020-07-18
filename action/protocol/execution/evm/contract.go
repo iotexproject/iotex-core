@@ -45,6 +45,7 @@ type (
 
 	contract struct {
 		*state.Account
+		async      bool
 		dirtyCode  bool              // contract's code has been set
 		dirtyState bool              // contract's account state has changed
 		code       SerializableBytes // contract byte-code
@@ -85,7 +86,19 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 		c.GetState(key)
 	}
 	c.dirtyState = true
-	return c.trie.Upsert(key[:], value)
+	if err := c.trie.Upsert(key[:], value); err != nil {
+		return err
+	}
+	if !c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			return err
+		}
+		// TODO (zhi): confirm whether we should update the root on err
+		c.Account.Root = hash.BytesToHash256(rh)
+	}
+
+	return nil
 }
 
 // GetCode gets the contract's byte-code
@@ -143,13 +156,16 @@ func (c *contract) LoadRoot() error {
 
 // Snapshot takes a snapshot of the contract object
 func (c *contract) Snapshot() Contract {
-	rh, err := c.trie.RootHash()
-	if err != nil {
-		log.L().Fatal("failed to calculate root hash")
+	if c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			log.L().Fatal("failed to calculate root hash")
+		}
+		c.Account.Root = hash.BytesToHash256(rh)
 	}
-	c.Account.Root = hash.BytesToHash256(rh)
 	return &contract{
 		Account:    c.Account.Clone(),
+		async:      c.async,
 		dirtyCode:  c.dirtyCode,
 		dirtyState: c.dirtyState,
 		code:       c.code,
@@ -169,6 +185,7 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
 		sm:        sm,
+		async:     enableAsync,
 	}
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),

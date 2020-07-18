@@ -25,12 +25,13 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/tools/executiontester/blockchain"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // KeyPairs indicate the keypair of accounts getting transfers from Creator in genesis block
@@ -57,22 +58,22 @@ var (
 	totalTsfFailed    = uint64(0)
 )
 
-//GetTotalTsfCreated returns number of total transfer action created
+// GetTotalTsfCreated returns number of total transfer action created
 func GetTotalTsfCreated() uint64 {
 	return totalTsfCreated
 }
 
-//GetTotalTsfSentToAPI returns number of total transfer action successfully send through GRPC
+// GetTotalTsfSentToAPI returns number of total transfer action successfully send through GRPC
 func GetTotalTsfSentToAPI() uint64 {
 	return totalTsfSentToAPI
 }
 
-//GetTotalTsfSucceeded returns number of total transfer action created
+// GetTotalTsfSucceeded returns number of total transfer action created
 func GetTotalTsfSucceeded() uint64 {
 	return totalTsfSucceeded
 }
 
-//GetTotalTsfFailed returns number of total transfer action failed
+// GetTotalTsfFailed returns number of total transfer action failed
 func GetTotalTsfFailed() uint64 {
 	return totalTsfFailed
 }
@@ -164,10 +165,6 @@ func InjectByAps(
 	reset := time.NewTicker(time.Duration(resetInterval) * time.Second)
 	rand.Seed(time.Now().UnixNano())
 
-	randRange := 2
-	if fpToken == nil {
-		randRange = 1
-	}
 loop:
 	for {
 		select {
@@ -208,26 +205,47 @@ loop:
 			}
 		case <-tick.C:
 			wg.Add(1)
-			//TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
+			// TODO Currently Vote is skipped because it will fail on balance test and is planned to be removed
 			if _, err := CheckPendingActionList(cs,
 				pendingActionMap,
 				expectedBalances,
 			); err != nil {
 				log.L().Error(err.Error())
 			}
-			switch randNum := rand.Intn(randRange); randNum {
+		rerand:
+			switch rand.Intn(4) {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				atomic.AddUint64(&totalTsfCreated, 1)
 				go injectTransfer(wg, client, sender, recipient, nonce, amount, uint64(transferGasLimit),
 					big.NewInt(transferGasPrice), transferPayload, retryNum, retryInterval, pendingActionMap)
+			case 1:
+				if fpToken == nil {
+					goto rerand
+				}
+				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
 			case 2:
 				executor, nonce := createExecutionInjection(counter, delegates)
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval, pendingActionMap)
-			case 1:
-				go injectFpTokenTransfer(wg, fpToken, fpContract, debtor, creditor)
+			case 3:
+				sender, nonce := createExecutionInjection(counter, delegates)
+				go injectStake(
+					wg,
+					client,
+					sender,
+					nonce,
+					"100",
+					10000,
+					true,
+					1000000,
+					big.NewInt(10),
+					"create state payload",
+					retryNum,
+					resetInterval,
+					pendingActionMap,
+				)
 			}
 		}
 	}
@@ -455,6 +473,43 @@ func injectFpTokenTransfer(
 	}
 }
 
+func injectStake(
+	wg *sync.WaitGroup,
+	c iotexapi.APIServiceClient,
+	sender *AddressKey,
+	nonce uint64,
+	amount string,
+	duration uint32,
+	autoStake bool,
+	gasLimit uint64,
+	gasPrice *big.Int,
+	payload string,
+	retryNum int,
+	retryInterval int,
+	pendingActionMap *sync.Map,
+) {
+	selp, _, err := createSignedStake(sender, nonce, sender.EncodedAddr, amount, duration, autoStake, []byte(payload), gasLimit, gasPrice)
+	if err != nil {
+		log.L().Fatal("Failed to inject Stake", zap.Error(err))
+	}
+	log.L().Info("Created signed stake")
+
+	bo := backoff.WithMaxRetries(backoff.NewConstantBackOff(time.Duration(retryInterval)*time.Second), uint64(retryNum))
+	if err := backoff.Retry(func() error {
+		_, err := c.SendAction(context.Background(), &iotexapi.SendActionRequest{Action: selp.Proto()})
+		return err
+	}, bo); err != nil {
+		log.L().Error("Failed to inject stake", zap.Error(err))
+	} else if pendingActionMap != nil {
+		pendingActionMap.Store(selp.Hash(), 1)
+		atomic.AddUint64(&totalTsfSentToAPI, 1)
+	}
+
+	if wg != nil {
+		wg.Done()
+	}
+}
+
 // Helper function to get the sender, recipient, nonce, and amount of next injected transfer
 func createTransferInjection(
 	counter map[string]uint64,
@@ -556,6 +611,34 @@ func createSignedExecution(
 	return selp, execution, nil
 }
 
+func createSignedStake(
+	executor *AddressKey,
+	nonce uint64,
+	candidateName string,
+	amount string,
+	duration uint32,
+	autoStake bool,
+	payload []byte,
+	gasLimit uint64,
+	gasPrice *big.Int,
+) (action.SealedEnvelope, *action.CreateStake, error) {
+	createStake, err := action.NewCreateStake(nonce, candidateName, amount, duration, autoStake, payload, gasLimit, gasPrice)
+	if err != nil {
+		return action.SealedEnvelope{}, nil, err
+	}
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(createStake).
+		Build()
+	selp, err := action.Sign(elp, executor.PriKey)
+	if err != nil {
+		return action.SealedEnvelope{}, nil, err
+	}
+	return selp, createStake, nil
+}
+
 func injectExecution(
 	selp action.SealedEnvelope,
 	_ *action.Execution,
@@ -572,7 +655,7 @@ func injectExecution(
 	}
 }
 
-//GetAllBalanceMap returns a account balance map of all admins and delegates
+// GetAllBalanceMap returns a account balance map of all admins and delegates
 func GetAllBalanceMap(
 	client iotexapi.APIServiceClient,
 	chainaddrs []*AddressKey,
@@ -652,6 +735,25 @@ func CheckPendingActionList(
 					}
 
 					updateExecutionExpectedBalanceMap(balancemap, executoraddr.String(), selp.GasLimit(), selp.GasPrice())
+				case pbAct.GetStakeCreate() != nil:
+					act := &action.CreateStake{}
+					if err := act.LoadProto(pbAct.GetStakeCreate()); err != nil {
+						retErr = err
+						return false
+					}
+					executoraddr, err := address.FromBytes(selp.SrcPubkey().Hash())
+					if err != nil {
+						retErr = err
+						return false
+					}
+					cost, err := act.Cost()
+					if err != nil {
+						retErr = err
+						return false
+					}
+					updateStakeExpectedBalanceMap(balancemap,
+						executoraddr.String(),
+						cost)
 				default:
 					retErr = errors.New("Unsupported action type for balance check")
 					return false
@@ -666,6 +768,7 @@ func CheckPendingActionList(
 
 	return empty, retErr
 }
+
 func updateTransferExpectedBalanceMap(
 	balancemap *map[string]*big.Int,
 	senderAddr string,
@@ -678,31 +781,31 @@ func updateTransferExpectedBalanceMap(
 
 	gasLimitBig := big.NewInt(int64(gasLimit))
 
-	//calculate gas consumed by payload
+	// calculate gas consumed by payload
 	gasUnitPayloadConsumed := new(big.Int).Mul(new(big.Int).SetUint64(action.TransferPayloadGas),
 		new(big.Int).SetUint64(uint64(len(payload))))
 	gasUnitTransferConsumed := new(big.Int).SetUint64(action.TransferBaseIntrinsicGas)
 
-	//calculate total gas consumed by payload and transfer action
+	// calculate total gas consumed by payload and transfer action
 	gasUnitConsumed := new(big.Int).Add(gasUnitPayloadConsumed, gasUnitTransferConsumed)
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
 		log.L().Fatal("Not enough gas")
 	}
 
-	//convert to gas cost
+	// convert to gas cost
 	gasConsumed := new(big.Int).Mul(gasUnitConsumed, gasPrice)
 
-	//total cost of transferred amount, payload, transfer intrinsic
+	// total cost of transferred amount, payload, transfer intrinsic
 	totalUsed := new(big.Int).Add(gasConsumed, amount)
 
-	//update sender balance
+	// update sender balance
 	senderBalance := (*balancemap)[senderAddr]
 	if senderBalance.Cmp(totalUsed) < 0 {
 		log.L().Fatal("Not enough balance")
 	}
 	(*balancemap)[senderAddr].Sub(senderBalance, totalUsed)
 
-	//update recipient balance
+	// update recipient balance
 	recipientBalance := (*balancemap)[recipientAddr]
 	(*balancemap)[recipientAddr].Add(recipientBalance, amount)
 }
@@ -715,7 +818,7 @@ func updateExecutionExpectedBalanceMap(
 ) {
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
-	//NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
+	// NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
 	gasUnitConsumed := new(big.Int).SetUint64(24028)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
@@ -729,4 +832,17 @@ func updateExecutionExpectedBalanceMap(
 	}
 	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
 
+}
+
+func updateStakeExpectedBalanceMap(
+	balancemap *map[string]*big.Int,
+	candidateAddr string,
+	cost *big.Int,
+) {
+	// update sender balance
+	senderBalance := (*balancemap)[candidateAddr]
+	if senderBalance.Cmp(cost) < 0 {
+		log.L().Fatal("Not enough balance")
+	}
+	(*balancemap)[candidateAddr].Sub(senderBalance, cost)
 }

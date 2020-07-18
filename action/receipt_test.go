@@ -47,20 +47,20 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt, receipt2)
 	require.NotEqual(h, receipt.Hash())
 
-	// system log
+	// implicit transfer log
 	log.Topics = []hash.Hash256{hash.BytesToHash256(InContractTransfer[:])}
 	noLogReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(noLogReceipt)
 	require.Empty(noLogReceipt.Logs)
 
-	// not system log
+	// not implicit transfer log
 	log.Topics = []hash.Hash256{hash.BytesToHash256(append(make([]byte, 31, 32), 1))}
 	oneLogReceipt := receipt.ConvertToReceiptPb()
 	require.Equal(1, len(oneLogReceipt.Logs))
 	receipt2.ConvertFromReceiptPb(oneLogReceipt)
 	require.Equal(receipt, receipt2)
 
-	// not system log
+	// not implicit transfer log
 	log.Topics = []hash.Hash256{}
 	oneLogReceipt = receipt.ConvertToReceiptPb()
 	require.Equal(1, len(oneLogReceipt.Logs))

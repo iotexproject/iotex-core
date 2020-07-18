@@ -89,8 +89,8 @@ func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.Sta
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, error) {
-	return nil, protocol.ErrUnimplemented
+func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+	return nil, uint64(0), protocol.ErrUnimplemented
 }
 
 // Register registers the protocol with a unique ID

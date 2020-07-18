@@ -89,6 +89,7 @@ var (
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 
+	blkHash      = map[uint64]hash.Hash256{}
 	implicitLogs = map[hash.Hash256]*block.ImplictTransferLog{}
 )
 
@@ -1881,6 +1882,9 @@ func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {
 				require.True(ok)
 				require.Equal(l.Proto(), log)
 			}
+			require.Equal(test.height, res.BlockIdentifier.Height)
+			h := blkHash[test.height]
+			require.Equal(hex.EncodeToString(h[:]), res.BlockIdentifier.Hash)
 		}
 	}
 }
@@ -1913,6 +1917,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
+	blkHash[1] = blk.HashBlock()
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
@@ -1954,6 +1959,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
+	blkHash[2] = blk.HashBlock()
 
 	// Add block 3
 	// Empty actions
@@ -1964,6 +1970,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
+	blkHash[3] = blk.HashBlock()
 
 	// Add block 4
 	// Charlie transfer--> C
@@ -2011,6 +2018,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
 		return err
 	}
+	blkHash[4] = blk.HashBlock()
 	return bc.CommitBlock(blk)
 }
 
