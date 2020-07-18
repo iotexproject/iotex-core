@@ -356,6 +356,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, err = readStateCandidateByName(ctx, c.CandCenter(), r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
 		resp, err = readStateCandidateByAddress(ctx, c.CandCenter(), r.GetCandidateByAddress())
+	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
+		resp, err = readStateTotalStakingAmount(ctx, c.BucketPool(), r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

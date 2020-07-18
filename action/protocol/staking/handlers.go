@@ -122,11 +122,11 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// generate create amount log
 	cLog := action.Log{
-		Address: p.addr.String(),
+		Address: address.StakingBucketPoolAddr,
 		Topics: action.Topics{
 			action.BucketCreateAmount,
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
+			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
 		Data:        act.Amount().Bytes(),
@@ -266,10 +266,10 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// generate withdraw amount log
 	amountLog := action.Log{
-		Address: p.addr.String(),
+		Address: address.StakingBucketPoolAddr,
 		Topics: action.Topics{
 			action.BucketWithdrawAmount,
-			hash.BytesToHash256(p.addr.Bytes()),
+			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
@@ -507,11 +507,11 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	// generate deposit amount log
 	dLog := action.Log{
-		Address: p.addr.String(),
+		Address: address.StakingBucketPoolAddr,
 		Topics: action.Topics{
 			action.BucketDepositAmount,
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
+			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
 		Data:        act.Amount().Bytes(),
@@ -686,11 +686,11 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	// generate self-stake log
 	cLog := action.Log{
-		Address: p.addr.String(),
+		Address: address.StakingBucketPoolAddr,
 		Topics: action.Topics{
 			action.CandidateSelfStake,
 			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
+			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
 		Data:        act.Amount().Bytes(),
@@ -699,13 +699,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// generate candidate register log
-	rewardingAddr := hash.Hash160b([]byte(action.RewardingProtocolID))
 	rLog := action.Log{
-		Address: p.addr.String(),
+		Address: address.RewardingPoolAddr,
 		Topics: action.Topics{
 			action.CandidateRegistrationFee,
 			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			hash.BytesToHash256(rewardingAddr[:]),
+			action.RewardingPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
 		Data:        registrationFee.Bytes(),

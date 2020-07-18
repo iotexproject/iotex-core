@@ -27,25 +27,20 @@ var (
 	recver      = identityset.Address(1)
 	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
-	reward      = hash.Hash160b([]byte(action.RewardingProtocolID))
-	rewardTopic = hash.BytesToHash256(reward[:])
 
-	staking        = hash.Hash160b([]byte(action.StakingProtocolID))
-	stakingAddr, _ = address.FromBytes(staking[:])
-	stakingTopic   = hash.BytesToHash256(staking[:])
 	evmTopics      = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
 	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, stakingTopic, senderTopic, hash.ZeroHash256}
-	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, stakingTopic, hash.ZeroHash256}
-	selfstakeLog   = &action.Log{addr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, rewardTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	createLog      = &action.Log{address.StakingBucketPoolAddr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	depositLog     = &action.Log{address.StakingBucketPoolAddr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, action.StakingBucketPoolTopic, senderTopic, hash.ZeroHash256}
+	withdrawLog    = &action.Log{address.StakingBucketPoolAddr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	selfstakeLog   = &action.Log{address.StakingBucketPoolAddr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, action.RewardingPoolTopic, hash.ZeroHash256}
+	registerLog    = &action.Log{address.RewardingPoolAddr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	normalLog      = &action.Log{address.StakingBucketPoolAddr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
 	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
 	receiptTest = []struct {
@@ -104,7 +99,6 @@ var (
 func TestIsSystemLog(t *testing.T) {
 	r := require.New(t)
 
-	r.Equal(addr, stakingAddr.String())
 	for i, log := range allLogs {
 		r.Equal(i == 0, log.IsEvmTransfer())
 		r.Equal(i == 1, log.IsCreateBucket())
@@ -117,19 +111,19 @@ func TestIsSystemLog(t *testing.T) {
 		if log.IsCreateBucket() {
 			log.Topics[2] = recverTopic
 			r.False(log.IsCreateBucket())
-			log.Topics[2] = stakingTopic
+			log.Topics[2] = action.StakingBucketPoolTopic
 		}
 
 		if log.IsWithdrawBucket() {
 			log.Topics[1] = recverTopic
 			r.False(log.IsWithdrawBucket())
-			log.Topics[1] = stakingTopic
+			log.Topics[1] = action.StakingBucketPoolTopic
 		}
 
 		if log.IsCandidateRegister() {
 			log.Topics[2] = recverTopic
 			r.False(log.IsCandidateRegister())
-			log.Topics[2] = rewardTopic
+			log.Topics[2] = action.RewardingPoolTopic
 		}
 	}
 
