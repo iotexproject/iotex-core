@@ -48,8 +48,12 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 	db.AddBalance(toHash, amount)
 
 	db.AddLog(&types.Log{
-		Topics: []common.Hash{action.InContractTransfer, common.BytesToHash(fromHash[:]), common.BytesToHash(toHash[:])},
-		Data:   amount.Bytes(),
+		Topics: []common.Hash{
+			common.BytesToHash(action.InContractTransfer[:]),
+			common.BytesToHash(fromHash[:]),
+			common.BytesToHash(toHash[:]),
+		},
+		Data: amount.Bytes(),
 	})
 }
 

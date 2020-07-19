@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -160,27 +159,17 @@ func ReceiptImplicitTransferLog(r *action.Receipt) *ImplictTransferLog {
 
 // LogTokenTxRecord generates token transaction record from log
 func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
-	txRecord := TokenTxRecord{}
-
-	switch {
-	case log.IsEvmTransfer():
-		txRecord.topic = make([]byte, len(log.Topics[0]))
-		copy(txRecord.topic, log.Topics[0][:])
-		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
-		from, _ := address.FromBytes(log.Topics[1][12:])
-		txRecord.sender = from.String()
-		to, _ := address.FromBytes(log.Topics[2][12:])
-		txRecord.recipient = to.String()
-		return &txRecord
-	case log.IsWithdrawBucket():
-		txRecord.topic = make([]byte, len(log.Topics[0]))
-		copy(txRecord.topic, log.Topics[0][:])
-		txRecord.amount = new(big.Int).SetBytes(log.Data).String()
-		txRecord.sender = log.Address
-		to, _ := address.FromBytes(log.Topics[2][12:])
-		txRecord.recipient = to.String()
-		return &txRecord
-	default:
+	if log == nil || !log.IsImplicitTransfer() {
 		return nil
 	}
+
+	txRecord := TokenTxRecord{}
+	txRecord.topic = make([]byte, len(log.Topics[0]))
+	copy(txRecord.topic, log.Topics[0][:])
+	txRecord.amount = new(big.Int).SetBytes(log.Data).String()
+	from, _ := address.FromBytes(log.Topics[1][12:])
+	txRecord.sender = from.String()
+	to, _ := address.FromBytes(log.Topics[2][12:])
+	txRecord.recipient = to.String()
+	return &txRecord
 }

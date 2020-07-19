@@ -179,35 +179,35 @@ func (p *Protocol) ReadState(
 	sr protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
+) ([]byte, uint64, error) {
 	switch string(method) {
 	case "AvailableBalance":
-		balance, err := p.AvailableBalance(ctx, sr)
+		balance, height, err := p.AvailableBalance(ctx, sr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	case "TotalBalance":
-		balance, err := p.TotalBalance(ctx, sr)
+		balance, height, err := p.TotalBalance(ctx, sr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	case "UnclaimedBalance":
 		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		addr, err := address.FromString(string(args[0]))
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		balance, err := p.UnclaimedBalance(ctx, sr, addr)
+		balance, height, err := p.UnclaimedBalance(ctx, sr, addr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	default:
-		return nil, errors.New("corresponding method isn't found")
+		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
 }
 
@@ -226,10 +226,9 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
+func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.State(value, protocol.LegacyKeyOption(keyHash))
-	return err
+	return sm.State(value, protocol.LegacyKeyOption(keyHash))
 }
 
 func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
