@@ -7,18 +7,38 @@
 package contract
 
 import (
-	"fmt"
+	"flag"
+	"io/ioutil"
+	"log"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"reflect"
+	"strings"
 
+	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
-var iotexIDE string
+var (
+	iotexIDE string
+	fileList []string
+	absPath  string
+
+	addr = flag.String("addr", "localhost:65520", "http service address")
+
+	upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			if iotexIDE == r.Header["Origin"][0] {
+				return true
+			}
+			return false
+		},
+	}
+)
 
 // Multi-language support
 var (
@@ -27,8 +47,8 @@ var (
 		config.Chinese: "share 本地文件路径 [--iotex-ide 你的IOTEX_IDE的URL]",
 	}
 	contractShareCmdShorts = map[config.Language]string{
-		config.English: "share a folder from your local computer to the IoTex smart contract dev.(default to https://ide.iotex.io/)",
-		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(默认为https://ide.iotex.io/)",
+		config.English: "share a folder from your local computer to the IoTex smart contract dev.(default to https://ide.iotex.io)",
+		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(默认为https://ide.iotex.io)",
 	}
 	flagIoTexIDEUrlUsage = map[config.Language]string{
 		config.English: "set your IoTex IDE url instance",
@@ -49,19 +69,20 @@ var contractShareCmd = &cobra.Command{
 }
 
 func init() {
-	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io/", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
+	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
 }
 
 func share(args []string) error {
 	var err error
-	path := args[0]
-	if len(path) == 0 {
+	absPath = args[0]
+	if len(absPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
+	if !filepath.IsAbs(absPath) {
+		return output.NewError(output.InputError, "inputed path isn't absolute", nil)
+	}
 
-	adsPath, _ := filepath.Abs(path)
-
-	info, err := os.Stat(adsPath)
+	info, err := os.Stat(absPath)
 	if err != nil {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
@@ -69,53 +90,95 @@ func share(args []string) error {
 		return output.NewError(output.InputError, "input file rather than directory", nil)
 	}
 
-	err = checkRemixdReady()
-	if err != nil {
-		output.NewError(output.RuntimeError, "remixd not ready, please run 'npm -g install remixd' and try again ", err)
-	}
-
 	if len(iotexIDE) == 0 {
 		return output.NewError(output.FlagError, "failed to get iotex ide url instance", nil)
 	}
 
-	cmdString := "remixd -s " + adsPath + " --remix-ide " + iotexIDE
-
-	fmt.Println(cmdString)
-
-	cmd := exec.Command("bash", "-c", cmdString)
-	stdout, err := cmd.StdoutPipe()
-	cmd.Stderr = cmd.Stdout
-
-	if err != nil {
-		return err
-	}
-
-	if err = cmd.Start(); err != nil {
-		return output.NewError(output.RuntimeError, "failed to link-local folder(restart terminal and try again)", err)
-	}
-	for {
-		tmp := make([]byte, 1024)
-		_, err := stdout.Read(tmp)
-		fmt.Print(string(tmp))
+	filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+		relPath, err := filepath.Rel(absPath, path)
 		if err != nil {
-			break
+			return err
 		}
-	}
 
-	if err = cmd.Wait(); err != nil {
-		return output.NewError(output.RuntimeError, "failed to link-local folder(restart terminal and try again)", err)
-	}
+		if !strings.HasPrefix(relPath, ".") {
+			fileList = append(fileList, relPath)
+		}
+		return nil
+	})
+
+	http.HandleFunc("/", shareFiles)
+	log.Fatal(http.ListenAndServe(*addr, nil))
 
 	return nil
 
 }
 
-func checkRemixdReady() error {
-	cmdString := "remixd -h"
-	cmd := exec.Command("bash", "-c", cmdString)
-	err := cmd.Run()
+func shareFiles(w http.ResponseWriter, r *http.Request) {
+
+	conn, err := upgrader.Upgrade(w, r, nil)
+
 	if err != nil {
-		return err
+		log.Println("websocket error:", err)
+		return
 	}
-	return nil
+	log.Println("contract share client is listening on 127.0.0.1:65520")
+
+	for {
+		requestInfo := make(map[string]interface{})
+		response := make(map[string]interface{})
+
+		if err := conn.ReadJSON(&requestInfo); err != nil {
+			log.Println("read json", err)
+			return
+		}
+
+		log.Println(requestInfo)
+
+		response["action"] = "response"
+		response["id"] = requestInfo["id"]
+
+		switch requestInfo["key"] {
+		case "handshake":
+			response["key"] = "handshake"
+			if err := conn.WriteJSON(response); err != nil {
+				log.Println("send handshake response", err)
+				break
+			}
+
+		case "list":
+			response["key"] = "list"
+			payload := make(map[string]bool)
+			for _, ele := range fileList {
+				payload[ele] = false
+			}
+			response["payload"] = payload
+			if err := conn.WriteJSON(response); err != nil {
+				log.Println("send response with file list", err)
+				break
+			}
+		case "get":
+			payload := map[string]interface{}{}
+			t := requestInfo["payload"]
+			s := reflect.ValueOf(t)
+			for i := 0; i < s.Len(); i++ {
+				p, _ := s.Index(i).Interface().(map[string]interface{})
+				for _, v := range p {
+					upload, err := ioutil.ReadFile(absPath + "/" + v.(string))
+					if err != nil {
+						log.Println("read file failed", err)
+						break
+					}
+					payload["content"] = string(upload)
+					payload["readonly"] = true
+					response["key"] = "get"
+					response["payload"] = payload
+					if err := conn.WriteJSON(response); err != nil {
+						log.Println("send response with file", err)
+						break
+					}
+				}
+			}
+
+		}
+	}
 }
