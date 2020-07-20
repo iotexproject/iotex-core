@@ -32,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
@@ -470,4 +471,67 @@ func TestProtocol_Handle(t *testing.T) {
 		cb.Delete("state", addrHash[:], "failed to delete state")
 		return nil
 	}).AnyTimes()
+}
+
+func TestMigrateValue(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	p := NewProtocol(
+		genesis.Default.FoundationBonusP2StartEpoch,
+		genesis.Default.FoundationBonusP2EndEpoch,
+	)
+	// put old
+	require.NoError(putStateLegacy(sm, p.keyPrefix, adminKey, &admin{
+		blockReward:                big.NewInt(811),
+		epochReward:                big.NewInt(922),
+		foundationBonus:            big.NewInt(700),
+		numDelegatesForEpochReward: 118,
+	}))
+	require.NoError(putStateLegacy(sm, p.keyPrefix, fundKey, &fund{
+		totalBalance:     big.NewInt(811),
+		unclaimedBalance: big.NewInt(922),
+	}))
+	require.NoError(putStateLegacy(sm, p.keyPrefix, exemptKey, &exempt{
+		addrs: []address.Address{identityset.Address(0)},
+	}))
+
+	// migrate
+	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+
+	// assert old (not exist)
+	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, adminKey, &admin{}))
+	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, fundKey, &fund{}))
+	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, exemptKey, &exempt{}))
+
+	// assert new (with correct value)
+	a := admin{}
+	require.NoError(readStateNew(sm, p.keyPrefix, adminKey, &a))
+	require.Equal(uint64(118), a.numDelegatesForEpochReward)
+	require.Equal("811", a.blockReward.String())
+	f := fund{}
+	require.NoError(readStateNew(sm, p.keyPrefix, fundKey, &f))
+	require.Equal("811", f.totalBalance.String())
+	e := exempt{}
+	require.NoError(readStateNew(sm, p.keyPrefix, exemptKey, &e))
+	require.Equal(identityset.Address(0).String(), e.addrs[0].String())
+}
+
+func putStateLegacy(sm protocol.StateManager, prefix, key []byte, value interface{}) error {
+	keyHash := hash.Hash160b(append(prefix, key...))
+	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
+	return err
+}
+
+func readStateLegacy(sr protocol.StateReader, prefix, key []byte, value interface{}) error {
+	keyHash := hash.Hash160b(append(prefix, key...))
+	_, err := sr.State(value, protocol.LegacyKeyOption(keyHash))
+	return err
+}
+
+func readStateNew(sr protocol.StateReader, prefix, key []byte, value interface{}) error {
+	keyHash := hash.Hash160b(append(prefix, key...))
+	_, err := sr.State(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
 }

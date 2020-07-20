@@ -97,8 +97,38 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if err := p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true); err != nil {
 			return err
 		}
+	case hu.GreenlandBlockHeight():
+		if err := p.migrateValueGreenland(ctx, sm); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
+	if _, err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+		return err
+	}
+	if _, err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
+		return err
+	}
+	if _, err := p.migrateValue(sm, exemptKey, &exempt{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) (uint64, error) {
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
+	h, err := sm.State(value, protocol.LegacyKeyOption(keyHash))
+	if err != nil {
+		return h, err
+	}
+	h, err = sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	if err != nil {
+		return h, err
+	}
+	return sm.DelState(protocol.LegacyKeyOption(keyHash))
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
