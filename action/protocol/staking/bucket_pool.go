@@ -68,6 +68,10 @@ func (t *totalAmount) Deserialize(data []byte) error {
 	if t.amount, ok = new(big.Int).SetString(gen.Amount, 10); !ok {
 		return state.ErrStateDeserialization
 	}
+
+	if t.amount.Cmp(big.NewInt(0)) == -1 {
+		return state.ErrNotEnoughBalance
+	}
 	t.count = gen.Count
 	return nil
 }
@@ -114,6 +118,9 @@ func NewBucketPool(sr protocol.StateReader) (*BucketPool, error) {
 	}
 
 	for _, v := range all {
+		if v.StakedAmount.Cmp(big.NewInt(0)) <= 0 {
+			return nil, state.ErrNotEnoughBalance
+		}
 		bp.total.amount.Add(bp.total.amount, v.StakedAmount)
 	}
 	bp.total.count = uint64(len(all))

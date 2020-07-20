@@ -126,7 +126,6 @@ func readStateTotalStakingAmount(ctx context.Context, bp *BucketPool,
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr
 	meta.Balance = bp.Total().String()
-	meta.NumActions = bp.Count()
 	return nil, nil
 }
 
