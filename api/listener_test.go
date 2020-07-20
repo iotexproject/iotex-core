@@ -36,7 +36,7 @@ func TestChainListener(t *testing.T) {
 
 	err = listener.AddResponder(responder)
 	require.Error(t, err)
-	require.Equal(t, responderAddedErr, err)
+	require.Equal(t, errorResponderAdded, err)
 
 	block := &block.Block{
 		Header: block.Header{},

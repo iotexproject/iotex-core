@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	responderAddedErr = errors.New("Responder already added")
+	errorResponderAdded = errors.New("Responder already added")
 )
 
 type (
@@ -73,7 +73,7 @@ func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 func (cl *chainListener) AddResponder(r Responder) error {
 	_, loaded := cl.streamMap.LoadOrStore(r, struct{}{})
 	if loaded {
-		return responderAddedErr
+		return errorResponderAdded
 	}
 	return nil
 }

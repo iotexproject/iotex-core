@@ -11,7 +11,8 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
-type APIService_StreamBlocksServer interface {
+// StreamBlocksServer defines the interface of a rpc stream server
+type StreamBlocksServer interface {
 	Send(*iotexapi.StreamBlocksResponse) error
 	grpc.ServerStream
 }

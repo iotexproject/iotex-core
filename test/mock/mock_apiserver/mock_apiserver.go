@@ -12,31 +12,31 @@ import (
 	reflect "reflect"
 )
 
-// MockAPIService_StreamBlocksServer is a mock of APIService_StreamBlocksServer interface
-type MockAPIService_StreamBlocksServer struct {
+// MockStreamBlocksServer is a mock of StreamBlocksServer interface
+type MockStreamBlocksServer struct {
 	ctrl     *gomock.Controller
-	recorder *MockAPIService_StreamBlocksServerMockRecorder
+	recorder *MockStreamBlocksServerMockRecorder
 }
 
-// MockAPIService_StreamBlocksServerMockRecorder is the mock recorder for MockAPIService_StreamBlocksServer
-type MockAPIService_StreamBlocksServerMockRecorder struct {
-	mock *MockAPIService_StreamBlocksServer
+// MockStreamBlocksServerMockRecorder is the mock recorder for MockStreamBlocksServer
+type MockStreamBlocksServerMockRecorder struct {
+	mock *MockStreamBlocksServer
 }
 
-// NewMockAPIService_StreamBlocksServer creates a new mock instance
-func NewMockAPIService_StreamBlocksServer(ctrl *gomock.Controller) *MockAPIService_StreamBlocksServer {
-	mock := &MockAPIService_StreamBlocksServer{ctrl: ctrl}
-	mock.recorder = &MockAPIService_StreamBlocksServerMockRecorder{mock}
+// NewMockStreamBlocksServer creates a new mock instance
+func NewMockStreamBlocksServer(ctrl *gomock.Controller) *MockStreamBlocksServer {
+	mock := &MockStreamBlocksServer{ctrl: ctrl}
+	mock.recorder = &MockStreamBlocksServerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockAPIService_StreamBlocksServer) EXPECT() *MockAPIService_StreamBlocksServerMockRecorder {
+func (m *MockStreamBlocksServer) EXPECT() *MockStreamBlocksServerMockRecorder {
 	return m.recorder
 }
 
 // Send mocks base method
-func (m *MockAPIService_StreamBlocksServer) Send(arg0 *iotexapi.StreamBlocksResponse) error {
+func (m *MockStreamBlocksServer) Send(arg0 *iotexapi.StreamBlocksResponse) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Send", arg0)
 	ret0, _ := ret[0].(error)
@@ -44,13 +44,13 @@ func (m *MockAPIService_StreamBlocksServer) Send(arg0 *iotexapi.StreamBlocksResp
 }
 
 // Send indicates an expected call of Send
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) Send(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) Send(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).Send), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockStreamBlocksServer)(nil).Send), arg0)
 }
 
 // SetHeader mocks base method
-func (m *MockAPIService_StreamBlocksServer) SetHeader(arg0 metadata.MD) error {
+func (m *MockStreamBlocksServer) SetHeader(arg0 metadata.MD) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetHeader", arg0)
 	ret0, _ := ret[0].(error)
@@ -58,13 +58,13 @@ func (m *MockAPIService_StreamBlocksServer) SetHeader(arg0 metadata.MD) error {
 }
 
 // SetHeader indicates an expected call of SetHeader
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) SetHeader(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) SetHeader(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHeader", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).SetHeader), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHeader", reflect.TypeOf((*MockStreamBlocksServer)(nil).SetHeader), arg0)
 }
 
 // SendHeader mocks base method
-func (m *MockAPIService_StreamBlocksServer) SendHeader(arg0 metadata.MD) error {
+func (m *MockStreamBlocksServer) SendHeader(arg0 metadata.MD) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SendHeader", arg0)
 	ret0, _ := ret[0].(error)
@@ -72,25 +72,25 @@ func (m *MockAPIService_StreamBlocksServer) SendHeader(arg0 metadata.MD) error {
 }
 
 // SendHeader indicates an expected call of SendHeader
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) SendHeader(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) SendHeader(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendHeader", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).SendHeader), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendHeader", reflect.TypeOf((*MockStreamBlocksServer)(nil).SendHeader), arg0)
 }
 
 // SetTrailer mocks base method
-func (m *MockAPIService_StreamBlocksServer) SetTrailer(arg0 metadata.MD) {
+func (m *MockStreamBlocksServer) SetTrailer(arg0 metadata.MD) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetTrailer", arg0)
 }
 
 // SetTrailer indicates an expected call of SetTrailer
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) SetTrailer(arg0 interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) SetTrailer(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTrailer", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).SetTrailer), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTrailer", reflect.TypeOf((*MockStreamBlocksServer)(nil).SetTrailer), arg0)
 }
 
 // Context mocks base method
-func (m *MockAPIService_StreamBlocksServer) Context() context.Context {
+func (m *MockStreamBlocksServer) Context() context.Context {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Context")
 	ret0, _ := ret[0].(context.Context)
@@ -98,13 +98,13 @@ func (m *MockAPIService_StreamBlocksServer) Context() context.Context {
 }
 
 // Context indicates an expected call of Context
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) Context() *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) Context() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).Context))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockStreamBlocksServer)(nil).Context))
 }
 
 // SendMsg mocks base method
-func (m_2 *MockAPIService_StreamBlocksServer) SendMsg(m interface{}) error {
+func (m_2 *MockStreamBlocksServer) SendMsg(m interface{}) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "SendMsg", m)
 	ret0, _ := ret[0].(error)
@@ -112,13 +112,13 @@ func (m_2 *MockAPIService_StreamBlocksServer) SendMsg(m interface{}) error {
 }
 
 // SendMsg indicates an expected call of SendMsg
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) SendMsg(m interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) SendMsg(m interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMsg", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).SendMsg), m)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMsg", reflect.TypeOf((*MockStreamBlocksServer)(nil).SendMsg), m)
 }
 
 // RecvMsg mocks base method
-func (m_2 *MockAPIService_StreamBlocksServer) RecvMsg(m interface{}) error {
+func (m_2 *MockStreamBlocksServer) RecvMsg(m interface{}) error {
 	m_2.ctrl.T.Helper()
 	ret := m_2.ctrl.Call(m_2, "RecvMsg", m)
 	ret0, _ := ret[0].(error)
@@ -126,7 +126,7 @@ func (m_2 *MockAPIService_StreamBlocksServer) RecvMsg(m interface{}) error {
 }
 
 // RecvMsg indicates an expected call of RecvMsg
-func (mr *MockAPIService_StreamBlocksServerMockRecorder) RecvMsg(m interface{}) *gomock.Call {
+func (mr *MockStreamBlocksServerMockRecorder) RecvMsg(m interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecvMsg", reflect.TypeOf((*MockAPIService_StreamBlocksServer)(nil).RecvMsg), m)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecvMsg", reflect.TypeOf((*MockStreamBlocksServer)(nil).RecvMsg), m)
 }

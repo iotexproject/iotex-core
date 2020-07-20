@@ -133,4 +133,4 @@ mkdir -p ./test/mock/mock_apiserver
 mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
         -source=./api/apitestserver.go \
         -package=mock_apiserver \
-        APIService_StreamBlocksServer
+        StreamBlocksServer

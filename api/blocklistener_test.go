@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	sendError error = errors.New("send error")
+	errorSend error = errors.New("send error")
 )
 
 func TestBlockListener(t *testing.T) {
@@ -30,7 +30,7 @@ func TestBlockListener(t *testing.T) {
 
 	errChan := make(chan error, 10)
 
-	server := mock_apiserver.NewMockAPIService_StreamBlocksServer(ctrl)
+	server := mock_apiserver.NewMockStreamBlocksServer(ctrl)
 	responder := NewBlockListener(server, errChan)
 
 	receipts := []*action.Receipt{
@@ -52,16 +52,16 @@ func TestBlockListener(t *testing.T) {
 	err := responder.Respond(&testBlock)
 	require.NoError(t, err)
 
-	server.EXPECT().Send(gomock.Any()).Return(sendError).Times(1)
+	server.EXPECT().Send(gomock.Any()).Return(errorSend).Times(1)
 	err = responder.Respond(&testBlock)
 	require.Error(t, err)
-	require.Equal(t, sendError, err)
+	require.Equal(t, errorSend, err)
 
 	responder.Exit()
 
 	err = <-errChan
 	require.Error(t, err)
-	require.Equal(t, sendError, err)
+	require.Equal(t, errorSend, err)
 
 	err = <-errChan
 	require.NoError(t, err)
