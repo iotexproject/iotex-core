@@ -268,8 +268,8 @@ func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{
 }
 
 func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	return sm.State(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	k := append(p.keyPrefix, key...)
+	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
 }
 
 func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
@@ -283,8 +283,8 @@ func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interf
 }
 
 func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	k := append(p.keyPrefix, key...)
+	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
@@ -299,8 +299,8 @@ func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 }
 
 func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	k := append(p.keyPrefix, key...)
+	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
