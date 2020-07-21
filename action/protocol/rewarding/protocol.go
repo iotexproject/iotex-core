@@ -106,29 +106,26 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
-	if _, err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
 		return err
 	}
-	if _, err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
+	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
 		return err
 	}
-	if _, err := p.migrateValue(sm, exemptKey, &exempt{}); err != nil {
+	if err := p.migrateValue(sm, exemptKey, &exempt{}); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) (uint64, error) {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	h, err := sm.State(value, protocol.LegacyKeyOption(keyHash))
-	if err != nil {
-		return h, err
+func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
+	if _, err := p.stateV1(sm, key, value); err != nil {
+		return err
 	}
-	h, err = sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
-	if err != nil {
-		return h, err
+	if err := p.putStateV2(sm, key, value); err != nil {
+		return err
 	}
-	return sm.DelState(protocol.LegacyKeyOption(keyHash))
+	return p.deleteStateV1(sm, key)
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
@@ -257,19 +254,48 @@ func (p *Protocol) Name() string {
 }
 
 func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	return p.stateV1(sm, key, value)
+}
+
+func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(value, protocol.LegacyKeyOption(keyHash))
 }
 
+func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
+	return sm.State(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+}
+
 func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+	return p.putStateV1(sm, key, value)
+}
+
+func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
 	return err
 }
 
+func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
+	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
+}
+
 func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
+	return p.deleteStateV1(sm, key)
+}
+
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+	return err
+}
+
+func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
+	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
 	return err
 }
 
