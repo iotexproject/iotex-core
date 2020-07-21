@@ -220,6 +220,13 @@ func newMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return view.Load(name, v)
 		},
 	).AnyTimes()
+	// use Snapshot() to simulate workingset.Reset()
+	sm.EXPECT().Snapshot().DoAndReturn(
+		func() int {
+			dk.Reset()
+			return 0
+		},
+	).AnyTimes()
 
 	return sm
 }

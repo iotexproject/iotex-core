@@ -9,12 +9,14 @@ package staking
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 func readStateBuckets(ctx context.Context, sr protocol.StateReader,
@@ -117,6 +119,14 @@ func readStateCandidateByAddress(ctx context.Context, cc CandidateCenter,
 		return &iotextypes.CandidateV2{}, nil
 	}
 	return c.toIoTeXTypes(), nil
+}
+
+func readStateTotalStakingAmount(ctx context.Context, bp *BucketPool,
+	_ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, error) {
+	meta := iotextypes.AccountMeta{}
+	meta.Address = address.StakingBucketPoolAddr
+	meta.Balance = bp.Total().String()
+	return nil, nil
 }
 
 func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {

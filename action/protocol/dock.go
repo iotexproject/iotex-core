@@ -12,7 +12,8 @@ import (
 
 // Errors
 var (
-	ErrNoName = errors.New("name does not exist")
+	ErrNoName        = errors.New("name does not exist")
+	ErrTypeAssertion = errors.New("failed type assertion")
 )
 
 type dock struct {
@@ -55,4 +56,18 @@ func (d *dock) Reset() {
 	d.protocols = nil
 	d.value = make(map[string]interface{})
 	d.protocols = make(map[string]bool)
+}
+
+// UnloadAndAssertBytes read from dock and assert the value is []byte
+func UnloadAndAssertBytes(sm StateManager, name string) ([]byte, error) {
+	v, err := sm.Unload(name)
+	if err != nil {
+		return nil, err
+	}
+
+	ser, ok := v.([]byte)
+	if !ok {
+		return nil, errors.Wrap(ErrTypeAssertion, "failed to unload data from dock, expecting []byte")
+	}
+	return ser, nil
 }
