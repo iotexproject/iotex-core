@@ -243,7 +243,7 @@ type (
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
-		// EnableSystemLogIndexer enables system log indexer
+		// deprecated
 		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
 		// EnableStakingProtocol enables staking protocol
 		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`

@@ -15,6 +15,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -37,7 +38,6 @@ type (
 		SetCode(hash.Hash256, []byte)
 		SelfState() *state.Account
 		Commit() error
-		RootHash() hash.Hash256
 		LoadRoot() error
 		Iterator() (trie.Iterator, error)
 		Snapshot() Contract
@@ -45,6 +45,7 @@ type (
 
 	contract struct {
 		*state.Account
+		async      bool
 		dirtyCode  bool              // contract's code has been set
 		dirtyState bool              // contract's account state has changed
 		code       SerializableBytes // contract byte-code
@@ -85,16 +86,17 @@ func (c *contract) SetState(key hash.Hash256, value []byte) error {
 		c.GetState(key)
 	}
 	c.dirtyState = true
-	err := c.trie.Upsert(key[:], value)
-	if err != nil {
+	if err := c.trie.Upsert(key[:], value); err != nil {
 		return err
 	}
-	rh, err := c.trie.RootHash()
-	if err != nil {
-		return err
+	if !c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			return err
+		}
+		// TODO (zhi): confirm whether we should update the root on err
+		c.Account.Root = hash.BytesToHash256(rh)
 	}
-	// TODO (zhi): confirm whether we should update the root on err
-	c.Account.Root = hash.BytesToHash256(rh)
 
 	return nil
 }
@@ -147,11 +149,6 @@ func (c *contract) Commit() error {
 	return nil
 }
 
-// RootHash returns storage trie's root hash
-func (c *contract) RootHash() hash.Hash256 {
-	return c.Account.Root
-}
-
 // LoadRoot loads storage trie's root
 func (c *contract) LoadRoot() error {
 	return c.trie.SetRootHash(c.Account.Root[:])
@@ -159,8 +156,16 @@ func (c *contract) LoadRoot() error {
 
 // Snapshot takes a snapshot of the contract object
 func (c *contract) Snapshot() Contract {
+	if c.async {
+		rh, err := c.trie.RootHash()
+		if err != nil {
+			log.L().Fatal("failed to calculate root hash")
+		}
+		c.Account.Root = hash.BytesToHash256(rh)
+	}
 	return &contract{
 		Account:    c.Account.Clone(),
+		async:      c.async,
 		dirtyCode:  c.dirtyCode,
 		dirtyState: c.dirtyState,
 		code:       c.code,
@@ -174,12 +179,13 @@ func (c *contract) Snapshot() Contract {
 }
 
 // newContract returns a Contract instance
-func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager) (Contract, error) {
+func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateManager, enableAsync bool) (Contract, error) {
 	c := &contract{
 		Account:   account,
 		root:      account.Root,
 		committed: make(map[hash.Hash256][]byte),
 		sm:        sm,
+		async:     enableAsync,
 	}
 	options := []mptrie.Option{
 		mptrie.KVStoreOption(newKVStoreForTrieWithStateManager(ContractKVNameSpace, sm)),
@@ -191,6 +197,9 @@ func newContract(addr hash.Hash160, account *state.Account, sm protocol.StateMan
 	}
 	if account.Root != hash.ZeroHash256 {
 		options = append(options, mptrie.RootHashOption(account.Root[:]))
+	}
+	if enableAsync {
+		options = append(options, mptrie.AsyncOption())
 	}
 
 	tr, err := mptrie.New(options...)

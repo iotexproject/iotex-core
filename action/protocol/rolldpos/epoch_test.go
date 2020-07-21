@@ -2,10 +2,13 @@ package rolldpos
 
 import (
 	"context"
+	"errors"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
 func TestEnableDardanellesSubEpoch(t *testing.T) {
@@ -66,13 +69,18 @@ func TestProtocol_ReadState(t *testing.T) {
 	arg1 := []byte("10")
 	arg2 := []byte("20")
 
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := mock_chainmanager.NewMockStateManager(ctrl)
+	sm.EXPECT().Height().Return(uint64(1), nil).AnyTimes()
+
 	arg1Num, err := strconv.ParseUint(string(arg1), 10, 64)
 	require.NoError(err)
 
 	for i, method := range methods {
 
 		if i != 0 && i != 1 {
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1, arg2)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1, arg2)
 			require.Nil(result)
 			require.Error(err)
 		}
@@ -80,46 +88,46 @@ func TestProtocol_ReadState(t *testing.T) {
 		switch method {
 
 		case "NumCandidateDelegates":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.numCandidateDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumDelegates":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.numDelegates, 10), string(result))
 			require.NoError(err)
 
 		case "NumSubEpochs":
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.NumSubEpochs(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochNumber":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochHeight":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "EpochLastHeight":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetEpochLastBlockHeight(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		case "SubEpochNumber":
 
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Equal(strconv.FormatUint(p.GetSubEpochNum(arg1Num), 10), string(result))
 			require.NoError(err)
 
 		default:
-			result, err := p.ReadState(ctx, nil, []byte(method), arg1)
+			result, _, err := p.ReadState(ctx, sm, []byte(method), arg1)
 			require.Nil(result)
 			require.Error(err)
 
@@ -237,4 +245,64 @@ func TestGetSubEpochNum(t *testing.T) {
 		subEpochNum := p.GetSubEpochNum(epochHeight)
 		require.Equal(expectedSubEpochNums[i], subEpochNum)
 	}
+}
+
+func productivity(epochStartHeight uint64, epochEndHeight uint64) (map[string]uint64, error) {
+	if epochStartHeight == 0 || epochEndHeight == 0 {
+		return nil, errors.New("productivity error")
+	}
+	return map[string]uint64{"ret": 0}, nil
+}
+
+func TestProductivityByEpoch(t *testing.T) {
+	require := require.New(t)
+	p := NewProtocol(23, 4, 3)
+
+	t.Run("normal call", func(t *testing.T) {
+		epochNum := uint64(1)
+		tipHeight := uint64(1)
+		expectedHeights := uint64(1)
+		expectedProduces := map[string]uint64{"ret": 0}
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.NoError(retError)
+	})
+
+	t.Run("tipHeight param error", func(t *testing.T) {
+		epochNum := uint64(0)
+		tipHeight := uint64(0)
+		expectedHeights := uint64(0)
+		expectedProduces := map[string]uint64{}
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.NoError(retError)
+	})
+
+	t.Run("epochNum param error", func(t *testing.T) {
+		epochNum := uint64(2)
+		tipHeight := uint64(12)
+		expectedHeights := uint64(0)
+		var expectedProduces = map[string]uint64{}
+		expectedProduces = nil
+		expectedErrors := errors.New("epoch number 2 is larger than current epoch number 1")
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.EqualError(retError, expectedErrors.Error())
+	})
+
+	t.Run("productivity param error", func(t *testing.T) {
+		epochNum := uint64(0)
+		tipHeight := uint64(1)
+		expectedHeights := uint64(1)
+		var expectedProduces = map[string]uint64{}
+		expectedProduces = nil
+		expectedErrors := errors.New("productivity error")
+		retHeight, retProduce, retError := p.ProductivityByEpoch(epochNum, tipHeight, productivity)
+		require.Equal(retHeight, expectedHeights)
+		require.Equal(retProduce, expectedProduces)
+		require.EqualError(retError, expectedErrors.Error())
+	})
 }

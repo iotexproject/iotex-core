@@ -18,7 +18,7 @@ jobs:
 
   build_test_docker:
     docker:
-      - image: circleci/golang:1.13.4
+      - image: circleci/golang:1.14.4
     working_directory: ~/apps/iotex-core
     resource_class: large
     steps:
@@ -40,10 +40,10 @@ jobs:
     steps:
       - checkout
       - run:
-          name: install golang 1.13.4
+          name: install golang 1.14.4
           command: |
-            curl -o go1.13.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.13.4.darwin-amd64.tar.gz
-            sudo tar -C /usr/local -xzf go1.13.4.darwin-amd64.tar.gz
+            curl -o go1.14.4.darwin-amd64.tar.gz https://dl.google.com/go/go1.14.4.darwin-amd64.tar.gz
+            sudo tar -C /usr/local -xzf go1.14.4.darwin-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 
@@ -73,11 +73,11 @@ jobs:
     steps:
       - checkout
       - run: 
-          name: clean go 1.9 update golang 1.13.4
+          name: clean go 1.9 update golang 1.14.4
           command: |
-            wget https://dl.google.com/go/go1.13.4.linux-amd64.tar.gz
+            wget https://dl.google.com/go/go1.14.4.linux-amd64.tar.gz
             sudo rm -rf /usr/local/go
-            sudo tar -C /usr/local -zxf go1.13.4.linux-amd64.tar.gz
+            sudo tar -C /usr/local -zxf go1.14.4.linux-amd64.tar.gz
       - restore_cache:
           keys:
             - go-mod-v1-{{ checksum "go.sum" }} 

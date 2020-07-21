@@ -54,15 +54,15 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		require.Equal(t, rewardingpb.RewardLog_BLOCK_REWARD, rl.Type)
 		require.Equal(t, "10", rl.Amount)
 
-		availableBalance, err := p.AvailableBalance(ctx, sm)
+		availableBalance, _, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(190), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, blkCtx.Producer)
+		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, blkCtx.Producer)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
@@ -84,33 +84,33 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 8, len(rewardLogs))
 
-		availableBalance, err := p.AvailableBalance(ctx, sm)
+		availableBalance, _, err := p.AvailableBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(90+5), availableBalance)
 		// Operator shouldn't get reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(27))
+		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(27))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// Beneficiary should get reward
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(40+5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(28))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(28))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(30+5), unclaimedBalance)
 		// The 3-th candidate can't get the reward because it doesn't meet the productivity requirement
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(29))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(29))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(30))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(30))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10+5), unclaimedBalance)
 		// The 5-th candidate can't get the reward because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(31))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		// The 6-th candidate can't get the foundation bonus because of being out of the range
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
@@ -189,11 +189,11 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		require.NoError(t, err)
 
 		// The 5-th candidate can't get the reward because exempting from the epoch reward
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(31))
+		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(31))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		// The 6-th candidate can get the foundation bonus because it's still within the range after excluding 5-th one
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(32))
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(4+5), unclaimedBalance)
 	}, true)
@@ -222,10 +222,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
-		totalBalance, err := p.TotalBalance(ctx, sm)
+		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
+		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
@@ -238,10 +238,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		// Claim 0 amount won't fail, but also will not get the token
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(0)))
 
-		totalBalance, err = p.TotalBalance(ctx, sm)
+		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(15), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
@@ -251,10 +251,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		// Claim another 5 token
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
-		totalBalance, err = p.TotalBalance(ctx, sm)
+		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(10), totalBalance)
-		unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
+		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
@@ -423,10 +423,10 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, rewardLog)
 
-	availableBalance, err := p.AvailableBalance(ctx, sm)
+	availableBalance, _, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(200), availableBalance)
-	unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+	unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), unclaimedBalance)
 
@@ -435,14 +435,14 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(rewardLogs))
 
-	availableBalance, err = p.AvailableBalance(ctx, sm)
+	availableBalance, _, err = p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(145), availableBalance)
-	unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+	unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), unclaimedBalance)
 	// It doesn't affect others to get reward
-	unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(1))
+	unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(1))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(55), unclaimedBalance)
 	require.Equal(t, p.addr.String(), rewardLogs[0].Address)

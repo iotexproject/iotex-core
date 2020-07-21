@@ -90,8 +90,13 @@ func compile(args []string) error {
 	}
 
 	for name := range contracts {
-		if strings.HasSuffix(name, contractName) {
+		if name == contractName {
+			break
+		}
+		nameSplit := strings.Split(name, ":")
+		if nameSplit[len(nameSplit)-1] == contractName {
 			contractName = name
+			break
 		}
 	}
 

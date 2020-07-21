@@ -382,6 +382,10 @@ func (ws *workingSet) pickAndRunActions(
 			if !ok {
 				break
 			}
+			if nextAction.GasLimit() > blkCtx.GasLimit {
+				actionIterator.PopAccount()
+				continue
+			}
 			if ctx, err = withActionCtx(ctx, nextAction); err == nil {
 				for _, p := range reg.All() {
 					if validator, ok := p.(protocol.ActionValidator); ok {

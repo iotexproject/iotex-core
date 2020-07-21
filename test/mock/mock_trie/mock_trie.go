@@ -144,11 +144,12 @@ func (mr *MockTrieMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 }
 
 // RootHash mocks base method
-func (m *MockTrie) RootHash() []byte {
+func (m *MockTrie) RootHash() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
 	ret0, _ := ret[0].([]byte)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RootHash indicates an expected call of RootHash
@@ -236,26 +237,13 @@ func (mr *MockTwoLayerTrieMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockTwoLayerTrie)(nil).Stop), arg0)
 }
 
-// IsEmpty mocks base method
-func (m *MockTwoLayerTrie) IsEmpty() bool {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "IsEmpty")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// IsEmpty indicates an expected call of IsEmpty
-func (mr *MockTwoLayerTrieMockRecorder) IsEmpty() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsEmpty", reflect.TypeOf((*MockTwoLayerTrie)(nil).IsEmpty))
-}
-
 // RootHash mocks base method
-func (m *MockTwoLayerTrie) RootHash() []byte {
+func (m *MockTwoLayerTrie) RootHash() ([]byte, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RootHash")
 	ret0, _ := ret[0].([]byte)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // RootHash indicates an expected call of RootHash

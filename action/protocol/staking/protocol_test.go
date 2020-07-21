@@ -13,14 +13,51 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
+
+func TestImplicitLog(t *testing.T) {
+	require := require.New(t)
+
+	h := hash.BytesToHash256([]byte(HandleUnstake))
+	log := &iotextypes.Log{
+		ContractAddress: "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+		Topics:          [][]byte{h[:], hash.ZeroHash256[:], hash.ZeroHash256[:], hash.ZeroHash256[:]},
+		Data:            nil,
+		BlkHeight:       1,
+		ActHash:         hash.ZeroHash256[:],
+		Index:           1,
+	}
+	_, ok := BucketIndexFromReceiptLog(log)
+	require.True(ok)
+
+	// verify implicit log topic does not collide with normal log
+	implicitTopis := [][]byte{
+		action.InContractTransfer[:],
+		action.BucketCreateAmount[:],
+		action.BucketDepositAmount[:],
+		action.BucketWithdrawAmount[:],
+		action.CandidateSelfStake[:],
+		action.CandidateRegistrationFee[:],
+	}
+	for _, v := range implicitTopis {
+		log.Topics[0] = v
+		_, ok := BucketIndexFromReceiptLog(log)
+		require.False(ok)
+	}
+	log.Topics[0] = h[:]
+	_, ok = BucketIndexFromReceiptLog(log)
+	require.True(ok)
+}
 
 func TestProtocol(t *testing.T) {
 	r := require.New(t)
@@ -30,6 +67,9 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(1), _bucket)
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
+
+	// action.StakingProtocolID is defined to avoid import cycle, make sure they match
+	r.Equal(protocolID, action.StakingProtocolID)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

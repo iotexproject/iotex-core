@@ -28,6 +28,7 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
 
@@ -193,6 +194,18 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 		require.Equal(uint64(test.status), r.Status)
 
 		if test.status == iotextypes.ReceiptStatus_Success {
+			// check the special create bucket log
+			require.Equal(2, len(r.Logs))
+			cLog := r.Logs[1]
+			require.True(cLog.IsCreateBucket())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ := address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(stakerAddr, from))
+			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amount, amount.String())
+
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidateAddr)
 			require.NoError(err)
@@ -537,6 +550,28 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
+			// check the special create bucket and candidate register log
+			require.Equal(3, len(r.Logs))
+			cLog := r.Logs[1]
+			require.True(cLog.IsCandidateSelfStake())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ := address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			to, _ := address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amountStr, amount.String())
+			cLog = r.Logs[2]
+			require.True(cLog.IsCandidateRegister())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
+			from, _ = address.FromBytes(cLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			h := hash.Hash160b([]byte(action.RewardingProtocolID))
+			rewardingAddr, _ := address.FromBytes(h[:])
+			to, _ = address.FromBytes(cLog.Topics[2][12:])
+			require.True(address.Equal(rewardingAddr, to))
+			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[2].Data))
+
 			// test candidate
 			candidate, err := getCandidate(sm, act.OwnerAddress())
 			if act.OwnerAddress() == nil {
@@ -1151,143 +1186,97 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 	defer ctrl.Finish()
 	tests := []struct {
 		// create stake fields
-		caller      address.Address
 		amount      string
 		initBalance int64
 		selfstaking bool
-		// action fields
-		index    uint64
-		gasPrice *big.Int
-		gasLimit uint64
-		nonce    uint64
 		// block context
-		blkHeight    uint64
 		blkTimestamp time.Time
 		ctxTimestamp time.Time
-		blkGasLimit  uint64
 		// if unstake
 		unstake bool
 		// withdraw fields
 		withdrawIndex uint64
 		// expected result
-		err    error
 		status iotextypes.ReceiptStatus
 	}{
 		// fetchCaller ErrNotEnoughBalance
 		{
-			identityset.Address(2),
 			"100990000000000000000",
 			101,
 			false,
-			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			true,
 			0,
-			nil,
 			iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		},
 		// fetchBucket ReceiptStatus_ErrInvalidBucketIndex
 		{
-			identityset.Address(2),
 			"100000000000000000000",
 			101,
 			false,
-			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			true,
 			1,
-			nil,
 			iotextypes.ReceiptStatus_ErrInvalidBucketIndex,
 		},
 		// check unstake time,ReceiptStatus_ErrWithdrawBeforeUnstake
 		{
-			identityset.Address(2),
 			"100000000000000000000",
 			101,
 			false,
-			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			false,
 			0,
-			nil,
 			iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
 		},
 		// check ReceiptStatus_ErrWithdrawBeforeMaturity
 		{
-			identityset.Address(2),
 			"100000000000000000000",
 			101,
 			false,
-			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			true,
 			0,
-			nil,
 			iotextypes.ReceiptStatus_ErrWithdrawBeforeMaturity,
 		},
 		// delxxx cannot happen,because unstake first called without error
 		// ReceiptStatus_Success
 		{
-			identityset.Address(2),
 			"100000000000000000000",
 			101,
 			false,
-			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now().Add(time.Hour * 500),
-			10000,
 			true,
 			0,
-			nil,
 			iotextypes.ReceiptStatus_Success,
 		},
 	}
 
 	for _, test := range tests {
 		sm, p, _, candidate, _ := initAll(t, ctrl)
-		require.NoError(setupAccount(sm, test.caller, test.initBalance))
-		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, false)
+		caller := identityset.Address(2)
+		require.NoError(setupAccount(sm, caller, test.initBalance))
+		gasPrice := big.NewInt(unit.Qev)
+		gasLimit := uint64(10000)
+		ctx, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), gasLimit, 1, 1, test.blkTimestamp, gasLimit, p, candidate, test.amount, false)
 		var actCost *big.Int
 		if test.unstake {
-			act, err := action.NewUnstake(test.nonce, test.index, nil, test.gasLimit, big.NewInt(unit.Qev))
+			act, err := action.NewUnstake(1, 0, nil, gasLimit, big.NewInt(unit.Qev))
 			require.NoError(err)
 			intrinsic, err := act.IntrinsicGas()
 			actCost, err = act.Cost()
 			require.NoError(err)
 			require.NoError(err)
 			ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-				Caller:       test.caller,
-				GasPrice:     test.gasPrice,
+				Caller:       caller,
+				GasPrice:     gasPrice,
 				IntrinsicGas: intrinsic,
-				Nonce:        test.nonce + 1,
+				Nonce:        2,
 			})
 			ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 				BlockHeight:    1,
@@ -1299,8 +1288,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.NoError(err)
 		}
 
-		withdraw, err := action.NewWithdrawStake(test.nonce, test.withdrawIndex,
-			nil, test.gasLimit, test.gasPrice)
+		withdraw, err := action.NewWithdrawStake(1, test.withdrawIndex,
+			nil, gasLimit, gasPrice)
 		require.NoError(err)
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -1316,14 +1305,26 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			GasLimit:       blkCtx.GasLimit,
 		})
 		r, err := p.Handle(ctx, withdraw, sm)
-		require.Equal(test.err, errors.Cause(err))
+		require.NoError(err)
 		if r != nil {
 			require.Equal(uint64(test.status), r.Status)
 		} else {
 			require.Equal(test.status, iotextypes.ReceiptStatus_Failure)
 		}
 
-		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
+		if test.status == iotextypes.ReceiptStatus_Success {
+			// check the special withdraw bucket log
+			require.Equal(2, len(r.Logs))
+			wLog := r.Logs[1]
+			require.True(wLog.IsWithdrawBucket())
+			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(wLog.Topics[3][24:]))
+			from, _ := address.FromBytes(wLog.Topics[1][12:])
+			require.True(address.Equal(p.addr, from))
+			to, _ := address.FromBytes(wLog.Topics[2][12:])
+			require.True(address.Equal(caller, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amount, amount.String())
+
 			// test bucket index and bucket
 			_, err := getCandBucketIndices(sm, candidate.Owner)
 			require.Error(err)
@@ -1331,11 +1332,11 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Error(err)
 
 			// test staker's account
-			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
+			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(caller.Bytes()))
 			require.NoError(err)
 			withdrawCost, err := withdraw.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce+2, caller.Nonce)
+			require.EqualValues(3, caller.Nonce)
 			total := big.NewInt(0)
 			withdrawAmount, ok := new(big.Int).SetString(test.amount, 10)
 			require.True(ok)
@@ -2480,6 +2481,18 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		}
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
+			// check the special deposit bucket log
+			require.Equal(2, len(r.Logs))
+			dLog := r.Logs[1]
+			require.True(dLog.IsDepositBucket())
+			require.EqualValues(0, byteutil.BytesToUint64BigEndian(dLog.Topics[3][24:]))
+			from, _ := address.FromBytes(dLog.Topics[1][12:])
+			require.True(address.Equal(test.caller, from))
+			to, _ := address.FromBytes(dLog.Topics[2][12:])
+			require.True(address.Equal(p.addr, to))
+			amount := new(big.Int).SetBytes(r.Logs[1].Data)
+			require.Equal(test.amount, amount.String())
+
 			// test bucket index and bucket
 			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
@@ -2492,7 +2505,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.NoError(err)
 			require.Equal(candidate.Owner.String(), bucket.Candidate.String())
 			require.Equal(test.caller.String(), bucket.Owner.String())
-			amount, _ := new(big.Int).SetString(test.amount, 10)
+			amount, _ = new(big.Int).SetString(test.amount, 10)
 			require.Zero(new(big.Int).Mul(amount, big.NewInt(2)).Cmp(bucket.StakedAmount))
 
 			// test candidate

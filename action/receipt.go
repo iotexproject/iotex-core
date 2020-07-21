@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,28 +7,41 @@
 package action
 
 import (
-	"bytes"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// InContractTransfer is topic for system log of evm transfer
-var InContractTransfer = common.Hash{} // 32 bytes with all zeros
+// constants
+const (
+	StakingProtocolID   = "staking"
+	RewardingProtocolID = "rewarding"
+)
 
-// IsSystemLog checks whether a log is system log
-// lowerBound chooses the largest system log topic, which is InContractTransfer currently
-func IsSystemLog(l *Log) bool {
-	if len(l.Topics) == 0 {
-		return false
-	}
-	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
-}
+var (
+	// InContractTransfer is topic for implicit transfer log of evm transfer
+	// 32 bytes with all zeros
+	InContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_IN_CONTRACT_TRANSFER)})
+
+	// BucketWithdrawAmount is topic for bucket withdraw
+	BucketWithdrawAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_WITHDRAW_AMOUNT)})
+
+	// BucketCreateAmount is topic for bucket create
+	BucketCreateAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_CREATE_AMOUNT)})
+
+	// BucketDepositAmount is topic for bucket deposit
+	BucketDepositAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_DEPOSIT_AMOUNT)})
+
+	// CandidateSelfStake is topic for candidate self-stake
+	CandidateSelfStake = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_SELF_STAKE)})
+
+	// CandidateRegistrationFee is topic for candidate register
+	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_REGISTRATION_FEE)})
+)
 
 type (
 	// Topics are data items of a transaction, such as send/recipient address
@@ -66,8 +79,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.Logs {
-		// exclude system log when calculating receipts' hash or storing logs
-		if !IsSystemLog(l) {
+		// exclude implict transfer log when calculating receipts' hash or storing logs
+		if !l.IsImplicitTransfer() {
 			r.Logs = append(r.Logs, l.ConvertToLogPb())
 		}
 	}
@@ -161,4 +174,78 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
+}
+
+// IsImplicitTransfer checks whether a log is implicit transfer log
+func (log *Log) IsImplicitTransfer() bool {
+	return log.IsEvmTransfer() || log.IsCreateBucket() || log.IsDepositBucket() ||
+		log.IsWithdrawBucket() || log.IsCandidateRegister() || log.IsCandidateSelfStake()
+}
+
+func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
+	if len(log.Topics) == 0 {
+		return false
+	}
+
+	h := hash.Hash160b([]byte(StakingProtocolID))
+	addr, _ := address.FromBytes(h[:])
+	if log.Address != addr.String() {
+		return false
+	}
+
+	if log.Topics[0] != topic {
+		return false
+	}
+
+	if len(log.Topics) < 4 {
+		return false
+	}
+
+	switch {
+	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
+		// amount goes into staking bucket pool
+		return log.Topics[2] == hash.BytesToHash256(addr.Bytes())
+	case topic == BucketWithdrawAmount:
+		// amount comes out of staking bucket pool
+		return log.Topics[1] == hash.BytesToHash256(addr.Bytes())
+	case topic == CandidateRegistrationFee:
+		// amount goes into rewarding pool
+		reward := hash.Hash160b([]byte(RewardingProtocolID))
+		return log.Topics[2] == hash.BytesToHash256(reward[:])
+	default:
+		return false
+	}
+}
+
+// IsEvmTransfer checks evm transfer log
+func (log *Log) IsEvmTransfer() bool {
+	if log == nil || len(log.Topics) == 0 {
+		return false
+	}
+	return log.Topics[0] == InContractTransfer
+}
+
+// IsWithdrawBucket checks withdraw bucket log
+func (log *Log) IsWithdrawBucket() bool {
+	return log.isStakingImplicitLog(BucketWithdrawAmount)
+}
+
+// IsCreateBucket checks create bucket log
+func (log *Log) IsCreateBucket() bool {
+	return log.isStakingImplicitLog(BucketCreateAmount)
+}
+
+// IsDepositBucket checks deposit bucket log
+func (log *Log) IsDepositBucket() bool {
+	return log.isStakingImplicitLog(BucketDepositAmount)
+}
+
+// IsCandidateRegister checks candidate register log
+func (log *Log) IsCandidateRegister() bool {
+	return log.isStakingImplicitLog(CandidateRegistrationFee)
+}
+
+// IsCandidateSelfStake checks candidate self-stake log
+func (log *Log) IsCandidateSelfStake() bool {
+	return log.isStakingImplicitLog(CandidateSelfStake)
 }
