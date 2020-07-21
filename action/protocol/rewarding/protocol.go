@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -107,6 +108,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
 	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			// doesn't exist now just skip
+			return nil
+		}
 		return err
 	}
 	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {

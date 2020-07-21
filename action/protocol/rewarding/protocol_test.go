@@ -483,17 +483,17 @@ func TestMigrateValue(t *testing.T) {
 		genesis.Default.FoundationBonusP2EndEpoch,
 	)
 	// put old
-	require.NoError(putStateLegacy(sm, p.keyPrefix, adminKey, &admin{
+	require.NoError(p.putStateV1(sm, adminKey, &admin{
 		blockReward:                big.NewInt(811),
 		epochReward:                big.NewInt(922),
 		foundationBonus:            big.NewInt(700),
 		numDelegatesForEpochReward: 118,
 	}))
-	require.NoError(putStateLegacy(sm, p.keyPrefix, fundKey, &fund{
+	require.NoError(p.putStateV1(sm, fundKey, &fund{
 		totalBalance:     big.NewInt(811),
 		unclaimedBalance: big.NewInt(922),
 	}))
-	require.NoError(putStateLegacy(sm, p.keyPrefix, exemptKey, &exempt{
+	require.NoError(p.putStateV1(sm, exemptKey, &exempt{
 		addrs: []address.Address{identityset.Address(0)},
 	}))
 
@@ -501,37 +501,30 @@ func TestMigrateValue(t *testing.T) {
 	require.NoError(p.migrateValueGreenland(context.Background(), sm))
 
 	// assert old (not exist)
-	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, adminKey, &admin{}))
-	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, fundKey, &fund{}))
-	require.Equal(state.ErrStateNotExist, readStateLegacy(sm, p.keyPrefix, exemptKey, &exempt{}))
+	_, err := p.stateV1(sm, adminKey, &admin{})
+	require.Equal(state.ErrStateNotExist, err)
+	_, err = p.stateV1(sm, fundKey, &fund{})
+	require.Equal(state.ErrStateNotExist, err)
+	_, err = p.stateV1(sm, exemptKey, &exempt{})
+	require.Equal(state.ErrStateNotExist, err)
 
 	// assert new (with correct value)
 	a := admin{}
-	require.NoError(readStateNew(sm, p.keyPrefix, adminKey, &a))
+	_, err = p.stateV2(sm, adminKey, &a)
+	require.NoError(err)
 	require.Equal(uint64(118), a.numDelegatesForEpochReward)
 	require.Equal("811", a.blockReward.String())
+
 	f := fund{}
-	require.NoError(readStateNew(sm, p.keyPrefix, fundKey, &f))
+	_, err = p.stateV2(sm, fundKey, &f)
+	require.NoError(err)
 	require.Equal("811", f.totalBalance.String())
+
 	e := exempt{}
-	require.NoError(readStateNew(sm, p.keyPrefix, exemptKey, &e))
+	_, err = p.stateV2(sm, exemptKey, &e)
+	require.NoError(err)
 	require.Equal(identityset.Address(0).String(), e.addrs[0].String())
-}
 
-func putStateLegacy(sm protocol.StateManager, prefix, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(prefix, key...))
-	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
-	return err
-}
-
-func readStateLegacy(sr protocol.StateReader, prefix, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(prefix, key...))
-	_, err := sr.State(value, protocol.LegacyKeyOption(keyHash))
-	return err
-}
-
-func readStateNew(sr protocol.StateReader, prefix, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(prefix, key...))
-	_, err := sr.State(value, protocol.LegacyKeyOption(keyHash), protocol.NamespaceOption(protocol.SystemNamespace))
-	return err
+	// test migrate with no data
+	require.NoError(p.migrateValueGreenland(context.Background(), sm))
 }
