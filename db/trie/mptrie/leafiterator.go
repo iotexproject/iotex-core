@@ -47,7 +47,7 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 			key := ln.Key()
 			value := ln.Value()
 
-			return append(key[:0:0], key...), append(value, value...), nil
+			return append(key[:0:0], key...), append(value[:0:0], value...), nil
 		}
 		if bn, ok := node.(branch); ok {
 			children := bn.Children()
