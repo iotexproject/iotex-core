@@ -189,6 +189,9 @@ func (p *Protocol) CreateGenesisStates(
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
+		if err := csm.DebitBucketPool(selfStake, true, false); err != nil {
+			return err
+		}
 	}
 
 	// commit updated view
