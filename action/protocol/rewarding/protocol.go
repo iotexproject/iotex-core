@@ -108,10 +108,6 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 
 func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
 	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
-		if errors.Cause(err) == state.ErrStateNotExist {
-			// doesn't exist now just skip
-			return nil
-		}
 		return err
 	}
 	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
@@ -125,6 +121,10 @@ func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateMan
 
 func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
 	if _, err := p.stateV1(sm, key, value); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			// doesn't exist now just skip migration
+			return nil
+		}
 		return err
 	}
 	if err := p.putStateV2(sm, key, value); err != nil {
