@@ -16,12 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// constants
-const (
-	StakingProtocolID   = "staking"
-	RewardingProtocolID = "rewarding"
-)
-
 var (
 	// InContractTransfer is topic for implicit transfer log of evm transfer
 	// 32 bytes with all zeros
@@ -41,6 +35,12 @@ var (
 
 	// CandidateRegistrationFee is topic for candidate register
 	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_REGISTRATION_FEE)})
+
+	// StakingBucketPoolTopic is topic for staking bucket pool
+	StakingBucketPoolTopic = hash.BytesToHash256(address.StakingProtocolAddrHash[:])
+
+	// RewardingPoolTopic is topic for rewarding pool
+	RewardingPoolTopic = hash.BytesToHash256(address.RewardingProtocolAddrHash[:])
 )
 
 type (
@@ -187,12 +187,6 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 		return false
 	}
 
-	h := hash.Hash160b([]byte(StakingProtocolID))
-	addr, _ := address.FromBytes(h[:])
-	if log.Address != addr.String() {
-		return false
-	}
-
 	if log.Topics[0] != topic {
 		return false
 	}
@@ -204,14 +198,13 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 	switch {
 	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
 		// amount goes into staking bucket pool
-		return log.Topics[2] == hash.BytesToHash256(addr.Bytes())
+		return log.Topics[2] == StakingBucketPoolTopic && log.Address == address.StakingBucketPoolAddr
 	case topic == BucketWithdrawAmount:
 		// amount comes out of staking bucket pool
-		return log.Topics[1] == hash.BytesToHash256(addr.Bytes())
+		return log.Topics[1] == StakingBucketPoolTopic && log.Address == address.StakingBucketPoolAddr
 	case topic == CandidateRegistrationFee:
 		// amount goes into rewarding pool
-		reward := hash.Hash160b([]byte(RewardingProtocolID))
-		return log.Topics[2] == hash.BytesToHash256(reward[:])
+		return log.Topics[2] == RewardingPoolTopic && log.Address == address.RewardingPoolAddr
 	default:
 		return false
 	}

@@ -83,7 +83,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	cc, ok := v.(candidateBucketCenter)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 
@@ -224,7 +224,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidateAddr)
 			require.NotNil(candidate)
@@ -245,7 +245,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm, p, _, _, cc := initAll(t, ctrl)
+	sm, p, _, _ := initAll(t, ctrl)
 	tests := []struct {
 		initBalance     int64
 		caller          address.Address
@@ -520,7 +520,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 
 	for _, test := range tests {
 		if test.newProtocol {
-			sm, p, _, _, cc = initAll(t, ctrl)
+			sm, p, _, _ = initAll(t, ctrl)
 		}
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
@@ -566,8 +566,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ = address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))
-			h := hash.Hash160b([]byte(action.RewardingProtocolID))
-			rewardingAddr, _ := address.FromBytes(h[:])
+			rewardingAddr, _ := address.FromBytes(address.RewardingProtocolAddrHash[:])
 			to, _ = address.FromBytes(cLog.Topics[2][12:])
 			require.True(address.Equal(rewardingAddr, to))
 			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[2].Data))
@@ -586,7 +585,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.votesStr, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -831,7 +830,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, _, _, cc := initAll(t, ctrl)
+		sm, p, _, _ := initAll(t, ctrl)
 		require.NoError(setupAccount(sm, test.caller, test.initBalance))
 		act, err := action.NewCandidateRegister(test.nonce, test.name, test.operatorAddrStr, test.rewardAddrStr, test.ownerAddrStr, test.amountStr, test.duration, test.autoStake, test.payload, test.gasLimit, test.gasPrice)
 		require.NoError(err)
@@ -891,7 +890,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.afterUpdate, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -927,7 +926,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	sm, p, candidate, candidate2, cc := initAll(t, ctrl)
+	sm, p, candidate, candidate2 := initAll(t, ctrl)
 	initCreateStake(t, sm, identityset.Address(2), 100, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 
 	callerAddr := identityset.Address(1)
@@ -1110,7 +1109,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 	for _, test := range tests {
 		if test.newProtocol {
-			sm, p, candidate, _, cc = initAll(t, ctrl)
+			sm, p, candidate, _ = initAll(t, ctrl)
 		} else {
 			candidate = candidate2
 		}
@@ -1125,11 +1124,11 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
-			center, ok := cc.(*candCenter)
+			sc, ok := csm.(*candSM)
 			require.True(ok)
-			center.deleteForTestOnly(test.caller)
+			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
@@ -1162,7 +1161,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1258,7 +1257,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, _, candidate, _ := initAll(t, ctrl)
+		sm, p, _, candidate := initAll(t, ctrl)
 		caller := identityset.Address(2)
 		require.NoError(setupAccount(sm, caller, test.initBalance))
 		gasPrice := big.NewInt(unit.Qev)
@@ -1286,6 +1285,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 
 			_, err = p.Handle(ctx, act, sm)
 			require.NoError(err)
+			require.NoError(p.Commit(ctx, sm))
+			require.Equal(0, sm.Snapshot())
 		}
 
 		withdraw, err := action.NewWithdrawStake(1, test.withdrawIndex,
@@ -1538,7 +1539,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, candidate, candidate2, cc := initAll(t, ctrl)
+		sm, p, candidate, candidate2 := initAll(t, ctrl)
 		// candidate2 vote self,index 0
 		initCreateStake(t, sm, candidate2.Owner, 101, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, "100000000000000000000", false)
 		// candidate vote self,index 1
@@ -1561,12 +1562,12 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
-			center, ok := cc.(*candCenter)
+			sc, ok := csm.(*candSM)
 			require.True(ok)
-			cc := center.GetBySelfStakingIndex(test.index)
-			center.deleteForTestOnly(cc.Owner)
+			cc := sc.candCenter.GetBySelfStakingIndex(test.index)
+			sc.candCenter.deleteForTestOnly(cc.Owner)
 			require.False(csm.ContainsOwner(cc.Owner))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
@@ -1609,7 +1610,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(candidate.Reward.String(), candidate.Reward.String())
 			require.Equal(candidate.Owner.String(), candidate.Owner.String())
 			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1733,7 +1734,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, candi, candidate2, cc := initAll(t, ctrl)
+		sm, p, candi, candidate2 := initAll(t, ctrl)
 		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, false)
 		if test.init {
 			initCreateStake(t, sm, candi.Owner, test.initBalance, test.gasPrice, test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candi, test.amount, false)
@@ -1784,7 +1785,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candi.Owner)
 			require.NotNil(candidate)
@@ -1958,7 +1959,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		sm, p, cand1, cand2, cc := initAll(t, ctrl)
+		sm, p, cand1, cand2 := initAll(t, ctrl)
 		caller := identityset.Address(1)
 		initBalance := int64(1000)
 		require.NoError(setupAccount(sm, caller, initBalance))
@@ -2017,7 +2018,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			candidate, err := getCandidate(sm, cand1.Owner)
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(cand1.Owner)
 			require.NotNil(candidate)
@@ -2225,7 +2226,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, candidate, candidate2, cc := initAll(t, ctrl)
+		sm, p, candidate, candidate2 := initAll(t, ctrl)
 		_, createCost := initCreateStake(t, sm, candidate2.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate2, test.amount, test.autoStake)
 
 		if test.newAccount {
@@ -2251,11 +2252,11 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
-			center, ok := cc.(*candCenter)
+			sc, ok := csm.(*candSM)
 			require.True(ok)
-			center.deleteForTestOnly(test.caller)
+			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
@@ -2288,7 +2289,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2438,7 +2439,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		sm, p, candidate, _, cc := initAll(t, ctrl)
+		sm, p, candidate, _ := initAll(t, ctrl)
 		_, createCost := initCreateStake(t, sm, candidate.Owner, test.initBalance, big.NewInt(unit.Qev), 10000, 1, 1, time.Now(), 10000, p, candidate, test.amount, test.autoStake)
 
 		if test.newAccount {
@@ -2462,11 +2463,11 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
-			center, ok := cc.(*candCenter)
+			sc, ok := csm.(*candSM)
 			require.True(ok)
-			center.deleteForTestOnly(test.caller)
+			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
 			r, err = p.handle(ctx, act, csm)
 			require.Equal(test.err, errors.Cause(err))
@@ -2512,7 +2513,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm, cc)
+			csm, err := NewCandidateStateManager(sm)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2554,7 +2555,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	cc, ok := v.(candidateBucketCenter)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 	_, err = p.Handle(ctx, a, sm)
@@ -2564,7 +2565,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	return ctx, cost
 }
 
-func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate, CandidateCenter) {
+func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
 	sm := newMockStateManager(ctrl)
 	_, err := sm.PutState(
@@ -2590,10 +2591,10 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	cc, ok := v.(candidateBucketCenter)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
-	return sm, p, candidate, candidate2, cc
+	return sm, p, candidate, candidate2
 }
 
 func setupAccount(sm protocol.StateManager, addr address.Address, balance int64) error {
