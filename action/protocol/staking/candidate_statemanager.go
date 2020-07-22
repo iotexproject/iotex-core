@@ -171,5 +171,5 @@ func (csm *candSM) Commit() error {
 	}
 
 	// write update view back to state factory
-	return csm.WriteView(protocolID, ConvertToCandSR(csm))
+	return csm.WriteView(protocolID, ConvertToViewData(csm))
 }

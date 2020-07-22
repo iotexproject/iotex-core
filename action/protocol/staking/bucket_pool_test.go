@@ -77,10 +77,10 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	c, err := CreateBaseView(sm)
+	view, err := CreateBaseView(sm)
 	r.NoError(err)
-	sm.WriteView(protocolID, c)
-	pool = c.BucketPool()
+	sm.WriteView(protocolID, view)
+	pool = view.bucketPool
 	total := big.NewInt(40000)
 	count := uint64(4)
 	r.Equal(total, pool.Total())
@@ -111,7 +111,7 @@ func TestBucketPool(t *testing.T) {
 	sm.Snapshot()
 
 	// after that, bucket pool total should not change
-	c, err = ConstructBaseView(sm)
+	c, err := ConstructBaseView(sm)
 	r.NoError(err)
 	pool = c.BucketPool()
 	r.Equal(total, pool.Total())

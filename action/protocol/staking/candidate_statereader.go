@@ -23,7 +23,12 @@ type (
 
 	candSR struct {
 		protocol.StateReader
-		height     uint64
+		height uint64
+		view   *ViewData
+	}
+
+	// ViewData is the data that need to be stored in protocol's view
+	ViewData struct {
 		candCenter *candCenter
 		bucketPool *BucketPool
 	}
@@ -34,20 +39,33 @@ func (c *candSR) Height() uint64 {
 }
 
 func (c *candSR) CandCenter() CandidateCenter {
-	return c.candCenter
+	return c.view.candCenter
 }
 
 func (c *candSR) BucketPool() *BucketPool {
-	return c.bucketPool
+	return c.view.bucketPool
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
 func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
+	height, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			return CreateBaseView(sr)
+			view, err := CreateBaseView(sr)
+			if err != nil {
+				return nil, err
+			}
+			return &candSR{
+				StateReader: sr,
+				height:      height,
+				view:        view,
+			}, nil
 		}
 		return nil, err
 	}
@@ -66,21 +84,23 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 		return nil, err
 	}
 
-	csr, ok := v.(CandidateStateReader)
+	view, ok := v.(*ViewData)
 	if !ok {
-		return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting CandidateStateReader")
+		return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting *ViewData")
 	}
 
 	return &candSR{
 		StateReader: sr,
 		height:      height,
-		candCenter:  csr.CandCenter().(*candCenter),
-		bucketPool:  csr.BucketPool(),
+		view: &ViewData{
+			candCenter: view.candCenter,
+			bucketPool: view.bucketPool,
+		},
 	}, nil
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
+func CreateBaseView(sr protocol.StateReader) (*ViewData, error) {
 	if sr == nil {
 		return nil, ErrMissingField
 	}
@@ -101,7 +121,7 @@ func CreateBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	}
 
 	// TODO: remove CandidateCenter interface, no need for (*candCenter)
-	return &candSR{
+	return &ViewData{
 		candCenter: center.(*candCenter),
 		bucketPool: pool,
 	}, nil
@@ -127,9 +147,9 @@ func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
 	return cands, nil
 }
 
-// ConvertToCandSR converts csm to csr
-func ConvertToCandSR(csm CandidateStateManager) CandidateStateReader {
-	return &candSR{
+// ConvertToViewData converts state manager to ViewData
+func ConvertToViewData(csm CandidateStateManager) *ViewData {
+	return &ViewData{
 		candCenter: csm.CandCenter().(*candCenter),
 		bucketPool: csm.BucketPool(),
 	}
