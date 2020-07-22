@@ -249,16 +249,21 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
+// useV2Storage return true after greenland when we start using v2 storage.
+func useV2Storage(ctx context.Context) bool {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	return hu.IsPost(config.Greenland, blkCtx.BlockHeight)
+}
+
 func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	h, _, err := p.stateCheckLegacy(ctx, sm, key, value)
 	return h, err
 }
 
 func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, bool, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if useV2Storage(ctx) {
 		h, err := p.stateV2(sm, key, value)
 		if errors.Cause(err) != state.ErrStateNotExist {
 			return h, false, err
@@ -279,10 +284,7 @@ func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{
 }
 
 func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if useV2Storage(ctx) {
 		return p.putStateV2(sm, key, value)
 	}
 	return p.putStateV1(sm, key, value)
@@ -301,10 +303,7 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 }
 
 func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if useV2Storage(ctx) {
 		return p.deleteStateV2(sm, key)
 	}
 	return p.deleteStateV1(sm, key)

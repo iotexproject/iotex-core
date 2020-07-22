@@ -334,10 +334,6 @@ func (p *Protocol) updateAvailableBalance(ctx context.Context, sm protocol.State
 }
 
 func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager, addr address.Address, amount *big.Int) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
 	_, fromLegacy, err := p.stateCheckLegacy(ctx, sm, accKey, &acc)
@@ -349,8 +345,9 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 			balance: big.NewInt(0),
 		}
 	} else {
-		// exist, check if from legacy, delete v1
-		if fromLegacy && hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		// entry exist
+		// check if from legacy, and we have started using v2, delete v1
+		if fromLegacy && useV2Storage(ctx) {
 			if err := p.deleteStateV1(sm, accKey); err != nil {
 				return err
 			}
@@ -362,10 +359,6 @@ func (p *Protocol) grantToAccount(ctx context.Context, sm protocol.StateManager,
 
 func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManager, addr address.Address, amount *big.Int) error {
 	// Update reward account
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-
 	acc := rewardAccount{}
 	accKey := append(adminKey, addr.Bytes()...)
 	_, fromLegacy, err := p.stateCheckLegacy(ctx, sm, accKey, &acc)
@@ -381,7 +374,7 @@ func (p *Protocol) claimFromAccount(ctx context.Context, sm protocol.StateManage
 	if err := p.putState(ctx, sm, accKey, &acc); err != nil {
 		return err
 	}
-	if fromLegacy && hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if fromLegacy && useV2Storage(ctx) {
 		if err := p.deleteStateV1(sm, accKey); err != nil {
 			return err
 		}
