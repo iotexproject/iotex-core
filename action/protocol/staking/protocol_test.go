@@ -147,7 +147,7 @@ func TestProtocol(t *testing.T) {
 	r.NoError(err)
 	_, ok := v.(*ViewData)
 	r.True(ok)
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManager(sm, false)
 	r.NoError(err)
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {

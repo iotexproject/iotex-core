@@ -97,7 +97,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	}
 
 	// update bucket pool
-	if err := csm.DebitBucketPool(act.Amount(), true, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
@@ -240,7 +240,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	// update bucket pool
-	if err := csm.CreditBucketPool(bucket.StakedAmount, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
@@ -485,7 +485,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 
 	// update bucket pool
-	if err := csm.DebitBucketPool(act.Amount(), false, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+	if err := csm.DebitBucketPool(act.Amount(), false); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
@@ -656,7 +656,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// update bucket pool
-	if err := csm.DebitBucketPool(act.Amount(), true, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight)); err != nil {
+	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
 		return log, nil, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
