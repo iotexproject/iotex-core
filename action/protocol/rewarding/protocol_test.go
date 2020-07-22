@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -40,9 +41,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
-
-	// action.RewardingProtocolID is defined to avoid import cycle, make sure they match
-	require.Equal(t, protocolID, action.RewardingProtocolID)
 
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
@@ -296,6 +294,9 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, p.Register(registry))
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))
+
+	// address package also defined protocol address, make sure they match
+	require.Equal(t, hash.BytesToHash160(p.addr.Bytes()), address.RewardingProtocolAddrHash)
 
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"

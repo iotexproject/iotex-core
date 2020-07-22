@@ -68,9 +68,6 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
 
-	// action.StakingProtocolID is defined to avoid import cycle, make sure they match
-	r.Equal(protocolID, action.StakingProtocolID)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := newMockStateManager(ctrl)
@@ -122,13 +119,12 @@ func TestProtocol(t *testing.T) {
 	stk, err := NewProtocol(nil, genesis.Default.Staking)
 	r.NotNil(stk)
 	r.NoError(err)
-
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
 	buckets, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
+
+	// address package also defined protocol address, make sure they match
+	r.Equal(hash.BytesToHash160(stk.addr.Bytes()), address.StakingProtocolAddrHash)
 
 	// write a number of candidates and buckets into stateDB
 	for _, e := range testCandidates {
@@ -142,11 +138,15 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	v, err := stk.Start(ctx, sm)
+	sm.WriteView(protocolID, v)
 	r.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	_, ok := v.(candidateBucketCenter)
 	r.True(ok)
-	csm, err := NewCandidateStateManager(sm, cc)
+	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {

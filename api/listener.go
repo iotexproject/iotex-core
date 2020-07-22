@@ -9,13 +9,11 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
-type (
-	// Responder responds to new block
-	Responder interface {
-		Respond(*block.Block) error
-		Exit()
-	}
+var (
+	errorResponderAdded = errors.New("Responder already added")
+)
 
+type (
 	// Listener pass new block to all responders
 	Listener interface {
 		Start() error
@@ -75,7 +73,7 @@ func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 func (cl *chainListener) AddResponder(r Responder) error {
 	_, loaded := cl.streamMap.LoadOrStore(r, struct{}{})
 	if loaded {
-		return errors.New("Responder already added")
+		return errorResponderAdded
 	}
 	return nil
 }
