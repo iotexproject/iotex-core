@@ -83,7 +83,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 
@@ -2555,7 +2555,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 	_, err = p.Handle(ctx, a, sm)
@@ -2591,7 +2591,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 	return sm, p, candidate, candidate2

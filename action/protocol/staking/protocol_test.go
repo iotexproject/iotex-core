@@ -144,7 +144,7 @@ func TestProtocol(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)
-	_, ok := v.(candidateBucketCenter)
+	_, ok := v.(*ViewData)
 	r.True(ok)
 	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)
