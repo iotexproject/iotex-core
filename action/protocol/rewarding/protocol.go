@@ -91,17 +91,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	switch blkCtx.BlockHeight {
 	case hu.AleutianBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false)
 	case hu.DardanellesBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true)
 	case hu.GreenlandBlockHeight():
-		if err := p.migrateValueGreenland(ctx, sm); err != nil {
-			return err
-		}
+		return p.migrateValueGreenland(ctx, sm)
 	}
 	return nil
 }
@@ -113,10 +107,7 @@ func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateMan
 	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
 		return err
 	}
-	if err := p.migrateValue(sm, exemptKey, &exempt{}); err != nil {
-		return err
-	}
-	return nil
+	return p.migrateValue(sm, exemptKey, &exempt{})
 }
 
 func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
