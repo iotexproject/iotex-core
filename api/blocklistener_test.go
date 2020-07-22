@@ -7,9 +7,9 @@
 package api
 
 import (
+	"errors"
 	"testing"
 	"time"
-	"errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -41,30 +41,22 @@ func TestBlockListener(t *testing.T) {
 			BlockHeight: 2,
 		},
 	}
-	builder := block.NewTestingBuilder()
-	builder.SetHeight(1)
-	builder.SetVersion(111)
-	builder.SetTimeStamp(time.Now())
-	builder.SetReceipts(receipts)
-	testBlock, _ := builder.SignAndBuild(identityset.PrivateKey(0))
-
-	server.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
-	err := responder.Respond(&testBlock)
+	builder := block.NewTestingBuilder().
+		SetHeight(1).
+		SetVersion(111).
+		SetTimeStamp(time.Now()).
+		SetReceipts(receipts)
+	testBlock, err := builder.SignAndBuild(identityset.PrivateKey(0))
 	require.NoError(t, err)
 
+	server.EXPECT().Send(gomock.Any()).Return(nil).Times(1)
+	require.NoError(t, responder.Respond(&testBlock))
+
 	server.EXPECT().Send(gomock.Any()).Return(errorSend).Times(1)
-	err = responder.Respond(&testBlock)
-	require.Error(t, err)
-	require.Equal(t, errorSend, err)
+	require.Equal(t, errorSend, responder.Respond(&testBlock))
 
 	responder.Exit()
 
-	err = <-errChan
-	require.Error(t, err)
-	require.Equal(t, errorSend, err)
-
-	err = <-errChan
-	require.NoError(t, err)
+	require.Equal(t, errorSend, <-errChan)
+	require.NoError(t, <-errChan)
 }
-
-
