@@ -13,6 +13,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
+// NewMockKVStore returns a in memory KVStore.
 func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	kv := db.NewMockKVStore(ctrl)
 	kmap := make(map[string]map[hash.Hash160][]byte)
@@ -111,6 +112,7 @@ func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 	return kv
 }
 
+// NewMockStateManager returns a in memory StateManager.
 func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	var h uint64
