@@ -218,7 +218,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.True(t, ok)
 		claimActionCtx := actionCtx
 		claimActionCtx.Caller = identityset.Address(0)
-		claimCtx := protocol.WithActionCtx(context.Background(), claimActionCtx)
+		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
 		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
 
@@ -268,7 +268,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 		claimActionCtx.Caller = blkCtx.Producer
-		claimCtx = protocol.WithActionCtx(context.Background(), claimActionCtx)
+		claimCtx = protocol.WithActionCtx(ctx, claimActionCtx)
 		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(1)))
 	}, false)
 }

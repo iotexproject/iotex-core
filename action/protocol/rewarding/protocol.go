@@ -258,8 +258,23 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
-	return p.stateV1(sm, key, value)
+func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	h, _, err := p.stateCheckLegacy(ctx, sm, key, value)
+	return h, err
+}
+
+func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, bool, error) {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		h, err := p.stateV2(sm, key, value)
+		if errors.Cause(err) != state.ErrStateNotExist {
+			return h, false, err
+		}
+	}
+	h, err := p.stateV1(sm, key, value)
+	return h, true, err
 }
 
 func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
@@ -272,7 +287,13 @@ func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{
 	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
 }
 
-func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		return p.putStateV2(sm, key, value)
+	}
 	return p.putStateV1(sm, key, value)
 }
 
@@ -288,19 +309,33 @@ func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interf
 	return err
 }
 
-func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
+func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		return p.deleteStateV2(sm, key)
+	}
 	return p.deleteStateV1(sm, key)
 }
 
 func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
 	return err
 }
 
 func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 	k := append(p.keyPrefix, key...)
 	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
 	return err
 }
 
