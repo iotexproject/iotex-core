@@ -126,7 +126,7 @@ func readStateTotalStakingAmount(ctx context.Context, bp *BucketPool,
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr
 	meta.Balance = bp.Total().String()
-	return nil, nil
+	return &meta, nil
 }
 
 func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
