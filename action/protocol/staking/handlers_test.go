@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 const (
@@ -61,7 +62,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -83,7 +84,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 
@@ -2555,7 +2556,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 	_, err = p.Handle(ctx, a, sm)
@@ -2567,7 +2568,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 
 func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Protocol, *Candidate, *Candidate) {
 	require := require.New(t)
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -2591,7 +2592,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	})
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
-	cc, ok := v.(candidateBucketCenter)
+	cc, ok := v.(*ViewData)
 	require.True(ok)
 	require.NoError(sm.WriteView(protocolID, cc))
 	return sm, p, candidate, candidate2

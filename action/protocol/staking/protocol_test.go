@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestImplicitLog(t *testing.T) {
@@ -70,7 +71,7 @@ func TestProtocol(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -144,7 +145,7 @@ func TestProtocol(t *testing.T) {
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)
-	_, ok := v.(candidateBucketCenter)
+	_, ok := v.(*ViewData)
 	r.True(ok)
 	csm, err := NewCandidateStateManager(sm)
 	r.NoError(err)

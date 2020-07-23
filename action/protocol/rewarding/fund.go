@@ -78,12 +78,12 @@ func (p *Protocol) Deposit(
 	}
 	// Add balance to fund
 	f := fund{}
-	if _, err := p.state(sm, fundKey, &f); err != nil {
+	if _, err := p.state(ctx, sm, fundKey, &f); err != nil {
 		return err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
-	return p.putState(sm, fundKey, &f)
+	return p.putState(ctx, sm, fundKey, &f)
 }
 
 // TotalBalance returns the total balance of the rewarding fund
@@ -92,7 +92,7 @@ func (p *Protocol) TotalBalance(
 	sm protocol.StateReader,
 ) (*big.Int, uint64, error) {
 	f := fund{}
-	height, err := p.state(sm, fundKey, &f)
+	height, err := p.state(ctx, sm, fundKey, &f)
 	if err != nil {
 		return nil, height, err
 	}
@@ -105,7 +105,7 @@ func (p *Protocol) AvailableBalance(
 	sm protocol.StateReader,
 ) (*big.Int, uint64, error) {
 	f := fund{}
-	height, err := p.state(sm, fundKey, &f)
+	height, err := p.state(ctx, sm, fundKey, &f)
 	if err != nil {
 		return nil, height, err
 	}

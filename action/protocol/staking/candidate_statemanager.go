@@ -14,20 +14,14 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
-	// candidateBucketCenter contains candidate center and bucket pool
-	candidateBucketCenter interface {
-		// TODO: remove CandidateCenter interface, return *candCenter
-		CandCenter() CandidateCenter
-		BucketPool() *BucketPool
-	}
-
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
 		protocol.StateManager
+		CandCenter() CandidateCenter
+		BucketPool() *BucketPool
 		// candidate and bucket pool related
 		Size() int
 		ContainsName(string) bool
@@ -52,24 +46,21 @@ type (
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
 func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
-	if sm == nil {
-		return nil, ErrMissingField
-	}
-
-	v, err := sm.ReadView(protocolID)
+	// TODO: we can store csm in a local cache, just as how statedb store the workingset
+	// b/c most time the sm is used before, no need to create another clone
+	csr, err := ConstructBaseView(sm)
 	if err != nil {
 		return nil, err
 	}
 
-	csm, ok := v.(*candSM)
-	if !ok {
-		return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting *candSM")
+	// make a copy of candidate center and bucket pool, so they can be modified by csm
+	// and won't affect base view until being committed
+	csm := &candSM{
+		StateManager: sm,
+		// TODO: remove CandidateCenter interface, no need for (*candCenter)
+		candCenter: csr.CandCenter().Base().(*candCenter),
+		bucketPool: csr.BucketPool().Clone(),
 	}
-
-	// TODO: remove CandidateCenter interface, no need for (*candCenter)
-	csm.StateManager = sm
-	csm.candCenter = csm.candCenter.Base().(*candCenter)
-	csm.bucketPool = csm.bucketPool.Clone()
 
 	// extract view change from SM
 	if err := csm.bucketPool.SyncPool(sm); err != nil {
@@ -180,73 +171,5 @@ func (csm *candSM) Commit() error {
 	}
 
 	// write update view back to state factory
-	return csm.WriteView(protocolID, csm)
-}
-
-func getOrCreateCandCenter(sr protocol.StateReader) (candidateBucketCenter, error) {
-	c, err := getCandCenter(sr)
-	if err != nil {
-		if errors.Cause(err) == protocol.ErrNoName {
-			// the view does not exist yet, create it
-			return createCandCenter(sr)
-		}
-		return nil, err
-	}
-	return c, nil
-}
-
-func getCandCenter(sr protocol.StateReader) (candidateBucketCenter, error) {
-	v, err := sr.ReadView(protocolID)
-	if err != nil {
-		return nil, err
-	}
-
-	if center, ok := v.(candidateBucketCenter); ok {
-		return center, nil
-	}
-	return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting candidateBucketCenter")
-}
-
-func createCandCenter(sr protocol.StateReader) (candidateBucketCenter, error) {
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	center, err := NewCandidateCenter(all)
-	if err != nil {
-		return nil, err
-	}
-
-	pool, err := NewBucketPool(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: remove CandidateCenter interface, no need for (*candCenter)
-	return &candSM{
-		StateManager: nil,
-		candCenter:   center.(*candCenter),
-		bucketPool:   pool,
-	}, nil
-}
-
-func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
-	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, nil
+	return csm.WriteView(protocolID, ConvertToViewData(csm))
 }

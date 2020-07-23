@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 const (
@@ -48,7 +49,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		require := require.New(t)
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
-		sm := newMockStateManager(ctrl)
+		sm := testdb.NewMockStateManager(ctrl)
 
 		tests := []struct {
 			index          uint64

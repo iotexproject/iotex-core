@@ -47,6 +47,6 @@ func (hReader *historyStateReader) States(opts ...protocol.StateOption) (uint64,
 }
 
 // ReadView reads the view
-func (hReader *historyStateReader) ReadView(name string) (interface{}, error) {
-	return nil, errors.Wrap(ErrNotSupported, "not implemented yet")
+func (hReader *historyStateReader) ReadView(name string) (uint64, interface{}, error) {
+	return 0, nil, errors.Wrap(ErrNotSupported, "not implemented yet")
 }

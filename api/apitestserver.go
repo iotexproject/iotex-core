@@ -7,8 +7,8 @@
 package api
 
 import (
-	grpc "google.golang.org/grpc"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	grpc "google.golang.org/grpc"
 )
 
 // StreamBlocksServer defines the interface of a rpc stream server

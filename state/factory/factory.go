@@ -348,8 +348,8 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			sf.currentChainHeight = h
 			return nil
 		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sf.protocolView.Unload(name)
+		readviewFunc: func(name string) (uint64, interface{}, error) {
+			return sf.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
 			return sf.protocolView.Load(name, v)
@@ -623,8 +623,9 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 }
 
 // ReadView reads the view
-func (sf *factory) ReadView(name string) (interface{}, error) {
-	return sf.protocolView.Unload(name)
+func (sf *factory) ReadView(name string) (uint64, interface{}, error) {
+	v, err := sf.protocolView.Unload(name)
+	return sf.currentChainHeight, v, err
 }
 
 //======================================

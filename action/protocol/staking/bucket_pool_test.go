@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestTotalAmount(t *testing.T) {
@@ -62,7 +63,7 @@ func TestBucketPool(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 
 	pool, err := NewBucketPool(sm)
 	r.NoError(err)
@@ -77,10 +78,10 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	c, err := createCandCenter(sm)
+	view, err := CreateBaseView(sm)
 	r.NoError(err)
-	sm.WriteView(protocolID, c)
-	pool = c.BucketPool()
+	sm.WriteView(protocolID, view)
+	pool = view.bucketPool
 	total := big.NewInt(40000)
 	count := uint64(4)
 	r.Equal(total, pool.Total())
@@ -104,10 +105,23 @@ func TestBucketPool(t *testing.T) {
 		{true, false, true, true, big.NewInt(600), nil},
 	}
 
+	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
+	csm, err := NewCandidateStateManager(sm)
+	r.NoError(err)
+	r.NoError(csm.DebitBucketPool(tests[0].amount, true, false))
+	sm.Snapshot()
+
+	// after that, bucket pool total should not change
+	c, err := ConstructBaseView(sm)
+	r.NoError(err)
+	pool = c.BucketPool()
+	r.Equal(total, pool.Total())
+	r.Equal(count, pool.Count())
+
 	for _, v := range tests {
-		csm, err := NewCandidateStateManager(sm)
+		csm, err = NewCandidateStateManager(sm)
 		r.NoError(err)
-		pool = c.BucketPool()
+		pool = csm.BucketPool()
 		r.Equal(total, pool.Total())
 		r.Equal(count, pool.Count())
 		if v.debit {
@@ -133,6 +147,12 @@ func TestBucketPool(t *testing.T) {
 
 		if v.commit {
 			r.NoError(csm.Commit())
+			// after commit, value should reflect in base view
+			c, err = ConstructBaseView(sm)
+			r.NoError(err)
+			pool = c.BucketPool()
+			r.Equal(total, pool.Total())
+			r.Equal(count, pool.Count())
 		}
 		r.Equal(v.create, pool.exist)
 	}

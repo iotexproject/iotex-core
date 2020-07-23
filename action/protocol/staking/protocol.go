@@ -129,7 +129,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
 
 	// load view from SR
-	c, err := createCandCenter(sr)
+	c, err := CreateBaseView(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -309,7 +309,7 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	c, err := getOrCreateCandCenter(sr)
+	c, err := GetStakingStateReader(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
@@ -338,7 +338,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	c, err := getOrCreateCandCenter(sr)
+	c, err := GetStakingStateReader(sr)
 	if err != nil {
 		return nil, uint64(0), errors.Wrap(err, "failed to get candidate center")
 	}
@@ -371,12 +371,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	if err != nil {
 		return nil, uint64(0), err
 	}
-	stateHeight, err := sr.Height()
-	if err != nil {
-		return nil, uint64(0), err
-	}
-
-	return data, stateHeight, nil
+	return data, c.Height(), nil
 }
 
 // Register registers the protocol with a unique ID
