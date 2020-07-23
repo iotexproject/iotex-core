@@ -22,7 +22,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -182,7 +181,7 @@ func (p *Protocol) CreateGenesisStates(
 			return ErrInvalidAmount
 		}
 		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
-		bucketIdx, err := putBucketAndIndex(sm, bucket)
+		bucketIdx, err := csm.(*candSM).putBucketAndIndex(bucket)
 		if err != nil {
 			return err
 		}
@@ -334,12 +333,12 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
+		return csm.settleAction(ctx, p, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Debug("Non-critical error when processing staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
+		return csm.settleAction(ctx, p, receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }
@@ -473,41 +472,4 @@ func (p *Protocol) Name() string {
 
 func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
 	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
-}
-
-// settleAccount deposits gas fee and updates caller's nonce
-func (p *Protocol) settleAction(
-	ctx context.Context,
-	sm protocol.StateManager,
-	status uint64,
-	logs []*action.Log,
-	tLogs []*action.TransactionLog,
-) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	depositLog, err := p.depositGas(ctx, sm, gasFee)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
-	if err != nil {
-		return nil, err
-	}
-	// TODO: this check shouldn't be necessary
-	if actionCtx.Nonce > acc.Nonce {
-		acc.Nonce = actionCtx.Nonce
-	}
-	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-		return nil, errors.Wrap(err, "failed to update nonce")
-	}
-	r := action.Receipt{
-		Status:          status,
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}
-	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
-	return &r, nil
 }

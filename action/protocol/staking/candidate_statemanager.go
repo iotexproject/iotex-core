@@ -7,13 +7,17 @@
 package staking
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -23,9 +27,27 @@ const (
 )
 
 type (
+	// BucketSet related to setting bucket
+	BucketSet interface {
+		updateBucket(index uint64, bucket *VoteBucket) error
+		putBucket(bucket *VoteBucket) (uint64, error)
+		delBucket(index uint64) error
+		putBucketAndIndex(bucket *VoteBucket) (uint64, error)
+		delBucketAndIndex(owner, cand address.Address, index uint64) error
+		putBucketIndex(key []byte, index uint64) error
+		delBucketIndex(key []byte, index uint64) error
+	}
+	// CandidateSet related to setting candidates
+	CandidateSet interface {
+		delCandidate(name address.Address) error
+		putCandidate(d *Candidate) error
+	}
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
 		protocol.StateManager
+		BucketSet
+		CandidateSet
+		settleAction(ctx context.Context, p *Protocol, status uint64, logs []*action.Log, tLogs []*action.TransactionLog) (*action.Receipt, error)
 		// candidate and bucket pool related
 		DirtyView() *ViewData
 		ContainsName(string) bool
@@ -77,10 +99,14 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	return csm, nil
 }
 
-func newEmptyCsm(sm protocol.StateManager) *candSM {
+func smToCsm(sm protocol.StateManager) CandidateStateManager {
 	return &candSM{
 		StateManager: sm,
 	}
+}
+
+func (csm *candSM) toCsr() CandidateStateReader {
+	return srToCsr(csm)
 }
 
 // DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
@@ -125,7 +151,7 @@ func (csm *candSM) Upsert(d *Candidate) error {
 		return err
 	}
 
-	if err := putCandidate(csm.StateManager, d); err != nil {
+	if err := csm.putCandidate(d); err != nil {
 		return err
 	}
 
@@ -160,7 +186,7 @@ func (csm *candSM) Commit() error {
 }
 
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
-	if _, err := newEmptyCsr(csm).getBucket(index); err != nil {
+	if _, err := csm.toCsr().getBucket(index); err != nil {
 		return err
 	}
 
@@ -235,117 +261,89 @@ func (csm *candSM) delBucketAndIndex(owner, cand address.Address, index uint64) 
 	return nil
 }
 
-// <<<<<<< HEAD
-// func getTotalBucketCount(sr protocol.StateReader) (uint64, error) {
-// 	var tc totalBucketCount
-// 	_, err := sr.State(
-// 		&tc,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(TotalBucketKey))
-// 	return tc.count, err
-// }
+func (csm *candSM) putBucketIndex(key []byte, index uint64) error {
+	var bis BucketIndices
+	if _, err := csm.State(
+		&bis,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return err
+	}
+	bis.addBucketIndex(index)
+	_, err := csm.PutState(
+		&bis,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key))
+	return err
+}
 
-// func getBucket(sr protocol.StateReader, index uint64) (*VoteBucket, error) {
-// 	var vb VoteBucket
-// 	var err error
-// 	if _, err = sr.State(
-// 		&vb,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(bucketKey(index))); err != nil {
-// 		return nil, err
-// 	}
-// 	var tc totalBucketCount
-// 	if _, err := sr.State(
-// 		&tc,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-// 		return nil, err
-// 	}
-// 	if errors.Cause(err) == state.ErrStateNotExist && index < tc.Count() {
-// 		return nil, ErrWithdrawnBucket
-// 	}
-// 	return &vb, nil
-// }
+func (csm *candSM) delBucketIndex(key []byte, index uint64) error {
+	var bis BucketIndices
+	if _, err := csm.State(
+		&bis,
+		protocol.NamespaceOption(StakingNameSpace),
+		protocol.KeyOption(key)); err != nil {
+		return err
+	}
+	bis.deleteBucketIndex(index)
 
-// func updateBucket(sm protocol.StateManager, index uint64, bucket *VoteBucket) error {
-// 	if _, err := getBucket(sm, index); err != nil {
-// 		return err
-// 	}
+	var err error
+	if len(bis) == 0 {
+		_, err = csm.DelState(
+			protocol.NamespaceOption(StakingNameSpace),
+			protocol.KeyOption(key))
+	} else {
+		_, err = csm.PutState(
+			&bis,
+			protocol.NamespaceOption(StakingNameSpace),
+			protocol.KeyOption(key))
+	}
+	return err
+}
 
-// 	_, err := sm.PutState(
-// 		bucket,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(bucketKey(index)))
-// 	return err
-// }
+func (csm *candSM) putCandidate(d *Candidate) error {
+	_, err := csm.PutState(d, protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(d.Owner.Bytes()))
+	return err
+}
 
-// func putBucket(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
-// 	var tc totalBucketCount
-// 	if _, err := sm.State(
-// 		&tc,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(TotalBucketKey)); err != nil && errors.Cause(err) != state.ErrStateNotExist {
-// 		return 0, err
-// 	}
+func (csm *candSM) delCandidate(name address.Address) error {
+	_, err := csm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
+	return err
+}
 
-// 	index := tc.Count()
-// 	// Add index inside bucket
-// 	bucket.Index = index
-// 	if _, err := sm.PutState(
-// 		bucket,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(bucketKey(index))); err != nil {
-// 		return 0, err
-// 	}
-// 	tc.count++
-// 	_, err := sm.PutState(
-// 		&tc,
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(TotalBucketKey))
-// 	return index, err
-// }
-
-// func delBucket(sm protocol.StateManager, index uint64) error {
-// 	_, err := sm.DelState(
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.KeyOption(bucketKey(index)))
-// 	return err
-// }
-
-// func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
-// 	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
-// 	maxKey := []byte{_bucket + 1}
-// 	height, iter, err := sr.States(
-// 		protocol.NamespaceOption(StakingNameSpace),
-// 		protocol.FilterOption(func(k, v []byte) bool {
-// 			return bytes.HasPrefix(k, []byte{_bucket})
-// 		}, bucketKey(0), maxKey))
-// 	if err != nil {
-// 		return nil, height, err
-// 	}
-
-// 	buckets := make([]*VoteBucket, 0, iter.Size())
-// 	for i := 0; i < iter.Size(); i++ {
-// 		vb := &VoteBucket{}
-// 		if err := iter.Next(vb); err != nil {
-// 			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
-// 		}
-// 		buckets = append(buckets, vb)
-// 	}
-// 	return buckets, height, nil
-// }
-
-// func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
-// 	buckets := make([]*VoteBucket, 0, len(indices))
-// 	for _, i := range indices {
-// 		b, err := getBucket(sr, i)
-// 		if err != nil && err != ErrWithdrawnBucket {
-// 			return buckets, err
-// 		}
-// 		buckets = append(buckets, b)
-// 	}
-// 	return buckets, nil
-// }
-
-// =======
-// >>>>>>> move static functions into CandidateStateManager or CandidateStateReader
+// settleAccount deposits gas fee and updates caller's nonce
+func (csm *candSM) settleAction(
+	ctx context.Context,
+	p *Protocol,
+	status uint64,
+	logs []*action.Log,
+	tLogs []*action.TransactionLog,
+) (*action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
+	depositLog, err := p.depositGas(ctx, csm, gasFee)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to deposit gas")
+	}
+	acc, err := accountutil.LoadAccount(csm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	if err != nil {
+		return nil, err
+	}
+	// TODO: this check shouldn't be necessary
+	if actionCtx.Nonce > acc.Nonce {
+		acc.Nonce = actionCtx.Nonce
+	}
+	if err := accountutil.StoreAccount(csm, actionCtx.Caller, acc); err != nil {
+		return nil, errors.Wrap(err, "failed to update nonce")
+	}
+	r := action.Receipt{
+		Status:          status,
+		BlockHeight:     blkCtx.BlockHeight,
+		ActionHash:      actionCtx.ActionHash,
+		GasConsumed:     actionCtx.IntrinsicGas,
+		ContractAddress: p.addr.String(),
+	}
+	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
+	return &r, nil
+}
