@@ -120,17 +120,14 @@ func TestProtocol(t *testing.T) {
 	stk, err := NewProtocol(nil, genesis.Default.Staking)
 	r.NotNil(stk)
 	r.NoError(err)
-	buckets, err := getAllBuckets(sm)
+	buckets, _, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
 
 	// address package also defined protocol address, make sure they match
 	r.Equal(hash.BytesToHash160(stk.addr.Bytes()), address.StakingProtocolAddrHash)
 
-	// write a number of candidates and buckets into stateDB
-	for _, e := range testCandidates {
-		r.NoError(putCandidate(sm, e.d))
-	}
+	// write a number of buckets into stateDB
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
 		index, err := putBucketAndIndex(sm, vb)
@@ -147,8 +144,14 @@ func TestProtocol(t *testing.T) {
 	r.NoError(err)
 	_, ok := v.(*ViewData)
 	r.True(ok)
+
 	csm, err := NewCandidateStateManager(sm, false)
 	r.NoError(err)
+	// load a number of candidates
+	for _, e := range testCandidates {
+		r.NoError(csm.Upsert(e.d))
+	}
+	r.NoError(csm.Commit())
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
@@ -172,13 +175,33 @@ func TestProtocol(t *testing.T) {
 		r.True(c.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
 	}
 
+	// load all candidates from stateDB and verify
+	all, _, err := getAllCandidates(sm)
+	r.NoError(err)
+	r.Equal(len(testCandidates), len(all))
+	for _, e := range testCandidates {
+		for i := range all {
+			if all[i].Name == e.d.Name {
+				r.Equal(e.d, all[i])
+				break
+			}
+		}
+	}
+
+	// csm's candidate center should be identical to all candidates in stateDB
+	c1, err := all.toStateCandidateList()
+	r.NoError(err)
+	c2, err := csm.CandCenter().All().toStateCandidateList()
+	r.NoError(err)
+	r.Equal(c1, c2)
+
 	// load buckets from stateDB and verify
-	buckets, err = getAllBuckets(sm)
+	buckets, _, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
 	r.NoError(delBucket(sm, 1))
-	buckets, err = getAllBuckets(sm)
+	buckets, _, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests)-1, len(buckets))
 	for _, e := range tests {
