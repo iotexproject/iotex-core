@@ -1072,6 +1072,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 	for _, test := range tests {
 		if test.newProtocol {
 			sm, p, candidate, _ = initAll(t, ctrl)
+			csr = newEmptyCsr(sm)
 		} else {
 			candidate = candidate2
 		}
