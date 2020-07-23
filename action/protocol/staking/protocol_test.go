@@ -157,7 +157,6 @@ func TestProtocol(t *testing.T) {
 		r.NoError(csm.Upsert(e.d))
 	}
 	r.NoError(csm.Commit())
-	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))
@@ -196,7 +195,7 @@ func TestProtocol(t *testing.T) {
 	// csm's candidate center should be identical to all candidates in stateDB
 	c1, err := all.toStateCandidateList()
 	r.NoError(err)
-	c2, err := csm.CandCenter().All().toStateCandidateList()
+	c2, err := csm.DirtyView().candCenter.All().toStateCandidateList()
 	r.NoError(err)
 	r.Equal(c1, c2)
 
