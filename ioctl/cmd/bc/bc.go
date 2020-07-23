@@ -53,6 +53,7 @@ func init() {
 	BCCmd.AddCommand(bcBlockCmd)
 	BCCmd.AddCommand(bcInfoCmd)
 	BCCmd.AddCommand(bcBucketListCmd)
+	BCCmd.AddCommand(bcBLCmd)
 	BCCmd.AddCommand(bcBucketCmd)
 	BCCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
