@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestSer(t *testing.T) {
@@ -180,7 +181,7 @@ func TestGetPutCandidate(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 
 	// put candidates and get
 	for _, e := range testCandidates {
