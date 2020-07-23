@@ -759,7 +759,7 @@ func (p *Protocol) fetchBucket(
 	checkOwner bool,
 	allowSelfStaking bool,
 ) (*VoteBucket, ReceiptError) {
-	bucket, err := newEmptyCsr(sr).getBucket(index)
+	bucket, err := srToCsr(sr).getBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),

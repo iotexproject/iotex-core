@@ -249,7 +249,8 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
-	allBuckets, _, err := getAllBuckets(sm)
+	csr := srToCsr(sm)
+	allBuckets, _, err := csr.getAllBuckets()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}
@@ -261,7 +262,7 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 	if err != nil {
 		return err
 	}
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return err
 	}

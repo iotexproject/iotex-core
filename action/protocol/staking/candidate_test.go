@@ -182,19 +182,21 @@ func TestGetPutCandidate(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
+	csm := smToCsm(sm)
+	csr := srToCsr(sm)
 
 	// put candidates and get
 	for _, e := range testCandidates {
-		_, _, err := getCandidate(sm, e.d.Owner)
+		_, _, err := csr.getCandidate(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
-		require.NoError(putCandidate(sm, e.d))
-		d1, _, err := getCandidate(sm, e.d.Owner)
+		require.NoError(csm.putCandidate(e.d))
+		d1, _, err := csr.getCandidate(e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)
 	}
 
 	// get all candidates
-	all, _, err := getAllCandidates(sm)
+	all, _, err := csr.getAllCandidates()
 	require.NoError(err)
 	require.Equal(len(testCandidates), len(all))
 	for _, e := range testCandidates {
@@ -208,8 +210,8 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// delete buckets and get
 	for _, e := range testCandidates {
-		require.NoError(delCandidate(sm, e.d.Owner))
-		_, _, err := getCandidate(sm, e.d.Owner)
+		require.NoError(csm.delCandidate(e.d.Owner))
+		_, _, err := csr.getCandidate(e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }
