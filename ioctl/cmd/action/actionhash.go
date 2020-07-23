@@ -260,9 +260,11 @@ func printLogs(logs []*iotextypes.Log) string {
 		for _, topic := range l.Topics {
 			result += fmt.Sprintf("      %s\n", hex.EncodeToString(topic))
 		}
-		result += "    >\n" +
-			fmt.Sprintf("    data: %s\n", hex.EncodeToString(l.Data)) +
-			"  >\n"
+		result += "    >\n"
+		if len(l.Data) > 0 {
+			result += fmt.Sprintf("    data: %s\n", hex.EncodeToString(l.Data))
+		}
+		result += "  >\n"
 
 	}
 	result += ">\n"
