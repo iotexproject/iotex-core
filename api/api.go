@@ -650,6 +650,9 @@ func (api *Server) GetLogs(
 	ctx context.Context,
 	in *iotexapi.GetLogsRequest,
 ) (*iotexapi.GetLogsResponse, error) {
+	if in.GetFilter() == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty filter")
+	}
 	switch {
 	case in.GetByBlock() != nil:
 		req := in.GetByBlock()
@@ -657,7 +660,7 @@ func (api *Server) GetLogs(
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
-		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
 		}
@@ -668,7 +671,7 @@ func (api *Server) GetLogs(
 		if req.FromBlock > api.bc.TipHeight() {
 			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
-		filter, ok := NewLogFilter(in.Filter, nil, nil).(*LogFilter)
+		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
 		}
@@ -699,9 +702,12 @@ func (api *Server) StreamBlocks(in *iotexapi.StreamBlocksRequest, stream iotexap
 
 // StreamLogs streams logs that match the filter condition
 func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.APIService_StreamLogsServer) error {
+	if in.GetFilter() == nil {
+		return status.Error(codes.InvalidArgument, "empty filter")
+	}
 	errChan := make(chan error)
 	// register the log filter so it will match logs in new blocks
-	if err := api.chainListener.AddResponder(NewLogFilter(in.Filter, stream, errChan)); err != nil {
+	if err := api.chainListener.AddResponder(NewLogFilter(in.GetFilter(), stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
