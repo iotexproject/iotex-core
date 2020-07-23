@@ -15,12 +15,6 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-// BenchmarkTrieGet-4                	   29383	     44256 ns/op	   19754 B/op	     269 allocs/op
-// BenchmarkTrieGetWithAsync-4       	 1214578	      1022 ns/op	     160 B/op	       5 allocs/op
-// BenchmarkTrieGetDisk-4            	   26509	     49948 ns/op	   25371 B/op	     305 allocs/op
-// BenchmarkTrieGetDiskWithAsync-4   	 1156329	      1101 ns/op	     160 B/op	       5 allocs/op
-// BenchmarkUpsertLE-4               	   10000	    156839 ns/op	   41624 B/op	     434 allocs/op
-// BenchmarkUpsertBE-4               	    9362	    251458 ns/op	   79795 B/op	     900 allocs/op
 func BenchmarkTrie_Get(b *testing.B)            { benchTrieGet(b, false, false) }
 func BenchmarkTrie_GetWithAsync(b *testing.B)   { benchTrieGet(b, true, false) }
 func BenchmarkTrie_GetDB(b *testing.B)          { benchTrieGet(b, false, true) }
