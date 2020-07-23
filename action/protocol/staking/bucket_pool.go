@@ -114,7 +114,7 @@ func NewBucketPool(sr protocol.StateReader, enableSMStorage bool) (*BucketPool, 
 
 	// sum up all existing buckets
 	all, _, err := getAllBuckets(sr)
-	if err != nil {
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
 	}
 

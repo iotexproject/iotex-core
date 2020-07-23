@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
@@ -123,6 +124,9 @@ func TestProtocol(t *testing.T) {
 	buckets, _, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
+	c, _, err := getAllCandidates(sm)
+	r.Equal(state.ErrStateNotExist, err)
+	r.Equal(0, len(c))
 
 	// address package also defined protocol address, make sure they match
 	r.Equal(hash.BytesToHash160(stk.addr.Bytes()), address.StakingProtocolAddrHash)

@@ -7,8 +7,10 @@
 package staking
 
 import (
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 type (
@@ -100,7 +102,7 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (uint64, *Vie
 	}
 
 	all, height, err := getAllCandidates(sr)
-	if err != nil {
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
 		return height, nil, err
 	}
 

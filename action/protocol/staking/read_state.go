@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
@@ -140,7 +141,11 @@ func readStateTotalStakingAmount(ctx context.Context, sr protocol.StateReader,
 	var height uint64
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr
-	height, meta.Balance = getTotalStakedAmount(ctx, sr)
+	height, total, err := getTotalStakedAmount(ctx, sr)
+	if err != nil {
+		return nil, height, err
+	}
+	meta.Balance = total.String()
 	return &meta, height, nil
 }
 
@@ -200,27 +205,24 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 	return res
 }
 
-func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader) (uint64, string) {
+func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader) (uint64, *big.Int, error) {
 	csr, err := ConstructBaseView(sr)
 	if err != nil {
-		return 0, "0"
+		return 0, nil, err
 	}
 
 	chainCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
-	switch {
-	case hu.IsPost(config.Greenland, csr.Height()):
+	if hu.IsPost(config.Greenland, csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		height, err := sr.State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		if err != nil {
-			return height, "0"
+			return height, nil, err
 		}
-		return height, total.amount.String()
-	case hu.IsPost(config.Fairbank, csr.Height()):
-		// fairbank to greenland, read from bucket pool
-		return csr.Height(), csr.BucketPool().Total().String()
-	default:
-		return csr.Height(), "0"
+		return height, total.amount, nil
 	}
+
+	// otherwise read from bucket pool
+	return csr.Height(), csr.BucketPool().Total(), nil
 }

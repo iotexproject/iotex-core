@@ -326,9 +326,6 @@ func delCandidate(sm protocol.StateManager, name address.Address) error {
 
 func getAllCandidates(sr protocol.StateReader) (CandidateList, uint64, error) {
 	height, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, height, nil
-	}
 	if err != nil {
 		return nil, height, err
 	}
