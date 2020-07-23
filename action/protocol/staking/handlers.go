@@ -789,37 +789,6 @@ func (p *Protocol) fetchBucket(
 	return bucket, nil
 }
 
-func putBucketAndIndex(sm protocol.StateManager, bucket *VoteBucket) (uint64, error) {
-	index, err := putBucket(sm, bucket)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to put bucket")
-	}
-
-	if err := putVoterBucketIndex(sm, bucket.Owner, index); err != nil {
-		return 0, errors.Wrap(err, "failed to put bucket index")
-	}
-
-	if err := putCandBucketIndex(sm, bucket.Candidate, index); err != nil {
-		return 0, errors.Wrap(err, "failed to put candidate index")
-	}
-	return index, nil
-}
-
-func delBucketAndIndex(sm protocol.StateManager, owner, cand address.Address, index uint64) error {
-	if err := delBucket(sm, index); err != nil {
-		return errors.Wrap(err, "failed to delete bucket")
-	}
-
-	if err := delVoterBucketIndex(sm, owner, index); err != nil {
-		return errors.Wrap(err, "failed to delete bucket index")
-	}
-
-	if err := delCandBucketIndex(sm, cand, index); err != nil {
-		return errors.Wrap(err, "failed to delete candidate index")
-	}
-	return nil
-}
-
 func fetchCaller(ctx context.Context, sr protocol.StateReader, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
