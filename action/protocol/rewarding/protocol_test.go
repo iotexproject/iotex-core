@@ -473,6 +473,81 @@ func TestProtocol_Handle(t *testing.T) {
 	}).AnyTimes()
 }
 
+func TestStateCheckLegacy(t *testing.T) {
+	require := require.New(t)
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	p := NewProtocol(
+		genesis.Default.FoundationBonusP2StartEpoch,
+		genesis.Default.FoundationBonusP2EndEpoch,
+	)
+	chainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Genesis{
+			Blockchain: genesis.Blockchain{GreenlandBlockHeight: 3},
+		},
+	})
+	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
+		BlockHeight: 2,
+	})
+
+	tests := []struct {
+		before, add *big.Int
+		v1          [2]bool
+	}{
+		{
+			big.NewInt(100), big.NewInt(20), [2]bool{true, true},
+		},
+		{
+			big.NewInt(120), big.NewInt(30), [2]bool{true, false},
+		},
+	}
+
+	// put V1 value
+	addr := identityset.Address(1)
+	acc := rewardAccount{
+		balance: tests[0].before,
+	}
+	accKey := append(adminKey, addr.Bytes()...)
+	require.NoError(p.putState(ctx, sm, accKey, &acc))
+
+	for useV2 := 0; useV2 < 2; useV2++ {
+		if useV2 == 0 {
+			require.False(useV2Storage(ctx))
+		} else {
+			require.True(useV2Storage(ctx))
+		}
+		for i := 0; i < 2; i++ {
+			_, v1, err := p.stateCheckLegacy(ctx, sm, accKey, &acc)
+			require.Equal(tests[useV2].v1[i], v1)
+			require.NoError(err)
+			if i == 0 {
+				require.Equal(tests[useV2].before, acc.balance)
+			} else {
+				require.Equal(tests[useV2].before.Add(tests[useV2].before, tests[useV2].add), acc.balance)
+			}
+			if i == 0 {
+				require.NoError(p.grantToAccount(ctx, sm, addr, tests[useV2].add))
+			}
+		}
+
+		if useV2 == 0 {
+			// switch to test V2
+			ctx = protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
+				BlockHeight: 3,
+			})
+		}
+	}
+
+	// verify V1 deleted
+	_, err := p.stateV1(sm, accKey, &acc)
+	require.Equal(state.ErrStateNotExist, err)
+	_, err = p.stateV2(sm, accKey, &acc)
+	require.NoError(err)
+	require.Equal(tests[1].before, acc.balance)
+}
+
 func TestMigrateValue(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
