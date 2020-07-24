@@ -53,7 +53,7 @@ func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			height, view, err := CreateBaseView(sr, true)
+			view, height, err := CreateBaseView(sr, true)
 			if err != nil {
 				return nil, err
 			}
@@ -96,31 +96,31 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (uint64, *ViewData, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
 	if sr == nil {
-		return 0, nil, ErrMissingField
+		return nil, 0, ErrMissingField
 	}
 
 	all, height, err := getAllCandidates(sr)
 	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
-		return height, nil, err
+		return nil, height, err
 	}
 
 	center, err := NewCandidateCenter(all)
 	if err != nil {
-		return height, nil, err
+		return nil, height, err
 	}
 
 	pool, err := NewBucketPool(sr, enableSMStorage)
 	if err != nil {
-		return height, nil, err
+		return nil, height, err
 	}
 
 	// TODO: remove CandidateCenter interface, no need for (*candCenter)
-	return height, &ViewData{
+	return &ViewData{
 		candCenter: center.(*candCenter),
 		bucketPool: pool,
-	}, nil
+	}, height, nil
 }
 
 // ConvertToViewData converts state manager to ViewData

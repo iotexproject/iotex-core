@@ -61,9 +61,9 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	return pbBuckets, height, err
 }
 
-func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader,
+func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, cc CandidateCenter,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
-	c, _, err := getCandidateByName(sr, req.CandName)
+	c := cc.GetByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
@@ -101,52 +101,47 @@ func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
 	return pbBuckets, height, err
 }
 
-func readStateCandidates(ctx context.Context, sr protocol.StateReader,
+func readStateCandidates(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
-	c, height, _ := getAllCandidates(sr)
-	if c == nil {
-		return &iotextypes.CandidateListV2{}, height, nil
-	}
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
-	candidates := getPageOfCandidates(c, offset, limit)
+	candidates := getPageOfCandidates(csr.CandCenter().All(), offset, limit)
 
-	return toIoTeXTypesCandidateListV2(candidates), height, nil
+	return toIoTeXTypesCandidateListV2(candidates), csr.Height(), nil
 }
 
-func readStateCandidateByName(ctx context.Context, sr protocol.StateReader,
+func readStateCandidateByName(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
-	c, height, _ := getCandidateByName(sr, req.GetCandName())
+	c := csr.CandCenter().GetByName(req.GetCandName())
 	if c == nil {
-		return &iotextypes.CandidateV2{}, height, nil
+		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
-	return c.toIoTeXTypes(), height, nil
+	return c.toIoTeXTypes(), csr.Height(), nil
 }
 
-func readStateCandidateByAddress(ctx context.Context, sr protocol.StateReader,
+func readStateCandidateByAddress(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_CandidateByAddress) (*iotextypes.CandidateV2, uint64, error) {
 	owner, err := address.FromString(req.GetOwnerAddr())
 	if err != nil {
 		return nil, 0, err
 	}
-	c, height, _ := getCandidate(sr, owner)
+	c := csr.CandCenter().GetByOwner(owner)
 	if c == nil {
-		return &iotextypes.CandidateV2{}, height, nil
+		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
-	return c.toIoTeXTypes(), height, nil
+	return c.toIoTeXTypes(), csr.Height(), nil
 }
 
-func readStateTotalStakingAmount(ctx context.Context, sr protocol.StateReader,
+func readStateTotalStakingAmount(ctx context.Context, sr protocol.StateReader, csr CandidateStateReader,
 	_ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
-	var height uint64
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr
-	height, total, err := getTotalStakedAmount(ctx, sr)
+	total, err := getTotalStakedAmount(ctx, sr, csr)
 	if err != nil {
-		return nil, height, err
+		return nil, csr.Height(), err
 	}
 	meta.Balance = total.String()
-	return &meta, height, nil
+	return &meta, csr.Height(), nil
 }
 
 func toIoTeXTypesVoteBucketList(buckets []*VoteBucket) (*iotextypes.VoteBucketList, error) {
@@ -205,24 +200,20 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 	return res
 }
 
-func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader) (uint64, *big.Int, error) {
-	csr, err := ConstructBaseView(sr)
-	if err != nil {
-		return 0, nil, err
-	}
+func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader, csr CandidateStateReader) (*big.Int, error) {
 
 	chainCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
 	if hu.IsPost(config.Greenland, csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
-		height, err := sr.State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := sr.State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		if err != nil {
-			return height, nil, err
+			return nil, err
 		}
-		return height, total.amount, nil
+		return total.amount, nil
 	}
 
 	// otherwise read from bucket pool
-	return csr.Height(), csr.BucketPool().Total(), nil
+	return csr.BucketPool().Total(), nil
 }

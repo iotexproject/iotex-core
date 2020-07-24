@@ -340,17 +340,3 @@ func getAllCandidates(sr protocol.StateReader) (CandidateList, uint64, error) {
 	}
 	return cands, height, nil
 }
-
-func getCandidateByName(sr protocol.StateReader, name string) (*Candidate, uint64, error) {
-	c, height, err := getAllCandidates(sr)
-	if err != nil {
-		return nil, height, err
-	}
-
-	for i := range c {
-		if c[i].Name == name {
-			return c[i], height, nil
-		}
-	}
-	return nil, height, ErrInvalidCanName
-}

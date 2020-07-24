@@ -133,7 +133,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	_, c, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
+	c, _, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -349,8 +349,12 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
+	csr, err := ConstructBaseView(sr)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	var (
-		err    error
 		height uint64
 		resp   proto.Message
 	)
@@ -360,17 +364,17 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = readStateBucketsByCandidate(ctx, sr, r.GetBucketsByCandidate())
+		resp, height, err = readStateBucketsByCandidate(ctx, sr, csr.CandCenter(), r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
 		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		resp, height, err = readStateCandidates(ctx, sr, r.GetCandidates())
+		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, height, err = readStateCandidateByName(ctx, sr, r.GetCandidateByName())
+		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, height, err = readStateCandidateByAddress(ctx, sr, r.GetCandidateByAddress())
+		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = readStateTotalStakingAmount(ctx, sr, r.GetTotalStakingAmount())
+		resp, height, err = readStateTotalStakingAmount(ctx, sr, csr, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
