@@ -138,8 +138,8 @@ func (bp *BucketPool) Count() uint64 {
 	return bp.total.count
 }
 
-// Construct returns a copy of the bucket pool
-func (bp *BucketPool) Construct(enableSMStorage bool) *BucketPool {
+// Copy returns a copy of the bucket pool
+func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 	pool := BucketPool{}
 	pool.enableSMStorage = enableSMStorage
 	pool.total = &totalAmount{

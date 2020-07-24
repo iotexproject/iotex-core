@@ -24,8 +24,8 @@ type (
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
-		GetByName(string) *Candidate
-		GetByOwner(address.Address) *Candidate
+		GetCandidateByName(string) *Candidate
+		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
 		TotalStakedAmount() *big.Int
 	}
@@ -55,11 +55,11 @@ func (c *candSR) BaseView() *ViewData {
 	return c.view
 }
 
-func (c *candSR) GetByName(name string) *Candidate {
+func (c *candSR) GetCandidateByName(name string) *Candidate {
 	return c.view.candCenter.GetByName(name)
 }
 
-func (c *candSR) GetByOwner(owner address.Address) *Candidate {
+func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
 	return c.view.candCenter.GetByOwner(owner)
 }
 

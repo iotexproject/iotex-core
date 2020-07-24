@@ -58,7 +58,7 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 		StateManager: sm,
 		// TODO: remove CandidateCenter interface, no need for (*candCenter)
 		candCenter: view.candCenter.Base().(*candCenter),
-		bucketPool: view.bucketPool.Construct(enableSMStorage),
+		bucketPool: view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM

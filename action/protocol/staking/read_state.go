@@ -63,7 +63,7 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 
 func readStateBucketsByCandidate(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
-	c := csr.GetByName(req.GetCandName())
+	c := csr.GetCandidateByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
@@ -112,7 +112,7 @@ func readStateCandidates(ctx context.Context, csr CandidateStateReader,
 
 func readStateCandidateByName(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
-	c := csr.GetByName(req.GetCandName())
+	c := csr.GetCandidateByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
@@ -125,7 +125,7 @@ func readStateCandidateByAddress(ctx context.Context, csr CandidateStateReader,
 	if err != nil {
 		return nil, 0, err
 	}
-	c := csr.GetByOwner(owner)
+	c := csr.GetCandidateByOwner(owner)
 	if c == nil {
 		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
