@@ -133,7 +133,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	c, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
+	c, _, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -349,40 +349,43 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	c, err := GetStakingStateReader(sr)
+	csr, err := ConstructBaseView(sr)
 	if err != nil {
-		return nil, uint64(0), errors.Wrap(err, "failed to get candidate center")
+		return nil, 0, err
 	}
 
-	var resp proto.Message
+	var (
+		height uint64
+		resp   proto.Message
+	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, err = readStateBucketsByCandidate(ctx, sr, c.CandCenter(), r.GetBucketsByCandidate())
+		resp, height, err = readStateBucketsByCandidate(ctx, sr, csr.CandCenter(), r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		resp, err = readStateCandidates(ctx, c.CandCenter(), r.GetCandidates())
+		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, err = readStateCandidateByName(ctx, c.CandCenter(), r.GetCandidateByName())
+		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, err = readStateCandidateByAddress(ctx, c.CandCenter(), r.GetCandidateByAddress())
+		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, err = readStateTotalStakingAmount(ctx, c.BucketPool(), r.GetTotalStakingAmount())
+		resp, height, err = readStateTotalStakingAmount(ctx, sr, csr, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
 	if err != nil {
-		return nil, uint64(0), err
+		return nil, height, err
 	}
 	data, err := proto.Marshal(resp)
 	if err != nil {
-		return nil, uint64(0), err
+		return nil, height, err
 	}
-	return data, c.Height(), nil
+	return data, height, nil
 }
 
 // Register registers the protocol with a unique ID

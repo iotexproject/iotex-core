@@ -68,15 +68,16 @@ func (bis *BucketIndices) deleteBucketIndex(index uint64) {
 	}
 }
 
-func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, error) {
+func getBucketIndices(sr protocol.StateReader, key []byte) (*BucketIndices, uint64, error) {
 	var bis BucketIndices
-	if _, err := sr.State(
+	height, err := sr.State(
 		&bis,
 		protocol.NamespaceOption(StakingNameSpace),
-		protocol.KeyOption(key)); err != nil {
-		return nil, err
+		protocol.KeyOption(key))
+	if err != nil {
+		return nil, height, err
 	}
-	return &bis, nil
+	return &bis, height, nil
 }
 
 func putBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
@@ -119,7 +120,7 @@ func delBucketIndex(sm protocol.StateManager, key []byte, index uint64) error {
 	return err
 }
 
-func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+func getVoterBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
 	return getBucketIndices(sr, addrKeyWithPrefix(addr, _voterIndex))
 }
 
@@ -131,7 +132,7 @@ func delVoterBucketIndex(sm protocol.StateManager, addr address.Address, index u
 	return delBucketIndex(sm, addrKeyWithPrefix(addr, _voterIndex), index)
 }
 
-func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, error) {
+func getCandBucketIndices(sr protocol.StateReader, addr address.Address) (*BucketIndices, uint64, error) {
 	return getBucketIndices(sr, addrKeyWithPrefix(addr, _candIndex))
 }
 

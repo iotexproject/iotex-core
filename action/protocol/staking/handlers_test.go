@@ -208,10 +208,10 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.Equal(test.amount, amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, candidateAddr)
+			bucketIndices, _, err := getCandBucketIndices(sm, candidateAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, stakerAddr)
+			bucketIndices, _, err = getVoterBucketIndices(sm, stakerAddr)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -222,7 +222,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err := getCandidate(sm, candidateAddr)
+			candidate, _, err := getCandidate(sm, candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -573,11 +573,11 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			require.Equal(p.config.RegistrationConsts.Fee, new(big.Int).SetBytes(r.Logs[2].Data))
 
 			// test candidate
-			candidate, err := getCandidate(sm, act.OwnerAddress())
+			candidate, _, err := getCandidate(sm, act.OwnerAddress())
 			if act.OwnerAddress() == nil {
 				require.Nil(candidate)
 				require.Equal(ErrNilParameters, errors.Cause(err))
-				candidate, err = getCandidate(sm, test.caller)
+				candidate, _, err = getCandidate(sm, test.caller)
 				require.NoError(err)
 				require.Equal(test.caller.String(), candidate.Owner.String())
 			} else {
@@ -878,11 +878,11 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test candidate
-			candidate, err := getCandidate(sm, act.OwnerAddress())
+			candidate, _, err := getCandidate(sm, act.OwnerAddress())
 			if act.OwnerAddress() == nil {
 				require.Nil(candidate)
 				require.Equal(ErrNilParameters, errors.Cause(err))
-				candidate, err = getCandidate(sm, test.caller)
+				candidate, _, err = getCandidate(sm, test.caller)
 				require.NoError(err)
 				require.Equal(test.caller.String(), candidate.Owner.String())
 			} else {
@@ -1145,10 +1145,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1159,7 +1159,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1328,9 +1328,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			require.Equal(test.amount, amount.String())
 
 			// test bucket index and bucket
-			_, err := getCandBucketIndices(sm, candidate.Owner)
+			_, _, err := getCandBucketIndices(sm, candidate.Owner)
 			require.Error(err)
-			_, err = getVoterBucketIndices(sm, candidate.Owner)
+			_, _, err = getVoterBucketIndices(sm, candidate.Owner)
 			require.Error(err)
 
 			// test staker's account
@@ -1588,10 +1588,10 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, identityset.Address(1))
+			bucketIndices, _, err := getCandBucketIndices(sm, identityset.Address(1))
 			require.NoError(err)
 			require.Equal(2, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, identityset.Address(1))
+			bucketIndices, _, err = getVoterBucketIndices(sm, identityset.Address(1))
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1602,7 +1602,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err := getCandidate(sm, candidate.Owner)
+			candidate, _, err := getCandidate(sm, candidate.Owner)
 			require.NotNil(candidate)
 			require.NoError(err)
 			require.Equal(test.afterChange, candidate.Votes.String())
@@ -1769,10 +1769,10 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, candidate2.Owner)
+			bucketIndices, _, err := getCandBucketIndices(sm, candidate2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, test.to)
+			bucketIndices, _, err = getVoterBucketIndices(sm, test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -1783,7 +1783,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err := getCandidate(sm, candi.Owner)
+			candidate, _, err := getCandidate(sm, candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2002,10 +2002,10 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, cand2.Owner)
+			bucketIndices, _, err := getCandBucketIndices(sm, cand2.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, test.to)
+			bucketIndices, _, err = getVoterBucketIndices(sm, test.to)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2016,7 +2016,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			require.Equal(stakeAmount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err := getCandidate(sm, cand1.Owner)
+			candidate, _, err := getCandidate(sm, cand1.Owner)
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2273,10 +2273,10 @@ func TestProtocol_HandleRestake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2287,7 +2287,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2496,10 +2496,10 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Equal(test.amount, amount.String())
 
 			// test bucket index and bucket
-			bucketIndices, err := getCandBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
-			bucketIndices, err = getVoterBucketIndices(sm, candidate.Owner)
+			bucketIndices, _, err = getVoterBucketIndices(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(1, len(*bucketIndices))
 			indices := *bucketIndices
@@ -2511,7 +2511,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.Zero(new(big.Int).Mul(amount, big.NewInt(2)).Cmp(bucket.StakedAmount))
 
 			// test candidate
-			candidate, err = getCandidate(sm, candidate.Owner)
+			candidate, _, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
 			csm, err := NewCandidateStateManager(sm, false)

@@ -7,9 +7,10 @@
 package staking
 
 import (
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -48,16 +49,11 @@ func (c *candSR) BucketPool() *BucketPool {
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
 func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	height, err := sr.Height()
-	if err != nil {
-		return nil, err
-	}
-
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			view, err := CreateBaseView(sr, true)
+			view, height, err := CreateBaseView(sr, true)
 			if err != nil {
 				return nil, err
 			}
@@ -100,51 +96,31 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
 	if sr == nil {
-		return nil, ErrMissingField
+		return nil, 0, ErrMissingField
 	}
 
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
+	all, height, err := getAllCandidates(sr)
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, height, err
 	}
 
 	center, err := NewCandidateCenter(all)
 	if err != nil {
-		return nil, err
+		return nil, height, err
 	}
 
 	pool, err := NewBucketPool(sr, enableSMStorage)
 	if err != nil {
-		return nil, err
+		return nil, height, err
 	}
 
 	// TODO: remove CandidateCenter interface, no need for (*candCenter)
 	return &ViewData{
 		candCenter: center.(*candCenter),
 		bucketPool: pool,
-	}, nil
-}
-
-func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
-	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, nil
+	}, height, nil
 }
 
 // ConvertToViewData converts state manager to ViewData
