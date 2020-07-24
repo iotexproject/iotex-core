@@ -222,14 +222,14 @@ func testSnapshot(ws *workingSet, t *testing.T) {
 
 func TestCandidates(t *testing.T) {
 	cfg := config.Default
-	sf, err := NewFactory(cfg, InMemTrieOption())
+	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testCandidates(sf, t)
 }
 
 func TestSDBCandidates(t *testing.T) {
 	cfg := config.Default
-	sdb, err := NewStateDB(cfg, InMemStateDBOption())
+	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testCandidates(sdb, t)
 }
@@ -339,7 +339,7 @@ func TestState(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testState(sf, t)
 }
@@ -352,14 +352,14 @@ func TestHistoryState(t *testing.T) {
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = true
-	sf, err := NewFactory(cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and enable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption())
+	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
@@ -367,14 +367,14 @@ func TestHistoryState(t *testing.T) {
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
 	cfg.Chain.EnableArchiveMode = false
-	sf, err = NewFactory(cfg, DefaultTrieOption())
+	sf, err = NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	r.NoError(err)
 	testHistoryState(sf, t, false, cfg.Chain.EnableArchiveMode)
 
 	// using stateDB and disable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption())
+	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
@@ -387,14 +387,14 @@ func TestFactoryStates(t *testing.T) {
 	// using factory
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err := NewFactory(cfg, DefaultTrieOption())
+	sf, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
 
 	// using stateDB
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption())
+	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
 }
@@ -405,7 +405,7 @@ func TestSDBState(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testState(sdb, t)
 }
@@ -673,7 +673,7 @@ func TestNonce(t *testing.T) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = testTriePath
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testNonce(sf, t)
 }
@@ -684,7 +684,7 @@ func TestSDBNonce(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testNonce(sdb, t)
@@ -778,7 +778,7 @@ func TestLoadStoreHeight(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-	statefactory, err := NewFactory(cfg, DefaultTrieOption())
+	statefactory, err := NewFactory(cfg, DefaultTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(statefactory, t)
@@ -790,7 +790,7 @@ func TestLoadStoreHeightInMem(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testTriePath
-	statefactory, err := NewFactory(cfg, InMemTrieOption())
+	statefactory, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	require.NoError(t, err)
 	testLoadStoreHeight(statefactory, t)
 }
@@ -801,7 +801,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	db, err := NewStateDB(cfg, DefaultStateDBOption())
+	db, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
@@ -812,7 +812,7 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 	require.NoError(t, err)
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	db, err := NewStateDB(cfg, InMemStateDBOption())
+	db, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
@@ -865,7 +865,7 @@ func TestRunActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), RegistryOption(registry), SkipBlockValidationOption())
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -895,7 +895,7 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()

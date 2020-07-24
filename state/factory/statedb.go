@@ -36,14 +36,15 @@ import (
 
 // stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 type stateDB struct {
-	mutex              sync.RWMutex
-	currentChainHeight uint64
-	cfg                config.Config
-	registry           *protocol.Registry
-	dao                db.KVStore // the underlying DB for account/contract storage
-	timerFactory       *prometheustimer.TimerFactory
-	workingsets        *lru.Cache // lru cache for workingsets
-	protocolView       protocol.Dock
+	mutex                    sync.RWMutex
+	currentChainHeight       uint64
+	cfg                      config.Config
+	registry                 *protocol.Registry
+	dao                      db.KVStore // the underlying DB for account/contract storage
+	timerFactory             *prometheustimer.TimerFactory
+	workingsets              *lru.Cache // lru cache for workingsets
+	protocolView             protocol.Dock
+	skipBlockValidationOnPut bool
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -86,6 +87,14 @@ func InMemStateDBOption() StateDBOption {
 func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 	return func(sdb *stateDB, cfg config.Config) error {
 		sdb.registry = reg
+		return nil
+	}
+}
+
+// SkipBlockValidationStateDBOption skips block validation on PutBlock
+func SkipBlockValidationStateDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		sdb.skipBlockValidationOnPut = true
 		return nil
 	}
 }
@@ -354,7 +363,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if !isExist {
-		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		if !sdb.skipBlockValidationOnPut {
+			err = ws.ValidateBlock(ctx, blk)
+		} else {
+			_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
 			return err

@@ -89,17 +89,18 @@ type (
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	factory struct {
-		lifecycle          lifecycle.Lifecycle
-		mutex              sync.RWMutex
-		cfg                config.Config
-		registry           *protocol.Registry
-		currentChainHeight uint64
-		saveHistory        bool
-		twoLayerTrie       trie.TwoLayerTrie // global state trie, this is a read only trie
-		dao                db.KVStore        // the underlying DB for account/contract storage
-		timerFactory       *prometheustimer.TimerFactory
-		workingsets        *lru.Cache // lru cache for workingsets
-		protocolView       protocol.Dock
+		lifecycle                lifecycle.Lifecycle
+		mutex                    sync.RWMutex
+		cfg                      config.Config
+		registry                 *protocol.Registry
+		currentChainHeight       uint64
+		saveHistory              bool
+		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
+		dao                      db.KVStore        // the underlying DB for account/contract storage
+		timerFactory             *prometheustimer.TimerFactory
+		workingsets              *lru.Cache // lru cache for workingsets
+		protocolView             protocol.Dock
+		skipBlockValidationOnPut bool
 	}
 )
 
@@ -142,6 +143,14 @@ func InMemTrieOption() Option {
 func RegistryOption(reg *protocol.Registry) Option {
 	return func(sf *factory, cfg config.Config) error {
 		sf.registry = reg
+		return nil
+	}
+}
+
+// SkipBlockValidationOption skips block validation on PutBlock
+func SkipBlockValidationOption() Option {
+	return func(sf *factory, cfg config.Config) error {
+		sf.skipBlockValidationOnPut = true
 		return nil
 	}
 }
@@ -528,7 +537,11 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		// regenerate workingset
-		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		if !sf.skipBlockValidationOnPut {
+			err = ws.ValidateBlock(ctx, blk)
+		} else {
+			_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
 			return err
