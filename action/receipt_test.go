@@ -23,7 +23,7 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
 	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
@@ -92,7 +92,7 @@ func TestConvertLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
 
 	typeLog := log.ConvertToLogPb()
 	require.NotNil(typeLog)
@@ -124,7 +124,7 @@ func TestSerDerLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
 
 	typeLog, err := log.Serialize()
 	require.NoError(err)

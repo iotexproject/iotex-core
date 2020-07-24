@@ -122,7 +122,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// generate create amount log
 	cLog := action.Log{
-		Address: address.StakingBucketPoolAddr,
+		Address: p.addr.String(),
 		Topics: action.Topics{
 			action.BucketCreateAmount,
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
@@ -132,6 +132,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		Recipient:   address.StakingBucketPoolAddr,
 	}
 	return log, &cLog, nil
 }
@@ -266,7 +267,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// generate withdraw amount log
 	amountLog := action.Log{
-		Address: address.StakingBucketPoolAddr,
+		Address: p.addr.String(),
 		Topics: action.Topics{
 			action.BucketWithdrawAmount,
 			action.StakingBucketPoolTopic,
@@ -276,6 +277,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		Data:        bucket.StakedAmount.Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		Sender:      address.StakingBucketPoolAddr,
 	}
 	return log, &amountLog, nil
 }
@@ -507,7 +509,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	// generate deposit amount log
 	dLog := action.Log{
-		Address: address.StakingBucketPoolAddr,
+		Address: p.addr.String(),
 		Topics: action.Topics{
 			action.BucketDepositAmount,
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
@@ -517,6 +519,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		Recipient:   address.StakingBucketPoolAddr,
 	}
 	return log, &dLog, nil
 }
@@ -686,7 +689,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	// generate self-stake log
 	cLog := action.Log{
-		Address: address.StakingBucketPoolAddr,
+		Address: p.addr.String(),
 		Topics: action.Topics{
 			action.CandidateSelfStake,
 			hash.BytesToHash256(actCtx.Caller.Bytes()),
@@ -696,11 +699,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Data:        act.Amount().Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
+		Recipient:   address.StakingBucketPoolAddr,
 	}
 
 	// generate candidate register log
 	rLog := action.Log{
-		Address: address.RewardingPoolAddr,
+		Address: p.addr.String(),
 		Topics: action.Topics{
 			action.CandidateRegistrationFee,
 			hash.BytesToHash256(actCtx.Caller.Bytes()),
@@ -710,6 +714,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Data:        registrationFee.Bytes(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
+		Recipient:   address.RewardingPoolAddr,
 	}
 	return log, &cLog, &rLog, nil
 }

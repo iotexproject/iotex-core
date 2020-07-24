@@ -176,9 +176,6 @@ func TestBucketPool(t *testing.T) {
 	r.NoError(err)
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
-	// our mock state manager writes immediately, so we write the old value back to simulate sm did not commit
-	_, err = sm.PutState(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-	r.NoError(err)
 
 	c, err = ConstructBaseView(sm)
 	r.NoError(err)
