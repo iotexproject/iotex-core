@@ -138,6 +138,17 @@ func (bp *BucketPool) Count() uint64 {
 	return bp.total.count
 }
 
+// Copy returns a copy of the bucket pool
+func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
+	pool := BucketPool{}
+	pool.enableSMStorage = enableSMStorage
+	pool.total = &totalAmount{
+		amount: new(big.Int).Set(bp.total.amount),
+		count:  bp.total.count,
+	}
+	return &pool
+}
+
 // SyncPool sync the data from state manager
 func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
 	if bp.enableSMStorage {

@@ -89,16 +89,20 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(false, pool.enableSMStorage)
 
 	tests := []struct {
-		debit, newBucket, commit bool
-		amount                   *big.Int
-		expected                 error
+		debit, newBucket, postGreenland, commit bool
+		amount                                  *big.Int
+		expected                                error
 	}{
-		{true, true, false, big.NewInt(1000), nil},
-		{false, true, false, big.NewInt(200), nil},
-		{true, true, true, big.NewInt(300), nil},
-		{false, true, false, big.NewInt(22200), nil},
-		{false, true, false, big.NewInt(60000), state.ErrNotEnoughBalance},
-		{true, false, true, big.NewInt(400), nil},
+		{true, true, false, false, big.NewInt(1000), nil},
+		{false, true, false, false, big.NewInt(200), nil},
+		{true, true, false, true, big.NewInt(300), nil},
+		{false, true, false, false, big.NewInt(22200), nil},
+		{false, true, false, false, big.NewInt(60000), state.ErrNotEnoughBalance},
+		{true, false, false, true, big.NewInt(400), nil},
+		// below test created staking bucket pool
+		{true, false, true, true, big.NewInt(500), nil},
+		{false, false, true, false, big.NewInt(1000), nil},
+		{true, false, true, true, big.NewInt(600), nil},
 	}
 
 	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
@@ -107,16 +111,21 @@ func TestBucketPool(t *testing.T) {
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
 
-	// after that, bucket pool total should not change
+	// after that, the base view should not change
 	c, err := ConstructBaseView(sm)
 	r.NoError(err)
-	pool = c.BucketPool()
+	pool = c.BaseView().bucketPool
 	r.Equal(total, pool.Total())
 	r.Equal(count, pool.Count())
 
+	var testGreenland bool
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm, false)
+		csm, err = NewCandidateStateManager(sm, v.postGreenland && testGreenland)
 		r.NoError(err)
+		// dirty view always follows the latest change
+		pool = csm.DirtyView().bucketPool
+		r.Equal(total, pool.Total())
+		r.Equal(count, pool.Count())
 		if v.debit {
 			err = csm.DebitBucketPool(v.amount, v.newBucket)
 		} else {
@@ -143,61 +152,37 @@ func TestBucketPool(t *testing.T) {
 			// after commit, value should reflect in base view
 			c, err = ConstructBaseView(sm)
 			r.NoError(err)
-			pool = c.BucketPool()
+			pool = c.BaseView().bucketPool
 			r.Equal(total, pool.Total())
 			r.Equal(count, pool.Count())
 		}
-	}
-	c, err = ConstructBaseView(sm)
-	r.NoError(err)
-	_, err = sm.PutState(c.BucketPool().total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-	r.NoError(err)
-	tests = []struct {
-		debit, newBucket, commit bool
-		amount                   *big.Int
-		expected                 error
-	}{
-		{true, false, true, big.NewInt(500), nil},
-		{false, false, false, big.NewInt(1000), nil},
-		{true, false, true, big.NewInt(600), nil},
-	}
-	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm, true)
-		r.NoError(err)
-		if v.debit {
-			err = csm.DebitBucketPool(v.amount, v.newBucket)
-		} else {
-			err = csm.CreditBucketPool(v.amount)
-		}
-		r.Equal(v.expected, err)
 
-		if v.expected != nil {
-			continue
-		}
-
-		if v.debit {
-			total.Add(total, v.amount)
-			if v.newBucket {
-				count++
-			}
-		} else {
-			total.Sub(total, v.amount)
-			count--
-		}
-
-		if v.commit {
-			r.NoError(csm.Commit())
-			// after commit, value should reflect in base view
-			c, err = ConstructBaseView(sm)
+		if !testGreenland && v.postGreenland {
+			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 			r.NoError(err)
-			pool = c.BucketPool()
-			r.Equal(total, pool.Total())
-			r.Equal(count, pool.Count())
+			testGreenland = true
 		}
 	}
+
+	// verify state has been created successfully
 	var b totalAmount
 	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	r.NoError(err)
 	r.Equal(total, b.amount)
 	r.Equal(count, b.count)
+
+	// test again bucket pool operation success but sm did not commit
+	csm, err = NewCandidateStateManager(sm, true)
+	r.NoError(err)
+	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
+	sm.Snapshot()
+	// our mock state manager writes immediately, so we write the old value back to simulate sm did not commit
+	_, err = sm.PutState(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	r.NoError(err)
+
+	c, err = ConstructBaseView(sm)
+	r.NoError(err)
+	pool = c.BaseView().bucketPool
+	r.Equal(total, pool.Total())
+	r.Equal(count, pool.Count())
 }
