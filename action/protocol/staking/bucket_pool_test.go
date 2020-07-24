@@ -89,20 +89,16 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(false, pool.enableSMStorage)
 
 	tests := []struct {
-		debit, newBucket, postGreenland, commit bool
-		amount                                  *big.Int
-		expected                                error
+		debit, newBucket, commit bool
+		amount                   *big.Int
+		expected                 error
 	}{
-		{true, true, false, false, big.NewInt(1000), nil},
-		{false, true, false, false, big.NewInt(200), nil},
-		{true, true, false, true, big.NewInt(300), nil},
-		{false, true, false, false, big.NewInt(22200), nil},
-		{false, true, false, false, big.NewInt(60000), state.ErrNotEnoughBalance},
-		{true, false, false, true, big.NewInt(400), nil},
-		// below test created staking bucket pool
-		{true, false, true, true, big.NewInt(500), nil},
-		{false, false, true, false, big.NewInt(1000), nil},
-		{true, false, true, true, big.NewInt(600), nil},
+		{true, true, false, big.NewInt(1000), nil},
+		{false, true, false, big.NewInt(200), nil},
+		{true, true, true, big.NewInt(300), nil},
+		{false, true, false, big.NewInt(22200), nil},
+		{false, true, false, big.NewInt(60000), state.ErrNotEnoughBalance},
+		{true, false, true, big.NewInt(400), nil},
 	}
 
 	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
@@ -119,7 +115,7 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(count, pool.Count())
 
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm, v.postGreenland)
+		csm, err = NewCandidateStateManager(sm, false)
 		r.NoError(err)
 		if v.debit {
 			err = csm.DebitBucketPool(v.amount, v.newBucket)
@@ -152,7 +148,53 @@ func TestBucketPool(t *testing.T) {
 			r.Equal(count, pool.Count())
 		}
 	}
+	c, err = ConstructBaseView(sm)
+	r.NoError(err)
+	_, err = sm.PutState(c.BucketPool().total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	r.NoError(err)
+	tests = []struct {
+		debit, newBucket, commit bool
+		amount                   *big.Int
+		expected                 error
+	}{
+		{true, false, true, big.NewInt(500), nil},
+		{false, false, false, big.NewInt(1000), nil},
+		{true, false, true, big.NewInt(600), nil},
+	}
+	for _, v := range tests {
+		csm, err = NewCandidateStateManager(sm, true)
+		r.NoError(err)
+		if v.debit {
+			err = csm.DebitBucketPool(v.amount, v.newBucket)
+		} else {
+			err = csm.CreditBucketPool(v.amount)
+		}
+		r.Equal(v.expected, err)
 
+		if v.expected != nil {
+			continue
+		}
+
+		if v.debit {
+			total.Add(total, v.amount)
+			if v.newBucket {
+				count++
+			}
+		} else {
+			total.Sub(total, v.amount)
+			count--
+		}
+
+		if v.commit {
+			r.NoError(csm.Commit())
+			// after commit, value should reflect in base view
+			c, err = ConstructBaseView(sm)
+			r.NoError(err)
+			pool = c.BucketPool()
+			r.Equal(total, pool.Total())
+			r.Equal(count, pool.Count())
+		}
+	}
 	var b totalAmount
 	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	r.NoError(err)

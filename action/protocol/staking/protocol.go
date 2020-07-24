@@ -201,6 +201,22 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
 }
 
+// CreatePreStates updates state manager
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if blkCtx.BlockHeight != hu.GreenlandBlockHeight() {
+		return nil
+	}
+	csr, err := ConstructBaseView(sm)
+	if err != nil {
+		return err
+	}
+	_, err = sm.PutState(csr.BucketPool().total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	return err
+}
+
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	height, err := sm.Height()

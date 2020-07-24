@@ -141,14 +141,8 @@ func (bp *BucketPool) Count() uint64 {
 // SyncPool sync the data from state manager
 func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
-		switch _, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
-		case nil:
-			return nil
-		case state.ErrStateNotExist:
-			// fall back to load all buckets
-		default:
-			return err
-		}
+		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		return err
 	}
 	// get stashed total amount
 	ser, err := protocol.UnloadAndAssertBytes(sm, stakingBucketPool)
