@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -31,6 +32,7 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_poll"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.StateManager, *Protocol), withExempt bool) {
@@ -40,9 +42,6 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 	registry := protocol.NewRegistry()
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	cb := batch.NewCachedBatch()
-
-	// action.RewardingProtocolID is defined to avoid import cycle, make sure they match
-	require.Equal(t, protocolID, action.RewardingProtocolID)
 
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
@@ -297,6 +296,9 @@ func TestProtocol_Handle(t *testing.T) {
 	// Test for ForceRegister
 	require.NoError(t, p.ForceRegister(registry))
 
+	// address package also defined protocol address, make sure they match
+	require.Equal(t, hash.BytesToHash160(p.addr.Bytes()), address.RewardingProtocolAddrHash)
+
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
 	cfg.Genesis.Rewarding.EpochRewardStr = "100"
@@ -469,4 +471,60 @@ func TestProtocol_Handle(t *testing.T) {
 		cb.Delete("state", addrHash[:], "failed to delete state")
 		return nil
 	}).AnyTimes()
+}
+
+func TestMigrateValue(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	p := NewProtocol(
+		genesis.Default.FoundationBonusP2StartEpoch,
+		genesis.Default.FoundationBonusP2EndEpoch,
+	)
+	// put old
+	require.NoError(p.putStateV1(sm, adminKey, &admin{
+		blockReward:                big.NewInt(811),
+		epochReward:                big.NewInt(922),
+		foundationBonus:            big.NewInt(700),
+		numDelegatesForEpochReward: 118,
+	}))
+	require.NoError(p.putStateV1(sm, fundKey, &fund{
+		totalBalance:     big.NewInt(811),
+		unclaimedBalance: big.NewInt(922),
+	}))
+	require.NoError(p.putStateV1(sm, exemptKey, &exempt{
+		addrs: []address.Address{identityset.Address(0)},
+	}))
+
+	// migrate
+	require.NoError(p.migrateValueGreenland(context.Background(), sm))
+
+	// assert old (not exist)
+	_, err := p.stateV1(sm, adminKey, &admin{})
+	require.Equal(state.ErrStateNotExist, err)
+	_, err = p.stateV1(sm, fundKey, &fund{})
+	require.Equal(state.ErrStateNotExist, err)
+	_, err = p.stateV1(sm, exemptKey, &exempt{})
+	require.Equal(state.ErrStateNotExist, err)
+
+	// assert new (with correct value)
+	a := admin{}
+	_, err = p.stateV2(sm, adminKey, &a)
+	require.NoError(err)
+	require.Equal(uint64(118), a.numDelegatesForEpochReward)
+	require.Equal("811", a.blockReward.String())
+
+	f := fund{}
+	_, err = p.stateV2(sm, fundKey, &f)
+	require.NoError(err)
+	require.Equal("811", f.totalBalance.String())
+
+	e := exempt{}
+	_, err = p.stateV2(sm, exemptKey, &e)
+	require.NoError(err)
+	require.Equal(identityset.Address(0).String(), e.addrs[0].String())
+
+	// test migrate with no data
+	require.NoError(p.migrateValueGreenland(context.Background(), sm))
 }

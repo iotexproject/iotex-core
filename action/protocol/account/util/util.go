@@ -54,9 +54,9 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 }
 
 // LoadAccount loads an account state
-func LoadAccount(sm protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
+func LoadAccount(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
-	if _, err := sm.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
+	if _, err := sr.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
 			return &account, nil
@@ -74,9 +74,9 @@ func StoreAccount(sm protocol.StateManager, addr address.Address, account *state
 }
 
 // Recorded tests if an account has been actually stored
-func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
+func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
 	var account state.Account
-	_, err := sm.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
+	_, err := sr.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
 	if err == nil {
 		return true, nil
 	}

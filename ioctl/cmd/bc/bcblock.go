@@ -61,23 +61,34 @@ func init() {
 }
 
 type blockMessage struct {
-	Node    string                `json:"node"`
-	Block   *iotextypes.BlockMeta `json:"block"`
-	Actions []actionInfo          `json:actions`
+	Node       string                `json:"node"`
+	Block      *iotextypes.BlockMeta `json:"block"`
+	ActionInfo []actionInfo          `json:actionInfo`
 }
 
 type actionInfo struct {
-	Version      uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Nonce        uint64 `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasLimit     uint64 `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
-	GasPrice     string `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
-	SenderPubKey []byte `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Signature    []byte `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Version         uint32            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Nonce           uint64            `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasLimit        uint64            `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
+	GasPrice        string            `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
+	SenderPubKey    []byte            `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
+	Signature       []byte            `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
+	Status          uint64            `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	BlkHeight       uint64            `protobuf:"varint,2,opt,name=blkHeight,proto3" json:"blkHeight,omitempty"`
+	ActHash         []byte            `protobuf:"bytes,3,opt,name=actHash,proto3" json:"actHash,omitempty"`
+	GasConsumed     uint64            `protobuf:"varint,4,opt,name=gasConsumed,proto3" json:"gasConsumed,omitempty"`
+	ContractAddress string            `protobuf:"bytes,5,opt,name=contractAddress,proto3" json:"contractAddress,omitempty"`
+	Logs            []*iotextypes.Log `protobuf:"bytes,6,rep,name=logs,proto3" json:"logs,omitempty"`
+}
+
+type blocksInfo struct {
+	Block    *iotextypes.Block     `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
+	Receipts []*iotextypes.Receipt `protobuf:"bytes,2,rep,name=receipts,proto3" json:"receipts,omitempty"`
 }
 
 func (m *blockMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("Blockchain Node: %s\n%s\n%s", m.Node, output.JSONString(m.Block), output.JSONString(m.Actions))
+		message := fmt.Sprintf("Blockchain Node: %s\n%s\n%s", m.Node, output.JSONString(m.Block), output.JSONString(m.ActionInfo))
 		return message
 	}
 	return output.FormatString(output.Result, m)
@@ -103,7 +114,7 @@ func getBlock(args []string) error {
 		height = chainMeta.Height
 	}
 	var blockMeta *iotextypes.BlockMeta
-	var blocksInfo []*iotexapi.BlockInfo
+	var blocksInfos []blocksInfo
 	if isHeight {
 		blockMeta, err = getBlockMetaByHeight(height)
 	} else {
@@ -112,23 +123,30 @@ func getBlock(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get block meta", err)
 	}
-	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, Actions: nil}
+	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, ActionInfo: nil}
 	if verbose {
-		blocksInfo, err = getActionInfoWithinBlock(blockMeta.Height, uint64(blockMeta.NumActions))
+		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height, uint64(blockMeta.NumActions))
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)
 		}
-		for _, ele := range blocksInfo {
+		for index, ele := range blocksInfos {
 			for _, item := range ele.Block.Body.Actions {
+				Rececipt := ele.Receipts[index]
 				actionInfo := actionInfo{
-					Version:      item.Core.Version,
-					Nonce:        item.Core.Nonce,
-					GasLimit:     item.Core.GasLimit,
-					GasPrice:     item.Core.GasPrice,
-					SenderPubKey: item.SenderPubKey,
-					Signature:    item.Signature,
+					Version:         item.Core.Version,
+					Nonce:           item.Core.Nonce,
+					GasLimit:        item.Core.GasLimit,
+					GasPrice:        item.Core.GasPrice,
+					SenderPubKey:    item.SenderPubKey,
+					Signature:       item.Signature,
+					Status:          Rececipt.Status,
+					BlkHeight:       Rececipt.BlkHeight,
+					ActHash:         Rececipt.ActHash,
+					GasConsumed:     Rececipt.GasConsumed,
+					ContractAddress: Rececipt.ContractAddress,
+					Logs:            Rececipt.Logs,
 				}
-				blockInfoMessage.Actions = append(blockInfoMessage.Actions, actionInfo)
+				blockInfoMessage.ActionInfo = append(blockInfoMessage.ActionInfo, actionInfo)
 			}
 		}
 	}
@@ -137,7 +155,7 @@ func getBlock(args []string) error {
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
-func getActionInfoWithinBlock(height uint64, count uint64) ([]*iotexapi.BlockInfo, error) {
+func getActionInfoWithinBlock(height uint64, count uint64) ([]blocksInfo, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -163,7 +181,11 @@ func getActionInfoWithinBlock(height uint64, count uint64) ([]*iotexapi.BlockInf
 	if len(response.Blocks) == 0 {
 		return nil, output.NewError(output.APIError, "no actions returned", err)
 	}
-	return response.Blocks, nil
+	var blocksInfos []blocksInfo
+	for _, ele := range response.Blocks {
+		blocksInfos = append(blocksInfos, blocksInfo{Block: ele.Block, Receipts: ele.Receipts})
+	}
+	return blocksInfos, nil
 
 }
 

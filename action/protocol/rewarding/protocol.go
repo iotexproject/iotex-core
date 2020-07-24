@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -90,15 +91,37 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	switch blkCtx.BlockHeight {
 	case hu.AleutianBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false)
 	case hu.DardanellesBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true)
+	case hu.GreenlandBlockHeight():
+		return p.migrateValueGreenland(ctx, sm)
 	}
 	return nil
+}
+
+func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
+	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+		return err
+	}
+	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
+		return err
+	}
+	return p.migrateValue(sm, exemptKey, &exempt{})
+}
+
+func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
+	if _, err := p.stateV1(sm, key, value); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			// doesn't exist now just skip migration
+			return nil
+		}
+		return err
+	}
+	if err := p.putStateV2(sm, key, value); err != nil {
+		return err
+	}
+	return p.deleteStateV1(sm, key)
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
@@ -226,20 +249,83 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+// useV2Storage return true after greenland when we start using v2 storage.
+func useV2Storage(ctx context.Context) bool {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	return hu.IsPost(config.Greenland, blkCtx.BlockHeight)
+}
+
+func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	h, _, err := p.stateCheckLegacy(ctx, sm, key, value)
+	return h, err
+}
+
+func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, bool, error) {
+	if useV2Storage(ctx) {
+		h, err := p.stateV2(sm, key, value)
+		if errors.Cause(err) != state.ErrStateNotExist {
+			return h, false, err
+		}
+	}
+	h, err := p.stateV1(sm, key, value)
+	return h, true, err
+}
+
+func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	return sm.State(value, protocol.LegacyKeyOption(keyHash))
 }
 
-func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	k := append(p.keyPrefix, key...)
+	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+}
+
+func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
+	if useV2Storage(ctx) {
+		return p.putStateV2(sm, key, value)
+	}
+	return p.putStateV1(sm, key, value)
+}
+
+func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
 	return err
 }
 
-func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
+func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
+	k := append(p.keyPrefix, key...)
+	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	return err
+}
+
+func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
+	if useV2Storage(ctx) {
+		return p.deleteStateV2(sm, key)
+	}
+	return p.deleteStateV1(sm, key)
+}
+
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
+	return err
+}
+
+func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
+	k := append(p.keyPrefix, key...)
+	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
 	return err
 }
 

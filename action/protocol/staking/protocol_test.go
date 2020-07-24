@@ -22,7 +22,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestImplicitLog(t *testing.T) {
@@ -68,12 +70,9 @@ func TestProtocol(t *testing.T) {
 	r.Equal(byte(2), _voterIndex)
 	r.Equal(byte(3), _candIndex)
 
-	// action.StakingProtocolID is defined to avoid import cycle, make sure they match
-	r.Equal(protocolID, action.StakingProtocolID)
-
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	sm := newMockStateManager(ctrl)
+	sm := testdb.NewMockStateManager(ctrl)
 	_, err := sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
@@ -122,18 +121,17 @@ func TestProtocol(t *testing.T) {
 	stk, err := NewProtocol(nil, genesis.Default.Staking)
 	r.NotNil(stk)
 	r.NoError(err)
-
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
-	buckets, err := getAllBuckets(sm)
+	buckets, _, err := getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(0, len(buckets))
+	c, _, err := getAllCandidates(sm)
+	r.Equal(state.ErrStateNotExist, err)
+	r.Equal(0, len(c))
 
-	// write a number of candidates and buckets into stateDB
-	for _, e := range testCandidates {
-		r.NoError(putCandidate(sm, e.d))
-	}
+	// address package also defined protocol address, make sure they match
+	r.Equal(hash.BytesToHash160(stk.addr.Bytes()), address.StakingProtocolAddrHash)
+
+	// write a number of buckets into stateDB
 	for _, e := range tests {
 		vb := NewVoteBucket(e.cand, e.owner, e.amount, e.duration, time.Now(), true)
 		index, err := putBucketAndIndex(sm, vb)
@@ -142,12 +140,22 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
+	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
+		Genesis: genesis.Default,
+	})
 	v, err := stk.Start(ctx, sm)
+	sm.WriteView(protocolID, v)
 	r.NoError(err)
-	cc, ok := v.(CandidateCenter)
+	_, ok := v.(*ViewData)
 	r.True(ok)
-	csm, err := NewCandidateStateManager(sm, cc)
+
+	csm, err := NewCandidateStateManager(sm, false)
 	r.NoError(err)
+	// load a number of candidates
+	for _, e := range testCandidates {
+		r.NoError(csm.Upsert(e.d))
+	}
+	r.NoError(csm.Commit())
 	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
@@ -171,13 +179,33 @@ func TestProtocol(t *testing.T) {
 		r.True(c.d.SelfStake.Cmp(unit.ConvertIotxToRau(1200000)) >= 0)
 	}
 
+	// load all candidates from stateDB and verify
+	all, _, err := getAllCandidates(sm)
+	r.NoError(err)
+	r.Equal(len(testCandidates), len(all))
+	for _, e := range testCandidates {
+		for i := range all {
+			if all[i].Name == e.d.Name {
+				r.Equal(e.d, all[i])
+				break
+			}
+		}
+	}
+
+	// csm's candidate center should be identical to all candidates in stateDB
+	c1, err := all.toStateCandidateList()
+	r.NoError(err)
+	c2, err := csm.CandCenter().All().toStateCandidateList()
+	r.NoError(err)
+	r.Equal(c1, c2)
+
 	// load buckets from stateDB and verify
-	buckets, err = getAllBuckets(sm)
+	buckets, _, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests), len(buckets))
 	// delete one bucket
 	r.NoError(delBucket(sm, 1))
-	buckets, err = getAllBuckets(sm)
+	buckets, _, err = getAllBuckets(sm)
 	r.NoError(err)
 	r.Equal(len(tests)-1, len(buckets))
 	for _, e := range tests {

@@ -52,7 +52,6 @@ const (
 
 // Errors
 var (
-	ErrTypeAssertion   = errors.New("failed type assertion")
 	ErrWithdrawnBucket = errors.New("the bucket is already withdrawn")
 	TotalBucketKey     = append([]byte{_const}, []byte("totalBucket")...)
 )
@@ -128,9 +127,13 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+	height, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
 
 	// load view from SR
-	c, err := createCandCenter(sr)
+	c, _, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -145,13 +148,7 @@ func (p *Protocol) CreateGenesisStates(
 	if len(p.config.BootstrapCandidates) == 0 {
 		return nil
 	}
-
-	center, err := getCandCenter(sm)
-	if err != nil {
-		return errors.Wrap(err, "failed to create CandidateStateManager")
-	}
-
-	csm, err := NewCandidateStateManager(sm, center)
+	csm, err := NewCandidateStateManager(sm, false)
 	if err != nil {
 		return err
 	}
@@ -195,6 +192,9 @@ func (p *Protocol) CreateGenesisStates(
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
+		if err := csm.DebitBucketPool(selfStake, true); err != nil {
+			return err
+		}
 	}
 
 	// commit updated view
@@ -203,12 +203,11 @@ func (p *Protocol) CreateGenesisStates(
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	center, err := getCandCenter(sm)
+	height, err := sm.Height()
 	if err != nil {
-		return errors.Wrap(err, "failed to commit candidate change in Commit")
+		return err
 	}
-
-	csm, err := NewCandidateStateManager(sm, center)
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return err
 	}
@@ -219,12 +218,11 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	center, err := getCandCenter(sm)
+	height, err := sm.Height()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to Handle action")
+		return nil, err
 	}
-
-	csm, err := NewCandidateStateManager(sm, center.Base())
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, err
 	}
@@ -322,12 +320,12 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 
 // ActiveCandidates returns all active candidates in candidate center
 func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader, height uint64) (state.CandidateList, error) {
-	center, err := getOrCreateCandCenter(sr)
+	c, err := GetStakingStateReader(sr)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
 
-	list := center.All()
+	list := c.CandCenter().All()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
@@ -351,43 +349,43 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, uint64(0), errors.Wrap(err, "failed to unmarshal request")
 	}
 
-	center, err := getOrCreateCandCenter(sr)
+	csr, err := ConstructBaseView(sr)
 	if err != nil {
-		return nil, uint64(0), errors.Wrap(err, "failed to get candidate center")
+		return nil, 0, err
 	}
 
-	var resp proto.Message
+	var (
+		height uint64
+		resp   proto.Message
+	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
-		resp, err = readStateBuckets(ctx, sr, r.GetBuckets())
+		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
-		resp, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
+		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, err = readStateBucketsByCandidate(ctx, sr, center, r.GetBucketsByCandidate())
+		resp, height, err = readStateBucketsByCandidate(ctx, sr, csr.CandCenter(), r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
-		resp, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
-		resp, err = readStateCandidates(ctx, center, r.GetCandidates())
+		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
-		resp, err = readStateCandidateByName(ctx, center, r.GetCandidateByName())
+		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
-		resp, err = readStateCandidateByAddress(ctx, center, r.GetCandidateByAddress())
+		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
+	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
+		resp, height, err = readStateTotalStakingAmount(ctx, sr, csr, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}
 	if err != nil {
-		return nil, uint64(0), err
+		return nil, height, err
 	}
 	data, err := proto.Marshal(resp)
 	if err != nil {
-		return nil, uint64(0), err
+		return nil, height, err
 	}
-	stateHeight, err := sr.Height()
-	if err != nil {
-		return nil, uint64(0), err
-	}
-
-	return data, stateHeight, nil
+	return data, height, nil
 }
 
 // Register registers the protocol with a unique ID
