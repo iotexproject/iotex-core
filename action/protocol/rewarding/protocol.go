@@ -29,7 +29,7 @@ import (
 const (
 	// TODO: it works only for one instance per protocol definition now
 	protocolID  = "rewarding"
-	v2Namespace = "rewarding"
+	v2Namespace = "Rewarding"
 )
 
 var (
