@@ -28,7 +28,8 @@ import (
 
 const (
 	// TODO: it works only for one instance per protocol definition now
-	protocolID = "rewarding"
+	protocolID  = "rewarding"
+	v2Namespace = "Rewarding"
 )
 
 var (
@@ -280,7 +281,7 @@ func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{
 
 func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
 	k := append(p.keyPrefix, key...)
-	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
 }
 
 func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
@@ -298,7 +299,7 @@ func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interf
 
 func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
 	k := append(p.keyPrefix, key...)
-	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
 	return err
 }
 
@@ -321,7 +322,7 @@ func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 
 func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
 	k := append(p.keyPrefix, key...)
-	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(protocol.SystemNamespace))
+	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
 	if errors.Cause(err) == state.ErrStateNotExist {
 		// don't care if not exist
 		return nil

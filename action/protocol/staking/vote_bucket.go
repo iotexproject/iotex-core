@@ -271,30 +271,27 @@ func delBucket(sm protocol.StateManager, index uint64) error {
 	return err
 }
 
-func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, error) {
+func getAllBuckets(sr protocol.StateReader) ([]*VoteBucket, uint64, error) {
 	// bucketKey is prefixed with const bucket = '0', all bucketKey will compare less than []byte{bucket+1}
 	maxKey := []byte{_bucket + 1}
-	_, iter, err := sr.States(
+	height, iter, err := sr.States(
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.FilterOption(func(k, v []byte) bool {
 			return bytes.HasPrefix(k, []byte{_bucket})
 		}, bucketKey(0), maxKey))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
 	if err != nil {
-		return nil, err
+		return nil, height, err
 	}
 
 	buckets := make([]*VoteBucket, 0, iter.Size())
 	for i := 0; i < iter.Size(); i++ {
 		vb := &VoteBucket{}
 		if err := iter.Next(vb); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize bucket")
+			return nil, height, errors.Wrapf(err, "failed to deserialize bucket")
 		}
 		buckets = append(buckets, vb)
 	}
-	return buckets, nil
+	return buckets, height, nil
 }
 
 func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*VoteBucket, error) {
