@@ -65,11 +65,11 @@ func TestBucketPool(t *testing.T) {
 	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	pool, err := NewBucketPool(sm)
+	pool, err := NewBucketPool(sm, false)
 	r.NoError(err)
 	r.Equal(big.NewInt(0), pool.Total())
 	r.EqualValues(0, pool.Count())
-	r.Equal(false, pool.exist)
+	r.Equal(false, pool.enableSMStorage)
 
 	// add 4 buckets
 	addr := identityset.Address(1)
@@ -78,7 +78,7 @@ func TestBucketPool(t *testing.T) {
 		r.NoError(err)
 	}
 
-	view, err := CreateBaseView(sm)
+	view, err := CreateBaseView(sm, false)
 	r.NoError(err)
 	sm.WriteView(protocolID, view)
 	pool = view.bucketPool
@@ -86,12 +86,12 @@ func TestBucketPool(t *testing.T) {
 	count := uint64(4)
 	r.Equal(total, pool.Total())
 	r.Equal(count, pool.Count())
-	r.Equal(false, pool.exist)
+	r.Equal(false, pool.enableSMStorage)
 
 	tests := []struct {
-		debit, newBucket, create, commit bool
-		amount                           *big.Int
-		expected                         error
+		debit, newBucket, postGreenland, commit bool
+		amount                                  *big.Int
+		expected                                error
 	}{
 		{true, true, false, false, big.NewInt(1000), nil},
 		{false, true, false, false, big.NewInt(200), nil},
@@ -106,9 +106,9 @@ func TestBucketPool(t *testing.T) {
 	}
 
 	// simulate bucket pool operation success, but sm did not commit (Snapshot() implements workingset.Reset(), clearing data stored in Dock())
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManager(sm, false)
 	r.NoError(err)
-	r.NoError(csm.DebitBucketPool(tests[0].amount, true, false))
+	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
 
 	// after that, bucket pool total should not change
@@ -119,15 +119,12 @@ func TestBucketPool(t *testing.T) {
 	r.Equal(count, pool.Count())
 
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm)
+		csm, err = NewCandidateStateManager(sm, v.postGreenland)
 		r.NoError(err)
-		pool = csm.BucketPool()
-		r.Equal(total, pool.Total())
-		r.Equal(count, pool.Count())
 		if v.debit {
-			err = csm.DebitBucketPool(v.amount, v.newBucket, v.create)
+			err = csm.DebitBucketPool(v.amount, v.newBucket)
 		} else {
-			err = csm.CreditBucketPool(v.amount, v.create)
+			err = csm.CreditBucketPool(v.amount)
 		}
 		r.Equal(v.expected, err)
 
@@ -154,11 +151,7 @@ func TestBucketPool(t *testing.T) {
 			r.Equal(total, pool.Total())
 			r.Equal(count, pool.Count())
 		}
-		r.Equal(v.create, pool.exist)
 	}
-	r.True(pool.exist)
-	r.Equal(total, pool.Total())
-	r.Equal(count, pool.Count())
 
 	var b totalAmount
 	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))

@@ -32,8 +32,8 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
-		CreditBucketPool(*big.Int, bool) error
-		DebitBucketPool(*big.Int, bool, bool) error
+		CreditBucketPool(*big.Int) error
+		DebitBucketPool(*big.Int, bool) error
 		Commit() error
 	}
 
@@ -45,7 +45,7 @@ type (
 )
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
+func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
 	csr, err := ConstructBaseView(sm)
@@ -59,7 +59,13 @@ func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, 
 		StateManager: sm,
 		// TODO: remove CandidateCenter interface, no need for (*candCenter)
 		candCenter: csr.CandCenter().Base().(*candCenter),
-		bucketPool: csr.BucketPool().Clone(),
+		bucketPool: &BucketPool{
+			enableSMStorage: enableSMStorage,
+			total: &totalAmount{
+				amount: new(big.Int).Set(csr.BucketPool().Total()),
+				count:  csr.BucketPool().Count(),
+			},
+		},
 	}
 
 	// extract view change from SM
@@ -153,12 +159,12 @@ func (csm *candSM) Upsert(d *Candidate) error {
 	return nil
 }
 
-func (csm *candSM) CreditBucketPool(amount *big.Int, create bool) error {
-	return csm.bucketPool.CreditPool(csm.StateManager, amount, create)
+func (csm *candSM) CreditBucketPool(amount *big.Int) error {
+	return csm.bucketPool.CreditPool(csm.StateManager, amount)
 }
 
-func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket, create bool) error {
-	return csm.bucketPool.DebitPool(csm.StateManager, amount, newBucket, create)
+func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
+	return csm.bucketPool.DebitPool(csm.StateManager, amount, newBucket)
 }
 
 func (csm *candSM) Commit() error {

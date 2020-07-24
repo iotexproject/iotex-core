@@ -40,8 +40,8 @@ var (
 type (
 	// BucketPool implements the bucket pool
 	BucketPool struct {
-		exist bool
-		total *totalAmount
+		enableSMStorage bool
+		total           *totalAmount
 	}
 
 	totalAmount struct {
@@ -93,22 +93,23 @@ func (t *totalAmount) SubBalance(amount *big.Int) error {
 }
 
 // NewBucketPool creates an instance of BucketPool
-func NewBucketPool(sr protocol.StateReader) (*BucketPool, error) {
+func NewBucketPool(sr protocol.StateReader, enableSMStorage bool) (*BucketPool, error) {
 	bp := BucketPool{
+		enableSMStorage: enableSMStorage,
 		total: &totalAmount{
 			amount: big.NewInt(0),
 		},
 	}
 
-	var err error
-	bp.exist, err = bp.poolExist(sr)
-	if err != nil {
-		return nil, err
-	}
-
-	if bp.exist {
-		_, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-		return &bp, err
+	if bp.enableSMStorage {
+		switch _, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
+		case nil:
+			return &bp, nil
+		case state.ErrStateNotExist:
+			// fall back to load all buckets
+		default:
+			return nil, err
+		}
 	}
 
 	// sum up all existing buckets
@@ -137,35 +138,18 @@ func (bp *BucketPool) Count() uint64 {
 	return bp.total.count
 }
 
-func (bp *BucketPool) poolExist(sr protocol.StateReader) (bool, error) {
-	_, err := sr.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-	if err == nil {
-		return true, nil
-	}
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return false, nil
-	}
-	return false, err
-}
-
-// Clone returns a copy of the bucket pool
-func (bp *BucketPool) Clone() *BucketPool {
-	pool := BucketPool{}
-	pool.exist = bp.exist
-	pool.total = &totalAmount{
-		amount: new(big.Int).Set(bp.total.amount),
-		count:  bp.total.count,
-	}
-	return &pool
-}
-
 // SyncPool sync the data from state manager
 func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
-	if bp.exist {
-		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-		return err
+	if bp.enableSMStorage {
+		switch _, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); errors.Cause(err) {
+		case nil:
+			return nil
+		case state.ErrStateNotExist:
+			// fall back to load all buckets
+		default:
+			return err
+		}
 	}
-
 	// get stashed total amount
 	ser, err := protocol.UnloadAndAssertBytes(sm, stakingBucketPool)
 	switch errors.Cause(err) {
@@ -183,55 +167,39 @@ func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
 
 // Commit is called upon workingset commit
 func (bp *BucketPool) Commit(sr protocol.StateReader) error {
-	if bp.exist {
-		return nil
-	}
-
-	// at Greenland height, the staking protocol address has been created
-	// so re-check the existence here
-	var err error
-	bp.exist, err = bp.poolExist(sr)
-	return err
+	return nil
 }
 
 // CreditPool subtracts staked amount out of the pool
-func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int, create bool) error {
-	if bp.exist {
-		if err := bp.total.SubBalance(amount); err != nil {
-			return err
-		}
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-		return err
-	}
-
+func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) error {
 	if err := bp.total.SubBalance(amount); err != nil {
 		return err
 	}
-	return bp.createOrStashPool(sm, create)
-}
 
-// DebitPool adds staked amount into the pool
-func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket, create bool) error {
-	if bp.exist {
-		bp.total.AddBalance(amount, newBucket)
+	if bp.enableSMStorage {
 		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 
-	bp.total.AddBalance(amount, newBucket)
-	return bp.createOrStashPool(sm, create)
-}
-
-func (bp *BucketPool) createOrStashPool(sm protocol.StateManager, create bool) error {
-	if create {
-		// at Greenland height, create the staking protocol address
-		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-		return err
-	}
-	// stash pool total amount to sm
 	ser, err := bp.total.Serialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to stash pending bucket pool")
 	}
+
+	return sm.Load(stakingBucketPool, ser)
+}
+
+// DebitPool adds staked amount into the pool
+func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBucket bool) error {
+	bp.total.AddBalance(amount, newBucket)
+	if bp.enableSMStorage {
+		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		return err
+	}
+	ser, err := bp.total.Serialize()
+	if err != nil {
+		return errors.Wrap(err, "failed to stash pending bucket pool")
+	}
+
 	return sm.Load(stakingBucketPool, ser)
 }

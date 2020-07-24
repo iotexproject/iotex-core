@@ -127,9 +127,13 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+	height, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
 
 	// load view from SR
-	c, err := CreateBaseView(sr)
+	c, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -144,8 +148,7 @@ func (p *Protocol) CreateGenesisStates(
 	if len(p.config.BootstrapCandidates) == 0 {
 		return nil
 	}
-
-	csm, err := NewCandidateStateManager(sm)
+	csm, err := NewCandidateStateManager(sm, false)
 	if err != nil {
 		return err
 	}
@@ -189,7 +192,7 @@ func (p *Protocol) CreateGenesisStates(
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
-		if err := csm.DebitBucketPool(selfStake, true, false); err != nil {
+		if err := csm.DebitBucketPool(selfStake, true); err != nil {
 			return err
 		}
 	}
@@ -200,7 +203,11 @@ func (p *Protocol) CreateGenesisStates(
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
-	csm, err := NewCandidateStateManager(sm)
+	height, err := sm.Height()
+	if err != nil {
+		return err
+	}
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return err
 	}
@@ -211,7 +218,11 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
-	csm, err := NewCandidateStateManager(sm)
+	height, err := sm.Height()
+	if err != nil {
+		return nil, err
+	}
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, err
 	}

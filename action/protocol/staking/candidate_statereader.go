@@ -57,7 +57,7 @@ func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			view, err := CreateBaseView(sr)
+			view, err := CreateBaseView(sr, true)
 			if err != nil {
 				return nil, err
 			}
@@ -100,7 +100,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader) (*ViewData, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, error) {
 	if sr == nil {
 		return nil, ErrMissingField
 	}
@@ -115,7 +115,7 @@ func CreateBaseView(sr protocol.StateReader) (*ViewData, error) {
 		return nil, err
 	}
 
-	pool, err := NewBucketPool(sr)
+	pool, err := NewBucketPool(sr, enableSMStorage)
 	if err != nil {
 		return nil, err
 	}

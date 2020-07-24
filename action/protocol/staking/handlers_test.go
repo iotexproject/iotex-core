@@ -225,7 +225,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candidateAddr)
 			require.NoError(err)
 			require.LessOrEqual(test.amount, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidateAddr)
 			require.NotNil(candidate)
@@ -586,7 +586,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.votesStr, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -891,7 +891,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 				require.Equal(test.ownerAddrStr, candidate.Owner.String())
 			}
 			require.Equal(test.afterUpdate, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1125,7 +1125,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		}
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1162,7 +1162,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterUnstake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1563,7 +1563,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -1611,7 +1611,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(candidate.Reward.String(), candidate.Reward.String())
 			require.Equal(candidate.Owner.String(), candidate.Owner.String())
 			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -1786,7 +1786,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			candidate, err := getCandidate(sm, candi.Owner)
 			require.NoError(err)
 			require.Equal(test.afterTransfer, candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candi.Owner)
 			require.NotNil(candidate)
@@ -2019,7 +2019,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			candidate, err := getCandidate(sm, cand1.Owner)
 			require.NoError(err)
 			require.LessOrEqual(uint64(0), candidate.Votes.Uint64())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(cand1.Owner)
 			require.NotNil(candidate)
@@ -2253,7 +2253,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2290,7 +2290,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterRestake, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
@@ -2464,7 +2464,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 		})
 		var r *action.Receipt
 		if test.clear {
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			sc, ok := csm.(*candSM)
 			require.True(ok)
@@ -2514,7 +2514,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			candidate, err = getCandidate(sm, candidate.Owner)
 			require.NoError(err)
 			require.Equal(test.afterDeposit, candidate.Votes.String())
-			csm, err := NewCandidateStateManager(sm)
+			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
 			candidate = csm.GetByOwner(candidate.Owner)
 			require.NotNil(candidate)
