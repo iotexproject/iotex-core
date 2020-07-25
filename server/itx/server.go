@@ -90,13 +90,13 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 func (s *Server) Start(ctx context.Context) error {
 	cctx, cancel := context.WithCancel(context.Background())
 	s.subModuleCancel = cancel
-	if err := s.p2pAgent.Start(cctx); err != nil {
-		return errors.Wrap(err, "error when starting P2P agent")
-	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {
 			return errors.Wrap(err, "error when starting blockchain")
 		}
+	}
+	if err := s.p2pAgent.Start(cctx); err != nil {
+		return errors.Wrap(err, "error when starting P2P agent")
 	}
 	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
