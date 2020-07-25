@@ -106,7 +106,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 
 	view, ok := v.(*ViewData)
 	if !ok {
-		return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting *ViewData")
+		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
 
 	return &candSR{

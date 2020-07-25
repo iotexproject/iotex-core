@@ -251,12 +251,12 @@ func (ws *workingSet) ProtocolDirty(name string) bool {
 	return ws.dock.ProtocolDirty(name)
 }
 
-func (ws *workingSet) Load(name string, v interface{}) error {
-	return ws.dock.Load(name, v)
+func (ws *workingSet) Load(name, key string, v interface{}) error {
+	return ws.dock.Load(name, key, v)
 }
 
-func (ws *workingSet) Unload(name string) (interface{}, error) {
-	return ws.dock.Unload(name)
+func (ws *workingSet) Unload(name, key string, v interface{}) error {
+	return ws.dock.Unload(name, key, v)
 }
 
 func (ws *workingSet) Reset() {
