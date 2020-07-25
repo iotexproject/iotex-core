@@ -58,6 +58,9 @@ type PostSystemActionsCreator interface {
 	CreatePostSystemActions(context.Context, StateReader) ([]action.Envelope, error)
 }
 
+// ProtocolView stores the view for all protocols
+type ProtocolView map[string]interface{}
+
 // ActionValidator is the interface of validating an action
 type ActionValidator interface {
 	Validate(context.Context, action.Action, StateReader) error

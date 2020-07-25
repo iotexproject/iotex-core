@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testString struct {
+	s string
+}
+
+func (ts *testString) Serialize() ([]byte, error) {
+	return []byte(ts.s), nil
+}
+
+func (ts *testString) Deserialize(v []byte) error {
+	ts.s = string(v)
+	return nil
+}
+
 func TestDock(t *testing.T) {
 	r := require.New(t)
 
@@ -19,44 +32,47 @@ func TestDock(t *testing.T) {
 	r.NotNil(dk)
 
 	testDocks := []struct {
-		name string
-		v    int
+		name, key string
+		v         *testString
 	}{
 		{
-			"test1", 1,
+			"ns", "test1", &testString{"v1"},
 		},
 		{
-			"test2", 2,
+			"ns", "test2", &testString{"v2"},
 		},
 		{
-			"test3", 3,
+			"vs", "test3", &testString{"v3"},
 		},
 		{
-			"test4", 1,
+			"ts", "test4", &testString{"v4"},
 		},
 	}
 
 	for _, e := range testDocks {
-		r.NoError(dk.Load(e.name, e.v))
+		r.NoError(dk.Load(e.name, e.key, e.v))
 	}
 
 	for _, e := range testDocks {
 		r.True(dk.ProtocolDirty(e.name))
-		v, err := dk.Unload(e.name)
-		r.NoError(err)
-		r.Equal(e.v, v.(int))
+		ts := &testString{}
+		r.NoError(dk.Unload(e.name, e.key, ts))
+		r.Equal(e.v, ts)
 	}
 
 	// overwrite one, and add a new one
-	r.NoError(dk.Load(testDocks[1].name, 5))
-	r.NoError(dk.Load("test5", 5))
-	v, err := dk.Unload(testDocks[1].name)
-	r.NoError(err)
-	r.Equal(5, v.(int))
-	v, err = dk.Unload("test5")
-	r.NoError(err)
-	r.Equal(5, v.(int))
+	v5 := &testString{"v5"}
+	r.NoError(dk.Load(testDocks[1].name, testDocks[1].key, v5))
+	v6 := &testString{"v6"}
+	r.NoError(dk.Load("ts", "test6", v6))
+	ts := &testString{}
+	r.NoError(dk.Unload(testDocks[1].name, testDocks[1].key, ts))
+	r.Equal(v5, ts)
+	r.NoError(dk.Unload("ts", "test6", ts))
+	r.Equal(v6, ts)
 
 	dk.Reset()
-	r.False(dk.ProtocolDirty(testDocks[1].name))
+	for _, e := range testDocks {
+		r.False(dk.ProtocolDirty(e.name))
+	}
 }

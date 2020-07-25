@@ -76,17 +76,15 @@ func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) has
 	return hash.Hash256b(sum)
 }
 
-func startAllProtocols(ctx context.Context, reg *protocol.Registry, sr protocol.StateReader, dock protocol.Dock) error {
-	view, err := reg.StartAll(ctx, sr)
-	if err != nil {
-		return err
+func readView(view protocol.ProtocolView, name string) (interface{}, error) {
+	if v, hit := view[name]; hit {
+		return v, nil
 	}
-	// save protocol's view
-	for k, v := range view {
-		if err := dock.Load(k, v); err != nil {
-			return err
-		}
-	}
+	return nil, protocol.ErrNoName
+}
+
+func writeView(view protocol.ProtocolView, name string, v interface{}) error {
+	view[name] = v
 	return nil
 }
 

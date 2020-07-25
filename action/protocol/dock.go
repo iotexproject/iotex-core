@@ -8,6 +8,11 @@ package protocol
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/go-pkgs/hash"
+
+	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Errors
@@ -17,57 +22,47 @@ var (
 )
 
 type dock struct {
-	dirty     bool
-	value     map[string]interface{}
-	protocols map[string]bool
+	stash batch.KVStoreCache
+	dirty map[string]bool
 }
 
 // NewDock returns a new dock
 func NewDock() Dock {
 	return &dock{
-		value:     make(map[string]interface{}),
-		protocols: make(map[string]bool),
+		stash: batch.NewKVCache(),
+		dirty: make(map[string]bool),
 	}
 }
 
 func (d *dock) ProtocolDirty(name string) bool {
-	return d.protocols[name]
+	return d.dirty[name]
 }
 
-func (d *dock) Load(name string, v interface{}) error {
-	d.value[name] = v
-	d.protocols[name] = true
-	return nil
-}
-
-func (d *dock) Unload(name string) (interface{}, error) {
-	if v, hit := d.value[name]; hit {
-		return v, nil
+func (d *dock) Load(ns, key string, v interface{}) error {
+	ser, err := state.Serialize(v)
+	if err != nil {
+		return err
 	}
-	return nil, errors.Wrapf(ErrNoName, "name %s", name)
+	d.dirty[ns] = true
+	d.stash.Write(stashKey(ns, key), ser)
+	return nil
 }
 
-func (d *dock) Push() error {
-	return nil
+func (d *dock) Unload(ns, key string, v interface{}) error {
+	ser, err := d.stash.Read(stashKey(ns, key))
+	if err != nil {
+		return ErrNoName
+	}
+	return state.Deserialize(v, ser)
 }
 
 func (d *dock) Reset() {
-	d.value = nil
-	d.protocols = nil
-	d.value = make(map[string]interface{})
-	d.protocols = make(map[string]bool)
+	d.dirty = nil
+	d.dirty = make(map[string]bool)
+	d.stash.Clear()
 }
 
-// UnloadAndAssertBytes read from dock and assert the value is []byte
-func UnloadAndAssertBytes(sm StateManager, name string) ([]byte, error) {
-	v, err := sm.Unload(name)
-	if err != nil {
-		return nil, err
-	}
-
-	ser, ok := v.([]byte)
-	if !ok {
-		return nil, errors.Wrap(ErrTypeAssertion, "failed to unload data from dock, expecting []byte")
-	}
-	return ser, nil
+func stashKey(ns, key string) hash.Hash160 {
+	hk := hash.Hash160b([]byte(key))
+	return hash.Hash160b(append([]byte(ns), hk[:]...))
 }
