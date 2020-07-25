@@ -7,7 +7,11 @@
 package staking
 
 import (
+	"math/big"
+
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-address/address"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
@@ -18,8 +22,12 @@ type (
 	CandidateStateReader interface {
 		// TODO: remove CandidateCenter interface, return *candCenter
 		Height() uint64
-		CandCenter() CandidateCenter
-		BucketPool() *BucketPool
+		SR() protocol.StateReader
+		BaseView() *ViewData
+		GetCandidateByName(string) *Candidate
+		GetCandidateByOwner(address.Address) *Candidate
+		AllCandidates() CandidateList
+		TotalStakedAmount() *big.Int
 	}
 
 	candSR struct {
@@ -39,12 +47,28 @@ func (c *candSR) Height() uint64 {
 	return c.height
 }
 
-func (c *candSR) CandCenter() CandidateCenter {
-	return c.view.candCenter
+func (c *candSR) SR() protocol.StateReader {
+	return c.StateReader
 }
 
-func (c *candSR) BucketPool() *BucketPool {
-	return c.view.bucketPool
+func (c *candSR) BaseView() *ViewData {
+	return c.view
+}
+
+func (c *candSR) GetCandidateByName(name string) *Candidate {
+	return c.view.candCenter.GetByName(name)
+}
+
+func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
+	return c.view.candCenter.GetByOwner(owner)
+}
+
+func (c *candSR) AllCandidates() CandidateList {
+	return c.view.candCenter.All()
+}
+
+func (c *candSR) TotalStakedAmount() *big.Int {
+	return c.view.bucketPool.Total()
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
@@ -121,12 +145,4 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		candCenter: center.(*candCenter),
 		bucketPool: pool,
 	}, height, nil
-}
-
-// ConvertToViewData converts state manager to ViewData
-func ConvertToViewData(csm CandidateStateManager) *ViewData {
-	return &ViewData{
-		candCenter: csm.CandCenter().(*candCenter),
-		bucketPool: csm.BucketPool(),
-	}
 }

@@ -61,21 +61,21 @@ func readStateBucketsByVoter(ctx context.Context, sr protocol.StateReader,
 	return pbBuckets, height, err
 }
 
-func readStateBucketsByCandidate(ctx context.Context, sr protocol.StateReader, cc CandidateCenter,
+func readStateBucketsByCandidate(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_VoteBucketsByCandidate) (*iotextypes.VoteBucketList, uint64, error) {
-	c := cc.GetByName(req.GetCandName())
+	c := csr.GetCandidateByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.VoteBucketList{}, 0, nil
 	}
 
-	indices, height, err := getCandBucketIndices(sr, c.Owner)
+	indices, height, err := getCandBucketIndices(csr.SR(), c.Owner)
 	if errors.Cause(err) == state.ErrStateNotExist {
 		return &iotextypes.VoteBucketList{}, height, nil
 	}
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
-	buckets, err := getBucketsWithIndices(sr, *indices)
+	buckets, err := getBucketsWithIndices(csr.SR(), *indices)
 	if err != nil {
 		return nil, height, err
 	}
@@ -105,14 +105,14 @@ func readStateCandidates(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
 	offset := int(req.GetPagination().GetOffset())
 	limit := int(req.GetPagination().GetLimit())
-	candidates := getPageOfCandidates(csr.CandCenter().All(), offset, limit)
+	candidates := getPageOfCandidates(csr.AllCandidates(), offset, limit)
 
 	return toIoTeXTypesCandidateListV2(candidates), csr.Height(), nil
 }
 
 func readStateCandidateByName(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_CandidateByName) (*iotextypes.CandidateV2, uint64, error) {
-	c := csr.CandCenter().GetByName(req.GetCandName())
+	c := csr.GetCandidateByName(req.GetCandName())
 	if c == nil {
 		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
@@ -125,18 +125,18 @@ func readStateCandidateByAddress(ctx context.Context, csr CandidateStateReader,
 	if err != nil {
 		return nil, 0, err
 	}
-	c := csr.CandCenter().GetByOwner(owner)
+	c := csr.GetCandidateByOwner(owner)
 	if c == nil {
 		return &iotextypes.CandidateV2{}, csr.Height(), nil
 	}
 	return c.toIoTeXTypes(), csr.Height(), nil
 }
 
-func readStateTotalStakingAmount(ctx context.Context, sr protocol.StateReader, csr CandidateStateReader,
+func readStateTotalStakingAmount(ctx context.Context, csr CandidateStateReader,
 	_ *iotexapi.ReadStakingDataRequest_TotalStakingAmount) (*iotextypes.AccountMeta, uint64, error) {
 	meta := iotextypes.AccountMeta{}
 	meta.Address = address.StakingBucketPoolAddr
-	total, err := getTotalStakedAmount(ctx, sr, csr)
+	total, err := getTotalStakedAmount(ctx, csr)
 	if err != nil {
 		return nil, csr.Height(), err
 	}
@@ -200,14 +200,13 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 	return res
 }
 
-func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader, csr CandidateStateReader) (*big.Int, error) {
-
+func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.Int, error) {
 	chainCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
 	if hu.IsPost(config.Greenland, csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
-		_, err := sr.State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+		_, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		if err != nil {
 			return nil, err
 		}
@@ -215,5 +214,5 @@ func getTotalStakedAmount(ctx context.Context, sr protocol.StateReader, csr Cand
 	}
 
 	// otherwise read from bucket pool
-	return csr.BucketPool().Total(), nil
+	return csr.TotalStakedAmount(), nil
 }

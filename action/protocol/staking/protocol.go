@@ -201,6 +201,22 @@ func (p *Protocol) CreateGenesisStates(
 	return errors.Wrap(csm.Commit(), "failed to commit candidate change in CreateGenesisStates")
 }
 
+// CreatePreStates updates state manager
+func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if blkCtx.BlockHeight != hu.GreenlandBlockHeight() {
+		return nil
+	}
+	csr, err := ConstructBaseView(sm)
+	if err != nil {
+		return err
+	}
+	_, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	return err
+}
+
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	height, err := sm.Height()
@@ -325,7 +341,7 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
 
-	list := c.CandCenter().All()
+	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
 		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
@@ -364,7 +380,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_CANDIDATE:
-		resp, height, err = readStateBucketsByCandidate(ctx, sr, csr.CandCenter(), r.GetBucketsByCandidate())
+		resp, height, err = readStateBucketsByCandidate(ctx, csr, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
 		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
@@ -374,7 +390,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
 		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		resp, height, err = readStateTotalStakingAmount(ctx, sr, csr, r.GetTotalStakingAmount())
+		resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
 	default:
 		err = errors.New("corresponding method isn't found")
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -156,7 +157,6 @@ func TestProtocol(t *testing.T) {
 		r.NoError(csm.Upsert(e.d))
 	}
 	r.NoError(csm.Commit())
-	r.Equal(len(testCandidates), csm.Size())
 	for _, e := range testCandidates {
 		r.True(csm.ContainsOwner(e.d.Owner))
 		r.True(csm.ContainsName(e.d.Name))
@@ -195,7 +195,7 @@ func TestProtocol(t *testing.T) {
 	// csm's candidate center should be identical to all candidates in stateDB
 	c1, err := all.toStateCandidateList()
 	r.NoError(err)
-	c2, err := csm.CandCenter().All().toStateCandidateList()
+	c2, err := csm.DirtyView().candCenter.All().toStateCandidateList()
 	r.NoError(err)
 	r.Equal(c1, c2)
 
@@ -217,4 +217,54 @@ func TestProtocol(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestCreatePreStates(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+	p, err := NewProtocol(nil, genesis.Default.Staking)
+	require.NoError(err)
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			},
+		),
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
+		},
+	)
+	v, err := p.Start(ctx, sm)
+	require.NoError(err)
+	require.NoError(sm.WriteView(protocolID, v))
+	csm, err := NewCandidateStateManager(sm, false)
+	require.NoError(err)
+	require.NotNil(csm)
+	csm, err = NewCandidateStateManager(sm, true)
+	require.Error(err)
+	require.NoError(p.CreatePreStates(ctx, sm))
+	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight + 1,
+		},
+	)
+	require.NoError(p.CreatePreStates(ctx, sm))
+	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	require.EqualError(errors.Cause(err), state.ErrStateNotExist.Error())
+	ctx = protocol.WithBlockCtx(
+		ctx,
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight,
+		},
+	)
+	require.NoError(p.CreatePreStates(ctx, sm))
+	total := &totalAmount{}
+	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+	require.NoError(err)
 }

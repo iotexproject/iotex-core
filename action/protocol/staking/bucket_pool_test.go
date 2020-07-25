@@ -111,16 +111,21 @@ func TestBucketPool(t *testing.T) {
 	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
 	sm.Snapshot()
 
-	// after that, bucket pool total should not change
+	// after that, the base view should not change
 	c, err := ConstructBaseView(sm)
 	r.NoError(err)
-	pool = c.BucketPool()
+	pool = c.BaseView().bucketPool
 	r.Equal(total, pool.Total())
 	r.Equal(count, pool.Count())
 
+	var testGreenland bool
 	for _, v := range tests {
-		csm, err = NewCandidateStateManager(sm, v.postGreenland)
+		csm, err = NewCandidateStateManager(sm, v.postGreenland && testGreenland)
 		r.NoError(err)
+		// dirty view always follows the latest change
+		pool = csm.DirtyView().bucketPool
+		r.Equal(total, pool.Total())
+		r.Equal(count, pool.Count())
 		if v.debit {
 			err = csm.DebitBucketPool(v.amount, v.newBucket)
 		} else {
@@ -147,15 +152,34 @@ func TestBucketPool(t *testing.T) {
 			// after commit, value should reflect in base view
 			c, err = ConstructBaseView(sm)
 			r.NoError(err)
-			pool = c.BucketPool()
+			pool = c.BaseView().bucketPool
 			r.Equal(total, pool.Total())
 			r.Equal(count, pool.Count())
 		}
+
+		if !testGreenland && v.postGreenland {
+			_, err = sm.PutState(c.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
+			r.NoError(err)
+			testGreenland = true
+		}
 	}
 
+	// verify state has been created successfully
 	var b totalAmount
 	_, err = sm.State(&b, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	r.NoError(err)
 	r.Equal(total, b.amount)
 	r.Equal(count, b.count)
+
+	// test again bucket pool operation success but sm did not commit
+	csm, err = NewCandidateStateManager(sm, true)
+	r.NoError(err)
+	r.NoError(csm.DebitBucketPool(tests[0].amount, true))
+	sm.Snapshot()
+
+	c, err = ConstructBaseView(sm)
+	r.NoError(err)
+	pool = c.BaseView().bucketPool
+	r.Equal(total, pool.Total())
+	r.Equal(count, pool.Count())
 }

@@ -20,10 +20,8 @@ type (
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
 		protocol.StateManager
-		CandCenter() CandidateCenter
-		BucketPool() *BucketPool
 		// candidate and bucket pool related
-		Size() int
+		DirtyView() *ViewData
 		ContainsName(string) bool
 		ContainsOwner(address.Address) bool
 		ContainsOperator(address.Address) bool
@@ -55,17 +53,12 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 
 	// make a copy of candidate center and bucket pool, so they can be modified by csm
 	// and won't affect base view until being committed
+	view := csr.BaseView()
 	csm := &candSM{
 		StateManager: sm,
 		// TODO: remove CandidateCenter interface, no need for (*candCenter)
-		candCenter: csr.CandCenter().Base().(*candCenter),
-		bucketPool: &BucketPool{
-			enableSMStorage: enableSMStorage,
-			total: &totalAmount{
-				amount: new(big.Int).Set(csr.BucketPool().Total()),
-				count:  csr.BucketPool().Count(),
-			},
-		},
+		candCenter: view.candCenter.Base().(*candCenter),
+		bucketPool: view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM
@@ -94,16 +87,12 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	return csm, nil
 }
 
-func (csm *candSM) CandCenter() CandidateCenter {
-	return csm.candCenter
-}
-
-func (csm *candSM) BucketPool() *BucketPool {
-	return csm.bucketPool
-}
-
-func (csm *candSM) Size() int {
-	return csm.candCenter.Size()
+// DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
+func (csm *candSM) DirtyView() *ViewData {
+	return &ViewData{
+		candCenter: csm.candCenter,
+		bucketPool: csm.bucketPool,
+	}
 }
 
 func (csm *candSM) ContainsName(name string) bool {
@@ -176,6 +165,6 @@ func (csm *candSM) Commit() error {
 		return err
 	}
 
-	// write update view back to state factory
-	return csm.WriteView(protocolID, ConvertToViewData(csm))
+	// write updated view back to state factory
+	return csm.WriteView(protocolID, csm.DirtyView())
 }
