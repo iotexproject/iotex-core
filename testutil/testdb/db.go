@@ -118,7 +118,7 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	var h uint64
 	kv := NewMockKVStore(ctrl)
 	dk := protocol.NewDock()
-	view := protocol.ProtocolView{}
+	view := protocol.View{}
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)

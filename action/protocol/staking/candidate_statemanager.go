@@ -73,11 +73,8 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 
 	// TODO: remove CandidateCenter interface, convert the code below to candCenter.SyncCenter()
 	delta := CandidateList{}
-	switch err = sm.Unload(protocolID, stakingCandCenter, &delta); errors.Cause(err) {
-	case protocol.ErrTypeAssertion:
+	if err = sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
 		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	case protocol.ErrNoName:
-		return csm, nil
 	}
 
 	// apply delta to the center

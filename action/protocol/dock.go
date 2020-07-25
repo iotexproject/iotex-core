@@ -9,33 +9,28 @@ package protocol
 import (
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 )
 
 // Errors
 var (
-	ErrNoName        = errors.New("name does not exist")
-	ErrTypeAssertion = errors.New("failed type assertion")
+	ErrNoName = errors.New("name does not exist")
 )
 
 type dock struct {
-	stash batch.KVStoreCache
-	dirty map[string]bool
+	stash map[string]map[string][]byte
 }
 
 // NewDock returns a new dock
 func NewDock() Dock {
 	return &dock{
-		stash: batch.NewKVCache(),
-		dirty: make(map[string]bool),
+		stash: map[string]map[string][]byte{},
 	}
 }
 
 func (d *dock) ProtocolDirty(name string) bool {
-	return d.dirty[name]
+	_, hit := d.stash[name]
+	return hit
 }
 
 func (d *dock) Load(ns, key string, v interface{}) error {
@@ -43,26 +38,28 @@ func (d *dock) Load(ns, key string, v interface{}) error {
 	if err != nil {
 		return err
 	}
-	d.dirty[ns] = true
-	d.stash.Write(stashKey(ns, key), ser)
+
+	if _, hit := d.stash[ns]; !hit {
+		d.stash[ns] = map[string][]byte{}
+	}
+	d.stash[ns][key] = ser
 	return nil
 }
 
 func (d *dock) Unload(ns, key string, v interface{}) error {
-	ser, err := d.stash.Read(stashKey(ns, key))
-	if err != nil {
+	if _, hit := d.stash[ns]; !hit {
+		return ErrNoName
+	}
+
+	ser, hit := d.stash[ns][key]
+	if !hit {
 		return ErrNoName
 	}
 	return state.Deserialize(v, ser)
 }
 
 func (d *dock) Reset() {
-	d.dirty = nil
-	d.dirty = make(map[string]bool)
-	d.stash.Clear()
-}
-
-func stashKey(ns, key string) hash.Hash160 {
-	hk := hash.Hash160b([]byte(key))
-	return hash.Hash160b(append([]byte(ns), hk[:]...))
+	for k := range d.stash {
+		delete(d.stash, k)
+	}
 }

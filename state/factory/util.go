@@ -76,18 +76,6 @@ func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) has
 	return hash.Hash256b(sum)
 }
 
-func readView(view protocol.ProtocolView, name string) (interface{}, error) {
-	if v, hit := view[name]; hit {
-		return v, nil
-	}
-	return nil, protocol.ErrNoName
-}
-
-func writeView(view protocol.ProtocolView, name string, v interface{}) error {
-	view[name] = v
-	return nil
-}
-
 func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
 	if reg, ok := protocol.GetRegistry(ctx); ok {
 		for _, p := range reg.All() {
