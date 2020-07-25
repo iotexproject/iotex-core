@@ -99,7 +99,7 @@ type (
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
 		workingsets              *lru.Cache // lru cache for workingsets
-		protocolView             protocol.Dock
+		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 	}
 )
@@ -181,7 +181,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
-		protocolView:       protocol.NewDock(),
+		protocolView:       protocol.View{},
 	}
 
 	for _, opt := range opts {
@@ -225,7 +225,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
 		// start all protocols
-		if err := startAllProtocols(ctx, sf.registry, sf, sf.protocolView); err != nil {
+		if sf.protocolView, err = sf.registry.StartAll(ctx, sf); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
@@ -233,7 +233,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
 		// start all protocols
-		if err := startAllProtocols(ctx, sf.registry, sf, sf.protocolView); err != nil {
+		if sf.protocolView, err = sf.registry.StartAll(ctx, sf); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -361,7 +361,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return sf.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
-			return sf.protocolView.Load(name, v)
+			return sf.protocolView.Write(name, v)
 		},
 		snapshotFunc: func() int {
 			rh, err := tlt.RootHash()
@@ -637,7 +637,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 
 // ReadView reads the view
 func (sf *factory) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sf.protocolView.Unload(name)
+	v, err := sf.protocolView.Read(name)
 	return sf.currentChainHeight, v, err
 }
 

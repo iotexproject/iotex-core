@@ -43,7 +43,7 @@ type stateDB struct {
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
 	workingsets              *lru.Cache // lru cache for workingsets
-	protocolView             protocol.Dock
+	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 }
 
@@ -105,7 +105,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolView:       protocol.NewDock(),
+		protocolView:       protocol.View{},
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -140,7 +140,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
 		// start all protocols
-		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
+		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
@@ -148,7 +148,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
-		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
+		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -248,7 +248,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			return sdb.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
-			return sdb.protocolView.Load(name, v)
+			return sdb.protocolView.Write(name, v)
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
 		revertFunc:   flusher.KVStoreWithBuffer().Revert,
@@ -443,7 +443,7 @@ func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) 
 
 // ReadView reads the view
 func (sdb *stateDB) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sdb.protocolView.Unload(name)
+	v, err := sdb.protocolView.Read(name)
 	return sdb.currentChainHeight, v, err
 }
 

@@ -16,6 +16,11 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
+// const
+const (
+	stakingCandCenter = "candCenter"
+)
+
 type (
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
@@ -67,17 +72,9 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	}
 
 	// TODO: remove CandidateCenter interface, convert the code below to candCenter.SyncCenter()
-	ser, err := protocol.UnloadAndAssertBytes(sm, protocolID)
-	switch errors.Cause(err) {
-	case protocol.ErrTypeAssertion:
-		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	case protocol.ErrNoName:
-		return csm, nil
-	}
-
 	delta := CandidateList{}
-	if err := delta.Deserialize(ser); err != nil {
-		return nil, err
+	if err = sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
+		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
 	}
 
 	// apply delta to the center
@@ -138,14 +135,8 @@ func (csm *candSM) Upsert(d *Candidate) error {
 		return nil
 	}
 
-	ser, err := delta.Serialize()
-	if err != nil {
-		return err
-	}
-
 	// load change to sm
-	csm.StateManager.Load(protocolID, ser)
-	return nil
+	return csm.StateManager.Load(protocolID, stakingCandCenter, &delta)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {
