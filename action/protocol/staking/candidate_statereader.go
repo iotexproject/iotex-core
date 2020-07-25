@@ -20,7 +20,6 @@ import (
 type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
-		// TODO: remove CandidateCenter interface, return *candCenter
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
@@ -38,7 +37,7 @@ type (
 
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
-		candCenter *candCenter
+		candCenter *CandidateCenter
 		bucketPool *BucketPool
 	}
 )
@@ -140,9 +139,8 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	// TODO: remove CandidateCenter interface, no need for (*candCenter)
 	return &ViewData{
-		candCenter: center.(*candCenter),
+		candCenter: center,
 		bucketPool: pool,
 	}, height, nil
 }

@@ -37,7 +37,7 @@ const (
 )
 
 // Delete should only be used by test
-func (m *candCenter) deleteForTestOnly(owner address.Address) {
+func (m *CandidateCenter) deleteForTestOnly(owner address.Address) {
 	if owner == nil {
 		return
 	}
