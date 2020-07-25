@@ -66,6 +66,8 @@ type (
 		ActionHash         hash.Hash256
 		Index              uint
 		NotFixTopicCopyBug bool
+		Sender             string
+		Recipient          string
 	}
 )
 
@@ -187,6 +189,11 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 		return false
 	}
 
+	addr, _ := address.FromBytes(address.StakingProtocolAddrHash[:])
+	if log.Address != addr.String() {
+		return false
+	}
+
 	if log.Topics[0] != topic {
 		return false
 	}
@@ -198,13 +205,13 @@ func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
 	switch {
 	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
 		// amount goes into staking bucket pool
-		return log.Topics[2] == StakingBucketPoolTopic && log.Address == address.StakingBucketPoolAddr
+		return log.Topics[2] == StakingBucketPoolTopic
 	case topic == BucketWithdrawAmount:
 		// amount comes out of staking bucket pool
-		return log.Topics[1] == StakingBucketPoolTopic && log.Address == address.StakingBucketPoolAddr
+		return log.Topics[1] == StakingBucketPoolTopic
 	case topic == CandidateRegistrationFee:
 		// amount goes into rewarding pool
-		return log.Topics[2] == RewardingPoolTopic && log.Address == address.RewardingPoolAddr
+		return log.Topics[2] == RewardingPoolTopic
 	default:
 		return false
 	}

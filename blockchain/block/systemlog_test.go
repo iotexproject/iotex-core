@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	addr        = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
+	stkAddr     = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
 	amount      = big.NewInt(100)
 	sender      = identityset.Address(0)
 	recver      = identityset.Address(1)
@@ -29,18 +29,18 @@ var (
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
 
 	evmTopics      = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
-	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	evmLog         = &action.Log{stkAddr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", ""}
 	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	createLog      = &action.Log{address.StakingBucketPoolAddr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	createLog      = &action.Log{stkAddr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", address.StakingBucketPoolAddr}
 	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	depositLog     = &action.Log{address.StakingBucketPoolAddr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	depositLog     = &action.Log{stkAddr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", address.StakingBucketPoolAddr}
 	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, action.StakingBucketPoolTopic, senderTopic, hash.ZeroHash256}
-	withdrawLog    = &action.Log{address.StakingBucketPoolAddr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	withdrawLog    = &action.Log{stkAddr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, address.RewardingPoolAddr, ""}
 	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	selfstakeLog   = &action.Log{address.StakingBucketPoolAddr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	selfstakeLog   = &action.Log{stkAddr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", address.StakingBucketPoolAddr}
 	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, action.RewardingPoolTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{address.RewardingPoolAddr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	normalLog      = &action.Log{address.StakingBucketPoolAddr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
+	registerLog    = &action.Log{stkAddr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", address.StakingBucketPoolAddr}
+	normalLog      = &action.Log{stkAddr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false, "", ""}
 	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
 	receiptTest = []struct {
@@ -142,10 +142,20 @@ func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecor
 	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
 	txAmount := new(big.Int).SetBytes(log.Data)
 	r.Equal(txAmount.String(), rec.amount)
+
+	var account string
 	from, _ := address.FromBytes(log.Topics[1][12:])
-	r.Equal(from.String(), rec.sender)
+	account = from.String()
+	if log.Sender != "" {
+		account = log.Sender
+	}
+	r.Equal(account, rec.sender)
 	to, _ := address.FromBytes(log.Topics[2][12:])
-	r.Equal(to.String(), rec.recipient)
+	account = to.String()
+	if log.Recipient != "" {
+		account = log.Recipient
+	}
+	r.Equal(account, rec.recipient)
 	return true
 }
 
