@@ -7,9 +7,14 @@
 package staking
 
 import (
+	"math/big"
+
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -17,8 +22,12 @@ type (
 	CandidateStateReader interface {
 		// TODO: remove CandidateCenter interface, return *candCenter
 		Height() uint64
-		CandCenter() CandidateCenter
-		BucketPool() *BucketPool
+		SR() protocol.StateReader
+		BaseView() *ViewData
+		GetCandidateByName(string) *Candidate
+		GetCandidateByOwner(address.Address) *Candidate
+		AllCandidates() CandidateList
+		TotalStakedAmount() *big.Int
 	}
 
 	candSR struct {
@@ -38,26 +47,37 @@ func (c *candSR) Height() uint64 {
 	return c.height
 }
 
-func (c *candSR) CandCenter() CandidateCenter {
-	return c.view.candCenter
+func (c *candSR) SR() protocol.StateReader {
+	return c.StateReader
 }
 
-func (c *candSR) BucketPool() *BucketPool {
-	return c.view.bucketPool
+func (c *candSR) BaseView() *ViewData {
+	return c.view
+}
+
+func (c *candSR) GetCandidateByName(name string) *Candidate {
+	return c.view.candCenter.GetByName(name)
+}
+
+func (c *candSR) GetCandidateByOwner(owner address.Address) *Candidate {
+	return c.view.candCenter.GetByOwner(owner)
+}
+
+func (c *candSR) AllCandidates() CandidateList {
+	return c.view.candCenter.All()
+}
+
+func (c *candSR) TotalStakedAmount() *big.Int {
+	return c.view.bucketPool.Total()
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
 func GetStakingStateReader(sr protocol.StateReader) (CandidateStateReader, error) {
-	height, err := sr.Height()
-	if err != nil {
-		return nil, err
-	}
-
 	c, err := ConstructBaseView(sr)
 	if err != nil {
 		if errors.Cause(err) == protocol.ErrNoName {
 			// the view does not exist yet, create it
-			view, err := CreateBaseView(sr)
+			view, height, err := CreateBaseView(sr, true)
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +106,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 
 	view, ok := v.(*ViewData)
 	if !ok {
-		return nil, errors.Wrap(protocol.ErrTypeAssertion, "expecting *ViewData")
+		return nil, errors.Wrap(ErrTypeAssertion, "expecting *ViewData")
 	}
 
 	return &candSR{
@@ -100,57 +120,29 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 }
 
 // CreateBaseView creates the base view from state reader
-func CreateBaseView(sr protocol.StateReader) (*ViewData, error) {
+func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, uint64, error) {
 	if sr == nil {
-		return nil, ErrMissingField
+		return nil, 0, ErrMissingField
 	}
 
-	all, err := loadCandidatesFromSR(sr)
-	if err != nil {
-		return nil, err
+	all, height, err := getAllCandidates(sr)
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return nil, height, err
 	}
 
 	center, err := NewCandidateCenter(all)
 	if err != nil {
-		return nil, err
+		return nil, height, err
 	}
 
-	pool, err := NewBucketPool(sr)
+	pool, err := NewBucketPool(sr, enableSMStorage)
 	if err != nil {
-		return nil, err
+		return nil, height, err
 	}
 
 	// TODO: remove CandidateCenter interface, no need for (*candCenter)
 	return &ViewData{
 		candCenter: center.(*candCenter),
 		bucketPool: pool,
-	}, nil
-}
-
-func loadCandidatesFromSR(sr protocol.StateReader) (CandidateList, error) {
-	_, iter, err := sr.States(protocol.NamespaceOption(CandidateNameSpace))
-	if errors.Cause(err) == state.ErrStateNotExist {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	cands := make(CandidateList, 0, iter.Size())
-	for i := 0; i < iter.Size(); i++ {
-		c := &Candidate{}
-		if err := iter.Next(c); err != nil {
-			return nil, errors.Wrapf(err, "failed to deserialize candidate")
-		}
-		cands = append(cands, c)
-	}
-	return cands, nil
-}
-
-// ConvertToViewData converts state manager to ViewData
-func ConvertToViewData(csm CandidateStateManager) *ViewData {
-	return &ViewData{
-		candCenter: csm.CandCenter().(*candCenter),
-		bucketPool: csm.BucketPool(),
-	}
+	}, height, nil
 }

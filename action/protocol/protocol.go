@@ -69,3 +69,18 @@ type ActionValidator interface {
 type ActionHandler interface {
 	Handle(context.Context, action.Action, StateManager) (*action.Receipt, error)
 }
+
+// View stores the view for all protocols
+type View map[string]interface{}
+
+func (view View) Read(name string) (interface{}, error) {
+	if v, hit := view[name]; hit {
+		return v, nil
+	}
+	return nil, ErrNoName
+}
+
+func (view View) Write(name string, v interface{}) error {
+	view[name] = v
+	return nil
+}

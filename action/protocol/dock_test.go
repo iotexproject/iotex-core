@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type testString struct {
+	s string
+}
+
+func (ts *testString) Serialize() ([]byte, error) {
+	return []byte(ts.s), nil
+}
+
+func (ts *testString) Deserialize(v []byte) error {
+	ts.s = string(v)
+	return nil
+}
+
 func TestDock(t *testing.T) {
 	r := require.New(t)
 
@@ -19,44 +32,56 @@ func TestDock(t *testing.T) {
 	r.NotNil(dk)
 
 	testDocks := []struct {
-		name string
-		v    int
+		name, key string
+		v         *testString
 	}{
 		{
-			"test1", 1,
+			"ns", "test1", &testString{"v1"},
 		},
 		{
-			"test2", 2,
+			"ns", "test2", &testString{"v2"},
 		},
 		{
-			"test3", 3,
+			"vs", "test3", &testString{"v3"},
 		},
 		{
-			"test4", 1,
+			"ts", "test4", &testString{"v4"},
 		},
 	}
 
+	// empty dock does not contain a thing
+	ts := &testString{}
 	for _, e := range testDocks {
-		r.NoError(dk.Load(e.name, e.v))
+		r.False(dk.ProtocolDirty(e.name))
+		r.Equal(ErrNoName, dk.Unload(e.name, e.key, ts))
 	}
 
+	// populate the dock, and verify existence
 	for _, e := range testDocks {
+		r.NoError(dk.Load(e.name, e.key, e.v))
 		r.True(dk.ProtocolDirty(e.name))
-		v, err := dk.Unload(e.name)
-		r.NoError(err)
-		r.Equal(e.v, v.(int))
+		r.NoError(dk.Unload(e.name, e.key, ts))
+		r.Equal(e.v, ts)
+		// test key that does not exist
+		r.Equal(ErrNoName, dk.Unload(e.name, "notexist", ts))
 	}
 
-	// overwrite one, and add a new one
-	r.NoError(dk.Load(testDocks[1].name, 5))
-	r.NoError(dk.Load("test5", 5))
-	v, err := dk.Unload(testDocks[1].name)
-	r.NoError(err)
-	r.Equal(5, v.(int))
-	v, err = dk.Unload("test5")
-	r.NoError(err)
-	r.Equal(5, v.(int))
+	// overwrite one
+	v5 := &testString{"v5"}
+	r.NoError(dk.Load(testDocks[1].name, testDocks[1].key, v5))
+	r.NoError(dk.Unload(testDocks[1].name, testDocks[1].key, ts))
+	r.Equal(v5, ts)
+
+	// add a new one
+	v6 := &testString{"v6"}
+	r.NoError(dk.Load("as", "test6", v6))
+	r.True(dk.ProtocolDirty("as"))
+	r.NoError(dk.Unload("as", "test6", ts))
+	r.Equal(v6, ts)
 
 	dk.Reset()
-	r.False(dk.ProtocolDirty(testDocks[1].name))
+	for _, e := range testDocks {
+		r.False(dk.ProtocolDirty(e.name))
+	}
+	r.False(dk.ProtocolDirty("as"))
 }

@@ -185,18 +185,31 @@ func TestGetPutCandidate(t *testing.T) {
 
 	// put candidates and get
 	for _, e := range testCandidates {
-		_, err := getCandidate(sm, e.d.Owner)
+		_, _, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 		require.NoError(putCandidate(sm, e.d))
-		d1, err := getCandidate(sm, e.d.Owner)
+		d1, _, err := getCandidate(sm, e.d.Owner)
 		require.NoError(err)
 		require.Equal(e.d, d1)
+	}
+
+	// get all candidates
+	all, _, err := getAllCandidates(sm)
+	require.NoError(err)
+	require.Equal(len(testCandidates), len(all))
+	for _, e := range testCandidates {
+		for i := range all {
+			if all[i].Name == e.d.Name {
+				require.Equal(e.d, all[i])
+				break
+			}
+		}
 	}
 
 	// delete buckets and get
 	for _, e := range testCandidates {
 		require.NoError(delCandidate(sm, e.d.Owner))
-		_, err := getCandidate(sm, e.d.Owner)
+		_, _, err := getCandidate(sm, e.d.Owner)
 		require.Equal(state.ErrStateNotExist, errors.Cause(err))
 	}
 }

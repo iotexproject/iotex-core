@@ -89,17 +89,18 @@ type (
 
 	// factory implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 	factory struct {
-		lifecycle          lifecycle.Lifecycle
-		mutex              sync.RWMutex
-		cfg                config.Config
-		registry           *protocol.Registry
-		currentChainHeight uint64
-		saveHistory        bool
-		twoLayerTrie       trie.TwoLayerTrie // global state trie, this is a read only trie
-		dao                db.KVStore        // the underlying DB for account/contract storage
-		timerFactory       *prometheustimer.TimerFactory
-		workingsets        *lru.Cache // lru cache for workingsets
-		protocolView       protocol.Dock
+		lifecycle                lifecycle.Lifecycle
+		mutex                    sync.RWMutex
+		cfg                      config.Config
+		registry                 *protocol.Registry
+		currentChainHeight       uint64
+		saveHistory              bool
+		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
+		dao                      db.KVStore        // the underlying DB for account/contract storage
+		timerFactory             *prometheustimer.TimerFactory
+		workingsets              *lru.Cache // lru cache for workingsets
+		protocolView             protocol.View
+		skipBlockValidationOnPut bool
 	}
 )
 
@@ -146,6 +147,14 @@ func RegistryOption(reg *protocol.Registry) Option {
 	}
 }
 
+// SkipBlockValidationOption skips block validation on PutBlock
+func SkipBlockValidationOption() Option {
+	return func(sf *factory, cfg config.Config) error {
+		sf.skipBlockValidationOnPut = true
+		return nil
+	}
+}
+
 func newTwoLayerTrie(ns string, dao db.KVStore, rootKey string, create bool) (trie.TwoLayerTrie, error) {
 	dbForTrie, err := trie.NewKVStore(ns, dao)
 	if err != nil {
@@ -172,7 +181,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
-		protocolView:       protocol.NewDock(),
+		protocolView:       protocol.View{},
 	}
 
 	for _, opt := range opts {
@@ -216,7 +225,7 @@ func (sf *factory) Start(ctx context.Context) error {
 	case nil:
 		sf.currentChainHeight = byteutil.BytesToUint64(h)
 		// start all protocols
-		if err := startAllProtocols(ctx, sf.registry, sf, sf.protocolView); err != nil {
+		if sf.protocolView, err = sf.registry.StartAll(ctx, sf); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
@@ -224,7 +233,7 @@ func (sf *factory) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init factory's height")
 		}
 		// start all protocols
-		if err := startAllProtocols(ctx, sf.registry, sf, sf.protocolView); err != nil {
+		if sf.protocolView, err = sf.registry.StartAll(ctx, sf); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -352,7 +361,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return sf.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
-			return sf.protocolView.Load(name, v)
+			return sf.protocolView.Write(name, v)
 		},
 		snapshotFunc: func() int {
 			rh, err := tlt.RootHash()
@@ -528,7 +537,11 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	if !isExist {
 		// regenerate workingset
-		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		if !sf.skipBlockValidationOnPut {
+			err = ws.ValidateBlock(ctx, blk)
+		} else {
+			_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
 			return err
@@ -624,7 +637,7 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 
 // ReadView reads the view
 func (sf *factory) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sf.protocolView.Unload(name)
+	v, err := sf.protocolView.Read(name)
 	return sf.currentChainHeight, v, err
 }
 

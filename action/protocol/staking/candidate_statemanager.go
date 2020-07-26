@@ -16,14 +16,17 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
+// const
+const (
+	stakingCandCenter = "candCenter"
+)
+
 type (
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
 		protocol.StateManager
-		CandCenter() CandidateCenter
-		BucketPool() *BucketPool
 		// candidate and bucket pool related
-		Size() int
+		DirtyView() *ViewData
 		ContainsName(string) bool
 		ContainsOwner(address.Address) bool
 		ContainsOperator(address.Address) bool
@@ -32,8 +35,8 @@ type (
 		GetByOwner(address.Address) *Candidate
 		GetBySelfStakingIndex(uint64) *Candidate
 		Upsert(*Candidate) error
-		CreditBucketPool(*big.Int, bool) error
-		DebitBucketPool(*big.Int, bool, bool) error
+		CreditBucketPool(*big.Int) error
+		DebitBucketPool(*big.Int, bool) error
 		Commit() error
 	}
 
@@ -45,7 +48,7 @@ type (
 )
 
 // NewCandidateStateManager returns a new CandidateStateManager instance
-func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, error) {
+func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (CandidateStateManager, error) {
 	// TODO: we can store csm in a local cache, just as how statedb store the workingset
 	// b/c most time the sm is used before, no need to create another clone
 	csr, err := ConstructBaseView(sm)
@@ -55,11 +58,12 @@ func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, 
 
 	// make a copy of candidate center and bucket pool, so they can be modified by csm
 	// and won't affect base view until being committed
+	view := csr.BaseView()
 	csm := &candSM{
 		StateManager: sm,
 		// TODO: remove CandidateCenter interface, no need for (*candCenter)
-		candCenter: csr.CandCenter().Base().(*candCenter),
-		bucketPool: csr.BucketPool().Clone(),
+		candCenter: view.candCenter.Base().(*candCenter),
+		bucketPool: view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM
@@ -68,17 +72,9 @@ func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, 
 	}
 
 	// TODO: remove CandidateCenter interface, convert the code below to candCenter.SyncCenter()
-	ser, err := protocol.UnloadAndAssertBytes(sm, protocolID)
-	switch errors.Cause(err) {
-	case protocol.ErrTypeAssertion:
-		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	case protocol.ErrNoName:
-		return csm, nil
-	}
-
 	delta := CandidateList{}
-	if err := delta.Deserialize(ser); err != nil {
-		return nil, err
+	if err = sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
+		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
 	}
 
 	// apply delta to the center
@@ -88,16 +84,12 @@ func NewCandidateStateManager(sm protocol.StateManager) (CandidateStateManager, 
 	return csm, nil
 }
 
-func (csm *candSM) CandCenter() CandidateCenter {
-	return csm.candCenter
-}
-
-func (csm *candSM) BucketPool() *BucketPool {
-	return csm.bucketPool
-}
-
-func (csm *candSM) Size() int {
-	return csm.candCenter.Size()
+// DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
+func (csm *candSM) DirtyView() *ViewData {
+	return &ViewData{
+		candCenter: csm.candCenter,
+		bucketPool: csm.bucketPool,
+	}
 }
 
 func (csm *candSM) ContainsName(name string) bool {
@@ -143,22 +135,16 @@ func (csm *candSM) Upsert(d *Candidate) error {
 		return nil
 	}
 
-	ser, err := delta.Serialize()
-	if err != nil {
-		return err
-	}
-
 	// load change to sm
-	csm.StateManager.Load(protocolID, ser)
-	return nil
+	return csm.StateManager.Load(protocolID, stakingCandCenter, &delta)
 }
 
-func (csm *candSM) CreditBucketPool(amount *big.Int, create bool) error {
-	return csm.bucketPool.CreditPool(csm.StateManager, amount, create)
+func (csm *candSM) CreditBucketPool(amount *big.Int) error {
+	return csm.bucketPool.CreditPool(csm.StateManager, amount)
 }
 
-func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket, create bool) error {
-	return csm.bucketPool.DebitPool(csm.StateManager, amount, newBucket, create)
+func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
+	return csm.bucketPool.DebitPool(csm.StateManager, amount, newBucket)
 }
 
 func (csm *candSM) Commit() error {
@@ -170,6 +156,6 @@ func (csm *candSM) Commit() error {
 		return err
 	}
 
-	// write update view back to state factory
-	return csm.WriteView(protocolID, ConvertToViewData(csm))
+	// write updated view back to state factory
+	return csm.WriteView(protocolID, csm.DirtyView())
 }

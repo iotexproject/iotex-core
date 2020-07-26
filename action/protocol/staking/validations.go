@@ -24,6 +24,7 @@ var (
 	ErrInvalidReward       = errors.New("invalid reward address")
 	ErrInvalidSelfStkIndex = errors.New("invalid self-staking bucket index")
 	ErrMissingField        = errors.New("missing data field")
+	ErrTypeAssertion       = errors.New("failed type assertion")
 )
 
 func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateStake) error {

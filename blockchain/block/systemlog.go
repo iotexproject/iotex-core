@@ -171,5 +171,12 @@ func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
 	txRecord.sender = from.String()
 	to, _ := address.FromBytes(log.Topics[2][12:])
 	txRecord.recipient = to.String()
+
+	if log.Sender != "" {
+		txRecord.sender = log.Sender
+	}
+	if log.Recipient != "" {
+		txRecord.recipient = log.Recipient
+	}
 	return &txRecord
 }

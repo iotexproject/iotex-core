@@ -127,18 +127,18 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 		// put buckets and get
 		for i, e := range tests {
-			_, err := getVoterBucketIndices(sm, e.voterAddr)
+			_, _, err := getVoterBucketIndices(sm, e.voterAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
-			_, err = getCandBucketIndices(sm, e.candAddr)
+			_, _, err = getCandBucketIndices(sm, e.candAddr)
 			if i == 0 {
 				require.Equal(state.ErrStateNotExist, errors.Cause(err))
 			}
 
 			// put voter bucket index
 			require.NoError(putVoterBucketIndex(sm, e.voterAddr, e.index))
-			bis, err := getVoterBucketIndices(sm, e.voterAddr)
+			bis, _, err := getVoterBucketIndices(sm, e.voterAddr)
 			require.NoError(err)
 			bucketIndices := *bis
 			require.Equal(e.voterIndexSize, len(bucketIndices))
@@ -146,7 +146,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// put candidate bucket index
 			require.NoError(putCandBucketIndex(sm, e.candAddr, e.index))
-			bis, err = getCandBucketIndices(sm, e.candAddr)
+			bis, _, err = getCandBucketIndices(sm, e.candAddr)
 			require.NoError(err)
 			bucketIndices = *bis
 			require.Equal(e.candIndexSize, len(bucketIndices))
@@ -156,7 +156,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 		for _, e := range tests {
 			// delete voter bucket index
 			require.NoError(delVoterBucketIndex(sm, e.voterAddr, e.index))
-			bis, err := getVoterBucketIndices(sm, e.voterAddr)
+			bis, _, err := getVoterBucketIndices(sm, e.voterAddr)
 			if e.voterIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.voterIndexSize, len(bucketIndices))
@@ -166,7 +166,7 @@ func TestGetPutBucketIndex(t *testing.T) {
 
 			// delete candidate bucket index
 			require.NoError(delCandBucketIndex(sm, e.candAddr, e.index))
-			bis, err = getCandBucketIndices(sm, e.candAddr)
+			bis, _, err = getCandBucketIndices(sm, e.candAddr)
 			if e.candIndexSize != indexSize {
 				bucketIndices := *bis
 				require.Equal(indexSize-e.candIndexSize, len(bucketIndices))
