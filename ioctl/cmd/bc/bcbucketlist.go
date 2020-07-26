@@ -87,7 +87,7 @@ func (m *bucketlistMessage) String() string {
 
 // getBucketList get bucket list from chain
 func getBucketList(method, addr string, args ...string) (err error) {
-	arg, offset, limit := addr, uint64(0), uint64(1000)
+	offset, limit := uint64(0), uint64(1000)
 	if len(args) > 0 {
 		offset, err = strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
@@ -102,9 +102,9 @@ func getBucketList(method, addr string, args ...string) (err error) {
 	}
 	switch method {
 	case bucketlistMethodByVoter:
-		return getBucketListByVoter(arg, uint32(offset), uint32(limit))
+		return getBucketListByVoter(addr, uint32(offset), uint32(limit))
 	case bucketlistMethodByCandidate:
-		return getBucketListByCand(arg, uint32(offset), uint32(limit))
+		return getBucketListByCand(addr, uint32(offset), uint32(limit))
 	}
 	return output.NewError(output.InputError, "unknown <method>", nil)
 }
