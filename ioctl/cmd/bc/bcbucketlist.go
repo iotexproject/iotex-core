@@ -56,8 +56,8 @@ var bcBucketListCmd = &cobra.Command{
 	Short: config.TranslateInLang(bcBucketListCmdShorts, config.UILanguage),
 	Long:  config.TranslateInLang(bcBucketListCmdLongs, config.UILanguage),
 	Args:  cobra.MinimumNArgs(2),
-	Example: `  ioctl bc bucketlist voter [VOTER_ADDRESS] [OFFSET] [LIMIT]
-  ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
+	Example: `ioctl bc bucketlist voter [VOTER_ADDRESS] [OFFSET] [LIMIT]
+ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		err := getBucketList(args[0], args[1:]...)
@@ -87,53 +87,38 @@ func (m *bucketlistMessage) String() string {
 
 // getBucketList get bucket list from chain
 func getBucketList(method string, args ...string) (err error) {
+	arg, offset, limit := "", uint64(0), uint64(1000)
+	if len(args) > 0 {
+		arg = args[0]
+	}
+	if len(args) > 1 {
+		offset, err = strconv.ParseUint(args[1], 10, 64)
+		if err != nil {
+			return output.NewError(output.ValidationError, "invalid offset", err)
+		}
+	}
+	if len(args) > 2 {
+		limit, err = strconv.ParseUint(args[2], 10, 64)
+		if err != nil {
+			return output.NewError(output.ValidationError, "invalid limit", err)
+		}
+	}
 	switch method {
 	case bucketlistMethodByVoter:
-		addr, offset, limit := "", uint64(0), uint64(1000)
-		if len(args) > 0 {
-			addr = args[0]
-		}
-		if len(args) > 1 {
-			offset, err = strconv.ParseUint(args[1], 10, 64)
-			if err != nil {
-				return output.NewError(output.ValidationError, "invalid offset", err)
-			}
-		}
-		if len(args) > 2 {
-			limit, err = strconv.ParseUint(args[2], 10, 64)
-			if err != nil {
-				return output.NewError(output.ValidationError, "invalid limit", err)
-			}
-		}
-		return getBucketListByVoter(addr, uint32(offset), uint32(limit))
+		return getBucketListByVoter(arg, uint32(offset), uint32(limit))
 	case bucketlistMethodByCandidate:
-		candName, offset, limit := "", uint64(0), uint64(1000)
-		if len(args) > 0 {
-			candName = args[0]
-		}
-		if len(args) > 1 {
-			offset, err = strconv.ParseUint(args[1], 10, 64)
-			if err != nil {
-				return output.NewError(output.ValidationError, "invalid offset", err)
-			}
-		}
-		if len(args) > 2 {
-			limit, err = strconv.ParseUint(args[2], 10, 64)
-			if err != nil {
-				return output.NewError(output.ValidationError, "invalid limit", err)
-			}
-		}
-		return getBucketListByCand(candName, uint32(offset), uint32(limit))
+		return getBucketListByCand(arg, uint32(offset), uint32(limit))
 	}
 	return output.NewError(output.InputError, "unknown <method>", nil)
 }
 
+// getBucketList get bucket list from chain by voter address
 func getBucketListByVoter(addr string, offset, limit uint32) error {
 	address, err := util.GetAddress(addr)
 	if err != nil {
 		return output.NewError(output.AddressError, "", err)
 	}
-	bl, err := getBucketListByAddress(address, offset, limit)
+	bl, err := getBucketListByVoterAddress(address, offset, limit)
 	if err != nil {
 		return err
 	}
@@ -153,8 +138,7 @@ func getBucketListByVoter(addr string, offset, limit uint32) error {
 	return nil
 }
 
-// getBucketList get bucket list from chain by voter address
-func getBucketListByAddress(addr string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {
+func getBucketListByVoterAddress(addr string, offset, limit uint32) (*iotextypes.VoteBucketList, error) {
 	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
 		Request: &iotexapi.ReadStakingDataRequest_BucketsByVoter{
 			BucketsByVoter: &iotexapi.ReadStakingDataRequest_VoteBucketsByVoter{
@@ -170,8 +154,8 @@ func getBucketListByAddress(addr string, offset, limit uint32) (*iotextypes.Vote
 }
 
 // getBucketListByCand get bucket list from chain by candidate name
-func getBucketListByCand(arg string, offset, limit uint32) error {
-	bl, err := getBucketListByCandidateName(arg, offset, limit)
+func getBucketListByCand(candName string, offset, limit uint32) error {
+	bl, err := getBucketListByCandidateName(candName, offset, limit)
 	if err != nil {
 		return err
 	}
