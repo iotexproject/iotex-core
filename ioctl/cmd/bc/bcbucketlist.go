@@ -60,7 +60,7 @@ var bcBucketListCmd = &cobra.Command{
 ioctl bc bucketlist cand [CANDIDATE_NAME] [OFFSET] [LIMIT]`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := getBucketList(args[0], args[1:]...)
+		err := getBucketList(args[0], args[1], args[2:]...)
 		return output.PrintError(err)
 	},
 }
@@ -86,19 +86,16 @@ func (m *bucketlistMessage) String() string {
 }
 
 // getBucketList get bucket list from chain
-func getBucketList(method string, args ...string) (err error) {
-	arg, offset, limit := "", uint64(0), uint64(1000)
+func getBucketList(method, addr string, args ...string) (err error) {
+	arg, offset, limit := addr, uint64(0), uint64(1000)
 	if len(args) > 0 {
-		arg = args[0]
-	}
-	if len(args) > 1 {
-		offset, err = strconv.ParseUint(args[1], 10, 64)
+		offset, err = strconv.ParseUint(args[0], 10, 64)
 		if err != nil {
 			return output.NewError(output.ValidationError, "invalid offset", err)
 		}
 	}
-	if len(args) > 2 {
-		limit, err = strconv.ParseUint(args[2], 10, 64)
+	if len(args) > 1 {
+		limit, err = strconv.ParseUint(args[1], 10, 64)
 		if err != nil {
 			return output.NewError(output.ValidationError, "invalid limit", err)
 		}
