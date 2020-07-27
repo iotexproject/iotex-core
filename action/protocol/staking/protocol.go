@@ -221,7 +221,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if hu.IsPre(config.Fairbank, epochStartHeight) {
 		return nil
 	}
-	err = p.handleStakingIndexer(epochStartHeight, sm)
+	err := p.handleStakingIndexer(epochStartHeight, sm)
 	if err != nil {
 		return err
 	}
