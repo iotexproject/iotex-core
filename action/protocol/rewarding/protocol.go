@@ -11,11 +11,12 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
@@ -159,18 +159,20 @@ func (p *Protocol) Handle(
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Deposit(ctx, sm, act.Amount())
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rlog)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Claim(ctx, sm, act.Amount())
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
@@ -373,6 +375,13 @@ func (p *Protocol) createReceipt(
 	gasConsumed uint64,
 	logs ...*action.Log,
 ) *action.Receipt {
+	// remove possible nil log
+	nlogs := make([]*action.Log, 0, len(logs))
+	for _, l := range logs {
+		if l != nil {
+			nlogs = append(nlogs, l)
+		}
+	}
 	// TODO: need to review the fields
 	return &action.Receipt{
 		Status:          status,
@@ -380,6 +389,6 @@ func (p *Protocol) createReceipt(
 		ActionHash:      actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
-		Logs:            logs,
+		Logs:            nlogs,
 	}
 }

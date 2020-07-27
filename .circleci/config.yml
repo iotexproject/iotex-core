@@ -20,7 +20,7 @@ jobs:
     docker:
       - image: circleci/golang:1.14.4
     working_directory: ~/apps/iotex-core
-    resource_class: large
+    resource_class: medium
     steps:
       - checkout
       - run: go get -u golang.org/x/lint/golint
