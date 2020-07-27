@@ -33,7 +33,7 @@ type CandidatesBucketsIndexer struct {
 // NewStakingCandidatesBucketsIndexer creates a new StakingCandidatesIndexer
 func NewStakingCandidatesBucketsIndexer(kv db.KVStore) (*CandidatesBucketsIndexer, error) {
 	if kv == nil {
-		return nil, errors.New("empty kvStore")
+		return nil, ErrMissingField
 	}
 	return &CandidatesBucketsIndexer{
 		kvStore: kv,
