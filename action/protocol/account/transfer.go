@@ -30,6 +30,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	logs := []*action.Log{}
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
@@ -58,8 +59,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
 		if p.depositGas != nil {
-			if err := p.depositGas(ctx, sm, gasFee); err != nil {
+			depositLog, err := p.depositGas(ctx, sm, gasFee)
+			if err != nil {
 				return nil, err
+			}
+			if depositLog != nil {
+				logs = append(logs, depositLog)
 			}
 		}
 	}
@@ -78,8 +83,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 		if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 			if p.depositGas != nil {
-				if err := p.depositGas(ctx, sm, gasFee); err != nil {
+				depositLog, err := p.depositGas(ctx, sm, gasFee)
+				if err != nil {
 					return nil, err
+				}
+				if depositLog != nil {
+					logs = append(logs, depositLog)
 				}
 			}
 		}
@@ -89,6 +98,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			ActionHash:      actionCtx.ActionHash,
 			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
+			Logs:            logs,
 		}, nil
 	}
 
@@ -117,8 +127,12 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		if p.depositGas != nil {
-			if err := p.depositGas(ctx, sm, gasFee); err != nil {
+			depositLog, err := p.depositGas(ctx, sm, gasFee)
+			if err != nil {
 				return nil, err
+			}
+			if depositLog != nil {
+				logs = append(logs, depositLog)
 			}
 		}
 	}

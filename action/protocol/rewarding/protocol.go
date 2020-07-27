@@ -159,7 +159,7 @@ func (p *Protocol) Handle(
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
-		rlog, err := p.Deposit(ctx, sm, act.Amount())
+		rlog, err := p.Deposit(ctx, sm, act.Amount(), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
@@ -347,8 +347,12 @@ func (p *Protocol) settleAction(
 		}
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if err := DepositGas(ctx, sm, gasFee); err != nil {
+	depositLog, err := DepositGas(ctx, sm, gasFee)
+	if err != nil {
 		return nil, err
+	}
+	if depositLog != nil {
+		logs = append(logs, depositLog)
 	}
 	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
 		return nil, err
