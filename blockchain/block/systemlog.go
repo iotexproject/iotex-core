@@ -7,11 +7,8 @@
 package block
 
 import (
-	"math/big"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -22,10 +19,10 @@ import (
 type (
 	// TokenTxRecord is a token transaction record
 	TokenTxRecord struct {
-		topic     []byte
 		amount    string
 		sender    string
 		recipient string
+		typ       iotextypes.TransactionLogType
 	}
 
 	// TransactionLog is transaction log in one action
@@ -42,8 +39,8 @@ type (
 	}
 )
 
-// NewImplictTransferLog creates a new TransactionLog
-func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *TransactionLog {
+// NewTransactionLog creates a new TransactionLog
+func NewTransactionLog(actHash hash.Hash256, records []*TokenTxRecord) *TransactionLog {
 	if len(records) == 0 {
 		return nil
 	}
@@ -56,14 +53,13 @@ func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *Tran
 }
 
 // NewTokenTxRecord creates a new TokenTxRecord
-func NewTokenTxRecord(topic []byte, amount, sender, recipient string) *TokenTxRecord {
+func NewTokenTxRecord(typ iotextypes.TransactionLogType, amount, sender, recipient string) *TokenTxRecord {
 	rec := TokenTxRecord{
-		topic:     make([]byte, len(topic)),
 		amount:    amount,
 		sender:    sender,
 		recipient: recipient,
+		typ:       typ,
 	}
-	copy(rec.topic, topic)
 	return &rec
 }
 
@@ -127,10 +123,10 @@ func (log *TransactionLog) Proto() *iotextypes.TransactionLog {
 
 func (log *TokenTxRecord) toProto() *iotextypes.TransactionLog_Transaction {
 	return &iotextypes.TransactionLog_Transaction{
-		Topic:     log.topic,
 		Amount:    log.amount,
 		Sender:    log.sender,
 		Recipient: log.recipient,
+		Type:      log.typ,
 	}
 }
 
@@ -163,20 +159,10 @@ func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
 		return nil
 	}
 
-	txRecord := TokenTxRecord{}
-	txRecord.topic = make([]byte, len(log.Topics[0]))
-	copy(txRecord.topic, log.Topics[0][:])
-	txRecord.amount = new(big.Int).SetBytes(log.Data).String()
-	from, _ := address.FromBytes(log.Topics[1][12:])
-	txRecord.sender = from.String()
-	to, _ := address.FromBytes(log.Topics[2][12:])
-	txRecord.recipient = to.String()
-
-	if log.Sender != "" {
-		txRecord.sender = log.Sender
+	return &TokenTxRecord{
+		sender:    log.TransactionData.Sender,
+		recipient: log.TransactionData.Recipient,
+		amount:    log.TransactionData.Amount.String(),
+		typ:       log.TransactionData.Type,
 	}
-	if log.Recipient != "" {
-		txRecord.recipient = log.Recipient
-	}
-	return &txRecord
 }

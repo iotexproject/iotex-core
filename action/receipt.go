@@ -7,6 +7,8 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,25 +19,6 @@ import (
 )
 
 var (
-	// InContractTransfer is topic for transaction log of evm transfer
-	// 32 bytes with all zeros
-	InContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
-
-	// BucketWithdrawAmount is topic for bucket withdraw
-	BucketWithdrawAmount = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_BUCKET_WITHDRAW_AMOUNT)})
-
-	// BucketCreateAmount is topic for bucket create
-	BucketCreateAmount = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_BUCKET_CREATE_AMOUNT)})
-
-	// BucketDepositAmount is topic for bucket deposit
-	BucketDepositAmount = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_BUCKET_DEPOSIT_AMOUNT)})
-
-	// CandidateSelfStake is topic for candidate self-stake
-	CandidateSelfStake = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE)})
-
-	// CandidateRegistrationFee is topic for candidate register
-	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE)})
-
 	// StakingBucketPoolTopic is topic for staking bucket pool
 	StakingBucketPoolTopic = hash.BytesToHash256(address.StakingProtocolAddrHash[:])
 
@@ -66,9 +49,16 @@ type (
 		ActionHash         hash.Hash256
 		Index              uint
 		NotFixTopicCopyBug bool
-		HasAssetTransfer   bool
-		Sender             string
-		Recipient          string
+
+		TransactionData *TransactionLog
+	}
+
+	// TransactionLog stores a transaction event
+	TransactionLog struct {
+		Type      iotextypes.TransactionLogType
+		Amount    *big.Int
+		Sender    string
+		Recipient string
 	}
 )
 
@@ -181,5 +171,5 @@ func (log *Log) Deserialize(buf []byte) error {
 
 // IsTransactionLog checks whether a log is transaction log
 func (log *Log) IsTransactionLog() bool {
-	return log.HasAssetTransfer
+	return log.TransactionData != nil
 }
