@@ -11,11 +11,12 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -23,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 const (
