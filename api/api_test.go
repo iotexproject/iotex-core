@@ -1945,9 +1945,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
 		execution1.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "1", addr3, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution1); err != nil {
 		return err
@@ -1996,9 +1996,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
 		execution1.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "2", addr3, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution1); err != nil {
 		return err
@@ -2008,9 +2008,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution2.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution2.Hash()] = block.NewTransactionLog(
 		execution2.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "1", addr1, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution2); err != nil {
 		return err
