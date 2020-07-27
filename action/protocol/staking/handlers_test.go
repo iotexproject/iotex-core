@@ -198,7 +198,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			// check the special create bucket log
 			require.Equal(2, len(r.Logs))
 			cLog := r.Logs[1]
-			require.True(cLog.IsCreateBucket())
+			require.True(cLog.IsTransactionLog())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ := address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(stakerAddr, from))
@@ -554,7 +554,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			// check the special create bucket and candidate register log
 			require.Equal(3, len(r.Logs))
 			cLog := r.Logs[1]
-			require.True(cLog.IsCandidateSelfStake())
+			require.True(cLog.IsTransactionLog())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ := address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))
@@ -563,7 +563,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			amount := new(big.Int).SetBytes(r.Logs[1].Data)
 			require.Equal(test.amountStr, amount.String())
 			cLog = r.Logs[2]
-			require.True(cLog.IsCandidateRegister())
+			require.True(cLog.IsTransactionLog())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(cLog.Topics[3][24:]))
 			from, _ = address.FromBytes(cLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))
@@ -1318,7 +1318,7 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			// check the special withdraw bucket log
 			require.Equal(2, len(r.Logs))
 			wLog := r.Logs[1]
-			require.True(wLog.IsWithdrawBucket())
+			require.True(wLog.IsTransactionLog())
 			require.Equal(test.withdrawIndex, byteutil.BytesToUint64BigEndian(wLog.Topics[3][24:]))
 			from, _ := address.FromBytes(wLog.Topics[1][12:])
 			require.True(address.Equal(p.addr, from))
@@ -2486,7 +2486,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			// check the special deposit bucket log
 			require.Equal(2, len(r.Logs))
 			dLog := r.Logs[1]
-			require.True(dLog.IsDepositBucket())
+			require.True(dLog.IsTransactionLog())
 			require.EqualValues(0, byteutil.BytesToUint64BigEndian(dLog.Topics[3][24:]))
 			from, _ := address.FromBytes(dLog.Topics[1][12:])
 			require.True(address.Equal(test.caller, from))

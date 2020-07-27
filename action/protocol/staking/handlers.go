@@ -129,10 +129,11 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
-		Data:        act.Amount().Bytes(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		Data:             act.Amount().Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actionCtx.ActionHash,
+		Recipient:        address.StakingBucketPoolAddr,
+		HasAssetTransfer: true,
 	}
 	return log, &cLog, nil
 }
@@ -274,10 +275,11 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 			hash.BytesToHash256(actionCtx.Caller.Bytes()),
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
-		Data:        bucket.StakedAmount.Bytes(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		Sender:      address.StakingBucketPoolAddr,
+		Data:             bucket.StakedAmount.Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actionCtx.ActionHash,
+		Sender:           address.StakingBucketPoolAddr,
+		HasAssetTransfer: true,
 	}
 	return log, &amountLog, nil
 }
@@ -516,10 +518,11 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
-		Data:        act.Amount().Bytes(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		Data:             act.Amount().Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actionCtx.ActionHash,
+		Recipient:        address.StakingBucketPoolAddr,
+		HasAssetTransfer: true,
 	}
 	return log, &dLog, nil
 }
@@ -696,10 +699,11 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			action.StakingBucketPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
-		Data:        act.Amount().Bytes(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		Data:             act.Amount().Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actCtx.ActionHash,
+		Recipient:        address.StakingBucketPoolAddr,
+		HasAssetTransfer: true,
 	}
 
 	// generate candidate register log
@@ -711,10 +715,11 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 			action.RewardingPoolTopic,
 			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
 		},
-		Data:        registrationFee.Bytes(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		Recipient:   address.RewardingPoolAddr,
+		Data:             registrationFee.Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actCtx.ActionHash,
+		Recipient:        address.RewardingPoolAddr,
+		HasAssetTransfer: true,
 	}
 	return log, &cLog, &rLog, nil
 }

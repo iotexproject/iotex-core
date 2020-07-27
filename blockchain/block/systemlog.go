@@ -18,7 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// implicit transfer log definitions
+// transaction log definitions
 type (
 	// TokenTxRecord is a token transaction record
 	TokenTxRecord struct {
@@ -28,27 +28,27 @@ type (
 		recipient string
 	}
 
-	// ImplictTransferLog is implicit transfer log in one action
-	ImplictTransferLog struct {
+	// TransactionLog is transaction log in one action
+	TransactionLog struct {
 		actHash   hash.Hash256
 		numTxs    uint64
 		txRecords []*TokenTxRecord
 	}
 
-	// BlkImplictTransferLog is implicit transfer log in one block
-	BlkImplictTransferLog struct {
+	// BlkTransactionLog is transaction log in one block
+	BlkTransactionLog struct {
 		numActions uint64
-		actionLogs []*ImplictTransferLog
+		actionLogs []*TransactionLog
 	}
 )
 
-// NewImplictTransferLog creates a new ImplictTransferLog
-func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *ImplictTransferLog {
+// NewImplictTransferLog creates a new TransactionLog
+func NewImplictTransferLog(actHash hash.Hash256, records []*TokenTxRecord) *TransactionLog {
 	if len(records) == 0 {
 		return nil
 	}
 
-	return &ImplictTransferLog{
+	return &TransactionLog{
 		actHash:   actHash,
 		numTxs:    uint64(len(records)),
 		txRecords: records,
@@ -67,50 +67,50 @@ func NewTokenTxRecord(topic []byte, amount, sender, recipient string) *TokenTxRe
 	return &rec
 }
 
-// DeserializeSystemLogPb parse the byte stream into BlkImplictTransferLog Pb message
-func DeserializeSystemLogPb(buf []byte) (*iotextypes.BlockImplicitTransferLog, error) {
-	pb := &iotextypes.BlockImplicitTransferLog{}
+// DeserializeSystemLogPb parse the byte stream into BlkTransactionLog Pb message
+func DeserializeSystemLogPb(buf []byte) (*iotextypes.BlockTransactionLog, error) {
+	pb := &iotextypes.BlockTransactionLog{}
 	if err := proto.Unmarshal(buf, pb); err != nil {
 		return nil, err
 	}
 	return pb, nil
 }
 
-// Serialize returns a serialized byte stream for BlkImplictTransferLog
-func (log *BlkImplictTransferLog) Serialize() []byte {
+// Serialize returns a serialized byte stream for BlkTransactionLog
+func (log *BlkTransactionLog) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(log.toProto()))
 }
 
-func (log *BlkImplictTransferLog) toProto() *iotextypes.BlockImplicitTransferLog {
+func (log *BlkTransactionLog) toProto() *iotextypes.BlockTransactionLog {
 	if len(log.actionLogs) == 0 {
 		return nil
 	}
 
-	sysLog := iotextypes.BlockImplicitTransferLog{
-		ImplicitTransferLog: []*iotextypes.ImplicitTransferLog{},
+	sysLog := iotextypes.BlockTransactionLog{
+		TransactionLog: []*iotextypes.TransactionLog{},
 	}
 	for _, l := range log.actionLogs {
 		if log := l.Proto(); log != nil {
-			sysLog.ImplicitTransferLog = append(sysLog.ImplicitTransferLog, log)
+			sysLog.TransactionLog = append(sysLog.TransactionLog, log)
 			sysLog.NumTransactions++
 		}
 	}
 
-	if len(sysLog.ImplicitTransferLog) == 0 {
+	if len(sysLog.TransactionLog) == 0 {
 		return nil
 	}
 	return &sysLog
 }
 
 // Proto returns the pb message
-func (log *ImplictTransferLog) Proto() *iotextypes.ImplicitTransferLog {
+func (log *TransactionLog) Proto() *iotextypes.TransactionLog {
 	if len(log.txRecords) == 0 {
 		return nil
 	}
 
-	actionLog := iotextypes.ImplicitTransferLog{
+	actionLog := iotextypes.TransactionLog{
 		ActionHash:   log.actHash[:],
-		Transactions: []*iotextypes.ImplicitTransferLog_Transaction{},
+		Transactions: []*iotextypes.TransactionLog_Transaction{},
 	}
 	for _, l := range log.txRecords {
 		if record := l.toProto(); record != nil {
@@ -125,8 +125,8 @@ func (log *ImplictTransferLog) Proto() *iotextypes.ImplicitTransferLog {
 	return &actionLog
 }
 
-func (log *TokenTxRecord) toProto() *iotextypes.ImplicitTransferLog_Transaction {
-	return &iotextypes.ImplicitTransferLog_Transaction{
+func (log *TokenTxRecord) toProto() *iotextypes.TransactionLog_Transaction {
+	return &iotextypes.TransactionLog_Transaction{
 		Topic:     log.topic,
 		Amount:    log.amount,
 		Sender:    log.sender,
@@ -134,13 +134,13 @@ func (log *TokenTxRecord) toProto() *iotextypes.ImplicitTransferLog_Transaction 
 	}
 }
 
-// ReceiptImplicitTransferLog generates implicit transfer log from receipt
-func ReceiptImplicitTransferLog(r *action.Receipt) *ImplictTransferLog {
+// ReceiptTransactionLog generates transaction log from receipt
+func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
 	if r == nil || len(r.Logs) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
 
-	actionLog := ImplictTransferLog{
+	actionLog := TransactionLog{
 		actHash:   r.ActionHash,
 		txRecords: []*TokenTxRecord{},
 	}
@@ -159,7 +159,7 @@ func ReceiptImplicitTransferLog(r *action.Receipt) *ImplictTransferLog {
 
 // LogTokenTxRecord generates token transaction record from log
 func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
-	if log == nil || !log.IsImplicitTransfer() {
+	if log == nil || !log.IsTransactionLog() {
 		return nil
 	}
 
