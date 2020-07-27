@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 )
@@ -25,7 +26,13 @@ func TestProtocol_Fund(t *testing.T) {
 		require.True(t, ok)
 
 		// Deposit 5 token
-		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(5)))
+		rlog, err := p.Deposit(ctx, sm, big.NewInt(5))
+		require.NoError(t, err)
+		require.NotNil(t, rlog)
+		require.True(t, rlog.IsTransactionLog())
+		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
+		require.Equal(t, actionCtx.Caller.String(), rlog.TransactionData.Sender)
+		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Recipient)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -38,7 +45,8 @@ func TestProtocol_Fund(t *testing.T) {
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
 		// Deposit another 6 token will fail because
-		require.Error(t, p.Deposit(ctx, sm, big.NewInt(996)))
+		_, err = p.Deposit(ctx, sm, big.NewInt(996))
+		require.Error(t, err)
 	}, false)
 
 }
