@@ -21,6 +21,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -431,7 +432,17 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		BlockHeight:        stateDB.blockHeight,
 		ActionHash:         stateDB.executionHash,
 		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
-		HasAssetTransfer:   len(topics) > 0 && topics[0] == action.InContractTransfer,
+	}
+
+	if len(topics) >= 3 && topics[0] == inContractTransfer {
+		from, _ := address.FromBytes(log.Topics[1][12:])
+		to, _ := address.FromBytes(log.Topics[2][12:])
+		log.TransactionData = &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+			Sender:    from.String(),
+			Recipient: to.String(),
+			Amount:    new(big.Int).SetBytes(log.Data),
+		}
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }

@@ -15,15 +15,16 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 )
 
-var (
-	testLog = &Log{
+func newTestLog() *Log {
+	return &Log{
 		Address:     "1",
 		Data:        []byte("cd07d8a74179e032f030d9244"),
 		BlockHeight: 1,
 		ActionHash:  hash.ZeroHash256,
 		Index:       1,
 	}
-)
+
+}
 
 func TestConvert(t *testing.T) {
 	require := require.New(t)
@@ -33,6 +34,7 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
+	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
 	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}}
@@ -59,13 +61,13 @@ func TestConvert(t *testing.T) {
 	require.NotEqual(h, receipt.Hash())
 
 	// transaction log
-	testLog.HasAssetTransfer = true
+	testLog.TransactionData = &TransactionLog{}
 	noLogReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(noLogReceipt)
 	require.Empty(noLogReceipt.Logs)
 
 	// not transaction log
-	testLog.HasAssetTransfer = false
+	testLog.TransactionData = nil
 	oneLogReceipt := receipt.ConvertToReceiptPb()
 	require.Equal(1, len(oneLogReceipt.Logs))
 	receipt2.ConvertFromReceiptPb(oneLogReceipt)
@@ -97,6 +99,7 @@ func TestConvertLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
+	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
 	typeLog := testLog.ConvertToLogPb()
@@ -129,6 +132,7 @@ func TestSerDerLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
+	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
 	typeLog, err := testLog.Serialize()
