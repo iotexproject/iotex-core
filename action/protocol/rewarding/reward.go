@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -295,18 +294,15 @@ func (p *Protocol) Claim(
 	}
 
 	return &action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND)}),
-			action.RewardingPoolTopic,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
+		Address:     p.addr.String(),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
+			Sender:    address.RewardingPoolAddr,
+			Recipient: actionCtx.Caller.String(),
+			Amount:    amount,
 		},
-		Data:             amount.Bytes(),
-		BlockHeight:      blkCtx.BlockHeight,
-		ActionHash:       actionCtx.ActionHash,
-		Sender:           address.RewardingPoolAddr,
-		Recipient:        actionCtx.Caller.String(),
-		HasAssetTransfer: true,
 	}, nil
 }
 

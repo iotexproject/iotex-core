@@ -29,10 +29,10 @@ func TestProtocol_Fund(t *testing.T) {
 		rlog, err := p.Deposit(ctx, sm, big.NewInt(5))
 		require.NoError(t, err)
 		require.NotNil(t, rlog)
-		require.Equal(t, big.NewInt(5).Bytes(), rlog.Data)
-		require.Equal(t, actionCtx.Caller.String(), rlog.Sender)
-		require.Equal(t, address.RewardingPoolAddr, rlog.Recipient)
 		require.True(t, rlog.IsTransactionLog())
+		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
+		require.Equal(t, actionCtx.Caller.String(), rlog.TransactionData.Sender)
+		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Recipient)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)

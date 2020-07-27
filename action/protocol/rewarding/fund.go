@@ -92,18 +92,15 @@ func (p *Protocol) Deposit(
 		return nil, err
 	}
 	return &action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)}),
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			action.RewardingPoolTopic,
+		Address:     p.addr.String(),
+		BlockHeight: blkCtx.BlockHeight,
+		ActionHash:  actionCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    amount,
 		},
-		Data:             amount.Bytes(),
-		BlockHeight:      blkCtx.BlockHeight,
-		ActionHash:       actionCtx.ActionHash,
-		Sender:           actionCtx.Caller.String(),
-		Recipient:        address.RewardingPoolAddr,
-		HasAssetTransfer: true,
 	}, nil
 }
 
