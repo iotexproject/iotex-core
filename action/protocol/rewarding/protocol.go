@@ -375,6 +375,13 @@ func (p *Protocol) createReceipt(
 	gasConsumed uint64,
 	logs ...*action.Log,
 ) *action.Receipt {
+	// remove possible nil log
+	nlogs := make([]*action.Log, 0, len(logs))
+	for _, l := range logs {
+		if l != nil {
+			nlogs = append(nlogs, l)
+		}
+	}
 	// TODO: need to review the fields
 	return &action.Receipt{
 		Status:          status,
@@ -382,6 +389,6 @@ func (p *Protocol) createReceipt(
 		ActionHash:      actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
-		Logs:            logs,
+		Logs:            nlogs,
 	}
 }
