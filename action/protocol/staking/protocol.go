@@ -228,10 +228,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	if epochStartHeight != blkCtx.BlockHeight {
 		return nil
 	}
-	// only for after fairbank
-	if hu.IsPre(config.Fairbank, epochStartHeight) {
-		return nil
-	}
+
 	err := p.handleStakingIndexer(epochStartHeight, sm)
 	if err != nil {
 		return err
