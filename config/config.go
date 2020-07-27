@@ -107,6 +107,7 @@ var (
 			TrieDBPath:           "/var/data/trie.db",
 			IndexDBPath:          "/var/data/index.db",
 			CandidateIndexDBPath: "/var/data/candidate.index.db",
+			StakingIndexDBPath:   "/var/data/staking.index.db",
 			ID:                   1,
 			Address:              "",
 			ProducerPrivKey:      generateRandomKey(SigP256k1),
@@ -120,6 +121,7 @@ var (
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
+			EnableStakingIndexer:          false,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
@@ -230,6 +232,7 @@ type (
 		TrieDBPath           string           `yaml:"trieDBPath"`
 		IndexDBPath          string           `yaml:"indexDBPath"`
 		CandidateIndexDBPath string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath   string           `yaml:"stakingIndexDBPath"`
 		ID                   uint32           `yaml:"id"`
 		Address              string           `yaml:"address"`
 		ProducerPrivKey      string           `yaml:"producerPrivKey"`
@@ -247,6 +250,8 @@ type (
 		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
 		// EnableStakingProtocol enables staking protocol
 		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`
+		// EnableStakingIndexer enables staking indexer
+		EnableStakingIndexer bool `yaml: "enableStakingIndexer"`
 		// CompressBlock enables gzip compression on block data
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions

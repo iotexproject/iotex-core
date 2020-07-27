@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -65,10 +66,11 @@ type (
 
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
-		addr       address.Address
-		depositGas DepositGas
-		config     Configuration
-		hu         config.HeightUpgrade
+		addr                     address.Address
+		depositGas               DepositGas
+		config                   Configuration
+		hu                       config.HeightUpgrade
+		candidatesBucketsIndexer *CandidatesBucketsIndexer
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -85,7 +87,7 @@ type (
 )
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candidatesBucketsIndexer *CandidatesBucketsIndexer) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -119,7 +121,8 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking) (*Protocol, error) 
 			MinStakeAmount:        minStakeAmount,
 			BootstrapCandidates:   cfg.BootstrapCandidates,
 		},
-		depositGas: depositGas,
+		depositGas:               depositGas,
+		candidatesBucketsIndexer: candidatesBucketsIndexer,
 	}, nil
 }
 
@@ -206,6 +209,22 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	if p.candidatesBucketsIndexer == nil {
+		return nil
+	}
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
+	if epochStartHeight != blkCtx.BlockHeight {
+		return nil
+	}
+	// only for after fairbank
+	if hu.IsPre(config.Fairbank, epochStartHeight) {
+		return nil
+	}
+	err = p.handleStakingIndexer(epochStartHeight, sm)
+	if err != nil {
+		return err
+	}
 	if blkCtx.BlockHeight != hu.GreenlandBlockHeight() {
 		return nil
 	}
@@ -215,6 +234,27 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	_, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	return err
+}
+
+func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
+	allBuckets, _, err := getAllBuckets(sm)
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return err
+	}
+	buckets, err := toIoTeXTypesVoteBucketList(allBuckets)
+	if err != nil {
+		return err
+	}
+	err = p.candidatesBucketsIndexer.PutBuckets(epochStartHeight, buckets)
+	if err != nil {
+		return err
+	}
+	all, _, err := getAllCandidates(sm)
+	if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		return err
+	}
+	candidateList := toIoTeXTypesCandidateListV2(all)
+	return p.candidatesBucketsIndexer.PutCandidates(epochStartHeight, candidateList)
 }
 
 // Commit commits the last change
@@ -370,12 +410,20 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		return nil, 0, err
 	}
 
+	// get height arg
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochStartHeight := rp.GetEpochHeight(rp.GetEpochNum(csr.Height()))
+
 	var (
 		height uint64
 		resp   proto.Message
 	)
 	switch m.GetMethod() {
 	case iotexapi.ReadStakingDataMethod_BUCKETS:
+		if epochStartHeight != 0 && p.candidatesBucketsIndexer != nil {
+			ret, err := p.candidatesBucketsIndexer.GetBuckets(epochStartHeight, r.GetBuckets().GetPagination().GetOffset(), r.GetBuckets().GetPagination().GetLimit())
+			return ret, epochStartHeight, err
+		}
 		resp, height, err = readStateBuckets(ctx, sr, r.GetBuckets())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_VOTER:
 		resp, height, err = readStateBucketsByVoter(ctx, sr, r.GetBucketsByVoter())
@@ -384,6 +432,10 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
 		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
+		if epochStartHeight != 0 && p.candidatesBucketsIndexer != nil {
+			ret, err := p.candidatesBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
+			return ret, epochStartHeight, err
+		}
 		resp, height, err = readStateCandidates(ctx, csr, r.GetCandidates())
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_NAME:
 		resp, height, err = readStateCandidateByName(ctx, csr, r.GetCandidateByName())
