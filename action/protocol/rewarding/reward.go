@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -24,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/enc"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // rewardHistory is the dummy struct to record a reward. Only key matters.
@@ -278,15 +280,33 @@ func (p *Protocol) Claim(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-) error {
+) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
-		return err
+		return nil, err
 	}
-	return p.claimFromAccount(ctx, sm, actionCtx.Caller, amount)
+	if err := p.claimFromAccount(ctx, sm, actionCtx.Caller, amount); err != nil {
+		return nil, err
+	}
+
+	return &action.Log{
+		Address: p.addr.String(),
+		Topics: action.Topics{
+			hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND)}),
+			action.RewardingPoolTopic,
+			hash.BytesToHash256(actionCtx.Caller.Bytes()),
+		},
+		Data:             amount.Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actionCtx.ActionHash,
+		Sender:           address.RewardingPoolAddr,
+		Recipient:        actionCtx.Caller.String(),
+		HasAssetTransfer: true,
+	}, nil
 }
 
 // UnclaimedBalance returns unclaimed balance of a given address

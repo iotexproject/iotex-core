@@ -159,18 +159,20 @@ func (p *Protocol) Handle(
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Deposit(ctx, sm, act.Amount())
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rlog)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Claim(ctx, sm, act.Amount())
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
 			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:

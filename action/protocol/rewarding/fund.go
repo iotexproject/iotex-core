@@ -14,9 +14,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // fund stores the balance of the rewarding fund. The difference between total and available balance should be
@@ -59,31 +62,48 @@ func (p *Protocol) Deposit(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-) error {
+) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.assertEnoughBalance(actionCtx, sm, amount); err != nil {
-		return err
+		return nil, err
 	}
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, amount)
 	if err := accountutil.StoreAccount(sm, actionCtx.Caller, acc); err != nil {
-		return err
+		return nil, err
 	}
 	// Add balance to fund
 	f := fund{}
 	if _, err := p.state(ctx, sm, fundKey, &f); err != nil {
-		return err
+		return nil, err
 	}
 	f.totalBalance = big.NewInt(0).Add(f.totalBalance, amount)
 	f.unclaimedBalance = big.NewInt(0).Add(f.unclaimedBalance, amount)
-	return p.putState(ctx, sm, fundKey, &f)
+	if err := p.putState(ctx, sm, fundKey, &f); err != nil {
+		return nil, err
+	}
+	return &action.Log{
+		Address: p.addr.String(),
+		Topics: action.Topics{
+			hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)}),
+			hash.BytesToHash256(actionCtx.Caller.Bytes()),
+			action.RewardingPoolTopic,
+		},
+		Data:             amount.Bytes(),
+		BlockHeight:      blkCtx.BlockHeight,
+		ActionHash:       actionCtx.ActionHash,
+		Sender:           actionCtx.Caller.String(),
+		Recipient:        address.RewardingPoolAddr,
+		HasAssetTransfer: true,
+	}, nil
 }
 
 // TotalBalance returns the total balance of the rewarding fund
@@ -147,5 +167,6 @@ func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) 
 	if rp == nil {
 		return nil
 	}
-	return rp.Deposit(ctx, sm, amount)
+	_, err := rp.Deposit(ctx, sm, amount)
+	return err
 }
