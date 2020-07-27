@@ -376,14 +376,14 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 }
 
 // GetImplicitTransferLogByActionHash mocks base method
-func (m *MockServiceClient) GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetImplicitTransferLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
+func (m *MockServiceClient) GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetTransactionLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByActionHashResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetImplicitTransferLogByActionHash", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByActionHashResponse)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByActionHashResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -396,14 +396,14 @@ func (mr *MockServiceClientMockRecorder) GetImplicitTransferLogByActionHash(ctx,
 }
 
 // GetImplicitTransferLogByBlockHeight mocks base method
-func (m *MockServiceClient) GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetImplicitTransferLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
+func (m *MockServiceClient) GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetTransactionLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "GetImplicitTransferLogByBlockHeight", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByBlockHeightResponse)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByBlockHeightResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

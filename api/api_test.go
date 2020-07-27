@@ -90,7 +90,7 @@ var (
 	executionHash3 = testExecution3.Hash()
 
 	blkHash      = map[uint64]hash.Hash256{}
-	implicitLogs = map[hash.Hash256]*block.ImplictTransferLog{}
+	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
 
 var (
@@ -730,19 +730,19 @@ var (
 	getImplicitLogByBlockHeightTest = []struct {
 		height uint64
 		code   codes.Code
-		log    *block.BlkImplictTransferLog
+		log    *block.BlkTransactionLog
 	}{
 		{
 			1, codes.NotFound, nil,
 		},
 		{
-			2, codes.OK, &block.BlkImplictTransferLog{},
+			2, codes.OK, &block.BlkTransactionLog{},
 		},
 		{
 			3, codes.NotFound, nil,
 		},
 		{
-			4, codes.OK, &block.BlkImplictTransferLog{},
+			4, codes.OK, &block.BlkTransactionLog{},
 		},
 		{
 			5, codes.InvalidArgument, nil,
@@ -1829,17 +1829,17 @@ func TestServer_GetLogs(t *testing.T) {
 	}
 }
 
-func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
+func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
-	request := &iotexapi.GetImplicitTransferLogByActionHashRequest{
+	request := &iotexapi.GetTransactionLogByActionHashRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
 	}
-	_, err = svr.GetImplicitTransferLogByActionHash(context.Background(), request)
+	_, err = svr.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
 	sta, ok := status.FromError(err)
 	require.Equal(true, ok)
@@ -1847,9 +1847,9 @@ func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
-		res, err := svr.GetImplicitTransferLogByActionHash(context.Background(), request)
+		res, err := svr.GetTransactionLogByActionHash(context.Background(), request)
 		require.NoError(err)
-		require.Equal(log.Proto(), res.ImplicitTransferLog)
+		require.Equal(log.Proto(), res.TransactionLog)
 	}
 
 	// check implicit transfer receiver balance
@@ -1858,17 +1858,17 @@ func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
 	require.Equal(big.NewInt(5), state.Balance)
 }
 
-func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {
+func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
-	request := &iotexapi.GetImplicitTransferLogByBlockHeightRequest{}
+	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
 	for _, test := range getImplicitLogByBlockHeightTest {
 		request.BlockHeight = test.height
-		res, err := svr.GetImplicitTransferLogByBlockHeight(context.Background(), request)
+		res, err := svr.GetTransactionLogByBlockHeight(context.Background(), request)
 		if test.code != codes.OK {
 			require.Error(err)
 			sta, ok := status.FromError(err)
@@ -1877,7 +1877,7 @@ func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {
 		} else {
 			require.NotNil(res)
 			// verify log
-			for _, log := range res.BlockImplicitTransferLog.ImplicitTransferLog {
+			for _, log := range res.BlockTransactionLog.TransactionLog {
 				l, ok := implicitLogs[hash.BytesToHash256(log.ActionHash)]
 				require.True(ok)
 				require.Equal(l.Proto(), log)

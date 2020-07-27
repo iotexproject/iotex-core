@@ -23,7 +23,7 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
 	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
@@ -47,26 +47,20 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt, receipt2)
 	require.NotEqual(h, receipt.Hash())
 
-	// implicit transfer log
-	log.Topics = []hash.Hash256{hash.BytesToHash256(InContractTransfer[:])}
+	// transaction log
+	log.IsTransactionLog = true
 	noLogReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(noLogReceipt)
 	require.Empty(noLogReceipt.Logs)
 
-	// not implicit transfer log
-	log.Topics = []hash.Hash256{hash.BytesToHash256(append(make([]byte, 31, 32), 1))}
+	// not transaction log
+	log.IsTransactionLog = false
 	oneLogReceipt := receipt.ConvertToReceiptPb()
 	require.Equal(1, len(oneLogReceipt.Logs))
 	receipt2.ConvertFromReceiptPb(oneLogReceipt)
 	require.Equal(receipt, receipt2)
-
-	// not implicit transfer log
-	log.Topics = []hash.Hash256{}
-	oneLogReceipt = receipt.ConvertToReceiptPb()
-	require.Equal(1, len(oneLogReceipt.Logs))
-	receipt2.ConvertFromReceiptPb(oneLogReceipt)
-	require.Equal(receipt, receipt2)
 }
+
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
 	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil}
@@ -92,7 +86,7 @@ func TestConvertLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
 
 	typeLog := log.ConvertToLogPb()
 	require.NotNil(typeLog)
@@ -124,7 +118,7 @@ func TestSerDerLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, "", ""}
+	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
 
 	typeLog, err := log.Serialize()
 	require.NoError(err)
