@@ -132,6 +132,7 @@ func (p *Protocol) CreateGenesisStates(
 	productivityThreshold := bcCtx.Genesis.ProductivityThreshold
 
 	if err := p.putState(
+		ctx,
 		sm,
 		adminKey,
 		&admin{
@@ -147,6 +148,7 @@ func (p *Protocol) CreateGenesisStates(
 		return err
 	}
 	if err := p.putState(
+		ctx,
 		sm,
 		fundKey,
 		&fund{
@@ -157,6 +159,7 @@ func (p *Protocol) CreateGenesisStates(
 		return err
 	}
 	return p.putState(
+		ctx,
 		sm,
 		exemptKey,
 		&exempt{
@@ -167,11 +170,11 @@ func (p *Protocol) CreateGenesisStates(
 
 // BlockReward returns the block reward amount
 func (p *Protocol) BlockReward(
-	_ context.Context,
+	ctx context.Context,
 	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.blockReward, nil
@@ -179,11 +182,11 @@ func (p *Protocol) BlockReward(
 
 // EpochReward returns the epoch reward amount
 func (p *Protocol) EpochReward(
-	_ context.Context,
+	ctx context.Context,
 	sm protocol.StateReader,
 ) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.epochReward, nil
@@ -191,47 +194,47 @@ func (p *Protocol) EpochReward(
 
 // NumDelegatesForEpochReward returns the number of candidates sharing an epoch reward
 func (p *Protocol) NumDelegatesForEpochReward(
-	_ context.Context,
+	ctx context.Context,
 	sm protocol.StateManager,
 ) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.numDelegatesForEpochReward, nil
 }
 
 // FoundationBonus returns the foundation bonus amount
-func (p *Protocol) FoundationBonus(_ context.Context, sm protocol.StateReader) (*big.Int, error) {
+func (p *Protocol) FoundationBonus(ctx context.Context, sm protocol.StateReader) (*big.Int, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return nil, err
 	}
 	return a.foundationBonus, nil
 }
 
 // FoundationBonusLastEpoch returns the last epoch when the foundation bonus will still be granted
-func (p *Protocol) FoundationBonusLastEpoch(_ context.Context, sm protocol.StateReader) (uint64, error) {
+func (p *Protocol) FoundationBonusLastEpoch(ctx context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.foundationBonusLastEpoch, nil
 }
 
 // NumDelegatesForFoundationBonus returns the number of delegates that will get foundation bonus
-func (p *Protocol) NumDelegatesForFoundationBonus(_ context.Context, sm protocol.StateReader) (uint64, error) {
+func (p *Protocol) NumDelegatesForFoundationBonus(ctx context.Context, sm protocol.StateReader) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.numDelegatesForFoundationBonus, nil
 }
 
 // ProductivityThreshold returns the productivity threshold
-func (p *Protocol) ProductivityThreshold(_ context.Context, sm protocol.StateManager) (uint64, error) {
+func (p *Protocol) ProductivityThreshold(ctx context.Context, sm protocol.StateManager) (uint64, error) {
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return 0, err
 	}
 	return a.productivityThreshold, nil
@@ -248,7 +251,7 @@ func (p *Protocol) SetReward(
 		return err
 	}
 	a := admin{}
-	if _, err := p.state(sm, adminKey, &a); err != nil {
+	if _, err := p.state(ctx, sm, adminKey, &a); err != nil {
 		return err
 	}
 	if blockLevel {
@@ -256,7 +259,7 @@ func (p *Protocol) SetReward(
 	} else {
 		a.epochReward = amount
 	}
-	return p.putState(sm, adminKey, &a)
+	return p.putState(ctx, sm, adminKey, &a)
 }
 
 func (p *Protocol) assertAmount(amount *big.Int) error {

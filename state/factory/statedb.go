@@ -36,14 +36,15 @@ import (
 
 // stateDB implements StateFactory interface, tracks changes to account/contract and batch-commits to DB
 type stateDB struct {
-	mutex              sync.RWMutex
-	currentChainHeight uint64
-	cfg                config.Config
-	registry           *protocol.Registry
-	dao                db.KVStore // the underlying DB for account/contract storage
-	timerFactory       *prometheustimer.TimerFactory
-	workingsets        *lru.Cache // lru cache for workingsets
-	protocolView       protocol.Dock
+	mutex                    sync.RWMutex
+	currentChainHeight       uint64
+	cfg                      config.Config
+	registry                 *protocol.Registry
+	dao                      db.KVStore // the underlying DB for account/contract storage
+	timerFactory             *prometheustimer.TimerFactory
+	workingsets              *lru.Cache // lru cache for workingsets
+	protocolView             protocol.View
+	skipBlockValidationOnPut bool
 }
 
 // StateDBOption sets stateDB construction parameter
@@ -90,13 +91,21 @@ func RegistryStateDBOption(reg *protocol.Registry) StateDBOption {
 	}
 }
 
+// SkipBlockValidationStateDBOption skips block validation on PutBlock
+func SkipBlockValidationStateDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		sdb.skipBlockValidationOnPut = true
+		return nil
+	}
+}
+
 // NewStateDB creates a new state db
 func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 	sdb := stateDB{
 		cfg:                cfg,
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
-		protocolView:       protocol.NewDock(),
+		protocolView:       protocol.View{},
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -131,7 +140,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 	case nil:
 		sdb.currentChainHeight = byteutil.BytesToUint64(h)
 		// start all protocols
-		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
+		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 	case db.ErrNotExist:
@@ -139,7 +148,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to init statedb's height")
 		}
 		// start all protocols
-		if err := startAllProtocols(ctx, sdb.registry, sdb, sdb.protocolView); err != nil {
+		if sdb.protocolView, err = sdb.registry.StartAll(ctx, sdb); err != nil {
 			return err
 		}
 		ctx = protocol.WithBlockCtx(
@@ -235,11 +244,11 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			sdb.currentChainHeight = h
 			return nil
 		},
-		readviewFunc: func(name string) (interface{}, error) {
-			return sdb.protocolView.Unload(name)
+		readviewFunc: func(name string) (uint64, interface{}, error) {
+			return sdb.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
-			return sdb.protocolView.Load(name, v)
+			return sdb.protocolView.Write(name, v)
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
 		revertFunc:   flusher.KVStoreWithBuffer().Revert,
@@ -354,7 +363,11 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 		return err
 	}
 	if !isExist {
-		_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		if !sdb.skipBlockValidationOnPut {
+			err = ws.ValidateBlock(ctx, blk)
+		} else {
+			_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
 			return err
@@ -429,8 +442,9 @@ func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) 
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (interface{}, error) {
-	return sdb.protocolView.Unload(name)
+func (sdb *stateDB) ReadView(name string) (uint64, interface{}, error) {
+	v, err := sdb.protocolView.Read(name)
+	return sdb.currentChainHeight, v, err
 }
 
 //======================================

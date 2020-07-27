@@ -91,13 +91,13 @@ func (r *Registry) all() []Protocol {
 }
 
 // StartAll starts all protocols which are startable
-func (r *Registry) StartAll(ctx context.Context, sr StateReader) (map[string]interface{}, error) {
+func (r *Registry) StartAll(ctx context.Context, sr StateReader) (View, error) {
 	if r == nil {
 		return nil, nil
 	}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	allView := make(map[string]interface{})
+	allView := make(View)
 	for _, p := range r.all() {
 		s, ok := p.(Starter)
 		if !ok {

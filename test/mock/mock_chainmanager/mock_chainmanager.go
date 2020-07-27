@@ -90,12 +90,13 @@ func (mr *MockStateReaderMockRecorder) States(arg0 ...interface{}) *gomock.Call 
 }
 
 // ReadView mocks base method
-func (m *MockStateReader) ReadView(arg0 string) (interface{}, error) {
+func (m *MockStateReader) ReadView(arg0 string) (uint64, interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(interface{})
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ReadView indicates an expected call of ReadView
@@ -183,12 +184,13 @@ func (mr *MockStateManagerMockRecorder) States(arg0 ...interface{}) *gomock.Call
 }
 
 // ReadView mocks base method
-func (m *MockStateManager) ReadView(arg0 string) (interface{}, error) {
+func (m *MockStateManager) ReadView(arg0 string) (uint64, interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(interface{})
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // ReadView indicates an expected call of ReadView
@@ -293,32 +295,31 @@ func (mr *MockStateManagerMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.
 }
 
 // Load mocks base method
-func (m *MockStateManager) Load(arg0 string, arg1 interface{}) error {
+func (m *MockStateManager) Load(arg0, arg1 string, arg2 interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Load", arg0, arg1)
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Load indicates an expected call of Load
-func (mr *MockStateManagerMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockStateManagerMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManager)(nil).Load), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockStateManager)(nil).Load), arg0, arg1, arg2)
 }
 
 // Unload mocks base method
-func (m *MockStateManager) Unload(arg0 string) (interface{}, error) {
+func (m *MockStateManager) Unload(arg0, arg1 string, arg2 interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unload", arg0)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "Unload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Unload indicates an expected call of Unload
-func (mr *MockStateManagerMockRecorder) Unload(arg0 interface{}) *gomock.Call {
+func (mr *MockStateManagerMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManager)(nil).Unload), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockStateManager)(nil).Unload), arg0, arg1, arg2)
 }
 
 // Reset mocks base method
@@ -371,32 +372,31 @@ func (mr *MockDockMockRecorder) ProtocolDirty(arg0 interface{}) *gomock.Call {
 }
 
 // Load mocks base method
-func (m *MockDock) Load(arg0 string, arg1 interface{}) error {
+func (m *MockDock) Load(arg0, arg1 string, arg2 interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Load", arg0, arg1)
+	ret := m.ctrl.Call(m, "Load", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Load indicates an expected call of Load
-func (mr *MockDockMockRecorder) Load(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockDockMockRecorder) Load(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockDock)(nil).Load), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Load", reflect.TypeOf((*MockDock)(nil).Load), arg0, arg1, arg2)
 }
 
 // Unload mocks base method
-func (m *MockDock) Unload(arg0 string) (interface{}, error) {
+func (m *MockDock) Unload(arg0, arg1 string, arg2 interface{}) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Unload", arg0)
-	ret0, _ := ret[0].(interface{})
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "Unload", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Unload indicates an expected call of Unload
-func (mr *MockDockMockRecorder) Unload(arg0 interface{}) *gomock.Call {
+func (mr *MockDockMockRecorder) Unload(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unload", reflect.TypeOf((*MockDock)(nil).Unload), arg0, arg1, arg2)
 }
 
 // Reset mocks base method

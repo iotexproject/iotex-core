@@ -41,3 +41,8 @@ message Candidate {
 message Candidates {
     repeated Candidate candidates = 1;
 }
+
+message TotalAmount {
+    string amount = 1;
+    uint64 count = 2;
+}

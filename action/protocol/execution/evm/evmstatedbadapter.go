@@ -431,6 +431,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		BlockHeight:        stateDB.blockHeight,
 		ActionHash:         stateDB.executionHash,
 		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
+		HasAssetTransfer:   len(topics) > 0 && topics[0] == action.InContractTransfer,
 	}
 	stateDB.logs = append(stateDB.logs, log)
 }

@@ -98,8 +98,8 @@ type (
 		KVStore() db.KVStore
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
-		ContainsImplicitTransferLog() bool
-		GetImplicitTransferLog(uint64) (*iotextypes.BlockImplicitTransferLog, error)
+		ContainsTransactionLog() bool
+		GetTransactionLog(uint64) (*iotextypes.BlockTransactionLog, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -166,7 +166,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to start child services")
 	}
-	// set init height value and implicit transfer log flag
+	// set init height value and transaction log flag
 	if _, err = dao.kvStore.Get(blockNS, topHeightKey); err != nil &&
 		errors.Cause(err) == db.ErrNotExist {
 		zero8bytes := make([]byte, 8)
@@ -174,7 +174,7 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 			return errors.Wrap(err, "failed to write initial value for top height")
 		}
 		if err := dao.kvStore.Put(systemLogNS, zero8bytes, []byte(systemLogNS)); err != nil {
-			return errors.Wrap(err, "failed to write initial value for implicit transfer log")
+			return errors.Wrap(err, "failed to write initial value for transaction log")
 		}
 	}
 	tipHeight, err := dao.getTipHeight()
@@ -454,19 +454,19 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func (dao *blockDAO) ContainsImplicitTransferLog() bool {
+func (dao *blockDAO) ContainsTransactionLog() bool {
 	sys, err := dao.kvStore.Get(systemLogNS, make([]byte, 8))
 	return err == nil && string(sys) == systemLogNS
 }
 
-func (dao *blockDAO) GetImplicitTransferLog(height uint64) (*iotextypes.BlockImplicitTransferLog, error) {
-	if !dao.ContainsImplicitTransferLog() {
+func (dao *blockDAO) GetTransactionLog(height uint64) (*iotextypes.BlockTransactionLog, error) {
+	if !dao.ContainsTransactionLog() {
 		return nil, ErrNotSupported
 	}
 
 	logsBytes, err := dao.kvStore.Get(systemLogNS, heightKey(height))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get implicit transfer log")
+		return nil, errors.Wrap(err, "failed to get transaction log")
 	}
 	return block.DeserializeSystemLogPb(logsBytes)
 }
@@ -750,9 +750,9 @@ func (dao *blockDAO) putBlock(blk *block.Block) error {
 	batchForBlock.Put(blockHeaderNS, hash[:], serHeader, "failed to put block header")
 	batchForBlock.Put(blockBodyNS, hash[:], serBody, "failed to put block body")
 	batchForBlock.Put(blockFooterNS, hash[:], serFooter, "failed to put block footer")
-	if dao.ContainsImplicitTransferLog() {
-		if sysLog := blk.ImplicitTransferLog(); sysLog != nil {
-			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put implicit transfer log")
+	if dao.ContainsTransactionLog() {
+		if sysLog := blk.TransactionLog(); sysLog != nil {
+			batchForBlock.Put(systemLogNS, heightKey, sysLog.Serialize(), "failed to put transaction log")
 		}
 	}
 	kv, _, err := dao.getTopDB(blkHeight)

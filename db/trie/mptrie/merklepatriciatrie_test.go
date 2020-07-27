@@ -45,6 +45,8 @@ var (
 		[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"),
 		[]byte("egg"), []byte("fox"), []byte("cow"), []byte("ant"),
 	}
+
+	emptyTrieRootHash = []byte{0x61, 0x8e, 0x1c, 0xe1, 0xff, 0xfb, 0x18, 0x25, 0x15, 0x9f, 0x9a, 0xa2, 0xc2, 0xe9, 0x37, 0x24, 0x2, 0xfb, 0xd0, 0xab}
 )
 
 func TestEmptyTrie(t *testing.T) {
@@ -52,8 +54,11 @@ func TestEmptyTrie(t *testing.T) {
 	tr, err := New()
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
 	require.True(tr.IsEmpty())
-	require.NoError(tr.Stop(context.Background()))
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+	require.Equal(emptyTrieRootHash, rootHash)
 }
 
 func Test2Roots(t *testing.T) {
@@ -677,4 +682,126 @@ func TestPressure(t *testing.T) {
 	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 	t.Logf("Warning: test %d entries", c)
+}
+
+func TestTrieGet(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("puppy"), []byte("dog")},
+		}
+	)
+
+	trie, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(trie.Start(context.Background()))
+	defer require.NoError(trie.Stop(context.Background()))
+
+	for _, test := range tests {
+		require.NoError(trie.Upsert(test.k, test.v))
+	}
+	for _, test := range tests {
+		val, err := trie.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+	}
+}
+
+func TestTrieUpsert(t *testing.T) {
+	var (
+		require = require.New(t)
+		key     = []byte("puppy")
+		tests   = []struct{ k, v []byte }{
+			{key, []byte("dog")},
+			{key, []byte("teddy")},
+			{key, []byte("snoop")},
+			{key, []byte("snooooooop")},
+		}
+	)
+
+	trie, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(trie.Start(context.Background()))
+	defer require.NoError(trie.Stop(context.Background()))
+
+	for _, test := range tests {
+		require.NoError(trie.Upsert(test.k, test.v))
+	}
+	val, err := trie.Get(key)
+	require.NoError(err)
+	require.Equal(tests[len(tests)-1].v, val)
+}
+
+func TestTrieDelete(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("puppy"), []byte("dog")},
+		}
+	)
+	tr, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+
+	for _, test := range tests {
+		_, err = tr.Get(test.k)
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
+
+		require.NoError(tr.Upsert(test.k, test.v))
+	}
+	for _, test := range tests {
+		val, err := tr.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+
+		require.NoError(tr.Delete(test.k))
+		_, err = tr.Get(test.k)
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
+	}
+	require.True(tr.IsEmpty())
+}
+
+func TestTrieSetRootHash(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("chain"), []byte("link")},
+			{[]byte("puppy"), []byte("dog")},
+			{[]byte("night"), []byte("knight")},
+		}
+		trieDB = trie.NewMemKVStore()
+	)
+
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+	for _, test := range tests {
+		require.NoError(tr.Upsert(test.k, test.v))
+	}
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+	require.NotEqual(emptyTrieRootHash, rootHash)
+
+	// new empty trie and load tr's rootHash
+	tr1, err := New(KVStoreOption(trieDB), KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr1.Start(context.Background()))
+	defer require.NoError(tr1.Stop(context.Background()))
+	tr1Hash, err := tr1.RootHash()
+	require.NoError(err)
+	require.Equal(emptyTrieRootHash, tr1Hash)
+	require.NoError(tr1.SetRootHash(rootHash))
+	for _, test := range tests {
+		val, err := tr1.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+	}
 }

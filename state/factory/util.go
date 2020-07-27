@@ -60,7 +60,7 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 	bloom, _ := bloom.NewBloomFilter(2048, 3)
 	for _, receipt := range receipts {
 		for _, l := range receipt.Logs {
-			if !l.IsImplicitTransfer() {
+			if !l.IsTransactionLog() {
 				for _, topic := range l.Topics {
 					bloom.Add(topic[:])
 				}
@@ -74,20 +74,6 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 func generateWorkingSetCacheKey(blkHeader block.Header, producerAddr string) hash.Hash256 {
 	sum := append(blkHeader.SerializeCore(), []byte(producerAddr)...)
 	return hash.Hash256b(sum)
-}
-
-func startAllProtocols(ctx context.Context, reg *protocol.Registry, sr protocol.StateReader, dock protocol.Dock) error {
-	view, err := reg.StartAll(ctx, sr)
-	if err != nil {
-		return err
-	}
-	// save protocol's view
-	for k, v := range view {
-		if err := dock.Load(k, v); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func protocolCommit(ctx context.Context, sr protocol.StateManager) error {
