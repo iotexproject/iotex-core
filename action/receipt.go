@@ -66,7 +66,7 @@ type (
 		ActionHash         hash.Hash256
 		Index              uint
 		NotFixTopicCopyBug bool
-		IsTransactionLog   bool
+		HasAssetTransfer   bool
 		Sender             string
 		Recipient          string
 	}
@@ -83,7 +83,7 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.Logs = []*iotextypes.Log{}
 	for _, l := range receipt.Logs {
 		// exclude transaction log when calculating receipts' hash or storing logs
-		if !l.IsTransactionLog {
+		if !l.IsTransactionLog() {
 			r.Logs = append(r.Logs, l.ConvertToLogPb())
 		}
 	}
@@ -177,4 +177,9 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
+}
+
+// IsTransactionLog checks whether a log is transaction log
+func (log *Log) IsTransactionLog() bool {
+	return log.HasAssetTransfer
 }

@@ -53,9 +53,9 @@ type ServiceClient interface {
 	// deprecated
 	GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexapi.GetEvmTransfersByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetEvmTransfersByBlockHeightResponse, error)
 	// get transaction log by action hash
-	GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetTransactionLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByActionHashResponse, error)
+	GetTransactionLogByActionHash(ctx context.Context, in *iotexapi.GetTransactionLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByActionHashResponse, error)
 	// get transaction log by block height
-	GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetTransactionLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByBlockHeightResponse, error)
+	GetTransactionLogByBlockHeight(ctx context.Context, in *iotexapi.GetTransactionLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByBlockHeightResponse, error)
 	// get block info in stream
 	StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error)
 	// get filtered logs in stream

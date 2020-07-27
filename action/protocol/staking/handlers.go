@@ -133,7 +133,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		BlockHeight:      blkCtx.BlockHeight,
 		ActionHash:       actionCtx.ActionHash,
 		Recipient:        address.StakingBucketPoolAddr,
-		IsTransactionLog: true,
+		HasAssetTransfer: true,
 	}
 	return log, &cLog, nil
 }
@@ -279,7 +279,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		BlockHeight:      blkCtx.BlockHeight,
 		ActionHash:       actionCtx.ActionHash,
 		Sender:           address.StakingBucketPoolAddr,
-		IsTransactionLog: true,
+		HasAssetTransfer: true,
 	}
 	return log, &amountLog, nil
 }
@@ -522,7 +522,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		BlockHeight:      blkCtx.BlockHeight,
 		ActionHash:       actionCtx.ActionHash,
 		Recipient:        address.StakingBucketPoolAddr,
-		IsTransactionLog: true,
+		HasAssetTransfer: true,
 	}
 	return log, &dLog, nil
 }
@@ -703,7 +703,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		BlockHeight:      blkCtx.BlockHeight,
 		ActionHash:       actCtx.ActionHash,
 		Recipient:        address.StakingBucketPoolAddr,
-		IsTransactionLog: true,
+		HasAssetTransfer: true,
 	}
 
 	// generate candidate register log
@@ -719,7 +719,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		BlockHeight:      blkCtx.BlockHeight,
 		ActionHash:       actCtx.ActionHash,
 		Recipient:        address.RewardingPoolAddr,
-		IsTransactionLog: true,
+		HasAssetTransfer: true,
 	}
 	return log, &cLog, &rLog, nil
 }

@@ -15,6 +15,16 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 )
 
+var (
+	testLog = &Log{
+		Address:     "1",
+		Data:        []byte("cd07d8a74179e032f030d9244"),
+		BlockHeight: 1,
+		ActionHash:  hash.ZeroHash256,
+		Index:       1,
+	}
+)
+
 func TestConvert(t *testing.T) {
 	require := require.New(t)
 
@@ -23,8 +33,9 @@ func TestConvert(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{log}}
+	testLog.Topics = topics
+	testLog.NotFixTopicCopyBug = true
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReceipt)
@@ -36,10 +47,10 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt.GasConsumed, receipt2.GasConsumed)
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
-	require.NotEqual(log, receipt2.Logs[0])
+	require.NotEqual(testLog, receipt2.Logs[0])
 	h := receipt.Hash()
 
-	log.NotFixTopicCopyBug = false
+	testLog.NotFixTopicCopyBug = false
 	typeReceipt = receipt.ConvertToReceiptPb()
 	require.NotNil(typeReceipt)
 	receipt2 = &Receipt{}
@@ -48,13 +59,13 @@ func TestConvert(t *testing.T) {
 	require.NotEqual(h, receipt.Hash())
 
 	// transaction log
-	log.IsTransactionLog = true
+	testLog.HasAssetTransfer = true
 	noLogReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(noLogReceipt)
 	require.Empty(noLogReceipt.Logs)
 
 	// not transaction log
-	log.IsTransactionLog = false
+	testLog.HasAssetTransfer = false
 	oneLogReceipt := receipt.ConvertToReceiptPb()
 	require.Equal(1, len(oneLogReceipt.Logs))
 	receipt2.ConvertFromReceiptPb(oneLogReceipt)
@@ -86,29 +97,29 @@ func TestConvertLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
-
-	typeLog := log.ConvertToLogPb()
+	testLog.Topics = topics
+	testLog.NotFixTopicCopyBug = true
+	typeLog := testLog.ConvertToLogPb()
 	require.NotNil(typeLog)
 	log2 := &Log{}
 	log2.ConvertFromLogPb(typeLog)
-	require.Equal(log.Address, log2.Address)
-	require.Equal(log.Data, log2.Data)
-	require.Equal(log.BlockHeight, log2.BlockHeight)
-	require.Equal(log.ActionHash, log2.ActionHash)
-	require.Equal(log.Index, log2.Index)
+	require.Equal(testLog.Address, log2.Address)
+	require.Equal(testLog.Data, log2.Data)
+	require.Equal(testLog.BlockHeight, log2.BlockHeight)
+	require.Equal(testLog.ActionHash, log2.ActionHash)
+	require.Equal(testLog.Index, log2.Index)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
 	last := len(log2.Topics) - 1
 	for _, v := range log2.Topics[:last] {
 		require.Equal(topics[last], v)
 	}
 
-	log.NotFixTopicCopyBug = false
-	typeLog = log.ConvertToLogPb()
+	testLog.NotFixTopicCopyBug = false
+	typeLog = testLog.ConvertToLogPb()
 	require.NotNil(typeLog)
 	log2 = &Log{}
 	log2.ConvertFromLogPb(typeLog)
-	require.Equal(log, log2)
+	require.Equal(testLog, log2)
 }
 func TestSerDerLog(t *testing.T) {
 	require := require.New(t)
@@ -118,27 +129,27 @@ func TestSerDerLog(t *testing.T) {
 		hash.Hash256b([]byte("Pacific")),
 		hash.Hash256b([]byte("Aleutian")),
 	}
-	log := &Log{"1", topics, []byte("cd07d8a74179e032f030d9244"), 1, hash.ZeroHash256, 1, true, false, "", ""}
-
-	typeLog, err := log.Serialize()
+	testLog.Topics = topics
+	testLog.NotFixTopicCopyBug = true
+	typeLog, err := testLog.Serialize()
 	require.NoError(err)
 	log2 := &Log{}
 	log2.Deserialize(typeLog)
-	require.Equal(log.Address, log2.Address)
-	require.Equal(log.Data, log2.Data)
-	require.Equal(log.BlockHeight, log2.BlockHeight)
-	require.Equal(log.ActionHash, log2.ActionHash)
-	require.Equal(log.Index, log2.Index)
+	require.Equal(testLog.Address, log2.Address)
+	require.Equal(testLog.Data, log2.Data)
+	require.Equal(testLog.BlockHeight, log2.BlockHeight)
+	require.Equal(testLog.ActionHash, log2.ActionHash)
+	require.Equal(testLog.Index, log2.Index)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
 	last := len(log2.Topics) - 1
 	for _, v := range log2.Topics[:last] {
 		require.Equal(topics[last], v)
 	}
 
-	log.NotFixTopicCopyBug = false
-	typeLog, err = log.Serialize()
+	testLog.NotFixTopicCopyBug = false
+	typeLog, err = testLog.Serialize()
 	require.NoError(err)
 	log2 = &Log{}
 	log2.Deserialize(typeLog)
-	require.Equal(log, log2)
+	require.Equal(testLog, log2)
 }

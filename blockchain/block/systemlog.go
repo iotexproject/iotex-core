@@ -159,7 +159,7 @@ func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
 
 // LogTokenTxRecord generates token transaction record from log
 func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
-	if log == nil || !log.IsTransactionLog {
+	if log == nil || !log.IsTransactionLog() {
 		return nil
 	}
 

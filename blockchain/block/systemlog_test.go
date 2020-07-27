@@ -28,20 +28,59 @@ var (
 	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
 
-	evmTopics      = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
-	evmLog         = &action.Log{stkAddr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, "", ""}
-	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	createLog      = &action.Log{stkAddr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, "", address.StakingBucketPoolAddr}
-	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	depositLog     = &action.Log{stkAddr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, "", address.StakingBucketPoolAddr}
+	evmTopics = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
+	evmLog    = &action.Log{
+		Address:          stkAddr,
+		Topics:           evmTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+	}
+	createTopics = []hash.Hash256{action.BucketCreateAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	createLog    = &action.Log{
+		Address:          stkAddr,
+		Topics:           createTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+		Recipient:        address.StakingBucketPoolAddr,
+	}
+	depositTopics = []hash.Hash256{action.BucketDepositAmount, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	depositLog    = &action.Log{
+		Address:          stkAddr,
+		Topics:           depositTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+		Recipient:        address.StakingBucketPoolAddr,
+	}
 	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, action.StakingBucketPoolTopic, senderTopic, hash.ZeroHash256}
-	withdrawLog    = &action.Log{stkAddr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, address.RewardingPoolAddr, ""}
-	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
-	selfstakeLog   = &action.Log{stkAddr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, "", address.StakingBucketPoolAddr}
+	withdrawLog    = &action.Log{
+		Address:          stkAddr,
+		Topics:           withdrawTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+		Sender:           address.RewardingPoolAddr,
+	}
+	sstakeTopics = []hash.Hash256{action.CandidateSelfStake, senderTopic, action.StakingBucketPoolTopic, hash.ZeroHash256}
+	selfstakeLog = &action.Log{
+		Address:          stkAddr,
+		Topics:           sstakeTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+		Recipient:        address.StakingBucketPoolAddr,
+	}
 	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, action.RewardingPoolTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{stkAddr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false, true, "", address.StakingBucketPoolAddr}
-	normalLog      = &action.Log{stkAddr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false, false, "", ""}
-	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
+	registerLog    = &action.Log{
+		Address:          stkAddr,
+		Topics:           registerTopics,
+		Data:             amount.Bytes(),
+		HasAssetTransfer: true,
+		Recipient:        address.StakingBucketPoolAddr,
+	}
+	normalLog = &action.Log{
+		Address: stkAddr,
+		Topics:  []hash.Hash256{senderTopic, recverTopic},
+		Data:    amount.Bytes(),
+	}
+	allLogs = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
 	receiptTest = []struct {
 		r   *action.Receipt
@@ -97,7 +136,7 @@ var (
 )
 
 func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
-	if !log.IsTransactionLog {
+	if !log.IsTransactionLog() {
 		return false
 	}
 	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
