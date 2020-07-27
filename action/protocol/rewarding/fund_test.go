@@ -32,6 +32,7 @@ func TestProtocol_Fund(t *testing.T) {
 		require.Equal(t, big.NewInt(5).Bytes(), rlog.Data)
 		require.Equal(t, actionCtx.Caller.String(), rlog.Sender)
 		require.Equal(t, address.RewardingPoolAddr, rlog.Recipient)
+		require.True(t, rlog.IsTransactionLog())
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)

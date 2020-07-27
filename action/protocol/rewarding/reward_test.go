@@ -264,6 +264,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.Equal(t, big.NewInt(5).Bytes(), rlog.Data)
 		require.Equal(t, address.RewardingPoolAddr, rlog.Sender)
 		require.Equal(t, claimActionCtx.Caller.String(), rlog.Recipient)
+		require.True(t, rlog.IsTransactionLog())
 
 		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
