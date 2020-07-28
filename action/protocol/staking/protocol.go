@@ -437,9 +437,6 @@ func (p *Protocol) settleAction(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
-	if depositLog != nil {
-		logs = append(logs, depositLog)
-	}
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
 		return nil, err
@@ -459,5 +456,6 @@ func (p *Protocol) settleAction(
 		ContractAddress: p.addr.String(),
 	}
 	r.AddLogs(logs...)
+	r.AddLogs(depositLog)
 	return &r, nil
 }

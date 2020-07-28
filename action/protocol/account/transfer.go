@@ -30,7 +30,6 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	logs := []*action.Log{}
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
 		return nil, nil
@@ -52,6 +51,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
+	var depositLog *action.Log
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Pacific, blkCtx.BlockHeight) {
 		// charge sender gas
@@ -59,12 +59,9 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
 		}
 		if p.depositGas != nil {
-			depositLog, err := p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {
 				return nil, err
-			}
-			if depositLog != nil {
-				logs = append(logs, depositLog)
 			}
 		}
 	}
@@ -83,23 +80,21 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 		if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 			if p.depositGas != nil {
-				depositLog, err := p.depositGas(ctx, sm, gasFee)
+				depositLog, err = p.depositGas(ctx, sm, gasFee)
 				if err != nil {
 					return nil, err
 				}
-				if depositLog != nil {
-					logs = append(logs, depositLog)
-				}
 			}
 		}
-		return &action.Receipt{
+		receipt := &action.Receipt{
 			Status:          uint64(iotextypes.ReceiptStatus_Failure),
 			BlockHeight:     blkCtx.BlockHeight,
 			ActionHash:      actionCtx.ActionHash,
 			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
-			Logs:            logs,
-		}, nil
+		}
+		receipt.AddLogs(depositLog)
+		return receipt, nil
 	}
 
 	// update sender Balance
@@ -127,33 +122,30 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		if p.depositGas != nil {
-			depositLog, err := p.depositGas(ctx, sm, gasFee)
+			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {
 				return nil, err
-			}
-			if depositLog != nil {
-				logs = append(logs, depositLog)
 			}
 		}
 	}
 
-	transactionLog := &action.Log{
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
-			Sender:    actionCtx.Caller.String(),
-			Recipient: tsf.Recipient(),
-			Amount:    tsf.Amount(),
-		},
-	}
-	r := &action.Receipt{
+	receipt := &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}
-	r.AddLogs(transactionLog)
-	return r, nil
+	receipt.AddLogs(&action.Log{
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: tsf.Recipient(),
+			Amount:    tsf.Amount(),
+		},
+	}, depositLog)
+
+	return receipt, nil
 }
 
 // validateTransfer validates a transfer

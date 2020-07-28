@@ -673,45 +673,41 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	// put registrationFee to reward pool
-	depositLog, err := p.depositGas(ctx, csm, registrationFee)
-	if err != nil {
+	if _, err = p.depositGas(ctx, csm, registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	actionLogs := []*action.Log{}
-	if depositLog != nil {
-		actionLogs = append(actionLogs, depositLog)
 	}
 
 	log.AddAddress(owner)
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	// generate self-stake log
-	actionLogs = append(actionLogs, &action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.StakingBucketPoolAddr,
-			Amount:    act.Amount(),
+	return log, []*action.Log{
+		// generate self-stake log
+		&action.Log{
+			Address:     p.addr.String(),
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+			TransactionData: &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+				Sender:    actCtx.Caller.String(),
+				Recipient: address.StakingBucketPoolAddr,
+				Amount:    act.Amount(),
+			},
 		},
-	})
 
-	// generate candidate register log
-	actionLogs = append(actionLogs, &action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    registrationFee,
+		// generate candidate register log
+		&action.Log{
+			Address:     p.addr.String(),
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+			TransactionData: &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+				Sender:    actCtx.Caller.String(),
+				Recipient: address.RewardingPoolAddr,
+				Amount:    registrationFee,
+			},
 		},
-	})
-	return log, actionLogs, nil
+	}, nil
 }
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,
