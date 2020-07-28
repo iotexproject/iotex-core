@@ -160,7 +160,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(hu, e.height)
+		chainConfig := getChainConfig(hu)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
 		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsHomestead(evm.BlockNumber))
@@ -184,11 +184,7 @@ func TestConstantinople(t *testing.T) {
 
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
-		var evmGreenland *big.Int
-		if hu.IsPost(config.Greenland, e.height) {
-			evmGreenland = big.NewInt(int64(genesis.Default.GreenlandBlockHeight))
-		}
-		require.Equal(evmGreenland, evm.ChainConfig().GreenlandBlock)
+		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evm.ChainConfig().GreenlandBlock)
 		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
 	}
 }
