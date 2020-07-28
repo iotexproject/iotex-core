@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -32,6 +33,8 @@ var (
 	// TODO: whenever ActionGasLimit is removed from genesis, we need to hard code it to 5M to make it compatible with
 	// the mainnet.
 	preAleutianActionGasLimit = genesis.Default.ActionGasLimit
+
+	inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
 
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -49,7 +52,7 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{
-			common.BytesToHash(action.InContractTransfer[:]),
+			common.BytesToHash(inContractTransfer[:]),
 			common.BytesToHash(fromHash[:]),
 			common.BytesToHash(toHash[:]),
 		},

@@ -15,6 +15,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,7 +44,8 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		_, err := p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
 
-		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
+		_, err = p.Deposit(ctx, sm, big.NewInt(200))
+		require.NoError(t, err)
 
 		// Grant block reward
 		rewardLog, err := p.GrantBlockReward(ctx, sm)
@@ -77,7 +79,8 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 
-		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		require.NoError(t, err)
 
 		// Grant epoch reward
 		rewardLogs, err := p.GrantEpochReward(ctx, sm)
@@ -182,10 +185,11 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 	}, false)
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		require.NoError(t, err)
 
 		// Grant epoch reward
-		_, err := p.GrantEpochReward(ctx, sm)
+		_, err = p.GrantEpochReward(ctx, sm)
 		require.NoError(t, err)
 
 		// The 5-th candidate can't get the reward because exempting from the epoch reward
@@ -202,7 +206,8 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 func TestProtocol_ClaimReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// Deposit 20 token into the rewarding fund
-		require.NoError(t, p.Deposit(ctx, sm, big.NewInt(20)))
+		_, err := p.Deposit(ctx, sm, big.NewInt(20))
+		require.NoError(t, err)
 
 		// Grant block reward
 		rewardLog, err := p.GrantBlockReward(ctx, sm)
@@ -220,7 +225,8 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimActionCtx.Caller = identityset.Address(0)
 		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
-		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
+		require.NoError(t, err)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -233,10 +239,12 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
 
 		// Claim negative amount of token will fail
-		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(-5)))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(-5))
+		require.Error(t, err)
 
 		// Claim 0 amount won't fail, but also will not get the token
-		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(0)))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(0))
+		require.NoError(t, err)
 
 		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -249,7 +257,14 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
 
 		// Claim another 5 token
-		require.NoError(t, p.Claim(claimCtx, sm, big.NewInt(5)))
+		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5))
+		require.NoError(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, rlog)
+		require.True(t, rlog.IsTransactionLog())
+		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
+		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Sender)
+		require.Equal(t, claimActionCtx.Caller.String(), rlog.TransactionData.Recipient)
 
 		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -262,14 +277,16 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(1000010), primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
-		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(5)))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
+		require.Error(t, err)
 
 		// Operator should have nothing to claim
 		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 		claimActionCtx.Caller = blkCtx.Producer
 		claimCtx = protocol.WithActionCtx(ctx, claimActionCtx)
-		require.Error(t, p.Claim(claimCtx, sm, big.NewInt(1)))
+		_, err = p.Claim(claimCtx, sm, big.NewInt(1))
+		require.Error(t, err)
 	}, false)
 }
 
@@ -416,7 +433,8 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Caller: identityset.Address(0),
 		},
 	)
-	require.NoError(t, p.Deposit(ctx, sm, big.NewInt(200)))
+	_, err = p.Deposit(ctx, sm, big.NewInt(200))
+	require.NoError(t, err)
 
 	// Grant block reward
 	rewardLog, err := p.GrantBlockReward(ctx, sm)

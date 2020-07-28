@@ -785,14 +785,14 @@ func (api *Server) GetEvmTransfersByBlockHeight(ctx context.Context, in *iotexap
 	return nil, status.Error(codes.Unimplemented, "evm transfer index is deprecated, call GetSystemLogByBlockHeight instead")
 }
 
-// GetImplicitTransferLogByActionHash returns implict transfer log by action hash
-func (api *Server) GetImplicitTransferLogByActionHash(
+// GetTransactionLogByActionHash returns transaction log by action hash
+func (api *Server) GetTransactionLogByActionHash(
 	ctx context.Context,
-	in *iotexapi.GetImplicitTransferLogByActionHashRequest) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
+	in *iotexapi.GetTransactionLogByActionHashRequest) (*iotexapi.GetTransactionLogByActionHashResponse, error) {
 	if !api.hasActionIndex || api.indexer == nil {
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
-	if !api.dao.ContainsImplicitTransferLog() {
+	if !api.dao.ContainsTransactionLog() {
 		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
 	}
 
@@ -809,7 +809,7 @@ func (api *Server) GetImplicitTransferLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sysLog, err := api.dao.GetImplicitTransferLog(actIndex.BlockHeight())
+	sysLog, err := api.dao.GetTransactionLog(actIndex.BlockHeight())
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -817,21 +817,21 @@ func (api *Server) GetImplicitTransferLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	for _, log := range sysLog.ImplicitTransferLog {
+	for _, log := range sysLog.TransactionLog {
 		if bytes.Compare(h, log.ActionHash) == 0 {
-			return &iotexapi.GetImplicitTransferLogByActionHashResponse{
-				ImplicitTransferLog: log,
+			return &iotexapi.GetTransactionLogByActionHashResponse{
+				TransactionLog: log,
 			}, nil
 		}
 	}
-	return nil, status.Errorf(codes.NotFound, "implicit transfer log not found for action %s", in.ActionHash)
+	return nil, status.Errorf(codes.NotFound, "transaction log not found for action %s", in.ActionHash)
 }
 
-// GetImplicitTransferLogByBlockHeight returns implict transfer log by block height
-func (api *Server) GetImplicitTransferLogByBlockHeight(
+// GetTransactionLogByBlockHeight returns transaction log by block height
+func (api *Server) GetTransactionLogByBlockHeight(
 	ctx context.Context,
-	in *iotexapi.GetImplicitTransferLogByBlockHeightRequest) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
-	if !api.dao.ContainsImplicitTransferLog() {
+	in *iotexapi.GetTransactionLogByBlockHeightRequest) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
+	if !api.dao.ContainsTransactionLog() {
 		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
 	}
 
@@ -850,7 +850,7 @@ func (api *Server) GetImplicitTransferLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	sysLog, err := api.dao.GetImplicitTransferLog(in.BlockHeight)
+	sysLog, err := api.dao.GetTransactionLog(in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -858,8 +858,8 @@ func (api *Server) GetImplicitTransferLogByBlockHeight(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	return &iotexapi.GetImplicitTransferLogByBlockHeightResponse{
-		BlockImplicitTransferLog: sysLog,
+	return &iotexapi.GetTransactionLogByBlockHeightResponse{
+		BlockTransactionLog: sysLog,
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
 			Height: in.BlockHeight,

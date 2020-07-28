@@ -122,17 +122,15 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// generate create amount log
 	cLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketCreateAmount,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			action.StakingBucketPoolTopic,
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 	return log, &cLog, nil
 }
@@ -267,17 +265,15 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// generate withdraw amount log
 	amountLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketWithdrawAmount,
-			action.StakingBucketPoolTopic,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        bucket.StakedAmount.Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Sender:      address.StakingBucketPoolAddr,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
+			Sender:    address.StakingBucketPoolAddr,
+			Recipient: actionCtx.Caller.String(),
+			Amount:    bucket.StakedAmount,
+		},
 	}
 	return log, &amountLog, nil
 }
@@ -509,17 +505,15 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	// generate deposit amount log
 	dLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketDepositAmount,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			action.StakingBucketPoolTopic,
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 	return log, &dLog, nil
 }
@@ -689,32 +683,28 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	// generate self-stake log
 	cLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.CandidateSelfStake,
-			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			action.StakingBucketPoolTopic,
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
-		Recipient:   address.StakingBucketPoolAddr,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 
 	// generate candidate register log
 	rLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.CandidateRegistrationFee,
-			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			action.RewardingPoolTopic,
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        registrationFee.Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
-		Recipient:   address.RewardingPoolAddr,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    registrationFee,
+		},
 	}
 	return log, &cLog, &rLog, nil
 }

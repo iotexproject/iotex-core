@@ -303,33 +303,33 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
-// ContainsImplicitTransferLog mocks base method
-func (m *MockBlockDAO) ContainsImplicitTransferLog() bool {
+// ContainsTransactionLog mocks base method
+func (m *MockBlockDAO) ContainsTransactionLog() bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainsImplicitTransferLog")
+	ret := m.ctrl.Call(m, "ContainsTransactionLog")
 	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// ContainsImplicitTransferLog indicates an expected call of ContainsImplicitTransferLog
-func (mr *MockBlockDAOMockRecorder) ContainsImplicitTransferLog() *gomock.Call {
+// ContainsTransactionLog indicates an expected call of ContainsTransactionLog
+func (mr *MockBlockDAOMockRecorder) ContainsTransactionLog() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsImplicitTransferLog))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsTransactionLog))
 }
 
-// GetImplicitTransferLog mocks base method
-func (m *MockBlockDAO) GetImplicitTransferLog(arg0 uint64) (*iotextypes.BlockImplicitTransferLog, error) {
+// GetTransactionLog mocks base method
+func (m *MockBlockDAO) GetTransactionLog(arg0 uint64) (*iotextypes.BlockTransactionLog, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetImplicitTransferLog", arg0)
-	ret0, _ := ret[0].(*iotextypes.BlockImplicitTransferLog)
+	ret := m.ctrl.Call(m, "GetTransactionLog", arg0)
+	ret0, _ := ret[0].(*iotextypes.BlockTransactionLog)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetImplicitTransferLog indicates an expected call of GetImplicitTransferLog
-func (mr *MockBlockDAOMockRecorder) GetImplicitTransferLog(arg0 interface{}) *gomock.Call {
+// GetTransactionLog indicates an expected call of GetTransactionLog
+func (mr *MockBlockDAOMockRecorder) GetTransactionLog(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLog", reflect.TypeOf((*MockBlockDAO)(nil).GetImplicitTransferLog), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).GetTransactionLog), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

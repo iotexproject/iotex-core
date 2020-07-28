@@ -60,7 +60,7 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 	bloom, _ := bloom.NewBloomFilter(2048, 3)
 	for _, receipt := range receipts {
 		for _, l := range receipt.Logs {
-			if !l.IsImplicitTransfer() {
+			if !l.IsTransactionLog() {
 				for _, topic := range l.Topics {
 					bloom.Add(topic[:])
 				}
