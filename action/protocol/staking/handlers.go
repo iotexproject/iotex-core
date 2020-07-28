@@ -96,6 +96,14 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update staker balance
 	if err := staker.SubBalance(act.Amount()); err != nil {
 		return log, nil, &handleError{
@@ -114,16 +122,15 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 	// generate create amount log
 	cLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketCreateAmount,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 	return log, &cLog, nil
 }
@@ -231,6 +238,14 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		return log, nil, errors.Wrapf(err, "failed to delete bucket for candidate %s", bucket.Candidate.String())
 	}
 
+	// update bucket pool
+	if err := csm.CreditBucketPool(bucket.StakedAmount); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update withdrawer balance
 	if err := withdrawer.AddBalance(bucket.StakedAmount); err != nil {
 		return log, nil, &handleError{
@@ -250,16 +265,15 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// generate withdraw amount log
 	amountLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketWithdrawAmount,
-			hash.BytesToHash256(p.addr.Bytes()),
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        bucket.StakedAmount.Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
+			Sender:    address.StakingBucketPoolAddr,
+			Recipient: actionCtx.Caller.String(),
+			Amount:    bucket.StakedAmount,
+		},
 	}
 	return log, &amountLog, nil
 }
@@ -468,6 +482,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, csmErrorToHandleError(candidate.Owner.String(), err)
 	}
 
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), false); err != nil {
+		return log, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update depositor balance
 	if err := depositor.SubBalance(act.Amount()); err != nil {
 		return log, nil, &handleError{
@@ -483,16 +505,15 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 	// generate deposit amount log
 	dLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.BucketDepositAmount,
-			hash.BytesToHash256(actionCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 	return log, &dLog, nil
 }
@@ -631,6 +652,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		return log, nil, nil, csmErrorToHandleError(owner.String(), err)
 	}
 
+	// update bucket pool
+	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
+		return log, nil, nil, &handleError{
+			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
+			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
+		}
+	}
+
 	// update caller balance
 	if err := caller.SubBalance(act.Amount()); err != nil {
 		return log, nil, nil, &handleError{
@@ -654,31 +683,28 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	// generate self-stake log
 	cLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.CandidateSelfStake,
-			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			hash.BytesToHash256(p.addr.Bytes()),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        act.Amount().Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
+		},
 	}
 
 	// generate candidate register log
-	rewardingAddr := hash.Hash160b([]byte(action.RewardingProtocolID))
 	rLog := action.Log{
-		Address: p.addr.String(),
-		Topics: action.Topics{
-			action.CandidateRegistrationFee,
-			hash.BytesToHash256(actCtx.Caller.Bytes()),
-			hash.BytesToHash256(rewardingAddr[:]),
-			hash.BytesToHash256(byteutil.Uint64ToBytesBigEndian(bucket.Index)),
-		},
-		Data:        registrationFee.Bytes(),
+		Address:     p.addr.String(),
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actCtx.ActionHash,
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    registrationFee,
+		},
 	}
 	return log, &cLog, &rLog, nil
 }

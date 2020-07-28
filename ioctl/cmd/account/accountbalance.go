@@ -12,6 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	ioAddress "github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -52,11 +53,15 @@ type balanceMessage struct {
 
 // balance gets balance of an IoTeX blockchain address
 func balance(arg string) error {
-	address, err := util.GetAddress(arg)
-	if err != nil {
-		return output.NewError(output.AddressError, "", err)
-	}
-	accountMeta, err := GetAccountMeta(address)
+	addr := arg
+	if arg != ioAddress.StakingBucketPoolAddr && arg != ioAddress.RewardingPoolAddr {
+		var err error 
+		addr, err = util.GetAddress(arg)
+		if err != nil {
+			return output.NewError(output.AddressError, "", err)
+		}
+	}	
+	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
 		return output.NewError(0, "", err) // TODO: undefined error
 	}
@@ -65,7 +70,7 @@ func balance(arg string) error {
 		return output.NewError(output.ConvertError, "", err)
 	}
 	message := balanceMessage{
-		Address: address,
+		Address: addr,
 		Balance: util.RauToString(balance, util.IotxDecimalNum),
 	}
 	fmt.Println((message.String()))

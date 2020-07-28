@@ -122,3 +122,15 @@ mockgen -destination=./test/mock/mock_ioctlclient/mock_ioctlclient.go  \
         -source=./ioctl/client.go \
         -package=mock_ioctlclient \
         Client
+
+mkdir -p ./test/mock/mock_apiresponder
+mockgen -destination=./test/mock/mock_apiresponder/mock_apiresponder.go  \
+        -source=./api/responder.go \
+        -package=mock_apiresponder \
+        Responder
+
+mkdir -p ./test/mock/mock_apiserver
+mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
+        -source=./api/apitestserver.go \
+        -package=mock_apiserver \
+        StreamBlocksServer

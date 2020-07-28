@@ -21,32 +21,79 @@ import (
 )
 
 var (
-	addr        = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
+	stkAddr     = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
 	amount      = big.NewInt(100)
 	sender      = identityset.Address(0)
 	recver      = identityset.Address(1)
 	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
 	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
-	reward      = hash.Hash160b([]byte(action.RewardingProtocolID))
-	rewardTopic = hash.BytesToHash256(reward[:])
 
-	staking        = hash.Hash160b([]byte(action.StakingProtocolID))
-	stakingAddr, _ = address.FromBytes(staking[:])
-	stakingTopic   = hash.BytesToHash256(staking[:])
-	evmTopics      = []hash.Hash256{hash.ZeroHash256, senderTopic, recverTopic}
-	evmLog         = &action.Log{addr, evmTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	createTopics   = []hash.Hash256{action.BucketCreateAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	createLog      = &action.Log{addr, createTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	depositTopics  = []hash.Hash256{action.BucketDepositAmount, senderTopic, stakingTopic, hash.ZeroHash256}
-	depositLog     = &action.Log{addr, depositTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	withdrawTopics = []hash.Hash256{action.BucketWithdrawAmount, stakingTopic, senderTopic, hash.ZeroHash256}
-	withdrawLog    = &action.Log{addr, withdrawTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	sstakeTopics   = []hash.Hash256{action.CandidateSelfStake, senderTopic, stakingTopic, hash.ZeroHash256}
-	selfstakeLog   = &action.Log{addr, sstakeTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	registerTopics = []hash.Hash256{action.CandidateRegistrationFee, senderTopic, rewardTopic, hash.ZeroHash256}
-	registerLog    = &action.Log{addr, registerTopics, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	normalLog      = &action.Log{addr, []hash.Hash256{senderTopic, recverTopic}, amount.Bytes(), 1, hash.ZeroHash256, 0, false}
-	allLogs        = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
+	evmLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    identityset.Address(0).String(),
+			Recipient: identityset.Address(1).String(),
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+		},
+	}
+	createLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    identityset.Address(0).String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
+		},
+	}
+	depositLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    identityset.Address(0).String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
+		},
+	}
+	withdrawLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    address.StakingBucketPoolAddr,
+			Recipient: identityset.Address(0).String(),
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
+		},
+	}
+	selfstakeLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    identityset.Address(0).String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+		},
+	}
+	registerLog = &action.Log{
+		Address: stkAddr,
+		Data:    amount.Bytes(),
+		TransactionData: &action.TransactionLog{
+			Sender:    identityset.Address(0).String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    amount,
+			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+		},
+	}
+	normalLog = &action.Log{
+		Address: stkAddr,
+		Topics:  []hash.Hash256{senderTopic, recverTopic},
+		Data:    amount.Bytes(),
+	}
+	allLogs = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
 	receiptTest = []struct {
 		r   *action.Receipt
@@ -58,7 +105,7 @@ var (
 			0,
 		},
 		{
-			// success but not implicit transfer log
+			// success but not transaction log
 			&action.Receipt{
 				Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog}},
 			0,
@@ -101,57 +148,14 @@ var (
 	}
 )
 
-func TestIsSystemLog(t *testing.T) {
-	r := require.New(t)
-
-	r.Equal(addr, stakingAddr.String())
-	for i, log := range allLogs {
-		r.Equal(i == 0, log.IsEvmTransfer())
-		r.Equal(i == 1, log.IsCreateBucket())
-		r.Equal(i == 2, log.IsDepositBucket())
-		r.Equal(i == 3, log.IsWithdrawBucket())
-		r.Equal(i == 4, log.IsCandidateSelfStake())
-		r.Equal(i == 5, log.IsCandidateRegister())
-
-		// test wrong recipient
-		if log.IsCreateBucket() {
-			log.Topics[2] = recverTopic
-			r.False(log.IsCreateBucket())
-			log.Topics[2] = stakingTopic
-		}
-
-		if log.IsWithdrawBucket() {
-			log.Topics[1] = recverTopic
-			r.False(log.IsWithdrawBucket())
-			log.Topics[1] = stakingTopic
-		}
-
-		if log.IsCandidateRegister() {
-			log.Topics[2] = recverTopic
-			r.False(log.IsCandidateRegister())
-			log.Topics[2] = rewardTopic
-		}
-	}
-
-	r.False(normalLog.IsEvmTransfer())
-	r.False(normalLog.IsCreateBucket())
-	r.False(normalLog.IsDepositBucket())
-	r.False(normalLog.IsWithdrawBucket())
-	r.False(normalLog.IsCandidateSelfStake())
-	r.False(normalLog.IsCandidateRegister())
-}
-
 func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
-	if !log.IsImplicitTransfer() {
+	if !log.IsTransactionLog() {
 		return false
 	}
-	r.Equal(log.Topics[0], hash.BytesToHash256(rec.topic))
-	txAmount := new(big.Int).SetBytes(log.Data)
-	r.Equal(txAmount.String(), rec.amount)
-	from, _ := address.FromBytes(log.Topics[1][12:])
-	r.Equal(from.String(), rec.sender)
-	to, _ := address.FromBytes(log.Topics[2][12:])
-	r.Equal(to.String(), rec.recipient)
+	r.Equal(log.TransactionData.Type, rec.typ)
+	r.Equal(log.TransactionData.Amount.String(), rec.amount)
+	r.Equal(log.TransactionData.Sender, rec.sender)
+	r.Equal(log.TransactionData.Recipient, rec.recipient)
 	return true
 }
 
@@ -159,7 +163,7 @@ func TestReceiptSystemLog(t *testing.T) {
 	r := require.New(t)
 
 	for _, v := range receiptTest {
-		sysLog := ReceiptImplicitTransferLog(v.r)
+		sysLog := ReceiptTransactionLog(v.r)
 		if v.num > 0 {
 			r.Equal(v.r.ActionHash, sysLog.actHash)
 			r.EqualValues(v.num, sysLog.numTxs)
@@ -176,16 +180,16 @@ func TestSystemLogFromReceipt(t *testing.T) {
 	r := require.New(t)
 
 	blk := Block{}
-	blkLog := blk.ImplicitTransferLog()
+	blkLog := blk.TransactionLog()
 	r.Nil(blkLog)
 	blk.Receipts = []*action.Receipt{}
-	blkLog = blk.ImplicitTransferLog()
+	blkLog = blk.TransactionLog()
 	r.Nil(blkLog)
-	// normal log is not implict transfer
+	// normal log is not transaction log
 	blk.Receipts = append(blk.Receipts, &action.Receipt{
 		Status: uint64(iotextypes.ReceiptStatus_Success), Logs: []*action.Log{normalLog},
 	})
-	blkLog = blk.ImplicitTransferLog()
+	blkLog = blk.TransactionLog()
 	r.Nil(blkLog)
 
 	blk.Receipts = blk.Receipts[:0]
@@ -196,7 +200,7 @@ func TestSystemLogFromReceipt(t *testing.T) {
 			implicitTransferNum++
 		}
 	}
-	blkLog = blk.ImplicitTransferLog()
+	blkLog = blk.TransactionLog()
 	r.EqualValues(implicitTransferNum, blkLog.numActions)
 	r.Equal(implicitTransferNum, len(blkLog.actionLogs))
 
@@ -208,19 +212,19 @@ func TestSystemLogFromReceipt(t *testing.T) {
 
 	// verify block systemlog pb message
 	r.EqualValues(implicitTransferNum, pb.NumTransactions)
-	r.Equal(implicitTransferNum, len(pb.ImplicitTransferLog))
-	for i, sysLog := range pb.ImplicitTransferLog {
+	r.Equal(implicitTransferNum, len(pb.TransactionLog))
+	for i, sysLog := range pb.TransactionLog {
 		receipt := blk.Receipts[i]
 		r.Equal(receipt.ActionHash, hash.BytesToHash256(sysLog.ActionHash))
 		r.EqualValues(len(receipt.Logs), sysLog.NumTransactions)
 		r.Equal(len(receipt.Logs), len(sysLog.Transactions))
-		for i, rec := range sysLog.Transactions {
+		for i, tx := range sysLog.Transactions {
 			// verify token tx record
 			rec := &TokenTxRecord{
-				topic:     rec.Topic,
-				amount:    rec.Amount,
-				sender:    rec.Sender,
-				recipient: rec.Recipient,
+				amount:    tx.Amount,
+				sender:    tx.Sender,
+				recipient: tx.Recipient,
+				typ:       tx.Type,
 			}
 			r.True(validateSystemLog(r, receipt.Logs[i], rec))
 		}

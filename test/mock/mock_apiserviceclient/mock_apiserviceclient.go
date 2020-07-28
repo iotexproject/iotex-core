@@ -375,44 +375,44 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
 }
 
-// GetImplicitTransferLogByActionHash mocks base method
-func (m *MockServiceClient) GetImplicitTransferLogByActionHash(ctx context.Context, in *iotexapi.GetImplicitTransferLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByActionHashResponse, error) {
+// GetTransactionLogByActionHash mocks base method
+func (m *MockServiceClient) GetTransactionLogByActionHash(ctx context.Context, in *iotexapi.GetTransactionLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByActionHashResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetImplicitTransferLogByActionHash", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByActionHashResponse)
+	ret := m.ctrl.Call(m, "GetTransactionLogByActionHash", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByActionHashResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetImplicitTransferLogByActionHash indicates an expected call of GetImplicitTransferLogByActionHash
-func (mr *MockServiceClientMockRecorder) GetImplicitTransferLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetTransactionLogByActionHash indicates an expected call of GetTransactionLogByActionHash
+func (mr *MockServiceClientMockRecorder) GetTransactionLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetImplicitTransferLogByActionHash), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetTransactionLogByActionHash), varargs...)
 }
 
-// GetImplicitTransferLogByBlockHeight mocks base method
-func (m *MockServiceClient) GetImplicitTransferLogByBlockHeight(ctx context.Context, in *iotexapi.GetImplicitTransferLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetImplicitTransferLogByBlockHeightResponse, error) {
+// GetTransactionLogByBlockHeight mocks base method
+func (m *MockServiceClient) GetTransactionLogByBlockHeight(ctx context.Context, in *iotexapi.GetTransactionLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{ctx, in}
 	for _, a := range opts {
 		varargs = append(varargs, a)
 	}
-	ret := m.ctrl.Call(m, "GetImplicitTransferLogByBlockHeight", varargs...)
-	ret0, _ := ret[0].(*iotexapi.GetImplicitTransferLogByBlockHeightResponse)
+	ret := m.ctrl.Call(m, "GetTransactionLogByBlockHeight", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByBlockHeightResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetImplicitTransferLogByBlockHeight indicates an expected call of GetImplicitTransferLogByBlockHeight
-func (mr *MockServiceClientMockRecorder) GetImplicitTransferLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+// GetTransactionLogByBlockHeight indicates an expected call of GetTransactionLogByBlockHeight
+func (mr *MockServiceClientMockRecorder) GetTransactionLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{ctx, in}, opts...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImplicitTransferLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetImplicitTransferLogByBlockHeight), varargs...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetTransactionLogByBlockHeight), varargs...)
 }
 
 // StreamBlocks mocks base method

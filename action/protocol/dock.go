@@ -8,6 +8,8 @@ package protocol
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // Errors
@@ -16,43 +18,48 @@ var (
 )
 
 type dock struct {
-	dirty     bool
-	value     map[string]interface{}
-	protocols map[string]bool
+	stash map[string]map[string][]byte
 }
 
 // NewDock returns a new dock
 func NewDock() Dock {
 	return &dock{
-		value:     make(map[string]interface{}),
-		protocols: make(map[string]bool),
+		stash: map[string]map[string][]byte{},
 	}
 }
 
 func (d *dock) ProtocolDirty(name string) bool {
-	return d.protocols[name]
+	_, hit := d.stash[name]
+	return hit
 }
 
-func (d *dock) Load(name string, v interface{}) error {
-	d.value[name] = v
-	d.protocols[name] = true
-	return nil
-}
-
-func (d *dock) Unload(name string) (interface{}, error) {
-	if v, hit := d.value[name]; hit {
-		return v, nil
+func (d *dock) Load(ns, key string, v interface{}) error {
+	ser, err := state.Serialize(v)
+	if err != nil {
+		return err
 	}
-	return nil, errors.Wrapf(ErrNoName, "name %s", name)
+
+	if _, hit := d.stash[ns]; !hit {
+		d.stash[ns] = map[string][]byte{}
+	}
+	d.stash[ns][key] = ser
+	return nil
 }
 
-func (d *dock) Push() error {
-	return nil
+func (d *dock) Unload(ns, key string, v interface{}) error {
+	if _, hit := d.stash[ns]; !hit {
+		return ErrNoName
+	}
+
+	ser, hit := d.stash[ns][key]
+	if !hit {
+		return ErrNoName
+	}
+	return state.Deserialize(v, ser)
 }
 
 func (d *dock) Reset() {
-	d.value = nil
-	d.protocols = nil
-	d.value = make(map[string]interface{})
-	d.protocols = make(map[string]bool)
+	for k := range d.stash {
+		delete(d.stash, k)
+	}
 }
