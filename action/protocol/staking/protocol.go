@@ -454,8 +454,6 @@ func (p *Protocol) settleAction(
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}
-	if len(logs) != 0 {
-		r.Logs = logs
-	}
+	r.AddLogs(logs...)
 	return &r, nil
 }

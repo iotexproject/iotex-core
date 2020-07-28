@@ -10,8 +10,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -154,15 +156,18 @@ func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
 }
 
 // LogTokenTxRecord generates token transaction record from log
-func LogTokenTxRecord(log *action.Log) *TokenTxRecord {
-	if log == nil || !log.IsTransactionLog() {
+func LogTokenTxRecord(l *action.Log) *TokenTxRecord {
+	if l == nil || !l.IsTransactionLog() {
 		return nil
+	}
+	if l.TransactionData.Amount.Sign() < 0 {
+		log.L().Panic("Negative amount transaction log.", zap.Any("TransactionLog", l.TransactionData))
 	}
 
 	return &TokenTxRecord{
-		sender:    log.TransactionData.Sender,
-		recipient: log.TransactionData.Recipient,
-		amount:    log.TransactionData.Amount.String(),
-		typ:       log.TransactionData.Type,
+		sender:    l.TransactionData.Sender,
+		recipient: l.TransactionData.Recipient,
+		amount:    l.TransactionData.Amount.String(),
+		typ:       l.TransactionData.Type,
 	}
 }
