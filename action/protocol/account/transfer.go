@@ -123,13 +123,23 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		}
 	}
 
-	return &action.Receipt{
+	transactionLog := &action.Log{
+		TransactionData: &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+			Sender:    actionCtx.Caller.String(),
+			Recipient: tsf.Recipient(),
+			Amount:    tsf.Amount(),
+		},
+	}
+	r := &action.Receipt{
 		Status:          uint64(iotextypes.ReceiptStatus_Success),
 		BlockHeight:     blkCtx.BlockHeight,
 		ActionHash:      actionCtx.ActionHash,
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
-	}, nil
+	}
+	r.AddLogs(transactionLog)
+	return r, nil
 }
 
 // validateTransfer validates a transfer

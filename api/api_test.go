@@ -730,22 +730,21 @@ var (
 	getImplicitLogByBlockHeightTest = []struct {
 		height uint64
 		code   codes.Code
-		log    *block.BlkTransactionLog
 	}{
 		{
-			1, codes.NotFound, nil,
+			1, codes.OK,
 		},
 		{
-			2, codes.OK, &block.BlkTransactionLog{},
+			2, codes.OK,
 		},
 		{
-			3, codes.NotFound, nil,
+			3, codes.NotFound,
 		},
 		{
-			4, codes.OK, &block.BlkTransactionLog{},
+			4, codes.OK,
 		},
 		{
-			5, codes.InvalidArgument, nil,
+			5, codes.InvalidArgument,
 		},
 	}
 )
@@ -1904,6 +1903,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf.Hash()] = block.NewTransactionLog(tsf.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
+	)
 
 	blk1Time := testutil.TimestampNow()
 	if err := ap.Add(context.Background(), tsf); err != nil {
@@ -1932,11 +1934,17 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err := ap.Add(context.Background(), selp); err != nil {
 			return err
 		}
+		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
+		)
 	}
 	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
+	)
 	if err := ap.Add(context.Background(), selp); err != nil {
 		return err
 	}
@@ -1981,6 +1989,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
+	)
 	if err := ap.Add(context.Background(), tsf1); err != nil {
 		return err
 	}
@@ -1988,6 +1999,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
+	)
 	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}

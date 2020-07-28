@@ -21,16 +21,9 @@ import (
 )
 
 var (
-	stkAddr     = "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53"
-	amount      = big.NewInt(100)
-	sender      = identityset.Address(0)
-	recver      = identityset.Address(1)
-	senderTopic = hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash())
-	recverTopic = hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash())
+	amount = big.NewInt(100)
 
 	evmLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    identityset.Address(0).String(),
 			Recipient: identityset.Address(1).String(),
@@ -39,8 +32,6 @@ var (
 		},
 	}
 	createLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    identityset.Address(0).String(),
 			Recipient: address.StakingBucketPoolAddr,
@@ -49,8 +40,6 @@ var (
 		},
 	}
 	depositLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    identityset.Address(0).String(),
 			Recipient: address.StakingBucketPoolAddr,
@@ -59,8 +48,6 @@ var (
 		},
 	}
 	withdrawLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    address.StakingBucketPoolAddr,
 			Recipient: identityset.Address(0).String(),
@@ -69,8 +56,6 @@ var (
 		},
 	}
 	selfstakeLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    identityset.Address(0).String(),
 			Recipient: address.StakingBucketPoolAddr,
@@ -79,8 +64,6 @@ var (
 		},
 	}
 	registerLog = &action.Log{
-		Address: stkAddr,
-		Data:    amount.Bytes(),
 		TransactionData: &action.TransactionLog{
 			Sender:    identityset.Address(0).String(),
 			Recipient: address.RewardingPoolAddr,
@@ -89,9 +72,12 @@ var (
 		},
 	}
 	normalLog = &action.Log{
-		Address: stkAddr,
-		Topics:  []hash.Hash256{senderTopic, recverTopic},
-		Data:    amount.Bytes(),
+		Address: "io1qnpz47hx5q6r3w876axtrn6yz95d70cjl35r53",
+		Topics: []hash.Hash256{
+			hash.BytesToHash256(identityset.PrivateKey(0).PublicKey().Hash()),
+			hash.BytesToHash256(identityset.PrivateKey(1).PublicKey().Hash()),
+		},
+		Data: amount.Bytes(),
 	}
 	allLogs = []*action.Log{evmLog, createLog, depositLog, withdrawLog, selfstakeLog, registerLog}
 
@@ -148,17 +134,6 @@ var (
 	}
 )
 
-func validateSystemLog(r *require.Assertions, log *action.Log, rec *TokenTxRecord) bool {
-	if !log.IsTransactionLog() {
-		return false
-	}
-	r.Equal(log.TransactionData.Type, rec.typ)
-	r.Equal(log.TransactionData.Amount.String(), rec.amount)
-	r.Equal(log.TransactionData.Sender, rec.sender)
-	r.Equal(log.TransactionData.Recipient, rec.recipient)
-	return true
-}
-
 func TestReceiptSystemLog(t *testing.T) {
 	r := require.New(t)
 
@@ -168,7 +143,7 @@ func TestReceiptSystemLog(t *testing.T) {
 			r.Equal(v.r.ActionHash, sysLog.actHash)
 			r.EqualValues(v.num, sysLog.numTxs)
 			for i, rec := range sysLog.txRecords {
-				r.True(validateSystemLog(r, v.r.Logs[i], rec))
+				r.Equal(LogTokenTxRecord(v.r.Logs[i]), rec)
 			}
 		} else {
 			r.Nil(sysLog)
@@ -226,7 +201,7 @@ func TestSystemLogFromReceipt(t *testing.T) {
 				recipient: tx.Recipient,
 				typ:       tx.Type,
 			}
-			r.True(validateSystemLog(r, receipt.Logs[i], rec))
+			r.Equal(LogTokenTxRecord(receipt.Logs[i]), rec)
 		}
 	}
 }
