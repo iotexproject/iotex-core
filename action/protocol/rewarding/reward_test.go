@@ -444,7 +444,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	availableBalance, _, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(190), availableBalance)
-	unclaimedBalance, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+	unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
@@ -456,7 +456,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	availableBalance, _, err = p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(80), availableBalance)
-	unclaimedBalance, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
+	unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(65), unclaimedBalance)
 	// It doesn't affect others to get reward
