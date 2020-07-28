@@ -16,16 +16,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
-	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-core/testutil/testdb"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
@@ -46,153 +48,119 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
 
-	cfg := config.Default
-	ctx := context.Background()
-	sm := mock_chainmanager.NewMockStateManager(ctrl)
-	cb := batch.NewCachedBatch()
-	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			val, err := cb.Get("state", cfg.Key)
-			if err != nil {
-				return 0, state.ErrStateNotExist
-			}
-			return 0, state.Deserialize(account, val)
-		}).AnyTimes()
-	sm.EXPECT().PutState(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(account interface{}, opts ...protocol.StateOption) (uint64, error) {
-			cfg, err := protocol.CreateStateConfig(opts...)
-			if err != nil {
-				return 0, err
-			}
-			ss, err := state.Serialize(account)
-			if err != nil {
-				return 0, err
-			}
-			cb.Put("state", cfg.Key, ss, "failed to put state")
-			return 0, nil
-		}).AnyTimes()
-
+	// set-up protocol and genesis states
 	p := NewProtocol(rewarding.DepositGas)
 	reward := rewarding.NewProtocol(0, 0)
 	registry := protocol.NewRegistry()
 	require.NoError(reward.Register(registry))
-	rp := rolldpos.NewProtocol(1, 1, 1)
-	require.NoError(rp.Register(registry))
-	cfg.Genesis.Rewarding.InitBalanceStr = "0"
-	cfg.Genesis.Rewarding.BlockRewardStr = "0"
-	cfg.Genesis.Rewarding.EpochRewardStr = "0"
-	cfg.Genesis.Rewarding.NumDelegatesForEpochReward = 1
-	cfg.Genesis.Rewarding.ExemptAddrStrsFromEpochReward = []string{}
-	cfg.Genesis.Rewarding.FoundationBonusStr = "0"
-	cfg.Genesis.Rewarding.NumDelegatesForFoundationBonus = 0
-	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 0
-	cfg.Genesis.Rewarding.ProductivityThreshold = 0
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
+	chainCtx := protocol.WithBlockchainCtx(
+		protocol.WithRegistry(context.Background(), registry),
+		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
 	)
-	ctx = protocol.WithBlockCtx(ctx,
-		protocol.BlockCtx{
-			BlockHeight: 0,
+	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{})
+	require.NoError(reward.CreateGenesisStates(ctx, sm))
+
+	// initial deposit to alfa and charlie (as a contract)
+	alfa := identityset.Address(28)
+	bravo := identityset.Address(29)
+	charlie := identityset.Address(30)
+	require.NoError(accountutil.StoreAccount(sm, alfa, &state.Account{
+		Balance: big.NewInt(50005),
+	}))
+	require.NoError(accountutil.StoreAccount(sm, charlie, &state.Account{
+		CodeHash: []byte("codeHash"),
+	}))
+
+	tests := []struct {
+		caller      address.Address
+		nonce       uint64
+		amount      *big.Int
+		recipient   string
+		gasLimit    uint64
+		gasPrice    *big.Int
+		isContract  bool
+		err         error
+		status      uint64
+		contractLog uint64
+	}{
+		{
+			alfa, 1, big.NewInt(2), bravo.String(), 10000, big.NewInt(1), false, nil, uint64(iotextypes.ReceiptStatus_Success), 1,
+		},
+		// transfer to contract address only charges gas fee
+		{
+			alfa, 2, big.NewInt(20), charlie.String(), 10000, big.NewInt(1), true, nil, uint64(iotextypes.ReceiptStatus_Failure), 0,
+		},
+		// not enough balance
+		{
+			alfa, 3, big.NewInt(30000), bravo.String(), 10000, big.NewInt(1), false, state.ErrNotEnoughBalance, uint64(iotextypes.ReceiptStatus_Failure), 0,
+		},
+	}
+
+	for _, v := range tests {
+		tsf, err := action.NewTransfer(v.nonce, v.amount, v.recipient, []byte{}, v.gasLimit, v.gasPrice)
+		require.NoError(err)
+		gas, err := tsf.IntrinsicGas()
+		require.NoError(err)
+
+		ctx = protocol.WithActionCtx(chainCtx, protocol.ActionCtx{
+			Caller:       v.caller,
+			IntrinsicGas: gas,
+		})
+		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
+			BlockHeight: 1,
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 		})
-	ctx = protocol.WithActionCtx(ctx,
-		protocol.ActionCtx{
-			Caller: identityset.Address(28),
-		})
-	require.NoError(
-		reward.CreateGenesisStates(
-			ctx,
-			sm,
-		),
-	)
 
-	accountAlfa := state.Account{
-		Balance: big.NewInt(50005),
+		sender, err := accountutil.AccountState(sm, v.caller.String())
+		require.NoError(err)
+		recipient, err := accountutil.AccountState(sm, v.recipient)
+		require.NoError(err)
+		gasFee := new(big.Int).Mul(v.gasPrice, new(big.Int).SetUint64(gas))
+
+		receipt, err := p.Handle(ctx, tsf, sm)
+		require.Equal(v.err, errors.Cause(err))
+		if err != nil {
+			require.Nil(receipt)
+			// sender balance/nonce remains the same in case of error
+			newSender, err := accountutil.AccountState(sm, v.caller.String())
+			require.NoError(err)
+			require.Equal(sender.Balance, newSender.Balance)
+			require.Equal(sender.Nonce, newSender.Nonce)
+			continue
+		}
+		require.Equal(v.status, receipt.Status)
+
+		// amount is transferred only upon success and for non-contract recipient
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) && !v.isContract {
+			gasFee.Add(gasFee, v.amount)
+			// verify recipient
+			newRecipient, err := accountutil.AccountState(sm, v.recipient)
+			require.NoError(err)
+			recipient.AddBalance(v.amount)
+			require.Equal(recipient.Balance, newRecipient.Balance)
+		}
+		// verify sender balance/nonce
+		newSender, err := accountutil.AccountState(sm, v.caller.String())
+		require.NoError(err)
+		sender.SubBalance(gasFee)
+		require.Equal(sender.Balance, newSender.Balance)
+		require.Equal(v.nonce, newSender.Nonce)
+
+		// verify transaction log
+		tLog := block.ReceiptTransactionLog(receipt)
+		if tLog != nil {
+			require.NotNil(tLog)
+			pbLog := tLog.Proto()
+			require.Equal(tsf.Hash(), hash.BytesToHash256(pbLog.ActionHash))
+			require.EqualValues(v.contractLog, pbLog.NumTransactions)
+			rec := pbLog.Transactions[0]
+			require.Equal(v.amount.String(), rec.Amount)
+			require.Equal(v.caller.String(), rec.Sender)
+			require.Equal(v.recipient, rec.Recipient)
+			require.Equal(iotextypes.TransactionLogType_NATIVE_TRANSFER, rec.Type)
+		}
 	}
-	accountBravo := state.Account{}
-	accountCharlie := state.Account{}
-	pubKeyAlfa := hash.BytesToHash160(identityset.Address(28).Bytes())
-	pubKeyBravo := hash.BytesToHash160(identityset.Address(29).Bytes())
-	pubKeyCharlie := hash.BytesToHash160(identityset.Address(30).Bytes())
-
-	_, err := sm.PutState(&accountAlfa, protocol.LegacyKeyOption(pubKeyAlfa))
-	require.NoError(err)
-	_, err = sm.PutState(&accountBravo, protocol.LegacyKeyOption(pubKeyBravo))
-	require.NoError(err)
-	_, err = sm.PutState(&accountCharlie, protocol.LegacyKeyOption(pubKeyCharlie))
-	require.NoError(err)
-
-	transfer, err := action.NewTransfer(
-		uint64(1),
-		big.NewInt(2),
-		identityset.Address(29).String(),
-		[]byte{},
-		uint64(10000),
-		big.NewInt(1),
-	)
-	require.NoError(err)
-	gas, err := transfer.IntrinsicGas()
-	require.NoError(err)
-
-	ctx = protocol.WithActionCtx(context.Background(), protocol.ActionCtx{
-		Caller:       identityset.Address(28),
-		IntrinsicGas: gas,
-	})
-	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    testutil.TestGasLimit,
-	})
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
-	)
-
-	receipt, err := p.Handle(ctx, transfer, sm)
-	require.NoError(err)
-	require.Equal(uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
-
-	var acct state.Account
-	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyAlfa))
-	require.NoError(err)
-	require.Equal("40003", acct.Balance.String())
-	require.Equal(uint64(1), acct.Nonce)
-	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyBravo))
-	require.NoError(err)
-	require.Equal("2", acct.Balance.String())
-
-	contractAcct := state.Account{
-		CodeHash: []byte("codeHash"),
-	}
-	contractAddr := hash.BytesToHash160(identityset.Address(32).Bytes())
-	_, err = sm.PutState(&contractAcct, protocol.LegacyKeyOption(contractAddr))
-	require.NoError(err)
-	transfer, err = action.NewTransfer(
-		uint64(2),
-		big.NewInt(3),
-		identityset.Address(32).String(),
-		[]byte{},
-		uint64(10000),
-		big.NewInt(2),
-	)
-	require.NoError(err)
-	// Assume that the gas of this transfer is the same as previous one
-	receipt, err = p.Handle(ctx, transfer, sm)
-	require.NoError(err)
-	require.Equal(uint64(iotextypes.ReceiptStatus_Failure), receipt.Status)
-	_, err = sm.State(&acct, protocol.LegacyKeyOption(pubKeyAlfa))
-	require.NoError(err)
-	require.Equal(uint64(2), acct.Nonce)
-	require.Equal("20003", acct.Balance.String())
 }

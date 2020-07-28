@@ -55,12 +55,12 @@ type balanceMessage struct {
 func balance(arg string) error {
 	addr := arg
 	if arg != ioAddress.StakingBucketPoolAddr && arg != ioAddress.RewardingPoolAddr {
-		var err error 
+		var err error
 		addr, err = util.GetAddress(arg)
 		if err != nil {
 			return output.NewError(output.AddressError, "", err)
 		}
-	}	
+	}
 	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
 		return output.NewError(0, "", err) // TODO: undefined error
