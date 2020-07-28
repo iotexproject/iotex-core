@@ -119,6 +119,18 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 	return hash.Hash256b(data)
 }
 
+// AddLogs add log to receipt and filter out nil log.
+func (receipt *Receipt) AddLogs(logs ...*Log) {
+	if receipt.Logs == nil {
+		receipt.Logs = make([]*Log, 0, len(logs))
+	}
+	for _, l := range logs {
+		if l != nil {
+			receipt.Logs = append(receipt.Logs, l)
+		}
+	}
+}
+
 // ConvertToLogPb converts a Log to protobuf's Log
 func (log *Log) ConvertToLogPb() *iotextypes.Log {
 	l := &iotextypes.Log{}

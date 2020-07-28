@@ -205,7 +205,7 @@ func ExecuteContract(
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
-	receipt.Logs = stateDB.Logs()
+	receipt.AddLogs(stateDB.Logs()...)
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
