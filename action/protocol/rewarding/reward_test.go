@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +45,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		_, err := p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
 
-		_, err = p.Deposit(ctx, sm, big.NewInt(200))
+		_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant block reward
@@ -79,7 +80,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant epoch reward
@@ -185,7 +186,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 	}, false)
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant epoch reward
@@ -206,7 +207,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 func TestProtocol_ClaimReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// Deposit 20 token into the rewarding fund
-		_, err := p.Deposit(ctx, sm, big.NewInt(20))
+		_, err := p.Deposit(ctx, sm, big.NewInt(20), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant block reward
@@ -433,7 +434,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Caller: identityset.Address(0),
 		},
 	)
-	_, err = p.Deposit(ctx, sm, big.NewInt(200))
+	_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 	require.NoError(t, err)
 
 	// Grant block reward

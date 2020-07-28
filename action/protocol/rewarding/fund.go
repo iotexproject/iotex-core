@@ -63,6 +63,7 @@ func (p *Protocol) Deposit(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
+	transactionLogType iotextypes.TransactionLogType,
 ) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -96,7 +97,7 @@ func (p *Protocol) Deposit(
 		BlockHeight: blkCtx.BlockHeight,
 		ActionHash:  actionCtx.ActionHash,
 		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND,
+			Type:      transactionLogType,
 			Sender:    actionCtx.Caller.String(),
 			Recipient: address.RewardingPoolAddr,
 			Amount:    amount,
@@ -146,25 +147,24 @@ func (p *Protocol) assertEnoughBalance(
 }
 
 // DepositGas deposits gas into the rewarding fund
-func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
+func DepositGas(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.Log, error) {
 	// If the gas fee is 0, return immediately
 	if amount.Cmp(big.NewInt(0)) == 0 {
-		return nil
+		return nil, nil
 	}
 	// TODO: we bypass the gas deposit for the actions in genesis block. Later we should remove this after we remove
 	// genesis actions
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if blkCtx.BlockHeight == 0 {
-		return nil
+		return nil, nil
 	}
 	reg, ok := protocol.GetRegistry(ctx)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	rp := FindProtocol(reg)
 	if rp == nil {
-		return nil
+		return nil, nil
 	}
-	_, err := rp.Deposit(ctx, sm, amount)
-	return err
+	return rp.Deposit(ctx, sm, amount, iotextypes.TransactionLogType_GAS_FEE)
 }

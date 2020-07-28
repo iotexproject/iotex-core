@@ -81,7 +81,7 @@ type (
 	}
 
 	// DepositGas deposits gas to some pool
-	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.Log, error)
 )
 
 // NewProtocol instantiates the protocol of staking
@@ -252,7 +252,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		createLog   *action.Log
 		depositLog  *action.Log
 		withdrawLog *action.Log
-		registerLog *action.Log
+		actionLogs  []*action.Log
 		err         error
 		logs        []*action.Log
 	)
@@ -273,7 +273,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	case *action.Restake:
 		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		rLog, createLog, registerLog, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, actionLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:
@@ -293,8 +293,8 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		if withdrawLog != nil {
 			logs = append(logs, withdrawLog)
 		}
-		if registerLog != nil {
-			logs = append(logs, registerLog)
+		if actionLogs != nil {
+			logs = append(logs, actionLogs...)
 		}
 		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
 	}
@@ -433,7 +433,8 @@ func (p *Protocol) settleAction(
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if err := p.depositGas(ctx, sm, gasFee); err != nil {
+	depositLog, err := p.depositGas(ctx, sm, gasFee)
+	if err != nil {
 		return nil, errors.Wrap(err, "failed to deposit gas")
 	}
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
@@ -455,5 +456,6 @@ func (p *Protocol) settleAction(
 		ContractAddress: p.addr.String(),
 	}
 	r.AddLogs(logs...)
+	r.AddLogs(depositLog)
 	return &r, nil
 }

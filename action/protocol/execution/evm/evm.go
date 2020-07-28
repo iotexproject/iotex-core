@@ -158,6 +158,7 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
@@ -184,7 +185,7 @@ func ExecuteContract(
 	}
 
 	receipt.Status = statusCode
-
+	var burnLog *action.Log
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
@@ -193,10 +194,25 @@ func ExecuteContract(
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 			stateDB.AddBalance(ps.context.Origin, remainingValue)
 		}
+		if depositGas-remainingGas > 0 {
+			burnLog = &action.Log{
+				Address:     contractAddress,
+				BlockHeight: blkCtx.BlockHeight,
+				ActionHash:  execution.Hash(),
+				TransactionData: &action.TransactionLog{
+					Type:      iotextypes.TransactionLogType_GAS_FEE,
+					Sender:    actionCtx.Caller.String(),
+					Recipient: "", // burned
+					Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice),
+				},
+			}
+		}
 	}
+	var depositLog *action.Log
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		if err := depositGasFunc(ctx, sm, gasValue); err != nil {
+		depositLog, err = depositGasFunc(ctx, sm, gasValue)
+		if err != nil {
 			return nil, nil, err
 		}
 	}
@@ -206,6 +222,7 @@ func ExecuteContract(
 	}
 	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...)
+	receipt.AddLogs(depositLog, burnLog)
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
@@ -358,8 +375,8 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) error {
-			return nil
+		func(context.Context, protocol.StateManager, *big.Int) (*action.Log, error) {
+			return nil, nil
 		},
 	)
 }
