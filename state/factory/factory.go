@@ -305,13 +305,13 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
 			nsHash := hash.Hash160b([]byte(ns))
 
-			return tlt.Upsert(nsHash[:], toLayerTwoKey(key), ss)
+			return tlt.Upsert(nsHash[:], toLegacyKey(key), ss)
 		},
 		delStateFunc: func(ns string, key []byte) error {
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
 			nsHash := hash.Hash160b([]byte(ns))
 
-			err := tlt.Delete(nsHash[:], toLayerTwoKey(key))
+			err := tlt.Delete(nsHash[:], toLegacyKey(key))
 			if errors.Cause(err) == trie.ErrNotExist {
 				return errors.Wrapf(state.ErrStateNotExist, "key %x doesn't exist in namespace %x", key, nsHash)
 			}
@@ -655,7 +655,7 @@ func namespaceKey(ns string) []byte {
 }
 
 func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) error {
-	ltKey := toLayerTwoKey(key)
+	ltKey := toLegacyKey(key)
 	data, err := tlt.Get(namespaceKey(ns), ltKey)
 	if err != nil {
 		if errors.Cause(err) == trie.ErrNotExist {
@@ -667,7 +667,7 @@ func readState(tlt trie.TwoLayerTrie, ns string, key []byte, s interface{}) erro
 	return state.Deserialize(s, data)
 }
 
-func toLayerTwoKey(input []byte) []byte {
+func toLegacyKey(input []byte) []byte {
 	key := hash.Hash160b(input)
 	return key[:]
 }
