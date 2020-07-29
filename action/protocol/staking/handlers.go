@@ -589,7 +589,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 }
 
 func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager,
-) (*receiptLog, *action.Log, *action.Log, error) {
+) (*receiptLog, []*action.Log, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
@@ -598,7 +598,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	caller, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
-		return log, nil, nil, fetchErr
+		return log, nil, fetchErr
 	}
 
 	owner := actCtx.Caller
@@ -610,14 +610,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	ownerExist := c != nil
 	// cannot collide with existing owner (with selfstake != 0)
 	if ownerExist && c.SelfStake.Cmp(big.NewInt(0)) != 0 {
-		return log, nil, nil, &handleError{
+		return log, nil, &handleError{
 			err:           ErrInvalidOwner,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
 		}
 	}
 	// cannot collide with existing name
 	if csm.ContainsName(act.Name()) && (!ownerExist || act.Name() != c.Name) {
-		return log, nil, nil, &handleError{
+		return log, nil, &handleError{
 			err:           ErrInvalidCanName,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
@@ -625,7 +625,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	// cannot collide with existing operator address
 	if csm.ContainsOperator(act.OperatorAddress()) &&
 		(!ownerExist || !address.Equal(act.OperatorAddress(), c.Operator)) {
-		return log, nil, nil, &handleError{
+		return log, nil, &handleError{
 			err:           ErrInvalidOperator,
 			failureStatus: iotextypes.ReceiptStatus_ErrCandidateConflict,
 		}
@@ -634,7 +634,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	bucket := NewVoteBucket(owner, owner, act.Amount(), act.Duration(), blkCtx.BlockTimeStamp, act.AutoStake())
 	bucketIdx, err := putBucketAndIndex(csm, bucket)
 	if err != nil {
-		return log, nil, nil, err
+		return log, nil, err
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), owner.Bytes())
 
@@ -649,12 +649,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	}
 
 	if err := csm.Upsert(c); err != nil {
-		return log, nil, nil, csmErrorToHandleError(owner.String(), err)
+		return log, nil, csmErrorToHandleError(owner.String(), err)
 	}
 
 	// update bucket pool
 	if err := csm.DebitBucketPool(act.Amount(), true); err != nil {
-		return log, nil, nil, &handleError{
+		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update staking bucket pool %s", err.Error()),
 			failureStatus: iotextypes.ReceiptStatus_ErrWriteAccount,
 		}
@@ -662,51 +662,52 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 	// update caller balance
 	if err := caller.SubBalance(act.Amount()); err != nil {
-		return log, nil, nil, &handleError{
+		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to update the balance of register %s", actCtx.Caller.String()),
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
 	// put updated caller's account state to trie
 	if err := accountutil.StoreAccount(csm, actCtx.Caller, caller); err != nil {
-		return log, nil, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
+		return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
 
 	// put registrationFee to reward pool
-	if err := p.depositGas(ctx, csm, registrationFee); err != nil {
-		return log, nil, nil, errors.Wrap(err, "failed to deposit gas")
+	if _, err = p.depositGas(ctx, csm, registrationFee); err != nil {
+		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
 	log.AddAddress(owner)
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	// generate self-stake log
-	cLog := action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.StakingBucketPoolAddr,
-			Amount:    act.Amount(),
+	return log, []*action.Log{
+		// generate self-stake log
+		&action.Log{
+			Address:     p.addr.String(),
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+			TransactionData: &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+				Sender:    actCtx.Caller.String(),
+				Recipient: address.StakingBucketPoolAddr,
+				Amount:    act.Amount(),
+			},
 		},
-	}
 
-	// generate candidate register log
-	rLog := action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
-			Sender:    actCtx.Caller.String(),
-			Recipient: address.RewardingPoolAddr,
-			Amount:    registrationFee,
+		// generate candidate register log
+		&action.Log{
+			Address:     p.addr.String(),
+			BlockHeight: blkCtx.BlockHeight,
+			ActionHash:  actCtx.ActionHash,
+			TransactionData: &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+				Sender:    actCtx.Caller.String(),
+				Recipient: address.RewardingPoolAddr,
+				Amount:    registrationFee,
+			},
 		},
-	}
-	return log, &cLog, &rLog, nil
+	}, nil
 }
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,

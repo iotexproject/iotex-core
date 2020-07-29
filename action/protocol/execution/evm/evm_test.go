@@ -60,8 +60,8 @@ func TestExecuteContractFailure(t *testing.T) {
 		func(uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(context.Context, protocol.StateManager, *big.Int) error {
-			return nil
+		func(context.Context, protocol.StateManager, *big.Int) (*action.Log, error) {
+			return nil, nil
 		})
 	require.Nil(t, retval)
 	require.Nil(t, receipt)

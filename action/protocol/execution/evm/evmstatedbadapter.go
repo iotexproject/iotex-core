@@ -45,7 +45,7 @@ type (
 	GetBlockHash func(uint64) (hash.Hash256, error)
 
 	// DepositGas deposits gas
-	DepositGas func(context.Context, protocol.StateManager, *big.Int) error
+	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.Log, error)
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {

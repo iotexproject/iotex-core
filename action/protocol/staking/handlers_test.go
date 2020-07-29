@@ -2590,15 +2590,15 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
-func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) error {
+func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.Log, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	acc.Balance = big.NewInt(0).Sub(acc.Balance, gasFee)
-	return accountutil.StoreAccount(sm, actionCtx.Caller, acc)
+	return nil, accountutil.StoreAccount(sm, actionCtx.Caller, acc)
 }
 
 func newconsignment(r *require.Assertions, bucketIdx, nonce int, senderPrivate, recipient, consignTpye, reclaim string, wrongSig bool) []byte {
