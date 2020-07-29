@@ -42,7 +42,7 @@ type (
 
 	candSM struct {
 		protocol.StateManager
-		candCenter *candCenter
+		candCenter *CandidateCenter
 		bucketPool *BucketPool
 	}
 )
@@ -61,25 +61,17 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	view := csr.BaseView()
 	csm := &candSM{
 		StateManager: sm,
-		// TODO: remove CandidateCenter interface, no need for (*candCenter)
-		candCenter: view.candCenter.Base().(*candCenter),
-		bucketPool: view.bucketPool.Copy(enableSMStorage),
+		candCenter:   view.candCenter.Base(),
+		bucketPool:   view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM
-	if err := csm.bucketPool.SyncPool(sm); err != nil {
-		return nil, err
+	if err := csm.bucketPool.Sync(sm); err != nil {
+		return nil, errors.Wrap(err, "failed to sync bucket pool")
 	}
 
-	// TODO: remove CandidateCenter interface, convert the code below to candCenter.SyncCenter()
-	delta := CandidateList{}
-	if err = sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
-		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	}
-
-	// apply delta to the center
-	if err := csm.candCenter.SetDelta(delta); err != nil {
-		return nil, err
+	if err := csm.candCenter.Sync(sm); err != nil {
+		return nil, errors.Wrap(err, "failed to sync candidate center")
 	}
 	return csm, nil
 }

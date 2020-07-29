@@ -149,8 +149,8 @@ func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 	return &pool
 }
 
-// SyncPool sync the data from state manager
-func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
+// Sync syncs the data from state manager
+func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
 		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err

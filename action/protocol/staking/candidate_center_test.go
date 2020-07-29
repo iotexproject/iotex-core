@@ -12,7 +12,7 @@ import (
 )
 
 // testEqual verifies m contains exactly the list
-func testEqual(m CandidateCenter, l CandidateList) bool {
+func testEqual(m *CandidateCenter, l CandidateList) bool {
 	for _, v := range l {
 		d := m.GetByOwner(v.Owner)
 		if d == nil {
@@ -43,7 +43,7 @@ func testEqual(m CandidateCenter, l CandidateList) bool {
 
 // testEqualAllCommit validates candidate center
 // with original candidates = old, number of changed cand = change, and number of new cand = increase
-func testEqualAllCommit(r *require.Assertions, m CandidateCenter, old CandidateList, change, increase int,
+func testEqualAllCommit(r *require.Assertions, m *CandidateCenter, old CandidateList, change, increase int,
 ) (CandidateList, error) {
 	// capture all candidates
 	size := len(old)
