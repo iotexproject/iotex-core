@@ -50,22 +50,24 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 	ret, err := cbi.kvStore.Get(StakingCandidatesNamespace, []byte(indexerHeightKey))
-	if err != nil {
-		if errors.Cause(err) != db.ErrNotExist {
-			return err
-		}
+	switch errors.Cause(err) {
+	case nil:
+		cbi.latestCandidatesHeight = byteutil.BytesToUint64BigEndian(ret)
+	case db.ErrNotExist:
 		cbi.latestCandidatesHeight = 0
+	default:
+		return err
 	}
-	cbi.latestCandidatesHeight = byteutil.BytesToUint64BigEndian(ret)
 
 	ret, err = cbi.kvStore.Get(StakingBucketsNamespace, []byte(indexerHeightKey))
-	if err != nil {
-		if errors.Cause(err) != db.ErrNotExist {
-			return err
-		}
+	switch errors.Cause(err) {
+	case nil:
+		cbi.latestBucketsHeight = byteutil.BytesToUint64BigEndian(ret)
+	case db.ErrNotExist:
 		cbi.latestBucketsHeight = 0
+	default:
+		return err
 	}
-	cbi.latestBucketsHeight = byteutil.BytesToUint64BigEndian(ret)
 	return nil
 }
 
@@ -80,10 +82,11 @@ func (cbi *CandidatesBucketsIndexer) PutCandidates(height uint64, candidates *io
 	if err != nil {
 		return err
 	}
-	if err := cbi.kvStore.Put(StakingCandidatesNamespace, byteutil.Uint64ToBytesBigEndian(height), candidatesBytes); err != nil {
+	heightBytes := byteutil.Uint64ToBytesBigEndian(height)
+	if err := cbi.kvStore.Put(StakingCandidatesNamespace, heightBytes, candidatesBytes); err != nil {
 		return err
 	}
-	if err := cbi.kvStore.Put(StakingCandidatesNamespace, []byte(indexerHeightKey), byteutil.Uint64ToBytesBigEndian(height)); err != nil {
+	if err := cbi.kvStore.Put(StakingCandidatesNamespace, []byte(indexerHeightKey), heightBytes); err != nil {
 		return err
 	}
 	cbi.latestCandidatesHeight = height
@@ -127,10 +130,11 @@ func (cbi *CandidatesBucketsIndexer) PutBuckets(height uint64, buckets *iotextyp
 	if err != nil {
 		return err
 	}
-	if err := cbi.kvStore.Put(StakingBucketsNamespace, byteutil.Uint64ToBytesBigEndian(height), bucketsBytes); err != nil {
+	heightBytes := byteutil.Uint64ToBytesBigEndian(height)
+	if err := cbi.kvStore.Put(StakingBucketsNamespace, heightBytes, bucketsBytes); err != nil {
 		return err
 	}
-	if err := cbi.kvStore.Put(StakingBucketsNamespace, []byte(indexerHeightKey), byteutil.Uint64ToBytesBigEndian(height)); err != nil {
+	if err := cbi.kvStore.Put(StakingBucketsNamespace, []byte(indexerHeightKey), heightBytes); err != nil {
 		return err
 	}
 	cbi.latestBucketsHeight = height
