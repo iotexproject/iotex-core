@@ -224,8 +224,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	if currentEpochNum == 0 {
+		return nil
+	}
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight {
+	if epochStartHeight != blkCtx.BlockHeight || hu.IsPre(config.Fairbank, epochStartHeight) {
 		return nil
 	}
 

@@ -250,9 +250,9 @@ type (
 		// deprecated
 		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
 		// EnableStakingProtocol enables staking protocol
-		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`
+		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
-		EnableStakingIndexer bool `yaml: "enableStakingIndexer"`
+		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
 		// CompressBlock enables gzip compression on block data
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
