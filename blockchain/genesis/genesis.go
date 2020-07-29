@@ -167,7 +167,7 @@ type (
 		FbkMigrationBlockHeight uint64 `yaml:"fbkMigrationHeight"`
 		// FairbankBlockHeight is the start height to switch to native staking V2
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
-		// GreenlandBlockHeight is the start height of storing latest 720 block meta
+		// GreenlandBlockHeight is the start height of storing latest 720 block meta and rewarding/staking bucket pool
 		GreenlandBlockHeight uint64 `yaml:"greenlandHeight"`
 	}
 	// Account contains the configs for account protocol
