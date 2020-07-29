@@ -31,10 +31,9 @@ func TestProtocol_Fund(t *testing.T) {
 		rlog, err := p.Deposit(ctx, sm, big.NewInt(5), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 		require.NotNil(t, rlog)
-		require.True(t, rlog.IsTransactionLog())
-		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
-		require.Equal(t, actionCtx.Caller.String(), rlog.TransactionData.Sender)
-		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Recipient)
+		require.Equal(t, big.NewInt(5).String(), rlog.Amount.String())
+		require.Equal(t, actionCtx.Caller.String(), rlog.Sender)
+		require.Equal(t, address.RewardingPoolAddr, rlog.Recipient)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)

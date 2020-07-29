@@ -67,7 +67,7 @@ func (l *LogFilter) Exit() {
 func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 	var logs []*iotextypes.Log
 	for _, r := range receipts {
-		for _, v := range r.Logs {
+		for _, v := range r.Logs() {
 			log := v.ConvertToLogPb()
 			if l.match(log) {
 				logs = append(logs, log)

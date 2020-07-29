@@ -185,7 +185,7 @@ func ExecuteContract(
 	}
 
 	receipt.Status = statusCode
-	var burnLog *action.Log
+	var burnLog *action.TransactionLog
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
@@ -195,20 +195,15 @@ func ExecuteContract(
 			stateDB.AddBalance(ps.context.Origin, remainingValue)
 		}
 		if depositGas-remainingGas > 0 {
-			burnLog = &action.Log{
-				Address:     contractAddress,
-				BlockHeight: blkCtx.BlockHeight,
-				ActionHash:  execution.Hash(),
-				TransactionData: &action.TransactionLog{
-					Type:      iotextypes.TransactionLogType_GAS_FEE,
-					Sender:    actionCtx.Caller.String(),
-					Recipient: "", // burned
-					Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice),
-				},
+			burnLog = &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_GAS_FEE,
+				Sender:    actionCtx.Caller.String(),
+				Recipient: "", // burned
+				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice),
 			}
 		}
 	}
-	var depositLog *action.Log
+	var depositLog *action.TransactionLog
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
 		depositLog, err = depositGasFunc(ctx, sm, gasValue)
@@ -221,8 +216,7 @@ func ExecuteContract(
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
-	receipt.AddLogs(stateDB.Logs()...)
-	receipt.AddLogs(depositLog, burnLog)
+	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(stateDB.TransactionLogs()...).AddTransactionLogs(depositLog, burnLog)
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
@@ -377,7 +371,7 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) (*action.Log, error) {
+		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
 			return nil, nil
 		},
 	)
