@@ -99,7 +99,7 @@ type (
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
 		ContainsTransactionLog() bool
-		GetTransactionLog(uint64) (*iotextypes.BlockTransactionLog, error)
+		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -459,7 +459,7 @@ func (dao *blockDAO) ContainsTransactionLog() bool {
 	return err == nil && string(sys) == systemLogNS
 }
 
-func (dao *blockDAO) GetTransactionLog(height uint64) (*iotextypes.BlockTransactionLog, error) {
+func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
 	if !dao.ContainsTransactionLog() {
 		return nil, ErrNotSupported
 	}

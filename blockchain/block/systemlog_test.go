@@ -126,7 +126,7 @@ func TestReceiptSystemLog(t *testing.T) {
 		sysLog := ReceiptTransactionLog(v.r)
 		if v.num > 0 {
 			r.Equal(v.r.ActionHash, sysLog.actHash)
-			r.EqualValues(v.num, sysLog.numTxs)
+			r.EqualValues(v.num, len(sysLog.txRecords))
 			logs := v.r.TransactionLogs()
 			for i, rec := range sysLog.txRecords {
 				r.Equal(LogTokenTxRecord(logs[i]), rec)
@@ -160,7 +160,6 @@ func TestSystemLogFromReceipt(t *testing.T) {
 		}
 	}
 	blkLog = blk.TransactionLog()
-	r.EqualValues(implicitTransferNum, blkLog.numActions)
 	r.Equal(implicitTransferNum, len(blkLog.actionLogs))
 
 	// test serialize/deserialize
@@ -170,9 +169,8 @@ func TestSystemLogFromReceipt(t *testing.T) {
 	r.NoError(err)
 
 	// verify block systemlog pb message
-	r.EqualValues(implicitTransferNum, pb.NumTransactions)
-	r.Equal(implicitTransferNum, len(pb.TransactionLog))
-	for i, sysLog := range pb.TransactionLog {
+	r.EqualValues(implicitTransferNum, len(pb.Logs))
+	for i, sysLog := range pb.Logs {
 		receipt := blk.Receipts[i]
 		logs := receipt.TransactionLogs()
 		r.Equal(receipt.ActionHash, hash.BytesToHash256(sysLog.ActionHash))

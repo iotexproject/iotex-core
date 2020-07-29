@@ -1876,7 +1876,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 		} else {
 			require.NotNil(res)
 			// verify log
-			for _, log := range res.BlockTransactionLog.TransactionLog {
+			for _, log := range res.TransactionLogs.Logs {
 				l, ok := implicitLogs[hash.BytesToHash256(log.ActionHash)]
 				require.True(ok)
 				require.Equal(l.Proto(), log)

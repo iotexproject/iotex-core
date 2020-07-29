@@ -809,7 +809,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sysLog, err := api.dao.GetTransactionLog(actIndex.BlockHeight())
+	sysLog, err := api.dao.TransactionLogs(actIndex.BlockHeight())
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -817,7 +817,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	for _, log := range sysLog.TransactionLog {
+	for _, log := range sysLog.Logs {
 		if bytes.Compare(h, log.ActionHash) == 0 {
 			return &iotexapi.GetTransactionLogByActionHashResponse{
 				TransactionLog: log,
@@ -850,7 +850,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	sysLog, err := api.dao.GetTransactionLog(in.BlockHeight)
+	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -859,7 +859,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 	}
 
 	return &iotexapi.GetTransactionLogByBlockHeightResponse{
-		BlockTransactionLog: sysLog,
+		TransactionLogs: sysLog,
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
 			Height: in.BlockHeight,
