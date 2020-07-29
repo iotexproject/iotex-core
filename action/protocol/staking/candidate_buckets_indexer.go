@@ -56,13 +56,13 @@ func (cbi *CandidatesBucketsIndexer) PutCandidates(height uint64, candidates *io
 	if err != nil {
 		return err
 	}
-	return cbi.kvStore.Put(StakingCandidatesNamespace, byteutil.Uint64ToBytes(height), candidatesBytes)
+	return cbi.kvStore.Put(StakingCandidatesNamespace, byteutil.Uint64ToBytesBigEndian(height), candidatesBytes)
 }
 
 // GetCandidates gets candidates from indexer given epoch start height
 func (cbi *CandidatesBucketsIndexer) GetCandidates(height uint64, offset, limit uint32) ([]byte, error) {
 	candidateList := &iotextypes.CandidateListV2{}
-	ret, err := cbi.kvStore.Get(StakingCandidatesNamespace, byteutil.Uint64ToBytes(height))
+	ret, err := cbi.kvStore.Get(StakingCandidatesNamespace, byteutil.Uint64ToBytesBigEndian(height))
 	if errors.Cause(err) == db.ErrNotExist {
 		return proto.Marshal(candidateList)
 	}
@@ -90,13 +90,13 @@ func (cbi *CandidatesBucketsIndexer) PutBuckets(height uint64, buckets *iotextyp
 	if err != nil {
 		return err
 	}
-	return cbi.kvStore.Put(StakingBucketsNamespace, byteutil.Uint64ToBytes(height), bucketsBytes)
+	return cbi.kvStore.Put(StakingBucketsNamespace, byteutil.Uint64ToBytesBigEndian(height), bucketsBytes)
 }
 
 // GetBuckets gets vote buckets from indexer given epoch start height
 func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uint32) ([]byte, error) {
 	buckets := &iotextypes.VoteBucketList{}
-	ret, err := cbi.kvStore.Get(StakingBucketsNamespace, byteutil.Uint64ToBytes(height))
+	ret, err := cbi.kvStore.Get(StakingBucketsNamespace, byteutil.Uint64ToBytesBigEndian(height))
 	if errors.Cause(err) == db.ErrNotExist {
 		return proto.Marshal(buckets)
 	}
