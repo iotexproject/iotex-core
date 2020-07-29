@@ -1,6 +1,7 @@
 package blockdao
 
 import (
+	"bytes"
 	"context"
 	"hash/fnv"
 	"math/big"
@@ -170,19 +171,19 @@ func TestBlockDAO(t *testing.T) {
 		// receipts for the 3 blocks
 		receipts := [][]*action.Receipt{
 			{
-				{1, 1, t1Hash, 15, "1", []*action.Log{}},
-				{0, 1, t4Hash, 216, "2", []*action.Log{}},
-				{2, 1, e1Hash, 6, "3", []*action.Log{}},
+				{Status: 1, BlockHeight: 1, ActionHash: t1Hash, GasConsumed: 15, ContractAddress: "1"},
+				{Status: 0, BlockHeight: 1, ActionHash: t4Hash, GasConsumed: 216, ContractAddress: "2"},
+				{Status: 2, BlockHeight: 1, ActionHash: e1Hash, GasConsumed: 6, ContractAddress: "3"},
 			},
 			{
-				{3, 2, t2Hash, 1500, "1", []*action.Log{}},
-				{5, 2, t5Hash, 34, "2", []*action.Log{}},
-				{9, 2, e2Hash, 655, "3", []*action.Log{}},
+				{Status: 3, BlockHeight: 2, ActionHash: t2Hash, GasConsumed: 1500, ContractAddress: "1"},
+				{Status: 5, BlockHeight: 2, ActionHash: t5Hash, GasConsumed: 34, ContractAddress: "2"},
+				{Status: 9, BlockHeight: 2, ActionHash: e2Hash, GasConsumed: 655, ContractAddress: "3"},
 			},
 			{
-				{7, 3, t3Hash, 488, "1", []*action.Log{}},
-				{6, 3, t6Hash, 2, "2", []*action.Log{}},
-				{2, 3, e3Hash, 1099, "3", []*action.Log{}},
+				{Status: 7, BlockHeight: 3, ActionHash: t3Hash, GasConsumed: 488, ContractAddress: "1"},
+				{Status: 6, BlockHeight: 3, ActionHash: t6Hash, GasConsumed: 2, ContractAddress: "2"},
+				{Status: 2, BlockHeight: 3, ActionHash: e3Hash, GasConsumed: 1099, ContractAddress: "3"},
 			},
 		}
 
@@ -203,7 +204,11 @@ func TestBlockDAO(t *testing.T) {
 			h := hash.BytesToHash256(daoTests[0].hashTotal[j])
 			receipt, err := dao.GetReceiptByActionHash(h, uint64(j/3)+1)
 			require.NoError(err)
-			require.Equal(receipts[j/3][j%3], receipt)
+			b1, err := receipt.Serialize()
+			require.NoError(err)
+			b2, err := receipts[j/3][j%3].Serialize()
+			require.NoError(err)
+			require.True(bytes.Equal(b1, b2))
 			action, err := dao.GetActionByActionHash(h, uint64(j/3)+1)
 			require.NoError(err)
 			require.Equal(h, action.Hash())

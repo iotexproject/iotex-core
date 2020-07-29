@@ -280,9 +280,8 @@ func (p *Protocol) Claim(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-) (*action.Log, error) {
+) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
 		return nil, err
 	}
@@ -293,16 +292,11 @@ func (p *Protocol) Claim(
 		return nil, err
 	}
 
-	return &action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
-			Sender:    address.RewardingPoolAddr,
-			Recipient: actionCtx.Caller.String(),
-			Amount:    amount,
-		},
+	return &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
+		Sender:    address.RewardingPoolAddr,
+		Recipient: actionCtx.Caller.String(),
+		Amount:    amount,
 	}, nil
 }
 

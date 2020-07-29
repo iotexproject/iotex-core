@@ -195,12 +195,12 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// check the special create bucket log
-			require.Equal(2, len(r.Logs))
-			cLog := r.Logs[1]
-			require.True(cLog.IsTransactionLog())
-			require.Equal(stakerAddr.String(), cLog.TransactionData.Sender)
-			require.Equal(address.StakingBucketPoolAddr, cLog.TransactionData.Recipient)
-			require.Equal(test.amount, cLog.TransactionData.Amount.String())
+			tLogs := r.TransactionLogs()
+			require.Equal(1, len(tLogs))
+			cLog := tLogs[0]
+			require.Equal(stakerAddr.String(), cLog.Sender)
+			require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
+			require.Equal(test.amount, cLog.Amount.String())
 
 			// test bucket index and bucket
 			bucketIndices, _, err := getCandBucketIndices(sm, candidateAddr)
@@ -547,18 +547,17 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// check the special create bucket and candidate register log
-			require.Equal(3, len(r.Logs))
-			cLog := r.Logs[1]
-			require.True(cLog.IsTransactionLog())
-			require.Equal(test.caller.String(), cLog.TransactionData.Sender)
-			require.Equal(address.StakingBucketPoolAddr, cLog.TransactionData.Recipient)
-			require.Equal(test.amountStr, cLog.TransactionData.Amount.String())
+			tLogs := r.TransactionLogs()
+			require.Equal(2, len(tLogs))
+			cLog := tLogs[0]
+			require.Equal(test.caller.String(), cLog.Sender)
+			require.Equal(address.StakingBucketPoolAddr, cLog.Recipient)
+			require.Equal(test.amountStr, cLog.Amount.String())
 
-			cLog = r.Logs[2]
-			require.True(cLog.IsTransactionLog())
-			require.Equal(test.caller.String(), cLog.TransactionData.Sender)
-			require.Equal(address.RewardingPoolAddr, cLog.TransactionData.Recipient)
-			require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.TransactionData.Amount.String())
+			cLog = tLogs[1]
+			require.Equal(test.caller.String(), cLog.Sender)
+			require.Equal(address.RewardingPoolAddr, cLog.Recipient)
+			require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
 
 			// test candidate
 			candidate, _, err := getCandidate(sm, act.OwnerAddress())
@@ -1304,12 +1303,12 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 
 		if test.status == iotextypes.ReceiptStatus_Success {
 			// check the special withdraw bucket log
-			require.Equal(2, len(r.Logs))
-			wLog := r.Logs[1]
-			require.True(wLog.IsTransactionLog())
-			require.Equal(address.StakingBucketPoolAddr, wLog.TransactionData.Sender)
-			require.Equal(caller.String(), wLog.TransactionData.Recipient)
-			require.Equal(test.amount, wLog.TransactionData.Amount.String())
+			tLogs := r.TransactionLogs()
+			require.Equal(1, len(tLogs))
+			wLog := tLogs[0]
+			require.Equal(address.StakingBucketPoolAddr, wLog.Sender)
+			require.Equal(caller.String(), wLog.Recipient)
+			require.Equal(test.amount, wLog.Amount.String())
 
 			// test bucket index and bucket
 			_, _, err := getCandBucketIndices(sm, candidate.Owner)
@@ -2468,12 +2467,12 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 
 		if test.err == nil && test.status == iotextypes.ReceiptStatus_Success {
 			// check the special deposit bucket log
-			require.Equal(2, len(r.Logs))
-			dLog := r.Logs[1]
-			require.True(dLog.IsTransactionLog())
-			require.Equal(test.caller.String(), dLog.TransactionData.Sender)
-			require.Equal(address.StakingBucketPoolAddr, dLog.TransactionData.Recipient)
-			require.Equal(test.amount, dLog.TransactionData.Amount.String())
+			tLogs := r.TransactionLogs()
+			require.Equal(1, len(tLogs))
+			dLog := tLogs[0]
+			require.Equal(test.caller.String(), dLog.Sender)
+			require.Equal(address.StakingBucketPoolAddr, dLog.Recipient)
+			require.Equal(test.amount, dLog.Amount.String())
 
 			// test bucket index and bucket
 			bucketIndices, _, err := getCandBucketIndices(sm, candidate.Owner)
@@ -2590,7 +2589,7 @@ func setupAccount(sm protocol.StateManager, addr address.Address, balance int64)
 	return accountutil.StoreAccount(sm, addr, account)
 }
 
-func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.Log, error) {
+func depositGas(ctx context.Context, sm protocol.StateManager, gasFee *big.Int) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	// Subtract balance from caller
 	acc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(actionCtx.Caller.Bytes()))

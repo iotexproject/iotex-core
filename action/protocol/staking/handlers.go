@@ -62,7 +62,7 @@ func (h *handleError) ReceiptStatus() uint64 {
 }
 
 func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, csm CandidateStateManager,
-) (*receiptLog, *action.Log, error) {
+) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
@@ -120,19 +120,14 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	log.AddAddress(actionCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	// generate create amount log
-	cLog := action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
+	return log, []*action.TransactionLog{
+		{
 			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
 			Sender:    actionCtx.Caller.String(),
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    act.Amount(),
 		},
-	}
-	return log, &cLog, nil
+	}, nil
 }
 
 func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm CandidateStateManager,
@@ -197,7 +192,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 }
 
 func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, csm CandidateStateManager,
-) (*receiptLog, *action.Log, error) {
+) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	postFbkMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
@@ -263,19 +258,14 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		log.SetData(bucket.StakedAmount.Bytes())
 	}
 
-	// generate withdraw amount log
-	amountLog := action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
+	return log, []*action.TransactionLog{
+		{
 			Type:      iotextypes.TransactionLogType_WITHDRAW_BUCKET,
 			Sender:    address.StakingBucketPoolAddr,
 			Recipient: actionCtx.Caller.String(),
 			Amount:    bucket.StakedAmount,
 		},
-	}
-	return log, &amountLog, nil
+	}, nil
 }
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager,
@@ -423,7 +413,7 @@ func (p *Protocol) handleConsignmentTransfer(
 }
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager,
-) (*receiptLog, *action.Log, error) {
+) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleDepositToStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
@@ -503,19 +493,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	}
 	log.AddAddress(actionCtx.Caller)
 
-	// generate deposit amount log
-	dLog := action.Log{
-		Address:     p.addr.String(),
-		BlockHeight: blkCtx.BlockHeight,
-		ActionHash:  actionCtx.ActionHash,
-		TransactionData: &action.TransactionLog{
+	return log, []*action.TransactionLog{
+		{
 			Type:      iotextypes.TransactionLogType_DEPOSIT_TO_BUCKET,
 			Sender:    actionCtx.Caller.String(),
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    act.Amount(),
 		},
-	}
-	return log, &dLog, nil
+	}, nil
 }
 
 func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm CandidateStateManager,
@@ -589,7 +574,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 }
 
 func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager,
-) (*receiptLog, []*action.Log, error) {
+) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
@@ -681,31 +666,18 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.AddAddress(actCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	return log, []*action.Log{
-		// generate self-stake log
-		&action.Log{
-			Address:     p.addr.String(),
-			BlockHeight: blkCtx.BlockHeight,
-			ActionHash:  actCtx.ActionHash,
-			TransactionData: &action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
-				Sender:    actCtx.Caller.String(),
-				Recipient: address.StakingBucketPoolAddr,
-				Amount:    act.Amount(),
-			},
+	return log, []*action.TransactionLog{
+		{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.StakingBucketPoolAddr,
+			Amount:    act.Amount(),
 		},
-
-		// generate candidate register log
-		&action.Log{
-			Address:     p.addr.String(),
-			BlockHeight: blkCtx.BlockHeight,
-			ActionHash:  actCtx.ActionHash,
-			TransactionData: &action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
-				Sender:    actCtx.Caller.String(),
-				Recipient: address.RewardingPoolAddr,
-				Amount:    registrationFee,
-			},
+		{
+			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
+			Sender:    actCtx.Caller.String(),
+			Recipient: address.RewardingPoolAddr,
+			Amount:    registrationFee,
 		},
 	}, nil
 }

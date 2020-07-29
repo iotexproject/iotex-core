@@ -134,7 +134,7 @@ func (log *TokenTxRecord) toProto() *iotextypes.TransactionLog_Transaction {
 
 // ReceiptTransactionLog generates transaction log from receipt
 func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
-	if r == nil || len(r.Logs) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
+	if r == nil || len(r.TransactionLogs()) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
 		return nil
 	}
 
@@ -142,7 +142,7 @@ func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
 		actHash:   r.ActionHash,
 		txRecords: []*TokenTxRecord{},
 	}
-	for _, log := range r.Logs {
+	for _, log := range r.TransactionLogs() {
 		if record := LogTokenTxRecord(log); record != nil {
 			actionLog.txRecords = append(actionLog.txRecords, record)
 			actionLog.numTxs++
@@ -156,18 +156,18 @@ func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
 }
 
 // LogTokenTxRecord generates token transaction record from log
-func LogTokenTxRecord(l *action.Log) *TokenTxRecord {
-	if l == nil || !l.IsTransactionLog() {
+func LogTokenTxRecord(l *action.TransactionLog) *TokenTxRecord {
+	if l == nil {
 		return nil
 	}
-	if l.TransactionData.Amount.Sign() < 0 {
-		log.L().Panic("Negative amount transaction log.", zap.Any("TransactionLog", l.TransactionData))
+	if l.Amount.Sign() < 0 {
+		log.L().Panic("Negative amount transaction log.", zap.Any("TransactionLog", l))
 	}
 
 	return &TokenTxRecord{
-		sender:    l.TransactionData.Sender,
-		recipient: l.TransactionData.Recipient,
-		amount:    l.TransactionData.Amount.String(),
-		typ:       l.TransactionData.Type,
+		sender:    l.Sender,
+		recipient: l.Recipient,
+		amount:    l.Amount.String(),
+		typ:       l.Type,
 	}
 }

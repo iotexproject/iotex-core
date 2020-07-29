@@ -83,7 +83,7 @@ type (
 	}
 
 	// DepositGas deposits gas to some pool
-	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.Log, error)
+	DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 )
 
 // NewProtocol instantiates the protocol of staking
@@ -287,32 +287,29 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 
 func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
-		rLog        *receiptLog
-		createLog   *action.Log
-		depositLog  *action.Log
-		withdrawLog *action.Log
-		actionLogs  []*action.Log
-		err         error
-		logs        []*action.Log
+		rLog  *receiptLog
+		tLogs []*action.TransactionLog
+		err   error
+		logs  []*action.Log
 	)
 
 	switch act := act.(type) {
 	case *action.CreateStake:
-		rLog, createLog, err = p.handleCreateStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleCreateStake(ctx, act, csm)
 	case *action.Unstake:
 		rLog, err = p.handleUnstake(ctx, act, csm)
 	case *action.WithdrawStake:
-		rLog, withdrawLog, err = p.handleWithdrawStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleWithdrawStake(ctx, act, csm)
 	case *action.ChangeCandidate:
 		rLog, err = p.handleChangeCandidate(ctx, act, csm)
 	case *action.TransferStake:
 		rLog, err = p.handleTransferStake(ctx, act, csm)
 	case *action.DepositToStake:
-		rLog, depositLog, err = p.handleDepositToStake(ctx, act, csm)
+		rLog, tLogs, err = p.handleDepositToStake(ctx, act, csm)
 	case *action.Restake:
 		rLog, err = p.handleRestake(ctx, act, csm)
 	case *action.CandidateRegister:
-		rLog, actionLogs, err = p.handleCandidateRegister(ctx, act, csm)
+		rLog, tLogs, err = p.handleCandidateRegister(ctx, act, csm)
 	case *action.CandidateUpdate:
 		rLog, err = p.handleCandidateUpdate(ctx, act, csm)
 	default:
@@ -323,24 +320,12 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		logs = append(logs, l)
 	}
 	if err == nil {
-		if createLog != nil {
-			logs = append(logs, createLog)
-		}
-		if depositLog != nil {
-			logs = append(logs, depositLog)
-		}
-		if withdrawLog != nil {
-			logs = append(logs, withdrawLog)
-		}
-		if actionLogs != nil {
-			logs = append(logs, actionLogs...)
-		}
-		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs)
+		return p.settleAction(ctx, csm, uint64(iotextypes.ReceiptStatus_Success), logs, tLogs)
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
 		log.L().Debug("Non-critical error when processing staking action", zap.Error(err))
-		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs)
+		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err
 }
@@ -484,6 +469,7 @@ func (p *Protocol) settleAction(
 	sm protocol.StateManager,
 	status uint64,
 	logs []*action.Log,
+	tLogs []*action.TransactionLog,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -510,7 +496,6 @@ func (p *Protocol) settleAction(
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}
-	r.AddLogs(logs...)
-	r.AddLogs(depositLog)
+	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
 }
