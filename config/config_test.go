@@ -312,6 +312,81 @@ func TestValidateProducerAddress(t *testing.T) {
 	require.NotNil(t, addr)
 }
 
+func TestValidateForkHeights(t *testing.T) {
+	r := require.New(t)
+
+	tests := []struct {
+		fork   string
+		err    error
+		errMsg string
+	}{
+		{
+			"Pacific", ErrInvalidCfg, "Pacific is heigher than Aleutian",
+		},
+		{
+			"Aleutian", ErrInvalidCfg, "Aleutian is heigher than Bering",
+		},
+		{
+			"Bering", ErrInvalidCfg, "Bering is heigher than Cook",
+		},
+		{
+			"Cook", ErrInvalidCfg, "Cook is heigher than Dardanelles",
+		},
+		{
+			"Dardanelles", ErrInvalidCfg, "Dardanelles is heigher than Daytona",
+		},
+		{
+			"Daytona", ErrInvalidCfg, "Daytona is heigher than Easter",
+		},
+		{
+			"Easter", ErrInvalidCfg, "Easter is heigher than FairbankMigration",
+		},
+		{
+			"FbkMigration", ErrInvalidCfg, "FairbankMigration is heigher than Fairbank",
+		},
+		{
+			"Fairbank", ErrInvalidCfg, "Fairbank is heigher than Greenland",
+		},
+		{
+			"", nil, "",
+		},
+	}
+
+	for _, v := range tests {
+		cfg := newTestCfg(v.fork)
+		err := ValidateForkHeights(cfg)
+		r.Equal(v.err, errors.Cause(err))
+		if err != nil {
+			r.True(strings.Contains(err.Error(), v.errMsg))
+		}
+	}
+}
+
+func newTestCfg(fork string) Config {
+	cfg := Default
+	switch fork {
+	case "Pacific":
+		cfg.Genesis.PacificBlockHeight = cfg.Genesis.AleutianBlockHeight + 1
+	case "Aleutian":
+		cfg.Genesis.AleutianBlockHeight = cfg.Genesis.BeringBlockHeight + 1
+	case "Bering":
+		cfg.Genesis.BeringBlockHeight = cfg.Genesis.CookBlockHeight + 1
+	case "Cook":
+		cfg.Genesis.CookBlockHeight = cfg.Genesis.DardanellesBlockHeight + 1
+	case "Dardanelles":
+		cfg.Genesis.DardanellesBlockHeight = cfg.Genesis.DaytonaBlockHeight + 1
+	case "Daytona":
+		cfg.Genesis.DaytonaBlockHeight = cfg.Genesis.EasterBlockHeight + 1
+	case "Easter":
+		cfg.Genesis.EasterBlockHeight = cfg.Genesis.FbkMigrationBlockHeight + 1
+	case "FbkMigration":
+		cfg.Genesis.FbkMigrationBlockHeight = cfg.Genesis.FairbankBlockHeight + 1
+	case "Fairbank":
+		cfg.Genesis.FairbankBlockHeight = cfg.Genesis.GreenlandBlockHeight + 1
+	}
+	return cfg
+}
+
 func TestNewSubDefaultConfig(t *testing.T) {
 	_, err := NewSub()
 	require.NoError(t, err)

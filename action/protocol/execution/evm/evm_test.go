@@ -107,7 +107,7 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			442000,
 		},
-		// after Aleutian
+		// Aleutian -- Bering
 		{
 			action.EmptyAddress,
 			872000,
@@ -115,6 +115,24 @@ func TestConstantinople(t *testing.T) {
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			872000,
+		},
+		// Bering -- Greenland
+		{
+			action.EmptyAddress,
+			5550000,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			5550000,
+		},
+		// after Greenland
+		{
+			action.EmptyAddress,
+			5553721,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			5553721,
 		},
 	}
 
@@ -141,24 +159,32 @@ func TestConstantinople(t *testing.T) {
 		})
 		require.NoError(err)
 
-		var config vm.Config
-		chainConfig := getChainConfig(genesis.Default.BeringBlockHeight)
-		evm := vm.NewEVM(ps.context, stateDB, chainConfig, config)
+		var evmConfig vm.Config
+		chainConfig := getChainConfig(hu)
+		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
-		require.Equal(false, evm.ChainConfig().IsHomestead(evm.BlockNumber))
-		require.Equal(false, evm.ChainConfig().IsByzantium(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsHomestead(evm.BlockNumber))
+		require.Equal(false, evm.ChainConfig().IsDAOFork(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP150(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP158(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP155(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsByzantium(evm.BlockNumber))
 		require.Equal(true, evm.ChainConfig().IsConstantinople(evm.BlockNumber))
 		require.Equal(true, evm.ChainConfig().IsPetersburg(evm.BlockNumber))
 
 		// verify chainRules
 		chainRules := chainConfig.Rules(ps.context.BlockNumber)
-		require.Equal(false, chainRules.IsHomestead)
-		require.Equal(false, chainRules.IsByzantium)
+		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsHomestead)
+		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP150)
+		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP158)
+		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP155)
+		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsByzantium)
 		require.Equal(true, chainRules.IsConstantinople)
 		require.Equal(true, chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
-		require.True(evm.IsPreBering())
+		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evm.ChainConfig().GreenlandBlock)
+		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
 	}
 }
