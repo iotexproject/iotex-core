@@ -128,7 +128,7 @@ func (log *TokenTxRecord) toProto() *iotextypes.TransactionLog_Transaction {
 
 // ReceiptTransactionLog generates transaction log from receipt
 func ReceiptTransactionLog(r *action.Receipt) *TransactionLog {
-	if r == nil || len(r.TransactionLogs()) == 0 || r.Status != uint64(iotextypes.ReceiptStatus_Success) {
+	if r == nil || len(r.TransactionLogs()) == 0 {
 		return nil
 	}
 

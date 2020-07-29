@@ -216,7 +216,11 @@ func ExecuteContract(
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
-	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(stateDB.TransactionLogs()...).AddTransactionLogs(depositLog, burnLog)
+	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
+	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
+		hu.IsPre(config.Greenland, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
+	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
