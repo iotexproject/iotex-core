@@ -115,7 +115,7 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 	return hash.Hash256b(data)
 }
 
-// Logs returns the list of transaction logs stored in receipt
+// Logs returns the list of logs stored in receipt
 func (receipt *Receipt) Logs() []*Log {
 	return receipt.logs
 }

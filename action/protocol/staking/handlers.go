@@ -120,7 +120,6 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	log.AddAddress(actionCtx.Caller)
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
-	// generate create amount log
 	return log, []*action.TransactionLog{
 		{
 			Type:      iotextypes.TransactionLogType_CREATE_BUCKET,
@@ -668,16 +667,13 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 	log.SetData(byteutil.Uint64ToBytesBigEndian(bucketIdx))
 
 	return log, []*action.TransactionLog{
-		// generate self-stake log
-		&action.TransactionLog{
+		{
 			Type:      iotextypes.TransactionLogType_CANDIDATE_SELF_STAKE,
 			Sender:    actCtx.Caller.String(),
 			Recipient: address.StakingBucketPoolAddr,
 			Amount:    act.Amount(),
 		},
-
-		// generate candidate register log
-		&action.TransactionLog{
+		{
 			Type:      iotextypes.TransactionLogType_CANDIDATE_REGISTRATION_FEE,
 			Sender:    actCtx.Caller.String(),
 			Recipient: address.RewardingPoolAddr,
