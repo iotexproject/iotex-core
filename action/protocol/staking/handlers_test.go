@@ -70,7 +70,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking)
+	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil)
 	require.NoError(err)
 
 	// set up candidate
@@ -2557,7 +2557,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking)
+	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil)
 	require.NoError(err)
 
 	// set up candidate

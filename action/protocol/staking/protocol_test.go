@@ -83,7 +83,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, genesis.Default.Staking)
+	stk, err := NewProtocol(nil, genesis.Default.Staking, nil)
 	r.NotNil(stk)
 	r.NoError(err)
 	buckets, _, err := getAllBuckets(sm)
@@ -188,7 +188,7 @@ func TestCreatePreStates(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
-	p, err := NewProtocol(nil, genesis.Default.Staking)
+	p, err := NewProtocol(nil, genesis.Default.Staking, nil)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
 		protocol.WithBlockchainCtx(
