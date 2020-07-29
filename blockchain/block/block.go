@@ -134,11 +134,10 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 	for _, r := range b.Receipts {
 		if log := ReceiptTransactionLog(r); log != nil {
 			blkLog.actionLogs = append(blkLog.actionLogs, log)
-			blkLog.numActions++
 		}
 	}
 
-	if blkLog.numActions == 0 {
+	if len(blkLog.actionLogs) == 0 {
 		return nil
 	}
 	return &blkLog
