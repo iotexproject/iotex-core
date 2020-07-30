@@ -501,6 +501,12 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
 	}()
+	accountA, err := accountutil.AccountState(sf, a)
+	require.NoError(t, err)
+	accountB, err := accountutil.AccountState(sf, b)
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(100), accountA.Balance)
+	require.Equal(t, big.NewInt(0), accountB.Balance)
 	tsf, err := action.NewTransfer(1, big.NewInt(10), b, nil, uint64(20000), big.NewInt(0))
 	require.NoError(t, err)
 	bd := &action.EnvelopeBuilder{}
@@ -525,9 +531,9 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 	require.NoError(t, sf.PutBlock(ctx, &blk))
 
 	// check latest balance
-	accountA, err := accountutil.AccountState(sf, a)
+	accountA, err = accountutil.AccountState(sf, a)
 	require.NoError(t, err)
-	accountB, err := accountutil.AccountState(sf, b)
+	accountB, err = accountutil.AccountState(sf, b)
 	require.NoError(t, err)
 	require.Equal(t, big.NewInt(90), accountA.Balance)
 	require.Equal(t, big.NewInt(10), accountB.Balance)
