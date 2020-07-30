@@ -853,7 +853,14 @@ func (api *Server) GetTransactionLogByBlockHeight(
 	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, err.Error())
+			// should return empty, no transaction happened in block
+			return &iotexapi.GetTransactionLogByBlockHeightResponse{
+				TransactionLogs: &iotextypes.TransactionLogs{},
+				BlockIdentifier: &iotextypes.BlockIdentifier{
+					Hash:   hex.EncodeToString(h[:]),
+					Height: in.BlockHeight,
+				},
+			}, nil
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
