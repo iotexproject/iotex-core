@@ -850,21 +850,25 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
-	return &iotexapi.GetTransactionLogByBlockHeightResponse{
-		TransactionLogs: sysLog,
+	
+	res := &iotexapi.GetTransactionLogByBlockHeightResponse{
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
 			Height: in.BlockHeight,
 		},
-	}, nil
+	}
+	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			// should return empty, no transaction happened in block
+			res.TransactionLogs = &iotextypes.TransactionLogs{}
+			return res, nil
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	res.TransactionLogs = sysLog
+	return res, nil
 }
 
 // Start starts the API server

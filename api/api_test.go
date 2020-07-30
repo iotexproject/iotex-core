@@ -738,7 +738,7 @@ var (
 			2, codes.OK,
 		},
 		{
-			3, codes.NotFound,
+			3, codes.OK,
 		},
 		{
 			4, codes.OK,
