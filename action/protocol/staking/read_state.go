@@ -101,6 +101,21 @@ func readStateBucketByIndices(ctx context.Context, sr protocol.StateReader,
 	return pbBuckets, height, err
 }
 
+func readStateBucketCount(ctx context.Context, csr CandidateStateReader,
+	_ *iotexapi.ReadStakingDataRequest_BucketsCount) (*iotextypes.BucketsCount, uint64, error) {
+	total, err := getTotalBucketCount(csr.SR())
+	if errors.Cause(err) == state.ErrStateNotExist {
+		return &iotextypes.BucketsCount{}, csr.Height(), nil
+	}
+	if err != nil {
+		return nil, 0, err
+	}
+	return &iotextypes.BucketsCount{
+		Total:  total,
+		Active: csr.ActiveBucketsCount(),
+	}, csr.Height(), nil
+}
+
 func readStateCandidates(ctx context.Context, csr CandidateStateReader,
 	req *iotexapi.ReadStakingDataRequest_Candidates) (*iotextypes.CandidateListV2, uint64, error) {
 	offset := int(req.GetPagination().GetOffset())
