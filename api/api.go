@@ -855,7 +855,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
 			Height: in.BlockHeight,
-		}
+		},
 	}
 	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
 	if err != nil {
