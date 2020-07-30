@@ -37,7 +37,7 @@ func TestConvert(t *testing.T) {
 	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}, nil}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReceipt)
@@ -49,7 +49,7 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt.GasConsumed, receipt2.GasConsumed)
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
-	require.NotEqual(testLog, receipt2.Logs[0])
+	require.NotEqual(testLog, receipt2.logs[0])
 	h := receipt.Hash()
 
 	testLog.NotFixTopicCopyBug = false
@@ -59,24 +59,11 @@ func TestConvert(t *testing.T) {
 	receipt2.ConvertFromReceiptPb(typeReceipt)
 	require.Equal(receipt, receipt2)
 	require.NotEqual(h, receipt.Hash())
-
-	// transaction log
-	testLog.TransactionData = &TransactionLog{}
-	noLogReceipt := receipt.ConvertToReceiptPb()
-	require.NotNil(noLogReceipt)
-	require.Empty(noLogReceipt.Logs)
-
-	// not transaction log
-	testLog.TransactionData = nil
-	oneLogReceipt := receipt.ConvertToReceiptPb()
-	require.Equal(1, len(oneLogReceipt.Logs))
-	receipt2.ConvertFromReceiptPb(oneLogReceipt)
-	require.Equal(receipt, receipt2)
 }
 
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil}
 	ser, err := receipt.Serialize()
 	require.NoError(err)
 

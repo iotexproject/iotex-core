@@ -45,12 +45,13 @@ type (
 	GetBlockHash func(uint64) (hash.Hash256, error)
 
 	// DepositGas deposits gas
-	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.Log, error)
+	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error)
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
 		sm                 protocol.StateManager
 		logs               []*action.Log
+		transactionLogs    []*action.TransactionLog
 		err                error
 		blockHeight        uint64
 		executionHash      hash.Hash256
@@ -425,31 +426,39 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		copy(topic[:], evmTopic.Bytes())
 		topics = append(topics, topic)
 	}
-	log := &action.Log{
+	if topics[0] == inContractTransfer {
+		if len(topics) != 3 {
+			panic("Invalid in contract transfer topics")
+		}
+		from, _ := address.FromBytes(topics[1][12:])
+		to, _ := address.FromBytes(topics[2][12:])
+		stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
+			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
+			Sender:    from.String(),
+			Recipient: to.String(),
+			Amount:    new(big.Int).SetBytes(evmLog.Data),
+		})
+		return
+	}
+
+	stateDB.logs = append(stateDB.logs, &action.Log{
 		Address:            addr.String(),
 		Topics:             topics,
 		Data:               evmLog.Data,
 		BlockHeight:        stateDB.blockHeight,
 		ActionHash:         stateDB.executionHash,
 		NotFixTopicCopyBug: stateDB.notFixTopicCopyBug,
-	}
-
-	if len(topics) >= 3 && topics[0] == inContractTransfer {
-		from, _ := address.FromBytes(log.Topics[1][12:])
-		to, _ := address.FromBytes(log.Topics[2][12:])
-		log.TransactionData = &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER,
-			Sender:    from.String(),
-			Recipient: to.String(),
-			Amount:    new(big.Int).SetBytes(log.Data),
-		}
-	}
-	stateDB.logs = append(stateDB.logs, log)
+	})
 }
 
 // Logs returns the logs
 func (stateDB *StateDBAdapter) Logs() []*action.Log {
 	return stateDB.logs
+}
+
+// TransactionLogs returns the transaction logs
+func (stateDB *StateDBAdapter) TransactionLogs() []*action.TransactionLog {
+	return stateDB.transactionLogs
 }
 
 // AddPreimage adds the preimage of a hash

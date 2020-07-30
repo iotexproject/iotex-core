@@ -37,7 +37,8 @@ type (
 		ActionHash      hash.Hash256
 		GasConsumed     uint64
 		ContractAddress string
-		Logs            []*Log
+		logs            []*Log
+		transactionLogs []*TransactionLog
 	}
 
 	// Log stores an evm contract event
@@ -49,8 +50,6 @@ type (
 		ActionHash         hash.Hash256
 		Index              uint
 		NotFixTopicCopyBug bool
-
-		TransactionData *TransactionLog
 	}
 
 	// TransactionLog stores a transaction event
@@ -71,11 +70,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
-	for _, l := range receipt.Logs {
-		// exclude transaction log when calculating receipts' hash or storing logs
-		if !l.IsTransactionLog() {
-			r.Logs = append(r.Logs, l.ConvertToLogPb())
-		}
+	for _, l := range receipt.logs {
+		r.Logs = append(r.Logs, l.ConvertToLogPb())
 	}
 	return r
 }
@@ -88,10 +84,10 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
 	logs := pbReceipt.GetLogs()
-	receipt.Logs = make([]*Log, len(logs))
+	receipt.logs = make([]*Log, len(logs))
 	for i, log := range logs {
-		receipt.Logs[i] = &Log{}
-		receipt.Logs[i].ConvertFromLogPb(log)
+		receipt.logs[i] = &Log{}
+		receipt.logs[i].ConvertFromLogPb(log)
 	}
 }
 
@@ -119,16 +115,34 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 	return hash.Hash256b(data)
 }
 
+// Logs returns the list of logs stored in receipt
+func (receipt *Receipt) Logs() []*Log {
+	return receipt.logs
+}
+
 // AddLogs add log to receipt and filter out nil log.
-func (receipt *Receipt) AddLogs(logs ...*Log) {
-	if receipt.Logs == nil {
-		receipt.Logs = make([]*Log, 0, len(logs))
-	}
+func (receipt *Receipt) AddLogs(logs ...*Log) *Receipt {
 	for _, l := range logs {
 		if l != nil {
-			receipt.Logs = append(receipt.Logs, l)
+			receipt.logs = append(receipt.logs, l)
 		}
 	}
+	return receipt
+}
+
+// TransactionLogs returns the list of transaction logs stored in receipt
+func (receipt *Receipt) TransactionLogs() []*TransactionLog {
+	return receipt.transactionLogs
+}
+
+// AddTransactionLogs add transaction logs to receipt and filter out nil log.
+func (receipt *Receipt) AddTransactionLogs(logs ...*TransactionLog) *Receipt {
+	for _, l := range logs {
+		if l != nil {
+			receipt.transactionLogs = append(receipt.transactionLogs, l)
+		}
+	}
+	return receipt
 }
 
 // ConvertToLogPb converts a Log to protobuf's Log
@@ -179,9 +193,4 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
-}
-
-// IsTransactionLog checks whether a log is transaction log
-func (log *Log) IsTransactionLog() bool {
-	return log.TransactionData != nil
 }

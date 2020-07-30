@@ -51,7 +51,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		)
 	}
 
-	var depositLog *action.Log
+	var depositLog *action.TransactionLog
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	if hu.IsPre(config.Pacific, blkCtx.BlockHeight) {
 		// charge sender gas
@@ -93,7 +93,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 			GasConsumed:     actionCtx.IntrinsicGas,
 			ContractAddress: p.addr.String(),
 		}
-		receipt.AddLogs(depositLog)
+		receipt.AddTransactionLogs(depositLog)
 		return receipt, nil
 	}
 
@@ -136,13 +136,11 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		GasConsumed:     actionCtx.IntrinsicGas,
 		ContractAddress: p.addr.String(),
 	}
-	receipt.AddLogs(&action.Log{
-		TransactionData: &action.TransactionLog{
-			Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
-			Sender:    actionCtx.Caller.String(),
-			Recipient: tsf.Recipient(),
-			Amount:    tsf.Amount(),
-		},
+	receipt.AddTransactionLogs(&action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
+		Sender:    actionCtx.Caller.String(),
+		Recipient: tsf.Recipient(),
+		Amount:    tsf.Amount(),
 	}, depositLog)
 
 	return receipt, nil

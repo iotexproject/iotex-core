@@ -32,7 +32,7 @@ type Protocol struct {
 }
 
 // DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.Log, error)
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 
 // NewProtocol instantiates the protocol of account
 func NewProtocol(depositGas DepositGas) *Protocol {
