@@ -553,6 +553,11 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	receipts, err := ws.Receipts()
+	if err != nil {
+		return err
+	}
+	blk.Receipts = receipts
 	h, _ := ws.Height()
 	if sf.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
