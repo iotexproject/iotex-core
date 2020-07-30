@@ -46,6 +46,7 @@ type (
 		height        uint64
 		finalized     bool
 		dock          protocol.Dock
+		receipts      []*action.Receipt
 		commitFunc    func(uint64) error
 		readviewFunc  func(name string) (uint64, interface{}, error)
 		writeviewFunc func(name string, v interface{}) error
@@ -70,6 +71,13 @@ func (ws *workingSet) digest() (hash.Hash256, error) {
 		return hash.ZeroHash256, errors.New("workingset has not been finalized yet")
 	}
 	return ws.digestFunc(), nil
+}
+
+func (ws *workingSet) Receipts() ([]*action.Receipt, error) {
+	if !ws.finalized {
+		return nil, errors.New("workingset has not been finalized yet")
+	}
+	return ws.receipts, nil
 }
 
 // Height returns the Height of the block being worked on
@@ -316,21 +324,21 @@ func (ws *workingSet) validateNonce(blk *block.Block) error {
 	return nil
 }
 
-func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
+func (ws *workingSet) Process(ctx context.Context, actions []action.SealedEnvelope) error {
 	return ws.process(ctx, actions)
 }
 
-func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) ([]*action.Receipt, error) {
+func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelope) error {
 	var err error
 	reg := protocol.MustGetRegistry(ctx)
 	for _, act := range actions {
 		if ctx, err = withActionCtx(ctx, act); err != nil {
-			return nil, err
+			return err
 		}
 		for _, p := range reg.All() {
 			if validator, ok := p.(protocol.ActionValidator); ok {
 				if err := validator.Validate(ctx, act.Action(), ws); err != nil {
-					return nil, err
+					return err
 				}
 			}
 		}
@@ -338,7 +346,7 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 	for _, p := range protocol.MustGetRegistry(ctx).All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
@@ -346,9 +354,10 @@ func (ws *workingSet) process(ctx context.Context, actions []action.SealedEnvelo
 
 	receipts, err := ws.runActions(ctx, actions)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return receipts, ws.finalize()
+	ws.receipts = receipts
+	return ws.finalize()
 }
 
 func (ws *workingSet) pickAndRunActions(
@@ -356,10 +365,10 @@ func (ws *workingSet) pickAndRunActions(
 	ap actpool.ActPool,
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
-) ([]*action.Receipt, []action.SealedEnvelope, error) {
+) ([]action.SealedEnvelope, error) {
 	err := ws.validate(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	receipts := make([]*action.Receipt, 0)
 	executedActions := make([]action.SealedEnvelope, 0)
@@ -368,7 +377,7 @@ func (ws *workingSet) pickAndRunActions(
 	for _, p := range reg.All() {
 		if pp, ok := p.(protocol.PreStatesCreator); ok {
 			if err := pp.CreatePreStates(ctx, ws); err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		}
 	}
@@ -398,7 +407,7 @@ func (ws *workingSet) pickAndRunActions(
 			if err != nil {
 				caller, err := address.FromBytes(nextAction.SrcPubkey().Hash())
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				ap.DeleteAction(caller)
 				actionIterator.PopAccount()
@@ -412,7 +421,7 @@ func (ws *workingSet) pickAndRunActions(
 				actionIterator.PopAccount()
 				continue
 			default:
-				return nil, nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
+				return nil, errors.Wrapf(err, "Failed to update state changes for selp %x", nextAction.Hash())
 			}
 			if receipt != nil {
 				blkCtx.GasLimit -= receipt.GasConsumed
@@ -431,27 +440,27 @@ func (ws *workingSet) pickAndRunActions(
 
 	for _, selp := range postSystemActions {
 		if ctx, err = withActionCtx(ctx, selp); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		receipt, err := ws.runAction(ctx, selp)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		if receipt != nil {
 			receipts = append(receipts, receipt)
 		}
 		executedActions = append(executedActions, selp)
 	}
+	ws.receipts = receipts
 
-	return receipts, executedActions, ws.finalize()
+	return executedActions, ws.finalize()
 }
 
 func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error {
 	if err := ws.validateNonce(blk); err != nil {
 		return errors.Wrap(err, "failed to validate nonce")
 	}
-	receipts, err := ws.process(ctx, blk.RunnableActions().Actions())
-	if err != nil {
+	if err := ws.process(ctx, blk.RunnableActions().Actions()); err != nil {
 		log.L().Error("Failed to update state.", zap.Uint64("height", ws.height), zap.Error(err))
 		return err
 	}
@@ -463,11 +472,10 @@ func (ws *workingSet) ValidateBlock(ctx context.Context, blk *block.Block) error
 	if err = blk.VerifyDeltaStateDigest(digest); err != nil {
 		return errors.Wrap(err, "failed to verify delta state digest")
 	}
-	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(receipts)); err != nil {
+	if err = blk.VerifyReceiptRoot(calculateReceiptRoot(ws.receipts)); err != nil {
 		return errors.Wrap(err, "Failed to verify receipt root")
 	}
 
-	blk.Receipts = receipts
 	return nil
 }
 
@@ -477,7 +485,7 @@ func (ws *workingSet) CreateBuilder(
 	postSystemActions []action.SealedEnvelope,
 	allowedBlockGasResidue uint64,
 ) (*block.Builder, error) {
-	rc, actions, err := ws.pickAndRunActions(ctx, ap, postSystemActions, allowedBlockGasResidue)
+	actions, err := ws.pickAndRunActions(ctx, ap, postSystemActions, allowedBlockGasResidue)
 	if err != nil {
 		return nil, err
 	}
@@ -504,8 +512,8 @@ func (ws *workingSet) CreateBuilder(
 		SetTimestamp(blkCtx.BlockTimeStamp).
 		SetPrevBlockHash(prevBlkHash).
 		SetDeltaStateDigest(digest).
-		SetReceipts(rc).
-		SetReceiptRoot(calculateReceiptRoot(rc)).
-		SetLogsBloom(calculateLogsBloom(ctx, rc))
+		SetReceipts(ws.receipts).
+		SetReceiptRoot(calculateReceiptRoot(ws.receipts)).
+		SetLogsBloom(calculateLogsBloom(ctx, ws.receipts))
 	return blkBuilder, nil
 }
