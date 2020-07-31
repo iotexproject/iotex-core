@@ -442,13 +442,17 @@ func (sf *factory) Validate(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	if isExist {
-		return nil
+	if !isExist {
+		if err := ws.ValidateBlock(ctx, blk); err != nil {
+			return errors.Wrap(err, "failed to validate block with workingset in factory")
+		}
+		sf.putIntoWorkingSets(key, ws)
 	}
-	if err := ws.ValidateBlock(ctx, blk); err != nil {
-		return errors.Wrap(err, "failed to validate block with workingset in factory")
+	receipts, err := ws.Receipts()
+	if err != nil {
+		return err
 	}
-	sf.putIntoWorkingSets(key, ws)
+	blk.Receipts = receipts
 	return nil
 }
 
@@ -540,7 +544,7 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 		if !sf.skipBlockValidationOnPut {
 			err = ws.ValidateBlock(ctx, blk)
 		} else {
-			_, err = ws.Process(ctx, blk.RunnableActions().Actions())
+			err = ws.Process(ctx, blk.RunnableActions().Actions())
 		}
 		if err != nil {
 			log.L().Error("Failed to update state.", zap.Error(err))
@@ -549,6 +553,11 @@ func (sf *factory) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
+	receipts, err := ws.Receipts()
+	if err != nil {
+		return err
+	}
+	blk.Receipts = receipts
 	h, _ := ws.Height()
 	if sf.currentChainHeight+1 != h {
 		// another working set with correct version already committed, do nothing
