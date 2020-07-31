@@ -22,6 +22,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -44,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockcreationsubscriber"
@@ -51,30 +53,31 @@ import (
 )
 
 var (
-	deployHash   hash.Hash256                                                                           // in block 2
-	setHash      hash.Hash256                                                                           // in block 3
-	shrHash      hash.Hash256                                                                           // in block 4
-	shlHash      hash.Hash256                                                                           // in block 5
-	sarHash      hash.Hash256                                                                           // in block 6
-	extHash      hash.Hash256                                                                           // in block 7
-	crt2Hash     hash.Hash256                                                                           // in block 8
-	setTopic, _  = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 3
-	getTopic, _  = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 4
-	shrTopic, _  = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 4
-	shlTopic, _  = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 5
-	sarTopic, _  = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 6
-	extTopic, _  = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 7
-	crt2Topic, _ = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 8
+	deployHash      hash.Hash256                                                                           // in block 1
+	setHash         hash.Hash256                                                                           // in block 2
+	shrHash         hash.Hash256                                                                           // in block 3
+	shlHash         hash.Hash256                                                                           // in block 4
+	sarHash         hash.Hash256                                                                           // in block 5
+	extHash         hash.Hash256                                                                           // in block 6
+	crt2Hash        hash.Hash256                                                                           // in block 7
+	storeHash       hash.Hash256                                                                           // in block 8
+	store2Hash      hash.Hash256                                                                           // in block 9
+	setTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f40") // in block 2
+	getTopic, _     = hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001") // in block 2
+	shrTopic, _     = hex.DecodeString("00fe00000000000000000000000000000000000000000000000000000000001f") // in block 3
+	shlTopic, _     = hex.DecodeString("fe00000000000000000000000000000000000000000000000000000000001f00") // in block 4
+	sarTopic, _     = hex.DecodeString("fffe00000000000000000000000000000000000000000000000000000000001f") // in block 5
+	extTopic, _     = hex.DecodeString("4a98ce81a2fd5177f0f42b49cb25b01b720f9ce8019f3937f63b789766c938e2") // in block 6
+	crt2Topic, _    = hex.DecodeString("0000000000000000000000001895e6033cd1081f18e0bd23a4501d9376028523") // in block 7
+	preGrPreStore   *big.Int
+	preGrPostStore  *big.Int
+	postGrPostStore *big.Int
 )
 
-func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) error {
+func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.BlockDAO, sf factory.Factory, ap actpool.ActPool) error {
 	// Add block 1
 	priKey0 := identityset.PrivateKey(27)
-	data, err := hex.DecodeString("608060405234801561001057600080fd5b506104d5806100206000396000f3fe608060405234801561001057600080fd5b50600436106100885760003560e01c806381ea44081161005b57806381ea440814610101578063a91b336214610159578063c2bc2efc14610177578063f5eacece146101cf57610088565b80635bec9e671461008d57806360fe47b1146100975780636bc8ecaa146100c5578063744f5f83146100e3575b600080fd5b6100956101ed565b005b6100c3600480360360208110156100ad57600080fd5b8101908080359060200190929190505050610239565b005b6100cd610270565b6040518082815260200191505060405180910390f35b6100eb6102b3565b6040518082815260200191505060405180910390f35b6101436004803603602081101561011757600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506102f6565b6040518082815260200191505060405180910390f35b61016161036a565b6040518082815260200191505060405180910390f35b6101b96004803603602081101561018d57600080fd5b81019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506103ad565b6040518082815260200191505060405180910390f35b6101d761045f565b6040518082815260200191505060405180910390f35b5b60011561020b5760008081548092919060010191905055506101ee565b7f8bfaa460932ccf8751604dd60efa3eafa220ec358fccb32ef703f91c509bc3ea60405160405180910390a1565b80600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a250565b6000805460081d905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b6000805460081c905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff16141561033157600080fd5b813f9050807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a2809050919050565b6000805460081b905080600081905550807fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a280905090565b60008073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff1614156103e857600080fd5b7fbde7a70c2261170a87678200113c8e12f82f63d0a1d1cfa45681cbac328e87e382600054604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018281526020019250505060405180910390a16000549050919050565b60008080602060406000f59150817fdf7a95aebff315db1b7716215d602ab537373cdb769232aae6055c06e798425b60405160405180910390a2819150509056fea265627a7a72305820209a8ef04c4d621759f34878b27b238650e8605c8a71d6efc619a769a64aa9cc64736f6c634300050a0032")
-	if err != nil {
-		return err
-	}
-	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), _constantinopleOpCodeContract)
 	if err != nil {
 		return err
 	}
@@ -101,8 +104,8 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		contract = r.ContractAddress
 	}
 
-	addOneBlock := func(nonce uint64, data []byte) (hash.Hash256, error) {
-		ex1, err := testutil.SignedExecution(contract, priKey0, nonce, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+	addOneBlock := func(contract string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (hash.Hash256, error) {
+		ex1, err := testutil.SignedExecution(contract, priKey0, nonce, amount, gasLimit, gasPrice, data)
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
@@ -120,11 +123,17 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 		return ex1.Hash(), nil
 	}
 
+	var (
+		zero     = big.NewInt(0)
+		gasLimit = testutil.TestGasLimit * 5
+		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
+	)
+
 	// Add block 2
 	// call set() to set storedData = 0xfe...1f40
 	funcSig := hash.Hash256b([]byte("set(uint256)"))
-	data = append(funcSig[:4], setTopic...)
-	setHash, err = addOneBlock(2, data)
+	data := append(funcSig[:4], setTopic...)
+	setHash, err = addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -132,7 +141,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 3
 	// call shright() to test SHR opcode, storedData => 0x00fe...1f
 	funcSig = hash.Hash256b([]byte("shright()"))
-	shrHash, err = addOneBlock(3, funcSig[:4])
+	shrHash, err = addOneBlock(contract, 3, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -140,7 +149,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 4
 	// call shleft() to test SHL opcode, storedData => 0xfe...1f00
 	funcSig = hash.Hash256b([]byte("shleft()"))
-	shlHash, err = addOneBlock(4, funcSig[:4])
+	shlHash, err = addOneBlock(contract, 4, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -148,7 +157,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 5
 	// call saright() to test SAR opcode, storedData => 0xfffe...1f
 	funcSig = hash.Hash256b([]byte("saright()"))
-	sarHash, err = addOneBlock(5, funcSig[:4])
+	sarHash, err = addOneBlock(contract, 5, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
@@ -159,7 +168,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	addr, _ := address.FromString(contract)
 	ethaddr := hash.BytesToHash256(addr.Bytes())
 	data = append(funcSig[:4], ethaddr[:]...)
-	extHash, err = addOneBlock(6, data)
+	extHash, err = addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
 	if err != nil {
 		return err
 	}
@@ -167,10 +176,64 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	// Add block 7
 	// call create2() to test CREATE2 opcode
 	funcSig = hash.Hash256b([]byte("create2()"))
-	crt2Hash, err = addOneBlock(7, funcSig[:4])
+	crt2Hash, err = addOneBlock(contract, 7, zero, gasLimit, gasPrice, funcSig[:4])
 	if err != nil {
 		return err
 	}
+
+	// Add block 8
+	// test store out of gas
+	var (
+		caller     state.Account
+		callerAddr = hash.BytesToHash160(identityset.Address(27).Bytes())
+	)
+	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	if err != nil {
+		return err
+	}
+	preGrPreStore = new(big.Int).Set(caller.Balance)
+	storeHash, err = addOneBlock(action.EmptyAddress, 8, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	if err != nil {
+		return err
+	}
+
+	if dao != nil {
+		r, err := dao.GetReceiptByActionHash(storeHash, 8)
+		if err != nil {
+			return err
+		}
+		if r.Status != uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+			return blockchain.ErrBalance
+		}
+	}
+
+	// Add block 9
+	// test store out of gas
+	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	if err != nil {
+		return err
+	}
+	preGrPostStore = new(big.Int).Set(caller.Balance)
+	store2Hash, err = addOneBlock(action.EmptyAddress, 9, unit.ConvertIotxToRau(10000), 3000000, big.NewInt(unit.Qev), _codeStoreOutOfGasContract)
+	if err != nil {
+		return err
+	}
+
+	if dao != nil {
+		r, err := dao.GetReceiptByActionHash(store2Hash, 9)
+		if err != nil {
+			return err
+		}
+		if r.Status != uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+			return blockchain.ErrBalance
+		}
+	}
+
+	_, err = sf.State(&caller, protocol.LegacyKeyOption(callerAddr))
+	if err != nil {
+		return err
+	}
+	postGrPostStore = new(big.Int).Set(caller.Balance)
 	return nil
 }
 
@@ -698,9 +761,12 @@ func TestConstantinople(t *testing.T) {
 			require.NoError(bc.Stop(ctx))
 		}()
 
-		require.NoError(addTestingConstantinopleBlocks(bc, dao, ap))
+		require.NoError(addTestingConstantinopleBlocks(bc, dao, sf, ap))
 
-		// TODO: don't use hard coded hash
+		// reason to use hard-coded hash value here:
+		// this test TestConstantinople() is added when we upgrade our EVM to enable Constantinople
+		// at that time, the test is run with both EVM version (Byzantium vs. Constantinople), and it generates the
+		// same exact block hash, so these values stood as gatekeeper for backward-compatibility
 		hashTopic := []struct {
 			h       hash.Hash256
 			blkHash string
@@ -776,16 +842,78 @@ func TestConstantinople(t *testing.T) {
 			}
 		}
 
+		storeOutGasTests := []struct {
+			height      uint64
+			actHash     hash.Hash256
+			status      iotextypes.ReceiptStatus
+			preBalance  *big.Int
+			postBalance *big.Int
+		}{
+			{
+				8, storeHash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPreStore, preGrPostStore,
+			},
+			{
+				9, store2Hash, iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas, preGrPostStore, postGrPostStore,
+			},
+		}
+		caller := identityset.Address(27)
+		for _, v := range storeOutGasTests {
+			r, err := dao.GetReceiptByActionHash(v.actHash, v.height)
+			require.NoError(err)
+			require.EqualValues(v.status, r.Status)
+
+			// verify transaction log
+			bLog, err := dao.TransactionLogs(v.height)
+			require.NoError(err)
+			tLog := bLog.Logs[0]
+			// first transaction log is gas fee
+			tx := tLog.Transactions[0]
+			require.Equal(tx.Sender, caller.String())
+			require.Equal(tx.Recipient, address.RewardingPoolAddr)
+			require.Equal(iotextypes.TransactionLogType_GAS_FEE, tx.Type)
+			gasFee, ok := new(big.Int).SetString(tx.Amount, 10)
+			require.True(ok)
+			postBalance := new(big.Int).Sub(v.preBalance, gasFee)
+
+			hu := config.NewHeightUpgrade(&cfg.Genesis)
+			if hu.IsPre(config.Greenland, v.height) {
+				// pre-Greenland contains a tx with status = ReceiptStatus_ErrCodeStoreOutOfGas
+				// due to a bug the transfer is not reverted
+				require.Equal(3, len(tLog.Transactions))
+				// 2nd log is in-contract-transfer
+				tx = tLog.Transactions[1]
+				require.Equal(tx.Sender, caller.String())
+				require.Equal(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, tx.Type)
+				tsfAmount, ok := new(big.Int).SetString(tx.Amount, 10)
+				require.True(ok)
+				postBalance.Sub(postBalance, tsfAmount)
+				// post = pre - gasFee - in_contract_transfer
+				require.Equal(v.postBalance, postBalance)
+				// 3rd log is also in-contract-transfer
+				tx = tLog.Transactions[2]
+				require.Equal(tx.Recipient, caller.String())
+				require.Equal(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, tx.Type)
+			} else {
+				// post-Greenland fixed that bug, the transfer is reverted so it only contains the gas fee
+				require.Equal(1, len(tLog.Transactions))
+				// post = pre - gasFee (transfer is reverted)
+				require.Equal(v.postBalance, postBalance)
+			}
+		}
+
 		// test getActions
-		addr27 := hash.BytesToHash160(identityset.Address(27).Bytes())
+		addr27 := hash.BytesToHash160(caller.Bytes())
 		total, err := indexer.GetActionCountByAddress(addr27)
 		require.NoError(err)
-		require.EqualValues(7, total)
+		require.EqualValues(len(hashTopic)+len(storeOutGasTests), total)
 		actions, err := indexer.GetActionsByAddress(addr27, 0, total)
 		require.NoError(err)
 		require.EqualValues(total, len(actions))
-		for i := range actions {
+		for i := range hashTopic {
 			require.Equal(hashTopic[i].h[:], actions[i])
+		}
+		for i := range storeOutGasTests {
+			require.Equal(storeOutGasTests[i].actHash[:], actions[i+len(hashTopic)])
 		}
 	}
 
@@ -814,6 +942,8 @@ func TestConstantinople(t *testing.T) {
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.ActPool.MinGasPriceStr = "0"
 	cfg.Genesis.AleutianBlockHeight = 2
+	cfg.Genesis.BeringBlockHeight = 8
+	cfg.Genesis.GreenlandBlockHeight = 9
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 
 	t.Run("test Constantinople contract", func(t *testing.T) {

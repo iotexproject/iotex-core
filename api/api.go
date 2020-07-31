@@ -850,7 +850,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	
+
 	res := &iotexapi.GetTransactionLogByBlockHeightResponse{
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
