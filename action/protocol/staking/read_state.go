@@ -112,7 +112,7 @@ func readStateBucketCount(ctx context.Context, csr CandidateStateReader,
 	}
 	return &iotextypes.BucketsCount{
 		Total:  total,
-		Active: csr.ActiveBucketsCount(),
+		Active: getActiveBucketsCount(csr),
 	}, csr.Height(), nil
 }
 
@@ -230,4 +230,8 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 
 	// otherwise read from bucket pool
 	return csr.TotalStakedAmount(), nil
+}
+
+func getActiveBucketsCount(csr CandidateStateReader) uint64 {
+	return csr.ActiveBucketsCount()
 }
