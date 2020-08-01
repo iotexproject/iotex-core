@@ -321,6 +321,80 @@ func (api *Server) GetServerMeta(ctx context.Context,
 	}}, nil
 }
 
+func (api *Server) readBucket(ctx context.Context, idx uint64) (*iotextypes.VoteBucket, error) {
+	method := &iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
+	}
+	methodData, err := proto.Marshal(method)
+	if err != nil {
+		return nil, err
+	}
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
+			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
+				Index: []uint64{idx},
+			},
+		},
+	}
+	requestData, err := proto.Marshal(readStakingdataRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodData,
+		Arguments:  [][]byte{requestData},
+	}
+	out, err := api.ReadState(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	buckets := iotextypes.VoteBucketList{}
+	if err := proto.Unmarshal(out.GetData(), &buckets); err != nil {
+		return nil, err
+	}
+	if len(buckets.GetBuckets()) == 0 {
+		return nil, err
+	}
+	return buckets.GetBuckets()[0], nil
+}
+
+func (api *Server) isWithdrawUnstakedRestake(ctx context.Context, in *iotexapi.SendActionRequest) (bool, error) {
+	actCore := in.GetAction().GetCore()
+	var (
+		idx      uint64
+		isTarget bool
+	)
+	switch {
+	case actCore.GetStakeWithdraw() != nil:
+		idx = actCore.GetStakeWithdraw().GetBucketIndex()
+		isTarget = true
+	}
+
+	if !isTarget {
+		return false, nil
+	}
+
+	// readstate
+	bucket, err := api.readBucket(ctx, idx)
+	if err != nil {
+		return false, err
+	}
+
+	// check if start stake time > unstake time
+	unstakeTime, err := ptypes.Timestamp(bucket.GetUnstakeStartTime())
+	if err != nil {
+		return false, err
+	}
+	stakeStartTime, err := ptypes.Timestamp(bucket.GetStakeStartTime())
+	if err != nil {
+		return false, err
+	}
+	return stakeStartTime.After(unstakeTime), nil
+}
+
 func (api *Server) isUnstakeBucketModify(ctx context.Context, in *iotexapi.SendActionRequest) (bool, error) {
 	actCore := in.GetAction().GetCore()
 	var (
@@ -349,44 +423,10 @@ func (api *Server) isUnstakeBucketModify(ctx context.Context, in *iotexapi.SendA
 	}
 
 	// readstate
-	method := &iotexapi.ReadStakingDataMethod{
-		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
-	}
-	methodData, err := proto.Marshal(method)
+	bucket, err := api.readBucket(ctx, idx)
 	if err != nil {
 		return false, err
 	}
-	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
-		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
-			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
-				Index: []uint64{idx},
-			},
-		},
-	}
-	requestData, err := proto.Marshal(readStakingdataRequest)
-	if err != nil {
-		return false, err
-	}
-
-	request := &iotexapi.ReadStateRequest{
-		ProtocolID: []byte("staking"),
-		MethodName: methodData,
-		Arguments:  [][]byte{requestData},
-	}
-	out, err := api.ReadState(ctx, request)
-	if err != nil {
-		return false, err
-	}
-
-	buckets := iotextypes.VoteBucketList{}
-	if err := proto.Unmarshal(out.GetData(), &buckets); err != nil {
-		return false, err
-	}
-	if len(buckets.GetBuckets()) == 0 {
-		return false, err
-	}
-	bucket := buckets.GetBuckets()[0]
-
 	// check if unstaked
 	unstakeTime, err := ptypes.Timestamp(bucket.GetUnstakeStartTime())
 	if err != nil {
@@ -416,6 +456,25 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		v := &errdetails.BadRequest_FieldViolation{
 			Field:       "Action rejected",
 			Description: "unstaked bucket",
+		}
+		br := &errdetails.BadRequest{}
+		br.FieldViolations = append(br.FieldViolations, v)
+		st, err := st.WithDetails(br)
+		if err != nil {
+			log.S().Panicf("Unexpected error attaching metadata: %v", err)
+		}
+		return nil, st.Err()
+	}
+	isWithdrawUnstakedRestake, err := api.isWithdrawUnstakedRestake(ctx, in)
+	if isWithdrawUnstakedRestake || err != nil {
+		msg := "withdraw bucket restake after already unstaked"
+		if err != nil {
+			msg = err.Error()
+		}
+		st := status.New(codes.Internal, msg)
+		v := &errdetails.BadRequest_FieldViolation{
+			Field:       "Action rejected",
+			Description: "withdraw bucket restake after already unstaked",
 		}
 		br := &errdetails.BadRequest{}
 		br.FieldViolations = append(br.FieldViolations, v)
