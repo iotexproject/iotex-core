@@ -321,6 +321,80 @@ func (api *Server) GetServerMeta(ctx context.Context,
 	}}, nil
 }
 
+func (api *Server) isUnstakeBucketModify(ctx context.Context, in *iotexapi.SendActionRequest) (bool, error) {
+	actCore := in.GetAction().GetCore()
+	var (
+		idx      uint64
+		isTarget bool
+	)
+	switch {
+	case actCore.GetStakeRestake() != nil:
+		idx = actCore.GetStakeRestake().GetBucketIndex()
+		isTarget = true
+	case actCore.GetStakeChangeCandidate() != nil:
+		idx = actCore.GetStakeChangeCandidate().GetBucketIndex()
+		isTarget = true
+	case actCore.GetStakeAddDeposit() != nil:
+		idx = actCore.GetStakeAddDeposit().GetBucketIndex()
+		isTarget = true
+	case actCore.GetStakeUnstake() != nil:
+		idx = actCore.GetStakeUnstake().GetBucketIndex()
+		isTarget = true
+	default:
+		isTarget = false
+	}
+
+	if !isTarget {
+		return false, nil
+	}
+
+	// readstate
+	method := &iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
+	}
+	methodData, err := proto.Marshal(method)
+	if err != nil {
+		return false, err
+	}
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsByIndexes{
+			BucketsByIndexes: &iotexapi.ReadStakingDataRequest_VoteBucketsByIndexes{
+				Index: []uint64{idx},
+			},
+		},
+	}
+	requestData, err := proto.Marshal(readStakingdataRequest)
+	if err != nil {
+		return false, err
+	}
+
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodData,
+		Arguments:  [][]byte{requestData},
+	}
+	out, err := api.ReadState(ctx, request)
+	if err != nil {
+		return false, err
+	}
+
+	buckets := iotextypes.VoteBucketList{}
+	if err := proto.Unmarshal(out.GetData(), &buckets); err != nil {
+		return false, err
+	}
+	if len(buckets.GetBuckets()) == 0 {
+		return false, err
+	}
+	bucket := buckets.GetBuckets()[0]
+
+	// check if unstaked
+	unstakeTime, err := ptypes.Timestamp(bucket.GetUnstakeStartTime())
+	if err != nil {
+		return false, err
+	}
+	return !unstakeTime.Equal(time.Unix(0, 0).UTC()), nil
+}
+
 // SendAction is the API to send an action to blockchain.
 func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionRequest) (*iotexapi.SendActionResponse, error) {
 	log.L().Debug("receive send action request")
@@ -329,8 +403,30 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	if err = selp.LoadProto(in.Action); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
+
+	// hotfix here
+	isUnstakeAndModify, err := api.isUnstakeBucketModify(ctx, in)
+	if isUnstakeAndModify || err != nil {
+		msg := "unstaked bucket"
+		if err != nil {
+			msg = err.Error()
+		}
+		st := status.New(codes.Internal, msg)
+		v := &errdetails.BadRequest_FieldViolation{
+			Field:       "Action rejected",
+			Description: "unstaked bucket",
+		}
+		br := &errdetails.BadRequest{}
+		br.FieldViolations = append(br.FieldViolations, v)
+		st, err := st.WithDetails(br)
+		if err != nil {
+			log.S().Panicf("Unexpected error attaching metadata: %v", err)
+		}
+		return nil, st.Err()
+	}
+
+	// Add to local actpool
 	if err = api.ap.Add(ctx, selp); err != nil {
 		log.L().Debug(err.Error())
 		var desc string
