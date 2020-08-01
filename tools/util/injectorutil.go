@@ -213,7 +213,7 @@ loop:
 				log.L().Error(err.Error())
 			}
 		rerand:
-			switch rand.Intn(4) {
+			switch rand.Intn(3) {
 			case 0:
 				sender, recipient, nonce, amount := createTransferInjection(counter, delegates)
 				atomic.AddUint64(&totalTsfCreated, 1)
@@ -229,23 +229,6 @@ loop:
 				go injectExecInteraction(wg, client, executor, contract, nonce, big.NewInt(int64(executionAmount)),
 					uint64(executionGasLimit), big.NewInt(executionGasPrice),
 					executionData, retryNum, retryInterval, pendingActionMap)
-			case 3:
-				sender, nonce := createExecutionInjection(counter, delegates)
-				go injectStake(
-					wg,
-					client,
-					sender,
-					nonce,
-					"100",
-					10000,
-					true,
-					1000000,
-					big.NewInt(10),
-					"create state payload",
-					retryNum,
-					resetInterval,
-					pendingActionMap,
-				)
 			}
 		}
 	}
@@ -819,7 +802,7 @@ func updateExecutionExpectedBalanceMap(
 	gasLimitBig := new(big.Int).SetUint64(gasLimit)
 
 	// NOTE: This hard-coded gas comsumption value is precalculted on minicluster deployed test contract only
-	gasUnitConsumed := new(big.Int).SetUint64(24028)
+	gasUnitConsumed := new(big.Int).SetUint64(12014)
 
 	if gasLimitBig.Cmp(gasUnitConsumed) < 0 {
 		log.L().Fatal("Not enough gas")
@@ -831,7 +814,6 @@ func updateExecutionExpectedBalanceMap(
 		log.L().Fatal("Not enough balance")
 	}
 	(*balancemap)[executor].Sub(executorBalance, gasConsumed)
-
 }
 
 func updateStakeExpectedBalanceMap(
