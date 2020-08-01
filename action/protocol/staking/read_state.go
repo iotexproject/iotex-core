@@ -110,9 +110,13 @@ func readStateBucketCount(ctx context.Context, csr CandidateStateReader,
 	if err != nil {
 		return nil, 0, err
 	}
+	active, err := getActiveBucketsCount(ctx, csr)
+	if err != nil {
+		return nil, 0, err
+	}
 	return &iotextypes.BucketsCount{
 		Total:  total,
-		Active: getActiveBucketsCount(csr),
+		Active: active,
 	}, csr.Height(), nil
 }
 
@@ -232,6 +236,17 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 	return csr.TotalStakedAmount(), nil
 }
 
-func getActiveBucketsCount(csr CandidateStateReader) uint64 {
-	return csr.ActiveBucketsCount()
+func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint64, error) {
+	chainCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
+	if hu.IsPost(config.Greenland, csr.Height()) {
+		// after Greenland, read state from db
+		buckets, _, err := getAllBuckets(csr.SR())
+		if err != nil {
+			return 0, err
+		}
+		return uint64(len(buckets)), nil
+	}
+	// otherwise read from bucket pool
+	return csr.ActiveBucketsCount(), nil
 }
