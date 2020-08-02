@@ -132,8 +132,8 @@ func TestReceiptLog(t *testing.T) {
 		log.AddAddress(v.cand)
 		log.AddAddress(v.voter)
 		log.SetData(v.data)
-		r.Nil(log.Build(ctx, ErrInvalidAmount))
-		r.Equal(createLog(ctx, v.name, v.cand, v.voter, v.data), log.Build(ctx, nil))
+		r.Nil(log.Build(ctx, ErrInvalidAmount, false))
+		r.Equal(createLog(ctx, v.name, v.cand, v.voter, v.data), log.Build(ctx, nil, false))
 
 		log = newReceiptLog(v.addr, v.name, true)
 		log.AddTopics(v.topics...)
@@ -144,8 +144,8 @@ func TestReceiptLog(t *testing.T) {
 		for i := range v.topics {
 			postFb.Topics = append(postFb.Topics, hash.BytesToHash256(v.topics[i]))
 		}
-		r.Equal(postFb, log.Build(ctx, ErrInvalidAmount))
-		r.Equal(postFb, log.Build(ctx, nil))
+		r.Equal(postFb, log.Build(ctx, ErrInvalidAmount, false))
+		r.Equal(postFb, log.Build(ctx, nil, false))
 	}
 }
 

@@ -111,7 +111,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 	}
 
 	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, config.Greenland)
+	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, cfg.ReviseHeights...)
 
 	return &Protocol{
 		addr: addr,
@@ -222,6 +222,10 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		if _, err = sm.PutState(csr.BaseView().bucketPool.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey)); err != nil {
 			return err
 		}
+	}
+
+	if !p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
+		return nil
 	}
 
 	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))

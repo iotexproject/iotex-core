@@ -37,6 +37,7 @@ func init() {
 }
 
 func defaultConfig() Genesis {
+	greenlandHeight := uint64(5553721)
 	return Genesis{
 		Blockchain: Blockchain{
 			Timestamp:               1546329600,
@@ -57,7 +58,7 @@ func defaultConfig() Genesis {
 			EasterBlockHeight:       4478761,
 			FbkMigrationBlockHeight: 5157001,
 			FairbankBlockHeight:     5165641,
-			GreenlandBlockHeight:    5553721,
+			GreenlandBlockHeight:    greenlandHeight,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -97,6 +98,7 @@ func defaultConfig() Genesis {
 			WithdrawWaitingPeriod: 3 * 24 * time.Hour,
 			MinStakeAmount:        unit.ConvertIotxToRau(100).String(),
 			BootstrapCandidates:   []BootstrapCandidate{},
+			ReviseHeights:         []uint64{greenlandHeight},
 		},
 	}
 }
@@ -257,6 +259,7 @@ type (
 		WithdrawWaitingPeriod time.Duration        `yaml:"withdrawWaitingPeriod"`
 		MinStakeAmount        string               `yaml:"minStakeAmount"`
 		BootstrapCandidates   []BootstrapCandidate `yaml:"bootstrapCandidates"`
+		ReviseHeights         []uint64             `yaml:"reviseHeights"`
 	}
 
 	// VoteWeightCalConsts contains the configs for calculating vote weight

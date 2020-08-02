@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 // VoteReviser is used to recalculate candidate votes.
@@ -27,10 +28,6 @@ func NewVoteReviser(c genesis.VoteWeightCalConsts, reviseHeights ...uint64) *Vot
 
 // Revise recalculate candidate votes on preset revising height.
 func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
-	if !vr.needRevise(height) {
-		return nil
-	}
-
 	if !vr.isCacheExist(height) {
 		cands, err := vr.calculateVoteWeight(csm)
 		if err != nil {
@@ -50,7 +47,8 @@ func (vr *VoteReviser) isCacheExist(height uint64) bool {
 	return ok
 }
 
-func (vr *VoteReviser) needRevise(height uint64) bool {
+// NeedRevise returns true if height needs revise
+func (vr *VoteReviser) NeedRevise(height uint64) bool {
 	for _, h := range vr.reviseHeights {
 		if height == h {
 			return true
@@ -61,19 +59,21 @@ func (vr *VoteReviser) needRevise(height uint64) bool {
 
 func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateList, error) {
 	cands, _, err := getAllCandidates(sm)
-	if err != nil {
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+	case err != nil:
 		return nil, err
 	}
 	candm := make(map[string]*Candidate)
-	selfStakingBuckets := make(map[uint64]bool)
 	for _, cand := range cands {
 		candm[cand.Owner.String()] = cand.Clone()
 		candm[cand.Owner.String()].Votes = new(big.Int)
 		candm[cand.Owner.String()].SelfStake = new(big.Int)
-		selfStakingBuckets[cand.SelfStakeBucketIdx] = true
 	}
 	buckets, _, err := getAllBuckets(sm)
-	if err != nil {
+	switch {
+	case errors.Cause(err) == state.ErrStateNotExist:
+	case err != nil:
 		return nil, err
 	}
 
@@ -86,7 +86,12 @@ func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateL
 			return nil, errors.Errorf("invalid candidate %s of bucket %d", bucket.Candidate.String(), bucket.Index)
 		}
 
-		cand.AddVote(calculateVoteWeight(vr.c, bucket, selfStakingBuckets[bucket.Index]))
+		if cand.SelfStakeBucketIdx == bucket.Index {
+			cand.AddVote(calculateVoteWeight(vr.c, bucket, true))
+			cand.SelfStake = bucket.StakedAmount
+		} else {
+			cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
+		}
 	}
 
 	cands = make(CandidateList, 0, len(candm))

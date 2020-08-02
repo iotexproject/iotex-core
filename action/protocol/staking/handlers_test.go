@@ -1088,7 +1088,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.True(ok)
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, act, csm, false)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, act, sm)
@@ -1579,7 +1579,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			cc := sc.candCenter.GetBySelfStakingIndex(test.index)
 			sc.candCenter.deleteForTestOnly(cc.Owner)
 			require.False(csm.ContainsOwner(cc.Owner))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, act, csm, false)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
@@ -2268,7 +2268,7 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			require.True(ok)
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, act, csm, false)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, act, sm)
@@ -2479,7 +2479,7 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			require.True(ok)
 			sc.candCenter.deleteForTestOnly(test.caller)
 			require.False(csm.ContainsOwner(test.caller))
-			r, err = p.handle(ctx, act, csm)
+			r, err = p.handle(ctx, act, csm, false)
 			require.Equal(test.err, errors.Cause(err))
 		} else {
 			r, err = p.Handle(ctx, act, sm)
