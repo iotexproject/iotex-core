@@ -28,9 +28,9 @@ var (
 
 // actionDeployCmd represents the action deploy command
 var actionDeployCmd = &cobra.Command{
-	Use:   config.TranslateInLang(deployCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(deployCmdShorts, config.UILanguage),
-	Args:  cobra.MaximumNArgs(1),
+	Use:                config.TranslateInLang(deployCmdUses, config.UILanguage),
+	Short:              config.TranslateInLang(deployCmdShorts, config.UILanguage),
+	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error
