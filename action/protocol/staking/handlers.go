@@ -152,6 +152,13 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errCandNotExist
 	}
 
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+		return log, &handleError{
+			err:           errors.New("unstake an already unstaked bucket again not allowed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
+
 	if bucket.AutoStake {
 		return log, &handleError{
 			err:           errors.New("AutoStake should be disabled first in order to unstake"),
@@ -210,7 +217,11 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
 	// check unstake time
-	if bucket.UnstakeStartTime.Unix() == 0 {
+	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		cannotWithdraw = !bucket.isUnstaked()
+	}
+	if cannotWithdraw {
 		return log, nil, &handleError{
 			err:           errors.New("bucket has not been unstaked"),
 			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
@@ -293,6 +304,13 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	prevCandidate := csm.GetByOwner(bucket.Candidate)
 	if prevCandidate == nil {
 		return log, errCandNotExist
+	}
+
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+		return log, &handleError{
+			err:           errors.New("change candidate for an unstaked bucket not allowed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
 	}
 
 	// update bucket index
@@ -439,6 +457,13 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, errCandNotExist
 	}
 
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+		return log, nil, &handleError{
+			err:           errors.New("deposit to an unstaked bucket not allowed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
+
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedAmount.Add(bucket.StakedAmount, act.Amount())
@@ -523,6 +548,13 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 	candidate := csm.GetByOwner(bucket.Candidate)
 	if candidate == nil {
 		return log, errCandNotExist
+	}
+
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+		return log, &handleError{
+			err:           errors.New("restake an unstaked bucket not allowed"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
 	}
 
 	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))

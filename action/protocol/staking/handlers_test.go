@@ -927,15 +927,10 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		initBalance  int64
 		selfstaking  bool
 		// action fields
-		index    uint64
-		gasPrice *big.Int
-		gasLimit uint64
-		nonce    uint64
+		index uint64
 		// block context
-		blkHeight    uint64
 		blkTimestamp time.Time
 		ctxTimestamp time.Time
-		blkGasLimit  uint64
 		// clear flag for inMemCandidates
 		clear bool
 		// need new p
@@ -953,13 +948,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			false,
 			true,
 			nil,
@@ -974,13 +964,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			false,
 			false,
 			nil,
@@ -996,13 +981,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			1,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			false,
 			true,
 			nil,
@@ -1017,13 +997,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			true,
 			true,
 			nil,
@@ -1038,13 +1013,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now(),
-			10000,
 			false,
 			true,
 			nil,
@@ -1059,13 +1029,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now().Add(time.Duration(1) * 24 * time.Hour),
-			10000,
 			false,
 			true,
 			nil,
@@ -1081,13 +1046,8 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			101,
 			false,
 			0,
-			big.NewInt(unit.Qev),
-			10000,
-			1,
-			1,
 			time.Now(),
 			time.Now().Add(time.Duration(1) * 24 * time.Hour),
-			10000,
 			false,
 			true,
 			nil,
@@ -1095,15 +1055,25 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 		},
 	}
 
+	var (
+		ctx       context.Context
+		gasPrice         = big.NewInt(unit.Qev)
+		gasLimit  uint64 = 10000
+		nonce     uint64 = 1
+		blkHeight uint64 = 1
+	)
+
 	for _, test := range tests {
 		if test.newProtocol {
 			sm, p, candidate, _ = initAll(t, ctrl)
 		} else {
 			candidate = candidate2
 		}
-		ctx, createCost := initCreateStake(t, sm, test.caller, test.initBalance, big.NewInt(unit.Qev), test.gasLimit, test.nonce, test.blkHeight, test.blkTimestamp, test.blkGasLimit, p, candidate, test.amount, test.autoStake)
-		act, err := action.NewUnstake(test.nonce, test.index,
-			nil, test.gasLimit, test.gasPrice)
+
+		var createCost *big.Int
+		ctx, createCost = initCreateStake(t, sm, test.caller, test.initBalance, big.NewInt(unit.Qev), gasLimit, nonce, blkHeight, test.blkTimestamp, gasLimit, p, candidate, test.amount, test.autoStake)
+		act, err := action.NewUnstake(nonce, test.index,
+			nil, gasLimit, gasPrice)
 		require.NoError(err)
 		if test.blkTimestamp != test.ctxTimestamp {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -1160,9 +1130,65 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			require.NoError(err)
 			actCost, err := act.Cost()
 			require.NoError(err)
-			require.Equal(test.nonce, caller.Nonce)
+			require.Equal(nonce, caller.Nonce)
 			total := big.NewInt(0)
 			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, createCost))
+		}
+	}
+
+	// verify bucket unstaked
+	vb, err := getBucket(sm, 0)
+	require.NoError(err)
+	require.True(vb.isUnstaked())
+
+	unstake, err := action.NewUnstake(nonce+1, 0, nil, gasLimit, gasPrice)
+	require.NoError(err)
+	changeCand, err := action.NewChangeCandidate(nonce+1, candidate2.Name, 0, nil, gasLimit, gasPrice)
+	require.NoError(err)
+	deposit, err := action.NewDepositToStake(nonce+1, 0, "10000", nil, gasLimit, gasPrice)
+	require.NoError(err)
+	restake, err := action.NewRestake(nonce+1, 0, 0, false, nil, gasLimit, gasPrice)
+	require.NoError(err)
+
+	unstakedBucketTests := []struct {
+		act       action.Action
+		greenland bool
+		status    iotextypes.ReceiptStatus
+	}{
+		// unstake an already unstaked bucket again not allowed
+		{unstake, true, iotextypes.ReceiptStatus_ErrInvalidBucketType},
+		// change candidate for an unstaked bucket not allowed
+		{changeCand, true, iotextypes.ReceiptStatus_ErrInvalidBucketType},
+		// deposit to unstaked bucket not allowed
+		{deposit, true, iotextypes.ReceiptStatus_ErrInvalidBucketType},
+		// restake an unstaked bucket not allowed
+		{restake, true, iotextypes.ReceiptStatus_ErrInvalidBucketType},
+		// restake an unstaked bucket is allowed pre-Greenland
+		{restake, false, iotextypes.ReceiptStatus_ErrNotEnoughBalance},
+	}
+
+	for _, v := range unstakedBucketTests {
+		greenland := genesis.Default
+		if v.greenland {
+			blkCtx := protocol.MustGetBlockCtx(ctx)
+			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
+		}
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: greenland,
+		})
+		_, err = p.Start(ctx, sm)
+		require.NoError(err)
+		r, err := p.Handle(ctx, v.act, sm)
+		require.NoError(err)
+		require.EqualValues(v.status, r.Status)
+
+		if !v.greenland {
+			// pre-Greenland allows restaking an unstaked bucket, and it is considered staked afterwards
+			vb, err := getBucket(sm, 0)
+			require.NoError(err)
+			require.True(vb.StakeStartTime.Unix() != 0)
+			require.True(vb.UnstakeStartTime.Unix() != 0)
+			require.False(vb.isUnstaked())
 		}
 	}
 }
