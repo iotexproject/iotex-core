@@ -2,11 +2,14 @@ package staking
 
 import (
 	"math/big"
+	"sort"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -78,12 +81,13 @@ func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateL
 	}
 
 	for _, bucket := range buckets {
-		if bucket.UnstakeStartTime.Unix() != 0 && bucket.UnstakeStartTime.After(bucket.StakeStartTime) {
+		if bucket.isUnstaked() {
 			continue
 		}
 		cand, ok := candm[bucket.Candidate.String()]
 		if !ok {
-			return nil, errors.Errorf("invalid candidate %s of bucket %d", bucket.Candidate.String(), bucket.Index)
+			log.L().Error("invalid bucket candidate", zap.Uint64("bucket index", bucket.Index), zap.String("candidate", bucket.Candidate.String()))
+			continue
 		}
 
 		if cand.SelfStakeBucketIdx == bucket.Index {
@@ -106,6 +110,7 @@ func (vr *VoteReviser) flush(height uint64, csm CandidateStateManager) error {
 	if !ok {
 		return nil
 	}
+	sort.Sort(cands)
 	for _, cand := range cands {
 		if err := csm.Upsert(cand); err != nil {
 			return err
