@@ -71,6 +71,7 @@ type (
 		config             Configuration
 		hu                 config.HeightUpgrade
 		candBucketsIndexer *CandidatesBucketsIndexer
+		voteReviser        *VoteReviser
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -109,6 +110,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 		return nil, ErrInvalidAmount
 	}
 
+	// new vote reviser, revise ate greenland
+	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, config.Greenland)
+
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -123,6 +127,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
+		voteReviser:        voteReviser,
 	}, nil
 }
 
@@ -219,6 +224,14 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
+	if err != nil {
+		return err
+	}
+	if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+		return err
+	}
+
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
@@ -277,15 +290,16 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
+	isPostGreenland := p.hu.IsPost(config.Greenland, height)
+	csm, err := NewCandidateStateManager(sm, isPostGreenland)
 	if err != nil {
 		return nil, err
 	}
 
-	return p.handle(ctx, act, csm)
+	return p.handle(ctx, act, csm, isPostGreenland)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager, skipReceiptLogOnErr bool) (*action.Receipt, error) {
 	var (
 		rLog  *receiptLog
 		tLogs []*action.TransactionLog
@@ -316,7 +330,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return nil, nil
 	}
 
-	if l := rLog.Build(ctx, err); l != nil {
+	if l := rLog.Build(ctx, err, skipReceiptLogOnErr); l != nil {
 		logs = append(logs, l)
 	}
 	if err == nil {
