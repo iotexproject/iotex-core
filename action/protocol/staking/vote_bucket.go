@@ -180,7 +180,7 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 }
 
 func (vb *VoteBucket) isUnstaked() bool {
-	return vb.UnstakeStartTime.Unix() != 0
+	return vb.UnstakeStartTime.After(vb.StakeStartTime)
 }
 
 // Deserialize deserializes bytes into bucket count

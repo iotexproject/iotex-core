@@ -217,7 +217,11 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), bucket.Candidate.Bytes())
 
 	// check unstake time
-	if !bucket.isUnstaked() {
+	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
+	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		cannotWithdraw = !bucket.isUnstaked()
+	}
+	if cannotWithdraw {
 		return log, nil, &handleError{
 			err:           errors.New("bucket has not been unstaked"),
 			failureStatus: iotextypes.ReceiptStatus_ErrWithdrawBeforeUnstake,
