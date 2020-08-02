@@ -28,9 +28,9 @@ var (
 
 // actionInvokeCmd represents the action invoke command
 var actionInvokeCmd = &cobra.Command{
-	Use:   config.TranslateInLang(invokeCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(invokeCmdShorts, config.UILanguage),
-	Args:  cobra.RangeArgs(1, 2),
+	Use:                config.TranslateInLang(invokeCmdUses, config.UILanguage),
+	Short:              config.TranslateInLang(invokeCmdShorts, config.UILanguage),
+	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		var err error
