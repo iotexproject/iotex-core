@@ -27,6 +27,8 @@ var (
 )
 
 // actionInvokeCmd represents the action invoke command
+// Deprecated: notify users to use the new ioctl contract command
+// TODO: this command will be deprecated soon
 var actionInvokeCmd = &cobra.Command{
 	Use:                config.TranslateInLang(invokeCmdUses, config.UILanguage),
 	Short:              config.TranslateInLang(invokeCmdShorts, config.UILanguage),

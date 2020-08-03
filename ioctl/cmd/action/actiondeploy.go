@@ -27,6 +27,8 @@ var (
 )
 
 // actionDeployCmd represents the action deploy command
+// Deprecated: notify users to use the new ioctl contract command
+// TODO: this command will be deprecated soon
 var actionDeployCmd = &cobra.Command{
 	Use:                config.TranslateInLang(deployCmdUses, config.UILanguage),
 	Short:              config.TranslateInLang(deployCmdShorts, config.UILanguage),
