@@ -224,18 +224,15 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 
-	if !p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		return nil
+	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
+		csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
+		if err != nil {
+			return err
+		}
+		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+			return err
+		}
 	}
-
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
-	if err != nil {
-		return err
-	}
-	if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
-		return err
-	}
-
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
