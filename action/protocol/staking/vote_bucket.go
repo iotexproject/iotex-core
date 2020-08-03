@@ -179,6 +179,10 @@ func (vb *VoteBucket) Serialize() ([]byte, error) {
 	return proto.Marshal(pb)
 }
 
+func (vb *VoteBucket) isUnstaked() bool {
+	return vb.UnstakeStartTime.After(vb.StakeStartTime)
+}
+
 // Deserialize deserializes bytes into bucket count
 func (tc *totalBucketCount) Deserialize(data []byte) error {
 	tc.count = byteutil.BytesToUint64BigEndian(data)
