@@ -149,22 +149,15 @@ func (bp *BucketPool) Copy(enableSMStorage bool) *BucketPool {
 	return &pool
 }
 
-// SyncPool sync the data from state manager
-func (bp *BucketPool) SyncPool(sm protocol.StateManager) error {
+// Sync syncs the data from state manager
+func (bp *BucketPool) Sync(sm protocol.StateManager) error {
 	if bp.enableSMStorage {
 		_, err := sm.State(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
 	// get stashed total amount
-	ser, err := protocol.UnloadAndAssertBytes(sm, stakingBucketPool)
-	switch errors.Cause(err) {
-	case protocol.ErrTypeAssertion:
-		return errors.Wrap(err, "failed to sync bucket pool")
-	case protocol.ErrNoName:
-		return nil
-	}
-
-	if err := bp.total.Deserialize(ser); err != nil {
+	err := sm.Unload(protocolID, stakingBucketPool, bp.total)
+	if err != nil && err != protocol.ErrNoName {
 		return err
 	}
 	return nil
@@ -185,13 +178,7 @@ func (bp *BucketPool) CreditPool(sm protocol.StateManager, amount *big.Int) erro
 		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
-
-	ser, err := bp.total.Serialize()
-	if err != nil {
-		return errors.Wrap(err, "failed to stash pending bucket pool")
-	}
-
-	return sm.Load(stakingBucketPool, ser)
+	return sm.Load(protocolID, stakingBucketPool, bp.total)
 }
 
 // DebitPool adds staked amount into the pool
@@ -201,10 +188,5 @@ func (bp *BucketPool) DebitPool(sm protocol.StateManager, amount *big.Int, newBu
 		_, err := sm.PutState(bp.total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		return err
 	}
-	ser, err := bp.total.Serialize()
-	if err != nil {
-		return errors.Wrap(err, "failed to stash pending bucket pool")
-	}
-
-	return sm.Load(stakingBucketPool, ser)
+	return sm.Load(protocolID, stakingBucketPool, bp.total)
 }

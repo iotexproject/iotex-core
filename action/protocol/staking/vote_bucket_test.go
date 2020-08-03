@@ -88,6 +88,8 @@ func TestGetPutStaking(t *testing.T) {
 	require.NoError(err)
 	vb.AutoStake = false
 	vb.StakedAmount.Sub(vb.StakedAmount, big.NewInt(100))
+	vb.UnstakeStartTime = time.Now().UTC()
+	require.True(vb.isUnstaked())
 	require.NoError(updateBucket(sm, 2, vb))
 	vb1, err := getBucket(sm, 2)
 	require.NoError(err)

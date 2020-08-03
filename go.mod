@@ -20,7 +20,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.2
 	github.com/iotexproject/iotex-antenna-go/v2 v2.3.2
 	github.com/iotexproject/iotex-election v0.3.2
-	github.com/iotexproject/iotex-proto v0.3.1-0.20200713201308-abf112fff818
+	github.com/iotexproject/iotex-proto v0.3.2-0.20200729044038-c22fbb206571
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
@@ -45,6 +45,6 @@ require (
 	gopkg.in/yaml.v2 v2.2.2
 )
 
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.3.0
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.3.1
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3

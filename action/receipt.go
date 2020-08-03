@@ -7,6 +7,8 @@
 package action
 
 import (
+	"math/big"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -17,25 +19,6 @@ import (
 )
 
 var (
-	// InContractTransfer is topic for implicit transfer log of evm transfer
-	// 32 bytes with all zeros
-	InContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_IN_CONTRACT_TRANSFER)})
-
-	// BucketWithdrawAmount is topic for bucket withdraw
-	BucketWithdrawAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_WITHDRAW_AMOUNT)})
-
-	// BucketCreateAmount is topic for bucket create
-	BucketCreateAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_CREATE_AMOUNT)})
-
-	// BucketDepositAmount is topic for bucket deposit
-	BucketDepositAmount = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_BUCKET_DEPOSIT_AMOUNT)})
-
-	// CandidateSelfStake is topic for candidate self-stake
-	CandidateSelfStake = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_SELF_STAKE)})
-
-	// CandidateRegistrationFee is topic for candidate register
-	CandidateRegistrationFee = hash.BytesToHash256([]byte{byte(iotextypes.ImplicitTransferLogType_CANDIDATE_REGISTRATION_FEE)})
-
 	// StakingBucketPoolTopic is topic for staking bucket pool
 	StakingBucketPoolTopic = hash.BytesToHash256(address.StakingProtocolAddrHash[:])
 
@@ -54,7 +37,8 @@ type (
 		ActionHash      hash.Hash256
 		GasConsumed     uint64
 		ContractAddress string
-		Logs            []*Log
+		logs            []*Log
+		transactionLogs []*TransactionLog
 	}
 
 	// Log stores an evm contract event
@@ -66,8 +50,14 @@ type (
 		ActionHash         hash.Hash256
 		Index              uint
 		NotFixTopicCopyBug bool
-		Sender             string
-		Recipient          string
+	}
+
+	// TransactionLog stores a transaction event
+	TransactionLog struct {
+		Type      iotextypes.TransactionLogType
+		Amount    *big.Int
+		Sender    string
+		Recipient string
 	}
 )
 
@@ -80,11 +70,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
-	for _, l := range receipt.Logs {
-		// exclude implict transfer log when calculating receipts' hash or storing logs
-		if !l.IsImplicitTransfer() {
-			r.Logs = append(r.Logs, l.ConvertToLogPb())
-		}
+	for _, l := range receipt.logs {
+		r.Logs = append(r.Logs, l.ConvertToLogPb())
 	}
 	return r
 }
@@ -97,10 +84,10 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
 	logs := pbReceipt.GetLogs()
-	receipt.Logs = make([]*Log, len(logs))
+	receipt.logs = make([]*Log, len(logs))
 	for i, log := range logs {
-		receipt.Logs[i] = &Log{}
-		receipt.Logs[i].ConvertFromLogPb(log)
+		receipt.logs[i] = &Log{}
+		receipt.logs[i].ConvertFromLogPb(log)
 	}
 }
 
@@ -126,6 +113,36 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 		log.L().Panic("Error when serializing a receipt")
 	}
 	return hash.Hash256b(data)
+}
+
+// Logs returns the list of logs stored in receipt
+func (receipt *Receipt) Logs() []*Log {
+	return receipt.logs
+}
+
+// AddLogs add log to receipt and filter out nil log.
+func (receipt *Receipt) AddLogs(logs ...*Log) *Receipt {
+	for _, l := range logs {
+		if l != nil {
+			receipt.logs = append(receipt.logs, l)
+		}
+	}
+	return receipt
+}
+
+// TransactionLogs returns the list of transaction logs stored in receipt
+func (receipt *Receipt) TransactionLogs() []*TransactionLog {
+	return receipt.transactionLogs
+}
+
+// AddTransactionLogs add transaction logs to receipt and filter out nil log.
+func (receipt *Receipt) AddTransactionLogs(logs ...*TransactionLog) *Receipt {
+	for _, l := range logs {
+		if l != nil {
+			receipt.transactionLogs = append(receipt.transactionLogs, l)
+		}
+	}
+	return receipt
 }
 
 // ConvertToLogPb converts a Log to protobuf's Log
@@ -176,76 +193,4 @@ func (log *Log) Deserialize(buf []byte) error {
 	}
 	log.ConvertFromLogPb(pbLog)
 	return nil
-}
-
-// IsImplicitTransfer checks whether a log is implicit transfer log
-func (log *Log) IsImplicitTransfer() bool {
-	return log.IsEvmTransfer() || log.IsCreateBucket() || log.IsDepositBucket() ||
-		log.IsWithdrawBucket() || log.IsCandidateRegister() || log.IsCandidateSelfStake()
-}
-
-func (log *Log) isStakingImplicitLog(topic hash.Hash256) bool {
-	if len(log.Topics) == 0 {
-		return false
-	}
-
-	addr, _ := address.FromBytes(address.StakingProtocolAddrHash[:])
-	if log.Address != addr.String() {
-		return false
-	}
-
-	if log.Topics[0] != topic {
-		return false
-	}
-
-	if len(log.Topics) < 4 {
-		return false
-	}
-
-	switch {
-	case topic == BucketCreateAmount || topic == BucketDepositAmount || topic == CandidateSelfStake:
-		// amount goes into staking bucket pool
-		return log.Topics[2] == StakingBucketPoolTopic
-	case topic == BucketWithdrawAmount:
-		// amount comes out of staking bucket pool
-		return log.Topics[1] == StakingBucketPoolTopic
-	case topic == CandidateRegistrationFee:
-		// amount goes into rewarding pool
-		return log.Topics[2] == RewardingPoolTopic
-	default:
-		return false
-	}
-}
-
-// IsEvmTransfer checks evm transfer log
-func (log *Log) IsEvmTransfer() bool {
-	if log == nil || len(log.Topics) == 0 {
-		return false
-	}
-	return log.Topics[0] == InContractTransfer
-}
-
-// IsWithdrawBucket checks withdraw bucket log
-func (log *Log) IsWithdrawBucket() bool {
-	return log.isStakingImplicitLog(BucketWithdrawAmount)
-}
-
-// IsCreateBucket checks create bucket log
-func (log *Log) IsCreateBucket() bool {
-	return log.isStakingImplicitLog(BucketCreateAmount)
-}
-
-// IsDepositBucket checks deposit bucket log
-func (log *Log) IsDepositBucket() bool {
-	return log.isStakingImplicitLog(BucketDepositAmount)
-}
-
-// IsCandidateRegister checks candidate register log
-func (log *Log) IsCandidateRegister() bool {
-	return log.isStakingImplicitLog(CandidateRegistrationFee)
-}
-
-// IsCandidateSelfStake checks candidate self-stake log
-func (log *Log) IsCandidateSelfStake() bool {
-	return log.isStakingImplicitLog(CandidateSelfStake)
 }

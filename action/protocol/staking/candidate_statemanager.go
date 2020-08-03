@@ -16,6 +16,11 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
+// const
+const (
+	stakingCandCenter = "candCenter"
+)
+
 type (
 	// CandidateStateManager is candidate state manager on top of StateManager
 	CandidateStateManager interface {
@@ -37,7 +42,7 @@ type (
 
 	candSM struct {
 		protocol.StateManager
-		candCenter *candCenter
+		candCenter *CandidateCenter
 		bucketPool *BucketPool
 	}
 )
@@ -56,33 +61,17 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	view := csr.BaseView()
 	csm := &candSM{
 		StateManager: sm,
-		// TODO: remove CandidateCenter interface, no need for (*candCenter)
-		candCenter: view.candCenter.Base().(*candCenter),
-		bucketPool: view.bucketPool.Copy(enableSMStorage),
+		candCenter:   view.candCenter.Base(),
+		bucketPool:   view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM
-	if err := csm.bucketPool.SyncPool(sm); err != nil {
-		return nil, err
+	if err := csm.bucketPool.Sync(sm); err != nil {
+		return nil, errors.Wrap(err, "failed to sync bucket pool")
 	}
 
-	// TODO: remove CandidateCenter interface, convert the code below to candCenter.SyncCenter()
-	ser, err := protocol.UnloadAndAssertBytes(sm, protocolID)
-	switch errors.Cause(err) {
-	case protocol.ErrTypeAssertion:
-		return nil, errors.Wrap(err, "failed to create CandidateStateManager")
-	case protocol.ErrNoName:
-		return csm, nil
-	}
-
-	delta := CandidateList{}
-	if err := delta.Deserialize(ser); err != nil {
-		return nil, err
-	}
-
-	// apply delta to the center
-	if err := csm.candCenter.SetDelta(delta); err != nil {
-		return nil, err
+	if err := csm.candCenter.Sync(sm); err != nil {
+		return nil, errors.Wrap(err, "failed to sync candidate center")
 	}
 	return csm, nil
 }
@@ -138,14 +127,8 @@ func (csm *candSM) Upsert(d *Candidate) error {
 		return nil
 	}
 
-	ser, err := delta.Serialize()
-	if err != nil {
-		return err
-	}
-
 	// load change to sm
-	csm.StateManager.Load(protocolID, ser)
-	return nil
+	return csm.StateManager.Load(protocolID, stakingCandCenter, &delta)
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {

@@ -118,7 +118,7 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 	var h uint64
 	kv := NewMockKVStore(ctrl)
 	dk := protocol.NewDock()
-	view := protocol.NewDock()
+	view := protocol.View{}
 	sm.EXPECT().State(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(s interface{}, opts ...protocol.StateOption) (uint64, error) {
 			cfg, err := protocol.CreateStateConfig(opts...)
@@ -185,25 +185,28 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 			return h, nil
 		},
 	).AnyTimes()
-	sm.EXPECT().Load(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(name string, v interface{}) error {
-			return dk.Load(name, v)
+	sm.EXPECT().Load(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns, key string, v interface{}) error {
+			return dk.Load(ns, key, v)
 		},
 	).AnyTimes()
-	sm.EXPECT().Unload(gomock.Any()).DoAndReturn(
-		func(name string) (interface{}, error) {
-			return dk.Unload(name)
+	sm.EXPECT().Unload(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ns, key string, v interface{}) error {
+			return dk.Unload(ns, key, v)
 		},
 	).AnyTimes()
 	sm.EXPECT().ReadView(gomock.Any()).DoAndReturn(
 		func(name string) (uint64, interface{}, error) {
-			v, err := view.Unload(name)
-			return 0, v, err
+			if v, hit := view[name]; hit {
+				return 0, v, nil
+			}
+			return 0, nil, protocol.ErrNoName
 		},
 	).AnyTimes()
 	sm.EXPECT().WriteView(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(name string, v interface{}) error {
-			return view.Load(name, v)
+			view[name] = v
+			return nil
 		},
 	).AnyTimes()
 	// use Snapshot() to simulate workingset.Reset()

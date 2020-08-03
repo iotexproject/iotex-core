@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -32,6 +33,8 @@ var (
 	// TODO: whenever ActionGasLimit is removed from genesis, we need to hard code it to 5M to make it compatible with
 	// the mainnet.
 	preAleutianActionGasLimit = genesis.Default.ActionGasLimit
+
+	inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
 
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -49,7 +52,7 @@ func MakeTransfer(db vm.StateDB, fromHash, toHash common.Address, amount *big.In
 
 	db.AddLog(&types.Log{
 		Topics: []common.Hash{
-			common.BytesToHash(action.InContractTransfer[:]),
+			common.BytesToHash(inContractTransfer[:]),
 			common.BytesToHash(fromHash[:]),
 			common.BytesToHash(toHash[:]),
 		},
@@ -155,6 +158,7 @@ func ExecuteContract(
 	getBlockHash GetBlockHash,
 	depositGasFunc DepositGas,
 ) ([]byte, *action.Receipt, error) {
+	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
@@ -181,7 +185,7 @@ func ExecuteContract(
 	}
 
 	receipt.Status = statusCode
-
+	var burnLog *action.TransactionLog
 	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
@@ -190,10 +194,20 @@ func ExecuteContract(
 			remainingValue := new(big.Int).Mul(new(big.Int).SetUint64(remainingGas), ps.context.GasPrice)
 			stateDB.AddBalance(ps.context.Origin, remainingValue)
 		}
+		if depositGas-remainingGas > 0 {
+			burnLog = &action.TransactionLog{
+				Type:      iotextypes.TransactionLogType_GAS_FEE,
+				Sender:    actionCtx.Caller.String(),
+				Recipient: "", // burned
+				Amount:    new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice),
+			}
+		}
 	}
+	var depositLog *action.TransactionLog
 	if depositGas-remainingGas > 0 {
 		gasValue := new(big.Int).Mul(new(big.Int).SetUint64(depositGas-remainingGas), ps.context.GasPrice)
-		if err := depositGasFunc(ctx, sm, gasValue); err != nil {
+		depositLog, err = depositGasFunc(ctx, sm, gasValue)
+		if err != nil {
 			return nil, nil, err
 		}
 	}
@@ -202,16 +216,22 @@ func ExecuteContract(
 		return nil, nil, errors.Wrap(err, "failed to commit contracts to underlying db")
 	}
 	stateDB.clear()
-	receipt.Logs = stateDB.Logs()
+	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
+	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
+		hu.IsPre(config.Greenland, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
+	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
 }
 
-func getChainConfig(beringHeight uint64) *params.ChainConfig {
+func getChainConfig(hu config.HeightUpgrade) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	// chainConfig.ChainID
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
-	chainConfig.BeringBlock = new(big.Int).SetUint64(beringHeight)
+	chainConfig.BeringBlock = new(big.Int).SetUint64(hu.BeringBlockHeight())
+	// enable earlier Ethereum forks at Greenland
+	chainConfig.GreenlandBlock = new(big.Int).SetUint64(hu.GreenlandBlockHeight())
 	return &chainConfig
 }
 
@@ -224,7 +244,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, hu config.HeightUp
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig(hu.BeringBlockHeight())
+	chainConfig := getChainConfig(hu)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
@@ -355,8 +375,8 @@ func SimulateExecution(
 		sm,
 		ex,
 		getBlockHash,
-		func(context.Context, protocol.StateManager, *big.Int) error {
-			return nil
+		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
 		},
 	)
 }

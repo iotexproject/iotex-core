@@ -94,8 +94,8 @@ type (
 	// data are stored as interface{}, user needs to type-assert on their own upon Unload()
 	Dock interface {
 		ProtocolDirty(string) bool
-		Load(string, interface{}) error
-		Unload(string) (interface{}, error)
+		Load(string, string, interface{}) error
+		Unload(string, string, interface{}) error
 		Reset()
 	}
 )

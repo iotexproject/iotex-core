@@ -90,7 +90,7 @@ var (
 	executionHash3 = testExecution3.Hash()
 
 	blkHash      = map[uint64]hash.Hash256{}
-	implicitLogs = map[hash.Hash256]*block.ImplictTransferLog{}
+	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
 
 var (
@@ -730,22 +730,21 @@ var (
 	getImplicitLogByBlockHeightTest = []struct {
 		height uint64
 		code   codes.Code
-		log    *block.BlkImplictTransferLog
 	}{
 		{
-			1, codes.NotFound, nil,
+			1, codes.OK,
 		},
 		{
-			2, codes.OK, &block.BlkImplictTransferLog{},
+			2, codes.OK,
 		},
 		{
-			3, codes.NotFound, nil,
+			3, codes.OK,
 		},
 		{
-			4, codes.OK, &block.BlkImplictTransferLog{},
+			4, codes.OK,
 		},
 		{
-			5, codes.InvalidArgument, nil,
+			5, codes.InvalidArgument,
 		},
 	}
 )
@@ -1829,17 +1828,17 @@ func TestServer_GetLogs(t *testing.T) {
 	}
 }
 
-func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
+func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
-	request := &iotexapi.GetImplicitTransferLogByActionHashRequest{
+	request := &iotexapi.GetTransactionLogByActionHashRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
 	}
-	_, err = svr.GetImplicitTransferLogByActionHash(context.Background(), request)
+	_, err = svr.GetTransactionLogByActionHash(context.Background(), request)
 	require.Error(err)
 	sta, ok := status.FromError(err)
 	require.Equal(true, ok)
@@ -1847,9 +1846,9 @@ func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
 
 	for h, log := range implicitLogs {
 		request.ActionHash = hex.EncodeToString(h[:])
-		res, err := svr.GetImplicitTransferLogByActionHash(context.Background(), request)
+		res, err := svr.GetTransactionLogByActionHash(context.Background(), request)
 		require.NoError(err)
-		require.Equal(log.Proto(), res.ImplicitTransferLog)
+		require.Equal(log.Proto(), res.TransactionLog)
 	}
 
 	// check implicit transfer receiver balance
@@ -1858,17 +1857,17 @@ func TestServer_GetImplicitTransfersByActionHash(t *testing.T) {
 	require.Equal(big.NewInt(5), state.Balance)
 }
 
-func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {
+func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
 	svr, err := createServer(cfg, false)
 	require.NoError(err)
 
-	request := &iotexapi.GetImplicitTransferLogByBlockHeightRequest{}
+	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
 	for _, test := range getImplicitLogByBlockHeightTest {
 		request.BlockHeight = test.height
-		res, err := svr.GetImplicitTransferLogByBlockHeight(context.Background(), request)
+		res, err := svr.GetTransactionLogByBlockHeight(context.Background(), request)
 		if test.code != codes.OK {
 			require.Error(err)
 			sta, ok := status.FromError(err)
@@ -1877,7 +1876,7 @@ func TestServer_GetImplicitTransfersByBlockHeight(t *testing.T) {
 		} else {
 			require.NotNil(res)
 			// verify log
-			for _, log := range res.BlockImplicitTransferLog.ImplicitTransferLog {
+			for _, log := range res.TransactionLogs.Logs {
 				l, ok := implicitLogs[hash.BytesToHash256(log.ActionHash)]
 				require.True(ok)
 				require.Equal(l.Proto(), log)
@@ -1904,6 +1903,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf.Hash()] = block.NewTransactionLog(tsf.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "10", addr0, addr3)},
+	)
 
 	blk1Time := testutil.TimestampNow()
 	if err := ap.Add(context.Background(), tsf); err != nil {
@@ -1932,11 +1934,17 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err := ap.Add(context.Background(), selp); err != nil {
 			return err
 		}
+		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
+		)
 	}
 	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
+	implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
+	)
 	if err := ap.Add(context.Background(), selp); err != nil {
 		return err
 	}
@@ -1945,9 +1953,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
 		execution1.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "1", addr3, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution1); err != nil {
 		return err
@@ -1981,6 +1989,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
+	)
 	if err := ap.Add(context.Background(), tsf1); err != nil {
 		return err
 	}
@@ -1988,6 +1999,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
+	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
+	)
 	if err := ap.Add(context.Background(), tsf2); err != nil {
 		return err
 	}
@@ -1996,9 +2010,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution1.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution1.Hash()] = block.NewTransactionLog(
 		execution1.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "2", addr3, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution1); err != nil {
 		return err
@@ -2008,9 +2022,9 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err != nil {
 		return err
 	}
-	implicitLogs[execution2.Hash()] = block.NewImplictTransferLog(
+	implicitLogs[execution2.Hash()] = block.NewTransactionLog(
 		execution2.Hash(),
-		[]*block.TokenTxRecord{block.NewTokenTxRecord(action.InContractTransfer[:], "1", addr1, addr4)},
+		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
 	if err := ap.Add(context.Background(), execution2); err != nil {
 		return err
