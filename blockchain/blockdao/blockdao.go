@@ -400,7 +400,7 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// early exit if block already exists
 	blkHeight := blk.Height()
-	blkHash, err := dao.GetBlockHash(blkHeight)
+	blkHash, err := dao.getBlockHash(blkHeight)
 	if err == nil && blkHash != hash.ZeroHash256 {
 		log.L().Debug("Block already exists.", zap.Uint64("height", blkHeight))
 		return nil
@@ -432,12 +432,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 
-	blkHash, err = dao.GetBlockHash(blkHeight)
-	if err != nil {
-		return err
-	}
 	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
-
 	return nil
 }
 
