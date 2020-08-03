@@ -64,7 +64,7 @@ func TestIsValidCandidateName(t *testing.T) {
 
 func initTestProtocol(t *testing.T) (*Protocol, []*Candidate) {
 	require := require.New(t)
-	p, err := NewProtocol(nil, genesis.Default.Staking, nil)
+	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	var cans []*Candidate
