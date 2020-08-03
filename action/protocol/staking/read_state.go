@@ -241,11 +241,12 @@ func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint6
 	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
 	if hu.IsPost(config.Greenland, csr.Height()) {
 		// after Greenland, read state from db
-		buckets, _, err := getAllBuckets(csr.SR())
+		var total totalAmount
+		_, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 		if err != nil {
 			return 0, err
 		}
-		return uint64(len(buckets)), nil
+		return total.count, nil
 	}
 	// otherwise read from bucket pool
 	return csr.ActiveBucketsCount(), nil
