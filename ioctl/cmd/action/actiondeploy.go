@@ -30,6 +30,7 @@ var (
 var actionDeployCmd = &cobra.Command{
 	Use:                config.TranslateInLang(deployCmdUses, config.UILanguage),
 	Short:              config.TranslateInLang(deployCmdShorts, config.UILanguage),
+	Hidden:             true,
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true

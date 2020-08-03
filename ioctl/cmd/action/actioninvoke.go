@@ -30,6 +30,7 @@ var (
 var actionInvokeCmd = &cobra.Command{
 	Use:                config.TranslateInLang(invokeCmdUses, config.UILanguage),
 	Short:              config.TranslateInLang(invokeCmdShorts, config.UILanguage),
+	Hidden:             true,
 	DisableFlagParsing: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
