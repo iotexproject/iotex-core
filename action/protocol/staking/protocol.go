@@ -291,16 +291,15 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	isPostGreenland := p.hu.IsPost(config.Greenland, height)
-	csm, err := NewCandidateStateManager(sm, isPostGreenland)
+	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, err
 	}
 
-	return p.handle(ctx, act, csm, isPostGreenland)
+	return p.handle(ctx, act, csm)
 }
 
-func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager, skipReceiptLogOnErr bool) (*action.Receipt, error) {
+func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateStateManager) (*action.Receipt, error) {
 	var (
 		rLog  *receiptLog
 		tLogs []*action.TransactionLog
@@ -331,7 +330,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 		return nil, nil
 	}
 
-	if l := rLog.Build(ctx, err, skipReceiptLogOnErr); l != nil {
+	if l := rLog.Build(ctx, err); l != nil {
 		logs = append(logs, l)
 	}
 	if err == nil {

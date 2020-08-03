@@ -55,10 +55,7 @@ func (r *receiptLog) SetData(data []byte) {
 	r.data = data
 }
 
-func (r *receiptLog) Build(ctx context.Context, err error, skipLogOnErr bool) *action.Log {
-	if err != nil && skipLogOnErr {
-		return nil
-	}
+func (r *receiptLog) Build(ctx context.Context, err error) *action.Log {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
