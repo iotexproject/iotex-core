@@ -753,13 +753,13 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 }
 
 func (p *Protocol) fetchBucket(
-	sr CandidateStateManager,
+	csm CandidateStateManager,
 	caller address.Address,
 	index uint64,
 	checkOwner bool,
 	allowSelfStaking bool,
 ) (*VoteBucket, ReceiptError) {
-	bucket, err := srToCsr(sr).getBucket(index)
+	bucket, err := csm.getBucket(index)
 	if err != nil {
 		fetchErr := &handleError{
 			err:           errors.Wrapf(err, "failed to fetch bucket by index %d", index),
@@ -780,7 +780,7 @@ func (p *Protocol) fetchBucket(
 			failureStatus: iotextypes.ReceiptStatus_ErrUnauthorizedOperator,
 		}
 	}
-	if !allowSelfStaking && sr.ContainsSelfStakingBucket(index) {
+	if !allowSelfStaking && csm.ContainsSelfStakingBucket(index) {
 		return bucket, &handleError{
 			err:           errors.New("self staking bucket cannot be processed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,

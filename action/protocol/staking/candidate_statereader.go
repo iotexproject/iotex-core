@@ -18,9 +18,13 @@ import (
 )
 
 type (
+	// BucketGetByIndex related to obtaining bucket by index
+	BucketGetByIndex interface {
+		getBucket(index uint64) (*VoteBucket, error)
+	}
 	// BucketGet related to obtaining bucket
 	BucketGet interface {
-		getBucket(index uint64) (*VoteBucket, error)
+		BucketGetByIndex
 		getTotalBucketCount() (uint64, error)
 		getAllBuckets() ([]*VoteBucket, uint64, error)
 		getBucketsWithIndices(indices BucketIndices) ([]*VoteBucket, error)

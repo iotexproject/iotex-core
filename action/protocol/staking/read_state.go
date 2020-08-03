@@ -76,6 +76,7 @@ func readStateBucketsByCandidate(ctx context.Context, csr CandidateStateReader,
 	if indices == nil || err != nil {
 		return nil, height, err
 	}
+
 	buckets, err := csr.getBucketsWithIndices(*indices)
 	if err != nil {
 		return nil, height, err

@@ -46,6 +46,7 @@ type (
 	CandidateStateManager interface {
 		protocol.StateManager
 		BucketSet
+		BucketGetByIndex
 		CandidateSet
 		settleAction(ctx context.Context, p *Protocol, status uint64, logs []*action.Log, tLogs []*action.TransactionLog) (*action.Receipt, error)
 		// candidate and bucket pool related
@@ -165,11 +166,11 @@ func (csm *candSM) Upsert(d *Candidate) error {
 }
 
 func (csm *candSM) CreditBucketPool(amount *big.Int) error {
-	return csm.bucketPool.CreditPool(csm.StateManager, amount)
+	return csm.bucketPool.CreditPool(csm, amount)
 }
 
 func (csm *candSM) DebitBucketPool(amount *big.Int, newBucket bool) error {
-	return csm.bucketPool.DebitPool(csm.StateManager, amount, newBucket)
+	return csm.bucketPool.DebitPool(csm, amount, newBucket)
 }
 
 func (csm *candSM) Commit() error {
@@ -177,7 +178,7 @@ func (csm *candSM) Commit() error {
 		return err
 	}
 
-	if err := csm.bucketPool.Commit(csm.StateManager); err != nil {
+	if err := csm.bucketPool.Commit(csm); err != nil {
 		return err
 	}
 
@@ -185,8 +186,12 @@ func (csm *candSM) Commit() error {
 	return csm.WriteView(protocolID, csm.DirtyView())
 }
 
+func (csm *candSM) getBucket(index uint64) (*VoteBucket, error) {
+	return csm.toCsr().getBucket(index)
+}
+
 func (csm *candSM) updateBucket(index uint64, bucket *VoteBucket) error {
-	if _, err := csm.toCsr().getBucket(index); err != nil {
+	if _, err := csm.getBucket(index); err != nil {
 		return err
 	}
 
