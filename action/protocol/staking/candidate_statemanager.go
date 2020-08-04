@@ -65,7 +65,7 @@ type (
 	}
 
 	candSM struct {
-		sm         protocol.StateManager
+		protocol.StateManager
 		candCenter *CandidateCenter
 		bucketPool *BucketPool
 	}
@@ -84,9 +84,9 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 	// and won't affect base view until being committed
 	view := csr.BaseView()
 	csm := &candSM{
-		sm:         sm,
-		candCenter: view.candCenter.Base(),
-		bucketPool: view.bucketPool.Copy(enableSMStorage),
+		StateManager: sm,
+		candCenter:   view.candCenter.Base(),
+		bucketPool:   view.bucketPool.Copy(enableSMStorage),
 	}
 
 	// extract view change from SM
@@ -351,55 +351,4 @@ func (csm *candSM) settleAction(
 	}
 	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
 	return &r, nil
-}
-
-func (csm *candSM) Height() (uint64, error) {
-	return csm.sm.Height()
-}
-
-func (csm *candSM) State(v interface{}, opt ...protocol.StateOption) (uint64, error) {
-	return csm.sm.State(v, opt...)
-}
-
-func (csm *candSM) States(opt ...protocol.StateOption) (uint64, state.Iterator, error) {
-	return csm.sm.States(opt...)
-}
-
-func (csm *candSM) ReadView(s string) (uint64, interface{}, error) {
-	return csm.sm.ReadView(s)
-}
-
-func (csm *candSM) Snapshot() int {
-	return csm.sm.Snapshot()
-}
-func (csm *candSM) Revert(s int) error {
-	return csm.sm.Revert(s)
-}
-
-func (csm *candSM) PutState(v interface{}, opt ...protocol.StateOption) (uint64, error) {
-	return csm.sm.PutState(v, opt...)
-}
-
-func (csm *candSM) DelState(opt ...protocol.StateOption) (uint64, error) {
-	return csm.sm.DelState(opt...)
-}
-
-func (csm *candSM) WriteView(id string, v interface{}) error {
-	return csm.sm.WriteView(id, v)
-}
-
-func (csm *candSM) ProtocolDirty(n string) bool {
-	return csm.sm.ProtocolDirty(n)
-}
-
-func (csm *candSM) Load(n string, k string, v interface{}) error {
-	return csm.sm.Load(n, k, v)
-}
-
-func (csm *candSM) Unload(n string, k string, v interface{}) error {
-	return csm.sm.Unload(n, k, v)
-}
-
-func (csm *candSM) Reset() {
-	csm.sm.Reset()
 }
