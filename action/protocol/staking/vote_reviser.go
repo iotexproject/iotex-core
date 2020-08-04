@@ -60,7 +60,7 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 }
 
 func (vr *VoteReviser) calculateVoteWeight(csm CandidateStateManager) (CandidateList, error) {
-	csr := srToCsr(csm)
+	csr := srToCsr(csm.SM())
 	cands, _, err := csr.getAllCandidates()
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:

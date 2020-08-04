@@ -112,7 +112,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 		}
 	}
 	// put updated staker's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller, staker); err != nil {
+	if err := accountutil.StoreAccount(csm.SM(), actionCtx.Caller, staker); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
@@ -260,7 +260,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		}
 	}
 	// put updated withdrawer's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller, withdrawer); err != nil {
+	if err := accountutil.StoreAccount(csm.SM(), actionCtx.Caller, withdrawer); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 
@@ -513,7 +513,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		}
 	}
 	// put updated depositor's account state to trie
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller, depositor); err != nil {
+	if err := accountutil.StoreAccount(csm.SM(), actionCtx.Caller, depositor); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actionCtx.Caller.String())
 	}
 	log.AddAddress(actionCtx.Caller)
@@ -685,12 +685,12 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		}
 	}
 	// put updated caller's account state to trie
-	if err := accountutil.StoreAccount(csm, actCtx.Caller, caller); err != nil {
+	if err := accountutil.StoreAccount(csm.SM(), actCtx.Caller, caller); err != nil {
 		return log, nil, errors.Wrapf(err, "failed to store account %s", actCtx.Caller.String())
 	}
 
 	// put registrationFee to reward pool
-	if _, err = p.depositGas(ctx, csm, registrationFee); err != nil {
+	if _, err = p.depositGas(ctx, csm.SM(), registrationFee); err != nil {
 		return log, nil, errors.Wrap(err, "failed to deposit gas")
 	}
 
@@ -792,7 +792,7 @@ func (p *Protocol) fetchBucket(
 func fetchCaller(ctx context.Context, csm CandidateStateManager, amount *big.Int) (*state.Account, ReceiptError) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 
-	caller, err := accountutil.LoadAccount(csm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
+	caller, err := accountutil.LoadAccount(csm.SM(), hash.BytesToHash160(actionCtx.Caller.Bytes()))
 	if err != nil {
 		return nil, &handleError{
 			err:           errors.Wrapf(err, "failed to load the account of caller %s", actionCtx.Caller.String()),

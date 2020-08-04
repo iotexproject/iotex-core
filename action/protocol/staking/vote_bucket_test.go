@@ -35,7 +35,7 @@ func TestGetPutStaking(t *testing.T) {
 	sm := testdb.NewMockStateManager(ctrl)
 	csm := smToCsm(sm)
 	csr := srToCsr(sm)
-	csm.PutState(
+	sm.PutState(
 		&totalBucketCount{count: 0},
 		protocol.NamespaceOption(StakingNameSpace),
 		protocol.KeyOption(TotalBucketKey),
