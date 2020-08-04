@@ -73,7 +73,6 @@ func init() {
 }
 
 func share(args []string) error {
-	var err error
 	absPath = args[0]
 	if len(absPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
@@ -82,11 +81,7 @@ func share(args []string) error {
 		return output.NewError(output.InputError, "inputed path isn't absolute", nil)
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil {
-		return output.NewError(output.ReadFileError, "failed to get directory", nil)
-	}
-	if !info.IsDir() {
+	if !isDir(absPath) {
 		return output.NewError(output.InputError, "input file rather than directory", nil)
 	}
 
@@ -95,90 +90,104 @@ func share(args []string) error {
 	}
 
 	filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
-		relPath, err := filepath.Rel(absPath, path)
-		if err != nil {
-			return err
+		if !isDir(path) {
+			relPath, err := filepath.Rel(absPath, path)
+			if err != nil {
+				return err
+			}
+
+			if !strings.HasPrefix(relPath, ".") {
+				fileList = append(fileList, relPath)
+			}
 		}
 
-		if !strings.HasPrefix(relPath, ".") {
-			fileList = append(fileList, relPath)
-		}
 		return nil
 	})
 
-	http.HandleFunc("/", shareFiles)
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		conn, err := upgrader.Upgrade(writer, request, nil)
+
+		if err != nil {
+			log.Println("websocket error:", err)
+			return
+		}
+		log.Println("contract share client is listening on 127.0.0.1:65520")
+
+		for {
+			requestInfo := make(map[string]interface{})
+			response := make(map[string]interface{})
+
+			if err := conn.ReadJSON(&requestInfo); err != nil {
+				log.Println("read json", err)
+				return
+			}
+
+			log.Println(requestInfo)
+
+			response["action"] = "response"
+			response["id"] = requestInfo["id"]
+
+			switch requestInfo["key"] {
+			case "handshake":
+				response["key"] = "handshake"
+				if err := conn.WriteJSON(response); err != nil {
+					log.Println("send handshake response", err)
+					break
+				}
+
+			case "list":
+				response["key"] = "list"
+				payload := make(map[string]bool)
+				for _, ele := range fileList {
+					payload[ele] = false
+				}
+				response["payload"] = payload
+				if err := conn.WriteJSON(response); err != nil {
+					log.Println("send response with file list", err)
+					break
+				}
+			case "get":
+				payload := map[string]interface{}{}
+				t := requestInfo["payload"]
+				s := reflect.ValueOf(t)
+				for i := 0; i < s.Len(); i++ {
+					p, _ := s.Index(i).Interface().(map[string]interface{})
+					for _, v := range p {
+						upload, err := ioutil.ReadFile(absPath + "/" + v.(string))
+						if err != nil {
+							log.Println("read file failed", err)
+							break
+						}
+						payload["content"] = string(upload)
+						payload["readonly"] = true
+						response["key"] = "get"
+						response["payload"] = payload
+						if err := conn.WriteJSON(response); err != nil {
+							log.Println("send response with file", err)
+							break
+						}
+					}
+				}
+
+			}
+		}
+	})
 	log.Fatal(http.ListenAndServe(*addr, nil))
 
 	return nil
 
 }
 
-func shareFiles(w http.ResponseWriter, r *http.Request) {
+func isDir(path string) bool {
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	s, err := os.Stat(path)
 
 	if err != nil {
-		log.Println("websocket error:", err)
-		return
+
+		return false
+
 	}
-	log.Println("contract share client is listening on 127.0.0.1:65520")
 
-	for {
-		requestInfo := make(map[string]interface{})
-		response := make(map[string]interface{})
+	return s.IsDir()
 
-		if err := conn.ReadJSON(&requestInfo); err != nil {
-			log.Println("read json", err)
-			return
-		}
-
-		log.Println(requestInfo)
-
-		response["action"] = "response"
-		response["id"] = requestInfo["id"]
-
-		switch requestInfo["key"] {
-		case "handshake":
-			response["key"] = "handshake"
-			if err := conn.WriteJSON(response); err != nil {
-				log.Println("send handshake response", err)
-				break
-			}
-
-		case "list":
-			response["key"] = "list"
-			payload := make(map[string]bool)
-			for _, ele := range fileList {
-				payload[ele] = false
-			}
-			response["payload"] = payload
-			if err := conn.WriteJSON(response); err != nil {
-				log.Println("send response with file list", err)
-				break
-			}
-		case "get":
-			payload := map[string]interface{}{}
-			t := requestInfo["payload"]
-			s := reflect.ValueOf(t)
-			for i := 0; i < s.Len(); i++ {
-				p, _ := s.Index(i).Interface().(map[string]interface{})
-				for _, v := range p {
-					upload, err := ioutil.ReadFile(absPath + "/" + v.(string))
-					if err != nil {
-						log.Println("read file failed", err)
-						break
-					}
-					payload["content"] = string(upload)
-					payload["readonly"] = true
-					response["key"] = "get"
-					response["payload"] = payload
-					if err := conn.WriteJSON(response); err != nil {
-						log.Println("send response with file", err)
-						break
-					}
-				}
-			}
-
-		}
-	}
 }
