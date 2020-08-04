@@ -102,12 +102,12 @@ func NewCandidateStateManager(sm protocol.StateManager, enableSMStorage bool) (C
 
 func smToCsm(sm protocol.StateManager) CandidateStateManager {
 	return &candSM{
-		sm: sm,
+		StateManager: sm,
 	}
 }
 
 func (csm *candSM) SM() protocol.StateManager {
-	return csm.sm
+	return csm.StateManager
 }
 
 // DirtyView is csm's current state, which reflects base view + applying delta saved in csm's dock
