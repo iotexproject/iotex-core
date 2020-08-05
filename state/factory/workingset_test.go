@@ -39,7 +39,7 @@ func (s *testString) Deserialize(v []byte) error {
 	return nil
 }
 
-func newWorkingSet(t testing.TB) *workingSet {
+func newFactoryWorkingSet(t testing.TB) *workingSet {
 	r := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	r.NoError(err)
@@ -56,43 +56,69 @@ func newWorkingSet(t testing.TB) *workingSet {
 	return ws
 }
 
+func newStateDBWorkingSet(t testing.TB) *workingSet {
+	r := require.New(t)
+	sf, err := NewStateDB(config.Default, InMemStateDBOption())
+	r.NoError(err)
+
+	ctx := protocol.WithBlockchainCtx(
+		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
+		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+	)
+	r.NoError(sf.Start(ctx))
+	// defer r.NoError(sf.Stop(ctx))
+
+	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
+	r.NoError(err)
+	return ws
+}
+
 func TestWorkingSet_ReadWriteView(t *testing.T) {
 	var (
-		r     = require.New(t)
+		r   = require.New(t)
+		set = []*workingSet{
+			newFactoryWorkingSet(t),
+			newStateDBWorkingSet(t),
+		}
 		tests = []struct{ key, val string }{
 			{"key1", "value1"},
 			{"key2", "value2"},
 			{"key3", "value3"},
 			{"key4", "value4"},
 		}
-		ws = newWorkingSet(t)
 	)
-	for _, test := range tests {
-		_, val, err := ws.ReadView(test.key)
-		r.Equal(protocol.ErrNoName, errors.Cause(err))
-		r.Equal(val, nil)
-		// write view into workingSet
-		r.NoError(ws.WriteView(test.key, test.val))
-	}
+	for _, ws := range set {
+		for _, test := range tests {
+			_, val, err := ws.ReadView(test.key)
+			r.Equal(protocol.ErrNoName, errors.Cause(err))
+			r.Equal(val, nil)
+			// write view into workingSet
+			r.NoError(ws.WriteView(test.key, test.val))
+		}
 
-	// read view and compare result
-	for _, test := range tests {
-		_, val, err := ws.ReadView(test.key)
+		// read view and compare result
+		for _, test := range tests {
+			_, val, err := ws.ReadView(test.key)
+			r.NoError(err)
+			r.Equal(test.val, val)
+		}
+
+		// overwrite
+		newVal := "testvalue"
+		r.NoError(ws.WriteView(tests[0].key, newVal))
+		_, val, err := ws.ReadView(tests[0].key)
 		r.NoError(err)
-		r.Equal(test.val, val)
+		r.Equal(newVal, val)
 	}
-
-	// overwrite
-	newVal := "testvalue"
-	r.NoError(ws.WriteView(tests[0].key, newVal))
-	_, val, err := ws.ReadView(tests[0].key)
-	r.NoError(err)
-	r.Equal(newVal, val)
 }
 
 func TestWorkingSet_Dock(t *testing.T) {
 	var (
-		r     = require.New(t)
+		r   = require.New(t)
+		set = []*workingSet{
+			newFactoryWorkingSet(t),
+			newStateDBWorkingSet(t),
+		}
 		tests = []struct {
 			name, key string
 			val       state.Serializer
@@ -110,49 +136,52 @@ func TestWorkingSet_Dock(t *testing.T) {
 				"ts", "test4", &testString{"v4"},
 			},
 		}
-		ws = newWorkingSet(t)
 	)
+	for _, ws := range set {
+		// test empty dock
+		ts := &testString{}
+		for _, e := range tests {
+			r.False(ws.ProtocolDirty(e.name))
+			r.Equal(protocol.ErrNoName, ws.Unload(e.name, e.key, ts))
+		}
 
-	// test empty dock
-	ts := &testString{}
-	for _, e := range tests {
-		r.False(ws.ProtocolDirty(e.name))
-		r.Equal(protocol.ErrNoName, ws.Unload(e.name, e.key, ts))
+		// populate the dock, and verify existence
+		for _, e := range tests {
+			r.NoError(ws.Load(e.name, e.key, e.val))
+			r.True(ws.ProtocolDirty(e.name))
+			r.NoError(ws.Unload(e.name, e.key, ts))
+			r.Equal(e.val, ts)
+			// test key that does not exist
+			r.Equal(protocol.ErrNoName, ws.Unload(e.name, "notexist", ts))
+		}
+
+		// overwrite
+		v5 := &testString{"v5"}
+		r.NoError(ws.Load(tests[1].name, tests[1].key, v5))
+		r.NoError(ws.Unload(tests[1].name, tests[1].key, ts))
+		r.Equal(v5, ts)
+
+		// add a new one
+		v6 := &testString{"v6"}
+		r.NoError(ws.Load("as", "test6", v6))
+		r.True(ws.ProtocolDirty("as"))
+		r.NoError(ws.Unload("as", "test6", ts))
+		r.Equal(v6, ts)
+
+		ws.Reset()
+		for _, e := range tests {
+			r.False(ws.ProtocolDirty(e.name))
+		}
+		r.False(ws.ProtocolDirty("as"))
 	}
-
-	// populate the dock, and verify existence
-	for _, e := range tests {
-		r.NoError(ws.Load(e.name, e.key, e.val))
-		r.True(ws.ProtocolDirty(e.name))
-		r.NoError(ws.Unload(e.name, e.key, ts))
-		r.Equal(e.val, ts)
-		// test key that does not exist
-		r.Equal(protocol.ErrNoName, ws.Unload(e.name, "notexist", ts))
-	}
-
-	// overwrite
-	v5 := &testString{"v5"}
-	r.NoError(ws.Load(tests[1].name, tests[1].key, v5))
-	r.NoError(ws.Unload(tests[1].name, tests[1].key, ts))
-	r.Equal(v5, ts)
-
-	// add a new one
-	v6 := &testString{"v6"}
-	r.NoError(ws.Load("as", "test6", v6))
-	r.True(ws.ProtocolDirty("as"))
-	r.NoError(ws.Unload("as", "test6", ts))
-	r.Equal(v6, ts)
-
-	ws.Reset()
-	for _, e := range tests {
-		r.False(ws.ProtocolDirty(e.name))
-	}
-	r.False(ws.ProtocolDirty("as"))
 }
 
 func TestWorkingSet_ValidateBlock(t *testing.T) {
 	var (
 		require    = require.New(t)
+		f1, _      = NewFactory(config.Default, InMemTrieOption())
+		f2, _      = NewStateDB(config.Default, InMemStateDBOption())
+		factories  = []Factory{f1, f2}
 		digestHash = hash.Hash256b([]byte{65, 99, 99, 111, 117, 110, 116, 99, 117, 114, 114,
 			101, 110, 116, 72, 101, 105, 103, 104, 116, 1, 0, 0, 0, 0, 0, 0, 0})
 		tests = []struct {
@@ -174,8 +203,6 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			},
 		}
 	)
-	sf, err := NewFactory(config.Default, InMemTrieOption())
-	require.NoError(err)
 	gasLimit := testutil.TestGasLimit * 100000
 	zctx := protocol.WithBlockCtx(context.Background(),
 		protocol.BlockCtx{
@@ -187,9 +214,10 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 		zctx,
 		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
 	)
-
-	for _, test := range tests {
-		require.Equal(test.err, errors.Cause(sf.Validate(zctx, test.block)))
+	for _, f := range factories {
+		for _, test := range tests {
+			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))
+		}
 	}
 }
 
