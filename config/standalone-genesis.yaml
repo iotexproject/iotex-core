@@ -1,0 +1,8 @@
+account:
+  initBalances:
+    io14s0vgnj0pjnazu4hsqlksdk7slah9vcfscn9ks: "100000000000000000000000000000000000"
+blockchain:
+  blockInterval: 5s
+  numSubEpochs: 15
+  timeBasedRotation: true
+  # overwrite heights for testing needs

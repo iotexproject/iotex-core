@@ -1,3 +1,5 @@
+network:
+  host: 127.0.0.1
 chain:
   chainDBPath: chain.db
   trieDBPath: trie.db
