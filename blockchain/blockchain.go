@@ -487,16 +487,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	// early exit if block already exists
-	blkHash, err := bc.dao.GetBlockHash(blk.Height())
-	if err == nil && blkHash != hash.ZeroHash256 {
-		log.L().Debug("Block already exists.", zap.Uint64("height", blk.Height()))
-		return nil
-	}
-	// early exit if it's a db io error
-	if err != nil && errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != db.ErrBucketNotExist {
-		return err
-	}
+
 	// write block into DB
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
@@ -504,16 +495,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	tipHeight, err := bc.dao.Height()
-	if err != nil {
-		return err
-	}
-	tipHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return err
-	}
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", tipHash[:]))
-
+	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
 	return nil

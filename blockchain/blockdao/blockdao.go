@@ -398,7 +398,19 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 }
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
-	err := func() error {
+	// early exit if block already exists
+	blkHeight := blk.Height()
+	blkHash, err := dao.getBlockHash(blkHeight)
+	if err == nil && blkHash != hash.ZeroHash256 {
+		log.L().Debug("Block already exists.", zap.Uint64("height", blkHeight))
+		return nil
+	}
+	// early exit if it's a db io error
+	if err != nil && errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != db.ErrBucketNotExist {
+		return err
+	}
+
+	err = func() error {
 		var err error
 		ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
 		if err != nil {
@@ -407,7 +419,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		if err := dao.putBlock(blk); err != nil {
 			return err
 		}
-		atomic.StoreUint64(&dao.tipHeight, blk.Height())
+		atomic.StoreUint64(&dao.tipHeight, blkHeight)
 		return nil
 	}()
 	if err != nil {
@@ -420,6 +432,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		}
 	}
 
+	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	return nil
 }
 
