@@ -7,17 +7,13 @@
 package staking
 
 import (
-	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -47,7 +43,6 @@ type (
 		BucketSet
 		BucketGetByIndex
 		CandidateSet
-		settleAction(ctx context.Context, p *Protocol, status uint64, logs []*action.Log, tLogs []*action.TransactionLog) (*action.Receipt, error)
 		// candidate and bucket pool related
 		DirtyView() *ViewData
 		ContainsName(string) bool
@@ -314,41 +309,4 @@ func (csm *candSM) putCandidate(d *Candidate) error {
 func (csm *candSM) delCandidate(name address.Address) error {
 	_, err := csm.DelState(protocol.NamespaceOption(CandidateNameSpace), protocol.KeyOption(name.Bytes()))
 	return err
-}
-
-// settleAccount deposits gas fee and updates caller's nonce
-func (csm *candSM) settleAction(
-	ctx context.Context,
-	p *Protocol,
-	status uint64,
-	logs []*action.Log,
-	tLogs []*action.TransactionLog,
-) (*action.Receipt, error) {
-	actionCtx := protocol.MustGetActionCtx(ctx)
-	blkCtx := protocol.MustGetBlockCtx(ctx)
-	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	depositLog, err := p.depositGas(ctx, csm, gasFee)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deposit gas")
-	}
-	acc, err := accountutil.LoadAccount(csm, hash.BytesToHash160(actionCtx.Caller.Bytes()))
-	if err != nil {
-		return nil, err
-	}
-	// TODO: this check shouldn't be necessary
-	if actionCtx.Nonce > acc.Nonce {
-		acc.Nonce = actionCtx.Nonce
-	}
-	if err := accountutil.StoreAccount(csm, actionCtx.Caller, acc); err != nil {
-		return nil, errors.Wrap(err, "failed to update nonce")
-	}
-	r := action.Receipt{
-		Status:          status,
-		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      actionCtx.ActionHash,
-		GasConsumed:     actionCtx.IntrinsicGas,
-		ContractAddress: p.addr.String(),
-	}
-	r.AddLogs(logs...).AddTransactionLogs(depositLog).AddTransactionLogs(tLogs...)
-	return &r, nil
 }
