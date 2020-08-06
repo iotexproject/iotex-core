@@ -539,6 +539,43 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	return unqualified, nil
 }
 
+func (sh *Slasher) calculateMultipleProductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
+	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	productivityFunc := sh.productivity
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
+			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
+		}
+	}
+	numBlks, produce, err := rp.ProductivityByEpoch(
+		epochNum,
+		bcCtx.Tip.Height,
+		productivityFunc,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// The current block is not included, so add it
+	numBlks++
+	if _, ok := produce[blkCtx.Producer.String()]; ok {
+		produce[blkCtx.Producer.String()]++
+	} else {
+		produce[blkCtx.Producer.String()] = 1
+	}
+
+	repetition := make([]string, 0)
+	for addr, actualNumBlks := range produce {
+		if actualNumBlks > 1 {
+			repetition = append(repetition, addr)
+		}
+	}
+	return repetition, nil
+}
+
 func (sh *Slasher) updateCurrentBlockMeta(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	currentBlockMeta := NewBlockMeta(blkCtx.BlockHeight, blkCtx.Producer.String(), blkCtx.BlockTimeStamp)
