@@ -21,7 +21,7 @@ import (
 // CandidateUpdateBaseIntrinsicGas represents the base intrinsic gas for CandidateUpdate
 const CandidateUpdateBaseIntrinsicGas = uint64(10000)
 
-// CandidateUpdate is the action to register a candidate
+// CandidateUpdate is the action to update a candidate
 type CandidateUpdate struct {
 	AbstractAction
 
