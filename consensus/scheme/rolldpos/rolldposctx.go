@@ -254,8 +254,9 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	return nil
 }
 
-func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
-	return ctx.roundCalc
+func (ctx *rollDPoSCtx) CalcRoundNum(height uint64, ts time.Time) (uint32, error) {
+	num, _, err := ctx.roundCalc.RoundInfo(height, ctx.BlockInterval(height), ts)
+	return num, err
 }
 
 /////////////////////////////////////

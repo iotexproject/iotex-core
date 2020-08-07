@@ -8,11 +8,13 @@ package rolldpos
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -63,6 +65,7 @@ type RollDPoS struct {
 	ctx        *rollDPoSCtx
 	startDelay time.Duration
 	ready      chan interface{}
+	records    map[string]*blockProposal
 }
 
 // Start starts RollDPoS consensus
@@ -128,6 +131,9 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		if err := r.ctx.CheckBlockProposer(endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrap(err, "failed to verify block proposal")
 		}
+		if err := r.recordBlockProposal(endorsedMessage.Height(), consensusMessage, en); err != nil {
+			return errors.Wrap(err, "failed to record block proposal")
+		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
 		return nil
 	case *ConsensusVote:
@@ -147,6 +153,36 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	default:
 		return errors.Errorf("Invalid consensus message type %+v", msg)
 	}
+}
+
+func (r *RollDPoS) recordBlockProposal(height uint64, proposal *blockProposal, en *endorsement.Endorsement) error {
+	num, err := r.ctx.CalcRoundNum(height, en.Timestamp())
+	if err != nil {
+		return errors.Wrap(err, "failed to caculate round number")
+	}
+	endorser, err := address.FromBytes(en.Endorser().Hash())
+	if err != nil {
+		return errors.Wrap(err, "failed to get endorser")
+	}
+	// TODO: clean up old records
+	key := fmt.Sprintf("%d:%d:%s", height, num, endorser.String())
+	if old, ok := r.records[key]; ok {
+		oldHash := old.block.Header.HashBlock()
+		newHash := proposal.block.HashBlock()
+		if oldHash != newHash {
+			// TODO: handle endorsement and proposal to produce an action to submit proof
+			log.Logger("consensus").Warn(
+				"proposer produces two different blocks in the same round",
+				zap.Uint64("height", height),
+				zap.Uint32("round", num),
+				zap.String("endorser", endorser.String()),
+				log.Hex("first block", oldHash[:]),
+				log.Hex("second block", newHash[:]),
+			)
+		}
+	}
+	r.records[key] = proposal
+	return nil
 }
 
 // Calibrate called on receive a new block not via consensus
@@ -336,5 +372,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		ctx:        ctx,
 		startDelay: b.cfg.Consensus.RollDPoS.Delay,
 		ready:      make(chan interface{}),
+		records:    make(map[string]*blockProposal),
 	}, nil
 }
