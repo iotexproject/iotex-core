@@ -1,0 +1,9 @@
+account:
+  initBalances:
+    # overwrite with your test address
+    io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms: "100000000000000000000000000000000000"
+blockchain:
+  blockInterval: 5s
+  numSubEpochs: 15
+  timeBasedRotation: true
+  # overwrite heights for testing needs
