@@ -1957,7 +1957,7 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 		// case X: success
 		{
 			identityset.PrivateKey(32).HexString(),
-			5553821,
+			6544441,
 			identityset.Address(1),
 			false,
 			"Ethereum",
