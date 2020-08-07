@@ -128,11 +128,11 @@ func TestConstantinople(t *testing.T) {
 		// after Greenland
 		{
 			action.EmptyAddress,
-			5553721,
+			6544441,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			5553721,
+			6544441,
 		},
 	}
 
