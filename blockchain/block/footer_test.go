@@ -36,7 +36,10 @@ func TestConvertToBlockFooterPb(t *testing.T) {
 func TestConvertFromBlockFooterPb(t *testing.T) {
 	require := require.New(t)
 	ts := &timestamp.Timestamp{Seconds: 10, Nanos: 10}
-	footerPb := &iotextypes.BlockFooter{nil, ts, struct{}{}, nil, 0}
+	footerPb := &iotextypes.BlockFooter{
+		Endorsements: nil,
+		Timestamp:    ts,
+	}
 	footer := &Footer{}
 	require.NoError(footer.ConvertFromBlockFooterPb(footerPb))
 }
