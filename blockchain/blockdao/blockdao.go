@@ -60,6 +60,7 @@ var (
 	heightToFileBucket = []byte("h2f")
 )
 
+// vars
 var (
 	cacheMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -68,12 +69,9 @@ var (
 		},
 		[]string{"result"},
 	)
-	patternLen = len("00000000.db")
-	suffixLen  = len(".db")
-	// ErrNotOpened indicates db is not opened
-	ErrNotOpened = errors.New("DB is not opened")
-
-	// ErrNotSupported indicates not supported
+	patternLen      = len("00000000.db")
+	suffixLen       = len(".db")
+	ErrAlreadyExist = errors.New("block already exist")
 	ErrNotSupported = errors.New("feature not supported")
 )
 
@@ -403,7 +401,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	blkHash, err := dao.getBlockHash(blkHeight)
 	if err == nil && blkHash != hash.ZeroHash256 {
 		log.L().Debug("Block already exists.", zap.Uint64("height", blkHeight))
-		return nil
+		return ErrAlreadyExist
 	}
 	// early exit if it's a db io error
 	if err != nil && errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != db.ErrBucketNotExist {
@@ -431,8 +429,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 			return err
 		}
 	}
-
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	return nil
 }
 

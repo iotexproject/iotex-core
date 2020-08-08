@@ -199,6 +199,9 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(blks[i], blk)
 		}
 
+		// commit an existing block
+		require.Equal(ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
+
 		// Test getReceiptByActionHash
 		for j := range daoTests[0].hashTotal {
 			h := hash.BytesToHash256(daoTests[0].hashTotal[j])
