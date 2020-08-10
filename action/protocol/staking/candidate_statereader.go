@@ -27,6 +27,7 @@ type (
 		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
 		TotalStakedAmount() *big.Int
+		ActiveBucketsCount() uint64
 	}
 
 	candSR struct {
@@ -68,6 +69,10 @@ func (c *candSR) AllCandidates() CandidateList {
 
 func (c *candSR) TotalStakedAmount() *big.Int {
 	return c.view.bucketPool.Total()
+}
+
+func (c *candSR) ActiveBucketsCount() uint64 {
+	return c.view.bucketPool.Count()
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view

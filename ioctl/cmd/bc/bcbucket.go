@@ -29,6 +29,11 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
+const (
+	bcBucketOptMax   = "max"
+	bcBucketOptCount = "count"
+)
+
 // Multi-language support
 var (
 	bcBucketCmdShorts = map[config.Language]string{
@@ -36,8 +41,8 @@ var (
 		config.Chinese: "在IoTeX区块链上根据索引读取投票",
 	}
 	bcBucketUses = map[config.Language]string{
-		config.English: "bucket [BUCKET_INDEX]",
-		config.Chinese: "bucket [票索引]",
+		config.English: "bucket [OPTION|BUCKET_INDEX]",
+		config.Chinese: "bucket [选项|票索引]",
 	}
 )
 
@@ -46,9 +51,20 @@ var bcBucketCmd = &cobra.Command{
 	Use:   config.TranslateInLang(bcBucketUses, config.UILanguage),
 	Short: config.TranslateInLang(bcBucketCmdShorts, config.UILanguage),
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Example: `ioctl bc bucket [BUCKET_INDEX], to read bucket information by bucket index
+ioctl bc bucket max, to query the max bucket index
+ioctl bc bucket count, to query total number of active buckets
+`,
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		cmd.SilenceUsage = true
-		err := getBucket(args[0])
+		switch args[0] {
+		case bcBucketOptMax:
+			err = getBucketsTotalCount()
+		case bcBucketOptCount:
+			err = getBucketsActiveCount()
+		default:
+			err = getBucket(args[0])
+		}
 		return output.PrintError(err)
 	},
 }
@@ -199,4 +215,73 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 		return nil, output.NewError(output.SerializationError, "", errors.New("zero len response"))
 	}
 	return buckets.GetBuckets()[0], nil
+}
+
+func getBucketsTotalCount() error {
+	count, err := getBucketsCount()
+	if err != nil {
+		return err
+	}
+	fmt.Println(count.GetTotal())
+	return nil
+}
+
+func getBucketsActiveCount() error {
+	count, err := getBucketsCount()
+	if err != nil {
+		return err
+	}
+	fmt.Println(count.GetActive())
+	return nil
+}
+
+func getBucketsCount() (count *iotextypes.BucketsCount, err error) {
+	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	defer conn.Close()
+	cli := iotexapi.NewAPIServiceClient(conn)
+	method := &iotexapi.ReadStakingDataMethod{
+		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
+	}
+	methodData, err := proto.Marshal(method)
+	if err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to marshal read staking data method", err)
+	}
+	readStakingdataRequest := &iotexapi.ReadStakingDataRequest{
+		Request: &iotexapi.ReadStakingDataRequest_BucketsCount_{
+			BucketsCount: &iotexapi.ReadStakingDataRequest_BucketsCount{},
+		},
+	}
+	requestData, err := proto.Marshal(readStakingdataRequest)
+	if err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to marshal read staking data request", err)
+	}
+
+	request := &iotexapi.ReadStateRequest{
+		ProtocolID: []byte("staking"),
+		MethodName: methodData,
+		Arguments:  [][]byte{requestData},
+	}
+
+	ctx := context.Background()
+	jwtMD, err := util.JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	}
+
+	response, err := cli.ReadState(ctx, request)
+	if err != nil {
+		sta, ok := status.FromError(err)
+		if ok {
+			return nil, output.NewError(output.APIError, sta.Message(), nil)
+		}
+		return nil, output.NewError(output.NetworkError, "failed to invoke ReadState api", err)
+	}
+	count = &iotextypes.BucketsCount{}
+	if err := proto.Unmarshal(response.Data, count); err != nil {
+		return nil, output.NewError(output.SerializationError, "failed to unmarshal response", err)
+	}
+	return count, nil
 }

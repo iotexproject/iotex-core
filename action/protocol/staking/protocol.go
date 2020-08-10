@@ -432,6 +432,8 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = readStateBucketsByCandidate(ctx, csr, r.GetBucketsByCandidate())
 	case iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES:
 		resp, height, err = readStateBucketByIndices(ctx, sr, r.GetBucketsByIndexes())
+	case iotexapi.ReadStakingDataMethod_BUCKETS_COUNT:
+		resp, height, err = readStateBucketCount(ctx, csr, r.GetBucketsCount())
 	case iotexapi.ReadStakingDataMethod_CANDIDATES:
 		if epochStartHeight != 0 && p.candBucketsIndexer != nil {
 			return p.candBucketsIndexer.GetCandidates(epochStartHeight, r.GetCandidates().GetPagination().GetOffset(), r.GetCandidates().GetPagination().GetLimit())
