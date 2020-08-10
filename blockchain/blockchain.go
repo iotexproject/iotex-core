@@ -492,9 +492,14 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	putTimer := bc.timerFactory.NewTimer("putBlock")
 	err = bc.dao.PutBlock(ctx, blk)
 	putTimer.End()
-	if err != nil {
+	switch {
+	case errors.Cause(err) == blockdao.ErrAlreadyExist:
+		return nil
+	case err != nil:
 		return err
 	}
+	blkHash := blk.HashBlock()
+	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
 	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
