@@ -243,7 +243,7 @@ func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint6
 		// after Greenland, read state from db
 		var total totalAmount
 		_, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
-		if err != nil && errors.Cause(err) != state.ErrStateNotExist {
+		if err != nil {
 			return 0, err
 		}
 		return total.count, nil
