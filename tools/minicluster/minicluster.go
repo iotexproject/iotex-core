@@ -352,7 +352,7 @@ func main() {
 		if balanceCheckPass {
 			log.S().Info("Balance Check PASS")
 		} else {
-			log.S().Error("Balance Mismatch")
+			log.S().Fatal("Balance Mismatch")
 		}
 
 		log.S().Info("Total Transfer created: ", util.GetTotalTsfCreated())

@@ -57,7 +57,7 @@ func defaultConfig() Genesis {
 			EasterBlockHeight:       4478761,
 			FbkMigrationBlockHeight: 5157001,
 			FairbankBlockHeight:     5165641,
-			GreenlandBlockHeight:    5553721,
+			GreenlandBlockHeight:    6544441,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),

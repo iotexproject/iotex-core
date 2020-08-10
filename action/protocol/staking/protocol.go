@@ -71,6 +71,7 @@ type (
 		config             Configuration
 		hu                 config.HeightUpgrade
 		candBucketsIndexer *CandidatesBucketsIndexer
+		voteReviser        *VoteReviser
 	}
 
 	// Configuration is the staking protocol configuration.
@@ -87,7 +88,7 @@ type (
 )
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
@@ -109,6 +110,9 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 		return nil, ErrInvalidAmount
 	}
 
+	// new vote reviser, revise ate greenland
+	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, reviseHeights...)
+
 	return &Protocol{
 		addr: addr,
 		config: Configuration{
@@ -123,6 +127,7 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 		},
 		depositGas:         depositGas,
 		candBucketsIndexer: candBucketsIndexer,
+		voteReviser:        voteReviser,
 	}, nil
 }
 
@@ -219,6 +224,15 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 	}
 
+	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
+		csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
+		if err != nil {
+			return err
+		}
+		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+			return err
+		}
+	}
 	if p.candBucketsIndexer == nil {
 		return nil
 	}
