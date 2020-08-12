@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +45,7 @@ func TestProtocol_GrantBlockReward(t *testing.T) {
 		_, err := p.GrantBlockReward(ctx, sm)
 		require.Error(t, err)
 
-		_, err = p.Deposit(ctx, sm, big.NewInt(200))
+		_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant block reward
@@ -79,7 +80,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 		blkCtx, ok := protocol.GetBlockCtx(ctx)
 		require.True(t, ok)
 
-		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant epoch reward
@@ -185,7 +186,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 	}, false)
 
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		_, err := p.Deposit(ctx, sm, big.NewInt(200))
+		_, err := p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant epoch reward
@@ -206,7 +207,7 @@ func TestProtocol_GrantEpochReward(t *testing.T) {
 func TestProtocol_ClaimReward(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
 		// Deposit 20 token into the rewarding fund
-		_, err := p.Deposit(ctx, sm, big.NewInt(20))
+		_, err := p.Deposit(ctx, sm, big.NewInt(20), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 
 		// Grant block reward
@@ -261,10 +262,9 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, err)
 		require.NotNil(t, rlog)
-		require.True(t, rlog.IsTransactionLog())
-		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
-		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Sender)
-		require.Equal(t, claimActionCtx.Caller.String(), rlog.TransactionData.Recipient)
+		require.Equal(t, big.NewInt(5).String(), rlog.Amount.String())
+		require.Equal(t, address.RewardingPoolAddr, rlog.Sender)
+		require.Equal(t, claimActionCtx.Caller.String(), rlog.Recipient)
 
 		totalBalance, _, err = p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -334,7 +334,7 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 		{
 			Address:       identityset.Address(0).String(),
 			Votes:         unit.ConvertIotxToRau(1000000),
-			RewardAddress: "",
+			RewardAddress: identityset.Address(0).String(),
 		},
 		{
 			Address:       identityset.Address(1).String(),
@@ -433,32 +433,31 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 			Caller: identityset.Address(0),
 		},
 	)
-	_, err = p.Deposit(ctx, sm, big.NewInt(200))
+	_, err = p.Deposit(ctx, sm, big.NewInt(200), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 	require.NoError(t, err)
 
 	// Grant block reward
-	rewardLog, err := p.GrantBlockReward(ctx, sm)
+	_, err = p.GrantBlockReward(ctx, sm)
 	require.NoError(t, err)
-	require.Nil(t, rewardLog)
 
 	availableBalance, _, err := p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(200), availableBalance)
+	assert.Equal(t, big.NewInt(190), availableBalance)
 	unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(0), unclaimedBalance)
+	assert.Equal(t, big.NewInt(10), unclaimedBalance)
 
 	// Grant epoch reward
 	rewardLogs, err := p.GrantEpochReward(ctx, sm)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(rewardLogs))
+	require.Equal(t, 4, len(rewardLogs))
 
 	availableBalance, _, err = p.AvailableBalance(ctx, sm)
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(145), availableBalance)
+	assert.Equal(t, big.NewInt(80), availableBalance)
 	unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(0))
 	require.NoError(t, err)
-	assert.Equal(t, big.NewInt(0), unclaimedBalance)
+	assert.Equal(t, big.NewInt(65), unclaimedBalance)
 	// It doesn't affect others to get reward
 	unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, identityset.Address(1))
 	require.NoError(t, err)
@@ -467,11 +466,11 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	var rl rewardingpb.RewardLog
 	require.NoError(t, proto.Unmarshal(rewardLogs[0].Data, &rl))
 	assert.Equal(t, rewardingpb.RewardLog_EPOCH_REWARD, rl.Type)
-	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
+	assert.Equal(t, identityset.Address(0).String(), rl.Addr)
 	assert.Equal(t, "50", rl.Amount)
 	require.Equal(t, p.addr.String(), rewardLogs[1].Address)
 	require.NoError(t, proto.Unmarshal(rewardLogs[1].Data, &rl))
-	assert.Equal(t, rewardingpb.RewardLog_FOUNDATION_BONUS, rl.Type)
+	assert.Equal(t, rewardingpb.RewardLog_EPOCH_REWARD, rl.Type)
 	assert.Equal(t, identityset.Address(1).String(), rl.Addr)
-	assert.Equal(t, "5", rl.Amount)
+	assert.Equal(t, "50", rl.Amount)
 }

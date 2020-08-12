@@ -317,19 +317,19 @@ func (mr *MockBlockDAOMockRecorder) ContainsTransactionLog() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsTransactionLog))
 }
 
-// GetTransactionLog mocks base method
-func (m *MockBlockDAO) GetTransactionLog(arg0 uint64) (*iotextypes.BlockTransactionLog, error) {
+// TransactionLogs mocks base method
+func (m *MockBlockDAO) TransactionLogs(arg0 uint64) (*iotextypes.TransactionLogs, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTransactionLog", arg0)
-	ret0, _ := ret[0].(*iotextypes.BlockTransactionLog)
+	ret := m.ctrl.Call(m, "TransactionLogs", arg0)
+	ret0, _ := ret[0].(*iotextypes.TransactionLogs)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetTransactionLog indicates an expected call of GetTransactionLog
-func (mr *MockBlockDAOMockRecorder) GetTransactionLog(arg0 interface{}) *gomock.Call {
+// TransactionLogs indicates an expected call of TransactionLogs
+func (mr *MockBlockDAOMockRecorder) TransactionLogs(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).GetTransactionLog), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionLogs", reflect.TypeOf((*MockBlockDAO)(nil).TransactionLogs), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

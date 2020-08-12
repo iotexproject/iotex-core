@@ -16,6 +16,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 )
@@ -26,13 +28,12 @@ func TestProtocol_Fund(t *testing.T) {
 		require.True(t, ok)
 
 		// Deposit 5 token
-		rlog, err := p.Deposit(ctx, sm, big.NewInt(5))
+		rlog, err := p.Deposit(ctx, sm, big.NewInt(5), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.NoError(t, err)
 		require.NotNil(t, rlog)
-		require.True(t, rlog.IsTransactionLog())
-		require.Equal(t, big.NewInt(5).String(), rlog.TransactionData.Amount.String())
-		require.Equal(t, actionCtx.Caller.String(), rlog.TransactionData.Sender)
-		require.Equal(t, address.RewardingPoolAddr, rlog.TransactionData.Recipient)
+		require.Equal(t, big.NewInt(5).String(), rlog.Amount.String())
+		require.Equal(t, actionCtx.Caller.String(), rlog.Sender)
+		require.Equal(t, address.RewardingPoolAddr, rlog.Recipient)
 
 		totalBalance, _, err := p.TotalBalance(ctx, sm)
 		require.NoError(t, err)
@@ -45,7 +46,7 @@ func TestProtocol_Fund(t *testing.T) {
 		assert.Equal(t, big.NewInt(995), acc.Balance)
 
 		// Deposit another 6 token will fail because
-		_, err = p.Deposit(ctx, sm, big.NewInt(996))
+		_, err = p.Deposit(ctx, sm, big.NewInt(996), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
 		require.Error(t, err)
 	}, false)
 
@@ -53,6 +54,7 @@ func TestProtocol_Fund(t *testing.T) {
 
 func TestDepositNegativeGasFee(t *testing.T) {
 	testProtocol(t, func(t *testing.T, ctx context.Context, sm protocol.StateManager, p *Protocol) {
-		require.Error(t, DepositGas(ctx, sm, big.NewInt(-1)))
+		_, err := DepositGas(ctx, sm, big.NewInt(-1))
+		require.Error(t, err)
 	}, false)
 }
