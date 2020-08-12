@@ -35,7 +35,7 @@ func (s testString) Serialize() ([]byte, error) {
 }
 
 func (s *testString) Deserialize(v []byte) error {
-	*s = testString{s: string(v)}
+	s.s = string(v)
 	return nil
 }
 
