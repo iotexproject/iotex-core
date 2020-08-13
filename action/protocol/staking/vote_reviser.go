@@ -8,7 +8,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -17,22 +16,20 @@ import (
 type VoteReviser struct {
 	reviseHeights []uint64
 	cache         map[uint64]CandidateList
-	c             genesis.VoteWeightCalConsts
 }
 
 // NewVoteReviser creates a VoteReviser.
-func NewVoteReviser(c genesis.VoteWeightCalConsts, reviseHeights ...uint64) *VoteReviser {
+func NewVoteReviser(reviseHeights ...uint64) *VoteReviser {
 	return &VoteReviser{
 		reviseHeights: reviseHeights,
 		cache:         make(map[uint64]CandidateList),
-		c:             c,
 	}
 }
 
 // Revise recalculate candidate votes on preset revising height.
-func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
+func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64, vpc *votingPowerCalculator) error {
 	if !vr.isCacheExist(height) {
-		cands, err := vr.calculateVoteWeight(csm)
+		cands, err := vr.calculateVoteWeight(csm, vpc)
 		if err != nil {
 			return err
 		}
@@ -60,7 +57,7 @@ func (vr *VoteReviser) NeedRevise(height uint64) bool {
 	return false
 }
 
-func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateList, error) {
+func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager, vpc *votingPowerCalculator) (CandidateList, error) {
 	cands, _, err := getAllCandidates(sm)
 	switch {
 	case errors.Cause(err) == state.ErrStateNotExist:
@@ -91,10 +88,10 @@ func (vr *VoteReviser) calculateVoteWeight(sm protocol.StateManager) (CandidateL
 		}
 
 		if cand.SelfStakeBucketIdx == bucket.Index {
-			cand.AddVote(calculateVoteWeight(vr.c, bucket, true))
+			cand.AddVote(vpc.calculate(bucket, true))
 			cand.SelfStake = bucket.StakedAmount
 		} else {
-			cand.AddVote(calculateVoteWeight(vr.c, bucket, false))
+			cand.AddVote(vpc.calculate(bucket, false))
 		}
 	}
 

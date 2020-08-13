@@ -8,7 +8,6 @@ package staking
 
 import (
 	"bytes"
-	"math"
 	"math/big"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -313,24 +311,4 @@ func getBucketsWithIndices(sr protocol.StateReader, indices BucketIndices) ([]*V
 func bucketKey(index uint64) []byte {
 	key := []byte{_bucket}
 	return append(key, byteutil.Uint64ToBytesBigEndian(index)...)
-}
-
-func calculateVoteWeight(c genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
-	remainingTime := v.StakedDuration.Seconds()
-	weight := float64(1)
-	var m float64
-	if v.AutoStake {
-		m = c.AutoStake
-	}
-	if remainingTime > 0 {
-		weight += math.Log(math.Ceil(remainingTime/86400)*(1+m)) / math.Log(c.DurationLg) / 100
-	}
-	if selfStake && v.AutoStake && v.StakedDuration >= time.Duration(91)*24*time.Hour {
-		// self-stake extra bonus requires enable auto-stake for at least 3 months
-		weight *= c.SelfStake
-	}
-
-	amount := new(big.Float).SetInt(v.StakedAmount)
-	weightedAmount, _ := amount.Mul(amount, big.NewFloat(weight)).Int(nil)
-	return weightedAmount
 }

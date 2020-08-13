@@ -65,7 +65,9 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -85,7 +87,7 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucketIdx), candidate.Owner.Bytes())
 
 	// update candidate
-	weightedVote := p.calculateVoteWeight(bucket, false)
+	weightedVote := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, false)
 	if err := candidate.AddVote(weightedVote); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
@@ -134,7 +136,9 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleUnstake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleUnstake, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -152,7 +156,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("unstake an already unstaked bucket again not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -179,7 +183,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errors.Wrapf(err, "failed to update bucket for voter %s", bucket.Owner.String())
 	}
 
-	weightedVote := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
+	weightedVote := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.SubVote(weightedVote); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for candidate %s", bucket.Candidate.String()),
@@ -202,7 +206,9 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFbkMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	postFbkMigration := blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight()
 	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, postFbkMigration)
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
@@ -218,7 +224,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// check unstake time
 	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
 		cannotWithdraw = !bucket.isUnstaked()
 	}
 	if cannotWithdraw {
@@ -228,7 +234,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 		}
 	}
 
-	withdrawWaitTime := p.config.WithdrawWaitingPeriod
+	withdrawWaitTime := bcCtx.Genesis.Staking.WithdrawWaitingPeriod
 	if !postFbkMigration {
 		withdrawWaitTime = _withdrawWaitingTime
 	}
@@ -265,7 +271,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
 		log.SetData(bucket.StakedAmount.Bytes())
 	}
 
@@ -283,7 +289,9 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -306,7 +314,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("change candidate for an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -327,7 +335,7 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 	}
 
 	// update previous candidate
-	weightedVotes := p.calculateVoteWeight(bucket, false)
+	weightedVotes := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, false)
 	if err := prevCandidate.SubVote(weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to subtract vote for previous candidate %s", prevCandidate.Owner.String()),
@@ -358,7 +366,9 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleTransferStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleTransferStake, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -368,7 +378,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	newOwner := act.VoterAddress()
 	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) ||
+		if hu.IsPre(config.Greenland, blkCtx.BlockHeight) ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
 			return log, fetchErr
 		}
@@ -434,7 +444,9 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleDepositToStake, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -457,14 +469,14 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, nil, &handleError{
 			err:           errors.New("deposit to an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 
-	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
+	prevWeightedVotes := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	bucket.StakedAmount.Add(bucket.StakedAmount, act.Amount())
 	if err := updateBucket(csm, act.BucketIndex(), bucket); err != nil {
@@ -478,7 +490,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
-	weightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
+	weightedVotes := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return log, nil, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
@@ -532,7 +544,9 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 ) (*receiptLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleRestake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleRestake, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -550,14 +564,14 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("restake an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 
-	prevWeightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
+	prevWeightedVotes := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	// update bucket
 	actDuration := time.Duration(act.Duration()) * 24 * time.Hour
 	if bucket.StakedDuration.Hours() > actDuration.Hours() {
@@ -590,7 +604,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 			failureStatus: iotextypes.ReceiptStatus_ErrNotEnoughBalance,
 		}
 	}
-	weightedVotes := p.calculateVoteWeight(bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
+	weightedVotes := p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, csm.ContainsSelfStakingBucket(act.BucketIndex()))
 	if err := candidate.AddVote(weightedVotes); err != nil {
 		return log, &handleError{
 			err:           errors.Wrapf(err, "failed to add vote for candidate %s", candidate.Owner.String()),
@@ -609,10 +623,14 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 ) (*receiptLog, []*action.TransactionLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
-	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
-
+	registrationFee, ok := new(big.Int).SetString(bcCtx.Genesis.Staking.RegistrationConsts.Fee, 10)
+	if !ok {
+		return nil, nil, errors.Errorf("invalid staking registration fee %s", bcCtx.Genesis.Staking.RegistrationConsts.Fee)
+	}
 	caller, fetchErr := fetchCaller(ctx, csm, new(big.Int).Add(act.Amount(), registrationFee))
 	if fetchErr != nil {
 		return log, nil, fetchErr
@@ -660,7 +678,7 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 		Operator:           act.OperatorAddress(),
 		Reward:             act.RewardAddress(),
 		Name:               act.Name(),
-		Votes:              p.calculateVoteWeight(bucket, true),
+		Votes:              p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, true),
 		SelfStakeBucketIdx: bucketIdx,
 		SelfStake:          act.Amount(),
 	}
@@ -718,7 +736,9 @@ func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.Candid
 ) (*receiptLog, error) {
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, blkCtx.BlockHeight >= hu.FbkMigrationBlockHeight())
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {

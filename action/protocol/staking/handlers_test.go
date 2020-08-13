@@ -70,7 +70,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate
@@ -180,6 +180,9 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 			BlockHeight:    test.blkHeight,
 			BlockTimeStamp: test.blkTimestamp,
 			GasLimit:       test.blkGasLimit,
+		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
 		})
 		act, err := action.NewCreateStake(test.nonce, test.candName, test.amount, test.duration, test.autoStake,
 			nil, test.gasLimit, test.gasPrice)
@@ -533,6 +536,11 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
+		registrationFee, ok := new(big.Int).SetString(genesis.Default.Staking.RegistrationConsts.Fee, 10)
+		require.True(ok)
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, act, sm)))
 		if test.err != nil {
 			continue
@@ -557,7 +565,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			cLog = tLogs[1]
 			require.Equal(test.caller.String(), cLog.Sender)
 			require.Equal(address.RewardingPoolAddr, cLog.Recipient)
-			require.Equal(p.config.RegistrationConsts.Fee.String(), cLog.Amount.String())
+			require.Equal(registrationFee.String(), cLog.Amount.String())
 
 			// test candidate
 			candidate, _, err := getCandidate(sm, act.OwnerAddress())
@@ -589,7 +597,7 @@ func TestProtocol_HandleCandidateRegister(t *testing.T) {
 			actCost, err := act.Cost()
 			require.NoError(err)
 			total := big.NewInt(0)
-			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, p.config.RegistrationConsts.Fee))
+			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, registrationFee))
 			require.Equal(test.nonce, caller.Nonce)
 		}
 	}
@@ -834,6 +842,9 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
 		_, err = p.Handle(ctx, act, sm)
 		require.NoError(err)
 
@@ -851,6 +862,11 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       test.blkGasLimit,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
+		registrationFee, ok := new(big.Int).SetString(genesis.Default.Staking.RegistrationConsts.Fee, 10)
+		require.True(ok)
 		require.Equal(test.err, errors.Cause(p.Validate(ctx, cu, sm)))
 		if test.err != nil {
 			continue
@@ -903,7 +919,7 @@ func TestProtocol_HandleCandidateUpdate(t *testing.T) {
 			cuCost, err := cu.Cost()
 			require.NoError(err)
 			total := big.NewInt(0)
-			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, cuCost).Add(total, p.config.RegistrationConsts.Fee))
+			require.Equal(unit.ConvertIotxToRau(test.initBalance), total.Add(total, caller.Balance).Add(total, actCost).Add(total, cuCost).Add(total, registrationFee))
 			require.Equal(test.nonce, caller.Nonce)
 		}
 	}
@@ -1296,7 +1312,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 				BlockTimeStamp: time.Now().Add(time.Duration(1) * 24 * time.Hour),
 				GasLimit:       1000000,
 			})
-
+			ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			})
 			_, err = p.Handle(ctx, act, sm)
 			require.NoError(err)
 			require.NoError(p.Commit(ctx, sm))
@@ -1318,6 +1336,9 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			BlockHeight:    blkCtx.BlockHeight,
 			BlockTimeStamp: test.ctxTimestamp,
 			GasLimit:       blkCtx.GasLimit,
+		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
 		})
 		r, err := p.Handle(ctx, withdraw, sm)
 		require.NoError(err)
@@ -1570,6 +1591,9 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -1767,6 +1791,9 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			BlockHeight:    1,
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
+		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
 		})
 		r, err := p.Handle(ctx, act, sm)
 		require.Equal(test.err, errors.Cause(err))
@@ -2000,6 +2027,9 @@ func TestProtocol_HandleConsignmentTransfer(t *testing.T) {
 			BlockHeight:    test.blkHeight,
 			BlockTimeStamp: time.Now(),
 			GasLimit:       gasLimit,
+		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
 		})
 		r, err := p.Handle(ctx, act, sm)
 		require.NoError(err)
@@ -2260,6 +2290,9 @@ func TestProtocol_HandleRestake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2471,6 +2504,9 @@ func TestProtocol_HandleDepositToStake(t *testing.T) {
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
+		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
+			Genesis: genesis.Default,
+		})
 		var r *action.Receipt
 		if test.clear {
 			csm, err := NewCandidateStateManager(sm, false)
@@ -2582,7 +2618,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	require.NoError(err)
 
 	// create protocol
-	p, err := NewProtocol(depositGas, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	p, err := NewProtocol(depositGas, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 
 	// set up candidate

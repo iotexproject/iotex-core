@@ -8,10 +8,12 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 // Errors
@@ -31,7 +33,12 @@ func (p *Protocol) validateCreateStake(ctx context.Context, act *action.CreateSt
 	if !isValidCandidateName(act.Candidate()) {
 		return ErrInvalidCanName
 	}
-	if act.Amount().Cmp(p.config.MinStakeAmount) == -1 {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	minStakingAmount, ok := new(big.Int).SetString(bcCtx.Genesis.Staking.MinStakeAmount, 10)
+	if !ok {
+		return errors.Errorf("invalid min staking amount %s", bcCtx.Genesis.Staking.MinStakeAmount)
+	}
+	if act.Amount().Cmp(minStakingAmount) == -1 {
 		return errors.Wrap(ErrInvalidAmount, "stake amount is less than the minimum requirement")
 	}
 	return nil
@@ -68,8 +75,13 @@ func (p *Protocol) validateCandidateRegister(ctx context.Context, act *action.Ca
 	if !isValidCandidateName(act.Name()) {
 		return ErrInvalidCanName
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	minSelfStakingAmount, ok := new(big.Int).SetString(bcCtx.Genesis.Staking.RegistrationConsts.MinSelfStake, 10)
+	if !ok {
+		return errors.Errorf("invalid min self staking amount %s", bcCtx.Genesis.Staking.RegistrationConsts.MinSelfStake)
+	}
 
-	if act.Amount().Cmp(p.config.RegistrationConsts.MinSelfStake) < 0 {
+	if act.Amount().Cmp(minSelfStakingAmount) < 0 {
 		return errors.Wrap(ErrInvalidAmount, "self staking amount is not valid")
 	}
 	return nil

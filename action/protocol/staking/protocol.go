@@ -64,23 +64,21 @@ type (
 		ReceiptStatus() uint64
 	}
 
+	// BootstrapCandidate is the candidate data need to be provided to bootstrap candidate.
+	BootstrapCandidate struct {
+		OwnerAddress      address.Address
+		OperatorAddress   address.Address
+		RewardAddress     address.Address
+		Name              string
+		SelfStakingAmount *big.Int
+	}
+
 	// Protocol defines the protocol of handling staking
 	Protocol struct {
 		addr               address.Address
-		depositGas         DepositGas
-		config             Configuration
-		hu                 config.HeightUpgrade
 		candBucketsIndexer *CandidatesBucketsIndexer
+		depositGas         DepositGas
 		voteReviser        *VoteReviser
-	}
-
-	// Configuration is the staking protocol configuration.
-	Configuration struct {
-		VoteWeightCalConsts   genesis.VoteWeightCalConsts
-		RegistrationConsts    RegistrationConsts
-		WithdrawWaitingPeriod time.Duration
-		MinStakeAmount        *big.Int
-		BootstrapCandidates   []genesis.BootstrapCandidate
 	}
 
 	// DepositGas deposits gas to some pool
@@ -88,60 +86,33 @@ type (
 )
 
 // NewProtocol instantiates the protocol of staking
-func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
+func NewProtocol(depositGas DepositGas, candBucketsIndexer *CandidatesBucketsIndexer, reviseHeights ...uint64) (*Protocol, error) {
 	h := hash.Hash160b([]byte(protocolID))
 	addr, err := address.FromBytes(h[:])
 	if err != nil {
 		return nil, err
 	}
 
-	minStakeAmount, ok := new(big.Int).SetString(cfg.MinStakeAmount, 10)
-	if !ok {
-		return nil, ErrInvalidAmount
-	}
-
-	regFee, ok := new(big.Int).SetString(cfg.RegistrationConsts.Fee, 10)
-	if !ok {
-		return nil, ErrInvalidAmount
-	}
-
-	minSelfStake, ok := new(big.Int).SetString(cfg.RegistrationConsts.MinSelfStake, 10)
-	if !ok {
-		return nil, ErrInvalidAmount
-	}
-
-	// new vote reviser, revise ate greenland
-	voteReviser := NewVoteReviser(cfg.VoteWeightCalConsts, reviseHeights...)
-
 	return &Protocol{
-		addr: addr,
-		config: Configuration{
-			VoteWeightCalConsts: cfg.VoteWeightCalConsts,
-			RegistrationConsts: RegistrationConsts{
-				Fee:          regFee,
-				MinSelfStake: minSelfStake,
-			},
-			WithdrawWaitingPeriod: cfg.WithdrawWaitingPeriod,
-			MinStakeAmount:        minStakeAmount,
-			BootstrapCandidates:   cfg.BootstrapCandidates,
-		},
-		depositGas:         depositGas,
+		addr:               addr,
 		candBucketsIndexer: candBucketsIndexer,
-		voteReviser:        voteReviser,
+		depositGas:         depositGas,
+		// TODO: reviseHeights should be set in ctx
+		voteReviser: NewVoteReviser(reviseHeights...),
 	}, nil
 }
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
+	c, _, err := CreateBaseView(sr, hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -153,15 +124,9 @@ func (p *Protocol) CreateGenesisStates(
 	ctx context.Context,
 	sm protocol.StateManager,
 ) error {
-	if len(p.config.BootstrapCandidates) == 0 {
-		return nil
-	}
-	csm, err := NewCandidateStateManager(sm, false)
-	if err != nil {
-		return err
-	}
-
-	for _, bc := range p.config.BootstrapCandidates {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	bootstrapCandidates := []BootstrapCandidate{}
+	for _, bc := range bcCtx.Genesis.Staking.BootstrapCandidates {
 		owner, err := address.FromString(bc.OwnerAddress)
 		if err != nil {
 			return err
@@ -179,28 +144,45 @@ func (p *Protocol) CreateGenesisStates(
 
 		selfStake, ok := new(big.Int).SetString(bc.SelfStakingTokens, 10)
 		if !ok {
-			return ErrInvalidAmount
+			return errors.Errorf("invalid bootstrap candidate self staking amount")
 		}
-		bucket := NewVoteBucket(owner, owner, selfStake, 7, time.Now(), true)
+		bootstrapCandidates = append(bootstrapCandidates, BootstrapCandidate{
+			OwnerAddress:      owner,
+			OperatorAddress:   operator,
+			RewardAddress:     reward,
+			Name:              bc.Name,
+			SelfStakingAmount: selfStake,
+		})
+	}
+	if len(bootstrapCandidates) == 0 {
+		return nil
+	}
+	csm, err := NewCandidateStateManager(sm, false)
+	if err != nil {
+		return err
+	}
+
+	for _, bc := range bootstrapCandidates {
+		bucket := NewVoteBucket(bc.OwnerAddress, bc.OwnerAddress, bc.SelfStakingAmount, 7, time.Now(), true)
 		bucketIdx, err := putBucketAndIndex(sm, bucket)
 		if err != nil {
 			return err
 		}
 		c := &Candidate{
-			Owner:              owner,
-			Operator:           operator,
-			Reward:             reward,
+			Owner:              bc.OwnerAddress,
+			Operator:           bc.OperatorAddress,
+			Reward:             bc.RewardAddress,
 			Name:               bc.Name,
-			Votes:              p.calculateVoteWeight(bucket, true),
+			Votes:              p.calculateVoteWeight(bcCtx.Genesis.Staking.VoteWeightCalConsts, bucket, true),
 			SelfStakeBucketIdx: bucketIdx,
-			SelfStake:          selfStake,
+			SelfStake:          bc.SelfStakingAmount,
 		}
 
 		// put in statedb and cand center
 		if err := csm.Upsert(c); err != nil {
 			return err
 		}
-		if err := csm.DebitBucketPool(selfStake, true); err != nil {
+		if err := csm.DebitBucketPool(bc.SelfStakingAmount, true); err != nil {
 			return err
 		}
 	}
@@ -223,13 +205,17 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 			return err
 		}
 	}
-
+	vpc := &votingPowerCalculator{
+		DurationWeight:    bcCtx.Genesis.VoteWeightCalConsts.DurationLg,
+		AutoStakingWeight: bcCtx.Genesis.VoteWeightCalConsts.AutoStake,
+		SelfStakingWeight: bcCtx.Genesis.VoteWeightCalConsts.SelfStake,
+	}
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm, hu.IsPost(config.Greenland, blkCtx.BlockHeight))
 		if err != nil {
 			return err
 		}
-		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight); err != nil {
+		if err := p.voteReviser.Revise(csm, blkCtx.BlockHeight, vpc); err != nil {
 			return err
 		}
 	}
@@ -276,7 +262,9 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	csm, err := NewCandidateStateManager(sm, hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return err
 	}
@@ -291,7 +279,9 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	csm, err := NewCandidateStateManager(sm, hu.IsPost(config.Greenland, height))
 	if err != nil {
 		return nil, err
 	}
@@ -378,11 +368,16 @@ func (p *Protocol) ActiveCandidates(ctx context.Context, sr protocol.StateReader
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get ActiveCandidates")
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	minSelfStakingAmount, ok := new(big.Int).SetString(bcCtx.Genesis.Staking.RegistrationConsts.MinSelfStake, 10)
+	if !ok {
+		return nil, errors.Errorf("invalid min self staking amount %s", bcCtx.Genesis.Staking.RegistrationConsts.MinSelfStake)
+	}
 
 	list := c.AllCandidates()
 	cand := make(CandidateList, 0, len(list))
 	for i := range list {
-		if list[i].SelfStake.Cmp(p.config.RegistrationConsts.MinSelfStake) >= 0 {
+		if list[i].SelfStake.Cmp(minSelfStakingAmount) >= 0 {
 			cand = append(cand, list[i])
 		}
 	}
@@ -473,8 +468,13 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func (p *Protocol) calculateVoteWeight(v *VoteBucket, selfStake bool) *big.Int {
-	return calculateVoteWeight(p.config.VoteWeightCalConsts, v, selfStake)
+func (p *Protocol) calculateVoteWeight(params genesis.VoteWeightCalConsts, v *VoteBucket, selfStake bool) *big.Int {
+	vpc := &votingPowerCalculator{
+		DurationWeight:    params.DurationLg,
+		AutoStakingWeight: params.AutoStake,
+		SelfStakingWeight: params.SelfStake,
+	}
+	return vpc.calculate(v, selfStake)
 }
 
 // settleAccount deposits gas fee and updates caller's nonce
