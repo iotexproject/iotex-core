@@ -131,7 +131,7 @@ func delegates() error {
 		if epochData == nil {
 			return output.NewError(0, "ROLLDPOS is not registered", nil)
 		}
-		epochNum = chainMeta.GetEpoch().Num
+		epochNum = epochData.Num
 	}
 	response, err := bc.GetEpochMeta(epochNum)
 	if err != nil {
