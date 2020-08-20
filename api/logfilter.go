@@ -14,9 +14,9 @@ import (
 
 // LogFilter contains options for contract log filtering.
 type LogFilter struct {
-	stream  iotexapi.APIService_StreamLogsServer
-	errChan chan error
-	*iotexapi.LogsFilter
+	stream   iotexapi.APIService_StreamLogsServer
+	errChan  chan error
+	pbFilter *iotexapi.LogsFilter
 	// FilterLogsRequest.Topics restricts matches to particular event topics. Each event has a list
 	// of topics. Topics matches a prefix of that list. An empty element slice matches any
 	// topic. Non-empty elements represent an alternative that matches any of the
@@ -33,9 +33,9 @@ type LogFilter struct {
 // NewLogFilter returns a new log filter
 func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) Responder {
 	return &LogFilter{
-		stream:     stream,
-		errChan:    errChan,
-		LogsFilter: in,
+		stream:   stream,
+		errChan:  errChan,
+		pbFilter: in,
 	}
 }
 
@@ -79,9 +79,9 @@ func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 
 // match checks if a given log matches the filter
 func (l *LogFilter) match(log *iotextypes.Log) bool {
-	addrMatch := len(l.Address) == 0
+	addrMatch := len(l.pbFilter.Address) == 0
 	if !addrMatch {
-		for _, e := range l.Address {
+		for _, e := range l.pbFilter.Address {
 			if e == log.ContractAddress {
 				addrMatch = true
 				break
@@ -91,15 +91,15 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 	if !addrMatch {
 		return false
 	}
-	if len(l.Topics) > len(log.Topics) {
+	if len(l.pbFilter.Topics) > len(log.Topics) {
 		// trying to match a prefix of log's topic list, so topics longer than that is consider invalid
 		return false
 	}
-	if len(l.Topics) == 0 {
+	if len(l.pbFilter.Topics) == 0 {
 		// {} or nil matches any address or topic list
 		return true
 	}
-	for i, e := range l.Topics {
+	for i, e := range l.pbFilter.Topics {
 		if e == nil || len(e.Topic) == 0 {
 			continue
 		}

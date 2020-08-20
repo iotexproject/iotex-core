@@ -671,6 +671,9 @@ func (api *Server) GetLogs(
 		if req.FromBlock > api.bc.TipHeight() {
 			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
+		if req.Count > 1000 {
+			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
+		}
 		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
