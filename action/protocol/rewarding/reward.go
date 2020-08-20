@@ -14,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
@@ -278,15 +280,24 @@ func (p *Protocol) Claim(
 	ctx context.Context,
 	sm protocol.StateManager,
 	amount *big.Int,
-) error {
+) (*action.TransactionLog, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	if err := p.assertAmount(amount); err != nil {
-		return err
+		return nil, err
 	}
 	if err := p.updateTotalBalance(ctx, sm, amount); err != nil {
-		return err
+		return nil, err
 	}
-	return p.claimFromAccount(ctx, sm, actionCtx.Caller, amount)
+	if err := p.claimFromAccount(ctx, sm, actionCtx.Caller, amount); err != nil {
+		return nil, err
+	}
+
+	return &action.TransactionLog{
+		Type:      iotextypes.TransactionLogType_CLAIM_FROM_REWARDING_FUND,
+		Sender:    address.RewardingPoolAddr,
+		Recipient: actionCtx.Caller.String(),
+		Amount:    amount,
+	}, nil
 }
 
 // UnclaimedBalance returns unclaimed balance of a given address

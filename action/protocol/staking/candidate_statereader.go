@@ -20,7 +20,6 @@ import (
 type (
 	// CandidateStateReader contains candidate center and bucket pool
 	CandidateStateReader interface {
-		// TODO: remove CandidateCenter interface, return *candCenter
 		Height() uint64
 		SR() protocol.StateReader
 		BaseView() *ViewData
@@ -28,6 +27,7 @@ type (
 		GetCandidateByOwner(address.Address) *Candidate
 		AllCandidates() CandidateList
 		TotalStakedAmount() *big.Int
+		ActiveBucketsCount() uint64
 	}
 
 	candSR struct {
@@ -38,7 +38,7 @@ type (
 
 	// ViewData is the data that need to be stored in protocol's view
 	ViewData struct {
-		candCenter *candCenter
+		candCenter *CandidateCenter
 		bucketPool *BucketPool
 	}
 )
@@ -69,6 +69,10 @@ func (c *candSR) AllCandidates() CandidateList {
 
 func (c *candSR) TotalStakedAmount() *big.Int {
 	return c.view.bucketPool.Total()
+}
+
+func (c *candSR) ActiveBucketsCount() uint64 {
+	return c.view.bucketPool.Count()
 }
 
 // GetStakingStateReader returns a candidate state reader that reflects the base view
@@ -140,9 +144,8 @@ func CreateBaseView(sr protocol.StateReader, enableSMStorage bool) (*ViewData, u
 		return nil, height, err
 	}
 
-	// TODO: remove CandidateCenter interface, no need for (*candCenter)
 	return &ViewData{
-		candCenter: center.(*candCenter),
+		candCenter: center,
 		bucketPool: pool,
 	}, height, nil
 }

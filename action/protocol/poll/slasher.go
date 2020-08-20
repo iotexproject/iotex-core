@@ -150,7 +150,7 @@ func (sh *Slasher) ReadState(
 				return nil, uint64(0), errors.New("Slasher ReadState arg epochNumber should be same as state reader height, need to set argument/height consistently")
 			}
 		}
-		epochStartHeight = rp.GetEpochHeight(epochNum)
+		epochStartHeight = rp.GetEpochHeight(epochNumArg)
 	}
 	switch string(method) {
 	case "CandidatesByEpoch":

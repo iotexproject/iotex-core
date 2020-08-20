@@ -125,13 +125,13 @@ func getBlock(args []string) error {
 	}
 	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, ActionInfo: nil}
 	if verbose {
-		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height, uint64(blockMeta.NumActions))
+		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height)
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)
 		}
 		for index, ele := range blocksInfos {
 			for _, item := range ele.Block.Body.Actions {
-				Rececipt := ele.Receipts[index]
+				Receipt := ele.Receipts[index]
 				actionInfo := actionInfo{
 					Version:         item.Core.Version,
 					Nonce:           item.Core.Nonce,
@@ -139,12 +139,12 @@ func getBlock(args []string) error {
 					GasPrice:        item.Core.GasPrice,
 					SenderPubKey:    item.SenderPubKey,
 					Signature:       item.Signature,
-					Status:          Rececipt.Status,
-					BlkHeight:       Rececipt.BlkHeight,
-					ActHash:         Rececipt.ActHash,
-					GasConsumed:     Rececipt.GasConsumed,
-					ContractAddress: Rececipt.ContractAddress,
-					Logs:            Rececipt.Logs,
+					Status:          Receipt.Status,
+					BlkHeight:       Receipt.BlkHeight,
+					ActHash:         Receipt.ActHash,
+					GasConsumed:     Receipt.GasConsumed,
+					ContractAddress: Receipt.ContractAddress,
+					Logs:            Receipt.Logs,
 				}
 				blockInfoMessage.ActionInfo = append(blockInfoMessage.ActionInfo, actionInfo)
 			}
@@ -155,14 +155,14 @@ func getBlock(args []string) error {
 }
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
-func getActionInfoWithinBlock(height uint64, count uint64) ([]blocksInfo, error) {
+func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 	}
 	defer conn.Close()
 	cli := iotexapi.NewAPIServiceClient(conn)
-	request := iotexapi.GetRawBlocksRequest{StartHeight: height, Count: count, WithReceipts: true}
+	request := iotexapi.GetRawBlocksRequest{StartHeight: height, Count: 1, WithReceipts: true}
 	ctx := context.Background()
 
 	jwtMD, err := util.JwtAuth()
@@ -181,11 +181,11 @@ func getActionInfoWithinBlock(height uint64, count uint64) ([]blocksInfo, error)
 	if len(response.Blocks) == 0 {
 		return nil, output.NewError(output.APIError, "no actions returned", err)
 	}
-	var blocksInfos []blocksInfo
+	var blockInfos []blocksInfo
 	for _, ele := range response.Blocks {
-		blocksInfos = append(blocksInfos, blocksInfo{Block: ele.Block, Receipts: ele.Receipts})
+		blockInfos = append(blockInfos, blocksInfo{Block: ele.Block, Receipts: ele.Receipts})
 	}
-	return blocksInfos, nil
+	return blockInfos, nil
 
 }
 
