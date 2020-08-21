@@ -8,6 +8,7 @@ package blocksync
 
 import (
 	"context"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -184,10 +185,10 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		if err := bs.unicastHandler(context.Background(), peer,
-			blk.ConvertToBlockPb(),
-		); err != nil {
-			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
+		syncCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+		defer cancel()
+		if err := bs.unicastHandler(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
+			log.L().Info("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}
 	}
 	return nil
