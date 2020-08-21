@@ -1168,13 +1168,8 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	}
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := api.getBlockMetasByHeader(height)
-		if errors.Cause(err) == db.ErrNotExist {
-			blockMeta, err = api.getBlockMetasByBlock(height)
-			if err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+		blockMeta, err := api.getBlockMetaByHeight(height)
+		if err != nil {
 			return nil, err
 		}
 		res = append(res, blockMeta)
@@ -1192,19 +1187,36 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blockMeta, err := api.getBlockMetaByHeader(hash)
-	if errors.Cause(err) == db.ErrNotExist {
-		blockMeta, err = api.getBlockMetaByBlock(hash)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	blockMeta, err := api.getBlockMetaByHash(hash)
+	if err != nil {
 		return nil, err
 	}
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    1,
 		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
 	}, nil
+}
+
+// getBlockMetaByHeight gets block meta by height
+func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetasByHeader(height)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetasByBlock(height)
+}
+
+// getBlockMetaByHash gets block meta by hash
+func (api *Server) getBlockMetaByHash(h hash.Hash256) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetaByHeader(h)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetaByBlock(h)
 }
 
 // putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
