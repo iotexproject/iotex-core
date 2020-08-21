@@ -58,7 +58,7 @@ func (bm *BlockMeta) Proto() (*blockmetapb.BlockMeta, error) {
 func (bm *BlockMeta) Deserialize(buf []byte) error {
 	epochMetapb := &blockmetapb.BlockMeta{}
 	if err := proto.Unmarshal(buf, epochMetapb); err != nil {
-		return errors.Wrap(err, "failed to unmarshal blacklist")
+		return errors.Wrap(err, "failed to unmarshal blocklist")
 	}
 	return bm.LoadProto(epochMetapb)
 }

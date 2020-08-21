@@ -100,19 +100,20 @@ type IotxDispatcher struct {
 	started        int32
 	shutdown       int32
 	eventChan      chan interface{}
+	syncChan       chan *blockSyncMsg
 	eventAudit     map[iotexrpc.MessageType]int
 	eventAuditLock sync.RWMutex
 	wg             sync.WaitGroup
 	quit           chan struct{}
-
-	subscribers   map[uint32]Subscriber
-	subscribersMU sync.RWMutex
+	subscribers    map[uint32]Subscriber
+	subscribersMU  sync.RWMutex
 }
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
 		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
+		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.EventChanSize),
 		eventAudit:  make(map[iotexrpc.MessageType]int),
 		quit:        make(chan struct{}),
 		subscribers: make(map[uint32]Subscriber),
@@ -136,8 +137,10 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 		return errors.New("Dispatcher already started")
 	}
 	log.L().Info("Starting dispatcher.")
-	d.wg.Add(1)
+	d.wg.Add(2)
 	go d.newsHandler()
+	go d.syncHandler()
+
 	return nil
 }
 
@@ -153,9 +156,11 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 	return nil
 }
 
-// EventChan returns the event chan
-func (d *IotxDispatcher) EventChan() *chan interface{} {
-	return &d.eventChan
+// EventQueueSize returns the event queue size
+func (d *IotxDispatcher) EventQueueSize() int {
+	d.eventAuditLock.RLock()
+	defer d.eventAuditLock.RUnlock()
+	return len(d.eventChan) + len(d.syncChan)
 }
 
 // EventAudit returns the event audit map
@@ -180,26 +185,43 @@ loop:
 				d.handleActionMsg(msg)
 			case *blockMsg:
 				d.handleBlockMsg(msg)
-			case *blockSyncMsg:
-				d.handleBlockSyncMsg(msg)
-
 			default:
 				log.L().Warn("Invalid message type in block handler.", zap.Any("msg", msg))
 			}
-
 		case <-d.quit:
 			break loop
 		}
 	}
 
 	d.wg.Done()
-	log.L().Info("News handler done.")
+	log.L().Info("news handler done.")
+}
+
+// syncHandler handles incoming block sync requests
+func (d *IotxDispatcher) syncHandler() {
+loop:
+	for {
+		select {
+		case m := <-d.syncChan:
+			d.handleBlockSyncMsg(m)
+		case <-d.quit:
+			break loop
+		}
+	}
+
+	d.wg.Done()
+	log.L().Info("block sync handler done.")
 }
 
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
-	d.updateEventAudit(iotexrpc.MessageType_ACTION)
-	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+	log.L().Debug("receive actionMsg.")
+
+	d.subscribersMU.RLock()
+	subscriber, ok := d.subscribers[m.ChainID()]
+	d.subscribersMU.RUnlock()
+	if ok {
+		d.updateEventAudit(iotexrpc.MessageType_ACTION)
 		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
 			log.L().Debug("Handle action request error.", zap.Error(err))
@@ -214,8 +236,9 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	log.L().Debug("receive blockMsg.", zap.Uint64("height", m.block.GetHeader().GetCore().GetHeight()))
 
 	d.subscribersMU.RLock()
-	defer d.subscribersMU.RUnlock()
-	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+	subscriber, ok := d.subscribers[m.ChainID()]
+	d.subscribersMU.RUnlock()
+	if ok {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK)
 		if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
 			log.L().Error("Fail to handle the block.", zap.Error(err))
@@ -232,8 +255,11 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))
 
-	d.updateEventAudit(iotexrpc.MessageType_BLOCK_REQUEST)
-	if subscriber, ok := d.subscribers[m.ChainID()]; ok {
+	d.subscribersMU.RLock()
+	subscriber, ok := d.subscribers[m.ChainID()]
+	d.subscribersMU.RUnlock()
+	if ok {
+		d.updateEventAudit(iotexrpc.MessageType_BLOCK_REQUEST)
 		// dispatch to block sync
 		if err := subscriber.HandleSyncRequest(m.ctx, m.peer, m.sync); err != nil {
 			log.L().Error("Failed to handle sync request.", zap.Error(err))
@@ -272,12 +298,17 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&blockSyncMsg{
+
+	if len(d.syncChan) == cap(d.syncChan) {
+		log.L().Warn("dispatcher sync chan is full, drop an event.")
+		return
+	}
+	d.syncChan <- &blockSyncMsg{
 		ctx:     ctx,
 		chainID: chainID,
 		peer:    peer,
 		sync:    (msg).(*iotexrpc.BlockSync),
-	})
+	}
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -288,12 +319,11 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	}
 	d.subscribersMU.RLock()
 	subscriber, ok := d.subscribers[chainID]
+	d.subscribersMU.RUnlock()
 	if !ok {
 		log.L().Warn("chainID has not been registered in dispatcher.", zap.Uint32("chainID", chainID))
-		d.subscribersMU.RUnlock()
 		return
 	}
-	d.subscribersMU.RUnlock()
 
 	switch msgType {
 	case iotexrpc.MessageType_CONSENSUS:
@@ -326,13 +356,11 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 }
 
 func (d *IotxDispatcher) enqueueEvent(event interface{}) {
-	go func() {
-		if len(d.eventChan) == cap(d.eventChan) {
-			log.L().Debug("dispatcher event chan is full, drop an event.")
-			return
-		}
-		d.eventChan <- event
-	}()
+	if len(d.eventChan) == cap(d.eventChan) {
+		log.L().Warn("dispatcher event chan is full, drop an event.")
+		return
+	}
+	d.eventChan <- event
 }
 
 func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {
