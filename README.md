@@ -108,7 +108,7 @@ Users could interact with iotex blockchain by
 ioctl [command]
 ```
 
-Refer to [CLI document](ioctl/README.md) for more details.
+Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for more details.
 
 ## Contact
 
