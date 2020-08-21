@@ -73,6 +73,7 @@ type BlockSync interface {
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
 	commitHeight     uint64 // last commit block height
+	unicastTTL       time.Duration
 	buf              *blockBuffer
 	worker           *syncWorker
 	bc               blockchain.Blockchain
@@ -109,6 +110,7 @@ func NewBlockSyncer(
 		unicastHandler:   bsCfg.unicastHandler,
 		neighborsHandler: bsCfg.neighborsHandler,
 		worker:           newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
+		unicastTTL:       cfg.BlockSync.UnicastTTL,
 	}
 	return bs, nil
 }
@@ -185,10 +187,10 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		syncCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+		syncCtx, cancel := context.WithTimeout(ctx, bs.unicastTTL)
 		defer cancel()
 		if err := bs.unicastHandler(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
-			log.L().Info("Failed to response to ProcessSyncRequest.", zap.Error(err))
+			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
 		}
 	}
 	return nil

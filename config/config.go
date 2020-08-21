@@ -156,6 +156,7 @@ var (
 		},
 		BlockSync: BlockSync{
 			Interval:        10 * time.Second,
+			UnicastTTL:      10 * time.Second,
 			BufferSize:      200,
 			IntervalSize:    20,
 			MaxRepeat:       3,
@@ -275,6 +276,7 @@ type (
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
 		Interval     time.Duration `yaml:"interval"` // update duration
+		UnicastTTL   time.Duration `yaml:"unicastTTL"`
 		BufferSize   uint64        `yaml:"bufferSize"`
 		IntervalSize uint64        `yaml:"intervalSize"`
 		// MaxRepeat is the maximal number of repeat of a block sync request
