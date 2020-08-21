@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	blockListLen = 1000
-	blockListTTL = 15 * time.Minute
+	blockListLen   = 1000
+	blockListTTL   = 15 * time.Minute
+	blockThreshold = 3
 )
 
 // BlockList is the struct for blocklist
@@ -51,11 +52,9 @@ func (bl *BlockList) Add(name string, t time.Time) {
 
 	// once reaching 3 faults, add to blocklist
 	counter := v.(int) + 1
-	if counter <= 3 {
-		bl.counter.Add(name, counter)
-		if counter == 3 {
-			bl.timeout.Add(name, t.Add(blockListTTL))
-		}
+	bl.counter.Add(name, counter)
+	if counter >= blockThreshold {
+		bl.timeout.Add(name, t.Add(blockListTTL))
 	}
 }
 

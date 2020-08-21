@@ -72,14 +72,14 @@ type BlockSync interface {
 
 // blockSyncer implements BlockSync interface
 type blockSyncer struct {
-	commitHeight     uint64 // last commit block height
-	unicastTTL       time.Duration
-	buf              *blockBuffer
-	worker           *syncWorker
-	bc               blockchain.Blockchain
-	dao              BlockDAO
-	unicastHandler   UnicastOutbound
-	neighborsHandler Neighbors
+	commitHeight          uint64 // last commit block height
+	processSyncRequestTTL time.Duration
+	buf                   *blockBuffer
+	worker                *syncWorker
+	bc                    blockchain.Blockchain
+	dao                   BlockDAO
+	unicastHandler        UnicastOutbound
+	neighborsHandler      Neighbors
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -104,13 +104,13 @@ func NewBlockSyncer(
 		}
 	}
 	bs := &blockSyncer{
-		bc:               chain,
-		dao:              dao,
-		buf:              buf,
-		unicastHandler:   bsCfg.unicastHandler,
-		neighborsHandler: bsCfg.neighborsHandler,
-		worker:           newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
-		unicastTTL:       cfg.BlockSync.UnicastTTL,
+		bc:                    chain,
+		dao:                   dao,
+		buf:                   buf,
+		unicastHandler:        bsCfg.unicastHandler,
+		neighborsHandler:      bsCfg.neighborsHandler,
+		worker:                newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
+		processSyncRequestTTL: cfg.BlockSync.ProcessSyncRequestTTL,
 	}
 	return bs, nil
 }
@@ -187,7 +187,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 			return err
 		}
 		// TODO: send back multiple blocks in one shot
-		syncCtx, cancel := context.WithTimeout(ctx, bs.unicastTTL)
+		syncCtx, cancel := context.WithTimeout(ctx, bs.processSyncRequestTTL)
 		defer cancel()
 		if err := bs.unicastHandler(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
 			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
