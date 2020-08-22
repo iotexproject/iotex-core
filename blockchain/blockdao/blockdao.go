@@ -60,6 +60,7 @@ var (
 	heightToFileBucket = []byte("h2f")
 )
 
+// vars
 var (
 	cacheMtc = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -68,12 +69,9 @@ var (
 		},
 		[]string{"result"},
 	)
-	patternLen = len("00000000.db")
-	suffixLen  = len(".db")
-	// ErrNotOpened indicates db is not opened
-	ErrNotOpened = errors.New("DB is not opened")
-
-	// ErrNotSupported indicates not supported
+	patternLen      = len("00000000.db")
+	suffixLen       = len(".db")
+	ErrAlreadyExist = errors.New("block already exist")
 	ErrNotSupported = errors.New("feature not supported")
 )
 
@@ -99,7 +97,7 @@ type (
 		HeaderByHeight(uint64) (*block.Header, error)
 		FooterByHeight(uint64) (*block.Footer, error)
 		ContainsTransactionLog() bool
-		GetTransactionLog(uint64) (*iotextypes.BlockTransactionLog, error)
+		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -398,7 +396,19 @@ func (dao *blockDAO) GetReceipts(blkHeight uint64) ([]*action.Receipt, error) {
 }
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
-	err := func() error {
+	// early exit if block already exists
+	blkHeight := blk.Height()
+	blkHash, err := dao.getBlockHash(blkHeight)
+	if err == nil && blkHash != hash.ZeroHash256 {
+		log.L().Debug("Block already exists.", zap.Uint64("height", blkHeight))
+		return ErrAlreadyExist
+	}
+	// early exit if it's a db io error
+	if err != nil && errors.Cause(err) != db.ErrNotExist && errors.Cause(err) != db.ErrBucketNotExist {
+		return err
+	}
+
+	err = func() error {
 		var err error
 		ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
 		if err != nil {
@@ -407,7 +417,7 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		if err := dao.putBlock(blk); err != nil {
 			return err
 		}
-		atomic.StoreUint64(&dao.tipHeight, blk.Height())
+		atomic.StoreUint64(&dao.tipHeight, blkHeight)
 		return nil
 	}()
 	if err != nil {
@@ -419,7 +429,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -459,7 +468,7 @@ func (dao *blockDAO) ContainsTransactionLog() bool {
 	return err == nil && string(sys) == systemLogNS
 }
 
-func (dao *blockDAO) GetTransactionLog(height uint64) (*iotextypes.BlockTransactionLog, error) {
+func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
 	if !dao.ContainsTransactionLog() {
 		return nil, ErrNotSupported
 	}

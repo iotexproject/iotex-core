@@ -10,27 +10,11 @@ import (
 	"sync"
 
 	"github.com/iotexproject/iotex-address/address"
+
+	"github.com/iotexproject/iotex-core/action/protocol"
 )
 
 type (
-	// CandidateCenter is the candidate center
-	CandidateCenter interface {
-		Size() int
-		All() CandidateList
-		Base() CandidateCenter
-		Delta() CandidateList
-		SetDelta(CandidateList) error
-		Commit() error
-		ContainsName(string) bool
-		ContainsOwner(address.Address) bool
-		ContainsOperator(address.Address) bool
-		ContainsSelfStakingBucket(uint64) bool
-		GetByName(string) *Candidate
-		GetByOwner(address.Address) *Candidate
-		GetBySelfStakingIndex(uint64) *Candidate
-		Upsert(*Candidate) error
-	}
-
 	// candChange captures the change to candidates
 	candChange struct {
 		dirty map[string]*Candidate
@@ -45,8 +29,8 @@ type (
 		selfStkBucketMap map[uint64]*Candidate
 	}
 
-	// candCenter is a struct to manage the candidates
-	candCenter struct {
+	// CandidateCenter is a struct to manage the candidates
+	CandidateCenter struct {
 		base   *candBase
 		size   int
 		change *candChange
@@ -66,14 +50,14 @@ func listToCandChange(l CandidateList) (*candChange, error) {
 	return cv, nil
 }
 
-// NewCandidateCenter creates an instance of candCenter
-func NewCandidateCenter(all CandidateList) (CandidateCenter, error) {
+// NewCandidateCenter creates an instance of CandidateCenter
+func NewCandidateCenter(all CandidateList) (*CandidateCenter, error) {
 	delta, err := listToCandChange(all)
 	if err != nil {
 		return nil, err
 	}
 
-	c := candCenter{
+	c := CandidateCenter{
 		base: &candBase{
 			nameMap:          make(map[string]*Candidate),
 			ownerMap:         make(map[string]*Candidate),
@@ -94,12 +78,12 @@ func NewCandidateCenter(all CandidateList) (CandidateCenter, error) {
 }
 
 // Size returns number of candidates
-func (m *candCenter) Size() int {
+func (m *CandidateCenter) Size() int {
 	return m.size
 }
 
 // All returns all candidates in candidate center
-func (m *candCenter) All() CandidateList {
+func (m *CandidateCenter) All() CandidateList {
 	list := m.change.all()
 	if list == nil {
 		return m.base.all()
@@ -114,8 +98,8 @@ func (m *candCenter) All() CandidateList {
 }
 
 // Base returns the confirmed base state
-func (m candCenter) Base() CandidateCenter {
-	return &candCenter{
+func (m CandidateCenter) Base() *CandidateCenter {
+	return &CandidateCenter{
 		base:   m.base,
 		size:   len(m.base.ownerMap),
 		change: newCandChange(),
@@ -123,12 +107,12 @@ func (m candCenter) Base() CandidateCenter {
 }
 
 // Delta exports the pending changes
-func (m *candCenter) Delta() CandidateList {
+func (m *CandidateCenter) Delta() CandidateList {
 	return m.change.all()
 }
 
 // SetDelta sets the delta
-func (m *candCenter) SetDelta(l CandidateList) error {
+func (m *CandidateCenter) SetDelta(l CandidateList) error {
 	if len(l) == 0 {
 		m.change = nil
 		m.change = newCandChange()
@@ -157,7 +141,7 @@ func (m *candCenter) SetDelta(l CandidateList) error {
 }
 
 // Commit writes the change into base
-func (m *candCenter) Commit() error {
+func (m *CandidateCenter) Commit() error {
 	size, err := m.base.commit(m.change)
 	if err != nil {
 		return err
@@ -168,8 +152,19 @@ func (m *candCenter) Commit() error {
 	return nil
 }
 
+// Sync syncs the data from state manager
+func (m *CandidateCenter) Sync(sm protocol.StateManager) error {
+	delta := CandidateList{}
+	if err := sm.Unload(protocolID, stakingCandCenter, &delta); err != nil && err != protocol.ErrNoName {
+		return err
+	}
+
+	// apply delta to the center
+	return m.SetDelta(delta)
+}
+
 // ContainsName returns true if the map contains the candidate by name
-func (m *candCenter) ContainsName(name string) bool {
+func (m *CandidateCenter) ContainsName(name string) bool {
 	if hit := m.change.containsName(name); hit {
 		return true
 	}
@@ -181,7 +176,7 @@ func (m *candCenter) ContainsName(name string) bool {
 }
 
 // ContainsOwner returns true if the map contains the candidate by owner
-func (m *candCenter) ContainsOwner(owner address.Address) bool {
+func (m *CandidateCenter) ContainsOwner(owner address.Address) bool {
 	if owner == nil {
 		return false
 	}
@@ -195,7 +190,7 @@ func (m *candCenter) ContainsOwner(owner address.Address) bool {
 }
 
 // ContainsOperator returns true if the map contains the candidate by operator
-func (m *candCenter) ContainsOperator(operator address.Address) bool {
+func (m *CandidateCenter) ContainsOperator(operator address.Address) bool {
 	if operator == nil {
 		return false
 	}
@@ -211,7 +206,7 @@ func (m *candCenter) ContainsOperator(operator address.Address) bool {
 }
 
 // ContainsSelfStakingBucket returns true if the map contains the self staking bucket index
-func (m *candCenter) ContainsSelfStakingBucket(index uint64) bool {
+func (m *CandidateCenter) ContainsSelfStakingBucket(index uint64) bool {
 	if hit := m.change.containsSelfStakingBucket(index); hit {
 		return true
 	}
@@ -223,7 +218,7 @@ func (m *candCenter) ContainsSelfStakingBucket(index uint64) bool {
 }
 
 // GetByName returns the candidate by name
-func (m *candCenter) GetByName(name string) *Candidate {
+func (m *CandidateCenter) GetByName(name string) *Candidate {
 	if d := m.change.getByName(name); d != nil {
 		return d
 	}
@@ -235,7 +230,7 @@ func (m *candCenter) GetByName(name string) *Candidate {
 }
 
 // GetByOwner returns the candidate by owner
-func (m *candCenter) GetByOwner(owner address.Address) *Candidate {
+func (m *CandidateCenter) GetByOwner(owner address.Address) *Candidate {
 	if owner == nil {
 		return nil
 	}
@@ -251,7 +246,7 @@ func (m *candCenter) GetByOwner(owner address.Address) *Candidate {
 }
 
 // GetBySelfStakingIndex returns the candidate by self-staking index
-func (m *candCenter) GetBySelfStakingIndex(index uint64) *Candidate {
+func (m *CandidateCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 	if d := m.change.getBySelfStakingIndex(index); d != nil {
 		return d
 	}
@@ -263,7 +258,7 @@ func (m *candCenter) GetBySelfStakingIndex(index uint64) *Candidate {
 }
 
 // Upsert adds a candidate into map, overwrites if already exist
-func (m *candCenter) Upsert(d *Candidate) error {
+func (m *CandidateCenter) Upsert(d *Candidate) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
@@ -282,7 +277,7 @@ func (m *candCenter) Upsert(d *Candidate) error {
 	return nil
 }
 
-func (m *candCenter) collision(d *Candidate) error {
+func (m *CandidateCenter) collision(d *Candidate) error {
 	if err := m.change.collision(d); err != nil {
 		return err
 	}

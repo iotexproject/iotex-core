@@ -14,7 +14,7 @@
 
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to IoTeX
-[whitepaper](https://www.iotex.io/research-paper) for details.
+[whitepaper](https://iotex.io/research/) for details.
 
 ## Get started
 
@@ -108,7 +108,7 @@ Users could interact with iotex blockchain by
 ioctl [command]
 ```
 
-Refer to [CLI document](ioctl/README.md) for more details.
+Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for more details.
 
 ## Contact
 

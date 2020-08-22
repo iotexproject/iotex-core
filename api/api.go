@@ -671,6 +671,9 @@ func (api *Server) GetLogs(
 		if req.FromBlock > api.bc.TipHeight() {
 			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
+		if req.Count > 1000 {
+			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
+		}
 		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
 		if !ok {
 			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
@@ -809,7 +812,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	sysLog, err := api.dao.GetTransactionLog(actIndex.BlockHeight())
+	sysLog, err := api.dao.TransactionLogs(actIndex.BlockHeight())
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -817,7 +820,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	for _, log := range sysLog.TransactionLog {
+	for _, log := range sysLog.Logs {
 		if bytes.Compare(h, log.ActionHash) == 0 {
 			return &iotexapi.GetTransactionLogByActionHashResponse{
 				TransactionLog: log,
@@ -850,21 +853,25 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		}
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	sysLog, err := api.dao.GetTransactionLog(in.BlockHeight)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		return nil, status.Error(codes.Internal, err.Error())
-	}
 
-	return &iotexapi.GetTransactionLogByBlockHeightResponse{
-		BlockTransactionLog: sysLog,
+	res := &iotexapi.GetTransactionLogByBlockHeightResponse{
 		BlockIdentifier: &iotextypes.BlockIdentifier{
 			Hash:   hex.EncodeToString(h[:]),
 			Height: in.BlockHeight,
 		},
-	}, nil
+	}
+	sysLog, err := api.dao.TransactionLogs(in.BlockHeight)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			// should return empty, no transaction happened in block
+			res.TransactionLogs = &iotextypes.TransactionLogs{}
+			return res, nil
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	res.TransactionLogs = sysLog
+	return res, nil
 }
 
 // Start starts the API server
@@ -1161,13 +1168,8 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	}
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := api.getBlockMetasByHeader(height)
-		if errors.Cause(err) == db.ErrNotExist {
-			blockMeta, err = api.getBlockMetasByBlock(height)
-			if err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+		blockMeta, err := api.getBlockMetaByHeight(height)
+		if err != nil {
 			return nil, err
 		}
 		res = append(res, blockMeta)
@@ -1185,19 +1187,36 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blockMeta, err := api.getBlockMetaByHeader(hash)
-	if errors.Cause(err) == db.ErrNotExist {
-		blockMeta, err = api.getBlockMetaByBlock(hash)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	blockMeta, err := api.getBlockMetaByHash(hash)
+	if err != nil {
 		return nil, err
 	}
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    1,
 		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
 	}, nil
+}
+
+// getBlockMetaByHeight gets block meta by height
+func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetasByHeader(height)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetasByBlock(height)
+}
+
+// getBlockMetaByHash gets block meta by hash
+func (api *Server) getBlockMetaByHash(h hash.Hash256) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetaByHeader(h)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetaByBlock(h)
 }
 
 // putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block

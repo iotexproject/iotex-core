@@ -179,7 +179,6 @@ func share(args []string) error {
 			}
 		}
 	})
-
 	log.Fatal(http.ListenAndServe(*addr, nil))
 
 	return nil
