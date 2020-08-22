@@ -24,13 +24,13 @@ import (
 )
 
 var (
-	iotexIDE string
-	fileList []string
-	absPath  string
+	iotexIDE  string
+	fileList  []string
+	givenPath string
 
 	addr = flag.String("addr", "localhost:65520", "http service address")
 
-	upgrader = websocket.Upgrader{
+	upgrade = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
 			if iotexIDE == r.Header["Origin"][0] {
 				return true
@@ -51,8 +51,8 @@ var (
 		config.Chinese: "share 将本地文件夹内容分享到IoTex在线智能合约IDE(默认为https://ide.iotex.io)",
 	}
 	flagIoTexIDEUrlUsage = map[config.Language]string{
-		config.English: "set your IoTex IDE url instance",
-		config.Chinese: "设置自定义IoTexIDE Url",
+		config.English: "set your IoTeX IDE url instance",
+		config.Chinese: "设置自定义IoTeX IDE Url",
 	}
 )
 
@@ -72,26 +72,33 @@ func init() {
 	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
 }
 
+func isDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+
+		return false
+
+	}
+	return s.IsDir()
+}
+
 func share(args []string) error {
-	absPath = args[0]
-	if len(absPath) == 0 {
+	givenPath = args[0]
+	if len(givenPath) == 0 {
 		return output.NewError(output.ReadFileError, "failed to get directory", nil)
 	}
-	if !filepath.IsAbs(absPath) {
-		return output.NewError(output.InputError, "inputed path isn't absolute", nil)
-	}
 
-	if !isDir(absPath) {
-		return output.NewError(output.InputError, "input file rather than directory", nil)
+	if !isDir(givenPath) {
+		return output.NewError(output.InputError, "given file rather than directory", nil)
 	}
 
 	if len(iotexIDE) == 0 {
-		return output.NewError(output.FlagError, "failed to get iotex ide url instance", nil)
+		return output.NewError(output.FlagError, "failed to get IoTeX ide url instance", nil)
 	}
 
-	filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+	filepath.Walk(givenPath, func(path string, info os.FileInfo, err error) error {
 		if !isDir(path) {
-			relPath, err := filepath.Rel(absPath, path)
+			relPath, err := filepath.Rel(givenPath, path)
 			if err != nil {
 				return err
 			}
@@ -104,14 +111,15 @@ func share(args []string) error {
 		return nil
 	})
 
+	log.Println("Listening on 127.0.0.1:65520, Please open your IDE ( " + iotexIDE + " ) to connect to local files")
+
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		conn, err := upgrader.Upgrade(writer, request, nil)
+		conn, err := upgrade.Upgrade(writer, request, nil)
 
 		if err != nil {
 			log.Println("websocket error:", err)
 			return
 		}
-		log.Println("contract share client is listening on 127.0.0.1:65520")
 
 		for {
 			requestInfo := make(map[string]interface{})
@@ -121,8 +129,6 @@ func share(args []string) error {
 				log.Println("read json", err)
 				return
 			}
-
-			log.Println(requestInfo)
 
 			response["action"] = "response"
 			response["id"] = requestInfo["id"]
@@ -134,7 +140,6 @@ func share(args []string) error {
 					log.Println("send handshake response", err)
 					break
 				}
-
 			case "list":
 				response["key"] = "list"
 				payload := make(map[string]bool)
@@ -153,7 +158,8 @@ func share(args []string) error {
 				for i := 0; i < s.Len(); i++ {
 					p, _ := s.Index(i).Interface().(map[string]interface{})
 					for _, v := range p {
-						upload, err := ioutil.ReadFile(absPath + "/" + v.(string))
+						upload, err := ioutil.ReadFile(givenPath + "/" + v.(string))
+						log.Println("share :" + givenPath + "/" + v.(string))
 						if err != nil {
 							log.Println("read file failed", err)
 							break
@@ -168,26 +174,13 @@ func share(args []string) error {
 						}
 					}
 				}
-
+			default:
+				log.Println("Don't support this IDE yet. Can not handle websocket method: " + requestInfo["key"].(string))
 			}
 		}
 	})
 	log.Fatal(http.ListenAndServe(*addr, nil))
 
 	return nil
-
-}
-
-func isDir(path string) bool {
-
-	s, err := os.Stat(path)
-
-	if err != nil {
-
-		return false
-
-	}
-
-	return s.IsDir()
 
 }
