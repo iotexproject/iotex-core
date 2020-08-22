@@ -70,15 +70,15 @@ ioctl bc bucket count, to query total number of active buckets
 }
 
 type bucket struct {
-	index            uint64
-	owner            string
-	candidate        string
-	stakedAmount     string
-	stakedDuration   uint32
-	autoStake        bool
-	createTime       string
-	stakeStartTime   string
-	unstakeStartTime string
+	Index            uint64 `json:"index"`
+	Owner            string `json:"owner"`
+	Candidate        string `json:"candidate"`
+	StakedAmount     string `json:"stakedAmount"`
+	StakedDuration   uint32 `json:"stakedDuration"`
+	AutoStake        bool   `json:"autoStake"`
+	CreateTime       string `json:"createTime"`
+	StakeStartTime   string `json:"stakeStartTime"`
+	UnstakeStartTime string `json:"unstakeStartTime"`
 }
 
 func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
@@ -95,30 +95,30 @@ func newBucket(bucketpb *iotextypes.VoteBucket) (*bucket, error) {
 		unstakeStartTimeFormat = ptypes.TimestampString(bucketpb.UnstakeStartTime)
 	}
 	return &bucket{
-		index:            bucketpb.Index,
-		owner:            bucketpb.Owner,
-		candidate:        bucketpb.CandidateAddress,
-		stakedAmount:     util.RauToString(amount, util.IotxDecimalNum),
-		stakedDuration:   bucketpb.StakedDuration,
-		autoStake:        bucketpb.AutoStake,
-		createTime:       ptypes.TimestampString(bucketpb.CreateTime),
-		stakeStartTime:   ptypes.TimestampString(bucketpb.StakeStartTime),
-		unstakeStartTime: unstakeStartTimeFormat,
+		Index:            bucketpb.Index,
+		Owner:            bucketpb.Owner,
+		Candidate:        bucketpb.CandidateAddress,
+		StakedAmount:     util.RauToString(amount, util.IotxDecimalNum),
+		StakedDuration:   bucketpb.StakedDuration,
+		AutoStake:        bucketpb.AutoStake,
+		CreateTime:       ptypes.TimestampString(bucketpb.CreateTime),
+		StakeStartTime:   ptypes.TimestampString(bucketpb.StakeStartTime),
+		UnstakeStartTime: unstakeStartTimeFormat,
 	}, nil
 }
 
 func (b *bucket) String() string {
 	var lines []string
 	lines = append(lines, "{")
-	lines = append(lines, fmt.Sprintf("	index: %d", b.index))
-	lines = append(lines, fmt.Sprintf("	owner: %s", b.owner))
-	lines = append(lines, fmt.Sprintf("	candidate: %s", b.candidate))
-	lines = append(lines, fmt.Sprintf("	stakedAmount: %s IOTX", b.stakedAmount))
-	lines = append(lines, fmt.Sprintf("	stakedDuration: %d days", b.stakedDuration))
-	lines = append(lines, fmt.Sprintf("	autoStake: %v", b.autoStake))
-	lines = append(lines, fmt.Sprintf("	createTime: %s", b.createTime))
-	lines = append(lines, fmt.Sprintf("	stakeStartTime: %s", b.stakeStartTime))
-	lines = append(lines, fmt.Sprintf("	unstakeStartTime: %s", b.unstakeStartTime))
+	lines = append(lines, fmt.Sprintf("	index: %d", b.Index))
+	lines = append(lines, fmt.Sprintf("	owner: %s", b.Owner))
+	lines = append(lines, fmt.Sprintf("	candidate: %s", b.Candidate))
+	lines = append(lines, fmt.Sprintf("	stakedAmount: %s IOTX", b.StakedAmount))
+	lines = append(lines, fmt.Sprintf("	stakedDuration: %d days", b.StakedDuration))
+	lines = append(lines, fmt.Sprintf("	autoStake: %v", b.AutoStake))
+	lines = append(lines, fmt.Sprintf("	createTime: %s", b.CreateTime))
+	lines = append(lines, fmt.Sprintf("	stakeStartTime: %s", b.StakeStartTime))
+	lines = append(lines, fmt.Sprintf("	unstakeStartTime: %s", b.UnstakeStartTime))
 	lines = append(lines, "}")
 	return strings.Join(lines, "\n")
 }
