@@ -250,15 +250,15 @@ var (
 		},
 		{
 			4,
-			0,
+			2,
 			5,
-			5,
+			3,
 		},
 		{
 			1,
 			0,
 			0,
-			0,
+			2,
 		},
 	}
 
@@ -921,26 +921,24 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range getActionsByBlockTests {
-		header, err := svr.bc.BlockHeaderByHeight(test.blkHeight)
-		require.NoError(err)
-		blkHash := header.HashBlock()
+		h := blkHash[test.blkHeight]
+		hStr := hex.EncodeToString(h[:])
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByBlk{
 				ByBlk: &iotexapi.GetActionsByBlockRequest{
-					BlkHash: hex.EncodeToString(blkHash[:]),
+					BlkHash: hStr,
 					Start:   test.start,
 					Count:   test.count,
 				},
 			},
 		}
 		res, err := svr.GetActions(context.Background(), request)
-		if test.count == 0 {
-			require.Error(err)
-			continue
-		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
-		require.Equal(test.blkHeight, res.ActionInfo[0].BlkHeight)
+		for _, v := range res.ActionInfo {
+			require.Equal(test.blkHeight, v.BlkHeight)
+			require.Equal(hStr, v.BlkHash)
+		}
 	}
 }
 
