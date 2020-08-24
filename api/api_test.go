@@ -90,7 +90,7 @@ var (
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 
-	blkHash      = map[uint64]hash.Hash256{}
+	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
 )
 
@@ -928,12 +928,10 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 	require.NoError(err)
 
 	for _, test := range getActionsByBlockTests {
-		h := blkHash[test.blkHeight]
-		hStr := hex.EncodeToString(h[:])
 		request := &iotexapi.GetActionsRequest{
 			Lookup: &iotexapi.GetActionsRequest_ByBlk{
 				ByBlk: &iotexapi.GetActionsByBlockRequest{
-					BlkHash: hStr,
+					BlkHash: blkHash[test.blkHeight],
 					Start:   test.start,
 					Count:   test.count,
 				},
@@ -948,7 +946,7 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 		require.Equal(test.numActions, len(res.ActionInfo))
 		for _, v := range res.ActionInfo {
 			require.Equal(test.blkHeight, v.BlkHeight)
-			require.Equal(hStr, v.BlkHash)
+			require.Equal(blkHash[test.blkHeight], v.BlkHash)
 		}
 	}
 }
@@ -1891,8 +1889,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 				require.Equal(l.Proto(), log)
 			}
 			require.Equal(test.height, res.BlockIdentifier.Height)
-			h := blkHash[test.height]
-			require.Equal(hex.EncodeToString(h[:]), res.BlockIdentifier.Hash)
+			require.Equal(blkHash[test.height], res.BlockIdentifier.Hash)
 		}
 	}
 }
@@ -1928,7 +1925,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
-	blkHash[1] = blk.HashBlock()
+	h := blk.HashBlock()
+	blkHash[1] = hex.EncodeToString(h[:])
 
 	// Add block 2
 	// Charlie transfer--> A, B, D, P
@@ -1976,7 +1974,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
-	blkHash[2] = blk.HashBlock()
+	h = blk.HashBlock()
+	blkHash[2] = hex.EncodeToString(h[:])
 
 	// Add block 3
 	// Empty actions
@@ -1987,7 +1986,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		return err
 	}
 	ap.Reset()
-	blkHash[3] = blk.HashBlock()
+	h = blk.HashBlock()
+	blkHash[3] = hex.EncodeToString(h[:])
 
 	// Add block 4
 	// Charlie transfer--> C
@@ -2041,7 +2041,8 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
 		return err
 	}
-	blkHash[4] = blk.HashBlock()
+	h = blk.HashBlock()
+	blkHash[4] = hex.EncodeToString(h[:])
 	return bc.CommitBlock(blk)
 }
 
