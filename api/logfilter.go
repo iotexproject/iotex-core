@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 
+	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
@@ -31,7 +32,7 @@ type LogFilter struct {
 }
 
 // NewLogFilter returns a new log filter
-func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) Responder {
+func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) *LogFilter {
 	return &LogFilter{
 		stream:   stream,
 		errChan:  errChan,
@@ -41,6 +42,9 @@ func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogs
 
 // Respond to new block
 func (l *LogFilter) Respond(blk *block.Block) error {
+	if !l.ExistInBloomFilter(blk.LogsBloomfilter()) {
+		return nil
+	}
 	logs := l.MatchLogs(blk.Receipts)
 	if len(logs) == 0 {
 		return nil
@@ -116,4 +120,25 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 		}
 	}
 	return true
+}
+
+// ExistInBloomFilter returns true if topics of filter exist in the bloom filter
+func (l *LogFilter) ExistInBloomFilter(filter bloom.BloomFilter) bool {
+	if filter == nil {
+		return true
+	}
+
+	for _, e := range l.pbFilter.Topics {
+		if e == nil || len(e.Topic) == 0 {
+			continue
+		}
+
+		for _, v := range e.Topic {
+			if filter.Exist(v) {
+				return true
+			}
+		}
+	}
+	// {} or nil matches any address or topic list
+	return len(l.pbFilter.Topics) == 0
 }

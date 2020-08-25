@@ -653,19 +653,19 @@ func (api *Server) GetLogs(
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
+
+	var (
+		startBlock, count uint64
+		err               error
+	)
 	switch {
 	case in.GetByBlock() != nil:
+		count = 1
 		req := in.GetByBlock()
-		h, err := api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
+		startBlock, err = api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
-		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
-		if !ok {
-			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
-		}
-		logs, err := api.getLogsInBlock(filter, h, 1)
-		return &iotexapi.GetLogsResponse{Logs: logs}, err
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		if req.FromBlock > api.bc.TipHeight() {
@@ -674,15 +674,14 @@ func (api *Server) GetLogs(
 		if req.Count > 1000 {
 			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
 		}
-		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
-		if !ok {
-			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
-		}
-		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.Count)
-		return &iotexapi.GetLogsResponse{Logs: logs}, err
+		startBlock = req.FromBlock
+		count = req.Count
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
+
+	logs, err := api.getLogsInBlock(NewLogFilter(in.GetFilter(), nil, nil), startBlock, count)
+	return &iotexapi.GetLogsResponse{Logs: logs}, err
 }
 
 // StreamBlocks streams blocks
