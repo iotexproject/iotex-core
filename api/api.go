@@ -1123,7 +1123,10 @@ func (api *Server) getUnconfirmedActionsByAddress(address string, start uint64, 
 
 // getActionsByBlock returns all actions in a block
 func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64) (*iotexapi.GetActionsResponse, error) {
-	if count > api.cfg.API.RangeQueryLimit {
+	if count == 0 {
+		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
+	}
+	if count > api.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1394,13 +1397,13 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
 	lastAction := start + count
-	if count != 0 {
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
 		if lastAction >= uint64(len(blk.Actions)) {
 			lastAction = uint64(len(blk.Actions))
 		}
-	} else {
-		// count = 0 means to get all actions
-		lastAction = uint64(len(blk.Actions))
 	}
 	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]

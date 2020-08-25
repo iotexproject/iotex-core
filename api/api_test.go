@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"math"
 	"math/big"
 	"strconv"
 	"testing"
@@ -255,9 +256,15 @@ var (
 			3,
 		},
 		{
+			3,
+			0,
+			0,
+			0,
+		},
+		{
 			1,
 			0,
-			0,
+			math.MaxUint64,
 			2,
 		},
 	}
@@ -933,6 +940,10 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 			},
 		}
 		res, err := svr.GetActions(context.Background(), request)
+		if test.count == 0 {
+			require.Error(err)
+			continue
+		}
 		require.NoError(err)
 		require.Equal(test.numActions, len(res.ActionInfo))
 		for _, v := range res.ActionInfo {
