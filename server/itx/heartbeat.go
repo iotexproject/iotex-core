@@ -70,7 +70,7 @@ func (h *HeartbeatHandler) Log() {
 		log.L().Error("dispatcher is not the instance of IotxDispatcher")
 		return
 	}
-	numDPEvts := len(*dp.EventChan())
+	numDPEvts := dp.EventQueueSize()
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
 		log.L().Error("error when serializing the dispatcher event audit map.", zap.Error(err))
