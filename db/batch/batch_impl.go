@@ -18,6 +18,7 @@ type (
 	baseKVStoreBatch struct {
 		mutex      sync.RWMutex
 		writeQueue []*WriteInfo
+		fill       map[string]float64
 	}
 
 	// cachedBatch implements the CachedBatch interface
@@ -32,7 +33,9 @@ type (
 )
 
 func newBaseKVStoreBatch() *baseKVStoreBatch {
-	return &baseKVStoreBatch{}
+	return &baseKVStoreBatch{
+		fill: make(map[string]float64),
+	}
 }
 
 // NewBatch returns a batch
@@ -131,6 +134,17 @@ func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
 	}
 
 	return c
+}
+
+func (b *baseKVStoreBatch) CheckFillPercent(ns string) (float64, bool) {
+	p, ok := b.fill[ns]
+	return p, ok
+}
+
+func (b *baseKVStoreBatch) AddFillPercent(ns string, percent float64) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	b.fill[ns] = percent
 }
 
 // batch puts an entry into the write queue
@@ -271,6 +285,14 @@ func (cb *cachedBatch) Revert(snapshot int) error {
 	cb.KVStoreCache = nil
 	cb.KVStoreCache = cb.cacheShots[snapshot]
 	return nil
+}
+
+func (cb *cachedBatch) CheckFillPercent(ns string) (float64, bool) {
+	return cb.kvStoreBatch.CheckFillPercent(ns)
+}
+
+func (cb *cachedBatch) AddFillPercent(ns string, percent float64) {
+	cb.kvStoreBatch.AddFillPercent(ns, percent)
 }
 
 func (cb *cachedBatch) hash(namespace string, key []byte) hash.Hash160 {
