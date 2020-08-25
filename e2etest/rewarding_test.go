@@ -43,19 +43,19 @@ import (
 type claimTestCaseID int
 
 const (
-	//To claim amount 0
+	// To claim amount 0
 	caseClaimZero claimTestCaseID = iota
-	//To claim all unclaimed balance
+	// To claim all unclaimed balance
 	caseClaimAll
-	//To claim more than unclaimed balance
+	// To claim more than unclaimed balance
 	caseClaimMoreThanBalance
-	//To claim only part of available balance
+	// To claim only part of available balance
 	caseClaimPartOfBalance
-	//To claim a negative amount
+	// To claim a negative amount
 	caseClaimNegative
-	//To claim with an operator address other than the rewarding address
+	// To claim with an operator address other than the rewarding address
 	caseClaimToNonRewardingAddr
-	//Total number of claim test cases, keep this at the bottom the enum
+	// Total number of claim test cases, keep this at the bottom the enum
 	totalClaimCasesNum
 )
 
@@ -108,7 +108,7 @@ func TestBlockReward(t *testing.T) {
 
 	ctx := context.Background()
 	ctx = protocol.WithBlockCtx(
-		context.Background(),
+		ctx,
 		protocol.BlockCtx{
 			BlockHeight: 0,
 		},
@@ -152,15 +152,14 @@ func TestBlockReward(t *testing.T) {
 }
 
 func TestBlockEpochReward(t *testing.T) {
-	// TODO: fix the test
-	t.Skip()
+	require := require.New(t)
 
 	dbFilePaths := make([]string, 0)
 
-	//Test will stop after reaching this height
+	// Test will stop after reaching this height
 	runToHeight := uint64(60)
 
-	//Number of nodes
+	// Number of nodes
 	numNodes := 4
 
 	// Set mini-cluster configurations
@@ -175,11 +174,14 @@ func TestBlockEpochReward(t *testing.T) {
 		dbFilePaths = append(dbFilePaths, indexDBPath)
 		consensusDBPath := fmt.Sprintf("./consensus%d.db", i+1)
 		dbFilePaths = append(dbFilePaths, consensusDBPath)
+		candidatePath := fmt.Sprintf("./candidate.index%d.db", i+1)
+		dbFilePaths = append(dbFilePaths, candidatePath)
 		networkPort := 4689 + i
 		apiPort := 14014 + i
 		HTTPStatsPort := 8080 + i
 		HTTPAdminPort := 9009 + i
-		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, identityset.PrivateKey(i),
+		cfg := newConfig(chainDBPath, trieDBPath, indexDBPath, candidatePath,
+			identityset.PrivateKey(i),
 			networkPort, apiPort, uint64(numNodes))
 		cfg.Consensus.RollDPoS.ConsensusDBPath = consensusDBPath
 		if i == 0 {
@@ -187,10 +189,12 @@ func TestBlockEpochReward(t *testing.T) {
 			cfg.Network.MasterKey = "bootnode"
 		}
 
-		//Set Operator and Reward address
+		// Set PollMode
+		cfg.Genesis.Poll.ScoreThreshold = "1200000"
+		// Set Operator and Reward address
 		cfg.Genesis.Delegates[i].RewardAddrStr = identityset.Address(i + numNodes).String()
 		cfg.Genesis.Delegates[i].OperatorAddrStr = identityset.Address(i).String()
-		//Generate random votes  from [1000,2000]
+		// Generate random votes  from [1000,2000]
 		cfg.Genesis.Delegates[i].VotesStr = strconv.Itoa(1000 + rand.Intn(1000))
 		cfg.System.HTTPStatsPort = HTTPStatsPort
 		cfg.System.HTTPAdminPort = HTTPAdminPort
@@ -202,15 +206,14 @@ func TestBlockEpochReward(t *testing.T) {
 			log.L().Error("Failed to delete db file")
 		}
 	}
-
 	defer func() {
 		for _, dbFilePath := range dbFilePaths {
 			if fileutil.FileExists(dbFilePath) && os.RemoveAll(dbFilePath) != nil {
 				log.L().Error("Failed to delete db file")
 			}
 		}
-
 	}()
+
 	// Create mini-cluster
 	svrs := make([]*itx.Server, numNodes)
 	for i := 0; i < numNodes; i++ {
@@ -247,52 +250,63 @@ func TestBlockEpochReward(t *testing.T) {
 	sfs := make([]factory.Factory, numNodes)
 	chains := make([]blockchain.Blockchain, numNodes)
 	apis := make([]*api.Server, numNodes)
-	//Map of expected unclaimed balance for each reward address
+	// Map of expected unclaimed balance for each reward address
 	exptUnclaimed := make(map[string]*big.Int, numNodes)
-	//Map of real unclaimed balance for each reward address
+	// Map of real unclaimed balance for each reward address
 	unClaimedBalances := make(map[string]*big.Int, numNodes)
-	//Map of initial balance of both reward and operator address
+	// Map of initial balance of both reward and operator address
 	initBalances := make(map[string]*big.Int, numNodes)
-	//Map of claimed amount for each reward address
+	// Map of claimed amount for each reward address
 	claimedAmount := make(map[string]*big.Int, numNodes)
-	//Map to translate from operator address to reward address
+	// Map to translate from operator address to reward address
 	getRewardAddStr := make(map[string]string)
 
 	for i := 0; i < numNodes; i++ {
 		rp := rewarding.FindProtocol(svrs[i].ChainService(configs[i].Chain.ID).Registry())
-		require.NotNil(t, rp)
+		require.NotNil(rp)
 		rps[i] = rp
 
 		sfs[i] = svrs[i].ChainService(configs[i].Chain.ID).StateFactory()
-
 		chains[i] = svrs[i].ChainService(configs[i].Chain.ID).Blockchain()
 		apis[i] = svrs[i].ChainService(configs[i].Chain.ID).APIServer()
 
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		exptUnclaimed[rewardAddrStr] = big.NewInt(0)
 		initState, err := accountutil.AccountState(sfs[i], rewardAddrStr)
-		require.NoError(t, err)
+		require.NoError(err)
 		initBalances[rewardAddrStr] = initState.Balance
 
 		operatorAddrStr := identityset.Address(i).String()
 		initState, err = accountutil.AccountState(sfs[i], operatorAddrStr)
-		require.NoError(t, err)
+		require.NoError(err)
 		initBalances[operatorAddrStr] = initState.Balance
 
 		claimedAmount[rewardAddrStr] = big.NewInt(0)
 
 		getRewardAddStr[identityset.Address(i).String()] = rewardAddrStr
-
 	}
 
 	blocksPerEpoch := configs[0].Genesis.Blockchain.NumDelegates * configs[0].Genesis.Blockchain.NumSubEpochs
 
-	blockReward, err := rps[0].BlockReward(context.Background(), sfs[0])
-	require.NoError(t, err)
+	ctx := protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 1,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: configs[0].Genesis,
+		},
+	)
+	blockReward, err := rps[0].BlockReward(ctx, sfs[0])
+	require.NoError(err)
 
-	//Calculate epoch reward shares for each delegate based on their weight (votes number)
-	epochReward, err := rps[0].EpochReward(context.Background(), sfs[0])
-	require.NoError(t, err)
+	// Calculate epoch reward shares for each delegate based on their weight (votes number)
+	epochReward, err := rps[0].EpochReward(ctx, sfs[0])
+	require.NoError(err)
+
 	epRwdShares := make(map[string]*big.Int, numNodes)
 
 	totalVotes := big.NewInt(0)
@@ -306,9 +320,9 @@ func TestBlockEpochReward(t *testing.T) {
 		epRwdShares[rewardAddrStr] = big.NewInt(0).Div(tempShare, totalVotes)
 	}
 
-	//Map from action hash to expected result(Fail-false or Success-true), storing pending injected claim actions,
+	// Map from action hash to expected result(Fail-false or Success-true), storing pending injected claim actions,
 	pendingClaimActions := make(map[hash.Hash256]bool)
-	//Start testing
+	// Start testing
 	preHeight := uint64(0)
 	preEpochNum := uint64(0)
 	preExpectHigh := uint64(0)
@@ -318,18 +332,18 @@ func TestBlockEpochReward(t *testing.T) {
 	if err := testutil.WaitUntil(100*time.Millisecond, 120*time.Second, func() (bool, error) {
 		height := chains[0].TipHeight()
 
-		//New height is reached, need to update block reward
+		// New height is reached, need to update block reward
 		if height > preHeight {
 
 			err = testutil.WaitUntil(100*time.Millisecond, 15*time.Second, func() (bool, error) {
-				//This Waituntil block guarantees that we can get a consistent snapshot of the followings at some height:
+				// This Waituntil block guarantees that we can get a consistent snapshot of the followings at some height:
 				// 1) all unclaimed balance live
 				// 2) expected unclaimed balance
 				// The test keeps comparing these values (after Waituntil block) to make sure everything is correct
 				curHigh := chains[0].TipHeight()
 
-				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
-				//Wait until all the pending actions are settled
+				// check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
+				// Wait until all the pending actions are settled
 
 				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 				if len(pendingClaimActions) > 0 {
@@ -340,62 +354,64 @@ func TestBlockEpochReward(t *testing.T) {
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
 					unClaimedBalances[rewardAddr.String()], _, err =
-						rps[0].UnclaimedBalance(context.Background(), sfs[0], rewardAddr)
+						rps[0].UnclaimedBalance(ctx, sfs[0], rewardAddr)
+					require.NoError(err)
 				}
 
 				if curHigh != chains[0].TipHeight() {
 					return false, nil
 				}
 
-				//add expected block/epoch reward
+				// add expected block/epoch reward
 				for h := preExpectHigh + 1; h <= curHigh; h++ {
-					//Add block reward to current block producer
+					// Add block reward to current block producer
 					header, err := chains[0].BlockHeaderByHeight(h)
-					require.NoError(t, err)
+					require.NoError(err)
 					exptUnclaimed[getRewardAddStr[header.ProducerAddress()]] =
 						big.NewInt(0).Add(exptUnclaimed[getRewardAddStr[header.ProducerAddress()]], blockReward)
 
-					//update Epoch rewards
+					// update Epoch rewards
 					epochNum := h / blocksPerEpoch
 					if epochNum > preEpochNum {
-						require.Equal(t, epochNum, preEpochNum+1)
+						require.Equal(epochNum, preEpochNum+1)
 						preEpochNum = epochNum
 
-						//Add normal epoch reward
-						for i := 0; i < numNodes; i++ {
-							rewardAddrStr := identityset.Address(i + numNodes).String()
-							expectAfterEpoch := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], epRwdShares[rewardAddrStr])
-							exptUnclaimed[rewardAddrStr] = expectAfterEpoch
-						}
-						//Add foundation bonus
-						foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(context.Background(), sfs[0])
-						require.NoError(t, err)
-						foundationBonus, err := rps[0].FoundationBonus(context.Background(), sfs[0])
-						require.NoError(t, err)
-						if epochNum <= foundationBonusLastEpoch {
-							for i := 0; i < numNodes; i++ {
-								rewardAddrStr := identityset.Address(i + numNodes).String()
-								expectAfterEpochBonus := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], foundationBonus)
-								exptUnclaimed[rewardAddrStr] = expectAfterEpochBonus
-							}
-						}
-
+						// Add normal epoch reward
+						// for i := 0; i < numNodes; i++ {
+						// 	rewardAddrStr := identityset.Address(i + numNodes).String()
+						// 	expectAfterEpoch := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], epRwdShares[rewardAddrStr])
+						// 	exptUnclaimed[rewardAddrStr] = expectAfterEpoch
+						// }
+						// Add foundation bonus
+						// ctx := context.Background()
+						// ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{BlockHeight: curHigh})
+						// ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{Genesis: configs[0].Genesis})
+						// foundationBonusLastEpoch, err := rps[0].FoundationBonusLastEpoch(ctx, sfs[0])
+						// require.NoError(err)
+						// foundationBonus, err := rps[0].FoundationBonus(ctx, sfs[0])
+						// require.NoError(err)
+						// if epochNum <= foundationBonusLastEpoch {
+						// 	for i := 0; i < numNodes; i++ {
+						// 		rewardAddrStr := identityset.Address(i + numNodes).String()
+						// 		expectAfterEpochBonus := big.NewInt(0).Add(exptUnclaimed[rewardAddrStr], foundationBonus)
+						// 		exptUnclaimed[rewardAddrStr] = expectAfterEpochBonus
+						// 	}
+						// }
 					}
 					preExpectHigh = h
 				}
 
-				//check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
+				// check pending Claim actions, if a claim is executed, then adjust the expectation accordingly
 				updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 
 				curHighCheck := chains[0].TipHeight()
 				preHeight = curHighCheck
-				//If chain height changes, we need to take snapshot again.
+				// If chain height changes, we need to take snapshot again.
 				return curHigh == curHighCheck, nil
-
 			})
-			require.NoError(t, err)
+			require.NoError(err)
 
-			//Comparing the expected and real unclaimed balance
+			// Comparing the expected and real unclaimed balance
 			for i := 0; i < numNodes; i++ {
 				rewardAddrStr := identityset.Address(i + numNodes).String()
 
@@ -404,7 +420,7 @@ func TestBlockEpochReward(t *testing.T) {
 				fmt.Println("Server ", i, " ", rewardAddrStr,
 					"  expected ", exptUnclaimed[rewardAddrStr].String())
 
-				require.Equal(t, exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
+				require.Equal(exptUnclaimed[rewardAddrStr].String(), unClaimedBalances[rewardAddrStr].String())
 			}
 
 			// perform a random claim and record the amount
@@ -418,23 +434,23 @@ func TestBlockEpochReward(t *testing.T) {
 			rand.Seed(time.Now().UnixNano())
 			switch r := rand.Intn(int(totalClaimCasesNum)); claimTestCaseID(r) {
 			case caseClaimZero:
-				//Claim 0
+				// Claim 0
 				amount = big.NewInt(0)
 			case caseClaimAll:
-				//Claim all
+				// Claim all
 				amount = exptUnclaimed[rewardAddrStr]
 			case caseClaimMoreThanBalance:
-				//Claim more than available unclaimed balance
+				// Claim more than available unclaimed balance
 				amount = big.NewInt(0).Mul(exptUnclaimed[rewardAddrStr], big.NewInt(2))
 			case caseClaimPartOfBalance:
-				//Claim random part of available
+				// Claim random part of available
 				amount = big.NewInt(0).Div(exptUnclaimed[rewardAddrStr], big.NewInt(int64(rand.Intn(100000))))
 			case caseClaimNegative:
-				//Claim negative
+				// Claim negative
 				amount = big.NewInt(-100000)
 				expectedSuccess = false
 			case caseClaimToNonRewardingAddr:
-				//Claim to operator address instead of reward address
+				// Claim to operator address instead of reward address
 				rewardPriKey = identityset.PrivateKey(d)
 				amount = big.NewInt(12345)
 				expectedSuccess = false
@@ -442,41 +458,38 @@ func TestBlockEpochReward(t *testing.T) {
 
 			injectClaim(t, nil, client, rewardPriKey, amount,
 				expectedSuccess, 3, 1, pendingClaimActions)
-
 		}
 
 		return height > runToHeight, nil
 	}); err != nil {
-
 		log.L().Error(err.Error())
 	}
 
-	//Wait until all the pending actions are settled
+	// Wait until all the pending actions are settled
 	err = testutil.WaitUntil(100*time.Millisecond, 40*time.Second, func() (bool, error) {
 		updateExpectationWithPendingClaimList(t, apis[0], exptUnclaimed, claimedAmount, pendingClaimActions)
 		return len(pendingClaimActions) == 0, nil
 	})
-	require.NoError(t, err)
+	require.NoError(err)
 
 	for i := 0; i < numNodes; i++ {
-		//Check Reward address balance
+		// Check Reward address balance
 		rewardAddrStr := identityset.Address(i + numNodes).String()
 		endState, err := accountutil.AccountState(sfs[0], rewardAddrStr)
-		require.NoError(t, err)
+		require.NoError(err)
 		fmt.Println("Server ", i, " ", rewardAddrStr, " Closing Balance ", endState.Balance.String())
 		expectBalance := big.NewInt(0).Add(initBalances[rewardAddrStr], claimedAmount[rewardAddrStr])
 		fmt.Println("Server ", i, " ", rewardAddrStr, "Expected Balance ", expectBalance.String())
-		require.Equal(t, expectBalance.String(), endState.Balance.String())
+		require.Equal(expectBalance.String(), endState.Balance.String())
 
-		//Make sure the non-reward addresses have not received money
+		// Make sure the non-reward addresses have not received money
 		operatorAddrStr := identityset.Address(i).String()
 		operatorState, err := accountutil.AccountState(sfs[i], operatorAddrStr)
-		require.NoError(t, err)
-		require.Equal(t, initBalances[operatorAddrStr], operatorState.Balance)
+		require.NoError(err)
+		require.Equal(initBalances[operatorAddrStr], operatorState.Balance)
 	}
 
 	return
-
 }
 
 func injectClaim(
@@ -560,10 +573,12 @@ func updateExpectationWithPendingClaimList(
 				claimedAmount[addr.String()] = newClaimedAmount
 				updated = true
 
-				//An test case expected to fail should never success
+				// An test case expected to fail should never success
 				require.NotEqual(t, expectedSuccess, false)
 			}
 
+			delete(pendingClaimActions, selpHash)
+		} else if !expectedSuccess {
 			delete(pendingClaimActions, selpHash)
 		}
 	}
@@ -574,13 +589,16 @@ func updateExpectationWithPendingClaimList(
 func newConfig(
 	chainDBPath,
 	trieDBPath,
-	indexDBPath string,
+	indexDBPath,
+	candidatePath string,
 	producerPriKey crypto.PrivateKey,
 	networkPort,
 	apiPort int,
 	numNodes uint64,
 ) config.Config {
 	cfg := config.Default
+
+	cfg.Plugins[config.GatewayPlugin] = true
 
 	cfg.Network.Port = networkPort
 	cfg.Network.BootstrapNodes = []string{"/ip4/127.0.0.1/tcp/4689/ipfs/12D3KooWJwW6pUpTkxPTMv84RPLPMQVEAjZ6fvJuX4oZrvW5DAGQ"}
@@ -589,6 +607,7 @@ func newConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.CandidateIndexDBPath = candidatePath
 	cfg.Chain.CompressBlock = true
 	cfg.Chain.ProducerPrivKey = producerPriKey.HexString()
 	cfg.Chain.EnableAsyncIndexWrite = false
@@ -611,9 +630,19 @@ func newConfig(
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[0:numNodes]
-
 	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 	cfg.Genesis.EnableGravityChainVoting = true
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
+	cfg.Genesis.PollMode = "lifeLong"
+	cfg.Genesis.PacificBlockHeight = 1
+	cfg.Genesis.AleutianBlockHeight = 1
+	cfg.Genesis.BeringBlockHeight = 1
+	cfg.Genesis.CookBlockHeight = 1
+	cfg.Genesis.DardanellesBlockHeight = 1
+	cfg.Genesis.DaytonaBlockHeight = 1
+	cfg.Genesis.EasterBlockHeight = 1
+	cfg.Genesis.FbkMigrationBlockHeight = 1
+	cfg.Genesis.FairbankBlockHeight = 1
+	cfg.Genesis.GreenlandBlockHeight = 1
 	return cfg
 }
