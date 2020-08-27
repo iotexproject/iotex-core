@@ -43,8 +43,8 @@ type (
 		Commit() error
 		// UseBatch
 		UseBatch(batch.KVStoreBatch) error
-		// AddTotalSize
-		AddTotalSize() error
+		// Finalize
+		Finalize() error
 	}
 
 	// countingIndex is CountingIndex implementation based on KVStore
@@ -204,16 +204,16 @@ func (c *countingIndex) UseBatch(b batch.KVStoreBatch) error {
 		return ErrInvalid
 	}
 	c.batch = b
-	c.batch.AddFillPercent(c.bucket, 1.0)
 	return nil
 }
 
-// AddTotalSize updates the total size before committing the (usually common) batch
-func (c *countingIndex) AddTotalSize() error {
+// Finalize updates the total size before committing the (usually common) batch
+func (c *countingIndex) Finalize() error {
 	if c.batch == nil {
 		return ErrInvalid
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	c.batch.AddFillPercent(c.bucket, 1.0)
 	c.batch = nil
 	return nil
 }

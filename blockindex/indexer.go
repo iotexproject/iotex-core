@@ -336,7 +336,7 @@ func (x *blockIndexer) commit() error {
 	var commitErr error
 	for k, v := range x.dirtyAddr {
 		if commitErr == nil {
-			if err := v.AddTotalSize(); err != nil {
+			if err := v.Finalize(); err != nil {
 				commitErr = err
 			}
 		}
@@ -346,10 +346,10 @@ func (x *blockIndexer) commit() error {
 		return commitErr
 	}
 	// total block and total action index
-	if err := x.tbk.AddTotalSize(); err != nil {
+	if err := x.tbk.Finalize(); err != nil {
 		return err
 	}
-	if err := x.tac.AddTotalSize(); err != nil {
+	if err := x.tac.Finalize(); err != nil {
 		return err
 	}
 	return x.kvStore.WriteBatch(x.batch)
