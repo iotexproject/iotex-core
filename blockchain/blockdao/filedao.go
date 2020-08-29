@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -35,9 +36,10 @@ var (
 
 // vars
 var (
-	ErrNotSupported   = errors.New("feature not supported")
-	ErrAlreadyExist   = errors.New("block already exist")
-	ErrDataCorruption = errors.New("data is corrupted")
+	ErrNotSupported     = errors.New("feature not supported")
+	ErrAlreadyExist     = errors.New("block already exist")
+	ErrInvalidTipHeight = errors.New("invalid tip height")
+	ErrDataCorruption   = errors.New("data is corrupted")
 )
 
 type (
@@ -59,7 +61,10 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
-		legacyFd FileDAO
+		lifecycle lifecycle.Lifecycle
+		currFd    FileDAO
+		legacyFd  FileDAO
+		newFd     map[uint64]FileDAONew
 	}
 )
 
@@ -69,7 +74,7 @@ func NewFileDAO(compressBlock bool, cfg config.DB) (FileDAO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return createFileDAO(legacyFd)
+	return createFileDAO(legacyFd, nil)
 }
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
@@ -78,47 +83,120 @@ func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return createFileDAO(legacyFd)
+	return createFileDAO(legacyFd, nil)
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
-	return fd.legacyFd.Start(ctx)
+	return fd.lifecycle.OnStart(ctx)
 }
 
 func (fd *fileDAO) Stop(ctx context.Context) error {
-	return fd.legacyFd.Stop(ctx)
+	return fd.lifecycle.OnStop(ctx)
 }
 
 func (fd *fileDAO) Height() (uint64, error) {
-	return fd.legacyFd.Height()
+	return fd.currFd.Height()
 }
 
 func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
-	return fd.legacyFd.GetBlockHash(height)
+	var (
+		h   hash.Hash256
+		err error
+	)
+	for _, file := range fd.newFd {
+		if h, err = file.GetBlockHash(height); err == nil {
+			return h, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.GetBlockHash(height)
+	}
+	return hash.ZeroHash256, err
 }
 
 func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
-	return fd.legacyFd.GetBlockHeight(hash)
+	var (
+		height uint64
+		err    error
+	)
+	for _, file := range fd.newFd {
+		if height, err = file.GetBlockHeight(hash); err == nil {
+			return height, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.GetBlockHeight(hash)
+	}
+	return 0, err
 }
 
 func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
-	return fd.legacyFd.GetBlock(hash)
+	var (
+		blk *block.Block
+		err error
+	)
+	for _, file := range fd.newFd {
+		if blk, err = file.GetBlock(hash); err == nil {
+			return blk, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.GetBlock(hash)
+	}
+	return nil, err
 }
 
 func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
-	return fd.legacyFd.GetBlockByHeight(height)
+	var (
+		blk *block.Block
+		err error
+	)
+	for _, file := range fd.newFd {
+		if blk, err = file.GetBlockByHeight(height); err == nil {
+			return blk, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.GetBlockByHeight(height)
+	}
+	return nil, err
 }
 
 func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
-	return fd.legacyFd.GetReceipts(height)
+	var (
+		receipts []*action.Receipt
+		err      error
+	)
+	for _, file := range fd.newFd {
+		if receipts, err = file.GetReceipts(height); err == nil {
+			return receipts, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.GetReceipts(height)
+	}
+	return nil, err
 }
 
 func (fd *fileDAO) ContainsTransactionLog() bool {
-	return fd.legacyFd.ContainsTransactionLog()
+	// TODO: change to ContainsTransactionLog(uint64)
+	return fd.currFd.ContainsTransactionLog()
 }
 
 func (fd *fileDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
-	return fd.legacyFd.TransactionLogs(height)
+	var (
+		log *iotextypes.TransactionLogs
+		err error
+	)
+	for _, file := range fd.newFd {
+		if log, err = file.TransactionLogs(height); err == nil {
+			return log, nil
+		}
+	}
+	if fd.legacyFd != nil {
+		return fd.legacyFd.TransactionLogs(height)
+	}
+	return nil, err
 }
 
 func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
@@ -129,15 +207,47 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		return ErrAlreadyExist
 	}
 	// TODO: check if need to split DB
-	return fd.legacyFd.PutBlock(ctx, blk)
+	return fd.currFd.PutBlock(ctx, blk)
 }
 
 func (fd *fileDAO) DeleteTipBlock() error {
-	return fd.legacyFd.DeleteTipBlock()
+	return fd.currFd.DeleteTipBlock()
 }
 
-func createFileDAO(legacy FileDAO) (FileDAO, error) {
-	return &fileDAO{
+func createFileDAO(legacy FileDAO, newFile map[uint64]FileDAONew) (FileDAO, error) {
+	fileDAO := &fileDAO{
 		legacyFd: legacy,
-	}, nil
+		newFd:    newFile,
+	}
+
+	var (
+		tipHeight uint64
+		currFd    FileDAO
+	)
+
+	// find the file with highest start height
+	for start, fd := range newFile {
+		if currFd == nil {
+			currFd = fd
+			tipHeight = start
+		} else {
+			if start > tipHeight {
+				currFd = fd
+				tipHeight = start
+			}
+		}
+		fileDAO.lifecycle.Add(fd)
+	}
+	if legacy != nil {
+		fileDAO.lifecycle.Add(legacy)
+		if currFd == nil {
+			currFd = legacy
+		}
+	}
+
+	if currFd == nil {
+		return nil, errors.New("failed to find valid chain db file")
+	}
+	fileDAO.currFd = currFd
+	return fileDAO, nil
 }

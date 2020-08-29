@@ -386,15 +386,11 @@ func TestBlockDAO(t *testing.T) {
 	daoList := []struct {
 		inMemory, legacy, compressBlock bool
 	}{
-		{
-			true, false, false,
-		},
-		{
-			false, true, false,
-		},
-		{
-			false, true, true,
-		},
+		{true, false, false},
+		{false, true, false},
+		{false, true, true},
+		{false, false, false},
+		{false, false, true},
 	}
 
 	cfg := config.Default.DB
@@ -421,28 +417,32 @@ func TestBlockDAO(t *testing.T) {
 }
 
 func createTestBlockDAO(inMemory, legacy, compressBlock bool, cfg config.DB) (BlockDAO, error) {
-	var dao BlockDAO
 	if inMemory {
-		dao = NewBlockDAOInMemForTest(nil, cfg)
-	} else {
-		var (
-			fileDAO FileDAO
-		)
-		if legacy {
-			file, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
-			if err != nil {
-				return nil, err
-			}
-			fileDAO, err = createFileDAO(file)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// TODO: add new file DAO
-		}
-		dao = createBlockDAO(fileDAO, nil, cfg)
+		return NewBlockDAOInMemForTest(nil, cfg), nil
 	}
-	return dao, nil
+
+	var fileDAO FileDAO
+	if legacy {
+		file, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
+		if err != nil {
+			return nil, err
+		}
+		fileDAO, err = createFileDAO(file, nil)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		cfg.CompressData = compressBlock
+		file, err := newFileDAONew(db.NewBoltDB(cfg), 1, cfg)
+		if err != nil {
+			return nil, err
+		}
+		fileDAO, err = createFileDAO(nil, map[uint64]FileDAONew{1: file})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return createBlockDAO(fileDAO, nil, cfg), nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {
