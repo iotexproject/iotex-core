@@ -2,7 +2,6 @@ package blockdao
 
 import (
 	"context"
-	"encoding/hex"
 	"hash/fnv"
 	"math/big"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,32 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
-
-func TestChecksumNamespaceAndKeys(t *testing.T) {
-	require := require.New(t)
-
-	a := []hash.Hash256{
-		// blockdao
-		hash.BytesToHash256([]byte(blockHashHeightMappingNS)),
-		hash.BytesToHash256([]byte(systemLogNS)),
-		hash.BytesToHash256(topHeightKey),
-		hash.BytesToHash256(topHashKey),
-		hash.BytesToHash256(hashPrefix),
-		// filedao_legacy
-		hash.BytesToHash256([]byte(blockNS)),
-		hash.BytesToHash256([]byte(blockHeaderNS)),
-		hash.BytesToHash256([]byte(blockBodyNS)),
-		hash.BytesToHash256([]byte(blockFooterNS)),
-		hash.BytesToHash256([]byte(receiptsNS)),
-		hash.BytesToHash256(heightPrefix),
-		hash.BytesToHash256(heightToFileBucket),
-	}
-
-	checksum := crypto.NewMerkleTree(a)
-	require.NotNil(checksum)
-	h := checksum.HashTree()
-	require.Equal("3ed359035cea947b14288bc0f581391c63d087e161d82b452e0353375cde2f0d", hex.EncodeToString(h[:]))
-}
 
 func getTestBlocks(t *testing.T) []*block.Block {
 	amount := uint64(50 << 22)
@@ -201,8 +173,7 @@ func TestBlockDAO(t *testing.T) {
 		},
 	}
 
-	testBlockDao := func(kvStore db.KVStore, t *testing.T) {
-		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
+	testBlockDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			context.Background(),
 			protocol.BlockchainCtx{
@@ -307,8 +278,7 @@ func TestBlockDAO(t *testing.T) {
 		}
 	}
 
-	testDeleteDao := func(kvStore db.KVStore, t *testing.T) {
-		dao := NewBlockDAO(kvStore, []BlockIndexer{}, false, config.Default.DB)
+	testDeleteDao := func(dao BlockDAO, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			context.Background(),
 			protocol.BlockchainCtx{
@@ -406,34 +376,73 @@ func TestBlockDAO(t *testing.T) {
 		}
 	}
 
-	t.Run("In-memory KV Store for blocks", func(t *testing.T) {
-		testBlockDao(db.NewMemKVStore(), t)
-	})
-	path := "test-kv-store"
-	testPath, err := testutil.PathOfTempFile(path)
+	testPath, err := testutil.PathOfTempFile("test-kv-store")
 	require.NoError(err)
+	testutil.CleanupPath(t, testPath)
+	defer func() {
+		testutil.CleanupPath(t, testPath)
+	}()
+
+	daoList := []struct {
+		inMemory, legacy, compressBlock bool
+	}{
+		{
+			true, false, false,
+		},
+		{
+			false, true, false,
+		},
+		{
+			false, true, true,
+		},
+	}
 
 	cfg := config.Default.DB
-	t.Run("Bolt DB for blocks", func(t *testing.T) {
+	cfg.DbPath = testPath
+	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
-		defer func() {
-			testutil.CleanupPath(t, testPath)
-		}()
-		cfg.DbPath = testPath
-		testBlockDao(db.NewBoltDB(cfg), t)
-	})
+		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		require.NoError(err)
+		require.NotNil(dao)
+		t.Run("test store blocks", func(t *testing.T) {
+			testBlockDao(dao, t)
+		})
+	}
 
-	t.Run("In-memory KV Store deletions", func(t *testing.T) {
-		testDeleteDao(db.NewMemKVStore(), t)
-	})
-	t.Run("Bolt DB deletions", func(t *testing.T) {
+	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
-		defer func() {
-			testutil.CleanupPath(t, testPath)
-		}()
-		cfg.DbPath = testPath
-		testDeleteDao(db.NewBoltDB(cfg), t)
-	})
+		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
+		require.NoError(err)
+		require.NotNil(dao)
+		t.Run("test delete blocks", func(t *testing.T) {
+			testDeleteDao(dao, t)
+		})
+	}
+}
+
+func createTestBlockDAO(inMemory, legacy, compressBlock bool, cfg config.DB) (BlockDAO, error) {
+	var dao BlockDAO
+	if inMemory {
+		dao = NewBlockDAOInMemForTest(nil, cfg)
+	} else {
+		var (
+			fileDAO FileDAO
+		)
+		if legacy {
+			file, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
+			if err != nil {
+				return nil, err
+			}
+			fileDAO, err = createFileDAO(file)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// TODO: add new file DAO
+		}
+		dao = createBlockDAO(fileDAO, nil, cfg)
+	}
+	return dao, nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -453,11 +462,10 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
-		store := db.NewBoltDB(cfg)
 
 		db := config.Default.DB
 		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO(store, []BlockIndexer{}, false, db)
+		blkDao := NewBlockDAO([]BlockIndexer{}, false, db)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

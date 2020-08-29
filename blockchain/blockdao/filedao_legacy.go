@@ -46,6 +46,8 @@ const (
 var (
 	heightPrefix       = []byte("he.")
 	heightToFileBucket = []byte("h2f")
+	patternLen         = len("00000000.db")
+	suffixLen          = len(".db")
 )
 
 type (

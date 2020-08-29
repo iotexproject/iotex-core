@@ -9,7 +9,6 @@ package blockdao
 import (
 	"context"
 
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
@@ -20,11 +19,25 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/log"
+)
+
+const (
+	blockHashHeightMappingNS = "h2h"
+	systemLogNS              = "syl"
 )
 
 var (
-	// ErrNotSupported indicates not supported
-	ErrNotSupported = errors.New("feature not supported")
+	topHeightKey = []byte("th")
+	topHashKey   = []byte("ts")
+	hashPrefix   = []byte("ha.")
+)
+
+// vars
+var (
+	ErrNotSupported   = errors.New("feature not supported")
+	ErrAlreadyExist   = errors.New("block already exist")
+	ErrDataCorruption = errors.New("data is corrupted")
 )
 
 type (
@@ -51,16 +64,21 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(kvStore db.KVStore, compressBlock bool, cfg config.DB) (FileDAO, error) {
-	legacyFd, err := newFileDAOLegacy(kvStore, compressBlock, cfg)
+func NewFileDAO(compressBlock bool, cfg config.DB) (FileDAO, error) {
+	legacyFd, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
 	if err != nil {
 		return nil, err
 	}
+	return createFileDAO(legacyFd)
+}
 
-	// TODO: create map of new files
-	return &fileDAO{
-		legacyFd: legacyFd,
-	}, nil
+// NewFileDAOInMemForTest creates an in-memory FileDAO for testing
+func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
+	legacyFd, err := newFileDAOLegacy(db.NewMemKVStore(), false, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return createFileDAO(legacyFd)
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
@@ -107,7 +125,7 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
 	if _, err := fd.GetBlockHeight(h); err == nil {
-		log.L().Info("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
+		log.L().Error("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
 		return ErrAlreadyExist
 	}
 	// TODO: check if need to split DB
@@ -116,4 +134,10 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 
 func (fd *fileDAO) DeleteTipBlock() error {
 	return fd.legacyFd.DeleteTipBlock()
+}
+
+func createFileDAO(legacy FileDAO) (FileDAO, error) {
+	return &fileDAO{
+		legacyFd: legacy,
+	}, nil
 }
