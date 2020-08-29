@@ -1,6 +1,10 @@
 package blockdao
 
 import (
+	"github.com/pkg/errors"
+
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -8,7 +12,40 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-func (fd *fileDAONew) putTipHashHeightMapping(blk *block.Block) error {
+func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
+	buffer := newStagingBuffer(blockStoreBatchSize)
+	blockStoreTip := fd.highestBlockOfStoreTip()
+	for i := uint64(0); i < blockStoreBatchSize; i++ {
+		v, err := fd.kvStore.Get(stagingDataNS, byteutil.Uint64ToBytesBigEndian(i))
+		if err != nil {
+			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
+				break
+			}
+			return nil, err
+		}
+
+		v, err = decompressDatabytes(v)
+		if err != nil {
+			return nil, err
+		}
+		info := &block.Store{}
+		if err := info.Deserialize(v); err != nil {
+			return nil, err
+		}
+
+		// populate to staging buffer, if the block is in latest round
+		height := info.Block.Height()
+		if height > blockStoreTip {
+			buffer.Put(stagingKey(height, fd.bottomHeight), info)
+			fd.tipHeight = height
+		} else {
+			break
+		}
+	}
+	return buffer, nil
+}
+
+func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 	// write height <-> hash mapping
 	h := blk.HashBlock()
 	if err := addOneEntryToBatch(fd.hashStore, h[:], fd.batch); err != nil {
@@ -27,7 +64,7 @@ func (fd *fileDAONew) putTipHashHeightMapping(blk *block.Block) error {
 	return nil
 }
 
-func (fd *fileDAONew) putBlock(blk *block.Block) error {
+func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 	blkInfo := &block.Store{
 		Block:    blk,
 		Receipts: blk.Receipts,
@@ -36,15 +73,33 @@ func (fd *fileDAONew) putBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-
 	blkBytes, err := compressDatabytes(ser, fd.compressBlock)
 	if err != nil {
+		return err
+	}
+
+	// add to staging buffer
+	index := stagingKey(blk.Height(), fd.bottomHeight)
+	full, err := fd.blkBuffer.Put(index, blkInfo)
+	if err != nil {
+		return err
+	}
+	if !full {
+		fd.batch.Put(stagingDataNS, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
+		return nil
+	}
+
+	// pack blockStoreBatchSize blocks together, write to block store
+	if ser, err = fd.blkBuffer.Serialize(); err != nil {
+		return err
+	}
+	if blkBytes, err = compressDatabytes(ser, fd.compressBlock); err != nil {
 		return err
 	}
 	return addOneEntryToBatch(fd.blkStore, blkBytes, fd.batch)
 }
 
-func (fd *fileDAONew) putTransactionLog(blk *block.Block) error {
+func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
 	compressData := fd.compressBlock
 	sysLog := blk.TransactionLog()
 	if sysLog == nil {
@@ -79,7 +134,7 @@ func compressDatabytes(value []byte, comp bool) ([]byte, error) {
 	}
 
 	var err error
-	value, err = compress.Compress(value)
+	value, err = compress.CompV2(value)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +151,7 @@ func decompressDatabytes(value []byte) ([]byte, error) {
 	case _normal:
 		return value[:len(value)-1], nil
 	case _compressed:
-		return compress.Decompress(value[:len(value)-1])
+		return compress.DecompV2(value[:len(value)-1])
 	default:
 		return nil, ErrDataCorruption
 	}
@@ -113,19 +168,54 @@ func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error)
 	return value, nil
 }
 
+// blockStoreKey is the slot of block in block storage (each item containing blockStorageBatchSize of blocks)
 func blockStoreKey(height, start uint64) uint64 {
 	if height <= start {
 		return 0
 	}
-	return height - start
+	return (height - start) / blockStoreBatchSize
 }
 
-func (fd *fileDAONew) getBlockInfo(height uint64) (*block.Store, error) {
+// stagingKey is the position of block in the staging buffer
+func stagingKey(height, start uint64) uint64 {
+	return (height - start) % blockStoreBatchSize
+}
+
+// lowestBlockOfStoreTip is the lowest height of the tip of block storage
+// used in DeleteTipBlock(), once new tip height drops below this, the tip of block storage can be deleted
+func (fd *fileDAOv2) lowestBlockOfStoreTip() uint64 {
+	if fd.blkStore.Size() == 0 {
+		return 0
+	}
+	return fd.bottomHeight + (fd.blkStore.Size()-1)*blockStoreBatchSize
+}
+
+// highestBlockOfStoreTip is the highest height of the tip of block storage
+func (fd *fileDAOv2) highestBlockOfStoreTip() uint64 {
+	if fd.blkStore.Size() == 0 {
+		return fd.bottomHeight - 1
+	}
+	return fd.bottomHeight + fd.blkStore.Size()*blockStoreBatchSize - 1
+}
+
+func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, db.ErrNotExist
 	}
 
-	value, err := fd.blkStore.Get(blockStoreKey(height, fd.bottomHeight))
+	// check whether block in staging buffer or not
+	storeKey := blockStoreKey(height, fd.bottomHeight)
+	if storeKey >= fd.blkStore.Size() {
+		return fd.blkBuffer.Get(stagingKey(height, fd.bottomHeight))
+	}
+
+	// check whether block in read cache or not
+	if value, ok := fd.blkCache.Get(storeKey); ok {
+		pbInfos := value.(*iotextypes.BlockStores)
+		return extractBlockStore(pbInfos, stagingKey(height, fd.bottomHeight))
+	}
+
+	value, err := fd.blkStore.Get(storeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -133,13 +223,24 @@ func (fd *fileDAONew) getBlockInfo(height uint64) (*block.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return extractBlockInfoFromBytes(value)
-}
-
-func extractBlockInfoFromBytes(buf []byte) (*block.Store, error) {
-	blkInfo := &block.Store{}
-	if err := blkInfo.Deserialize(buf); err != nil {
+	pbInfos, err := block.DeserializeBlockStoresPb(value)
+	if err != nil {
 		return nil, err
 	}
-	return blkInfo, nil
+
+	// add to read cache
+	fd.blkCache.Add(storeKey, pbInfos)
+	return extractBlockStore(pbInfos, stagingKey(height, fd.bottomHeight))
+}
+
+func extractBlockStore(pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
+	if len(pbStores.BlockStores) != blockStoreBatchSize {
+		return nil, ErrDataCorruption
+	}
+
+	info := &block.Store{}
+	if err := info.FromProto(pbStores.BlockStores[height]); err != nil {
+		return nil, err
+	}
+	return info, nil
 }

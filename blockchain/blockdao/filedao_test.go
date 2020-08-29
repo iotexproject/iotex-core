@@ -17,7 +17,7 @@ import (
 )
 
 func TestChecksumNamespaceAndKeys(t *testing.T) {
-	require := require.New(t)
+	r := require.New(t)
 
 	a := []hash.Hash256{
 		// filedao
@@ -34,16 +34,18 @@ func TestChecksumNamespaceAndKeys(t *testing.T) {
 		hash.BytesToHash256([]byte(receiptsNS)),
 		hash.BytesToHash256(heightPrefix),
 		hash.BytesToHash256(heightToFileBucket),
-		// filedao_new
+		// filedao_v2
 		hash.BytesToHash256([]byte{_normal}),
 		hash.BytesToHash256([]byte{_compressed}),
+		hash.BytesToHash256([]byte{blockStoreBatchSize}),
 		hash.BytesToHash256([]byte(hashDataNS)),
 		hash.BytesToHash256([]byte(blockDataNS)),
+		hash.BytesToHash256([]byte(stagingDataNS)),
 		hash.BytesToHash256(bottomHeightKey),
 	}
 
 	checksum := crypto.NewMerkleTree(a)
-	require.NotNil(checksum)
+	r.NotNil(checksum)
 	h := checksum.HashTree()
-	require.Equal("1cc352fff5fc29d8ac7dcc186cce7b9e7d87c41ceeba41993b96b8a9566facaa", hex.EncodeToString(h[:]))
+	r.Equal("f584356aa8ad1da8cb803162f06c96ff04e4478ad8f4a2667d44cee3e79f9d94", hex.EncodeToString(h[:]))
 }

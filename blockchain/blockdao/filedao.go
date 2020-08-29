@@ -64,7 +64,7 @@ type (
 		lifecycle lifecycle.Lifecycle
 		currFd    FileDAO
 		legacyFd  FileDAO
-		newFd     map[uint64]FileDAONew
+		v2Fd      map[uint64]FileDAO
 	}
 )
 
@@ -103,7 +103,7 @@ func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 		h   hash.Hash256
 		err error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if h, err = file.GetBlockHash(height); err == nil {
 			return h, nil
 		}
@@ -119,7 +119,7 @@ func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 		height uint64
 		err    error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if height, err = file.GetBlockHeight(hash); err == nil {
 			return height, nil
 		}
@@ -135,7 +135,7 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 		blk *block.Block
 		err error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if blk, err = file.GetBlock(hash); err == nil {
 			return blk, nil
 		}
@@ -151,7 +151,7 @@ func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
 		blk *block.Block
 		err error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if blk, err = file.GetBlockByHeight(height); err == nil {
 			return blk, nil
 		}
@@ -167,7 +167,7 @@ func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
 		receipts []*action.Receipt
 		err      error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if receipts, err = file.GetReceipts(height); err == nil {
 			return receipts, nil
 		}
@@ -188,7 +188,7 @@ func (fd *fileDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, 
 		log *iotextypes.TransactionLogs
 		err error
 	)
-	for _, file := range fd.newFd {
+	for _, file := range fd.v2Fd {
 		if log, err = file.TransactionLogs(height); err == nil {
 			return log, nil
 		}
@@ -214,10 +214,10 @@ func (fd *fileDAO) DeleteTipBlock() error {
 	return fd.currFd.DeleteTipBlock()
 }
 
-func createFileDAO(legacy FileDAO, newFile map[uint64]FileDAONew) (FileDAO, error) {
+func createFileDAO(legacy FileDAO, newFile map[uint64]FileDAO) (FileDAO, error) {
 	fileDAO := &fileDAO{
 		legacyFd: legacy,
-		newFd:    newFile,
+		v2Fd:     newFile,
 	}
 
 	var (

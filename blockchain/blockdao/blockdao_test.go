@@ -433,11 +433,11 @@ func createTestBlockDAO(inMemory, legacy, compressBlock bool, cfg config.DB) (Bl
 		}
 	} else {
 		cfg.CompressData = compressBlock
-		file, err := newFileDAONew(db.NewBoltDB(cfg), 1, cfg)
+		file, err := newFileDAOv2(db.NewBoltDB(cfg), 1, cfg)
 		if err != nil {
 			return nil, err
 		}
-		fileDAO, err = createFileDAO(nil, map[uint64]FileDAONew{1: file})
+		fileDAO, err = createFileDAO(nil, map[uint64]FileDAO{1: file})
 		if err != nil {
 			return nil, err
 		}

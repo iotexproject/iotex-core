@@ -10,6 +10,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"io/ioutil"
+
+	"github.com/golang/snappy"
 )
 
 // Compress uses gzip to compress the input bytes
@@ -37,4 +39,18 @@ func Decompress(data []byte) ([]byte, error) {
 	}
 	r.Close()
 	return ioutil.ReadAll(r)
+}
+
+// CompV2 uses Snappy to compress the input bytes
+func CompV2(data []byte) ([]byte, error) {
+	return snappy.Encode(nil, data), nil
+}
+
+// DecompV2 uses Snappy to decompress the input bytes
+func DecompV2(data []byte) ([]byte, error) {
+	v, err := snappy.Decode(nil, data)
+	if len(v) == 0 {
+		v = []byte{}
+	}
+	return v, err
 }

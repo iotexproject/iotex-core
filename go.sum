@@ -182,8 +182,8 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.4.0/go.mod h1:gN2/O/8/Up1Aqocrnte
 github.com/iotexproject/iotex-election v0.3.4 h1:DT9o12PZsLbM9S4fEgAvQu0/44tW7fryj2N4z3cz2ts=
 github.com/iotexproject/iotex-election v0.3.4/go.mod h1:3qlM/RJKcwcPiTAtorMVHDv4muw3H5PKIzpRa5qqC2E=
 github.com/iotexproject/iotex-proto v0.4.0/go.mod h1:SttnbjoUJKHuKtDxCDJ5ewziAY4XrMPE2wo++Xod4b0=
-github.com/iotexproject/iotex-proto v0.4.4-0.20200911203240-cd4805ad9b45 h1:2dcCX5pAlFif8Z6Su3NMguUzfG2QDFQ05nAuCirSM2k=
-github.com/iotexproject/iotex-proto v0.4.4-0.20200911203240-cd4805ad9b45/go.mod h1:VamfHxZ58AbpWJumRIE/u9tt/TouIlDkzk0dazVKKRY=
+github.com/iotexproject/iotex-proto v0.4.4-0.20200917180526-08c6eb18e59c h1:e5mHPvy/wMygCpJKZ7hMsc8XwXYc41bfbNjpRdJTy0Y=
+github.com/iotexproject/iotex-proto v0.4.4-0.20200917180526-08c6eb18e59c/go.mod h1:VamfHxZ58AbpWJumRIE/u9tt/TouIlDkzk0dazVKKRY=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=

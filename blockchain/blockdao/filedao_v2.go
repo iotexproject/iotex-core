@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
@@ -23,14 +24,16 @@ import (
 )
 
 const (
-	_normal     = 0
-	_compressed = 1
+	_normal             = 0
+	_compressed         = 1
+	blockStoreBatchSize = 16
 )
 
-// namespace for hash, block, receipt storage
+// namespace for hash, block, and staging storage
 const (
-	hashDataNS  = "hsh"
-	blockDataNS = "bdn"
+	hashDataNS    = "hsh"
+	blockDataNS   = "bdn"
+	stagingDataNS = "stg"
 )
 
 var (
@@ -38,80 +41,83 @@ var (
 )
 
 type (
-	// FileDAONew has extra methods for chain db file after file split activation at Ithaca height
-	FileDAONew interface {
-		FileDAO
-		Bottom() (uint64, error)
-		ContainsHeight(uint64) bool
-	}
-
-	fileDAONew struct {
+	fileDAOv2 struct {
 		compressBlock bool
 		bottomHeight  uint64 // height of first block in this DB file
 		tipHeight     uint64
 		cfg           config.DB
+		blkBuffer     *stagingBuffer
+		blkCache      *cache.ThreadSafeLruCache
 		kvStore       db.KVStore
 		batch         batch.KVStoreBatch
 		hashStore     db.CountingIndex // store block hash
 		blkStore      db.CountingIndex // store raw blocks
-		sysStore      db.CountingIndex // store system log
+		sysStore      db.CountingIndex // store transaction log
 	}
 )
 
-func newFileDAONew(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAONew, error) {
+// newFileDAOv2 creates a new v2 file
+func newFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
 
-	fd := fileDAONew{
+	fd := fileDAOv2{
 		compressBlock: cfg.CompressData,
 		bottomHeight:  bottom,
+		tipHeight:     bottom - 1,
 		cfg:           cfg,
+		blkCache:      cache.NewThreadSafeLruCache(16),
 		kvStore:       kvStore,
 		batch:         batch.NewBatch(),
-	}
-
-	// write the bottom height
-	ctx := context.Background()
-	if err := fd.kvStore.Start(ctx); err != nil {
-		return nil, err
-	}
-
-	if _, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, bottomHeightKey); err != nil {
-		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
-			return nil, err
-		}
-		// set start and tip height
-		fd.bottomHeight = bottom
-		fd.tipHeight = bottom - 1
-		fd.kvStore.Put(blockHashHeightMappingNS, bottomHeightKey, byteutil.Uint64ToBytesBigEndian(bottom))
-		fd.kvStore.Put(blockHashHeightMappingNS, topHeightKey, byteutil.Uint64ToBytesBigEndian(fd.tipHeight))
-	}
-
-	if err := fd.kvStore.Stop(ctx); err != nil {
-		return nil, err
 	}
 	return &fd, nil
 }
 
-func (fd *fileDAONew) Start(ctx context.Context) error {
+// openFileDAOv2 opens an existing v2 file
+func openFileDAOv2(kvStore db.KVStore, cfg config.DB) (FileDAO, error) {
+	fd := fileDAOv2{
+		compressBlock: cfg.CompressData,
+		cfg:           cfg,
+		blkCache:      cache.NewThreadSafeLruCache(16),
+		kvStore:       kvStore,
+		batch:         batch.NewBatch(),
+	}
+	return &fd, nil
+}
+
+func (fd *fileDAOv2) Start(ctx context.Context) error {
 	if err := fd.kvStore.Start(ctx); err != nil {
 		return err
 	}
 
-	// check bottom height
+	// check start height
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, bottomHeightKey)
 	if err != nil {
-		return errors.Wrap(err, "failed to get bottom height")
+		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
+			return errors.Wrap(err, "failed to get bottom height")
+		}
+		// set start height
+		if err = fd.kvStore.Put(blockHashHeightMappingNS, bottomHeightKey, byteutil.Uint64ToBytesBigEndian(fd.bottomHeight)); err != nil {
+			return err
+		}
+	} else {
+		fd.bottomHeight = byteutil.BytesToUint64BigEndian(value)
 	}
-	fd.bottomHeight = byteutil.BytesToUint64BigEndian(value)
 
 	// check tip height
 	value, err = getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, topHeightKey)
 	if err != nil {
-		return errors.Wrap(err, "failed to get tip height")
+		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
+			return errors.Wrap(err, "failed to get tip height")
+		}
+		// set tip height
+		if err = fd.kvStore.Put(blockHashHeightMappingNS, topHeightKey, byteutil.Uint64ToBytesBigEndian(fd.tipHeight)); err != nil {
+			return err
+		}
+	} else {
+		fd.tipHeight = byteutil.BytesToUint64BigEndian(value)
 	}
-	fd.tipHeight = byteutil.BytesToUint64BigEndian(value)
 
 	// create counting index for hash, blk, and transaction log
 	if fd.hashStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(hashDataNS)); err != nil {
@@ -123,14 +129,19 @@ func (fd *fileDAONew) Start(ctx context.Context) error {
 	if fd.sysStore, err = db.NewCountingIndexNX(fd.kvStore, []byte(systemLogNS)); err != nil {
 		return err
 	}
+
+	// populate staging buffer
+	if fd.blkBuffer, err = fd.populateStagingBuffer(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (fd *fileDAONew) Stop(ctx context.Context) error {
+func (fd *fileDAOv2) Stop(ctx context.Context) error {
 	return fd.kvStore.Stop(ctx)
 }
 
-func (fd *fileDAONew) Height() (uint64, error) {
+func (fd *fileDAOv2) Height() (uint64, error) {
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
@@ -138,15 +149,15 @@ func (fd *fileDAONew) Height() (uint64, error) {
 	return byteutil.BytesToUint64BigEndian(value), nil
 }
 
-func (fd *fileDAONew) Bottom() (uint64, error) {
+func (fd *fileDAOv2) Bottom() (uint64, error) {
 	return fd.bottomHeight, nil
 }
 
-func (fd *fileDAONew) ContainsHeight(height uint64) bool {
+func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
 	return fd.bottomHeight <= height && height <= fd.tipHeight
 }
 
-func (fd *fileDAONew) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if height == fd.bottomHeight-1 {
 		return hash.ZeroHash256, nil
 	}
@@ -160,7 +171,7 @@ func (fd *fileDAONew) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return hash.BytesToHash256(h), nil
 }
 
-func (fd *fileDAONew) GetBlockHeight(h hash.Hash256) (uint64, error) {
+func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
@@ -168,7 +179,7 @@ func (fd *fileDAONew) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	return byteutil.BytesToUint64BigEndian(value), nil
 }
 
-func (fd *fileDAONew) GetBlock(h hash.Hash256) (*block.Block, error) {
+func (fd *fileDAOv2) GetBlock(h hash.Hash256) (*block.Block, error) {
 	height, err := fd.GetBlockHeight(h)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block")
@@ -176,27 +187,27 @@ func (fd *fileDAONew) GetBlock(h hash.Hash256) (*block.Block, error) {
 	return fd.GetBlockByHeight(height)
 }
 
-func (fd *fileDAONew) GetBlockByHeight(height uint64) (*block.Block, error) {
-	blkInfo, err := fd.getBlockInfo(height)
+func (fd *fileDAOv2) GetBlockByHeight(height uint64) (*block.Block, error) {
+	blkInfo, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block at height %d", height)
 	}
 	return blkInfo.Block, nil
 }
 
-func (fd *fileDAONew) GetReceipts(height uint64) ([]*action.Receipt, error) {
-	blkInfo, err := fd.getBlockInfo(height)
+func (fd *fileDAOv2) GetReceipts(height uint64) ([]*action.Receipt, error) {
+	blkInfo, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts at height %d", height)
 	}
 	return blkInfo.Receipts, nil
 }
 
-func (fd *fileDAONew) ContainsTransactionLog() bool {
+func (fd *fileDAOv2) ContainsTransactionLog() bool {
 	return true
 }
 
-func (fd *fileDAONew) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
+func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
 	if !fd.ContainsHeight(height) {
 		return nil, ErrNotSupported
 	}
@@ -212,7 +223,7 @@ func (fd *fileDAONew) TransactionLogs(height uint64) (*iotextypes.TransactionLog
 	return block.DeserializeSystemLogPb(value)
 }
 
-func (fd *fileDAONew) PutBlock(_ context.Context, blk *block.Block) error {
+func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if blk.Height() != fd.tipHeight+1 {
 		return ErrInvalidTipHeight
 	}
@@ -239,7 +250,7 @@ func (fd *fileDAONew) PutBlock(_ context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (fd *fileDAONew) DeleteTipBlock() error {
+func (fd *fileDAOv2) DeleteTipBlock() error {
 	height, err := fd.Height()
 	if err != nil {
 		return err
@@ -254,8 +265,11 @@ func (fd *fileDAONew) DeleteTipBlock() error {
 	if err := fd.hashStore.Revert(1); err != nil {
 		return err
 	}
-	if err := fd.blkStore.Revert(1); err != nil {
-		return err
+	// delete tip of block storage, if new tip height < lowest block stored in it
+	if height-1 < fd.lowestBlockOfStoreTip() {
+		if err := fd.blkStore.Revert(1); err != nil {
+			return err
+		}
 	}
 	// delete transaction log
 	if err := fd.sysStore.Revert(1); err != nil {

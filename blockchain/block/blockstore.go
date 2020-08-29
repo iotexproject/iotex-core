@@ -9,14 +9,13 @@ package block
 import (
 	"github.com/golang/protobuf/proto"
 
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 )
 
 type (
-	// Store defines block and receipts
+	// Store defines block storage schema
 	Store struct {
 		Block    *Block
 		Receipts []*action.Receipt
@@ -29,19 +28,19 @@ func (in *Store) Serialize() ([]byte, error) {
 }
 
 // ToProto converts to proto message
-func (in *Store) ToProto() *iotexapi.BlockInfo {
+func (in *Store) ToProto() *iotextypes.BlockStore {
 	receipts := []*iotextypes.Receipt{}
 	for _, r := range in.Receipts {
 		receipts = append(receipts, r.ConvertToReceiptPb())
 	}
-	return &iotexapi.BlockInfo{
+	return &iotextypes.BlockStore{
 		Block:    in.Block.ConvertToBlockPb(),
 		Receipts: receipts,
 	}
 }
 
 // FromProto converts from proto message
-func (in *Store) FromProto(pb *iotexapi.BlockInfo) error {
+func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
 	in.Block = &Block{}
 	if err := in.Block.ConvertFromBlockPb(pb.Block); err != nil {
 		return err
@@ -62,9 +61,18 @@ func (in *Store) FromProto(pb *iotexapi.BlockInfo) error {
 
 // Deserialize parses the byte stream into Store
 func (in *Store) Deserialize(buf []byte) error {
-	pbInfo := &iotexapi.BlockInfo{}
-	if err := proto.Unmarshal(buf, pbInfo); err != nil {
+	pbStore := &iotextypes.BlockStore{}
+	if err := proto.Unmarshal(buf, pbStore); err != nil {
 		return err
 	}
-	return in.FromProto(pbInfo)
+	return in.FromProto(pbStore)
+}
+
+// DeserializeBlockStoresPb decode byte stream into BlockStores pb message
+func DeserializeBlockStoresPb(buf []byte) (*iotextypes.BlockStores, error) {
+	pbStores := &iotextypes.BlockStores{}
+	if err := proto.Unmarshal(buf, pbStores); err != nil {
+		return nil, err
+	}
+	return pbStores, nil
 }
