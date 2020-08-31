@@ -1126,7 +1126,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1138,17 +1138,13 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	if len(blk.Actions) == 0 {
-		return &iotexapi.GetActionsResponse{}, nil
-	}
 	if start >= uint64(len(blk.Actions)) {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	res := api.actionsInBlock(blk, start, count)
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(blk.Actions)),
-		ActionInfo: res,
+		ActionInfo: api.actionsInBlock(blk, start, count),
 	}, nil
 }
 
@@ -1390,13 +1386,26 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 }
 
 func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
+	var res []*iotexapi.ActionInfo
+	if len(blk.Actions) == 0 || start >= uint64(len(blk.Actions)) {
+		return res
+	}
+
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
-	var res []*iotexapi.ActionInfo
-	for i := start; i < uint64(len(blk.Actions)) && i < start+count; i++ {
+	lastAction := start + count
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
+		if lastAction >= uint64(len(blk.Actions)) {
+			lastAction = uint64(len(blk.Actions))
+		}
+	}
+	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
 		actHash := selp.Hash()
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
