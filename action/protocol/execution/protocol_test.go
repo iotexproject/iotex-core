@@ -596,6 +596,11 @@ func TestProtocol_Handle(t *testing.T) {
 		contract, err := address.FromString(r.ContractAddress)
 		require.NoError(err)
 
+		// test IsContract
+		state, err := accountutil.AccountState(sf, contract.String())
+		require.NoError(err)
+		require.True(state.IsContract())
+
 		c, err := readCode(sf, contract.Bytes())
 		require.NoError(err)
 		require.Equal(data[31:], c)
