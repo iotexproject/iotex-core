@@ -191,6 +191,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
+		IsContract:   state.IsContract(),
 	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
