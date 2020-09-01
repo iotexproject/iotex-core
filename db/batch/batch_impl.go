@@ -17,6 +17,7 @@ type (
 	// baseKVStoreBatch is the base implementation of KVStoreBatch
 	baseKVStoreBatch struct {
 		mutex      sync.RWMutex
+		fillLock   sync.RWMutex
 		writeQueue []*WriteInfo
 		fill       map[string]float64
 	}
@@ -57,6 +58,12 @@ func (b *baseKVStoreBatch) Unlock() {
 func (b *baseKVStoreBatch) ClearAndUnlock() {
 	defer b.mutex.Unlock()
 	b.writeQueue = nil
+
+	b.fillLock.Lock()
+	defer b.fillLock.Unlock()
+	for k := range b.fill {
+		delete(b.fill, k)
+	}
 }
 
 // Put inserts a <key, value> record
@@ -110,6 +117,12 @@ func (b *baseKVStoreBatch) Clear() {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.writeQueue = nil
+
+	b.fillLock.Lock()
+	defer b.fillLock.Unlock()
+	for k := range b.fill {
+		delete(b.fill, k)
+	}
 }
 
 func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
@@ -137,13 +150,15 @@ func (b *baseKVStoreBatch) Translate(wit WriteInfoTranslate) KVStoreBatch {
 }
 
 func (b *baseKVStoreBatch) CheckFillPercent(ns string) (float64, bool) {
+	b.fillLock.RLock()
+	defer b.fillLock.RUnlock()
 	p, ok := b.fill[ns]
 	return p, ok
 }
 
 func (b *baseKVStoreBatch) AddFillPercent(ns string, percent float64) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
+	b.fillLock.Lock()
+	defer b.fillLock.Unlock()
 	b.fill[ns] = percent
 }
 
