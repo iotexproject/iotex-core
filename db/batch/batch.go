@@ -51,6 +51,10 @@ type (
 		Clear()
 		// Translate clones the batch
 		Translate(WriteInfoTranslate) KVStoreBatch
+		// CheckFillPercent
+		CheckFillPercent(string) (float64, bool)
+		// AddFillPercent
+		AddFillPercent(string, float64)
 	}
 
 	// CachedBatch derives from Batch interface

@@ -172,6 +172,33 @@ func (mr *MockKVStoreBatchMockRecorder) Translate(arg0 interface{}) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Translate", reflect.TypeOf((*MockKVStoreBatch)(nil).Translate), arg0)
 }
 
+// CheckFillPercent mocks base method
+func (m *MockKVStoreBatch) CheckFillPercent(arg0 string) (float64, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckFillPercent", arg0)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// CheckFillPercent indicates an expected call of CheckFillPercent
+func (mr *MockKVStoreBatchMockRecorder) CheckFillPercent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckFillPercent", reflect.TypeOf((*MockKVStoreBatch)(nil).CheckFillPercent), arg0)
+}
+
+// AddFillPercent mocks base method
+func (m *MockKVStoreBatch) AddFillPercent(arg0 string, arg1 float64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddFillPercent", arg0, arg1)
+}
+
+// AddFillPercent indicates an expected call of AddFillPercent
+func (mr *MockKVStoreBatchMockRecorder) AddFillPercent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFillPercent", reflect.TypeOf((*MockKVStoreBatch)(nil).AddFillPercent), arg0, arg1)
+}
+
 // MockCachedBatch is a mock of CachedBatch interface
 type MockCachedBatch struct {
 	ctrl     *gomock.Controller
@@ -332,6 +359,33 @@ func (m *MockCachedBatch) Translate(arg0 batch.WriteInfoTranslate) batch.KVStore
 func (mr *MockCachedBatchMockRecorder) Translate(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Translate", reflect.TypeOf((*MockCachedBatch)(nil).Translate), arg0)
+}
+
+// CheckFillPercent mocks base method
+func (m *MockCachedBatch) CheckFillPercent(arg0 string) (float64, bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckFillPercent", arg0)
+	ret0, _ := ret[0].(float64)
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// CheckFillPercent indicates an expected call of CheckFillPercent
+func (mr *MockCachedBatchMockRecorder) CheckFillPercent(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckFillPercent", reflect.TypeOf((*MockCachedBatch)(nil).CheckFillPercent), arg0)
+}
+
+// AddFillPercent mocks base method
+func (m *MockCachedBatch) AddFillPercent(arg0 string, arg1 float64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "AddFillPercent", arg0, arg1)
+}
+
+// AddFillPercent indicates an expected call of AddFillPercent
+func (mr *MockCachedBatchMockRecorder) AddFillPercent(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddFillPercent", reflect.TypeOf((*MockCachedBatch)(nil).AddFillPercent), arg0, arg1)
 }
 
 // Get mocks base method
