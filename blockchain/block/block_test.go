@@ -114,12 +114,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	var newblk Block
 	err = newblk.Deserialize(raw)
 	require.NoError(t, err)
-
-	require.Equal(t, uint64(123456789), newblk.Header.height)
-	require.Equal(t, uint64(101), newblk.Actions[0].Nonce())
-	require.Equal(t, uint64(102), newblk.Actions[1].Nonce())
-	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
-	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
+	require.Equal(t, blk, newblk)
 }
 
 func TestBlockCompressionSize(t *testing.T) {

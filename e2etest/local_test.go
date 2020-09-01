@@ -30,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -549,7 +548,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.Chain.CompressBlock, cfg.DB)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
@@ -572,7 +571,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	dao = blockdao.NewBlockDAO(nil, cfg.Chain.CompressBlock, cfg.DB)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
