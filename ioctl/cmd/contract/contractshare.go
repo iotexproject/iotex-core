@@ -191,7 +191,6 @@ func share(args []string) error {
 			case "list":
 				payload := make(map[string]bool)
 				for _, ele := range fileList {
-					//log.Println(givenPath + "/" + ele)
 					payload[ele] = isReadOnly(givenPath + "/" + ele)
 				}
 				response.Payload = payload
