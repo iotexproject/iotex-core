@@ -183,15 +183,13 @@ func New(
 	}
 
 	// create BlockDAO
-	var kvStore db.KVStore
+	var dao blockdao.BlockDAO
 	if ops.isTesting {
-		kvStore = db.NewMemKVStore()
+		dao = blockdao.NewBlockDAOInMemForTest(indexers, cfg.DB)
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvStore = db.NewBoltDB(cfg.DB)
+		dao = blockdao.NewBlockDAO(indexers, cfg.Chain.CompressBlock, cfg.DB)
 	}
-	var dao blockdao.BlockDAO
-	dao = blockdao.NewBlockDAO(kvStore, indexers, cfg.Chain.CompressBlock, cfg.DB)
 
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)

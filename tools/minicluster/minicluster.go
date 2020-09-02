@@ -123,9 +123,6 @@ func main() {
 		svrs[i] = svr
 	}
 	defer func() {
-		for _, svr := range svrs {
-			svr.ChainService(uint32(1)).Stop(context.Background())
-		}
 		if !deleteDBFiles {
 			return
 		}
@@ -140,7 +137,9 @@ func main() {
 
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
-		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go itx.StartServer(ctx, svrs[i], probeSvr, configs[i])
 	}
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
@@ -152,6 +151,7 @@ func main() {
 	if err != nil {
 		log.L().Error("Failed to connect to API server.")
 	}
+	defer conn.Close()
 
 	client := iotexapi.NewAPIServiceClient(conn)
 

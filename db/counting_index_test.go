@@ -17,6 +17,7 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -77,13 +78,19 @@ func TestCountingIndex(t *testing.T) {
 			require.NoError(index.Add(h[:], false))
 		}
 		require.EqualValues(250, index.Size())
+
 		// use external batch
-		require.NoError(index.UseBatch(batch.NewBatch()))
+		require.Equal(ErrInvalid, index.Finalize())
+		b := batch.NewBatch()
+		require.NoError(index.UseBatch(b))
 		for i := 250; i < 300; i++ {
 			h := hash.Hash160b([]byte(strconv.Itoa(i)))
 			require.NoError(index.Add(h[:], true))
 		}
-		require.NoError(index.Commit())
+		require.NoError(index.Finalize())
+		cIndex, ok := index.(*countingIndex)
+		require.True(ok)
+		require.NoError(cIndex.kvStore.WriteBatch(b))
 		require.EqualValues(300, index.Size())
 
 		_, err = index.Range(248, 0)
@@ -142,19 +149,22 @@ func TestCountingIndex(t *testing.T) {
 		}
 	}
 
-	t.Run("in-mem KVStore", func(t *testing.T) {
-		testFunc(NewMemKVStore(), t)
-	})
-
-	path := "test-iterate.bolt"
+	path := "test-counting.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testFunc(NewBoltDB(cfg), t)
-	})
+
+	for _, v := range []KVStore{
+		NewMemKVStore(),
+		NewBoltDB(cfg),
+	} {
+		t.Run("test counting index", func(t *testing.T) {
+			testFunc(v, t)
+		})
+	}
 }
 
 const (
@@ -191,6 +201,7 @@ func TestBulk(t *testing.T) {
 		}
 	}
 
+	cfg := config.Default.DB
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -230,6 +241,7 @@ func TestCheckBulk(t *testing.T) {
 		}
 	}
 
+	cfg := config.Default.DB
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
 		defer testutil.CleanupPath(t, cfg.DbPath)

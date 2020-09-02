@@ -129,6 +129,7 @@ func rename(oldPath string, newPath string, c chan bool) {
 	}
 	c <- true
 }
+
 func share(args []string) error {
 	givenPath = args[0]
 	if len(givenPath) == 0 {
@@ -180,6 +181,7 @@ func share(args []string) error {
 			response.Key = request.Key
 
 			switch request.Key {
+
 			case "handshake":
 				response.Payload = nil
 				if err := conn.WriteJSON(&response); err != nil {
@@ -199,6 +201,7 @@ func share(args []string) error {
 				}
 			case "get":
 				payload := map[string]interface{}{}
+
 				t := request.Payload
 				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
 				getPayloadPath := getPayload["path"].(string)
@@ -246,6 +249,7 @@ func share(args []string) error {
 
 			default:
 				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+
 			}
 		}
 	})

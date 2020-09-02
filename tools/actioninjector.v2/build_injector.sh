@@ -42,7 +42,7 @@ initVersion() {
     	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "
     	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.GoVersion=${GO_VERSION}' "
     	PackageFlags=${PackageFlags}"-X '${VersionImportPath}.BuildTime=${BUILD_TIME}' "
-    	PackageFlags=${PackageFlags}"-s -w"
+    	PackageFlags=${PackageFlags}"-s -w -linkmode external -extldflags -static "
     else
     	PackageFlags+="-X '${VersionImportPath}.PackageCommitID=${PACKAGE_COMMIT_ID}' "
     	PackageFlags+="-X '${VersionImportPath}.GitStatus=${GIT_STATUS}' "

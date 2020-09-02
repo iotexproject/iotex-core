@@ -144,13 +144,3 @@ func (m *memKVStore) GetBucketByPrefix(namespace []byte) ([][]byte, error) {
 func (m *memKVStore) GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error) {
 	return nil, nil
 }
-
-// CommitWithFillPercent commits the batch using fill percent, if underlying KVStore is capable
-func CommitWithFillPercent(kvstore KVStore, b batch.KVStoreBatch, percent float64) error {
-	if kvFillPercent, ok := kvstore.(KVStoreWithBucketFillPercent); ok {
-		// set an aggressive fill percent
-		// b/c counting index only appends, further inserts to the bucket would never split the page
-		return kvFillPercent.WriteBatchWithFillPercent(b, percent)
-	}
-	return kvstore.WriteBatch(b)
-}
