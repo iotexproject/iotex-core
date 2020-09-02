@@ -26,8 +26,8 @@ var (
 		config.Chinese: "bytecode (合约地址|别名) 已打包参数 [IOTX数量]",
 	}
 	testBytecodeCmdShorts = map[config.Language]string{
-		config.English: "test smart contract on IoTex blockchain with packed arguments",
-		config.Chinese: "传入bytecode测试IoTex区块链上的智能合约",
+		config.English: "test smart contract on IoTeX blockchain with packed arguments",
+		config.Chinese: "传入bytecode测试IoTeX区块链上的智能合约",
 	}
 )
 
