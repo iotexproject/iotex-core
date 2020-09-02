@@ -155,11 +155,12 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:        10 * time.Second,
-			BufferSize:      200,
-			IntervalSize:    20,
-			MaxRepeat:       3,
-			RepeatDecayStep: 1,
+			Interval:              10 * time.Second,
+			ProcessSyncRequestTTL: 10 * time.Second,
+			BufferSize:            200,
+			IntervalSize:          20,
+			MaxRepeat:             3,
+			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -274,9 +275,10 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval     time.Duration `yaml:"interval"` // update duration
-		BufferSize   uint64        `yaml:"bufferSize"`
-		IntervalSize uint64        `yaml:"intervalSize"`
+		Interval              time.Duration `yaml:"interval"` // update duration
+		ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
+		BufferSize            uint64        `yaml:"bufferSize"`
+		IntervalSize          uint64        `yaml:"intervalSize"`
 		// MaxRepeat is the maximal number of repeat of a block sync request
 		MaxRepeat int `yaml:"maxRepeat"`
 		// RepeatDecayStep is the step for repeat number decreasing by 1

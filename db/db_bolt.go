@@ -28,7 +28,7 @@ type boltDB struct {
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
-func NewBoltDB(cfg config.DB) KVStoreWithBucketFillPercent {
+func NewBoltDB(cfg config.DB) KVStore {
 	return &boltDB{
 		db:     nil,
 		path:   cfg.DbPath,
@@ -251,15 +251,6 @@ func (b *boltDB) Delete(namespace string, key []byte) (err error) {
 
 // WriteBatch commits a batch
 func (b *boltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
-	return b.writeBatch(kvsb, 0.0)
-}
-
-// WriteBatchWithFillPercent commits a batch with specified fill percent
-func (b *boltDB) WriteBatchWithFillPercent(kvsb batch.KVStoreBatch, percent float64) (err error) {
-	return b.writeBatch(kvsb, percent)
-}
-
-func (b *boltDB) writeBatch(kvsb batch.KVStoreBatch, percent float64) (err error) {
 	succeed := true
 	kvsb.Lock()
 	defer func() {
@@ -286,8 +277,8 @@ func (b *boltDB) writeBatch(kvsb batch.KVStoreBatch, percent float64) (err error
 					if e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)
 					}
-					if percent != 0.0 {
-						bucket.FillPercent = percent
+					if p, ok := kvsb.CheckFillPercent(ns); ok {
+						bucket.FillPercent = p
 					}
 					if e := bucket.Put(write.Key(), write.Value()); e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)

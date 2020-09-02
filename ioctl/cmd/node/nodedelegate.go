@@ -70,7 +70,6 @@ var nodeDelegateCmd = &cobra.Command{
 		cmd.SilenceUsage = true
 		err := delegates()
 		return output.PrintError(err)
-
 	},
 }
 
@@ -128,7 +127,11 @@ func delegates() error {
 		if err != nil {
 			return output.NewError(0, "failed to get chain meta", err)
 		}
-		epochNum = chainMeta.Epoch.Num
+		epochData := chainMeta.GetEpoch()
+		if epochData == nil {
+			return output.NewError(0, "ROLLDPOS is not registered", nil)
+		}
+		epochNum = epochData.Num
 	}
 	response, err := bc.GetEpochMeta(epochNum)
 	if err != nil {

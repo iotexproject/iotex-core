@@ -191,6 +191,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
+		IsContract:   state.IsContract(),
 	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
@@ -653,33 +654,35 @@ func (api *Server) GetLogs(
 	if in.GetFilter() == nil {
 		return nil, status.Error(codes.InvalidArgument, "empty filter")
 	}
+
+	var (
+		startBlock, count uint64
+		err               error
+	)
 	switch {
 	case in.GetByBlock() != nil:
+		count = 1
 		req := in.GetByBlock()
-		h, err := api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
+		startBlock, err = api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
-		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
-		if !ok {
-			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
-		}
-		logs, err := api.getLogsInBlock(filter, h, 1)
-		return &iotexapi.GetLogsResponse{Logs: logs}, err
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		if req.FromBlock > api.bc.TipHeight() {
 			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
 		}
-		filter, ok := NewLogFilter(in.GetFilter(), nil, nil).(*LogFilter)
-		if !ok {
-			return nil, status.Error(codes.Internal, "cannot convert to *LogFilter")
+		if req.Count > 1000 {
+			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
 		}
-		logs, err := api.getLogsInBlock(filter, req.FromBlock, req.Count)
-		return &iotexapi.GetLogsResponse{Logs: logs}, err
+		startBlock = req.FromBlock
+		count = req.Count
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
+
+	logs, err := api.getLogsInBlock(NewLogFilter(in.GetFilter(), nil, nil), startBlock, count)
+	return &iotexapi.GetLogsResponse{Logs: logs}, err
 }
 
 // StreamBlocks streams blocks
@@ -1124,7 +1127,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1136,17 +1139,13 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	if len(blk.Actions) == 0 {
-		return &iotexapi.GetActionsResponse{}, nil
-	}
 	if start >= uint64(len(blk.Actions)) {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	res := api.actionsInBlock(blk, start, count)
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(blk.Actions)),
-		ActionInfo: res,
+		ActionInfo: api.actionsInBlock(blk, start, count),
 	}, nil
 }
 
@@ -1165,13 +1164,8 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 	}
 	var res []*iotextypes.BlockMeta
 	for height := start; height <= tipHeight && count > 0; height++ {
-		blockMeta, err := api.getBlockMetasByHeader(height)
-		if errors.Cause(err) == db.ErrNotExist {
-			blockMeta, err = api.getBlockMetasByBlock(height)
-			if err != nil {
-				return nil, err
-			}
-		} else if err != nil {
+		blockMeta, err := api.getBlockMetaByHeight(height)
+		if err != nil {
 			return nil, err
 		}
 		res = append(res, blockMeta)
@@ -1189,19 +1183,36 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blockMeta, err := api.getBlockMetaByHeader(hash)
-	if errors.Cause(err) == db.ErrNotExist {
-		blockMeta, err = api.getBlockMetaByBlock(hash)
-		if err != nil {
-			return nil, err
-		}
-	} else if err != nil {
+	blockMeta, err := api.getBlockMetaByHash(hash)
+	if err != nil {
 		return nil, err
 	}
 	return &iotexapi.GetBlockMetasResponse{
 		Total:    1,
 		BlkMetas: []*iotextypes.BlockMeta{blockMeta},
 	}, nil
+}
+
+// getBlockMetaByHeight gets block meta by height
+func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetasByHeader(height)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetasByBlock(height)
+}
+
+// getBlockMetaByHash gets block meta by hash
+func (api *Server) getBlockMetaByHash(h hash.Hash256) (*iotextypes.BlockMeta, error) {
+	if api.indexer != nil {
+		blockMeta, err := api.getBlockMetaByHeader(h)
+		if errors.Cause(err) != db.ErrNotExist {
+			return blockMeta, err
+		}
+	}
+	return api.getBlockMetaByBlock(h)
 }
 
 // putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
@@ -1376,13 +1387,26 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 }
 
 func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
+	var res []*iotexapi.ActionInfo
+	if len(blk.Actions) == 0 || start >= uint64(len(blk.Actions)) {
+		return res
+	}
+
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
-	var res []*iotexapi.ActionInfo
-	for i := start; i < uint64(len(blk.Actions)) && i < start+count; i++ {
+	lastAction := start + count
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
+		if lastAction >= uint64(len(blk.Actions)) {
+			lastAction = uint64(len(blk.Actions))
+		}
+	}
+	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
 		actHash := selp.Hash()
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())

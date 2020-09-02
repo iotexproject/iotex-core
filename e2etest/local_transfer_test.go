@@ -257,7 +257,6 @@ var (
 )
 
 func TestLocalTransfer(t *testing.T) {
-
 	require := require.New(t)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -312,21 +311,21 @@ func TestLocalTransfer(t *testing.T) {
 	}
 
 	// create server
-	ctx := context.Background()
 	svr, err := itx.NewServer(cfg)
 	require.NoError(err)
 
 	// Create and start probe server
+	ctx := context.Background()
 	probeSvr := probe.New(7788)
-	require.NoError(probeSvr.Start(context.Background()))
+	require.NoError(probeSvr.Start(ctx))
+	defer func() {
+		require.NoError(probeSvr.Stop(ctx))
+	}()
 
 	// Start server
-	go itx.StartServer(context.Background(), svr, probeSvr, cfg)
-	defer func() {
-		time.Sleep(10 * time.Second)
-		require.NoError(probeSvr.Stop(ctx))
-		require.NoError(svr.Stop(ctx))
-	}()
+	ctx, stopServer := context.WithCancel(ctx)
+	defer stopServer()
+	go itx.StartServer(ctx, svr, probeSvr, cfg)
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := fmt.Sprintf("127.0.0.1:%d", apiPort)
@@ -334,6 +333,7 @@ func TestLocalTransfer(t *testing.T) {
 	defer cancel()
 	conn, err := grpc.DialContext(grpcctx, grpcAddr, grpc.WithBlock(), grpc.WithInsecure())
 	require.NoError(err)
+	defer conn.Close()
 	client := iotexapi.NewAPIServiceClient(conn)
 
 	chainID := cfg.Chain.ID
@@ -436,7 +436,6 @@ func TestLocalTransfer(t *testing.T) {
 
 		}
 	}
-
 }
 
 // initStateKeyAddr, if the given private key is nil,

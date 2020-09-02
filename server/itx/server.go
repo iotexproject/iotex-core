@@ -174,6 +174,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 		log.L().Fatal("Failed to start server.", zap.Error(err))
 		return
 	}
+	defer func() {
+		if err := svr.Stop(ctx); err != nil {
+			log.L().Panic("Failed to stop server.", zap.Error(err))
+		}
+	}()
 	probeSvr.Ready()
 
 	if cfg.System.HeartbeatInterval > 0 {
@@ -202,6 +207,11 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 
 		port := fmt.Sprintf(":%d", cfg.System.HTTPAdminPort)
 		adminserv = httputil.Server(port, mux)
+		defer func() {
+			if err := adminserv.Shutdown(ctx); err != nil {
+				log.L().Error("Error when serving metrics data.", zap.Error(err))
+			}
+		}()
 		go func() {
 			runtime.SetMutexProfileFraction(1)
 			runtime.SetBlockProfileRate(1)
@@ -218,10 +228,4 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 
 	<-ctx.Done()
 	probeSvr.NotReady()
-	if err := adminserv.Shutdown(ctx); err != nil {
-		log.L().Error("Error when serving metrics data.", zap.Error(err))
-	}
-	if err := svr.Stop(ctx); err != nil {
-		log.L().Panic("Failed to stop server.", zap.Error(err))
-	}
 }
