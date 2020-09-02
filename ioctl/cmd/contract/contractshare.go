@@ -73,14 +73,14 @@ func init() {
 }
 
 type requestMessage struct {
-	Id      string        `json:"id"`
+	ID      string        `json:"id"`
 	Action  string        `json:"action"`
 	Key     string        `json:"key"`
 	Payload []interface{} `json:"payload"`
 }
 
 type responseMessage struct {
-	Id      string      `json:"id"`
+	ID      string      `json:"id"`
 	Action  string      `json:"action"`
 	Key     string      `json:"key"`
 	Payload interface{} `json:"payload"`
@@ -176,7 +176,7 @@ func share(args []string) error {
 				log.Println("read json error: ", err)
 				return
 			}
-			response.Id = request.Id
+			response.ID = request.ID
 			response.Action = "response"
 			response.Key = request.Key
 
