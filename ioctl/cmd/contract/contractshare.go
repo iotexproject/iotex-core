@@ -72,14 +72,62 @@ func init() {
 	contractShareCmd.Flags().StringVar(&iotexIDE, "iotex-ide", "https://ide.iotex.io", config.TranslateInLang(flagIoTexIDEUrlUsage, config.UILanguage))
 }
 
+type requestMessage struct {
+	ID      string        `json:"id"`
+	Action  string        `json:"action"`
+	Key     string        `json:"key"`
+	Payload []interface{} `json:"payload"`
+}
+
+type responseMessage struct {
+	ID      string      `json:"id"`
+	Action  string      `json:"action"`
+	Key     string      `json:"key"`
+	Payload interface{} `json:"payload"`
+}
+
 func isDir(path string) bool {
 	s, err := os.Stat(path)
 	if err != nil {
-
 		return false
-
 	}
 	return s.IsDir()
+}
+
+func isReadOnly(path string) bool {
+	var readOnly = false
+	file, err := os.OpenFile(path, os.O_WRONLY, 0666)
+	if err != nil {
+		if os.IsPermission(err) {
+			log.Println("Error: Write permission denied.")
+		}
+		if os.IsNotExist(err) {
+			log.Println("Error: File doesn't exist.")
+		}
+		readOnly = true
+	}
+	file.Close()
+	return readOnly
+}
+
+func isExist(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
+}
+
+func rename(oldPath string, newPath string, c chan bool) {
+	if isExist(givenPath + "/" + oldPath) {
+		if err := os.Rename(oldPath, newPath); err != nil {
+			log.Println("Rename file failed: ", err)
+		}
+		c <- false
+	}
+	c <- true
 }
 
 func share(args []string) error {
@@ -107,7 +155,6 @@ func share(args []string) error {
 				fileList = append(fileList, relPath)
 			}
 		}
-
 		return nil
 	})
 
@@ -122,60 +169,86 @@ func share(args []string) error {
 		}
 
 		for {
-			requestInfo := make(map[string]interface{})
-			response := make(map[string]interface{})
+			var request requestMessage
+			var response responseMessage
 
-			if err := conn.ReadJSON(&requestInfo); err != nil {
-				log.Println("read json", err)
+			if err := conn.ReadJSON(&request); err != nil {
+				log.Println("read json error: ", err)
 				return
 			}
+			response.ID = request.ID
+			response.Action = "response"
+			response.Key = request.Key
 
-			response["action"] = "response"
-			response["id"] = requestInfo["id"]
+			switch request.Key {
 
-			switch requestInfo["key"] {
 			case "handshake":
-				response["key"] = "handshake"
-				if err := conn.WriteJSON(response); err != nil {
+				response.Payload = nil
+				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send handshake response", err)
 					break
 				}
 			case "list":
-				response["key"] = "list"
 				payload := make(map[string]bool)
 				for _, ele := range fileList {
-					payload[ele] = false
+					payload[ele] = isReadOnly(givenPath + "/" + ele)
 				}
-				response["payload"] = payload
-				if err := conn.WriteJSON(response); err != nil {
-					log.Println("send response with file list", err)
+				response.Payload = payload
+				if err := conn.WriteJSON(&response); err != nil {
+					log.Println("send list response", err)
 					break
 				}
 			case "get":
 				payload := map[string]interface{}{}
-				t := requestInfo["payload"]
-				s := reflect.ValueOf(t)
-				for i := 0; i < s.Len(); i++ {
-					p, _ := s.Index(i).Interface().(map[string]interface{})
-					for _, v := range p {
-						upload, err := ioutil.ReadFile(givenPath + "/" + v.(string))
-						log.Println("share :" + givenPath + "/" + v.(string))
-						if err != nil {
-							log.Println("read file failed", err)
-							break
-						}
-						payload["content"] = string(upload)
-						payload["readonly"] = true
-						response["key"] = "get"
-						response["payload"] = payload
-						if err := conn.WriteJSON(response); err != nil {
-							log.Println("send response with file", err)
-							break
-						}
-					}
+
+				t := request.Payload
+				getPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
+				getPayloadPath := getPayload["path"].(string)
+				upload, err := ioutil.ReadFile(givenPath + "/" + getPayloadPath)
+				if err != nil {
+					log.Println("read file failed: ", err)
 				}
+				payload["content"] = string(upload)
+				payload["readonly"] = isReadOnly(givenPath + "/" + getPayloadPath)
+				response.Payload = payload
+				if err := conn.WriteJSON(&response); err != nil {
+					log.Println("send get response: ", err)
+					break
+				}
+				log.Println("share: " + givenPath + "/" + getPayloadPath)
+
+			case "rename":
+				c := make(chan bool)
+				t := request.Payload
+				renamePayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
+				oldPath := renamePayload["oldPath"].(string)
+				newPath := renamePayload["newPath"].(string)
+				go rename(oldPath, newPath, c)
+				response.Payload = <-c
+				if err := conn.WriteJSON(&response); err != nil {
+					log.Println("send get response: ", err)
+					break
+				}
+				log.Println("rename: " + givenPath + "/" + oldPath + " to " + givenPath + "/" + newPath)
+
+			case "set":
+				t := request.Payload
+				setPayload := reflect.ValueOf(t).Index(0).Interface().(map[string]interface{})
+				setPath := setPayload["path"].(string)
+				content := setPayload["content"].(string)
+				err := ioutil.WriteFile(givenPath+"/"+setPath, []byte(content), 0777)
+				if err != nil {
+					log.Println("set file failed: ", err)
+				}
+				if err := conn.WriteJSON(&response); err != nil {
+					log.Println("send set response: ", err)
+					break
+				}
+				log.Println("set: " + givenPath + "/" + setPath)
+
 			default:
-				log.Println("Don't support this IDE yet. Can not handle websocket method: " + requestInfo["key"].(string))
+				log.Println("Don't support this IDE yet. Can not handle websocket method: " + request.Key)
+
 			}
 		}
 	})
