@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/facebookgo/clock"
-	fsm "github.com/iotexproject/go-fsm"
+	"github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -82,6 +82,9 @@ type rollDPoSCtx struct {
 	eManagerDB        db.KVStore
 	toleratedOvertime time.Duration
 
+	// the last minted block height
+	// TODO: update lastMinted after sync
+	lastMinted  uint64
 	encodedAddr string
 	priKey      crypto.PrivateKey
 	round       *roundCtx
@@ -149,6 +152,7 @@ func newRollDPoSCtx(
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
+		lastMinted:        chain.TipHeight(),
 	}, nil
 }
 
@@ -258,9 +262,9 @@ func (ctx *rollDPoSCtx) RoundCalc() *roundCalculator {
 	return ctx.roundCalc
 }
 
-/////////////////////////////////////
+// ///////////////////////////////////
 // Context of consensusFSM interfaces
-/////////////////////////////////////
+// ///////////////////////////////////
 
 func (ctx *rollDPoSCtx) NewConsensusEvent(
 	eventType fsm.EventType,
@@ -578,11 +582,15 @@ func (ctx *rollDPoSCtx) Active() bool {
 	return ctx.active
 }
 
-///////////////////////////////////////////
+// /////////////////////////////////////////
 // private functions
-///////////////////////////////////////////
+// /////////////////////////////////////////
 
 func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
+	if ctx.round.Height() != ctx.lastMinted+1 {
+		// TODO: calibrate something
+		return nil, errors.Errorf("already minted in this round")
+	}
 	blk, err := ctx.chain.MintNewBlock(ctx.round.StartTime())
 	if err != nil {
 		return nil, err
@@ -591,7 +599,12 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()
 	}
-	return ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+	msg, err := ctx.endorseBlockProposal(newBlockProposal(blk, proofOfUnlock))
+	if err != nil {
+		return nil, err
+	}
+	ctx.lastMinted = blk.Height()
+	return msg, nil
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {
