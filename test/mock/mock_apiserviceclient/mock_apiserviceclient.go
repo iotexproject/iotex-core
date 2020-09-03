@@ -375,6 +375,46 @@ func (mr *MockServiceClientMockRecorder) GetEvmTransfersByBlockHeight(ctx, in in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEvmTransfersByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetEvmTransfersByBlockHeight), varargs...)
 }
 
+// GetTransactionLogByActionHash mocks base method
+func (m *MockServiceClient) GetTransactionLogByActionHash(ctx context.Context, in *iotexapi.GetTransactionLogByActionHashRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByActionHashResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetTransactionLogByActionHash", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByActionHashResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionLogByActionHash indicates an expected call of GetTransactionLogByActionHash
+func (mr *MockServiceClientMockRecorder) GetTransactionLogByActionHash(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLogByActionHash", reflect.TypeOf((*MockServiceClient)(nil).GetTransactionLogByActionHash), varargs...)
+}
+
+// GetTransactionLogByBlockHeight mocks base method
+func (m *MockServiceClient) GetTransactionLogByBlockHeight(ctx context.Context, in *iotexapi.GetTransactionLogByBlockHeightRequest, opts ...grpc.CallOption) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetTransactionLogByBlockHeight", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetTransactionLogByBlockHeightResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetTransactionLogByBlockHeight indicates an expected call of GetTransactionLogByBlockHeight
+func (mr *MockServiceClientMockRecorder) GetTransactionLogByBlockHeight(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTransactionLogByBlockHeight", reflect.TypeOf((*MockServiceClient)(nil).GetTransactionLogByBlockHeight), varargs...)
+}
+
 // StreamBlocks mocks base method
 func (m *MockServiceClient) StreamBlocks(ctx context.Context, in *iotexapi.StreamBlocksRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamBlocksClient, error) {
 	m.ctrl.T.Helper()

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -7,28 +7,24 @@
 package action
 
 import (
-	"bytes"
+	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
-// InContractTransfer is topic for system log of evm transfer
-var InContractTransfer = common.Hash{} // 32 bytes with all zeros
+var (
+	// StakingBucketPoolTopic is topic for staking bucket pool
+	StakingBucketPoolTopic = hash.BytesToHash256(address.StakingProtocolAddrHash[:])
 
-// IsSystemLog checks whether a log is system log
-// lowerBound chooses the largest system log topic, which is InContractTransfer currently
-func IsSystemLog(l *Log) bool {
-	if len(l.Topics) == 0 {
-		return false
-	}
-	return bytes.Compare(InContractTransfer[:], l.Topics[0][:]) >= 0
-}
+	// RewardingPoolTopic is topic for rewarding pool
+	RewardingPoolTopic = hash.BytesToHash256(address.RewardingProtocolAddrHash[:])
+)
 
 type (
 	// Topics are data items of a transaction, such as send/recipient address
@@ -41,7 +37,8 @@ type (
 		ActionHash      hash.Hash256
 		GasConsumed     uint64
 		ContractAddress string
-		Logs            []*Log
+		logs            []*Log
+		transactionLogs []*TransactionLog
 	}
 
 	// Log stores an evm contract event
@@ -54,6 +51,14 @@ type (
 		Index              uint
 		NotFixTopicCopyBug bool
 	}
+
+	// TransactionLog stores a transaction event
+	TransactionLog struct {
+		Type      iotextypes.TransactionLogType
+		Amount    *big.Int
+		Sender    string
+		Recipient string
+	}
 )
 
 // ConvertToReceiptPb converts a Receipt to protobuf's Receipt
@@ -65,11 +70,8 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	r.GasConsumed = receipt.GasConsumed
 	r.ContractAddress = receipt.ContractAddress
 	r.Logs = []*iotextypes.Log{}
-	for _, l := range receipt.Logs {
-		// exclude system log when calculating receipts' hash or storing logs
-		if !IsSystemLog(l) {
-			r.Logs = append(r.Logs, l.ConvertToLogPb())
-		}
+	for _, l := range receipt.logs {
+		r.Logs = append(r.Logs, l.ConvertToLogPb())
 	}
 	return r
 }
@@ -82,10 +84,10 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 	receipt.GasConsumed = pbReceipt.GetGasConsumed()
 	receipt.ContractAddress = pbReceipt.GetContractAddress()
 	logs := pbReceipt.GetLogs()
-	receipt.Logs = make([]*Log, len(logs))
+	receipt.logs = make([]*Log, len(logs))
 	for i, log := range logs {
-		receipt.Logs[i] = &Log{}
-		receipt.Logs[i].ConvertFromLogPb(log)
+		receipt.logs[i] = &Log{}
+		receipt.logs[i].ConvertFromLogPb(log)
 	}
 }
 
@@ -111,6 +113,36 @@ func (receipt *Receipt) Hash() hash.Hash256 {
 		log.L().Panic("Error when serializing a receipt")
 	}
 	return hash.Hash256b(data)
+}
+
+// Logs returns the list of logs stored in receipt
+func (receipt *Receipt) Logs() []*Log {
+	return receipt.logs
+}
+
+// AddLogs add log to receipt and filter out nil log.
+func (receipt *Receipt) AddLogs(logs ...*Log) *Receipt {
+	for _, l := range logs {
+		if l != nil {
+			receipt.logs = append(receipt.logs, l)
+		}
+	}
+	return receipt
+}
+
+// TransactionLogs returns the list of transaction logs stored in receipt
+func (receipt *Receipt) TransactionLogs() []*TransactionLog {
+	return receipt.transactionLogs
+}
+
+// AddTransactionLogs add transaction logs to receipt and filter out nil log.
+func (receipt *Receipt) AddTransactionLogs(logs ...*TransactionLog) *Receipt {
+	for _, l := range logs {
+		if l != nil {
+			receipt.transactionLogs = append(receipt.transactionLogs, l)
+		}
+	}
+	return receipt
 }
 
 // ConvertToLogPb converts a Log to protobuf's Log

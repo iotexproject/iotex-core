@@ -9,7 +9,8 @@ package action
 import (
 	"encoding/hex"
 	"encoding/json"
-	"errors"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts"
 

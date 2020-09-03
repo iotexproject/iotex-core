@@ -292,7 +292,7 @@ func reset() error {
 	ReadConfig.SecureConnect = true
 	ReadConfig.DefaultAccount = *new(Context)
 	ReadConfig.Explorer = "iotexscan"
-	ReadConfig.Language = "en"
+	ReadConfig.Language = "English"
 
 	err := writeConfig()
 	if err != nil {

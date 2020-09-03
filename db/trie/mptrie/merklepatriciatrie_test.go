@@ -12,8 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iotexproject/iotex-core/testutil"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 var (
@@ -46,6 +45,8 @@ var (
 		[]byte("ham"), []byte("car"), []byte("cat"), []byte("dog"),
 		[]byte("egg"), []byte("fox"), []byte("cow"), []byte("ant"),
 	}
+
+	emptyTrieRootHash = []byte{0x61, 0x8e, 0x1c, 0xe1, 0xff, 0xfb, 0x18, 0x25, 0x15, 0x9f, 0x9a, 0xa2, 0xc2, 0xe9, 0x37, 0x24, 0x2, 0xfb, 0xd0, 0xab}
 )
 
 func TestEmptyTrie(t *testing.T) {
@@ -53,8 +54,11 @@ func TestEmptyTrie(t *testing.T) {
 	tr, err := New()
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
 	require.True(tr.IsEmpty())
-	require.NoError(tr.Stop(context.Background()))
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+	require.Equal(emptyTrieRootHash, rootHash)
 }
 
 func Test2Roots(t *testing.T) {
@@ -62,7 +66,7 @@ func Test2Roots(t *testing.T) {
 
 	// first trie
 	trieDB := trie.NewMemKVStore()
-	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8))
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(8), AsyncOption())
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
 	require.NoError(tr.Upsert(cat, testV[2]))
@@ -77,7 +81,8 @@ func Test2Roots(t *testing.T) {
 	v, err = tr.Get(egg)
 	require.NoError(err)
 	require.Equal(testV[4], v)
-	root := tr.RootHash()
+	root, err := tr.RootHash()
+	require.NoError(err)
 	require.NoError(tr.Stop(context.Background()))
 
 	// second trie
@@ -96,7 +101,8 @@ func Test2Roots(t *testing.T) {
 	v, err = tr1.Get(fox)
 	require.NoError(err)
 	require.Equal(testV[5], v)
-	root1 := tr1.RootHash()
+	root1, err := tr1.RootHash()
+	require.NoError(err)
 	require.NotEqual(root, root1)
 	require.NoError(tr1.Stop(context.Background()))
 
@@ -120,7 +126,9 @@ func Test2Roots(t *testing.T) {
 	require.NoError(err)
 	require.NoError(tr2.Start(context.Background()))
 	require.NoError(tr2.SetRootHash(root1))
-	require.Equal(root1, tr2.RootHash())
+	root2, err := tr2.RootHash()
+	require.NoError(err)
+	require.Equal(root1, root2)
 	v, err = tr2.Get(dog)
 	require.NoError(err)
 	require.Equal(testV[3], v)
@@ -148,7 +156,8 @@ func TestInsert(t *testing.T) {
 	t.Log("Put[cat]")
 	require.NoError(tr.Upsert(cat, testV[2]))
 	require.False(tr.IsEmpty())
-	root := tr.RootHash()
+	root, err := tr.RootHash()
+	require.NoError(err)
 
 	// this splits L --> E + B + 2L (cat, rat)
 	/*
@@ -156,7 +165,8 @@ func TestInsert(t *testing.T) {
 	 */
 	t.Log("Put[rat]")
 	require.NoError(tr.Upsert(rat, []byte("rat")))
-	ratRoot := tr.RootHash()
+	ratRoot, err := tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(ratRoot, root)
 	b, err := tr.Get(cat)
 	require.NoError(err)
@@ -174,7 +184,8 @@ func TestInsert(t *testing.T) {
 	b, err = tr.Get(rat)
 	require.NoError(err)
 	require.Equal([]byte("rat"), b)
-	root = tr.RootHash()
+	root, err = tr.RootHash()
+	require.NoError(err)
 	// root should keep the same since the value is same
 	require.Equal(root, ratRoot)
 
@@ -184,7 +195,8 @@ func TestInsert(t *testing.T) {
 	 */
 	t.Log("Put[car]")
 	require.NoError(tr.Upsert(car, testV[1]))
-	newRoot := tr.RootHash()
+	newRoot, err := tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(car)
@@ -193,7 +205,8 @@ func TestInsert(t *testing.T) {
 	// delete car
 	t.Log("Del[car]")
 	require.NoError(tr.Delete(car))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	require.Equal(newRoot, ratRoot)
 	root = newRoot
@@ -205,7 +218,8 @@ func TestInsert(t *testing.T) {
 	 */
 	t.Log("Put[dog]")
 	require.NoError(tr.Upsert(dog, testV[3]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	// Get returns "dog" now
@@ -227,7 +241,8 @@ func TestInsert(t *testing.T) {
 	 */
 	t.Log("Del[dog]")
 	require.NoError(tr.Delete(dog))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 
@@ -238,7 +253,8 @@ func TestInsert(t *testing.T) {
 	 */
 	t.Log("Put[egg]")
 	require.NoError(tr.Upsert(egg, testV[4]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(egg)
@@ -247,14 +263,16 @@ func TestInsert(t *testing.T) {
 	// delete egg
 	t.Log("Del[egg]")
 	require.NoError(tr.Delete(egg))
-	eggRoot := tr.RootHash()
+	eggRoot, err := tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(eggRoot, root)
 	root = eggRoot
 
 	// this splits E (with match = 4, div = 1)
 	t.Log("Put[egg]")
 	require.NoError(tr.Upsert(egg, testV[4]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(egg)
@@ -263,7 +281,8 @@ func TestInsert(t *testing.T) {
 	// delete egg
 	t.Log("Del[egg]")
 	require.NoError(tr.Delete(egg))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	require.Equal(newRoot, eggRoot)
 	root = newRoot
@@ -275,7 +294,8 @@ func TestInsert(t *testing.T) {
 	// insert 'ham' 'fox' 'cow'
 	t.Log("Put[ham]")
 	require.NoError(tr.Upsert(ham, testV[0]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(ham)
@@ -283,7 +303,8 @@ func TestInsert(t *testing.T) {
 	require.Equal(testV[0], b)
 	t.Log("Put[fox]")
 	require.NoError(tr.Upsert(fox, testV[5]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(fox)
@@ -291,7 +312,8 @@ func TestInsert(t *testing.T) {
 	require.Equal(testV[5], b)
 	t.Log("Put[cow]")
 	require.NoError(tr.Upsert(cow, testV[6]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(cow)
@@ -301,17 +323,20 @@ func TestInsert(t *testing.T) {
 	// delete fox rat cow
 	t.Log("Del[fox]")
 	require.NoError(tr.Delete(fox))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	t.Log("Del[rat]")
 	require.NoError(tr.Delete(rat))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	t.Log("Del[cow]")
 	require.NoError(tr.Delete(cow))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	_, err = tr.Get(fox)
@@ -327,7 +352,8 @@ func TestInsert(t *testing.T) {
 	// this adds another path to root B
 	t.Log("Put[ant]")
 	require.NoError(tr.Upsert(ant, testV[7]))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 	b, err = tr.Get(ant)
@@ -335,14 +361,16 @@ func TestInsert(t *testing.T) {
 	require.Equal(testV[7], b)
 	t.Log("Del[ant]")
 	require.NoError(tr.Delete(ant))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	root = newRoot
 
 	// delete "ham"
 	t.Log("Del[ham]")
 	require.NoError(tr.Delete(ham))
-	newRoot = tr.RootHash()
+	newRoot, err = tr.RootHash()
+	require.NoError(err)
 	require.NotEqual(newRoot, root)
 	_, err = tr.Get(ham)
 	require.Equal(trie.ErrNotExist, errors.Cause(err))
@@ -396,7 +424,8 @@ func TestBatchCommit(t *testing.T) {
 	require.NoError(tr.Upsert(fox, testV[5]))
 	v, _ = tr.Get(fox)
 	require.Equal(testV[5], v)
-	root := tr.RootHash()
+	root, err := tr.RootHash()
+	require.NoError(err)
 	// commit and reopen
 	require.NoError(tr.Stop(context.Background()))
 	tr, err = New(KVStoreOption(trieDB), RootHashOption(root), KeyLengthOption(8))
@@ -464,7 +493,8 @@ func TestHistoryTrie(t *testing.T) {
 	c, err := tr.Get(addrKey)
 	require.NoError(err)
 	require.Equal(value1, c)
-	oldRoot := tr.RootHash()
+	oldRoot, err := tr.RootHash()
+	require.NoError(err)
 
 	// update entry
 	require.NoError(tr.Upsert(addrKey, value2))
@@ -509,12 +539,22 @@ func TestCollision(t *testing.T) {
 }
 
 func Test4kEntries(t *testing.T) {
+	t.Run("test async mode", func(t *testing.T) {
+		test4kEntries(t, true)
+	})
+	t.Run("test sync mode", func(t *testing.T) {
+		test4kEntries(t, false)
+	})
+}
+
+func test4kEntries(t *testing.T, enableAsync bool) {
 	require := require.New(t)
 
-	tr, err := New(KeyLengthOption(4))
+	tr, err := New(KeyLengthOption(4), AsyncOption())
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	root := tr.RootHash()
+	root, err := tr.RootHash()
+	require.NoError(err)
 	seed := time.Now().Nanosecond()
 	// insert 4k entries
 	var k [32]byte
@@ -528,7 +568,8 @@ func Test4kEntries(t *testing.T) {
 			break
 		}
 		require.NoError(tr.Upsert(k[:4], v))
-		newRoot := tr.RootHash()
+		newRoot, err := tr.RootHash()
+		require.NoError(err)
 		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
@@ -556,11 +597,12 @@ func Test4kEntries(t *testing.T) {
 	for i := 0; i < c-3; i++ {
 		d = hash.Hash256b(d[:])
 		require.NoError(tr.Delete(d[:4]))
-		newRoot := tr.RootHash()
+		newRoot, err := tr.RootHash()
+		require.NoError(err)
 		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		_, err := tr.Get(d[:4])
+		_, err = tr.Get(d[:4])
 		require.Equal(trie.ErrNotExist, errors.Cause(err))
 		if i%64 == 0 {
 			t.Logf("Del -- key: %x", d[:4])
@@ -584,7 +626,8 @@ func TestPressure(t *testing.T) {
 	tr, err := New(KeyLengthOption(4))
 	require.NoError(err)
 	require.NoError(tr.Start(context.Background()))
-	root := tr.RootHash()
+	root, err := tr.RootHash()
+	require.NoError(err)
 	seed := time.Now().Nanosecond()
 	// insert 128k entries
 	var k [32]byte
@@ -598,7 +641,8 @@ func TestPressure(t *testing.T) {
 			break
 		}
 		require.NoError(tr.Upsert(k[:4], v))
-		newRoot := tr.RootHash()
+		newRoot, err := tr.RootHash()
+		require.NoError(err)
 		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
@@ -620,11 +664,12 @@ func TestPressure(t *testing.T) {
 	for i := 0; i < c-3; i++ {
 		d = hash.Hash256b(d[:])
 		require.NoError(tr.Delete(d[:4]))
-		newRoot := tr.RootHash()
+		newRoot, err := tr.RootHash()
+		require.NoError(err)
 		require.False(tr.IsEmpty())
 		require.NotEqual(newRoot, root)
 		root = newRoot
-		_, err := tr.Get(d[:4])
+		_, err = tr.Get(d[:4])
 		require.Equal(trie.ErrNotExist, errors.Cause(err))
 		if i%(2<<10) == 0 {
 			t.Logf("Del -- key: %x", d[:4])
@@ -637,4 +682,126 @@ func TestPressure(t *testing.T) {
 	require.True(tr.IsEmpty())
 	require.NoError(tr.Stop(context.Background()))
 	t.Logf("Warning: test %d entries", c)
+}
+
+func TestTrieGet(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("puppy"), []byte("dog")},
+		}
+	)
+
+	trie, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(trie.Start(context.Background()))
+	defer require.NoError(trie.Stop(context.Background()))
+
+	for _, test := range tests {
+		require.NoError(trie.Upsert(test.k, test.v))
+	}
+	for _, test := range tests {
+		val, err := trie.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+	}
+}
+
+func TestTrieUpsert(t *testing.T) {
+	var (
+		require = require.New(t)
+		key     = []byte("puppy")
+		tests   = []struct{ k, v []byte }{
+			{key, []byte("dog")},
+			{key, []byte("teddy")},
+			{key, []byte("snoop")},
+			{key, []byte("snooooooop")},
+		}
+	)
+
+	trie, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(trie.Start(context.Background()))
+	defer require.NoError(trie.Stop(context.Background()))
+
+	for _, test := range tests {
+		require.NoError(trie.Upsert(test.k, test.v))
+	}
+	val, err := trie.Get(key)
+	require.NoError(err)
+	require.Equal(tests[len(tests)-1].v, val)
+}
+
+func TestTrieDelete(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("puppy"), []byte("dog")},
+		}
+	)
+	tr, err := New(KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+
+	for _, test := range tests {
+		_, err = tr.Get(test.k)
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
+
+		require.NoError(tr.Upsert(test.k, test.v))
+	}
+	for _, test := range tests {
+		val, err := tr.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+
+		require.NoError(tr.Delete(test.k))
+		_, err = tr.Get(test.k)
+		require.Equal(trie.ErrNotExist, errors.Cause(err))
+	}
+	require.True(tr.IsEmpty())
+}
+
+func TestTrieSetRootHash(t *testing.T) {
+	var (
+		require = require.New(t)
+		tests   = []struct{ k, v []byte }{
+			{[]byte("iotex"), []byte("coin")},
+			{[]byte("block"), []byte("chain")},
+			{[]byte("chain"), []byte("link")},
+			{[]byte("puppy"), []byte("dog")},
+			{[]byte("night"), []byte("knight")},
+		}
+		trieDB = trie.NewMemKVStore()
+	)
+
+	tr, err := New(KVStoreOption(trieDB), KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr.Start(context.Background()))
+	defer require.NoError(tr.Stop(context.Background()))
+	for _, test := range tests {
+		require.NoError(tr.Upsert(test.k, test.v))
+	}
+	rootHash, err := tr.RootHash()
+	require.NoError(err)
+	require.NotEqual(emptyTrieRootHash, rootHash)
+
+	// new empty trie and load tr's rootHash
+	tr1, err := New(KVStoreOption(trieDB), KeyLengthOption(5))
+	require.NoError(err)
+	require.NoError(tr1.Start(context.Background()))
+	defer require.NoError(tr1.Stop(context.Background()))
+	tr1Hash, err := tr1.RootHash()
+	require.NoError(err)
+	require.Equal(emptyTrieRootHash, tr1Hash)
+	require.NoError(tr1.SetRootHash(rootHash))
+	for _, test := range tests {
+		val, err := tr1.Get(test.k)
+		require.NoError(err)
+		require.Equal(test.v, val)
+	}
 }

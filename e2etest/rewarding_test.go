@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/api"
@@ -106,6 +107,18 @@ func TestBlockReward(t *testing.T) {
 	}))
 
 	ctx := context.Background()
+	ctx = protocol.WithBlockCtx(
+		context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+		},
+	)
+	ctx = protocol.WithBlockchainCtx(
+		ctx,
+		protocol.BlockchainCtx{
+			Genesis: config.Default.Genesis,
+		},
+	)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)
@@ -118,7 +131,7 @@ func TestBlockReward(t *testing.T) {
 
 	blockReward, err := rp.BlockReward(ctx, sf)
 	require.NoError(t, err)
-	balance, err := rp.UnclaimedBalance(ctx, sf, addr)
+	balance, _, err := rp.UnclaimedBalance(ctx, sf, addr)
 	require.NoError(t, err)
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
@@ -326,7 +339,7 @@ func TestBlockEpochReward(t *testing.T) {
 
 				for i := 0; i < numNodes; i++ {
 					rewardAddr := identityset.Address(i + numNodes)
-					unClaimedBalances[rewardAddr.String()], err =
+					unClaimedBalances[rewardAddr.String()], _, err =
 						rps[0].UnclaimedBalance(context.Background(), sfs[0], rewardAddr)
 				}
 

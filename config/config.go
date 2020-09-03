@@ -107,6 +107,7 @@ var (
 			TrieDBPath:           "/var/data/trie.db",
 			IndexDBPath:          "/var/data/index.db",
 			CandidateIndexDBPath: "/var/data/candidate.index.db",
+			StakingIndexDBPath:   "/var/data/staking.index.db",
 			ID:                   1,
 			Address:              "",
 			ProducerPrivKey:      generateRandomKey(SigP256k1),
@@ -120,6 +121,7 @@ var (
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
+			EnableStakingIndexer:          false,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
@@ -153,11 +155,12 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:        10 * time.Second,
-			BufferSize:      200,
-			IntervalSize:    20,
-			MaxRepeat:       3,
-			RepeatDecayStep: 1,
+			Interval:              10 * time.Second,
+			ProcessSyncRequestTTL: 10 * time.Second,
+			BufferSize:            200,
+			IntervalSize:          20,
+			MaxRepeat:             3,
+			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
 			EventChanSize: 10000,
@@ -204,6 +207,7 @@ var (
 		ValidateDispatcher,
 		ValidateAPI,
 		ValidateActPool,
+		ValidateForkHeights,
 	}
 )
 
@@ -230,6 +234,7 @@ type (
 		TrieDBPath           string           `yaml:"trieDBPath"`
 		IndexDBPath          string           `yaml:"indexDBPath"`
 		CandidateIndexDBPath string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath   string           `yaml:"stakingIndexDBPath"`
 		ID                   uint32           `yaml:"id"`
 		Address              string           `yaml:"address"`
 		ProducerPrivKey      string           `yaml:"producerPrivKey"`
@@ -243,10 +248,12 @@ type (
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
 		EnableAsyncIndexWrite bool `yaml:"enableAsyncIndexWrite"`
-		// EnableSystemLogIndexer enables system log indexer
+		// deprecated
 		EnableSystemLogIndexer bool `yaml:"enableSystemLog"`
 		// EnableStakingProtocol enables staking protocol
-		EnableStakingProtocol bool `yaml: "enableStakingProtocol"`
+		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
+		// EnableStakingIndexer enables staking indexer
+		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
 		// CompressBlock enables gzip compression on block data
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
@@ -268,9 +275,10 @@ type (
 
 	// BlockSync is the config struct for the BlockSync
 	BlockSync struct {
-		Interval     time.Duration `yaml:"interval"` // update duration
-		BufferSize   uint64        `yaml:"bufferSize"`
-		IntervalSize uint64        `yaml:"intervalSize"`
+		Interval              time.Duration `yaml:"interval"` // update duration
+		ProcessSyncRequestTTL time.Duration `yaml:"processSyncRequestTTL"`
+		BufferSize            uint64        `yaml:"bufferSize"`
+		IntervalSize          uint64        `yaml:"intervalSize"`
 		// MaxRepeat is the maximal number of repeat of a block sync request
 		MaxRepeat int `yaml:"maxRepeat"`
 		// RepeatDecayStep is the step for repeat number decreasing by 1
@@ -622,6 +630,32 @@ func ValidateActPool(cfg Config) error {
 			ErrInvalidCfg,
 			"maximum number of actions per pool cannot be less than maximum number of actions per account",
 		)
+	}
+	return nil
+}
+
+// ValidateForkHeights validates the forked heights
+func ValidateForkHeights(cfg Config) error {
+	hu := NewHeightUpgrade(&cfg.Genesis)
+	switch {
+	case hu.PacificBlockHeight() > hu.AleutianBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Pacific is heigher than Aleutian")
+	case hu.AleutianBlockHeight() > hu.BeringBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Aleutian is heigher than Bering")
+	case hu.BeringBlockHeight() > hu.CookBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Bering is heigher than Cook")
+	case hu.CookBlockHeight() > hu.DardanellesBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Cook is heigher than Dardanelles")
+	case hu.DardanellesBlockHeight() > hu.DaytonaBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Dardanelles is heigher than Daytona")
+	case hu.DaytonaBlockHeight() > hu.EasterBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Daytona is heigher than Easter")
+	case hu.EasterBlockHeight() > hu.FbkMigrationBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Easter is heigher than FairbankMigration")
+	case hu.FbkMigrationBlockHeight() > hu.FairbankBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "FairbankMigration is heigher than Fairbank")
+	case hu.FairbankBlockHeight() > hu.GreenlandBlockHeight():
+		return errors.Wrap(ErrInvalidCfg, "Fairbank is heigher than Greenland")
 	}
 	return nil
 }

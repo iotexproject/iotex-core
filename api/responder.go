@@ -1,14 +1,17 @@
-// Copyright (c) 2020 IoTeX
+// Copyright (c) 2019 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// To compile the proto, run:
-//      protoc --go_out=plugins=grpc:. *.proto
-syntax = "proto3";
-package systemlogpb;
+package api
 
-message ActionHashList {
-  repeated bytes actionHashList = 1;
+import (
+	"github.com/iotexproject/iotex-core/blockchain/block"
+)
+
+// Responder responds to new block
+type Responder interface {
+	Respond(*block.Block) error
+	Exit()
 }

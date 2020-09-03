@@ -35,26 +35,27 @@ func (li *LeafIterator) Next() ([]byte, []byte, error) {
 		size := len(li.stack)
 		node := li.stack[size-1]
 		li.stack = li.stack[:size-1]
+		if hn, ok := node.(*hashNode); ok {
+			node, err := hn.LoadNode()
+			if err != nil {
+				return nil, nil, err
+			}
+			li.stack = append(li.stack, node)
+			continue
+		}
 		if ln, ok := node.(leaf); ok {
 			key := ln.Key()
 			value := ln.Value()
 
-			return append(key[:0:0], key...), append(value, value...), nil
+			return append(key[:0:0], key...), append(value[:0:0], value...), nil
 		}
 		if bn, ok := node.(branch); ok {
-			children, err := bn.children()
-			if err != nil {
-				return nil, nil, err
-			}
+			children := bn.Children()
 			li.stack = append(li.stack, children...)
 			continue
 		}
 		if en, ok := node.(extension); ok {
-			child, err := en.child()
-			if err != nil {
-				return nil, nil, err
-			}
-			li.stack = append(li.stack, child)
+			li.stack = append(li.stack, en.Child())
 			continue
 		}
 		return nil, nil, errors.New("unexpected node type")

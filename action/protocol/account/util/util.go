@@ -54,9 +54,9 @@ func LoadOrCreateAccount(sm protocol.StateManager, encodedAddr string) (*state.A
 }
 
 // LoadAccount loads an account state
-func LoadAccount(sm protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
+func LoadAccount(sr protocol.StateReader, addrHash hash.Hash160) (*state.Account, error) {
 	var account state.Account
-	if _, err := sm.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
+	if _, err := sr.State(&account, protocol.LegacyKeyOption(addrHash)); err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
 			return &account, nil
@@ -74,9 +74,9 @@ func StoreAccount(sm protocol.StateManager, addr address.Address, account *state
 }
 
 // Recorded tests if an account has been actually stored
-func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
+func Recorded(sr protocol.StateReader, addr address.Address) (bool, error) {
 	var account state.Account
-	_, err := sm.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
+	_, err := sr.State(&account, protocol.LegacyKeyOption(hash.BytesToHash160(addr.Bytes())))
 	if err == nil {
 		return true, nil
 	}
@@ -88,18 +88,25 @@ func Recorded(sm protocol.StateReader, addr address.Address) (bool, error) {
 
 // AccountState returns the confirmed account state on the chain
 func AccountState(sr protocol.StateReader, encodedAddr string) (*state.Account, error) {
+	a, _, err := AccountStateWithHeight(sr, encodedAddr)
+	return a, err
+}
+
+// AccountStateWithHeight returns the confirmed account state on the chain with what height the state is read from.
+func AccountStateWithHeight(sr protocol.StateReader, encodedAddr string) (*state.Account, uint64, error) {
 	addr, err := address.FromString(encodedAddr)
 	if err != nil {
-		return nil, errors.Wrap(err, "error when getting the pubkey hash")
+		return nil, 0, errors.Wrap(err, "error when getting the pubkey hash")
 	}
 	pkHash := hash.BytesToHash160(addr.Bytes())
 	var account state.Account
-	if _, err := sr.State(&account, protocol.LegacyKeyOption(pkHash)); err != nil {
+	h, err := sr.State(&account, protocol.LegacyKeyOption(pkHash))
+	if err != nil {
 		if errors.Cause(err) == state.ErrStateNotExist {
 			account = state.EmptyAccount()
-			return &account, nil
+			return &account, h, nil
 		}
-		return nil, errors.Wrapf(err, "error when loading state of %x", pkHash)
+		return nil, h, errors.Wrapf(err, "error when loading state of %x", pkHash)
 	}
-	return &account, nil
+	return &account, h, nil
 }

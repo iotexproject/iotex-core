@@ -11,14 +11,13 @@ mockgen -destination=./test/mock/mock_dispatcher/mock_dispatcher.go  \
 mkdir -p ./test/mock/mock_blockchain
 mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
         -source=./blockchain/blockchain.go \
-        -imports =github.com/iotexproject/iotex-core/blockchain \
         -package=mock_blockchain \
         Blockchain
 
 mkdir -p ./test/mock/mock_blockdao
 mockgen -destination=./test/mock/mock_blockdao/mock_blockdao.go  \
         -source=./blockchain/blockdao/blockdao.go \
-        -imports =github.com/iotexproject/iotex-core/blockchain/blockdao \
+        -aux_files=github.com/iotexproject/iotex-core/blockchain/blockdao=./blockchain/blockdao/filedao.go \
         -package=mock_blockdao \
         BlockDAO
 
@@ -31,14 +30,12 @@ mockgen -destination=./test/mock/mock_trie/mock_trie.go  \
 mkdir -p ./test/mock/mock_factory
 mockgen -destination=./test/mock/mock_factory/mock_factory.go  \
         -source=./state/factory/factory.go \
-        -imports =github.com/iotexproject/iotex-core/state/factory \
         -package=mock_factory \
         Factory
 
 mkdir -p ./test/mock/mock_consensus
 mockgen -destination=./test/mock/mock_consensus/mock_consensus.go  \
         -source=./consensus/consensus.go \
-        -imports =github.com/iotexproject/iotex-core/consensus \
         -package=mock_consensus \
         Consensus
 
@@ -56,6 +53,7 @@ mockgen -destination=./test/mock/mock_lifecycle/mock_lifecycle.go \
 mkdir -p ./test/mock/mock_actpool
 mockgen -destination=./test/mock/mock_actpool/mock_actpool.go  \
         -source=./actpool/actpool.go \
+        -self_package=github.com/iotexproject/iotex-core/actpool \
         -package=mock_actpool \
         ActPool
 
@@ -70,7 +68,7 @@ mockgen -destination=./action/protocol/mock_protocol_test.go  \
         -self_package=github.com/iotexproject/iotex-core/action/protocol \
         -package=protocol \
         Protocol
-        
+
 mkdir -p ./test/mock/mock_poll
 mockgen -destination=./test/mock/mock_poll/mock_poll.go  \
         -source=./action/protocol/poll/protocol.go \
@@ -125,3 +123,15 @@ mockgen -destination=./test/mock/mock_ioctlclient/mock_ioctlclient.go  \
         -source=./ioctl/client.go \
         -package=mock_ioctlclient \
         Client
+
+mkdir -p ./test/mock/mock_apiresponder
+mockgen -destination=./test/mock/mock_apiresponder/mock_apiresponder.go  \
+        -source=./api/responder.go \
+        -package=mock_apiresponder \
+        Responder
+
+mkdir -p ./test/mock/mock_apiserver
+mockgen -destination=./test/mock/mock_apiserver/mock_apiserver.go  \
+        -source=./api/apitestserver.go \
+        -package=mock_apiserver \
+        StreamBlocksServer

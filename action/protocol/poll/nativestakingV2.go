@@ -95,25 +95,29 @@ func (ns *nativeStakingV2) CalculateUnproductiveDelegates(
 
 // Delegates returns exact number of delegates of current epoch
 func (ns *nativeStakingV2) Delegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return ns.slasher.GetActiveBlockProducers(ctx, sr, false)
+	delegates, _, err := ns.slasher.GetActiveBlockProducers(ctx, sr, false)
+	return delegates, err
 }
 
 // NextDelegates returns exact number of delegates of next epoch
 func (ns *nativeStakingV2) NextDelegates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return ns.slasher.GetActiveBlockProducers(ctx, sr, true)
+	nextDelegates, _, err := ns.slasher.GetActiveBlockProducers(ctx, sr, true)
+	return nextDelegates, err
 }
 
 // Candidates returns candidate list from state factory of current epoch
 func (ns *nativeStakingV2) Candidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return ns.slasher.GetCandidates(ctx, sr, false)
+	candidates, _, err := ns.slasher.GetCandidates(ctx, sr, false)
+	return candidates, err
 }
 
 // NextCandidates returns candidate list from state factory of next epoch
 func (ns *nativeStakingV2) NextCandidates(ctx context.Context, sr protocol.StateReader) (state.CandidateList, error) {
-	return ns.slasher.GetCandidates(ctx, sr, true)
+	candidates, _, err := ns.slasher.GetCandidates(ctx, sr, true)
+	return candidates, err
 }
 
-func (ns *nativeStakingV2) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (ns *nativeStakingV2) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	return ns.slasher.ReadState(ctx, sr, ns.candIndexer, method, args...)
 }
 

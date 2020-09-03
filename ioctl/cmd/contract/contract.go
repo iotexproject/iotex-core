@@ -65,6 +65,7 @@ func init() {
 	ContractCmd.AddCommand(contractDeployCmd)
 	ContractCmd.AddCommand(contractInvokeCmd)
 	ContractCmd.AddCommand(contractTestCmd)
+	ContractCmd.AddCommand(contractShareCmd)
 	ContractCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,

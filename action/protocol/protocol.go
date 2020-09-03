@@ -27,7 +27,7 @@ const (
 // Protocol defines the protocol interfaces atop IoTeX blockchain
 type Protocol interface {
 	ActionHandler
-	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, error)
+	ReadState(context.Context, StateReader, []byte, ...[]byte) ([]byte, uint64, error)
 	Register(*Registry) error
 	ForceRegister(*Registry) error
 	Name() string
@@ -68,4 +68,19 @@ type ActionValidator interface {
 // decide if it wants to handle this action or not.
 type ActionHandler interface {
 	Handle(context.Context, action.Action, StateManager) (*action.Receipt, error)
+}
+
+// View stores the view for all protocols
+type View map[string]interface{}
+
+func (view View) Read(name string) (interface{}, error) {
+	if v, hit := view[name]; hit {
+		return v, nil
+	}
+	return nil, ErrNoName
+}
+
+func (view View) Write(name string, v interface{}) error {
+	view[name] = v
+	return nil
 }

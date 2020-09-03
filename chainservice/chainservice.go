@@ -45,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
-	"github.com/iotexproject/iotex-core/systemlog"
 )
 
 // ChainService is a blockchain service with all blockchain components.
@@ -58,10 +57,11 @@ type ChainService struct {
 	blockdao          blockdao.BlockDAO
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
-	api              *api.Server
-	indexBuilder     *blockindex.IndexBuilder
-	candidateIndexer *poll.CandidateIndexer
-	registry         *protocol.Registry
+	api                *api.Server
+	indexBuilder       *blockindex.IndexBuilder
+	candidateIndexer   *poll.CandidateIndexer
+	candBucketsIndexer *staking.CandidatesBucketsIndexer
+	registry           *protocol.Registry
 }
 
 type optionParams struct {
@@ -97,12 +97,12 @@ func New(
 ) (*ChainService, error) {
 	// create indexers
 	var (
-		indexers         []blockdao.BlockIndexer
-		indexer          blockindex.Indexer
-		systemLogIndex   *systemlog.Indexer
-		candidateIndexer *poll.CandidateIndexer
-		err              error
-		ops              optionParams
+		indexers           []blockdao.BlockIndexer
+		indexer            blockindex.Indexer
+		candidateIndexer   *poll.CandidateIndexer
+		candBucketsIndexer *staking.CandidatesBucketsIndexer
+		err                error
+		ops                optionParams
 	)
 	for _, opt := range opts {
 		if err = opt(&ops); err != nil {
@@ -167,33 +167,29 @@ func New(
 		if !cfg.Chain.EnableAsyncIndexWrite {
 			indexers = append(indexers, indexer)
 		}
-		if cfg.Chain.EnableSystemLogIndexer {
-			// create system log indexer
-			cfg.DB.DbPath = cfg.System.SystemLogDBPath
-			systemLogIndex, err = systemlog.NewIndexer(db.NewBoltDB(cfg.DB))
-			if err != nil {
-				return nil, err
-			}
-			indexers = append(indexers, systemLogIndex)
-		}
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
 		if err != nil {
 			return nil, err
 		}
+		if cfg.Chain.EnableStakingIndexer {
+			cfg.DB.DbPath = cfg.Chain.StakingIndexDBPath
+			candBucketsIndexer, err = staking.NewStakingCandidatesBucketsIndexer(db.NewBoltDB(cfg.DB))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// create BlockDAO
-	var kvStore db.KVStore
+	var dao blockdao.BlockDAO
 	if ops.isTesting {
-		kvStore = db.NewMemKVStore()
+		dao = blockdao.NewBlockDAOInMemForTest(indexers, cfg.DB)
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvStore = db.NewBoltDB(cfg.DB)
+		dao = blockdao.NewBlockDAO(indexers, cfg.Chain.CompressBlock, cfg.DB)
 	}
-	var dao blockdao.BlockDAO
-	dao = blockdao.NewBlockDAO(kvStore, indexers, cfg.Chain.CompressBlock, cfg.DB)
 
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)
@@ -242,7 +238,7 @@ func New(
 	)
 	// staking protocol need to be put in registry before poll protocol when enabling
 	if cfg.Chain.EnableStakingProtocol {
-		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, cfg.Genesis.Staking)
+		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, cfg.Genesis.Staking, candBucketsIndexer, cfg.Genesis.GreenlandBlockHeight)
 		if err != nil {
 			return nil, err
 		}
@@ -339,7 +335,6 @@ func New(
 		sf,
 		dao,
 		indexer,
-		systemLogIndex,
 		actPool,
 		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
@@ -380,17 +375,18 @@ func New(
 	}
 
 	return &ChainService{
-		actpool:           actPool,
-		chain:             chain,
-		factory:           sf,
-		blockdao:          dao,
-		blocksync:         bs,
-		consensus:         consensus,
-		electionCommittee: electionCommittee,
-		indexBuilder:      indexBuilder,
-		candidateIndexer:  candidateIndexer,
-		api:               apiSvr,
-		registry:          registry,
+		actpool:            actPool,
+		chain:              chain,
+		factory:            sf,
+		blockdao:           dao,
+		blocksync:          bs,
+		consensus:          consensus,
+		electionCommittee:  electionCommittee,
+		indexBuilder:       indexBuilder,
+		candidateIndexer:   candidateIndexer,
+		candBucketsIndexer: candBucketsIndexer,
+		api:                apiSvr,
+		registry:           registry,
 	}, nil
 }
 
@@ -404,6 +400,11 @@ func (cs *ChainService) Start(ctx context.Context) error {
 	if cs.candidateIndexer != nil {
 		if err := cs.candidateIndexer.Start(ctx); err != nil {
 			return errors.Wrap(err, "error when starting candidate indexer")
+		}
+	}
+	if cs.candBucketsIndexer != nil {
+		if err := cs.candBucketsIndexer.Start(ctx); err != nil {
+			return errors.Wrap(err, "error when starting staking candidates indexer")
 		}
 	}
 	if err := cs.chain.Start(ctx); err != nil {
@@ -458,6 +459,11 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	if cs.candidateIndexer != nil {
 		if err := cs.candidateIndexer.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping candidate indexer")
+		}
+	}
+	if cs.candBucketsIndexer != nil {
+		if err := cs.candBucketsIndexer.Stop(ctx); err != nil {
+			return errors.Wrap(err, "error when stopping staking candidates indexer")
 		}
 	}
 	if cs.electionCommittee != nil {

@@ -129,8 +129,8 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
-			return nil
+		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
 		},
 	)
 	if err != nil {
@@ -171,8 +171,8 @@ func (cc *consortiumCommittee) ReadState(
 	sm protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
-	return nil, nil
+) ([]byte, uint64, error) {
+	return nil, uint64(0), nil
 }
 
 // Register registers the protocol with a unique ID

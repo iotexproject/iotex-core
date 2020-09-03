@@ -1,7 +1,7 @@
 # iotex-core
 
 [![Join the forum](https://img.shields.io/badge/Discuss-IoTeX%20Community-blue)](https://community.iotex.io/c/research-development/protocol)
-[![Go version](https://img.shields.io/badge/go-1.11.5-blue.svg)](https://github.com/moovweb/gvm)
+[![Go version](https://img.shields.io/badge/go-1.14.4-blue.svg)](https://github.com/moovweb/gvm)
 [![CircleCI](https://circleci.com/gh/iotexproject/iotex-core.svg?style=svg&circle-token=fe0817d127f251a34b8bdd3336a808c7537e5ec0)](https://circleci.com/gh/iotexproject/iotex-core)
 [![Go Report Card](https://goreportcard.com/badge/github.com/iotexproject/iotex-core)](https://goreportcard.com/report/github.com/iotexproject/iotex-core)
 [![Coverage](https://codecov.io/gh/iotexproject/iotex-core/branch/master/graph/badge.svg)](https://codecov.io/gh/iotexproject/iotex-core)
@@ -14,7 +14,7 @@
 
 Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
 network for IoT powered by scalability- and privacy-centric blockchains. Please refer to IoTeX
-[whitepaper](https://www.iotex.io/research-paper) for details.
+[whitepaper](https://iotex.io/research/) for details.
 
 ## Get started
 
@@ -22,7 +22,7 @@ network for IoT powered by scalability- and privacy-centric blockchains. Please 
 
 | Components | Version | Description |
 |----------|-------------|-------------|
-| [Golang](https://golang.org) | &ge; 1.11.5 | Go programming language |
+| [Golang](https://golang.org) | &ge; 1.14.4 | Go programming language |
 | [Protoc](https://developers.google.com/protocol-buffers/) | &ge; 3.6.0 | Protocol buffers, required only when you rebuild protobuf messages |
 
 ### Get iotex-core
@@ -108,7 +108,7 @@ Users could interact with iotex blockchain by
 ioctl [command]
 ```
 
-Refer to [CLI document](ioctl/README.md) for more details.
+Refer to [CLI document](https://docs.iotex.io/developer/ioctl/install.html) for more details.
 
 ## Contact
 

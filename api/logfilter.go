@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 
+	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
@@ -14,9 +15,9 @@ import (
 
 // LogFilter contains options for contract log filtering.
 type LogFilter struct {
-	stream  iotexapi.APIService_StreamLogsServer
-	errChan chan error
-	*iotexapi.LogsFilter
+	stream   iotexapi.APIService_StreamLogsServer
+	errChan  chan error
+	pbFilter *iotexapi.LogsFilter
 	// FilterLogsRequest.Topics restricts matches to particular event topics. Each event has a list
 	// of topics. Topics matches a prefix of that list. An empty element slice matches any
 	// topic. Non-empty elements represent an alternative that matches any of the
@@ -31,16 +32,19 @@ type LogFilter struct {
 }
 
 // NewLogFilter returns a new log filter
-func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) Responder {
+func NewLogFilter(in *iotexapi.LogsFilter, stream iotexapi.APIService_StreamLogsServer, errChan chan error) *LogFilter {
 	return &LogFilter{
-		stream:     stream,
-		errChan:    errChan,
-		LogsFilter: in,
+		stream:   stream,
+		errChan:  errChan,
+		pbFilter: in,
 	}
 }
 
 // Respond to new block
 func (l *LogFilter) Respond(blk *block.Block) error {
+	if !l.ExistInBloomFilter(blk.LogsBloomfilter()) {
+		return nil
+	}
 	logs := l.MatchLogs(blk.Receipts)
 	if len(logs) == 0 {
 		return nil
@@ -67,7 +71,7 @@ func (l *LogFilter) Exit() {
 func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 	var logs []*iotextypes.Log
 	for _, r := range receipts {
-		for _, v := range r.Logs {
+		for _, v := range r.Logs() {
 			log := v.ConvertToLogPb()
 			if l.match(log) {
 				logs = append(logs, log)
@@ -79,9 +83,9 @@ func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
 
 // match checks if a given log matches the filter
 func (l *LogFilter) match(log *iotextypes.Log) bool {
-	addrMatch := len(l.Address) == 0
+	addrMatch := len(l.pbFilter.Address) == 0
 	if !addrMatch {
-		for _, e := range l.Address {
+		for _, e := range l.pbFilter.Address {
 			if e == log.ContractAddress {
 				addrMatch = true
 				break
@@ -91,15 +95,15 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 	if !addrMatch {
 		return false
 	}
-	if len(l.Topics) > len(log.Topics) {
+	if len(l.pbFilter.Topics) > len(log.Topics) {
 		// trying to match a prefix of log's topic list, so topics longer than that is consider invalid
 		return false
 	}
-	if len(l.Topics) == 0 {
+	if len(l.pbFilter.Topics) == 0 {
 		// {} or nil matches any address or topic list
 		return true
 	}
-	for i, e := range l.Topics {
+	for i, e := range l.pbFilter.Topics {
 		if e == nil || len(e.Topic) == 0 {
 			continue
 		}
@@ -116,4 +120,25 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 		}
 	}
 	return true
+}
+
+// ExistInBloomFilter returns true if topics of filter exist in the bloom filter
+func (l *LogFilter) ExistInBloomFilter(filter bloom.BloomFilter) bool {
+	if filter == nil {
+		return true
+	}
+
+	for _, e := range l.pbFilter.Topics {
+		if e == nil || len(e.Topic) == 0 {
+			continue
+		}
+
+		for _, v := range e.Topic {
+			if filter.Exist(v) {
+				return true
+			}
+		}
+	}
+	// {} or nil matches any address or topic list
+	return len(l.pbFilter.Topics) == 0
 }

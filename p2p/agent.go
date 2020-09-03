@@ -26,7 +26,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/cache"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
@@ -66,8 +65,6 @@ const (
 	unicastTopic      = "unicast"
 	numDialRetries    = 8
 	dialRetryInterval = 2 * time.Second
-	blackListLen      = 1000
-	blackListTTL      = 15 * time.Minute
 )
 
 type (
@@ -85,7 +82,7 @@ type Agent struct {
 	broadcastInboundHandler    HandleBroadcastInbound
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
-	unicastBlacklist           *cache.ThreadSafeLruCache
+	unicastBlocklist           *BlockList
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -97,7 +94,7 @@ func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicas
 		topicSuffix:                hex.EncodeToString(gh[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
-		unicastBlacklist:           cache.NewThreadSafeLruCache(blackListLen),
+		unicastBlocklist:           NewBlockList(blockListLen),
 	}
 }
 
@@ -338,8 +335,11 @@ func (p *Agent) BroadcastOutbound(ctx context.Context, msg proto.Message) (err e
 
 // UnicastOutbound sends a unicast message to the given address
 func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) (err error) {
-	var msgType iotexrpc.MessageType
-	var msgBody []byte
+	var (
+		peerName = peer.ID.Pretty()
+		msgType  iotexrpc.MessageType
+		msgBody  []byte
+	)
 	defer func() {
 		status := successStr
 		if err != nil {
@@ -347,6 +347,12 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 		}
 		p2pMsgCounter.WithLabelValues("unicast", strconv.Itoa(int(msgType)), "out", peer.ID.Pretty(), status).Inc()
 	}()
+
+	if p.unicastBlocklist.Blocked(peerName, time.Now()) {
+		err = errors.New("peer is in blocklist at this moment")
+		return
+	}
+
 	msgType, msgBody, err = convertAppMsg(msg)
 	if err != nil {
 		return
@@ -366,14 +372,18 @@ func (p *Agent) UnicastOutbound(ctx context.Context, peer peerstore.PeerInfo, ms
 	data, err := proto.Marshal(&unicast)
 	if err != nil {
 		err = errors.Wrap(err, "error when marshaling unicast message")
-		return err
+		return
 	}
+
 	if err = p.host.Unicast(ctx, peer, unicastTopic+p.topicSuffix, data); err != nil {
 		err = errors.Wrap(err, "error when sending unicast message")
-		p.unicastBlacklist.Add(peer.ID.Pretty(), time.Now().Add(blackListTTL))
-		return err
+		p.unicastBlocklist.Add(peerName, time.Now())
+		return
 	}
-	return err
+
+	// remove peer from blocklist upon success
+	p.unicastBlocklist.Remove(peerName)
+	return
 }
 
 // Info returns agents' peer info.
@@ -391,12 +401,7 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	}
 
 	for i, nb := range nbs {
-		if v, ok := p.unicastBlacklist.Get(nb.ID.Pretty()); ok {
-			if t, isT := v.(time.Time); isT {
-				if time.Now().After(t) {
-					p.unicastBlacklist.Remove(nb.ID.Pretty())
-				}
-			}
+		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) {
 			continue
 		}
 		res = append(res, nbs[i])

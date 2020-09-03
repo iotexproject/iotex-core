@@ -11,23 +11,25 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
-
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"github.com/iotexproject/iotex-core/state"
 )
 
 const (
 	// TODO: it works only for one instance per protocol definition now
-	protocolID = "rewarding"
+	protocolID  = "rewarding"
+	v2Namespace = "Rewarding"
 )
 
 var (
@@ -90,15 +92,37 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	switch blkCtx.BlockHeight {
 	case hu.AleutianBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false)
 	case hu.DardanellesBlockHeight():
-		if err := p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true); err != nil {
-			return err
-		}
+		return p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true)
+	case hu.GreenlandBlockHeight():
+		return p.migrateValueGreenland(ctx, sm)
 	}
 	return nil
+}
+
+func (p *Protocol) migrateValueGreenland(_ context.Context, sm protocol.StateManager) error {
+	if err := p.migrateValue(sm, adminKey, &admin{}); err != nil {
+		return err
+	}
+	if err := p.migrateValue(sm, fundKey, &fund{}); err != nil {
+		return err
+	}
+	return p.migrateValue(sm, exemptKey, &exempt{})
+}
+
+func (p *Protocol) migrateValue(sm protocol.StateManager, key []byte, value interface{}) error {
+	if _, err := p.stateV1(sm, key, value); err != nil {
+		if errors.Cause(err) == state.ErrStateNotExist {
+			// doesn't exist now just skip migration
+			return nil
+		}
+		return err
+	}
+	if err := p.putStateV2(sm, key, value); err != nil {
+		return err
+	}
+	return p.deleteStateV1(sm, key)
 }
 
 // CreatePostSystemActions creates a list of system actions to be appended to block actions
@@ -135,18 +159,20 @@ func (p *Protocol) Handle(
 	switch act := act.(type) {
 	case *action.DepositToRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Deposit(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Deposit(ctx, sm, act.Amount(), iotextypes.TransactionLogType_DEPOSIT_TO_REWARDING_FUND)
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.ClaimFromRewardingFund:
 		si := sm.Snapshot()
-		if err := p.Claim(ctx, sm, act.Amount()); err != nil {
+		rlog, err := p.Claim(ctx, sm, act.Amount())
+		if err != nil {
 			log.L().Debug("Error when handling rewarding action", zap.Error(err))
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 		}
-		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+		return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil, rlog)
 	case *action.GrantReward:
 		switch act.RewardType() {
 		case action.BlockReward:
@@ -154,20 +180,20 @@ func (p *Protocol) Handle(
 			rewardLog, err := p.GrantBlockReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
 			if rewardLog == nil {
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, nil)
 			}
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLog)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, []*action.Log{rewardLog})
 		case action.EpochReward:
 			si := sm.Snapshot()
 			rewardLogs, err := p.GrantEpochReward(ctx, sm)
 			if err != nil {
 				log.L().Debug("Error when handling rewarding action", zap.Error(err))
-				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si)
+				return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Failure), si, nil)
 			}
-			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs...)
+			return p.settleAction(ctx, sm, uint64(iotextypes.ReceiptStatus_Success), si, rewardLogs)
 		}
 	}
 	return nil, nil
@@ -179,35 +205,35 @@ func (p *Protocol) ReadState(
 	sr protocol.StateReader,
 	method []byte,
 	args ...[]byte,
-) ([]byte, error) {
+) ([]byte, uint64, error) {
 	switch string(method) {
 	case "AvailableBalance":
-		balance, err := p.AvailableBalance(ctx, sr)
+		balance, height, err := p.AvailableBalance(ctx, sr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	case "TotalBalance":
-		balance, err := p.TotalBalance(ctx, sr)
+		balance, height, err := p.TotalBalance(ctx, sr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	case "UnclaimedBalance":
 		if len(args) != 1 {
-			return nil, errors.Errorf("invalid number of arguments %d", len(args))
+			return nil, uint64(0), errors.Errorf("invalid number of arguments %d", len(args))
 		}
 		addr, err := address.FromString(string(args[0]))
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		balance, err := p.UnclaimedBalance(ctx, sr, addr)
+		balance, height, err := p.UnclaimedBalance(ctx, sr, addr)
 		if err != nil {
-			return nil, err
+			return nil, uint64(0), err
 		}
-		return []byte(balance.String()), nil
+		return []byte(balance.String()), height, nil
 	default:
-		return nil, errors.New("corresponding method isn't found")
+		return nil, uint64(0), errors.New("corresponding method isn't found")
 	}
 }
 
@@ -226,21 +252,83 @@ func (p *Protocol) Name() string {
 	return protocolID
 }
 
-func (p *Protocol) state(sm protocol.StateReader, key []byte, value interface{}) error {
-	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
-	_, err := sm.State(value, protocol.LegacyKeyOption(keyHash))
-	return err
+// useV2Storage return true after greenland when we start using v2 storage.
+func useV2Storage(ctx context.Context) bool {
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	blkCtx := protocol.MustGetBlockCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	return hu.IsPost(config.Greenland, blkCtx.BlockHeight)
 }
 
-func (p *Protocol) putState(sm protocol.StateManager, key []byte, value interface{}) error {
+func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	h, _, err := p.stateCheckLegacy(ctx, sm, key, value)
+	return h, err
+}
+
+func (p *Protocol) stateCheckLegacy(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, bool, error) {
+	if useV2Storage(ctx) {
+		h, err := p.stateV2(sm, key, value)
+		if errors.Cause(err) != state.ErrStateNotExist {
+			return h, false, err
+		}
+	}
+	h, err := p.stateV1(sm, key, value)
+	return h, true, err
+}
+
+func (p *Protocol) stateV1(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
+	return sm.State(value, protocol.LegacyKeyOption(keyHash))
+}
+
+func (p *Protocol) stateV2(sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
+	k := append(p.keyPrefix, key...)
+	return sm.State(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+}
+
+func (p *Protocol) putState(ctx context.Context, sm protocol.StateManager, key []byte, value interface{}) error {
+	if useV2Storage(ctx) {
+		return p.putStateV2(sm, key, value)
+	}
+	return p.putStateV1(sm, key, value)
+}
+
+func (p *Protocol) putStateV1(sm protocol.StateManager, key []byte, value interface{}) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.PutState(value, protocol.LegacyKeyOption(keyHash))
 	return err
 }
 
-func (p *Protocol) deleteState(sm protocol.StateManager, key []byte) error {
+func (p *Protocol) putStateV2(sm protocol.StateManager, key []byte, value interface{}) error {
+	k := append(p.keyPrefix, key...)
+	_, err := sm.PutState(value, protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+	return err
+}
+
+func (p *Protocol) deleteState(ctx context.Context, sm protocol.StateManager, key []byte) error {
+	if useV2Storage(ctx) {
+		return p.deleteStateV2(sm, key)
+	}
+	return p.deleteStateV1(sm, key)
+}
+
+func (p *Protocol) deleteStateV1(sm protocol.StateManager, key []byte) error {
 	keyHash := hash.Hash160b(append(p.keyPrefix, key...))
 	_, err := sm.DelState(protocol.LegacyKeyOption(keyHash))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
+	return err
+}
+
+func (p *Protocol) deleteStateV2(sm protocol.StateManager, key []byte) error {
+	k := append(p.keyPrefix, key...)
+	_, err := sm.DelState(protocol.KeyOption(k), protocol.NamespaceOption(v2Namespace))
+	if errors.Cause(err) == state.ErrStateNotExist {
+		// don't care if not exist
+		return nil
+	}
 	return err
 }
 
@@ -249,7 +337,8 @@ func (p *Protocol) settleAction(
 	sm protocol.StateManager,
 	status uint64,
 	si int,
-	logs ...*action.Log,
+	logs []*action.Log,
+	tLogs ...*action.TransactionLog,
 ) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
@@ -259,13 +348,17 @@ func (p *Protocol) settleAction(
 		}
 	}
 	gasFee := big.NewInt(0).Mul(actionCtx.GasPrice, big.NewInt(0).SetUint64(actionCtx.IntrinsicGas))
-	if err := DepositGas(ctx, sm, gasFee); err != nil {
+	depositLog, err := DepositGas(ctx, sm, gasFee)
+	if err != nil {
 		return nil, err
+	}
+	if depositLog != nil {
+		tLogs = append(tLogs, depositLog)
 	}
 	if err := p.increaseNonce(sm, actionCtx.Caller, actionCtx.Nonce); err != nil {
 		return nil, err
 	}
-	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs...), nil
+	return p.createReceipt(status, blkCtx.BlockHeight, actionCtx.ActionHash, actionCtx.IntrinsicGas, logs, tLogs...), nil
 }
 
 func (p *Protocol) increaseNonce(sm protocol.StateManager, addr address.Address, nonce uint64) error {
@@ -285,15 +378,15 @@ func (p *Protocol) createReceipt(
 	blkHeight uint64,
 	actHash hash.Hash256,
 	gasConsumed uint64,
-	logs ...*action.Log,
+	logs []*action.Log,
+	tLogs ...*action.TransactionLog,
 ) *action.Receipt {
 	// TODO: need to review the fields
-	return &action.Receipt{
+	return (&action.Receipt{
 		Status:          status,
 		BlockHeight:     blkHeight,
 		ActionHash:      actHash,
 		GasConsumed:     gasConsumed,
 		ContractAddress: p.addr.String(),
-		Logs:            logs,
-	}
+	}).AddLogs(logs...).AddTransactionLogs(tLogs...)
 }

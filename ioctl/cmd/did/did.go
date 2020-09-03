@@ -15,12 +15,20 @@ import (
 // Multi-language support
 var (
 	DIDCmdShorts = map[config.Language]string{
-		config.English: "Generate DID document",
-		config.Chinese: "产生DID document",
+		config.English: "DID command",
+		config.Chinese: "DID command",
 	}
 	DIDCmdUses = map[config.Language]string{
-		config.English: "did",
-		config.Chinese: "did",
+		config.English: "did command",
+		config.Chinese: "did command",
+	}
+	flagEndpoint = map[config.Language]string{
+		config.English: "set endpoint for once",
+		config.Chinese: "一次设置端点",
+	}
+	flagInsecure = map[config.Language]string{
+		config.English: "insecure connection for once",
+		config.Chinese: "一次不安全连接",
 	}
 )
 
@@ -32,4 +40,12 @@ var DIDCmd = &cobra.Command{
 
 func init() {
 	DIDCmd.AddCommand(didGenerateCmd)
+	DIDCmd.AddCommand(didRegisterCmd)
+	DIDCmd.AddCommand(didGetHashCmd)
+	DIDCmd.AddCommand(didGetURICmd)
+	DIDCmd.AddCommand(didUpdateCmd)
+	DIDCmd.AddCommand(didDeregisterCmd)
+	DIDCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
+		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
+	DIDCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))
 }

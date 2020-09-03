@@ -7,6 +7,7 @@
 package did
 
 import (
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -29,10 +30,6 @@ var (
 	generateCmdUses = map[config.Language]string{
 		config.English: "generate [-s SIGNER]",
 		config.Chinese: "generate [-s 签署人]",
-	}
-	flagSignerUsages = map[config.Language]string{
-		config.English: "choose a signing account",
-		config.Chinese: "选择一个签名账户",
 	}
 )
 
@@ -106,6 +103,8 @@ func generateFromSigner(signer, password string) (generatedMessage string, err e
 	if err != nil {
 		return "", output.NewError(output.ConvertError, "", err)
 	}
-	generatedMessage = string(msg)
+
+	sum := sha256.Sum256(msg)
+	generatedMessage = string(msg) + "\n\nThe hex encoded SHA256 hash of the DID doc is:" + hex.EncodeToString(sum[:])
 	return
 }

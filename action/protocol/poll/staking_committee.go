@@ -140,8 +140,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		func(height uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
-		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error {
-			return nil
+		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error) {
+			return nil, nil
 		},
 	)
 	if err != nil {
@@ -257,7 +257,7 @@ func (sc *stakingCommittee) NextCandidates(ctx context.Context, sr protocol.Stat
 	return sc.governanceStaking.NextCandidates(ctx, sr)
 }
 
-func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, error) {
+func (sc *stakingCommittee) ReadState(ctx context.Context, sr protocol.StateReader, method []byte, args ...[]byte) ([]byte, uint64, error) {
 	return sc.governanceStaking.ReadState(ctx, sr, method, args...)
 }
 

@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/stretchr/testify/require"
@@ -77,6 +78,7 @@ var (
 	testData = []struct {
 		log   *action.Log
 		match [5]bool
+		exist [5]bool
 	}{
 		{
 			&action.Log{
@@ -84,6 +86,7 @@ var (
 				Topics:  []hash.Hash256{dataN}, // both address and topic not exist
 			},
 			[5]bool{true, false, false, false, false},
+			[5]bool{true, true, false, false, false},
 		},
 		{
 			&action.Log{
@@ -91,6 +94,7 @@ var (
 				Topics:  []hash.Hash256{data1, data2, dataA}, // topic longer than log's topic list
 			},
 			[5]bool{true, false, false, false, false},
+			[5]bool{true, true, true, true, true},
 		},
 		{
 			&action.Log{
@@ -98,12 +102,14 @@ var (
 				Topics:  []hash.Hash256{data1, dataN}, // topic not match
 			},
 			[5]bool{true, false, false, false, false},
+			[5]bool{true, true, true, true, false},
 		},
 		{
 			&action.Log{
 				Address: "topic1",
 				Topics:  []hash.Hash256{dataN}, // topic not exist
 			},
+			[5]bool{true, true, false, false, false},
 			[5]bool{true, true, false, false, false},
 		},
 		{
@@ -112,6 +118,7 @@ var (
 				Topics:  []hash.Hash256{dataA, dataB}, // topic not match
 			},
 			[5]bool{true, true, false, false, false},
+			[5]bool{true, true, true, false, true},
 		},
 		{
 			&action.Log{
@@ -119,6 +126,7 @@ var (
 				Topics:  []hash.Hash256{data1, dataB},
 			},
 			[5]bool{true, false, true, false, false},
+			[5]bool{true, true, true, true, true},
 		},
 		{
 			&action.Log{
@@ -126,6 +134,7 @@ var (
 				Topics:  []hash.Hash256{data2, dataA},
 			},
 			[5]bool{true, false, true, false, false},
+			[5]bool{true, true, true, true, true},
 		},
 		{
 			&action.Log{
@@ -133,6 +142,7 @@ var (
 				Topics:  []hash.Hash256{data1, dataN},
 			},
 			[5]bool{true, true, false, true, false},
+			[5]bool{true, true, true, true, false},
 		},
 		{
 			&action.Log{
@@ -140,6 +150,7 @@ var (
 				Topics:  []hash.Hash256{dataN, dataA},
 			},
 			[5]bool{true, true, false, false, true},
+			[5]bool{true, true, true, false, true},
 		},
 	}
 )
@@ -147,10 +158,18 @@ var (
 func TestLogFilter_MatchBlock(t *testing.T) {
 	require := require.New(t)
 
+	f := NewLogFilter(testFilter[0], nil, nil)
+	require.True(f.ExistInBloomFilter(nil))
+
 	for i, q := range testFilter {
-		f, ok := NewLogFilter(q, nil, nil).(*LogFilter)
-		require.True(ok)
+		f = NewLogFilter(q, nil, nil)
 		for _, v := range testData {
+			bloom, err := bloom.NewBloomFilter(2048, 3)
+			require.NoError(err)
+			for _, topic := range v.log.Topics {
+				bloom.Add(topic[:])
+			}
+			require.Equal(f.ExistInBloomFilter(bloom), v.exist[i])
 			log := v.log.ConvertToLogPb()
 			require.Equal(f.match(log), v.match[i])
 		}

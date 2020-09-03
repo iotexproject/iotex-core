@@ -110,7 +110,14 @@ func decodeBytecode() ([]byte, error) {
 
 // Signer returns signer's address
 func Signer() (address string, err error) {
-	return util.GetAddress(signerFlag.Value().(string))
+	addressOrAlias := signerFlag.Value().(string)
+	if addressOrAlias == "" {
+		addressOrAlias, err = config.GetContextAddressOrAlias()
+		if err != nil {
+			return
+		}
+	}
+	return util.GetAddress(addressOrAlias)
 }
 
 func nonce(executor string) (uint64, error) {

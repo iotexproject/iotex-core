@@ -32,7 +32,7 @@ type Protocol struct {
 }
 
 // DepositGas deposits gas to some pool
-type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) error
+type DepositGas func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error)
 
 // NewProtocol instantiates the protocol of account
 func NewProtocol(depositGas DepositGas) *Protocol {
@@ -82,8 +82,8 @@ func (p *Protocol) Validate(ctx context.Context, act action.Action, sr protocol.
 }
 
 // ReadState read the state on blockchain via protocol
-func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, error) {
-	return nil, protocol.ErrUnimplemented
+func (p *Protocol) ReadState(context.Context, protocol.StateReader, []byte, ...[]byte) ([]byte, uint64, error) {
+	return nil, uint64(0), protocol.ErrUnimplemented
 }
 
 // Register registers the protocol with a unique ID

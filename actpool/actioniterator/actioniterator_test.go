@@ -7,11 +7,14 @@
 package actioniterator
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -96,4 +99,35 @@ func TestActionIterator(t *testing.T) {
 		appliedActionList = append(appliedActionList, bestAction)
 	}
 	require.Equal(appliedActionList, []action.SealedEnvelope{selp3, selp1, selp2, selp4, selp5, selp6})
+}
+
+func BenchmarkLooping(b *testing.B) {
+	accMap := make(map[string][]action.SealedEnvelope)
+	for i := 0; i < b.N; i++ {
+		priKey, err := crypto.HexStringToPrivateKey(fmt.Sprintf("1%063x", i))
+		require.NoError(b, err)
+		addr, err := address.FromBytes(priKey.PublicKey().Hash())
+		require.NoError(b, err)
+		tsf, err := action.NewTransfer(uint64(1), big.NewInt(100), "1", nil, uint64(100000), big.NewInt(int64(i)))
+		require.NoError(b, err)
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(1).
+			SetGasPrice(big.NewInt(5)).
+			SetAction(tsf).Build()
+		selp, err := action.Sign(elp, priKey)
+		require.NoError(b, err)
+		accMap[addr.String()] = []action.SealedEnvelope{selp}
+	}
+	ai := NewActionIterator(accMap)
+	b.ResetTimer()
+	for {
+		act, ok := ai.Next()
+		if !ok {
+			break
+		}
+		if act.GasLimit() < 30 {
+			ai.PopAccount()
+		}
+	}
+	b.StopTimer()
 }
