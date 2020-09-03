@@ -24,6 +24,10 @@ func TestNewAliasImportCmd(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
+	result, err = util.ExecuteCmd(cmd, `""{"name":"d","address":""}""`)
+	require.Error(t, err)
+	require.NotNil(t, result)
+
 }
 
 // test for list message display
