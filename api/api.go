@@ -1298,15 +1298,17 @@ func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta 
 	receiptRoot := header.ReceiptRoot()
 	deltaStateDigest := header.DeltaStateDigest()
 	logsBloom := header.LogsBloomfilter()
+	prevHash := header.PrevHash()
 
 	blockMeta := &iotextypes.BlockMeta{
-		Hash:             hex.EncodeToString(hash[:]),
-		Height:           height,
-		Timestamp:        ts,
-		ProducerAddress:  producerAddress,
-		TxRoot:           hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+		Hash:              hex.EncodeToString(hash[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
 	}
 	if logsBloom != nil {
 		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
