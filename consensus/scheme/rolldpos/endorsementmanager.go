@@ -31,7 +31,7 @@ var (
 	statusKey             = []byte("status")
 )
 
-//EndorsedByMajorityFunc defines a function to give an information of consensus status
+// EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
 type endorserEndorsementCollection struct {
@@ -109,6 +109,7 @@ func (ee *endorserEndorsementCollection) Endorsement(
 }
 
 type blockEndorsementCollection struct {
+	isMinted  bool
 	blk       *block.Block
 	endorsers map[string]*endorserEndorsementCollection
 }
@@ -138,6 +139,7 @@ func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEnd
 		}
 		bc.endorsers[endorsement.Endorser] = ee
 	}
+	// TODO: bc.isMinted = blockPro.IsMinted
 	return nil
 }
 
@@ -154,6 +156,7 @@ func (bc *blockEndorsementCollection) toProto() (*endorsementpb.BlockEndorsement
 		}
 		bcProto.BlockMap = append(bcProto.BlockMap, ioEndorsement)
 	}
+	// TODO: bcProto.IsMinted = bc.isMinted
 	return bcProto, nil
 }
 
@@ -164,6 +167,10 @@ func (bc *blockEndorsementCollection) SetBlock(blk *block.Block) error {
 
 func (bc *blockEndorsementCollection) Block() *block.Block {
 	return bc.blk
+}
+
+func (bc *blockEndorsementCollection) minted() {
+	bc.isMinted = true
 }
 
 func (bc *blockEndorsementCollection) AddEndorsement(
@@ -311,6 +318,15 @@ func (m *endorsementManager) CollectionByBlockHash(blkHash []byte) *blockEndorse
 	return collections
 }
 
+func (m *endorsementManager) IsMintedByBlockHash(blkHash []byte) bool {
+	encodedBlockHash := encodeToString(blkHash)
+	collection, exists := m.collections[encodedBlockHash]
+	if !exists {
+		return false
+	}
+	return collection.isMinted
+}
+
 func (m *endorsementManager) Size() int {
 	return len(m.collections)
 }
@@ -332,6 +348,7 @@ func (m *endorsementManager) RegisterBlock(blk *block.Block) error {
 		return c.SetBlock(blk)
 	}
 	m.collections[encodedBlockHash] = newBlockEndorsementCollection(blk)
+	m.collections[encodedBlockHash].minted()
 
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()
@@ -360,7 +377,7 @@ func (m *endorsementManager) AddVoteEndorsement(
 	if m.eManagerDB != nil && m.isMajorityFunc != nil {
 		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
 		if !beforeVote && afterVote {
-			//put into DB only it changes the status of consensus
+			// put into DB only it changes the status of consensus
 			return m.PutEndorsementManagerToDB()
 		}
 	}
