@@ -43,6 +43,7 @@ type roundCtx struct {
 	blockInLock []byte
 	proofOfLock []*endorsement.Endorsement
 	status      status
+	lastMinted  *block.Block
 	eManager    *endorsementManager
 }
 
@@ -119,6 +120,18 @@ func (ctx *roundCtx) IsLocked() bool {
 
 func (ctx *roundCtx) IsUnlocked() bool {
 	return ctx.status == unlocked
+}
+
+func (ctx *roundCtx) SetLastMinted(blk *block.Block) error {
+	ctx.lastMinted = blk
+	return ctx.eManager.SetLastMinted(blk)
+}
+
+func (ctx *roundCtx) IsMinted() bool {
+	if ctx.lastMinted == nil {
+		return false
+	}
+	return ctx.height == ctx.lastMinted.Height()
 }
 
 func (ctx *roundCtx) ReadyToCommit(addr string) *EndorsedConsensusMessage {

@@ -55,6 +55,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 	if err != nil {
 		return nil, err
 	}
+	var lastMinted *block.Block
 	var status status
 	var blockInLock []byte
 	var proofOfLock []*endorsement.Endorsement
@@ -72,6 +73,14 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 			return nil, err
 		}
 	}
+	if round.lastMinted != nil {
+		lastMinted = round.lastMinted
+	} else {
+		lastMinted, err = round.eManager.GetLastMinted()
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -85,6 +94,7 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
 		eManager:           round.eManager,
 		status:             status,
+		lastMinted:         lastMinted,
 		blockInLock:        blockInLock,
 		proofOfLock:        proofOfLock,
 	}, nil
@@ -226,6 +236,10 @@ func (c *roundCalculator) newRound(
 			return nil, err
 		}
 	}
+	lastMinted, err := eManager.GetLastMinted()
+	if err != nil {
+		return
+	}
 	round = &roundCtx{
 		epochNum:             epochNum,
 		epochStartHeight:     epochStartHeight,
@@ -239,6 +253,7 @@ func (c *roundCalculator) newRound(
 		roundStartTime:     roundStartTime,
 		nextRoundStartTime: roundStartTime.Add(blockInterval),
 		status:             open,
+		lastMinted:         lastMinted,
 	}
 	eManager.SetIsMarjorityFunc(round.EndorsedByMajority)
 

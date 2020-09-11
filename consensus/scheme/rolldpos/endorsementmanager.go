@@ -29,9 +29,10 @@ var (
 	// ErrExpiredEndorsement indicates that the endorsement is expired
 	ErrExpiredEndorsement = errors.New("the endorsement has been replaced or expired")
 	statusKey             = []byte("status")
+	lastMintedKey         = []byte("lastMinted")
 )
 
-//EndorsedByMajorityFunc defines a function to give an information of consensus status
+// EndorsedByMajorityFunc defines a function to give an information of consensus status
 type EndorsedByMajorityFunc func(blockHash []byte, topics []ConsensusVoteTopic) bool
 
 type endorserEndorsementCollection struct {
@@ -220,6 +221,7 @@ func (bc *blockEndorsementCollection) Endorsements(
 type endorsementManager struct {
 	isMajorityFunc EndorsedByMajorityFunc
 	eManagerDB     db.KVStore
+	lastMinted     *block.Block
 	collections    map[string]*blockEndorsementCollection
 }
 
@@ -360,7 +362,7 @@ func (m *endorsementManager) AddVoteEndorsement(
 	if m.eManagerDB != nil && m.isMajorityFunc != nil {
 		afterVote = m.isMajorityFunc(vote.BlockHash(), []ConsensusVoteTopic{vote.Topic()})
 		if !beforeVote && afterVote {
-			//put into DB only it changes the status of consensus
+			// put into DB only it changes the status of consensus
 			return m.PutEndorsementManagerToDB()
 		}
 	}
@@ -379,6 +381,28 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		return m.PutEndorsementManagerToDB()
 	}
 	return nil
+}
+
+func (m *endorsementManager) SetLastMinted(blk *block.Block) error {
+	bytes, err := blk.Serialize()
+	if err != nil {
+		return err
+	}
+	return m.eManagerDB.Put(eManagerNS, lastMintedKey, bytes)
+}
+
+func (m *endorsementManager) GetLastMinted() (*block.Block, error) {
+	val, err := m.eManagerDB.Get(eManagerNS, lastMintedKey)
+	switch errors.Cause(err) {
+	case nil:
+		blk := &block.Block{}
+		err = blk.Deserialize(val)
+		return blk, err
+	case db.ErrNotExist:
+		return nil, nil
+	default:
+		return nil, err
+	}
 }
 
 func (m *endorsementManager) Log(

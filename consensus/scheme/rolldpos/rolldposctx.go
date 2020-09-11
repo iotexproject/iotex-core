@@ -83,8 +83,6 @@ type rollDPoSCtx struct {
 	toleratedOvertime time.Duration
 
 	// the last minted block height
-	// TODO: update lastMinted after sync
-	lastMinted  uint64
 	encodedAddr string
 	priKey      crypto.PrivateKey
 	round       *roundCtx
@@ -152,7 +150,6 @@ func newRollDPoSCtx(
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
-		lastMinted:        chain.TipHeight(),
 	}, nil
 }
 
@@ -328,7 +325,7 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 	if ctx.round.Proposer() != ctx.encodedAddr {
 		return nil, nil
 	}
-	if ctx.round.IsLocked() {
+	if ctx.round.IsLocked() || ctx.round.IsMinted() {
 		return ctx.endorseBlockProposal(newBlockProposal(
 			ctx.round.Block(ctx.round.HashOfBlockInLock()),
 			ctx.round.ProofOfLock(),
@@ -587,10 +584,6 @@ func (ctx *rollDPoSCtx) Active() bool {
 // /////////////////////////////////////////
 
 func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
-	if ctx.round.Height() != ctx.lastMinted+1 {
-		// TODO: calibrate something
-		return nil, errors.Errorf("already minted in this round")
-	}
 	blk, err := ctx.chain.MintNewBlock(ctx.round.StartTime())
 	if err != nil {
 		return nil, err
@@ -603,8 +596,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ctx.lastMinted = blk.Height()
-	return msg, nil
+	return msg, ctx.round.SetLastMinted(blk)
 }
 
 func (ctx *rollDPoSCtx) isDelegate() bool {
