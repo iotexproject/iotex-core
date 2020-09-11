@@ -255,7 +255,3 @@ func (ctx *roundCtx) block(blkHash []byte) *block.Block {
 	}
 	return c.Block()
 }
-
-func (ctx *roundCtx) isMinted() bool {
-	return ctx.eManager.IsMintedByBlockHash(ctx.blockInLock)
-}
