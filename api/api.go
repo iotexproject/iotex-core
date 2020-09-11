@@ -637,9 +637,16 @@ func (api *Server) GetRawBlocks(
 				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
 			}
 		}
+		var transactionLogs *iotextypes.TransactionLogs
+		if in.WithTransactionLogs {
+			if transactionLogs, err = api.dao.TransactionLogs(uint64(height)); err != nil {
+				return nil, status.Error(codes.NotFound, err.Error())
+			}
+		}
 		res = append(res, &iotexapi.BlockInfo{
-			Block:    blk.ConvertToBlockPb(),
-			Receipts: receiptsPb,
+			Block:           blk.ConvertToBlockPb(),
+			Receipts:        receiptsPb,
+			TransactionLogs: transactionLogs,
 		})
 	}
 
