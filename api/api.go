@@ -637,9 +637,16 @@ func (api *Server) GetRawBlocks(
 				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
 			}
 		}
+		var transactionLogs *iotextypes.TransactionLogs
+		if in.WithTransactionLogs {
+			if transactionLogs, err = api.dao.TransactionLogs(uint64(height)); err != nil {
+				return nil, status.Error(codes.NotFound, err.Error())
+			}
+		}
 		res = append(res, &iotexapi.BlockInfo{
-			Block:    blk.ConvertToBlockPb(),
-			Receipts: receiptsPb,
+			Block:           blk.ConvertToBlockPb(),
+			Receipts:        receiptsPb,
+			TransactionLogs: transactionLogs,
 		})
 	}
 
@@ -1298,15 +1305,17 @@ func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta 
 	receiptRoot := header.ReceiptRoot()
 	deltaStateDigest := header.DeltaStateDigest()
 	logsBloom := header.LogsBloomfilter()
+	prevHash := header.PrevHash()
 
 	blockMeta := &iotextypes.BlockMeta{
-		Hash:             hex.EncodeToString(hash[:]),
-		Height:           height,
-		Timestamp:        ts,
-		ProducerAddress:  producerAddress,
-		TxRoot:           hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+		Hash:              hex.EncodeToString(hash[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
 	}
 	if logsBloom != nil {
 		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())

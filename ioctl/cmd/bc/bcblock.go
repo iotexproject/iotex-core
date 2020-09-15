@@ -8,6 +8,7 @@ package bc
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
@@ -63,27 +64,59 @@ func init() {
 type blockMessage struct {
 	Node       string                `json:"node"`
 	Block      *iotextypes.BlockMeta `json:"block"`
-	ActionInfo []actionInfo          `json:actionInfo`
+	ActionInfo []*actionInfo         `json:"actionInfo"`
+}
+
+type log struct {
+	ContractAddress string   `json:"contractAddress"`
+	Topics          []string `json:"topics"`
+	Data            string   `json:"data"`
+	BlkHeight       uint64   `json:"blkHeight"`
+	ActHash         string   `json:"actHash"`
+	Index           uint32   `json:"index"`
+}
+
+func convertLog(src *iotextypes.Log) *log {
+	topics := make([]string, 0, len(src.Topics))
+	for _, topic := range src.Topics {
+		topics = append(topics, hex.EncodeToString(topic))
+	}
+	return &log{
+		ContractAddress: src.ContractAddress,
+		Topics:          topics,
+		Data:            hex.EncodeToString(src.Data),
+		BlkHeight:       src.BlkHeight,
+		ActHash:         hex.EncodeToString(src.ActHash),
+		Index:           src.Index,
+	}
+}
+
+func convertLogs(src []*iotextypes.Log) []*log {
+	logs := make([]*log, 0, len(src))
+	for _, log := range src {
+		logs = append(logs, convertLog(log))
+	}
+	return logs
 }
 
 type actionInfo struct {
-	Version         uint32            `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Nonce           uint64            `protobuf:"varint,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasLimit        uint64            `protobuf:"varint,3,opt,name=gasLimit,proto3" json:"gasLimit,omitempty"`
-	GasPrice        string            `protobuf:"bytes,4,opt,name=gasPrice,proto3" json:"gasPrice,omitempty"`
-	SenderPubKey    []byte            `protobuf:"bytes,2,opt,name=senderPubKey,proto3" json:"senderPubKey,omitempty"`
-	Signature       []byte            `protobuf:"bytes,3,opt,name=signature,proto3" json:"signature,omitempty"`
-	Status          uint64            `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
-	BlkHeight       uint64            `protobuf:"varint,2,opt,name=blkHeight,proto3" json:"blkHeight,omitempty"`
-	ActHash         []byte            `protobuf:"bytes,3,opt,name=actHash,proto3" json:"actHash,omitempty"`
-	GasConsumed     uint64            `protobuf:"varint,4,opt,name=gasConsumed,proto3" json:"gasConsumed,omitempty"`
-	ContractAddress string            `protobuf:"bytes,5,opt,name=contractAddress,proto3" json:"contractAddress,omitempty"`
-	Logs            []*iotextypes.Log `protobuf:"bytes,6,rep,name=logs,proto3" json:"logs,omitempty"`
+	Version         uint32 `json:"version"`
+	Nonce           uint64 `json:"nonce"`
+	GasLimit        uint64 `json:"gasLimit"`
+	GasPrice        string `json:"gasPrice"`
+	SenderPubKey    string `json:"senderPubKey"`
+	Signature       string `json:"signature"`
+	Status          uint64 `json:"status"`
+	BlkHeight       uint64 `json:"blkHeight"`
+	ActHash         string `json:"actHash"`
+	GasConsumed     uint64 `json:"gasConsumed"`
+	ContractAddress string `json:"contractAddress"`
+	Logs            []*log `json:"logs"`
 }
 
 type blocksInfo struct {
-	Block    *iotextypes.Block     `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
-	Receipts []*iotextypes.Receipt `protobuf:"bytes,2,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	Block    *iotextypes.Block
+	Receipts []*iotextypes.Receipt
 }
 
 func (m *blockMessage) String() string {
@@ -123,30 +156,33 @@ func getBlock(args []string) error {
 	if err != nil {
 		return output.NewError(0, "failed to get block meta", err)
 	}
-	blockInfoMessage := blockMessage{Node: config.ReadConfig.Endpoint, Block: blockMeta, ActionInfo: nil}
+	blockInfoMessage := blockMessage{
+		Node:  config.ReadConfig.Endpoint,
+		Block: blockMeta,
+	}
 	if verbose {
 		blocksInfos, err = getActionInfoWithinBlock(blockMeta.Height)
 		if err != nil {
 			return output.NewError(0, "failed to get actions info", err)
 		}
-		for index, ele := range blocksInfos {
-			for _, item := range ele.Block.Body.Actions {
-				Receipt := ele.Receipts[index]
+		for _, ele := range blocksInfos {
+			for index, item := range ele.Block.Body.Actions {
+				receipt := ele.Receipts[index]
 				actionInfo := actionInfo{
 					Version:         item.Core.Version,
 					Nonce:           item.Core.Nonce,
 					GasLimit:        item.Core.GasLimit,
 					GasPrice:        item.Core.GasPrice,
-					SenderPubKey:    item.SenderPubKey,
-					Signature:       item.Signature,
-					Status:          Receipt.Status,
-					BlkHeight:       Receipt.BlkHeight,
-					ActHash:         Receipt.ActHash,
-					GasConsumed:     Receipt.GasConsumed,
-					ContractAddress: Receipt.ContractAddress,
-					Logs:            Receipt.Logs,
+					SenderPubKey:    hex.EncodeToString(item.SenderPubKey),
+					Signature:       hex.EncodeToString(item.Signature),
+					Status:          receipt.Status,
+					BlkHeight:       receipt.BlkHeight,
+					ActHash:         hex.EncodeToString(receipt.ActHash),
+					GasConsumed:     receipt.GasConsumed,
+					ContractAddress: receipt.ContractAddress,
+					Logs:            convertLogs(receipt.Logs),
 				}
-				blockInfoMessage.ActionInfo = append(blockInfoMessage.ActionInfo, actionInfo)
+				blockInfoMessage.ActionInfo = append(blockInfoMessage.ActionInfo, &actionInfo)
 			}
 		}
 	}
