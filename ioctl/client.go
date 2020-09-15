@@ -10,6 +10,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -53,6 +55,8 @@ type (
 		NewKeyStore(string, int, int) *keystore.KeyStore
 		// doing
 		GetAliasMap() map[string]string
+		// doing
+		WriteFile(filename string, data []byte, perm os.FileMode) error
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -184,6 +188,10 @@ func (c *client) GetAliasMap() map[string]string {
 		aliases[addr] = name
 	}
 	return aliases
+}
+
+func (c *client) WriteFile(filename string, data []byte, perm os.FileMode) error {
+	return ioutil.WriteFile(filename, data, perm)
 }
 
 func address(in string) (string, error) {
