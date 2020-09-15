@@ -51,6 +51,8 @@ type (
 		Address(in string) (string, error)
 		// doing
 		NewKeyStore(string, int, int) *keystore.KeyStore
+		// doing
+		GetAliasMap() map[string]string
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -174,6 +176,14 @@ func (c *client) Address(in string) (string, error) {
 
 func (c *client) NewKeyStore(keydir string, scryptN, scryptP int) *keystore.KeyStore {
 	return keystore.NewKeyStore(keydir, scryptN, scryptP)
+}
+
+func (c *client) GetAliasMap() map[string]string {
+	aliases := make(map[string]string)
+	for name, addr := range config.ReadConfig.Aliases {
+		aliases[addr] = name
+	}
+	return aliases
 }
 
 func address(in string) (string, error) {

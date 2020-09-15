@@ -84,7 +84,7 @@ func convertLog(src *iotextypes.Log) *log {
 	return &log{
 		ContractAddress: src.ContractAddress,
 		Topics:          topics,
-		Data:            string(src.Data),
+		Data:            hex.EncodeToString(src.Data),
 		BlkHeight:       src.BlkHeight,
 		ActHash:         hex.EncodeToString(src.ActHash),
 		Index:           src.Index,
@@ -115,8 +115,8 @@ type actionInfo struct {
 }
 
 type blocksInfo struct {
-	Block    *iotextypes.Block     `protobuf:"bytes,1,opt,name=block,proto3" json:"block,omitempty"`
-	Receipts []*iotextypes.Receipt `protobuf:"bytes,2,rep,name=receipts,proto3" json:"receipts,omitempty"`
+	Block    *iotextypes.Block
+	Receipts []*iotextypes.Receipt
 }
 
 func (m *blockMessage) String() string {
