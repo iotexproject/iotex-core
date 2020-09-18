@@ -9,13 +9,11 @@ package alias
 import (
 	"fmt"
 
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
-
 	"github.com/iotexproject/iotex-core/ioctl"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
+	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -30,7 +28,7 @@ var (
 	}
 )
 
-// NewAliasSet represents the alias set command
+// NewAliasSetCmd represents the alias set command
 func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 
 	use, _ := c.SelectTranslation(setCmdUses)
@@ -56,11 +54,7 @@ func NewAliasSetCmd(c ioctl.Client) *cobra.Command {
 				aliases = GetAliasMap()
 			}
 			c.Config().Aliases[alias] = addr
-			out, err := yaml.Marshal(c.Config())
-			if err != nil {
-				return output.NewError(output.SerializationError, "failed to marshal config", err)
-			}
-			if err := c.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+			if err := c.WriteConfig(c.Config()); err != nil {
 				return output.NewError(output.WriteFileError,
 					fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
 			}

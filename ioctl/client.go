@@ -11,9 +11,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"os/exec"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
@@ -56,7 +57,7 @@ type (
 		// doing
 		GetAliasMap() map[string]string
 		// doing
-		WriteFile(filename string, data []byte, perm os.FileMode) error
+		WriteConfig(config.Config) error
 	}
 
 	// APIServiceConfig defines a config of APIServiceClient
@@ -190,8 +191,16 @@ func (c *client) GetAliasMap() map[string]string {
 	return aliases
 }
 
-func (c *client) WriteFile(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
+func (c *client) WriteConfig(cfg config.Config) error {
+	out, err := yaml.Marshal(&cfg)
+	if err != nil {
+		return output.NewError(output.SerializationError, "failed to marshal config", err)
+	}
+	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
+	}
+	return nil
 }
 
 func address(in string) (string, error) {
