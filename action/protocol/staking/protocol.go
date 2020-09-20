@@ -218,7 +218,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if p.archiveMode && p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) {
+	if p.archiveMode && blkCtx.BlockHeight <= p.hu.GreenlandBlockHeight() {
 		if err := p.saveStakingAddressHistory(blkCtx.BlockHeight, sm); err != nil {
 			return err
 		}
