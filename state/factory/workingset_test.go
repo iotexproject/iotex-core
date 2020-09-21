@@ -89,7 +89,7 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 	)
 	for _, ws := range set {
 		for _, test := range tests {
-			_, val, err := ws.ReadView(test.key)
+			val, err := ws.ReadView(test.key)
 			r.Equal(protocol.ErrNoName, errors.Cause(err))
 			r.Equal(val, nil)
 			// write view into workingSet
@@ -98,7 +98,7 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 
 		// read view and compare result
 		for _, test := range tests {
-			_, val, err := ws.ReadView(test.key)
+			val, err := ws.ReadView(test.key)
 			r.NoError(err)
 			r.Equal(test.val, val)
 		}
@@ -106,7 +106,7 @@ func TestWorkingSet_ReadWriteView(t *testing.T) {
 		// overwrite
 		newVal := "testvalue"
 		r.NoError(ws.WriteView(tests[0].key, newVal))
-		_, val, err := ws.ReadView(tests[0].key)
+		val, err := ws.ReadView(tests[0].key)
 		r.NoError(err)
 		r.Equal(newVal, val)
 	}

@@ -48,7 +48,7 @@ type (
 		dock          protocol.Dock
 		receipts      []*action.Receipt
 		commitFunc    func(uint64) error
-		readviewFunc  func(name string) (uint64, interface{}, error)
+		readviewFunc  func(name string) (interface{}, error)
 		writeviewFunc func(name string, v interface{}) error
 		dbFunc        func() db.KVStore
 		delStateFunc  func(string, []byte) error
@@ -246,7 +246,7 @@ func (ws *workingSet) DelState(opts ...protocol.StateOption) (uint64, error) {
 }
 
 // ReadView reads the view
-func (ws *workingSet) ReadView(name string) (uint64, interface{}, error) {
+func (ws *workingSet) ReadView(name string) (interface{}, error) {
 	return ws.readviewFunc(name)
 }
 

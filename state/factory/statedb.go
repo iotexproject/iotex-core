@@ -244,7 +244,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			sdb.currentChainHeight = h
 			return nil
 		},
-		readviewFunc: func(name string) (uint64, interface{}, error) {
+		readviewFunc: func(name string) (interface{}, error) {
 			return sdb.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
@@ -451,9 +451,8 @@ func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) 
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sdb.protocolView.Read(name)
-	return sdb.currentChainHeight, v, err
+func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+	return sdb.protocolView.Read(name)
 }
 
 //======================================

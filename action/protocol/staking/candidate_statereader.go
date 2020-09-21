@@ -103,7 +103,11 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 		return nil, ErrMissingField
 	}
 
-	height, v, err := sr.ReadView(protocolID)
+	height, err := sr.Height()
+	if err != nil {
+		return nil, err
+	}
+	v, err := sr.ReadView(protocolID)
 	if err != nil {
 		return nil, err
 	}
