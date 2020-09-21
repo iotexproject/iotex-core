@@ -107,7 +107,7 @@ func ConstructBaseView(sr protocol.StateReader) (CandidateStateReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, v, err := sr.ReadView(protocolID)
+	v, err := sr.ReadView(protocolID)
 	if err != nil {
 		return nil, err
 	}

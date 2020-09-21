@@ -196,11 +196,11 @@ func NewMockStateManager(ctrl *gomock.Controller) protocol.StateManager {
 		},
 	).AnyTimes()
 	sm.EXPECT().ReadView(gomock.Any()).DoAndReturn(
-		func(name string) (uint64, interface{}, error) {
+		func(name string) (interface{}, error) {
 			if v, hit := view[name]; hit {
-				return 0, v, nil
+				return v, nil
 			}
-			return 0, nil, protocol.ErrNoName
+			return nil, protocol.ErrNoName
 		},
 	).AnyTimes()
 	sm.EXPECT().WriteView(gomock.Any(), gomock.Any()).DoAndReturn(
