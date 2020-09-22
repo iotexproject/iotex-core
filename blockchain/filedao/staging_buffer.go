@@ -1,4 +1,4 @@
-package blockdao
+package filedao
 
 import (
 	"github.com/golang/protobuf/proto"

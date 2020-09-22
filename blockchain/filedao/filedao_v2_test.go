@@ -1,4 +1,4 @@
-package blockdao
+package filedao
 
 import (
 	"context"
@@ -17,61 +17,29 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestCompressDataBytes(t *testing.T) {
-	r := require.New(t)
-
-	// cannot compress nil nor decompress empty byte slice
-	_, err := compressDatabytes(nil, false)
-	r.Equal(ErrDataCorruption, err)
-	_, err = decompressDatabytes([]byte{})
-	r.Equal(ErrDataCorruption, err)
-
-	zero := hash.ZeroHash256
-	blkHash, _ := hex.DecodeString("22cd0c2d1f7d65298cec7599e2d0e3c650dd8b4ed2b1c816d909026c60d785b2")
-	compressTests := [][]byte{
-		[]byte{},
-		[]byte{1, 2, 3},
-		zero[:],
-		blkHash,
-		[]byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`1234567890-=~!@#$%^&*()_+å∫ç∂´´©˙ˆˆ˚¬µ˜˜πœ®ß†¨¨∑≈¥Ω[]',./{}|:<>?"),
-	}
-	for _, ser := range compressTests {
-		for _, compress := range []bool{false, true} {
-			v, err := compressDatabytes(ser, compress)
-			r.NoError(err)
-			if compress {
-				r.EqualValues(_compressed, v[len(v)-1])
-			} else {
-				r.EqualValues(_normal, v[len(v)-1])
-			}
-
-			ser1, err := decompressDatabytes(v)
-			r.NoError(err)
-			r.Equal(ser, ser1)
-			v[len(v)-1] = _compressed + 1
-			v, err = decompressDatabytes(v)
-			r.Equal(ErrDataCorruption, err)
-		}
-	}
-}
+const (
+	blockStoreBatchSize = 16
+)
 
 func TestNewFileDAO(t *testing.T) {
 	r := require.New(t)
 
 	testPath, err := testutil.PathOfTempFile("test-newfd")
 	r.NoError(err)
-	testutil.CleanupPath(t, testPath)
 	defer func() {
 		testutil.CleanupPath(t, testPath)
 	}()
 	cfg := config.Default.DB
+	r.Equal(compress.Snappy, cfg.Compressor)
+	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
 
-	fd, err := newFileDAOv2(db.NewBoltDB(cfg), 2, cfg)
+	fd, err := NewFileDAOv2(db.NewBoltDB(cfg), 2, cfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	ctx := context.Background()
@@ -95,21 +63,28 @@ func TestNewFileDAO(t *testing.T) {
 
 	// test counting index add empty transaction log
 	ser := (&block.BlkTransactionLog{}).Serialize()
-	for _, v := range []struct {
-		compress bool
+	for _, test := range []struct {
+		compress string
 		height   uint64
 	}{
-		{false, 0},
-		{true, 1},
+		{"", 0},
+		{compress.Gzip, 1},
+		{compress.Snappy, 2},
 	} {
-		data, err := compressDatabytes(ser, v.compress)
-		r.NoError(err)
+		data := ser
+		if test.compress != "" {
+			var err error
+			data, err = compress.Compress(ser, test.compress)
+			r.NoError(err)
+		}
 		r.NoError(addOneEntryToBatch(newFd.hashStore, data, newFd.batch))
 		r.NoError(newFd.kvStore.WriteBatch(newFd.batch))
-		v, err := newFd.hashStore.Get(v.height)
+		v, err := newFd.hashStore.Get(test.height)
 		r.NoError(err)
 		r.Equal(data, v)
-		v, err = decompressDatabytes(v)
+		if test.compress != "" {
+			v, err = compress.Decompress(v, test.compress)
+		}
 		r.NoError(err)
 		r.Equal(ser, v)
 	}
@@ -120,7 +95,7 @@ func TestNewFdInterface(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
-		file, err := newFileDAOv2(db.NewBoltDB(cfg), start, cfg)
+		file, err := NewFileDAOv2(db.NewBoltDB(cfg), start, cfg)
 		r.NoError(err)
 		fd, ok := file.(*fileDAOv2)
 		r.True(ok)
@@ -145,20 +120,20 @@ func TestNewFdInterface(t *testing.T) {
 		r.Equal(ErrInvalidTipHeight, fd.PutBlock(ctx, blk))
 
 		// commit blockStoreBatchSize blocks
-		for i := uint64(0); i < blockStoreBatchSize; i++ {
+		for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
 			blk = createTestingBlock(builder, start+i, h)
 			r.NoError(fd.PutBlock(ctx, blk))
 			h = blk.HashBlock()
 			height, err = fd.Height()
 			r.NoError(err)
 			r.Equal(start+i, height)
-			if i < blockStoreBatchSize-1 {
+			if i < fd.header.BlockStoreSize-1 {
 				r.EqualValues(0, fd.lowestBlockOfStoreTip())
 				r.Equal(start-1, fd.highestBlockOfStoreTip())
 			} else {
 				r.Equal(start, fd.lowestBlockOfStoreTip())
-				r.Equal(start+blockStoreBatchSize-1, fd.highestBlockOfStoreTip())
-				r.Equal(start+blockStoreBatchSize-1, height)
+				r.Equal(start+fd.header.BlockStoreSize-1, fd.highestBlockOfStoreTip())
+				r.Equal(start+fd.header.BlockStoreSize-1, height)
 			}
 		}
 
@@ -168,11 +143,11 @@ func TestNewFdInterface(t *testing.T) {
 			r.NoError(fd.PutBlock(ctx, blk))
 			h = blk.HashBlock()
 			r.Equal(start, fd.lowestBlockOfStoreTip())
-			r.Equal(start+blockStoreBatchSize-1, fd.highestBlockOfStoreTip())
+			r.Equal(start+fd.header.BlockStoreSize-1, fd.highestBlockOfStoreTip())
 		}
 		height, err = fd.Height()
 		r.NoError(err)
-		r.Equal(start+blockStoreBatchSize+2, height)
+		r.Equal(start+fd.header.BlockStoreSize+2, height)
 
 		// verify API for all blocks
 		r.True(fd.ContainsTransactionLog())
@@ -245,12 +220,12 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	_, err = newFileDAOv2(db.NewBoltDB(cfg), 0, cfg)
+	_, err = NewFileDAOv2(db.NewBoltDB(cfg), 0, cfg)
 	r.Equal(ErrNotSupported, err)
 
-	for _, compress := range []bool{false, true} {
+	for _, compress := range []string{"", compress.Gzip, compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
-			cfg.CompressData = compress
+			cfg.Compressor = compress
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
 				testFdInterface(cfg, start, t)
 			})
@@ -264,7 +239,7 @@ func TestNewFdStart(t *testing.T) {
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
 			testutil.CleanupPath(t, cfg.DbPath)
-			file, err := newFileDAOv2(db.NewBoltDB(cfg), start, cfg)
+			file, err := NewFileDAOv2(db.NewBoltDB(cfg), start, cfg)
 			r.NoError(err)
 			fd, ok := file.(*fileDAOv2)
 			r.True(ok)
@@ -329,9 +304,9 @@ func TestNewFdStart(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	for _, compress := range []bool{false, true} {
+	for _, compress := range []string{"", compress.Gzip, compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
-			cfg.CompressData = compress
+			cfg.Compressor = compress
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
 				testFdStart(cfg, start, t)
 			})

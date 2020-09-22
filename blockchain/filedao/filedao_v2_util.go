@@ -1,4 +1,4 @@
-package blockdao
+package filedao
 
 import (
 	"github.com/pkg/errors"
@@ -13,10 +13,10 @@ import (
 )
 
 func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
-	buffer := newStagingBuffer(blockStoreBatchSize)
+	buffer := newStagingBuffer(fd.header.BlockStoreSize)
 	blockStoreTip := fd.highestBlockOfStoreTip()
-	for i := uint64(0); i < blockStoreBatchSize; i++ {
-		v, err := fd.kvStore.Get(stagingDataNS, byteutil.Uint64ToBytesBigEndian(i))
+	for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
+		v, err := fd.kvStore.Get(headerDataNs, byteutil.Uint64ToBytesBigEndian(i))
 		if err != nil {
 			if errors.Cause(err) == db.ErrNotExist || errors.Cause(err) == db.ErrBucketNotExist {
 				break
@@ -24,7 +24,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 			return nil, err
 		}
 
-		v, err = decompressDatabytes(v)
+		v, err = decompBytes(v, fd.compressor)
 		if err != nil {
 			return nil, err
 		}
@@ -36,8 +36,8 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		// populate to staging buffer, if the block is in latest round
 		height := info.Block.Height()
 		if height > blockStoreTip {
-			buffer.Put(stagingKey(height, fd.bottomHeight), info)
-			fd.tipHeight = height
+			buffer.Put(stagingKey(height, fd.header), info)
+			fd.header.End = height
 		} else {
 			break
 		}
@@ -53,13 +53,17 @@ func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 	}
 
 	// write hash <-> height mapping
-	heightValue := byteutil.Uint64ToBytesBigEndian(blk.Height())
+	height := blk.Height()
+	heightValue := byteutil.Uint64ToBytesBigEndian(height)
 	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), heightValue, "failed to put hash -> height mapping")
 
-	// update tip hash/height
-	if blk.Height() > fd.tipHeight {
-		fd.batch.Put(blockHashHeightMappingNS, topHeightKey, heightValue, "failed to put tip height")
-		fd.batch.Put(blockHashHeightMappingNS, topHashKey, h[:], "failed to put tip hash")
+	// update file header
+	if height > fd.header.End {
+		ser, err := fd.header.createHeaderBytes(height, h)
+		if err != nil {
+			return err
+		}
+		fd.batch.Put(headerDataNs, fileHeaderKey, ser, "failed to put file header")
 	}
 	return nil
 }
@@ -73,40 +77,38 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	blkBytes, err := compressDatabytes(ser, fd.compressBlock)
+	blkBytes, err := compBytes(ser, fd.compressor)
 	if err != nil {
 		return err
 	}
 
 	// add to staging buffer
-	index := stagingKey(blk.Height(), fd.bottomHeight)
+	index := stagingKey(blk.Height(), fd.header)
 	full, err := fd.blkBuffer.Put(index, blkInfo)
 	if err != nil {
 		return err
 	}
 	if !full {
-		fd.batch.Put(stagingDataNS, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
+		fd.batch.Put(headerDataNs, byteutil.Uint64ToBytesBigEndian(index), blkBytes, "failed to put block")
 		return nil
 	}
 
-	// pack blockStoreBatchSize blocks together, write to block store
+	// pack blocks together, write to block store
 	if ser, err = fd.blkBuffer.Serialize(); err != nil {
 		return err
 	}
-	if blkBytes, err = compressDatabytes(ser, fd.compressBlock); err != nil {
+	if blkBytes, err = compBytes(ser, fd.compressor); err != nil {
 		return err
 	}
 	return addOneEntryToBatch(fd.blkStore, blkBytes, fd.batch)
 }
 
 func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
-	compressData := fd.compressBlock
 	sysLog := blk.TransactionLog()
 	if sysLog == nil {
 		sysLog = &block.BlkTransactionLog{}
-		compressData = false
 	}
-	logBytes, err := compressDatabytes(sysLog.Serialize(), compressData)
+	logBytes, err := compBytes(sysLog.Serialize(), fd.compressor)
 	if err != nil {
 		return err
 	}
@@ -123,38 +125,18 @@ func addOneEntryToBatch(c db.CountingIndex, v []byte, b batch.KVStoreBatch) erro
 	return c.Finalize()
 }
 
-func compressDatabytes(value []byte, comp bool) ([]byte, error) {
-	if value == nil {
-		return nil, ErrDataCorruption
+func compBytes(v []byte, comp string) ([]byte, error) {
+	if comp != "" {
+		return compress.Compress(v, comp)
 	}
-
-	// append 1 byte to end of bytestream to indicate the block is compressed or not
-	if !comp {
-		return append(value, _normal), nil
-	}
-
-	var err error
-	value, err = compress.CompV2(value)
-	if err != nil {
-		return nil, err
-	}
-	return append(value, _compressed), nil
+	return v, nil
 }
 
-func decompressDatabytes(value []byte) ([]byte, error) {
-	if len(value) == 0 {
-		return nil, ErrDataCorruption
+func decompBytes(v []byte, comp string) ([]byte, error) {
+	if comp != "" {
+		return compress.Decompress(v, comp)
 	}
-
-	// last byte of bytestream indicates the block is compressed or not
-	switch value[len(value)-1] {
-	case _normal:
-		return value[:len(value)-1], nil
-	case _compressed:
-		return compress.DecompV2(value[:len(value)-1])
-	default:
-		return nil, ErrDataCorruption
-	}
+	return v, nil
 }
 
 func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error) {
@@ -169,16 +151,16 @@ func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error)
 }
 
 // blockStoreKey is the slot of block in block storage (each item containing blockStorageBatchSize of blocks)
-func blockStoreKey(height, start uint64) uint64 {
-	if height <= start {
+func blockStoreKey(height uint64, header *FileHeader) uint64 {
+	if height <= header.Start {
 		return 0
 	}
-	return (height - start) / blockStoreBatchSize
+	return (height - header.Start) / header.BlockStoreSize
 }
 
 // stagingKey is the position of block in the staging buffer
-func stagingKey(height, start uint64) uint64 {
-	return (height - start) % blockStoreBatchSize
+func stagingKey(height uint64, header *FileHeader) uint64 {
+	return (height - header.Start) % header.BlockStoreSize
 }
 
 // lowestBlockOfStoreTip is the lowest height of the tip of block storage
@@ -187,15 +169,15 @@ func (fd *fileDAOv2) lowestBlockOfStoreTip() uint64 {
 	if fd.blkStore.Size() == 0 {
 		return 0
 	}
-	return fd.bottomHeight + (fd.blkStore.Size()-1)*blockStoreBatchSize
+	return fd.header.Start + (fd.blkStore.Size()-1)*fd.header.BlockStoreSize
 }
 
 // highestBlockOfStoreTip is the highest height of the tip of block storage
 func (fd *fileDAOv2) highestBlockOfStoreTip() uint64 {
 	if fd.blkStore.Size() == 0 {
-		return fd.bottomHeight - 1
+		return fd.header.Start - 1
 	}
-	return fd.bottomHeight + fd.blkStore.Size()*blockStoreBatchSize - 1
+	return fd.header.Start + fd.blkStore.Size()*fd.header.BlockStoreSize - 1
 }
 
 func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
@@ -204,40 +186,39 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	}
 
 	// check whether block in staging buffer or not
-	storeKey := blockStoreKey(height, fd.bottomHeight)
+	storeKey := blockStoreKey(height, fd.header)
 	if storeKey >= fd.blkStore.Size() {
-		return fd.blkBuffer.Get(stagingKey(height, fd.bottomHeight))
+		return fd.blkBuffer.Get(stagingKey(height, fd.header))
 	}
 
 	// check whether block in read cache or not
 	if value, ok := fd.blkCache.Get(storeKey); ok {
 		pbInfos := value.(*iotextypes.BlockStores)
-		return extractBlockStore(pbInfos, stagingKey(height, fd.bottomHeight))
+		return extractBlockStore(pbInfos, stagingKey(height, fd.header))
 	}
 
 	value, err := fd.blkStore.Get(storeKey)
 	if err != nil {
 		return nil, err
 	}
-	value, err = decompressDatabytes(value)
+	value, err = decompBytes(value, fd.compressor)
 	if err != nil {
 		return nil, err
 	}
-	pbInfos, err := block.DeserializeBlockStoresPb(value)
+	pbStores, err := block.DeserializeBlockStoresPb(value)
 	if err != nil {
 		return nil, err
 	}
-
-	// add to read cache
-	fd.blkCache.Add(storeKey, pbInfos)
-	return extractBlockStore(pbInfos, stagingKey(height, fd.bottomHeight))
-}
-
-func extractBlockStore(pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
-	if len(pbStores.BlockStores) != blockStoreBatchSize {
+	if len(pbStores.BlockStores) != int(fd.header.BlockStoreSize) {
 		return nil, ErrDataCorruption
 	}
 
+	// add to read cache
+	fd.blkCache.Add(storeKey, pbStores)
+	return extractBlockStore(pbStores, stagingKey(height, fd.header))
+}
+
+func extractBlockStore(pbStores *iotextypes.BlockStores, height uint64) (*block.Store, error) {
 	info := &block.Store{}
 	if err := info.FromProto(pbStores.BlockStores[height]); err != nil {
 		return nil, err

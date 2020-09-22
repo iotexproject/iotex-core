@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package filedao
 
 import (
 	"context"
@@ -23,53 +23,53 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
+// constants
 const (
-	_normal             = 0
-	_compressed         = 1
-	blockStoreBatchSize = 16
+	FileV2 = "V2"
 )
 
-// namespace for hash, block, and staging storage
+// namespace for hash, block, and header storage
 const (
-	hashDataNS    = "hsh"
-	blockDataNS   = "bdn"
-	stagingDataNS = "stg"
+	hashDataNS   = "hsh"
+	blockDataNS  = "bdn"
+	headerDataNs = "hdr"
 )
 
 var (
-	bottomHeightKey = []byte("bh")
+	fileHeaderKey = []byte("fh")
 )
 
 type (
 	fileDAOv2 struct {
-		compressBlock bool
-		bottomHeight  uint64 // height of first block in this DB file
-		tipHeight     uint64
-		cfg           config.DB
-		blkBuffer     *stagingBuffer
-		blkCache      *cache.ThreadSafeLruCache
-		kvStore       db.KVStore
-		batch         batch.KVStoreBatch
-		hashStore     db.CountingIndex // store block hash
-		blkStore      db.CountingIndex // store raw blocks
-		sysStore      db.CountingIndex // store transaction log
+		compressor   string
+		storeBatch   uint64 // number of blocks to be stored together as a unit
+		bottomHeight uint64 // height of first block in this DB file
+		header       *FileHeader
+		cfg          config.DB
+		blkBuffer    *stagingBuffer
+		blkCache     *cache.ThreadSafeLruCache
+		kvStore      db.KVStore
+		batch        batch.KVStoreBatch
+		hashStore    db.CountingIndex // store block hash
+		blkStore     db.CountingIndex // store raw blocks
+		sysStore     db.CountingIndex // store transaction log
 	}
 )
 
-// newFileDAOv2 creates a new v2 file
-func newFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, error) {
+// NewFileDAOv2 creates a new v2 file
+func NewFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
 
 	fd := fileDAOv2{
-		compressBlock: cfg.CompressData,
-		bottomHeight:  bottom,
-		tipHeight:     bottom - 1,
-		cfg:           cfg,
-		blkCache:      cache.NewThreadSafeLruCache(16),
-		kvStore:       kvStore,
-		batch:         batch.NewBatch(),
+		compressor:   cfg.Compressor,
+		storeBatch:   uint64(cfg.BlockStoreBatchSize),
+		bottomHeight: bottom,
+		cfg:          cfg,
+		blkCache:     cache.NewThreadSafeLruCache(16),
+		kvStore:      kvStore,
+		batch:        batch.NewBatch(),
 	}
 	return &fd, nil
 }
@@ -77,46 +77,38 @@ func newFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, er
 // openFileDAOv2 opens an existing v2 file
 func openFileDAOv2(kvStore db.KVStore, cfg config.DB) (FileDAO, error) {
 	fd := fileDAOv2{
-		compressBlock: cfg.CompressData,
-		cfg:           cfg,
-		blkCache:      cache.NewThreadSafeLruCache(16),
-		kvStore:       kvStore,
-		batch:         batch.NewBatch(),
+		compressor: cfg.Compressor,
+		cfg:        cfg,
+		blkCache:   cache.NewThreadSafeLruCache(16),
+		kvStore:    kvStore,
+		batch:      batch.NewBatch(),
 	}
 	return &fd, nil
 }
 
 func (fd *fileDAOv2) Start(ctx context.Context) error {
-	if err := fd.kvStore.Start(ctx); err != nil {
+	var err error
+	if err = fd.kvStore.Start(ctx); err != nil {
 		return err
 	}
 
-	// check start height
-	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, bottomHeightKey)
+	// check file header
+	fd.header, err = ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
 	if err != nil {
 		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
-			return errors.Wrap(err, "failed to get bottom height")
+			return errors.Wrap(err, "failed to get file header")
 		}
-		// set start height
-		if err = fd.kvStore.Put(blockHashHeightMappingNS, bottomHeightKey, byteutil.Uint64ToBytesBigEndian(fd.bottomHeight)); err != nil {
+		// write file header
+		fd.header = &FileHeader{
+			Version:        FileV2,
+			Compressor:     fd.cfg.Compressor,
+			BlockStoreSize: fd.storeBatch,
+			Start:          fd.bottomHeight,
+			End:            fd.bottomHeight - 1,
+		}
+		if err = WriteHeader(fd.kvStore, headerDataNs, fileHeaderKey, fd.header); err != nil {
 			return err
 		}
-	} else {
-		fd.bottomHeight = byteutil.BytesToUint64BigEndian(value)
-	}
-
-	// check tip height
-	value, err = getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, topHeightKey)
-	if err != nil {
-		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
-			return errors.Wrap(err, "failed to get tip height")
-		}
-		// set tip height
-		if err = fd.kvStore.Put(blockHashHeightMappingNS, topHeightKey, byteutil.Uint64ToBytesBigEndian(fd.tipHeight)); err != nil {
-			return err
-		}
-	} else {
-		fd.tipHeight = byteutil.BytesToUint64BigEndian(value)
 	}
 
 	// create counting index for hash, blk, and transaction log
@@ -142,29 +134,29 @@ func (fd *fileDAOv2) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOv2) Height() (uint64, error) {
-	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, topHeightKey)
+	h, err := ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
-	return byteutil.BytesToUint64BigEndian(value), nil
+	return h.End, nil
 }
 
 func (fd *fileDAOv2) Bottom() (uint64, error) {
-	return fd.bottomHeight, nil
+	return fd.header.Start, nil
 }
 
 func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
-	return fd.bottomHeight <= height && height <= fd.tipHeight
+	return fd.header.Start <= height && height <= fd.header.End
 }
 
 func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
-	if height == fd.bottomHeight-1 {
+	if height == fd.header.Start-1 {
 		return hash.ZeroHash256, nil
 	}
 	if !fd.ContainsHeight(height) {
 		return hash.ZeroHash256, db.ErrNotExist
 	}
-	h, err := fd.hashStore.Get(height - fd.bottomHeight)
+	h, err := fd.hashStore.Get(height - fd.header.Start)
 	if err != nil {
 		return hash.ZeroHash256, errors.Wrap(err, "failed to get block hash")
 	}
@@ -212,11 +204,11 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 		return nil, ErrNotSupported
 	}
 
-	value, err := fd.sysStore.Get(height - fd.bottomHeight)
+	value, err := fd.sysStore.Get(height - fd.header.Start)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get transaction log at height %d", height)
 	}
-	value, err = decompressDatabytes(value)
+	value, err = decompBytes(value, fd.compressor)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get transaction log at height %d", height)
 	}
@@ -224,7 +216,7 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
-	if blk.Height() != fd.tipHeight+1 {
+	if blk.Height() != fd.header.End+1 {
 		return ErrInvalidTipHeight
 	}
 
@@ -246,7 +238,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
-	fd.tipHeight = blk.Height()
+	fd.header.End = blk.Height()
 	return nil
 }
 
@@ -277,26 +269,29 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	}
 
 	// delete hash -> height mapping
-	v, err := fd.kvStore.Get(blockHashHeightMappingNS, topHashKey)
+	header, err := ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
 	if err != nil {
 		return err
 	}
-	fd.batch.Delete(blockHashHeightMappingNS, hashKey(hash.BytesToHash256(v)), "failed to delete hash -> height mapping")
+	fd.batch.Delete(blockHashHeightMappingNS, hashKey(header.TopHash), "failed to delete hash -> height mapping")
 
-	// update tip hash/height
+	// update file header
 	h := hash.ZeroHash256
-	if height > fd.bottomHeight {
+	if height > fd.header.Start {
 		h, err = fd.GetBlockHash(height - 1)
 		if err != nil {
 			return err
 		}
 	}
-	fd.batch.Put(blockHashHeightMappingNS, topHashKey, h[:], "failed to put tip hash")
-	fd.batch.Put(blockHashHeightMappingNS, topHeightKey, byteutil.Uint64ToBytesBigEndian(height-1), "failed to put tip height")
+	ser, err := fd.header.createHeaderBytes(height-1, h)
+	if err != nil {
+		return err
+	}
+	fd.batch.Put(headerDataNs, fileHeaderKey, ser, "failed to put file header")
 
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return err
 	}
-	fd.tipHeight = height - 1
+	fd.header.End = height - 1
 	return nil
 }

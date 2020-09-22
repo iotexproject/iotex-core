@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package filedao
 
 import (
 	"context"
@@ -69,21 +69,21 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(compressBlock bool, cfg config.DB) (FileDAO, error) {
-	legacyFd, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
+func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
+	legacyFd, err := NewFileDAOLegacy(db.NewBoltDB(cfg), compressLegacy, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return createFileDAO(legacyFd, nil)
+	return CreateFileDAO(legacyFd, nil)
 }
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
 func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
-	legacyFd, err := newFileDAOLegacy(db.NewMemKVStore(), false, cfg)
+	legacyFd, err := NewFileDAOLegacy(db.NewMemKVStore(), false, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return createFileDAO(legacyFd, nil)
+	return CreateFileDAO(legacyFd, nil)
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
@@ -214,7 +214,8 @@ func (fd *fileDAO) DeleteTipBlock() error {
 	return fd.currFd.DeleteTipBlock()
 }
 
-func createFileDAO(legacy FileDAO, newFile map[uint64]FileDAO) (FileDAO, error) {
+// CreateFileDAO creates FileDAO from legacy and new files
+func CreateFileDAO(legacy FileDAO, newFile map[uint64]FileDAO) (FileDAO, error) {
 	fileDAO := &fileDAO{
 		legacyFd: legacy,
 		v2Fd:     newFile,
@@ -250,4 +251,8 @@ func createFileDAO(legacy FileDAO, newFile map[uint64]FileDAO) (FileDAO, error) 
 	}
 	fileDAO.currFd = currFd
 	return fileDAO, nil
+}
+
+func hashKey(h hash.Hash256) []byte {
+	return append(hashPrefix, h[:]...)
 }

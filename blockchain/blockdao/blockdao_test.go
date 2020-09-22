@@ -16,8 +16,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -242,7 +244,7 @@ func TestBlockDAO(t *testing.T) {
 		require.EqualValues(len(blks), height)
 
 		// commit an existing block
-		require.Equal(ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
+		require.Equal(filedao.ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
 
 		// check non-exist block
 		h, err := dao.GetBlockHash(5)
@@ -384,13 +386,15 @@ func TestBlockDAO(t *testing.T) {
 	}()
 
 	daoList := []struct {
-		inMemory, legacy, compressBlock bool
+		inMemory, legacy bool
+		compressBlock    string
 	}{
-		{true, false, false},
-		{false, true, false},
-		{false, true, true},
-		{false, false, false},
-		{false, false, true},
+		{true, false, ""},
+		{false, true, ""},
+		{false, true, compress.Gzip},
+		{false, false, ""},
+		{false, false, compress.Gzip},
+		{false, false, compress.Snappy},
 	}
 
 	cfg := config.Default.DB
@@ -416,28 +420,28 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy, compressBlock bool, cfg config.DB) (BlockDAO, error) {
+func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil, cfg), nil
 	}
 
-	var fileDAO FileDAO
+	var fileDAO filedao.FileDAO
 	if legacy {
-		file, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
+		file, err := filedao.NewFileDAOLegacy(db.NewBoltDB(cfg), compressBlock != "", cfg)
 		if err != nil {
 			return nil, err
 		}
-		fileDAO, err = createFileDAO(file, nil)
+		fileDAO, err = filedao.CreateFileDAO(file, nil)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		cfg.CompressData = compressBlock
-		file, err := newFileDAOv2(db.NewBoltDB(cfg), 1, cfg)
+		cfg.Compressor = compressBlock
+		file, err := filedao.NewFileDAOv2(db.NewBoltDB(cfg), 1, cfg)
 		if err != nil {
 			return nil, err
 		}
-		fileDAO, err = createFileDAO(nil, map[uint64]FileDAO{1: file})
+		fileDAO, err = filedao.CreateFileDAO(nil, map[uint64]filedao.FileDAO{1: file})
 		if err != nil {
 			return nil, err
 		}
