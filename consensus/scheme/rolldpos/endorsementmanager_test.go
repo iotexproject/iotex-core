@@ -171,6 +171,8 @@ func TestEndorsementManagerProto(t *testing.T) {
 	require.NotNil(cv)
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
 	require.NoError(em.AddVoteEndorsement(cv, end))
+	require.Nil(em.cachedMintedBlk)
+	require.NoError(em.MintBlock(&b))
 
 	//test converting endorsement pb
 	endProto, err := end.Proto()
@@ -189,4 +191,5 @@ func TestEndorsementManagerProto(t *testing.T) {
 	require.Equal(len(em.collections), len(em2.collections))
 	encoded := encodeToString(cv.BlockHash())
 	require.Equal(em.collections[encoded].endorsers, em2.collections[encoded].endorsers)
+	require.Equal(em.cachedMintedBlk.HashBlock(), em2.cachedMintedBlk.HashBlock())
 }
