@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
@@ -42,7 +42,7 @@ type stateDB struct {
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *lru.Cache // lru cache for workingsets
+	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 }
@@ -106,6 +106,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
+		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -123,9 +124,6 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
-	if sdb.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
-		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
-	}
 	return &sdb, nil
 }
 
@@ -173,7 +171,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	sdb.workingsets.Purge()
+	sdb.workingsets.Clear()
 	return sdb.dao.Stop(ctx)
 }
 
