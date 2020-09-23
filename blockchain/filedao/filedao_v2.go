@@ -41,18 +41,16 @@ var (
 
 type (
 	fileDAOv2 struct {
-		compressor   string
-		storeBatch   uint64 // number of blocks to be stored together as a unit
-		bottomHeight uint64 // height of first block in this DB file
-		header       *FileHeader
-		cfg          config.DB
-		blkBuffer    *stagingBuffer
-		blkCache     *cache.ThreadSafeLruCache
-		kvStore      db.KVStore
-		batch        batch.KVStoreBatch
-		hashStore    db.CountingIndex // store block hash
-		blkStore     db.CountingIndex // store raw blocks
-		sysStore     db.CountingIndex // store transaction log
+		header    *FileHeader
+		tip       *FileTip
+		cfg       config.DB
+		blkBuffer *stagingBuffer
+		blkCache  *cache.ThreadSafeLruCache
+		kvStore   db.KVStore
+		batch     batch.KVStoreBatch
+		hashStore db.CountingIndex // store block hash
+		blkStore  db.CountingIndex // store raw blocks
+		sysStore  db.CountingIndex // store transaction log
 	}
 )
 
@@ -63,13 +61,19 @@ func NewFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, er
 	}
 
 	fd := fileDAOv2{
-		compressor:   cfg.Compressor,
-		storeBatch:   uint64(cfg.BlockStoreBatchSize),
-		bottomHeight: bottom,
-		cfg:          cfg,
-		blkCache:     cache.NewThreadSafeLruCache(16),
-		kvStore:      kvStore,
-		batch:        batch.NewBatch(),
+		header: &FileHeader{
+			Version:        FileV2,
+			Compressor:     cfg.Compressor,
+			BlockStoreSize: uint64(cfg.BlockStoreBatchSize),
+			Start:          bottom,
+		},
+		tip: &FileTip{
+			Height: bottom - 1,
+		},
+		cfg:      cfg,
+		blkCache: cache.NewThreadSafeLruCache(16),
+		kvStore:  kvStore,
+		batch:    batch.NewBatch(),
 	}
 	return &fd, nil
 }
@@ -77,36 +81,36 @@ func NewFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, er
 // openFileDAOv2 opens an existing v2 file
 func openFileDAOv2(kvStore db.KVStore, cfg config.DB) (FileDAO, error) {
 	fd := fileDAOv2{
-		compressor: cfg.Compressor,
-		cfg:        cfg,
-		blkCache:   cache.NewThreadSafeLruCache(16),
-		kvStore:    kvStore,
-		batch:      batch.NewBatch(),
+		cfg:      cfg,
+		blkCache: cache.NewThreadSafeLruCache(16),
+		kvStore:  kvStore,
+		batch:    batch.NewBatch(),
 	}
 	return &fd, nil
 }
 
 func (fd *fileDAOv2) Start(ctx context.Context) error {
-	var err error
-	if err = fd.kvStore.Start(ctx); err != nil {
+	if err := fd.kvStore.Start(ctx); err != nil {
 		return err
 	}
 
 	// check file header
-	fd.header, err = ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
+	header, err := ReadHeader(fd.kvStore, headerDataNs, fileHeaderKey)
 	if err != nil {
 		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
 			return errors.Wrap(err, "failed to get file header")
 		}
-		// write file header
-		fd.header = &FileHeader{
-			Version:        FileV2,
-			Compressor:     fd.cfg.Compressor,
-			BlockStoreSize: fd.storeBatch,
-			Start:          fd.bottomHeight,
-			End:            fd.bottomHeight - 1,
-		}
+		// write file header and tip
 		if err = WriteHeader(fd.kvStore, headerDataNs, fileHeaderKey, fd.header); err != nil {
+			return err
+		}
+		if err = WriteTip(fd.kvStore, headerDataNs, topHeightKey, fd.tip); err != nil {
+			return err
+		}
+	} else {
+		fd.header = header
+		// read file tip
+		if fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey); err != nil {
 			return err
 		}
 	}
@@ -134,11 +138,12 @@ func (fd *fileDAOv2) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOv2) Height() (uint64, error) {
-	h, err := ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
+	var err error
+	fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
 	}
-	return h.End, nil
+	return fd.tip.Height, nil
 }
 
 func (fd *fileDAOv2) Bottom() (uint64, error) {
@@ -146,7 +151,7 @@ func (fd *fileDAOv2) Bottom() (uint64, error) {
 }
 
 func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
-	return fd.header.Start <= height && height <= fd.header.End
+	return fd.header.Start <= height && height <= fd.tip.Height
 }
 
 func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
@@ -208,7 +213,7 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get transaction log at height %d", height)
 	}
-	value, err = decompBytes(value, fd.compressor)
+	value, err = decompBytes(value, fd.header.Compressor)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get transaction log at height %d", height)
 	}
@@ -216,7 +221,7 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
-	if blk.Height() != fd.header.End+1 {
+	if blk.Height() != fd.tip.Height+1 {
 		return ErrInvalidTipHeight
 	}
 
@@ -238,7 +243,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
-	fd.header.End = blk.Height()
+	fd.tip.Height = blk.Height()
 	return nil
 }
 
@@ -269,11 +274,11 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	}
 
 	// delete hash -> height mapping
-	header, err := ReadFileHeader(fd.kvStore, headerDataNs, fileHeaderKey)
+	fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey)
 	if err != nil {
 		return err
 	}
-	fd.batch.Delete(blockHashHeightMappingNS, hashKey(header.TopHash), "failed to delete hash -> height mapping")
+	fd.batch.Delete(blockHashHeightMappingNS, hashKey(fd.tip.Hash), "failed to delete hash -> height mapping")
 
 	// update file header
 	h := hash.ZeroHash256
@@ -283,15 +288,15 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 			return err
 		}
 	}
-	ser, err := fd.header.createHeaderBytes(height-1, h)
+	ser, err := (&FileTip{Height: height - 1, Hash: h}).Serialize()
 	if err != nil {
 		return err
 	}
-	fd.batch.Put(headerDataNs, fileHeaderKey, ser, "failed to put file header")
+	fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
 
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return err
 	}
-	fd.header.End = height - 1
+	fd.tip.Height = height - 1
 	return nil
 }

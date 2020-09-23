@@ -15,6 +15,9 @@ message FileHeader {
     string compressor = 2;
     uint64 blockStoreSize = 3;
     uint64 start = 4;
-    uint64 end = 5;
-    bytes  topHash = 6;
+}
+
+message FileTip {
+    uint64 height = 1;
+    bytes  hash = 2;
 }

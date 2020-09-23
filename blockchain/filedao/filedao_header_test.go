@@ -1,7 +1,6 @@
 package filedao
 
 import (
-	"bytes"
 	"context"
 	"testing"
 
@@ -15,42 +14,33 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func TestHeaderProto(t *testing.T) {
+func TestFileProto(t *testing.T) {
 	r := require.New(t)
 
-	sh := hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 	h := &FileHeader{
 		Version:        FileV2,
 		Compressor:     "test",
 		BlockStoreSize: 32,
 		Start:          3,
-		End:            1003,
-		TopHash:        sh,
 	}
 	ser, err := h.Serialize()
 	r.NoError(err)
-
 	h1, err := DeserializeFileHeader(ser)
 	r.NoError(err)
 	r.Equal(h, h1)
 
-	for _, v := range []struct {
-		height uint64
-		hash   hash.Hash256
-		equal  bool
-	}{
-		{h.End + 1, sh, false},
-		{h.End, hash.ZeroHash256, false},
-		{h.End, sh, true},
-	} {
-		ser1, err := h.createHeaderBytes(v.height, v.hash)
-		r.NoError(err)
-		r.EqualValues(1003, h.End)
-		r.Equal(v.equal, bytes.Compare(ser1, ser) == 0)
+	c := &FileTip{
+		Height: 1003,
+		Hash:   hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	}
+	ser, err = c.Serialize()
+	r.NoError(err)
+	c1, err := DeserializeFileTip(ser)
+	r.NoError(err)
+	r.Equal(c, c1)
 }
 
-func TestFileHeader(t *testing.T) {
+func TestFileReadWrite(t *testing.T) {
 	testHeader := func(kv db.KVStore, t *testing.T) {
 		r := require.New(t)
 		r.NotNil(kv)
@@ -59,7 +49,7 @@ func TestFileHeader(t *testing.T) {
 		r.NoError(kv.Start(ctx))
 		defer kv.Stop(ctx)
 
-		h, err := ReadFileHeader(kv, headerDataNs, fileHeaderKey)
+		h, err := ReadHeader(kv, headerDataNs, fileHeaderKey)
 		r.Equal(db.ErrNotExist, errors.Cause(err))
 		r.Nil(h)
 
@@ -68,14 +58,26 @@ func TestFileHeader(t *testing.T) {
 			Compressor:     "test",
 			BlockStoreSize: 32,
 			Start:          3,
-			End:            1003,
-			TopHash:        hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 		}
 		r.NoError(WriteHeader(kv, headerDataNs, fileHeaderKey, h))
 
-		h1, err := ReadFileHeader(kv, headerDataNs, fileHeaderKey)
+		h1, err := ReadHeader(kv, headerDataNs, fileHeaderKey)
 		r.NoError(err)
 		r.Equal(h, h1)
+
+		c, err := ReadTip(kv, headerDataNs, topHeightKey)
+		r.Equal(db.ErrNotExist, errors.Cause(err))
+		r.Nil(c)
+
+		c = &FileTip{
+			Height: 1003,
+			Hash:   hash.Hash256{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		}
+		r.NoError(WriteTip(kv, headerDataNs, topHeightKey, c))
+
+		c1, err := ReadTip(kv, headerDataNs, topHeightKey)
+		r.NoError(err)
+		r.Equal(c, c1)
 	}
 
 	r := require.New(t)

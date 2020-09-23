@@ -23,13 +23,17 @@ type (
 		Compressor     string
 		BlockStoreSize uint64
 		Start          uint64
-		End            uint64
-		TopHash        hash.Hash256
+	}
+
+	// FileTip is tip info of chain
+	FileTip struct {
+		Height uint64
+		Hash   hash.Hash256
 	}
 )
 
-// ReadFileHeader reads header from KVStore
-func ReadFileHeader(kv db.KVStore, ns string, key []byte) (*FileHeader, error) {
+// ReadHeader reads header from KVStore
+func ReadHeader(kv db.KVStore, ns string, key []byte) (*FileHeader, error) {
 	value, err := kv.Get(ns, key)
 	if err != nil {
 		return nil, errors.Wrap(err, "file header not exist")
@@ -57,19 +61,15 @@ func (h *FileHeader) toProto() *headerpb.FileHeader {
 		Compressor:     h.Compressor,
 		BlockStoreSize: h.BlockStoreSize,
 		Start:          h.Start,
-		End:            h.End,
-		TopHash:        h.TopHash[:],
 	}
 }
 
-func fromProto(pb *headerpb.FileHeader) *FileHeader {
+func fromProtoFileHeader(pb *headerpb.FileHeader) *FileHeader {
 	return &FileHeader{
 		Version:        pb.Version,
 		Compressor:     pb.Compressor,
 		BlockStoreSize: pb.BlockStoreSize,
 		Start:          pb.Start,
-		End:            pb.End,
-		TopHash:        hash.BytesToHash256(pb.TopHash),
 	}
 }
 
@@ -79,17 +79,51 @@ func DeserializeFileHeader(buf []byte) (*FileHeader, error) {
 	if err := proto.Unmarshal(buf, pbHeader); err != nil {
 		return nil, err
 	}
-	return fromProto(pbHeader), nil
+	return fromProtoFileHeader(pbHeader), nil
 }
 
-func (h *FileHeader) createHeaderBytes(height uint64, hash hash.Hash256) ([]byte, error) {
-	currHeight := h.End
-	h.End = height
-	h.TopHash = hash
-	ser, err := h.Serialize()
+// ReadTip reads tip from KVStore
+func ReadTip(kv db.KVStore, ns string, key []byte) (*FileTip, error) {
+	value, err := kv.Get(ns, key)
 	if err != nil {
+		return nil, errors.Wrap(err, "file header not exist")
+	}
+	return DeserializeFileTip(value)
+}
+
+// WriteTip writes tip to KVStore
+func WriteTip(kv db.KVStore, ns string, key []byte, tip *FileTip) error {
+	ser, err := tip.Serialize()
+	if err != nil {
+		return err
+	}
+	return kv.Put(ns, key, ser)
+}
+
+// Serialize serializes FileTip to byte-stream
+func (t *FileTip) Serialize() ([]byte, error) {
+	return proto.Marshal(t.toProto())
+}
+
+func (t *FileTip) toProto() *headerpb.FileTip {
+	return &headerpb.FileTip{
+		Height: t.Height,
+		Hash:   t.Hash[:],
+	}
+}
+
+func fromProtoFileTip(pb *headerpb.FileTip) *FileTip {
+	return &FileTip{
+		Height: pb.Height,
+		Hash:   hash.BytesToHash256(pb.Hash),
+	}
+}
+
+// DeserializeFileTip deserializes byte-stream to FileTip
+func DeserializeFileTip(buf []byte) (*FileTip, error) {
+	pbTip := &headerpb.FileTip{}
+	if err := proto.Unmarshal(buf, pbTip); err != nil {
 		return nil, err
 	}
-	h.End = currHeight
-	return ser, nil
+	return fromProtoFileTip(pbTip), nil
 }
