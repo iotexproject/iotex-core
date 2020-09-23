@@ -124,7 +124,7 @@ var (
 			EnableStakingIndexer:          false,
 			CompressBlock:                 false,
 			AllowedBlockGasResidue:        10000,
-			MaxCacheSize:                  0,
+			StateMaxCacheSize:             1000,
 			PollInitialCandidatesInterval: 10 * time.Second,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
@@ -261,8 +261,8 @@ type (
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
-		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
-		MaxCacheSize int `yaml:"maxCacheSize"`
+		// StateMaxCacheSize is the max number of states that will be put into an LRU cache. 0 means disabled
+		StateMaxCacheSize int `yaml:"stateMaxCacheSize"`
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
