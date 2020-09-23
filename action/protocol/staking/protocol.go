@@ -466,7 +466,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 	case iotexapi.ReadStakingDataMethod_CANDIDATE_BY_ADDRESS:
 		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
-		if p.archiveMode && p.hu.IsPre(config.Greenland, height) {
+		if p.archiveMode && inputHeight <= p.hu.GreenlandBlockHeight() {
 			resp, height, err = readStateTotalStakingAmountFromIndexer(csr, r.GetTotalStakingAmount(), inputHeight)
 		} else {
 			resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
