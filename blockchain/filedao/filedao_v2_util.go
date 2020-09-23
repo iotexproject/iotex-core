@@ -24,7 +24,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 			return nil, err
 		}
 
-		v, err = decompBytes(v, fd.compressor)
+		v, err = decompBytes(v, fd.header.Compressor)
 		if err != nil {
 			return nil, err
 		}
@@ -37,7 +37,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		height := info.Block.Height()
 		if height > blockStoreTip {
 			buffer.Put(stagingKey(height, fd.header), info)
-			fd.header.End = height
+			fd.tip.Height = height
 		} else {
 			break
 		}
@@ -57,13 +57,13 @@ func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 	heightValue := byteutil.Uint64ToBytesBigEndian(height)
 	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), heightValue, "failed to put hash -> height mapping")
 
-	// update file header
-	if height > fd.header.End {
-		ser, err := fd.header.createHeaderBytes(height, h)
+	// update file tip
+	if height > fd.tip.Height {
+		ser, err := (&FileTip{Height: height, Hash: h}).Serialize()
 		if err != nil {
 			return err
 		}
-		fd.batch.Put(headerDataNs, fileHeaderKey, ser, "failed to put file header")
+		fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
 	}
 	return nil
 }
@@ -77,7 +77,7 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	blkBytes, err := compBytes(ser, fd.compressor)
+	blkBytes, err := compBytes(ser, fd.header.Compressor)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 	if ser, err = fd.blkBuffer.Serialize(); err != nil {
 		return err
 	}
-	if blkBytes, err = compBytes(ser, fd.compressor); err != nil {
+	if blkBytes, err = compBytes(ser, fd.header.Compressor); err != nil {
 		return err
 	}
 	return addOneEntryToBatch(fd.blkStore, blkBytes, fd.batch)
@@ -108,7 +108,7 @@ func (fd *fileDAOv2) putTransactionLog(blk *block.Block) error {
 	if sysLog == nil {
 		sysLog = &block.BlkTransactionLog{}
 	}
-	logBytes, err := compBytes(sysLog.Serialize(), fd.compressor)
+	logBytes, err := compBytes(sysLog.Serialize(), fd.header.Compressor)
 	if err != nil {
 		return err
 	}
@@ -201,7 +201,7 @@ func (fd *fileDAOv2) getBlockStore(height uint64) (*block.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	value, err = decompBytes(value, fd.compressor)
+	value, err = decompBytes(value, fd.header.Compressor)
 	if err != nil {
 		return nil, err
 	}
