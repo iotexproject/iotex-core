@@ -389,10 +389,7 @@ func (m *endorsementManager) MintBlock(blk *block.Block) error {
 }
 
 func (m *endorsementManager) CachedMintedBlock() *block.Block {
-	if m.cachedMintedBlk != nil {
-		return m.cachedMintedBlk
-	}
-	return nil
+	return m.cachedMintedBlk
 }
 
 func (m *endorsementManager) Cleanup(timestamp time.Time) error {
