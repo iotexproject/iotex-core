@@ -98,8 +98,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              *cache.ThreadSafeLruCache            // lru cache for workingsets
-		stateCaches              map[string]*cache.ThreadSafeLruCache // map having lru cache to store current states for speed up
+		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 	}
@@ -184,7 +183,6 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
-		stateCaches:        make(map[string]*cache.ThreadSafeLruCache),
 	}
 
 	for _, opt := range opts {
@@ -261,9 +259,6 @@ func (sf *factory) Stop(ctx context.Context) error {
 		return err
 	}
 	sf.workingsets.Clear()
-	for _, sc := range sf.stateCaches {
-		sc.Clear()
-	}
 	return sf.lifecycle.OnStop(ctx)
 }
 
@@ -298,15 +293,6 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 		finalized: false,
 		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			// look up stateCachces first
-			if sc, ok := sf.stateCaches[ns]; ok {
-				if data, ok := sc.Get(string(key)); ok {
-					if byteData, ok := data.([]byte); ok {
-						return state.Deserialize(s, byteData)
-					} 
-					return errors.New("failed to convert interface{} to bytes from stateCaches")
-				}
-			}
 			return readState(tlt, ns, key, s)
 		},
 		putStateFunc: func(ns string, key []byte, s interface{}) error {
@@ -315,27 +301,12 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 			}
 			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			// store on stateCaches
-			if sc, ok := sf.stateCaches[ns]; ok {
-				sc.Add(string(key), ss)
-			} else {
-				sc := cache.NewThreadSafeLruCache(sf.cfg.Chain.StateMaxCacheSize)
-				sc.Add(string(key), ss)
-				sf.stateCaches[ns] = sc
-			}
 			nsHash := hash.Hash160b([]byte(ns))
 
 			return tlt.Upsert(nsHash[:], toLegacyKey(key), ss)
 		},
 		delStateFunc: func(ns string, key []byte) error {
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			// remove on stateCaches
-			if sc, ok := sf.stateCaches[ns]; ok {
-				sc.Remove(string(key))
-			} else {
-				sc := cache.NewThreadSafeLruCache(sf.cfg.Chain.StateMaxCacheSize)
-				sf.stateCaches[ns] = sc
-			}
 			nsHash := hash.Hash160b([]byte(ns))
 
 			err := tlt.Delete(nsHash[:], toLegacyKey(key))
@@ -400,9 +371,6 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			return s
 		},
 		revertFunc: func(snapshot int) error {
-			for _, sc := range sf.stateCaches {
-				sc.Clear()
-			}
 			if err := flusher.KVStoreWithBuffer().Revert(snapshot); err != nil {
 				return err
 			}

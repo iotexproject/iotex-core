@@ -119,7 +119,7 @@ func New(
 		}
 	} else {
 		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		} else {
 			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		}

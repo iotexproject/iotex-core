@@ -105,7 +105,7 @@ func TestSDBSnapshot(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "5"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "7"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
 	require.NoError(err)
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
@@ -359,7 +359,7 @@ func TestHistoryState(t *testing.T) {
 	// using stateDB and enable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 
@@ -374,7 +374,7 @@ func TestHistoryState(t *testing.T) {
 	// using stateDB and disable history
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testHistoryState(sf, t, true, cfg.Chain.EnableArchiveMode)
 }
@@ -394,7 +394,7 @@ func TestFactoryStates(t *testing.T) {
 	// using stateDB
 	cfg.Chain.TrieDBPath, err = testutil.PathOfTempFile(triePath)
 	r.NoError(err)
-	sf, err = NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sf, err = NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	r.NoError(err)
 	testFactoryStates(sf, t)
 }
@@ -405,7 +405,7 @@ func TestSDBState(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 	testState(sdb, t)
 }
@@ -690,7 +690,7 @@ func TestSDBNonce(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testNonce(sdb, t)
@@ -807,7 +807,7 @@ func TestSDBLoadStoreHeight(t *testing.T) {
 
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = testDBPath
-	db, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	db, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(t, err)
 
 	testLoadStoreHeight(db, t)
@@ -901,7 +901,7 @@ func TestSTXRunActions(t *testing.T) {
 	cfg.Chain.TrieDBPath = testStateDBPath
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	require.NoError(err)
 
 	registry := protocol.NewRegistry()
@@ -1013,7 +1013,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1123,7 +1123,7 @@ func TestSTXSimulateExecution(t *testing.T) {
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = "100"
 	cfg.Genesis.InitBalanceMap[identityset.Address(29).String()] = "200"
 	registry := protocol.NewRegistry()
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), RegistryStateDBOption(registry))
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), RegistryStateDBOption(registry))
 	require.NoError(err)
 
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -1320,7 +1320,7 @@ func BenchmarkSDBRunAction(b *testing.B) {
 	}
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, DefaultStateDBOption())
+	sdb, err := NewStateDB(cfg, CachedStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -543,7 +543,7 @@ func TestProtocol_Handle(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(sf, cfg.ActPool)
 		require.NoError(err)

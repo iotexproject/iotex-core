@@ -42,8 +42,7 @@ type stateDB struct {
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *cache.ThreadSafeLruCache            // lru cache for workingsets
-	stateCaches              map[string]*cache.ThreadSafeLruCache // map having lru cache to store current states for speed up
+	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 }
@@ -71,6 +70,20 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+
+		return nil
+	}
+}
+
+// CachedStateDBOption creates state db with cache from config
+func CachedStateDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		dbPath := cfg.Chain.TrieDBPath
+		if len(dbPath) == 0 {
+			return errors.New("Invalid empty trie db path")
+		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sdb.dao = db.NewKvStoreWithCache(db.NewBoltDB(cfg.DB), cfg.Chain.StateDBCacheSize)
 
 		return nil
 	}
@@ -108,7 +121,6 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
 		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
-		stateCaches:        make(map[string]*cache.ThreadSafeLruCache),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -174,9 +186,6 @@ func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Clear()
-	for _, sc := range sdb.stateCaches {
-		sc.Clear()
-	}
 	return sdb.dao.Stop(ctx)
 }
 
@@ -202,15 +211,6 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		finalized: false,
 		dock:      protocol.NewDock(),
 		getStateFunc: func(ns string, key []byte, s interface{}) error {
-			// look up stateCachces first
-			if sc, ok := sdb.stateCaches[ns]; ok {
-				if data, ok := sc.Get(string(key)); ok {
-					if byteData, ok := data.([]byte); ok {
-						return state.Deserialize(s, byteData)
-					} 
-					return errors.New("failed to convert interface{} to bytes from stateCaches")
-				}
-			}
 			data, err := flusher.KVStoreWithBuffer().Get(ns, key)
 			if err != nil {
 				if errors.Cause(err) == db.ErrNotExist {
@@ -226,25 +226,10 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 			}
 			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-			// store on stateCaches
-			if sc, ok := sdb.stateCaches[ns]; ok {
-				sc.Add(string(key), ss)
-			} else {
-				sc := cache.NewThreadSafeLruCache(sdb.cfg.Chain.StateMaxCacheSize)
-				sc.Add(string(key), ss)
-				sdb.stateCaches[ns] = sc
-			}
 			return nil
 		},
 		delStateFunc: func(ns string, key []byte) error {
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-			// remove on stateCaches
-			if sc, ok := sdb.stateCaches[ns]; ok {
-				sc.Remove(string(key))
-			} else {
-				sc := cache.NewThreadSafeLruCache(sdb.cfg.Chain.StateMaxCacheSize)
-				sdb.stateCaches[ns] = sc
-			}
 			return nil
 		},
 		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -277,9 +262,6 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
 		revertFunc: func(sid int) error {
-			for _, sc := range sdb.stateCaches {
-				sc.Clear()
-			}
 			return flusher.KVStoreWithBuffer().Revert(sid)
 		},
 		dbFunc: func() db.KVStore {
