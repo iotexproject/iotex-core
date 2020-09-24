@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package filedao
 
 import (
 	"encoding/hex"
@@ -14,13 +14,15 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
+
+	"github.com/iotexproject/iotex-core/pkg/compress"
 )
 
 func TestChecksumNamespaceAndKeys(t *testing.T) {
-	require := require.New(t)
+	r := require.New(t)
 
 	a := []hash.Hash256{
-		// blockdao
+		// filedao
 		hash.BytesToHash256([]byte(blockHashHeightMappingNS)),
 		hash.BytesToHash256([]byte(systemLogNS)),
 		hash.BytesToHash256(topHeightKey),
@@ -34,10 +36,19 @@ func TestChecksumNamespaceAndKeys(t *testing.T) {
 		hash.BytesToHash256([]byte(receiptsNS)),
 		hash.BytesToHash256(heightPrefix),
 		hash.BytesToHash256(heightToFileBucket),
+		// filedao_v2
+		hash.BytesToHash256([]byte(FileV2)),
+		hash.BytesToHash256([]byte{16}),
+		hash.BytesToHash256([]byte(compress.Gzip)),
+		hash.BytesToHash256([]byte(compress.Snappy)),
+		hash.BytesToHash256([]byte(hashDataNS)),
+		hash.BytesToHash256([]byte(blockDataNS)),
+		hash.BytesToHash256([]byte(headerDataNs)),
+		hash.BytesToHash256(fileHeaderKey),
 	}
 
 	checksum := crypto.NewMerkleTree(a)
-	require.NotNil(checksum)
+	r.NotNil(checksum)
 	h := checksum.HashTree()
-	require.Equal("3ed359035cea947b14288bc0f581391c63d087e161d82b452e0353375cde2f0d", hex.EncodeToString(h[:]))
+	r.Equal("18747e1ac5364ce3f398e03092f159121b55166449657f65ba1f9243e8830391", hex.EncodeToString(h[:]))
 }

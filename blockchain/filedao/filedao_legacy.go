@@ -4,7 +4,7 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package filedao
 
 import (
 	"context"
@@ -64,7 +64,8 @@ type (
 	}
 )
 
-func newFileDAOLegacy(kvStore db.KVStore, compressBlock bool, cfg config.DB) (FileDAO, error) {
+// NewFileDAOLegacy creates a new legacy file
+func NewFileDAOLegacy(kvStore db.KVStore, compressBlock bool, cfg config.DB) (FileDAO, error) {
 	if kvStore == nil {
 		return nil, errors.New("empty KVStore")
 	}
@@ -229,7 +230,7 @@ func (fd *fileDAOLegacy) header(h hash.Hash256) (*block.Header, error) {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block header %x", h)
 		}
@@ -251,7 +252,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		return nil, errors.Wrapf(err, "failed to get block body %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block body %x", h)
 		}
@@ -274,7 +275,7 @@ func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
 		return nil, errors.Wrapf(err, "failed to get block footer %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block footer %x", h)
 		}
@@ -321,15 +322,15 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.Wrap(err, "failed to serialize block footer")
 	}
 	if fd.compressBlock {
-		serHeader, err = compress.Compress(serHeader)
+		serHeader, err = compress.CompGzip(serHeader)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block header")
 		}
-		serBody, err = compress.Compress(serBody)
+		serBody, err = compress.CompGzip(serBody)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block body")
 		}
-		serFooter, err = compress.Compress(serFooter)
+		serFooter, err = compress.CompGzip(serFooter)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block footer")
 		}

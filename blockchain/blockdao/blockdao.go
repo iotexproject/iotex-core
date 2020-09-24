@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -43,7 +44,7 @@ var (
 type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
-		FileDAO
+		filedao.FileDAO
 		Header(hash.Hash256) (*block.Header, error)
 		Body(hash.Hash256) (*block.Body, error)
 		Footer(hash.Hash256) (*block.Footer, error)
@@ -64,7 +65,7 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   FileDAO
+		blockStore   filedao.FileDAO
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
@@ -76,8 +77,8 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
-	blkStore, err := NewFileDAO(compressBlock, cfg)
+func NewBlockDAO(indexers []BlockIndexer, compressLegacy bool, cfg config.DB) BlockDAO {
+	blkStore, err := filedao.NewFileDAO(compressLegacy, cfg)
 	if err != nil {
 		return nil
 	}
@@ -86,7 +87,7 @@ func NewBlockDAO(indexers []BlockIndexer, compressBlock bool, cfg config.DB) Blo
 
 // NewBlockDAOInMemForTest creates a in-memory block DAO for testing
 func NewBlockDAOInMemForTest(indexers []BlockIndexer, cfg config.DB) BlockDAO {
-	blkStore, err := NewFileDAOInMemForTest(cfg)
+	blkStore, err := filedao.NewFileDAOInMemForTest(cfg)
 	if err != nil {
 		return nil
 	}
@@ -412,7 +413,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
@@ -461,8 +462,4 @@ func lruCacheDel(c *cache.ThreadSafeLruCache, k interface{}) {
 	if c != nil {
 		c.Remove(k)
 	}
-}
-
-func hashKey(h hash.Hash256) []byte {
-	return append(hashPrefix, h[:]...)
 }

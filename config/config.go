@@ -185,8 +185,10 @@ var (
 			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
 		DB: DB{
-			NumRetries:   3,
-			MaxCacheSize: 64,
+			NumRetries:          3,
+			MaxCacheSize:        64,
+			BlockStoreBatchSize: 16,
+			Compressor:          "Snappy",
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
@@ -254,7 +256,7 @@ type (
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
-		// CompressBlock enables gzip compression on block data
+		// CompressBlock enables gzip compression on block data, used by legacy DB file
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
@@ -362,6 +364,10 @@ type (
 		NumRetries uint8 `yaml:"numRetries"`
 		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
 		MaxCacheSize int `yaml:"maxCacheSize"`
+		// BlockStoreBatchSize is the number of blocks to be stored together as a unit (to get better compression)
+		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
+		// Compressor is the compression used on block data, used by new DB file after Ithaca
+		Compressor string `yaml:"compressor"`
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
 		// SQLite3 is the config for SQLITE3
