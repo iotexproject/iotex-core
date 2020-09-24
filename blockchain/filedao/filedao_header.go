@@ -32,22 +32,22 @@ type (
 	}
 )
 
-// ReadHeader reads header from KVStore
-func ReadHeader(kv db.KVStore, ns string, key []byte) (*FileHeader, error) {
-	value, err := kv.Get(ns, key)
+// ReadHeaderV2 reads header from KVStore
+func ReadHeaderV2(kv db.KVStore) (*FileHeader, error) {
+	value, err := kv.Get(headerDataNs, fileHeaderKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "file header not exist")
 	}
 	return DeserializeFileHeader(value)
 }
 
-// WriteHeader writes header to KVStore
-func WriteHeader(kv db.KVStore, ns string, key []byte, header *FileHeader) error {
+// WriteHeaderV2 writes header to KVStore
+func WriteHeaderV2(kv db.KVStore, header *FileHeader) error {
 	ser, err := header.Serialize()
 	if err != nil {
 		return err
 	}
-	return kv.Put(ns, key, ser)
+	return kv.Put(headerDataNs, fileHeaderKey, ser)
 }
 
 // Serialize serializes FileHeader to byte-stream

@@ -54,8 +54,7 @@ func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 
 	// write hash <-> height mapping
 	height := blk.Height()
-	heightValue := byteutil.Uint64ToBytesBigEndian(height)
-	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), heightValue, "failed to put hash -> height mapping")
+	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// update file tip
 	if height > fd.tip.Height {

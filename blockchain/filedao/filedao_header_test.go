@@ -49,7 +49,7 @@ func TestFileReadWrite(t *testing.T) {
 		r.NoError(kv.Start(ctx))
 		defer kv.Stop(ctx)
 
-		h, err := ReadHeader(kv, headerDataNs, fileHeaderKey)
+		h, err := ReadHeaderV2(kv)
 		r.Equal(db.ErrNotExist, errors.Cause(err))
 		r.Nil(h)
 
@@ -59,9 +59,9 @@ func TestFileReadWrite(t *testing.T) {
 			BlockStoreSize: 32,
 			Start:          3,
 		}
-		r.NoError(WriteHeader(kv, headerDataNs, fileHeaderKey, h))
+		r.NoError(WriteHeaderV2(kv, h))
 
-		h1, err := ReadHeader(kv, headerDataNs, fileHeaderKey)
+		h1, err := ReadHeaderV2(kv)
 		r.NoError(err)
 		r.Equal(h, h1)
 

@@ -18,7 +18,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -70,7 +69,7 @@ type (
 
 // NewFileDAO creates an instance of FileDAO
 func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
-	legacyFd, err := NewFileDAOLegacy(db.NewBoltDB(cfg), compressLegacy, cfg)
+	legacyFd, err := NewFileDAOLegacy(compressLegacy, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +78,7 @@ func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
 func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
-	legacyFd, err := NewFileDAOLegacy(db.NewMemKVStore(), false, cfg)
+	legacyFd, err := newFileDAOLegacyInMem(false, cfg)
 	if err != nil {
 		return nil, err
 	}

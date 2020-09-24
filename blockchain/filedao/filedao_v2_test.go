@@ -39,7 +39,7 @@ func TestNewFileDAO(t *testing.T) {
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
 
-	fd, err := NewFileDAOv2(db.NewBoltDB(cfg), 2, cfg)
+	fd, err := NewFileDAOv2(2, cfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	ctx := context.Background()
@@ -95,7 +95,7 @@ func TestNewFdInterface(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
-		file, err := NewFileDAOv2(db.NewBoltDB(cfg), start, cfg)
+		file, err := NewFileDAOv2(start, cfg)
 		r.NoError(err)
 		fd, ok := file.(*fileDAOv2)
 		r.True(ok)
@@ -220,7 +220,7 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	_, err = NewFileDAOv2(db.NewBoltDB(cfg), 0, cfg)
+	_, err = NewFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
 
 	for _, compress := range []string{"", compress.Gzip, compress.Snappy} {
@@ -239,7 +239,7 @@ func TestNewFdStart(t *testing.T) {
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
 			testutil.CleanupPath(t, cfg.DbPath)
-			file, err := NewFileDAOv2(db.NewBoltDB(cfg), start, cfg)
+			file, err := NewFileDAOv2(start, cfg)
 			r.NoError(err)
 			fd, ok := file.(*fileDAOv2)
 			r.True(ok)
@@ -260,7 +260,7 @@ func TestNewFdStart(t *testing.T) {
 			r.NoError(fd.Stop(ctx))
 
 			// start from existing file
-			file, err = openFileDAOv2(db.NewBoltDB(cfg), cfg)
+			file, err = openFileDAOv2(cfg)
 			r.NoError(err)
 			fd, ok = file.(*fileDAOv2)
 			r.True(ok)

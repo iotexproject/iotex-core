@@ -65,14 +65,11 @@ type (
 )
 
 // NewFileDAOLegacy creates a new legacy file
-func NewFileDAOLegacy(kvStore db.KVStore, compressBlock bool, cfg config.DB) (FileDAO, error) {
-	if kvStore == nil {
-		return nil, errors.New("empty KVStore")
-	}
+func NewFileDAOLegacy(compressBlock bool, cfg config.DB) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: compressBlock,
 		cfg:           cfg,
-		kvStore:       kvStore,
+		kvStore:       db.NewBoltDB(cfg),
 	}, nil
 }
 
@@ -133,12 +130,9 @@ func (fd *fileDAOLegacy) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOLegacy) Height() (uint64, error) {
-	value, err := fd.kvStore.Get(blockNS, topHeightKey)
+	value, err := getValueMustBe8Bytes(fd.kvStore, blockNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
-	}
-	if len(value) != 8 {
-		return 0, errors.Wrap(ErrDataCorruption, "blockchain height missing")
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
@@ -160,12 +154,9 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	value, err := fd.kvStore.Get(blockHashHeightMappingNS, hashKey(h))
+	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
-	}
-	if len(value) != 8 {
-		return 0, errors.Wrapf(ErrDataCorruption, "height missing for block with hash = %x", h)
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
@@ -636,4 +627,13 @@ func getFileNameAndDir(p string) (fileName, dir string) {
 
 func heightKey(height uint64) []byte {
 	return append(heightPrefix, byteutil.Uint64ToBytes(height)...)
+}
+
+// newFileDAOLegacyInMem creates an in-memory legacy file for testing only
+func newFileDAOLegacyInMem(compressBlock bool, cfg config.DB) (FileDAO, error) {
+	return &fileDAOLegacy{
+		compressBlock: compressBlock,
+		cfg:           cfg,
+		kvStore:       db.NewMemKVStore(),
+	}, nil
 }

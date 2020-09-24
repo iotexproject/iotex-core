@@ -55,7 +55,7 @@ type (
 )
 
 // NewFileDAOv2 creates a new v2 file
-func NewFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, error) {
+func NewFileDAOv2(bottom uint64, cfg config.DB) (FileDAO, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -72,18 +72,18 @@ func NewFileDAOv2(kvStore db.KVStore, bottom uint64, cfg config.DB) (FileDAO, er
 		},
 		cfg:      cfg,
 		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  kvStore,
+		kvStore:  db.NewBoltDB(cfg),
 		batch:    batch.NewBatch(),
 	}
 	return &fd, nil
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(kvStore db.KVStore, cfg config.DB) (FileDAO, error) {
+func openFileDAOv2(cfg config.DB) (FileDAO, error) {
 	fd := fileDAOv2{
 		cfg:      cfg,
 		blkCache: cache.NewThreadSafeLruCache(16),
-		kvStore:  kvStore,
+		kvStore:  db.NewBoltDB(cfg),
 		batch:    batch.NewBatch(),
 	}
 	return &fd, nil
@@ -95,13 +95,13 @@ func (fd *fileDAOv2) Start(ctx context.Context) error {
 	}
 
 	// check file header
-	header, err := ReadHeader(fd.kvStore, headerDataNs, fileHeaderKey)
+	header, err := ReadHeaderV2(fd.kvStore)
 	if err != nil {
 		if errors.Cause(err) != db.ErrBucketNotExist && errors.Cause(err) != db.ErrNotExist {
 			return errors.Wrap(err, "failed to get file header")
 		}
 		// write file header and tip
-		if err = WriteHeader(fd.kvStore, headerDataNs, fileHeaderKey, fd.header); err != nil {
+		if err = WriteHeaderV2(fd.kvStore, fd.header); err != nil {
 			return err
 		}
 		if err = WriteTip(fd.kvStore, headerDataNs, topHeightKey, fd.tip); err != nil {
