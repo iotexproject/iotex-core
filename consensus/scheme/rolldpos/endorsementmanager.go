@@ -400,7 +400,10 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 	} else {
 		m.collections = map[string]*blockEndorsementCollection{}
 	}
-	m.cachedMintedBlk = nil
+	if m.cachedMintedBlk != nil && m.cachedMintedBlk.Timestamp().Before(timestamp) {
+		// in case that the cached minted block is outdated, clean up
+		m.cachedMintedBlk = nil
+	}
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()
 	}
