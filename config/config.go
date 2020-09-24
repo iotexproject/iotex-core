@@ -262,7 +262,7 @@ type (
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
-		// StateMaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
+		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
 		MaxCacheSize int `yaml:"maxCacheSize"`
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
