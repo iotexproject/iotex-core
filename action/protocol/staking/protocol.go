@@ -11,8 +11,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -218,11 +216,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if p.archiveMode && blkCtx.BlockHeight <= p.hu.GreenlandBlockHeight() {
-		if err := p.saveStakingAddressHistory(blkCtx.BlockHeight, sm); err != nil {
-			return err
-		}
-	}
+
 	if blkCtx.BlockHeight == hu.GreenlandBlockHeight() {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
@@ -244,6 +238,11 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 	if p.candBucketsIndexer == nil {
 		return nil
+	}
+	if p.archiveMode && blkCtx.BlockHeight <= p.hu.GreenlandBlockHeight() {
+		if err := p.saveStakingAddressHistory(blkCtx.BlockHeight, sm); err != nil {
+			return err
+		}
 	}
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	currentEpochNum := rp.GetEpochNum(blkCtx.BlockHeight)
@@ -267,10 +266,7 @@ func (p *Protocol) saveStakingAddressHistory(height uint64, sm protocol.StateMan
 	if balance.amount.Sign() <= 0 {
 		return nil
 	}
-	hei := byteutil.Uint64ToBytesBigEndian(height - 1)
-	historyKey := append(bucketPoolAddrKey, hei...)
-	_, err = sm.PutState(balance, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(historyKey))
-	return err
+	return p.candBucketsIndexer.PutStakingBalance(height, balance)
 }
 
 func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.StateManager) error {
@@ -467,7 +463,7 @@ func (p *Protocol) ReadState(ctx context.Context, sr protocol.StateReader, metho
 		resp, height, err = readStateCandidateByAddress(ctx, csr, r.GetCandidateByAddress())
 	case iotexapi.ReadStakingDataMethod_TOTAL_STAKING_AMOUNT:
 		if p.archiveMode && inputHeight <= p.hu.GreenlandBlockHeight() {
-			resp, height, err = readStateTotalStakingAmountFromIndexer(csr, r.GetTotalStakingAmount(), inputHeight)
+			resp, height, err = p.candBucketsIndexer.GetStakingBalance(inputHeight)
 		} else {
 			resp, height, err = readStateTotalStakingAmount(ctx, csr, r.GetTotalStakingAmount())
 		}

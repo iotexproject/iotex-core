@@ -8,10 +8,12 @@ package staking
 
 import (
 	"context"
+	"math/big"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/db"
@@ -170,4 +172,25 @@ func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uin
 	buckets.Buckets = buckets.Buckets[offset:end]
 	d, err := proto.Marshal(buckets)
 	return d, height, err
+}
+
+// PutStakingBalance sets staking balance
+func (cbi *CandidatesBucketsIndexer) PutStakingBalance(height uint64, total *totalAmount) error {
+	hei := byteutil.Uint64ToBytesBigEndian(height - 1)
+	historyKey := append(bucketPoolAddrKey, hei...)
+	return cbi.kvStore.Put(StakingBucketsNamespace, historyKey, total.amount.Bytes())
+}
+
+// GetStakingBalance gets staking balance
+func (cbi *CandidatesBucketsIndexer) GetStakingBalance(height uint64) (*iotextypes.AccountMeta, uint64, error) {
+	hei := byteutil.Uint64ToBytesBigEndian(height)
+	historyKey := append(bucketPoolAddrKey, hei...)
+	balanceBytes, err := cbi.kvStore.Get(StakingBucketsNamespace, historyKey)
+	if err != nil {
+		return nil, 0, err
+	}
+	meta := iotextypes.AccountMeta{}
+	meta.Address = address.StakingBucketPoolAddr
+	meta.Balance = big.NewInt(0).SetBytes(balanceBytes).String()
+	return &meta, height, nil
 }
