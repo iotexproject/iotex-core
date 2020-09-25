@@ -16,6 +16,14 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 )
 
+// constants
+const (
+	FileLegacyMaster    = "V1-master"
+	FileLegacyAuxiliary = "V1-aux"
+	FileV2              = "V2"
+	FileAll             = "All"
+)
+
 type (
 	// FileHeader is header of chain db file
 	FileHeader struct {
@@ -31,6 +39,22 @@ type (
 		Hash   hash.Hash256
 	}
 )
+
+// ReadHeaderLegacy reads header from KVStore
+func ReadHeaderLegacy(kv *db.BoltDB) (*FileHeader, error) {
+	// legacy file has these 6 buckets
+	if !kv.BucketExists(receiptsNS) || !kv.BucketExists(blockHeaderNS) ||
+		!kv.BucketExists(blockBodyNS) || !kv.BucketExists(blockFooterNS) {
+		return nil, ErrFileInvalid
+	}
+
+	// check tip height stored in master file
+	_, err := getValueMustBe8Bytes(kv, blockNS, topHeightKey)
+	if err == nil && kv.BucketExists(blockHashHeightMappingNS) {
+		return &FileHeader{Version: FileLegacyMaster}, nil
+	}
+	return &FileHeader{Version: FileLegacyAuxiliary}, nil
+}
 
 // ReadHeaderV2 reads header from KVStore
 func ReadHeaderV2(kv db.KVStore) (*FileHeader, error) {

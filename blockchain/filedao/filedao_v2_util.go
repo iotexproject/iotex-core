@@ -36,8 +36,7 @@ func (fd *fileDAOv2) populateStagingBuffer() (*stagingBuffer, error) {
 		// populate to staging buffer, if the block is in latest round
 		height := info.Block.Height()
 		if height > blockStoreTip {
-			buffer.Put(stagingKey(height, fd.header), info)
-			fd.tip.Height = height
+			buffer.Put(stagingKey(height, fd.header), v)
 		} else {
 			break
 		}
@@ -57,13 +56,11 @@ func (fd *fileDAOv2) putTipHashHeightMapping(blk *block.Block) error {
 	fd.batch.Put(blockHashHeightMappingNS, hashKey(h), byteutil.Uint64ToBytesBigEndian(height), "failed to put hash -> height mapping")
 
 	// update file tip
-	if height > fd.tip.Height {
-		ser, err := (&FileTip{Height: height, Hash: h}).Serialize()
-		if err != nil {
-			return err
-		}
-		fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
+	ser, err := (&FileTip{Height: height, Hash: h}).Serialize()
+	if err != nil {
+		return err
 	}
+	fd.batch.Put(headerDataNs, topHeightKey, ser, "failed to put file tip")
 	return nil
 }
 
@@ -83,7 +80,7 @@ func (fd *fileDAOv2) putBlock(blk *block.Block) error {
 
 	// add to staging buffer
 	index := stagingKey(blk.Height(), fd.header)
-	full, err := fd.blkBuffer.Put(index, blkInfo)
+	full, err := fd.blkBuffer.Put(index, ser)
 	if err != nil {
 		return err
 	}
@@ -136,17 +133,6 @@ func decompBytes(v []byte, comp string) ([]byte, error) {
 		return compress.Decompress(v, comp)
 	}
 	return v, nil
-}
-
-func getValueMustBe8Bytes(kvs db.KVStore, ns string, key []byte) ([]byte, error) {
-	value, err := kvs.Get(ns, key)
-	if err != nil {
-		return nil, err
-	}
-	if len(value) != 8 {
-		return nil, ErrDataCorruption
-	}
-	return value, nil
 }
 
 // blockStoreKey is the slot of block in block storage (each item containing blockStorageBatchSize of blocks)

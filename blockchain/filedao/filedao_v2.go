@@ -8,6 +8,8 @@ package filedao
 
 import (
 	"context"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/pkg/errors"
 
@@ -21,11 +23,6 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
-)
-
-// constants
-const (
-	FileV2 = "V2"
 )
 
 // namespace for hash, block, and header storage
@@ -54,8 +51,8 @@ type (
 	}
 )
 
-// NewFileDAOv2 creates a new v2 file
-func NewFileDAOv2(bottom uint64, cfg config.DB) (FileDAO, error) {
+// newFileDAOv2 creates a new v2 file
+func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -79,14 +76,13 @@ func NewFileDAOv2(bottom uint64, cfg config.DB) (FileDAO, error) {
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg config.DB) (FileDAO, error) {
-	fd := fileDAOv2{
+func openFileDAOv2(cfg config.DB) *fileDAOv2 {
+	return &fileDAOv2{
 		cfg:      cfg,
 		blkCache: cache.NewThreadSafeLruCache(16),
 		kvStore:  db.NewBoltDB(cfg),
 		batch:    batch.NewBatch(),
 	}
-	return &fd, nil
 }
 
 func (fd *fileDAOv2) Start(ctx context.Context) error {
@@ -138,12 +134,8 @@ func (fd *fileDAOv2) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOv2) Height() (uint64, error) {
-	var err error
-	fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey)
-	if err != nil {
-		return 0, errors.Wrap(err, "failed to get top height")
-	}
-	return fd.tip.Height, nil
+	tip := fd.loadTip()
+	return tip.Height, nil
 }
 
 func (fd *fileDAOv2) Bottom() (uint64, error) {
@@ -151,7 +143,7 @@ func (fd *fileDAOv2) Bottom() (uint64, error) {
 }
 
 func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
-	return fd.header.Start <= height && height <= fd.tip.Height
+	return fd.header.Start <= height && height <= fd.loadTip().Height
 }
 
 func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
@@ -221,7 +213,8 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 }
 
 func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
-	if blk.Height() != fd.tip.Height+1 {
+	tip := fd.loadTip()
+	if blk.Height() != tip.Height+1 {
 		return ErrInvalidTipHeight
 	}
 
@@ -243,15 +236,16 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
-	fd.tip.Height = blk.Height()
+
+	// update file tip
+	tip = &FileTip{Height: blk.Height(), Hash: blk.HashBlock()}
+	fd.storeTip(tip)
 	return nil
 }
 
 func (fd *fileDAOv2) DeleteTipBlock() error {
-	height, err := fd.Height()
-	if err != nil {
-		return err
-	}
+	tip := fd.loadTip()
+	height := tip.Height
 
 	if !fd.ContainsHeight(height) {
 		// cannot delete block that does not exist
@@ -274,21 +268,21 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	}
 
 	// delete hash -> height mapping
-	fd.tip, err = ReadTip(fd.kvStore, headerDataNs, topHeightKey)
-	if err != nil {
-		return err
-	}
-	fd.batch.Delete(blockHashHeightMappingNS, hashKey(fd.tip.Hash), "failed to delete hash -> height mapping")
+	fd.batch.Delete(blockHashHeightMappingNS, hashKey(tip.Hash), "failed to delete hash -> height mapping")
 
-	// update file header
-	h := hash.ZeroHash256
+	// update file tip
+	var (
+		h   = hash.ZeroHash256
+		err error
+	)
 	if height > fd.header.Start {
 		h, err = fd.GetBlockHash(height - 1)
 		if err != nil {
 			return err
 		}
 	}
-	ser, err := (&FileTip{Height: height - 1, Hash: h}).Serialize()
+	tip = &FileTip{Height: height - 1, Hash: h}
+	ser, err := tip.Serialize()
 	if err != nil {
 		return err
 	}
@@ -297,6 +291,16 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return err
 	}
-	fd.tip.Height = height - 1
+	fd.storeTip(tip)
 	return nil
+}
+
+func (fd *fileDAOv2) loadTip() *FileTip {
+	p := (*unsafe.Pointer)(unsafe.Pointer(&fd.tip))
+	return (*FileTip)(atomic.LoadPointer(p))
+}
+
+func (fd *fileDAOv2) storeTip(tip *FileTip) {
+	p := (*unsafe.Pointer)(unsafe.Pointer(&fd.tip))
+	atomic.StorePointer(p, unsafe.Pointer(tip))
 }

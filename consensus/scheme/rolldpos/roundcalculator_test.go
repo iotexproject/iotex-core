@@ -150,6 +150,11 @@ func makeChain(t *testing.T) (blockchain.Blockchain, factory.Factory, actpool.Ac
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	defer func() {
+		testutil.CleanupPath(t, testTriePath)
+		testutil.CleanupPath(t, testDBPath)
+		testutil.CleanupPath(t, testIndexPath)
+	}()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Network.Port = testutil.RandomPort()

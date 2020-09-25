@@ -20,10 +20,21 @@ import (
 
 func TestNewHeartbeatHandler(t *testing.T) {
 	require := require.New(t)
+
+	dbPath, err := testutil.PathOfTempFile("chain.db")
+	require.NoError(err)
+	testutil.CleanupPath(t, dbPath)
+	triePath, err := testutil.PathOfTempFile("trie.db")
+	require.NoError(err)
+	testutil.CleanupPath(t, triePath)
+	defer func() {
+		testutil.CleanupPath(t, dbPath)
+		testutil.CleanupPath(t, triePath)
+	}()
 	cfg := config.Default
 	cfg.API.Port = testutil.RandomPort()
-	cfg.Chain.ChainDBPath = "chain.db"
-	cfg.Chain.TrieDBPath = "trie.db"
+	cfg.Chain.ChainDBPath = dbPath
+	cfg.Chain.TrieDBPath = triePath
 	s, err := NewServer(cfg)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
 	cfg.Genesis.EnableGravityChainVoting = true

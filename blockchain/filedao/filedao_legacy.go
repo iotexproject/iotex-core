@@ -8,12 +8,7 @@ package filedao
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -91,28 +86,19 @@ func (fd *fileDAOLegacy) Start(ctx context.Context) error {
 	}
 
 	// loop thru all legacy files
-	model, dir := getFileNameAndDir(fd.cfg.DbPath)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
+	base := fd.cfg.DbPath
+	files := checkAuxFiles(fd.cfg, FileLegacyAuxiliary)
 	var maxN uint64
 	for _, file := range files {
-		name := file.Name()
-		lens := len(name)
-		if lens < patternLen || !strings.Contains(name, model) {
+		index, ok := isAuxFile(file, base)
+		if !ok {
 			continue
 		}
-		num := name[lens-patternLen : lens-suffixLen]
-		n, err := strconv.Atoi(num)
-		if err != nil {
-			continue
-		}
-		if _, _, err := fd.openDB(uint64(n)); err != nil {
+		if _, _, err := fd.openDB(uint64(index)); err != nil {
 			return err
 		}
-		if uint64(n) > maxN {
-			maxN = uint64(n)
+		if uint64(index) > maxN {
+			maxN = uint64(index)
 		}
 	}
 	if maxN == 0 {
@@ -292,7 +278,11 @@ func (fd *fileDAOLegacy) TransactionLogs(height uint64) (*iotextypes.Transaction
 		return nil, ErrNotSupported
 	}
 
-	logsBytes, err := fd.kvStore.Get(systemLogNS, heightKey(height))
+	kvStore, _, err := fd.getDBFromHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	logsBytes, err := kvStore.Get(systemLogNS, heightKey(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction log")
 	}
@@ -467,12 +457,7 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 		return fd.kvStore, 0, nil
 	}
 	topIndex := fd.topIndex.Load().(uint64)
-	file, dir := getFileNameAndDir(fd.cfg.DbPath)
-	if err != nil {
-		return
-	}
-	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
-	dat, err := os.Stat(longFileName)
+	dat, err := os.Stat(kthAuxFileName(fd.cfg.DbPath, int(topIndex)))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			// something wrong getting FileInfo
@@ -553,12 +538,12 @@ func (fd *fileDAOLegacy) getDBFromIndex(idx uint64) (kvStore db.KVStore, index u
 }
 
 // getBlockValue get block's data from db,if this db failed,it will try the previous one
-func (fd *fileDAOLegacy) getBlockValue(blockNS string, h hash.Hash256) ([]byte, error) {
+func (fd *fileDAOLegacy) getBlockValue(ns string, h hash.Hash256) ([]byte, error) {
 	whichDB, index, err := fd.getDBFromHash(h)
 	if err != nil {
 		return nil, err
 	}
-	value, err := whichDB.Get(blockNS, h[:])
+	value, err := whichDB.Get(ns, h[:])
 	if errors.Cause(err) == db.ErrNotExist {
 		idx := index - 1
 		if index == 0 {
@@ -568,7 +553,7 @@ func (fd *fileDAOLegacy) getBlockValue(blockNS string, h hash.Hash256) ([]byte, 
 		if err != nil {
 			return nil, err
 		}
-		value, err = db.Get(blockNS, h[:])
+		value, err = db.Get(ns, h[:])
 		if err != nil {
 			return nil, err
 		}
@@ -582,13 +567,11 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 		return fd.kvStore, 0, nil
 	}
 	cfg := fd.cfg
-	model, _ := getFileNameAndDir(cfg.DbPath)
-	name := model + fmt.Sprintf("-%08d", idx) + ".db"
+	cfg.DbPath = kthAuxFileName(cfg.DbPath, int(idx))
 
 	fd.mutex.Lock()
 	defer fd.mutex.Unlock()
 	// open or create this db file
-	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
 	var newFile bool
 	_, err = os.Stat(cfg.DbPath)
 	if err != nil {
@@ -613,15 +596,6 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 	}
 	fd.lifecycle.Add(kvStore)
 	index = idx
-	return
-}
-
-func getFileNameAndDir(p string) (fileName, dir string) {
-	var withSuffix, suffix string
-	withSuffix = path.Base(p)
-	suffix = path.Ext(withSuffix)
-	fileName = strings.TrimSuffix(withSuffix, suffix)
-	dir = path.Dir(p)
 	return
 }
 

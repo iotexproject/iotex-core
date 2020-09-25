@@ -22,27 +22,6 @@ func newStagingBuffer(size uint64) *stagingBuffer {
 	}
 }
 
-func newStagingBufferFromBytes(buf []byte) (*stagingBuffer, error) {
-	pbInfos := &iotextypes.BlockStores{}
-	if err := proto.Unmarshal(buf, pbInfos); err != nil {
-		return nil, err
-	}
-
-	infos := []*block.Store{}
-	for _, v := range pbInfos.BlockStores {
-		info := &block.Store{}
-		if err := info.FromProto(v); err != nil {
-			return nil, err
-		}
-		infos = append(infos, info)
-	}
-
-	return &stagingBuffer{
-		size:   uint64(len(infos)),
-		buffer: infos,
-	}, nil
-}
-
 func (s *stagingBuffer) Get(pos uint64) (*block.Store, error) {
 	if pos >= s.size {
 		return nil, ErrNotSupported
@@ -50,21 +29,25 @@ func (s *stagingBuffer) Get(pos uint64) (*block.Store, error) {
 	return s.buffer[pos], nil
 }
 
-func (s *stagingBuffer) Put(pos uint64, blk *block.Store) (bool, error) {
+func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
+	}
+	blk := &block.Store{}
+	if err := blk.Deserialize(blkBytes); err != nil {
+		return false, err
 	}
 	s.buffer[pos] = blk
 	return pos == s.size-1, nil
 }
 
 func (s *stagingBuffer) Serialize() ([]byte, error) {
-	blkInfo := []*iotextypes.BlockStore{}
+	blkStores := []*iotextypes.BlockStore{}
 	for _, v := range s.buffer {
-		blkInfo = append(blkInfo, v.ToProto())
+		blkStores = append(blkStores, v.ToProto())
 	}
 	allBlks := &iotextypes.BlockStores{
-		BlockStores: blkInfo,
+		BlockStores: blkStores,
 	}
 	return proto.Marshal(allBlks)
 }

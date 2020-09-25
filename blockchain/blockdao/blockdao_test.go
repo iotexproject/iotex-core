@@ -425,28 +425,20 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.
 		return NewBlockDAOInMemForTest(nil, cfg), nil
 	}
 
-	var fileDAO filedao.FileDAO
 	if legacy {
 		file, err := filedao.NewFileDAOLegacy(compressBlock != "", cfg)
 		if err != nil {
 			return nil, err
 		}
-		fileDAO, err = filedao.CreateFileDAO(file, nil)
+		fileDAO, err := filedao.CreateFileDAO(file, nil, cfg)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		cfg.Compressor = compressBlock
-		file, err := filedao.NewFileDAOv2(1, cfg)
-		if err != nil {
-			return nil, err
-		}
-		fileDAO, err = filedao.CreateFileDAO(nil, map[uint64]filedao.FileDAO{1: file})
-		if err != nil {
-			return nil, err
-		}
+		return createBlockDAO(fileDAO, nil, cfg), nil
 	}
-	return createBlockDAO(fileDAO, nil, cfg), nil
+
+	cfg.Compressor = compressBlock
+	return NewBlockDAO(nil, false, cfg), nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {

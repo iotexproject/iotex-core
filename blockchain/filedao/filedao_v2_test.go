@@ -13,12 +13,10 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
-	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -26,7 +24,7 @@ const (
 	blockStoreBatchSize = 16
 )
 
-func TestNewFileDAO(t *testing.T) {
+func TestNewFileDAOv2(t *testing.T) {
 	r := require.New(t)
 
 	testPath, err := testutil.PathOfTempFile("test-newfd")
@@ -39,7 +37,7 @@ func TestNewFileDAO(t *testing.T) {
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
 
-	fd, err := NewFileDAOv2(2, cfg)
+	fd, err := newFileDAOv2(2, cfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	ctx := context.Background()
@@ -47,8 +45,6 @@ func TestNewFileDAO(t *testing.T) {
 	defer fd.Stop(ctx)
 
 	// new file does not use legacy's namespaces
-	newFd, ok := fd.(*fileDAOv2)
-	r.True(ok)
 	for _, v := range []string{
 		blockNS,
 		blockHeaderNS,
@@ -56,7 +52,7 @@ func TestNewFileDAO(t *testing.T) {
 		blockFooterNS,
 		receiptsNS,
 	} {
-		_, err = newFd.kvStore.Get(v, []byte{})
+		_, err = fd.kvStore.Get(v, []byte{})
 		r.Error(err)
 		r.True(strings.HasPrefix(err.Error(), "bucket = "+hex.EncodeToString([]byte(v))+" doesn't exist"))
 	}
@@ -77,9 +73,9 @@ func TestNewFileDAO(t *testing.T) {
 			data, err = compress.Compress(ser, test.compress)
 			r.NoError(err)
 		}
-		r.NoError(addOneEntryToBatch(newFd.hashStore, data, newFd.batch))
-		r.NoError(newFd.kvStore.WriteBatch(newFd.batch))
-		v, err := newFd.hashStore.Get(test.height)
+		r.NoError(addOneEntryToBatch(fd.hashStore, data, fd.batch))
+		r.NoError(fd.kvStore.WriteBatch(fd.batch))
+		v, err := fd.hashStore.Get(test.height)
 		r.NoError(err)
 		r.Equal(data, v)
 		if test.compress != "" {
@@ -95,10 +91,8 @@ func TestNewFdInterface(t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
-		file, err := NewFileDAOv2(start, cfg)
+		fd, err := newFileDAOv2(start, cfg)
 		r.NoError(err)
-		fd, ok := file.(*fileDAOv2)
-		r.True(ok)
 
 		ctx := context.Background()
 		r.NoError(fd.Start(ctx))
@@ -220,10 +214,10 @@ func TestNewFdInterface(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	_, err = NewFileDAOv2(0, cfg)
+	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
 
-	for _, compress := range []string{"", compress.Gzip, compress.Snappy} {
+	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 interface", func(t *testing.T) {
@@ -239,31 +233,20 @@ func TestNewFdStart(t *testing.T) {
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
 			testutil.CleanupPath(t, cfg.DbPath)
-			file, err := NewFileDAOv2(start, cfg)
+			fd, err := newFileDAOv2(start, cfg)
 			r.NoError(err)
-			fd, ok := file.(*fileDAOv2)
-			r.True(ok)
 			ctx := context.Background()
 			r.NoError(fd.Start(ctx))
 			defer fd.Stop(ctx)
 
-			builder := block.NewTestingBuilder()
-			h := hash.ZeroHash256
-			for i := uint64(0); i < num; i++ {
-				blk := createTestingBlock(builder, start+i, h)
-				r.NoError(fd.PutBlock(ctx, blk))
-				h = blk.HashBlock()
-			}
+			testCommitBlocks(t, fd, start, start+num-1, hash.ZeroHash256)
 			height, err := fd.Height()
 			r.NoError(err)
 			r.Equal(start+num-1, height)
 			r.NoError(fd.Stop(ctx))
 
 			// start from existing file
-			file, err = openFileDAOv2(cfg)
-			r.NoError(err)
-			fd, ok = file.(*fileDAOv2)
-			r.True(ok)
+			fd = openFileDAOv2(cfg)
 			r.NoError(fd.Start(ctx))
 			height, err = fd.Bottom()
 			r.NoError(err)
@@ -275,7 +258,7 @@ func TestNewFdStart(t *testing.T) {
 			// verify API for all blocks
 			for i := start; i < start+num; i++ {
 				r.True(fd.ContainsHeight(i))
-				h, err = fd.GetBlockHash(i)
+				h, err := fd.GetBlockHash(i)
 				r.NoError(err)
 				height, err = fd.GetBlockHeight(h)
 				r.NoError(err)
@@ -291,6 +274,14 @@ func TestNewFdStart(t *testing.T) {
 				log, err := fd.TransactionLogs(i)
 				r.NoError(err)
 				r.NotNil(log)
+				l := log.Logs[0]
+				r.Equal(receipt[0].ActionHash[:], l.ActionHash)
+				r.EqualValues(1, l.NumTransactions)
+				tx := l.Transactions[0]
+				r.Equal(big.NewInt(100).String(), tx.Amount)
+				r.Equal(hex.EncodeToString(l.ActionHash[:]), tx.Sender)
+				r.Equal(hex.EncodeToString(l.ActionHash[:]), tx.Recipient)
+				r.Equal(iotextypes.TransactionLogType_NATIVE_TRANSFER, tx.Type)
 			}
 		}
 	}
@@ -304,7 +295,7 @@ func TestNewFdStart(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	for _, compress := range []string{"", compress.Gzip, compress.Snappy} {
+	for _, compress := range []string{"", compress.Gzip} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
 			cfg.Compressor = compress
 			t.Run("test fileDAOv2 start", func(t *testing.T) {
@@ -312,26 +303,4 @@ func TestNewFdStart(t *testing.T) {
 			})
 		}
 	}
-}
-
-func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	r := &action.Receipt{
-		Status:      1,
-		BlockHeight: height,
-		ActionHash:  h,
-	}
-	blk, _ := builder.
-		SetHeight(height).
-		SetPrevBlockHash(h).
-		SetReceipts([]*action.Receipt{
-			r.AddTransactionLogs(&action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
-				Amount:    big.NewInt(100),
-				Sender:    hex.EncodeToString(h[:]),
-				Recipient: hex.EncodeToString(h[:]),
-			}),
-		}).
-		SetTimeStamp(testutil.TimestampNow().UTC()).
-		SignAndBuild(identityset.PrivateKey(27))
-	return &blk
 }

@@ -8,6 +8,7 @@ package filedao
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -18,7 +19,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -35,6 +35,8 @@ var (
 
 // vars
 var (
+	ErrFileNotExist     = errors.New("file does not exist")
+	ErrFileInvalid      = errors.New("file format is not valid")
 	ErrNotSupported     = errors.New("feature not supported")
 	ErrAlreadyExist     = errors.New("block already exist")
 	ErrInvalidTipHeight = errors.New("invalid tip height")
@@ -60,20 +62,42 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
-		lifecycle lifecycle.Lifecycle
-		currFd    FileDAO
-		legacyFd  FileDAO
-		v2Fd      map[uint64]FileDAO
+		currFd   FileDAO
+		legacyFd FileDAO
+		v2Fd     FileV2Manager // a collection of v2 db files
 	}
 )
 
 // NewFileDAO creates an instance of FileDAO
 func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
-	legacyFd, err := NewFileDAOLegacy(compressLegacy, cfg)
-	if err != nil {
+	header, v2Files, err := checkChainDBFiles(cfg)
+	if err == ErrFileInvalid {
 		return nil, err
 	}
-	return CreateFileDAO(legacyFd, nil)
+
+	if err == ErrFileNotExist {
+		// start new chain db using v2 format
+		if err := createNewV2File(1, cfg); err != nil {
+			return nil, err
+		}
+		return CreateFileDAO(nil, []string{cfg.DbPath}, cfg)
+	}
+
+	switch header.Version {
+	case FileLegacyMaster:
+		// default file is legacy format
+		legacyFd, err := NewFileDAOLegacy(compressLegacy, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return CreateFileDAO(legacyFd, v2Files, cfg)
+	case FileV2:
+		// default file is v2 format, add it to filenames
+		v2Files = append(v2Files, cfg.DbPath)
+		return CreateFileDAO(nil, v2Files, cfg)
+	default:
+		panic(fmt.Errorf("corrupted file version: %s", header.Version))
+	}
 }
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
@@ -82,15 +106,39 @@ func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
 	if err != nil {
 		return nil, err
 	}
-	return CreateFileDAO(legacyFd, nil)
+	return CreateFileDAO(legacyFd, nil, cfg)
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
-	return fd.lifecycle.OnStart(ctx)
+	if fd.legacyFd != nil {
+		if err := fd.legacyFd.Start(ctx); err != nil {
+			return err
+		}
+	}
+	if fd.v2Fd != nil {
+		if err := fd.v2Fd.Start(ctx); err != nil {
+			return err
+		}
+	}
+
+	if fd.v2Fd != nil {
+		fd.currFd = fd.v2Fd.TopFd()
+	} else {
+		fd.currFd = fd.legacyFd
+	}
+	return nil
 }
 
 func (fd *fileDAO) Stop(ctx context.Context) error {
-	return fd.lifecycle.OnStop(ctx)
+	if fd.legacyFd != nil {
+		if err := fd.legacyFd.Stop(ctx); err != nil {
+			return err
+		}
+	}
+	if fd.v2Fd != nil {
+		return fd.v2Fd.Stop(ctx)
+	}
+	return nil
 }
 
 func (fd *fileDAO) Height() (uint64, error) {
@@ -98,19 +146,19 @@ func (fd *fileDAO) Height() (uint64, error) {
 }
 
 func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
-	var (
-		h   hash.Hash256
-		err error
-	)
-	for _, file := range fd.v2Fd {
-		if h, err = file.GetBlockHash(height); err == nil {
-			return h, nil
+	if fd.v2Fd != nil {
+		if height == 0 {
+			return hash.ZeroHash256, nil
+		}
+		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
+			return v2.GetBlockHash(height)
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlockHash(height)
 	}
-	return hash.ZeroHash256, err
+	return hash.ZeroHash256, ErrNotSupported
 }
 
 func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
@@ -119,10 +167,11 @@ func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 		err    error
 	)
 	for _, file := range fd.v2Fd {
-		if height, err = file.GetBlockHeight(hash); err == nil {
+		if height, err = file.fd.GetBlockHeight(hash); err == nil {
 			return height, nil
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlockHeight(hash)
 	}
@@ -135,10 +184,11 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 		err error
 	)
 	for _, file := range fd.v2Fd {
-		if blk, err = file.GetBlock(hash); err == nil {
+		if blk, err = file.fd.GetBlock(hash); err == nil {
 			return blk, nil
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlock(hash)
 	}
@@ -146,35 +196,29 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 }
 
 func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
-	var (
-		blk *block.Block
-		err error
-	)
-	for _, file := range fd.v2Fd {
-		if blk, err = file.GetBlockByHeight(height); err == nil {
-			return blk, nil
+	if fd.v2Fd != nil {
+		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
+			return v2.GetBlockByHeight(height)
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetBlockByHeight(height)
 	}
-	return nil, err
+	return nil, ErrNotSupported
 }
 
 func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
-	var (
-		receipts []*action.Receipt
-		err      error
-	)
-	for _, file := range fd.v2Fd {
-		if receipts, err = file.GetReceipts(height); err == nil {
-			return receipts, nil
+	if fd.v2Fd != nil {
+		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
+			return v2.GetReceipts(height)
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.GetReceipts(height)
 	}
-	return nil, err
+	return nil, ErrNotSupported
 }
 
 func (fd *fileDAO) ContainsTransactionLog() bool {
@@ -183,19 +227,16 @@ func (fd *fileDAO) ContainsTransactionLog() bool {
 }
 
 func (fd *fileDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, error) {
-	var (
-		log *iotextypes.TransactionLogs
-		err error
-	)
-	for _, file := range fd.v2Fd {
-		if log, err = file.TransactionLogs(height); err == nil {
-			return log, nil
+	if fd.v2Fd != nil {
+		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
+			return v2.TransactionLogs(height)
 		}
 	}
+
 	if fd.legacyFd != nil {
 		return fd.legacyFd.TransactionLogs(height)
 	}
-	return nil, err
+	return nil, ErrNotSupported
 }
 
 func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
@@ -214,44 +255,38 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO from legacy and new files
-func CreateFileDAO(legacy FileDAO, newFile map[uint64]FileDAO) (FileDAO, error) {
-	fileDAO := &fileDAO{
+func CreateFileDAO(legacy FileDAO, v2Files []string, cfg config.DB) (FileDAO, error) {
+	if legacy == nil && len(v2Files) == 0 {
+		return nil, ErrNotSupported
+	}
+
+	var v2Fd FileV2Manager
+	if len(v2Files) > 0 {
+		fds := make([]*fileDAOv2, len(v2Files))
+		for i, name := range v2Files {
+			cfg.DbPath = name
+			fds[i] = openFileDAOv2(cfg)
+		}
+		v2Fd = NewFileV2Manager(fds)
+	}
+
+	return &fileDAO{
 		legacyFd: legacy,
-		v2Fd:     newFile,
-	}
-
-	var (
-		tipHeight uint64
-		currFd    FileDAO
-	)
-
-	// find the file with highest start height
-	for start, fd := range newFile {
-		if currFd == nil {
-			currFd = fd
-			tipHeight = start
-		} else {
-			if start > tipHeight {
-				currFd = fd
-				tipHeight = start
-			}
-		}
-		fileDAO.lifecycle.Add(fd)
-	}
-	if legacy != nil {
-		fileDAO.lifecycle.Add(legacy)
-		if currFd == nil {
-			currFd = legacy
-		}
-	}
-
-	if currFd == nil {
-		return nil, errors.New("failed to find valid chain db file")
-	}
-	fileDAO.currFd = currFd
-	return fileDAO, nil
+		v2Fd:     v2Fd,
+	}, nil
 }
 
-func hashKey(h hash.Hash256) []byte {
-	return append(hashPrefix, h[:]...)
+// createNewV2File creates a new v2 chain db file
+func createNewV2File(start uint64, cfg config.DB) error {
+	v2, err := newFileDAOv2(start, cfg)
+	if err != nil {
+		return err
+	}
+
+	// calling Start() will write the header
+	ctx := context.Background()
+	if err := v2.Start(ctx); err != nil {
+		return err
+	}
+	return v2.Stop(ctx)
 }
