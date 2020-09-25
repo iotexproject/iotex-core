@@ -261,9 +261,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			return sdb.protocolView.Write(name, v)
 		},
 		snapshotFunc: flusher.KVStoreWithBuffer().Snapshot,
-		revertFunc: func(sid int) error {
-			return flusher.KVStoreWithBuffer().Revert(sid)
-		},
+		revertFunc:   flusher.KVStoreWithBuffer().Revert,
 		dbFunc: func() db.KVStore {
 			return flusher.KVStoreWithBuffer()
 		},

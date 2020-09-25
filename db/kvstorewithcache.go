@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -11,6 +12,7 @@ import (
 
 // kvStoreWithCache is an implementation of KVStore, wrapping kvstore with LRU caches of latest states
 type kvStoreWithCache struct {
+	mutex       sync.RWMutex // lock for stateCaches
 	store       KVStore
 	stateCaches map[string]*cache.ThreadSafeLruCache // map having lru cache to store current states for speed up
 	cacheSize   int
@@ -32,6 +34,8 @@ func (kvc *kvStoreWithCache) Start(ctx context.Context) error {
 
 // Stop stops the kvStoreWithCache
 func (kvc *kvStoreWithCache) Stop(ctx context.Context) error {
+	kvc.mutex.Lock()
+	defer kvc.mutex.Unlock()
 	for _, sc := range kvc.stateCaches {
 		sc.Clear()
 	}
@@ -40,7 +44,7 @@ func (kvc *kvStoreWithCache) Stop(ctx context.Context) error {
 
 // Put inserts a <key, value> record into stateCaches and kvstore
 func (kvc *kvStoreWithCache) Put(namespace string, key, value []byte) (err error) {
-	kvc.putStateCaches(namespace, key, value)
+	kvc.updateStateCachesIfExists(namespace, key, value)
 	return kvc.store.Put(namespace, key, value)
 }
 
@@ -53,7 +57,13 @@ func (kvc *kvStoreWithCache) Get(namespace string, key []byte) ([]byte, error) {
 	if cachedData != nil {
 		return cachedData, nil
 	}
-	return kvc.store.Get(namespace, key)
+	kvStoreData, err := kvc.store.Get(namespace, key)
+	if err != nil {
+		return nil, err
+	}
+	// in case of read-miss, put into statecaches
+	kvc.putStateCaches(namespace, key, kvStoreData)
+	return kvStoreData, nil
 }
 
 // Filter returns <k, v> pair in a bucket that meet the condition
@@ -63,7 +73,7 @@ func (kvc *kvStoreWithCache) Filter(namespace string, cond Condition, minKey, ma
 
 // Delete deletes a record from statecaches if exists, and from kvstore
 func (kvc *kvStoreWithCache) Delete(namespace string, key []byte) (err error) {
-	kvc.deleteStateCaches(namespace, key)
+	kvc.deleteStateCachesIfExists(namespace, key)
 	return kvc.store.Delete(namespace, key)
 }
 
@@ -76,9 +86,9 @@ func (kvc *kvStoreWithCache) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 		}
 		ns := write.Namespace()
 		if write.WriteType() == batch.Put {
-			kvc.putStateCaches(ns, write.Key(), write.Value())
+			kvc.updateStateCachesIfExists(ns, write.Key(), write.Value())
 		} else if write.WriteType() == batch.Delete {
-			kvc.deleteStateCaches(ns, write.Key())
+			kvc.deleteStateCachesIfExists(ns, write.Key())
 		}
 	}
 	return kvc.store.WriteBatch(kvsb)
@@ -88,8 +98,10 @@ func (kvc *kvStoreWithCache) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 // private functions
 // ======================================
 
+// store on stateCaches
 func (kvc *kvStoreWithCache) putStateCaches(namespace string, key, value []byte) {
-	// store on stateCaches
+	kvc.mutex.Lock()
+	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
 		sc.Add(string(key), value)
 	} else {
@@ -100,19 +112,32 @@ func (kvc *kvStoreWithCache) putStateCaches(namespace string, key, value []byte)
 	return
 }
 
-func (kvc *kvStoreWithCache) deleteStateCaches(namespace string, key []byte) {
-	// remove on stateCaches
+// update on stateCaches if the key exists
+func (kvc *kvStoreWithCache) updateStateCachesIfExists(namespace string, key, value []byte) {
+	kvc.mutex.Lock()
+	defer kvc.mutex.Unlock()
+	if sc, ok := kvc.stateCaches[namespace]; ok {
+		if _, ok := sc.Get(string(key)); ok {
+			sc.Add(string(key), value)
+		}
+	}
+	return
+}
+
+// remove on stateCaches if the key exists
+func (kvc *kvStoreWithCache) deleteStateCachesIfExists(namespace string, key []byte) {
+	kvc.mutex.Lock()
+	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
 		sc.Remove(string(key))
-	} else {
-		sc := cache.NewThreadSafeLruCache(kvc.cacheSize)
-		kvc.stateCaches[namespace] = sc
 	}
 	return
 }
 
+// look up stateCachces
 func (kvc *kvStoreWithCache) getStateCaches(namespace string, key []byte) ([]byte, error) {
-	// look up stateCachces
+	kvc.mutex.Lock()
+	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
 		if data, ok := sc.Get(string(key)); ok {
 			if byteData, ok := data.([]byte); ok {
