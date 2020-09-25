@@ -17,11 +17,30 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
+func TestBucketExists(t *testing.T) {
+	r := require.New(t)
+	testPath, err := testutil.PathOfTempFile("test-bucket")
+	r.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, testPath)
+	}()
+
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+	kv := NewBoltDB(cfg)
+	ctx := context.Background()
+	r.NoError(kv.Start(ctx))
+	defer kv.Stop(ctx)
+	r.False(kv.BucketExists("name"))
+	r.NoError(kv.Put("name", []byte("key"), []byte{}))
+	r.True(kv.BucketExists("name"))
+}
+
 func BenchmarkBoltDB_Get(b *testing.B) {
 	runBenchmark := func(b *testing.B, size int) {
 		path, err := testutil.PathOfTempFile("boltdb")
 		require.NoError(b, err)
-		db := boltDB{
+		db := BoltDB{
 			path:   path,
 			config: config.Default.DB,
 		}

@@ -99,7 +99,7 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
-		kvboltDB := kvStore.(*boltDB)
+		kvboltDB := kvStore.(*BoltDB)
 		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
 		assert.NotNil(err)
 
