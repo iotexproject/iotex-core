@@ -136,8 +136,8 @@ func (kvc *kvStoreWithCache) deleteStateCachesIfExists(namespace string, key []b
 
 // look up stateCachces
 func (kvc *kvStoreWithCache) getStateCaches(namespace string, key []byte) ([]byte, error) {
-	kvc.mutex.Lock()
-	defer kvc.mutex.Unlock()
+	kvc.mutex.RLock()
+	defer kvc.mutex.RUnlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
 		if data, ok := sc.Get(string(key)); ok {
 			if byteData, ok := data.([]byte); ok {
