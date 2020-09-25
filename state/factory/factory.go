@@ -606,15 +606,7 @@ func (sf *factory) State(s interface{}, opts ...protocol.StateOption) (uint64, e
 	if err != nil {
 		return 0, err
 	}
-	value, err := sf.dao.Get(cfg.Namespace, cfg.Key)
-	if err != nil {
-		if errors.Cause(err) == db.ErrNotExist {
-			return sf.currentChainHeight, errors.Wrapf(state.ErrStateNotExist, "failed to get state of ns = %x and key = %x", cfg.Namespace, cfg.Key)
-		}
-		return sf.currentChainHeight, err
-	}
-
-	return sf.currentChainHeight, state.Deserialize(s, value)
+	return sf.currentChainHeight, readState(sf.twoLayerTrie, cfg.Namespace, cfg.Key, s)
 }
 
 // State returns a set states in the state factory
