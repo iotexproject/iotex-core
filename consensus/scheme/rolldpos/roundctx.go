@@ -230,8 +230,8 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	return nil
 }
 
-func (ctx *roundCtx) MintBlock(blk *block.Block) error {
-	return ctx.eManager.MintBlock(blk)
+func (ctx *roundCtx) SetMintedBlock(blk *block.Block) error {
+	return ctx.eManager.SetMintedBlock(blk)
 }
 
 func (ctx *roundCtx) CachedMintedBlock() *block.Block {

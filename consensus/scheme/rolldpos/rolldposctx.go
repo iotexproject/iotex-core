@@ -591,7 +591,7 @@ func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err = ctx.round.MintBlock(blk); err != nil {
+		if err = ctx.round.SetMintedBlock(blk); err != nil {
 			return nil, err
 		}
 	}

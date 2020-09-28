@@ -380,7 +380,7 @@ func (m *endorsementManager) AddVoteEndorsement(
 	return nil
 }
 
-func (m *endorsementManager) MintBlock(blk *block.Block) error {
+func (m *endorsementManager) SetMintedBlock(blk *block.Block) error {
 	m.cachedMintedBlk = blk
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()
@@ -400,9 +400,11 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 	} else {
 		m.collections = map[string]*blockEndorsementCollection{}
 	}
-	if m.cachedMintedBlk != nil && m.cachedMintedBlk.Timestamp().Before(timestamp) {
-		// in case that the cached minted block is outdated, clean up
-		m.cachedMintedBlk = nil
+	if m.cachedMintedBlk != nil {
+		if timestamp.IsZero() || m.cachedMintedBlk.Timestamp().Before(timestamp) {
+			// in case that the cached minted block is outdated, clean up
+			m.cachedMintedBlk = nil
+		}
 	}
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()

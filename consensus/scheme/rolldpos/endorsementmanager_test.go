@@ -155,6 +155,25 @@ func TestEndorsementManager(t *testing.T) {
 	require.Equal(zerotime.IsZero(), true)
 	require.NoError(em.Cleanup(zerotime))
 	require.Equal(0, len(em.collections))
+
+	// test for cachedMintedBlock
+	require.NoError(em.SetMintedBlock(&b))
+	require.Equal(&b, em.CachedMintedBlock())
+
+	blkTimestamp := b.Timestamp()
+	require.NoError(em.Cleanup(blkTimestamp)) // if roundStartTime is same or ealier than blockTimestamp
+	require.NotNil(em)
+	require.NotNil(em.CachedMintedBlock()) // not clean up
+	require.Equal(&b, em.CachedMintedBlock())
+
+	require.NoError(em.Cleanup(blkTimestamp.Add(time.Second * 2))) // if roundStartTime is after than blockTimestamp (old block)
+	require.Nil(em.CachedMintedBlock())                            // clean up
+
+	require.NoError(em.SetMintedBlock(&b))
+	require.Equal(&b, em.CachedMintedBlock())
+
+	require.NoError(em.Cleanup(zerotime)) // if it is clean up with zero time
+	require.Nil(em.CachedMintedBlock())   // clean up
 }
 
 func TestEndorsementManagerProto(t *testing.T) {
@@ -172,7 +191,7 @@ func TestEndorsementManagerProto(t *testing.T) {
 	end := endorsement.NewEndorsement(time.Now(), b.PublicKey(), []byte("123"))
 	require.NoError(em.AddVoteEndorsement(cv, end))
 	require.Nil(em.cachedMintedBlk)
-	require.NoError(em.MintBlock(&b))
+	require.NoError(em.SetMintedBlock(&b))
 
 	//test converting endorsement pb
 	endProto, err := end.Proto()
