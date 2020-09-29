@@ -84,12 +84,7 @@ func TestRollDPoSCtx(t *testing.T) {
 func TestCheckVoteEndorser(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	b, sf, _, _, pp := makeChain(t)
-	rp := rolldpos.NewProtocol(
-		config.Default.Genesis.NumCandidateDelegates,
-		config.Default.Genesis.NumDelegates,
-		config.Default.Genesis.NumSubEpochs,
-	)
+	b, sf, _, rp, pp := makeChain(t)
 	c := clock.New()
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
@@ -263,6 +258,85 @@ func TestCheckBlockProposer(t *testing.T) {
 	block = getBlockforctx(t, 1, true)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
 	require.NoError(rctx.CheckBlockProposer(51, bp, en))
+}
+
+func TestNotProducingMultipleBlocks(t *testing.T) {
+	require := require.New(t)
+	cfg := config.Default
+	b, sf, _, rp, pp := makeChain(t)
+	c := clock.New()
+	cfg.Genesis.BlockInterval = time.Second * 20
+	rctx, err := newRollDPoSCtx(
+		consensusfsm.NewConsensusConfig(cfg),
+		config.Default.DB,
+		true,
+		time.Second,
+		true,
+		b,
+		rp,
+		nil,
+		func(epochnum uint64) ([]string, error) {
+			re := protocol.NewRegistry()
+			if err := rp.Register(re); err != nil {
+				return nil, err
+			}
+			tipHeight := b.TipHeight()
+			ctx := protocol.WithBlockchainCtx(
+				protocol.WithRegistry(context.Background(), re),
+				protocol.BlockchainCtx{
+					Genesis: config.Default.Genesis,
+					Tip: protocol.TipInfo{
+						Height: tipHeight,
+					},
+				},
+			)
+			tipEpochNum := rp.GetEpochNum(tipHeight)
+			var candidatesList state.CandidateList
+			var addrs []string
+			var err error
+			switch epochnum {
+			case tipEpochNum:
+				candidatesList, err = pp.Delegates(ctx, sf)
+			case tipEpochNum + 1:
+				candidatesList, err = pp.NextDelegates(ctx, sf)
+			default:
+				err = errors.Errorf("invalid epoch number %d compared to tip epoch number %d", epochnum, tipEpochNum)
+			}
+			if err != nil {
+				return nil, err
+			}
+			for _, cand := range candidatesList {
+				addrs = append(addrs, cand.Address)
+			}
+			return addrs, nil
+		},
+		"",
+		identityset.PrivateKey(10),
+		c,
+		config.Default.Genesis.BeringBlockHeight,
+	)
+	require.NoError(err)
+	require.NotNil(rctx)
+	require.NoError(rctx.Start(context.Background()))
+	defer rctx.Stop(context.Background())
+
+	res, err := rctx.Proposal()
+	require.NoError(err)
+	ecm, ok := res.(*EndorsedConsensusMessage)
+	require.True(ok)
+	hash1, err := ecm.Document().Hash()
+	require.NoError(err)
+	height1 := ecm.Height()
+
+	res2, err := rctx.Proposal()
+	require.NoError(err)
+	ecm2, ok := res2.(*EndorsedConsensusMessage)
+	require.True(ok)
+	hash2, err := ecm2.Document().Hash()
+	require.NoError(err)
+	require.Equal(hash1, hash2)
+	height2 := ecm2.Height()
+	require.Equal(height1, height2)
 }
 
 func getBlockforctx(t *testing.T, i int, sign bool) block.Block {
