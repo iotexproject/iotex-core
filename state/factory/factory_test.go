@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+	//"fmt"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -1278,7 +1279,7 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 
 func BenchmarkInMemRunAction(b *testing.B) {
 	cfg := config.Default
-	sf, err := NewFactory(cfg, InMemTrieOption())
+	sf, err := NewFactory(cfg, InMemTrieOption(), SkipBlockValidationOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1293,7 +1294,7 @@ func BenchmarkDBRunAction(b *testing.B) {
 
 	cfg := config.Default
 	cfg.DB.DbPath = tp
-	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)))
+	sf, err := NewFactory(cfg, PrecreatedTrieDBOption(db.NewBoltDB(cfg.DB)), SkipBlockValidationOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1306,7 +1307,7 @@ func BenchmarkDBRunAction(b *testing.B) {
 
 func BenchmarkSDBInMemRunAction(b *testing.B) {
 	cfg := config.Default
-	sdb, err := NewStateDB(cfg, InMemStateDBOption())
+	sdb, err := NewStateDB(cfg, InMemStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1320,7 +1321,24 @@ func BenchmarkSDBRunAction(b *testing.B) {
 	}
 	cfg := config.Default
 	cfg.Chain.TrieDBPath = tp
-	sdb, err := NewStateDB(cfg, CachedStateDBOption())
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchRunAction(sdb, b)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+}
+
+func BenchmarkCachedSDBRunAction(b *testing.B) {
+	tp := filepath.Join(os.TempDir(), stateDBPath)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = tp
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -1350,6 +1368,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 	}
 	nonces := make([]uint64, len(accounts))
 	ge := genesis.Default
+	prevHash := ge.Hash()
 	for _, acc := range accounts {
 		ge.InitBalanceMap[acc] = big.NewInt(int64(b.N * 100)).String()
 	}
@@ -1372,8 +1391,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 
 	gasLimit := testutil.TestGasLimit * 100000
 
-	for n := 0; n < b.N; n++ {
-
+	for n := 1; n < b.N; n++ {
 		// put 500 actions together to run
 		b.StopTimer()
 		total := 500
@@ -1413,15 +1431,154 @@ func benchRunAction(sf Factory, b *testing.B) {
 
 		blk, err := block.NewTestingBuilder().
 			SetHeight(uint64(n)).
-			SetPrevBlockHash(hash.ZeroHash256).
+			SetPrevBlockHash(prevHash).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(acts...).
 			SignAndBuild(identityset.PrivateKey(27))
-		b.Fatal(err)
+		if err != nil {
+			b.Fatal(err)
+		}
 
 		if err := sf.PutBlock(zctx, &blk); err != nil {
 			b.Fatal(err)
 		}
+		prevHash = blk.HashBlock()
+	}
+}
+
+func BenchmarkSDBState(b *testing.B) {
+	tp := filepath.Join(os.TempDir(), stateDBPath)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = tp
+	sdb, err := NewStateDB(cfg, DefaultStateDBOption(), SkipBlockValidationStateDBOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchState(sdb, b)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+}
+
+func BenchmarkCachedSDBState(b *testing.B) {
+	tp := filepath.Join(os.TempDir(), stateDBPath)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+	cfg := config.Default
+	cfg.Chain.TrieDBPath = tp
+	sdb, err := NewStateDB(cfg, CachedStateDBOption(), SkipBlockValidationStateDBOption())
+	if err != nil {
+		b.Fatal(err)
+	}
+	benchState(sdb, b)
+	if fileutil.FileExists(tp) && os.RemoveAll(tp) != nil {
+		b.Error("Fail to remove testDB file")
+	}
+}
+
+func benchState(sf Factory, b *testing.B) {
+	b.StopTimer()
+	// set up
+	accounts := []string{
+		identityset.Address(28).String(),
+		identityset.Address(29).String(),
+		identityset.Address(30).String(),
+		identityset.Address(31).String(),
+		identityset.Address(32).String(),
+		identityset.Address(33).String(),
+	}
+	pubKeys := []crypto.PublicKey{
+		identityset.PrivateKey(28).PublicKey(),
+		identityset.PrivateKey(29).PublicKey(),
+		identityset.PrivateKey(30).PublicKey(),
+		identityset.PrivateKey(31).PublicKey(),
+		identityset.PrivateKey(32).PublicKey(),
+		identityset.PrivateKey(33).PublicKey(),
+	}
+	nonces := make([]uint64, len(accounts))
+	ge := genesis.Default
+	prevHash := ge.Hash()
+	for _, acc := range accounts {
+		ge.InitBalanceMap[acc] = big.NewInt(int64(1000)).String()
+	}
+	acc := account.NewProtocol(rewarding.DepositGas)
+	if err := sf.Register(acc); err != nil {
+		b.Fatal(err)
+	}
+	ctx := protocol.WithBlockchainCtx(
+		context.Background(),
+		protocol.BlockchainCtx{Genesis: ge},
+	)
+	if err := sf.Start(ctx); err != nil {
+		b.Fatal(err)
+	}
+	defer func() {
+		if err := sf.Stop(ctx); err != nil {
+			b.Fatal(err)
+		}
+	}()
+
+	gasLimit := testutil.TestGasLimit * 100000
+
+	total := 500
+	acts := make([]action.SealedEnvelope, 0, total)
+	for numActs := 0; numActs < total; numActs++ {
+		senderIdx := rand.Int() % len(accounts)
+
+		var chainIDBytes [4]byte
+		enc.MachineEndian.PutUint32(chainIDBytes[:], 1)
+		payload := []byte(randStringRunes(20))
+		receiverAddr, err := address.FromBytes(payload)
+		if err != nil {
+			b.Fatal(err)
+		}
+		receiver := receiverAddr.String()
+		nonces[senderIdx] += nonces[senderIdx]
+		tx, err := action.NewTransfer(nonces[senderIdx], big.NewInt(1), receiver, nil, uint64(0), big.NewInt(0))
+		if err != nil {
+			b.Fatal(err)
+		}
+		bd := &action.EnvelopeBuilder{}
+		elp := bd.SetNonce(nonces[senderIdx]).SetAction(tx).Build()
+		selp := action.FakeSeal(elp, pubKeys[senderIdx])
+		acts = append(acts, selp)
+	}
+	zctx := protocol.WithBlockCtx(context.Background(),
+		protocol.BlockCtx{
+			BlockHeight: uint64(1),
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		})
+	zctx = protocol.WithBlockchainCtx(
+		zctx,
+		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+	)
+	blk, err := block.NewTestingBuilder().
+		SetHeight(uint64(1)).
+		SetPrevBlockHash(prevHash).
+		SetTimeStamp(testutil.TimestampNow()).
+		AddActions(acts...).
+		SignAndBuild(identityset.PrivateKey(27))
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err := sf.PutBlock(zctx, &blk); err != nil {
+		b.Fatal(err)
+	}
+
+	// measure state read time
+	for n := 1; n < b.N; n++ {
+		b.StartTimer()
+		idx := rand.Int() % len(accounts)
+		_, err := accountutil.AccountState(sf, accounts[idx])
+		if err != nil {
+			b.Fatal(err)
+		}
+		b.StopTimer()
 	}
 }
 
