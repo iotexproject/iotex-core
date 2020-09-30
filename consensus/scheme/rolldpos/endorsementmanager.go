@@ -218,16 +218,18 @@ func (bc *blockEndorsementCollection) Endorsements(
 }
 
 type endorsementManager struct {
-	isMajorityFunc EndorsedByMajorityFunc
-	eManagerDB     db.KVStore
-	collections    map[string]*blockEndorsementCollection
+	isMajorityFunc  EndorsedByMajorityFunc
+	eManagerDB      db.KVStore
+	collections     map[string]*blockEndorsementCollection
+	cachedMintedBlk *block.Block
 }
 
 func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
-			eManagerDB:  nil,
-			collections: map[string]*blockEndorsementCollection{},
+			eManagerDB:      nil,
+			collections:     map[string]*blockEndorsementCollection{},
+			cachedMintedBlk: nil,
 		}, nil
 	}
 	bytes, err := eManagerDB.Get(eManagerNS, statusKey)
@@ -248,8 +250,9 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 		// If DB doesn't have any information
 		log.L().Info("First initializing DB")
 		return &endorsementManager{
-			eManagerDB:  eManagerDB,
-			collections: map[string]*blockEndorsementCollection{},
+			eManagerDB:      eManagerDB,
+			collections:     map[string]*blockEndorsementCollection{},
+			cachedMintedBlk: nil,
 		}, nil
 	default:
 		return nil, err
@@ -286,6 +289,13 @@ func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementMana
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
+	if managerPro.CachedMintedBlk != nil {
+		blk := &block.Block{}
+		if err := blk.ConvertFromBlockPb(managerPro.CachedMintedBlk); err != nil {
+			return err
+		}
+		m.cachedMintedBlk = blk
+	}
 	return nil
 }
 
@@ -298,6 +308,9 @@ func (m *endorsementManager) toProto() (*endorsementpb.EndorsementManager, error
 		}
 		mc.BlkHash = append(mc.BlkHash, encodedBlockHash)
 		mc.BlockEndorsements = append(mc.BlockEndorsements, ioBlockEndorsement)
+	}
+	if m.cachedMintedBlk != nil {
+		mc.CachedMintedBlk = m.cachedMintedBlk.ConvertToBlockPb()
 	}
 	return mc, nil
 }
@@ -367,6 +380,18 @@ func (m *endorsementManager) AddVoteEndorsement(
 	return nil
 }
 
+func (m *endorsementManager) SetMintedBlock(blk *block.Block) error {
+	m.cachedMintedBlk = blk
+	if m.eManagerDB != nil {
+		return m.PutEndorsementManagerToDB()
+	}
+	return nil
+}
+
+func (m *endorsementManager) CachedMintedBlock() *block.Block {
+	return m.cachedMintedBlk
+}
+
 func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 	if !timestamp.IsZero() {
 		for encoded, c := range m.collections {
@@ -374,6 +399,12 @@ func (m *endorsementManager) Cleanup(timestamp time.Time) error {
 		}
 	} else {
 		m.collections = map[string]*blockEndorsementCollection{}
+	}
+	if m.cachedMintedBlk != nil {
+		if timestamp.IsZero() || m.cachedMintedBlk.Timestamp().Before(timestamp) {
+			// in case that the cached minted block is outdated, clean up
+			m.cachedMintedBlk = nil
+		}
 	}
 	if m.eManagerDB != nil {
 		return m.PutEndorsementManagerToDB()
