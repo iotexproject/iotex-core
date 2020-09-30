@@ -189,6 +189,7 @@ var (
 			MaxCacheSize:        64,
 			BlockStoreBatchSize: 16,
 			Compressor:          "Snappy",
+			CompressLegacy:      false,
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
@@ -256,7 +257,7 @@ type (
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
-		// CompressBlock enables gzip compression on block data, used by legacy DB file
+		// deprecated by DB.CompressBlock
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
@@ -368,6 +369,8 @@ type (
 		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
 		// Compressor is the compression used on block data, used by new DB file after Ithaca
 		Compressor string `yaml:"compressor"`
+		// CompressLegacy enables gzip compression on block data, used by legacy DB file before Ithaca
+		CompressLegacy bool `yaml:"compressLegacy"`
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
 		// SQLite3 is the config for SQLITE3

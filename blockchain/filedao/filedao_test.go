@@ -77,7 +77,7 @@ func TestReadFileHeader(t *testing.T) {
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
-	legacy, err := NewFileDAOLegacy(false, cfg)
+	legacy, err := newFileDAOLegacy(cfg)
 	r.NoError(err)
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
@@ -152,7 +152,7 @@ func TestNewFileDAO(t *testing.T) {
 	r.Nil(v2files)
 
 	// test empty db file, this will create new v2 file
-	fd, err := NewFileDAO(false, cfg)
+	fd, err := NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err = readFileHeader(cfg, FileAll)
@@ -168,7 +168,7 @@ func TestNewFileDAO(t *testing.T) {
 	os.RemoveAll(cfg.DbPath)
 	cfg.SplitDBHeight = 5
 	cfg.SplitDBSizeMB = 200
-	legacy, err := NewFileDAOLegacy(false, cfg)
+	legacy, err := newFileDAOLegacy(cfg)
 	r.NoError(err)
 	r.NoError(legacy.Start(ctx))
 	testCommitBlocks(t, legacy, 1, 10, hash.ZeroHash256)
@@ -197,7 +197,7 @@ func TestNewFileDAO(t *testing.T) {
 	// block 6~10 in legacy file-000000001.db
 	// block 11~32 in v2 file-000000002.db
 	cfg.DbPath = "./filedao_v2.db"
-	fd, err = NewFileDAO(false, cfg)
+	fd, err = NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
 	h, err = readFileHeader(cfg, FileAll)

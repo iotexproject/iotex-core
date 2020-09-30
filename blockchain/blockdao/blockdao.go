@@ -77,8 +77,8 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, compressLegacy bool, cfg config.DB) BlockDAO {
-	blkStore, err := filedao.NewFileDAO(compressLegacy, cfg)
+func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
+	blkStore, err := filedao.NewFileDAO(cfg)
 	if err != nil {
 		return nil
 	}

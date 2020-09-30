@@ -59,10 +59,10 @@ type (
 	}
 )
 
-// NewFileDAOLegacy creates a new legacy file
-func NewFileDAOLegacy(compressBlock bool, cfg config.DB) (FileDAO, error) {
+// newFileDAOLegacy creates a new legacy file
+func newFileDAOLegacy(cfg config.DB) (FileDAO, error) {
 	return &fileDAOLegacy{
-		compressBlock: compressBlock,
+		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
 		kvStore:       db.NewBoltDB(cfg),
 	}, nil

@@ -69,7 +69,7 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
+func NewFileDAO(cfg config.DB) (FileDAO, error) {
 	header, v2Files, err := checkChainDBFiles(cfg)
 	if err == ErrFileInvalid {
 		return nil, err
@@ -80,21 +80,17 @@ func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
 		if err := createNewV2File(1, cfg); err != nil {
 			return nil, err
 		}
-		return CreateFileDAO(nil, []string{cfg.DbPath}, cfg)
+		return CreateFileDAO(false, []string{cfg.DbPath}, cfg)
 	}
 
 	switch header.Version {
 	case FileLegacyMaster:
 		// default file is legacy format
-		legacyFd, err := NewFileDAOLegacy(compressLegacy, cfg)
-		if err != nil {
-			return nil, err
-		}
-		return CreateFileDAO(legacyFd, v2Files, cfg)
+		return CreateFileDAO(true, v2Files, cfg)
 	case FileV2:
 		// default file is v2 format, add it to filenames
 		v2Files = append(v2Files, cfg.DbPath)
-		return CreateFileDAO(nil, v2Files, cfg)
+		return CreateFileDAO(false, v2Files, cfg)
 	default:
 		panic(fmt.Errorf("corrupted file version: %s", header.Version))
 	}
@@ -102,11 +98,12 @@ func NewFileDAO(compressLegacy bool, cfg config.DB) (FileDAO, error) {
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
 func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
-	legacyFd, err := newFileDAOLegacyInMem(false, cfg)
+	legacyFd, err := newFileDAOLegacyInMem(cfg.CompressLegacy, cfg)
 	if err != nil {
 		return nil, err
 	}
-	return CreateFileDAO(legacyFd, nil, cfg)
+
+	return &fileDAO{legacyFd: legacyFd}, nil
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
@@ -255,9 +252,20 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO from legacy and new files
-func CreateFileDAO(legacy FileDAO, v2Files []string, cfg config.DB) (FileDAO, error) {
-	if legacy == nil && len(v2Files) == 0 {
+func CreateFileDAO(legacy bool, v2Files []string, cfg config.DB) (FileDAO, error) {
+	if legacy == false && len(v2Files) == 0 {
 		return nil, ErrNotSupported
+	}
+
+	var (
+		legacyFd FileDAO
+		err      error
+	)
+	if legacy {
+		legacyFd, err = newFileDAOLegacy(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var v2Fd FileV2Manager
@@ -271,7 +279,7 @@ func CreateFileDAO(legacy FileDAO, v2Files []string, cfg config.DB) (FileDAO, er
 	}
 
 	return &fileDAO{
-		legacyFd: legacy,
+		legacyFd: legacyFd,
 		v2Fd:     v2Fd,
 	}, nil
 }

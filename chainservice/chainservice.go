@@ -188,7 +188,8 @@ func New(
 		dao = blockdao.NewBlockDAOInMemForTest(indexers, cfg.DB)
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao = blockdao.NewBlockDAO(indexers, cfg.Chain.CompressBlock, cfg.DB)
+		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+		dao = blockdao.NewBlockDAO(indexers, cfg.DB)
 	}
 
 	// Create ActPool
