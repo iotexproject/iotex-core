@@ -321,6 +321,7 @@ func runExecutions(
 func (sct *SmartContractTest) prepareBlockchain(
 	ctx context.Context,
 	cfg config.Config,
+	cachedStateDBOption bool,
 	r *require.Assertions,
 ) (blockchain.Blockchain, factory.Factory, blockdao.BlockDAO, actpool.ActPool) {
 	defer func() {
@@ -329,6 +330,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+
+	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
@@ -342,7 +347,12 @@ func (sct *SmartContractTest) prepareBlockchain(
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
 	// create state factory
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	var sf factory.Factory
+	if cachedStateDBOption {
+		sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	} else {
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	r.NoError(err)
@@ -423,7 +433,7 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, sf, dao, ap := sct.prepareBlockchain(ctx, config.Default, r)
+	bc, sf, dao, ap := sct.prepareBlockchain(ctx, config.Default, false, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
@@ -838,7 +848,7 @@ func TestMaxTime(t *testing.T) {
 	})
 }
 
-func benchmarkHotContract(b *testing.B, async bool) {
+func benchmarkHotContract(b *testing.B, async bool, cachedStateDBOption bool) {
 	sct := SmartContractTest{
 		InitBalances: []ExpectedBalance{
 			{
@@ -866,7 +876,7 @@ func benchmarkHotContract(b *testing.B, async bool) {
 	} else {
 		cfg.Genesis.GreenlandBlockHeight = 10000000000
 	}
-	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
+	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, cachedStateDBOption, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
@@ -917,9 +927,15 @@ func benchmarkHotContract(b *testing.B, async bool) {
 
 func BenchmarkHotContract(b *testing.B) {
 	b.Run("async mode", func(b *testing.B) {
-		benchmarkHotContract(b, true)
+		benchmarkHotContract(b, true, false)
 	})
 	b.Run("sync mode", func(b *testing.B) {
-		benchmarkHotContract(b, false)
+		benchmarkHotContract(b, false, false)
+	})
+	b.Run("async mode & cachedStateDB", func(b *testing.B) {
+		benchmarkHotContract(b, true, true)
+	})
+	b.Run("sync mode & cachedStateDB", func(b *testing.B) {
+		benchmarkHotContract(b, false, true)
 	})
 }
