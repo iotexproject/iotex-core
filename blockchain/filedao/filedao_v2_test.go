@@ -31,64 +31,81 @@ const (
 )
 
 func TestNewFileDAOv2(t *testing.T) {
-	r := require.New(t)
+	testNewFd := func(fd *fileDAOv2, t *testing.T) {
+		r := require.New(t)
 
+		ctx := context.Background()
+		r.NoError(fd.Start(ctx))
+		defer fd.Stop(ctx)
+		tip := fd.loadTip().Height
+		r.NoError(testCommitBlocks(t, fd, tip+1, tip+3, hash.ZeroHash256))
+
+		// new file does not use legacy's namespaces
+		for _, v := range []string{
+			blockNS,
+			blockHeaderNS,
+			blockBodyNS,
+			blockFooterNS,
+			receiptsNS,
+		} {
+			_, err := fd.kvStore.Get(v, []byte{})
+			r.Error(err)
+			r.True(strings.Contains(err.Error(), " = "+hex.EncodeToString([]byte(v))+" doesn't exist"))
+		}
+
+		// test counting index add empty transaction log
+		ser := (&block.BlkTransactionLog{}).Serialize()
+		r.Equal([]byte{}, ser)
+		for _, test := range []struct {
+			compress string
+			height   uint64
+		}{
+			{"", 3},
+			{compress.Gzip, 4},
+			{compress.Snappy, 5},
+		} {
+			data := ser
+			if test.compress != "" {
+				var err error
+				data, err = compress.Compress(ser, test.compress)
+				r.NoError(err)
+			}
+			r.NoError(addOneEntryToBatch(fd.hashStore, data, fd.batch))
+			r.NoError(fd.kvStore.WriteBatch(fd.batch))
+			v, err := fd.hashStore.Get(test.height)
+			r.NoError(err)
+			r.Equal(data, v)
+			if test.compress != "" {
+				v, err = compress.Decompress(v, test.compress)
+			}
+			r.NoError(err)
+			r.Equal(ser, v)
+		}
+	}
+
+	r := require.New(t)
 	testPath, err := testutil.PathOfTempFile("test-newfd")
 	r.NoError(err)
 	defer func() {
 		testutil.CleanupPath(t, testPath)
 	}()
+
 	cfg := config.Default.DB
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
+	_, err = newFileDAOv2(0, cfg)
+	r.Equal(ErrNotSupported, err)
 
+	inMemFd, err := newFileDAOv2InMem(1)
+	r.NoError(err)
 	fd, err := newFileDAOv2(2, cfg)
 	r.NoError(err)
-	r.NotNil(fd)
-	ctx := context.Background()
-	r.NoError(fd.Start(ctx))
-	defer fd.Stop(ctx)
 
-	// new file does not use legacy's namespaces
-	for _, v := range []string{
-		blockNS,
-		blockHeaderNS,
-		blockBodyNS,
-		blockFooterNS,
-		receiptsNS,
-	} {
-		_, err = fd.kvStore.Get(v, []byte{})
-		r.Error(err)
-		r.True(strings.HasPrefix(err.Error(), "bucket = "+hex.EncodeToString([]byte(v))+" doesn't exist"))
-	}
-
-	// test counting index add empty transaction log
-	ser := (&block.BlkTransactionLog{}).Serialize()
-	for _, test := range []struct {
-		compress string
-		height   uint64
-	}{
-		{"", 0},
-		{compress.Gzip, 1},
-		{compress.Snappy, 2},
-	} {
-		data := ser
-		if test.compress != "" {
-			var err error
-			data, err = compress.Compress(ser, test.compress)
-			r.NoError(err)
-		}
-		r.NoError(addOneEntryToBatch(fd.hashStore, data, fd.batch))
-		r.NoError(fd.kvStore.WriteBatch(fd.batch))
-		v, err := fd.hashStore.Get(test.height)
-		r.NoError(err)
-		r.Equal(data, v)
-		if test.compress != "" {
-			v, err = compress.Decompress(v, test.compress)
-		}
-		r.NoError(err)
-		r.Equal(ser, v)
+	for _, v2Fd := range []*fileDAOv2{inMemFd, fd} {
+		t.Run("test newFileDAOv2", func(t *testing.T) {
+			testNewFd(v2Fd, t)
+		})
 	}
 }
 
@@ -245,7 +262,7 @@ func TestNewFdStart(t *testing.T) {
 			r.NoError(fd.Start(ctx))
 			defer fd.Stop(ctx)
 
-			testCommitBlocks(t, fd, start, start+num-1, hash.ZeroHash256)
+			r.NoError(testCommitBlocks(t, fd, start, start+num-1, hash.ZeroHash256))
 			height, err := fd.Height()
 			r.NoError(err)
 			r.Equal(start+num-1, height)

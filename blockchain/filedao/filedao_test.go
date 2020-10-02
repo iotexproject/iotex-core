@@ -9,24 +9,16 @@ package filedao
 import (
 	"context"
 	"encoding/hex"
-	"math/big"
 	"os"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
-	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
-	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestChecksumNamespaceAndKeys(t *testing.T) {
@@ -139,7 +131,7 @@ func TestReadFileHeader(t *testing.T) {
 	r.Panics(func() { readFileHeader(cfg.DbPath, "") })
 }
 
-func TestNewFileDAO(t *testing.T) {
+func TestNewFileDAOSplitV2(t *testing.T) {
 	r := require.New(t)
 
 	cfg := config.Default.DB
@@ -159,52 +151,103 @@ func TestNewFileDAO(t *testing.T) {
 	r.Equal(FileV2, h.Version)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
-	testCommitBlocks(t, fd, 1, 10, hash.ZeroHash256)
+	r.NoError(testCommitBlocks(t, fd, 1, 10, hash.ZeroHash256))
+	testVerifyChainDB(t, fd, 1, 10)
+
+	// use test FileDAO that will split at height 20 and 40
+	testFd := newTestSplitFile(fd.(*fileDAO), []uint64{20, 40})
+	r.NoError(testCommitBlocks(t, testFd, 11, 45, hash.ZeroHash256))
+	testVerifyChainDB(t, testFd, 1, 45)
+	r.NoError(fd.Stop(ctx))
+	top, files := checkAuxFiles(cfg.DbPath, FileV2)
+	r.EqualValues(2, top)
+	r.Equal(2, len(files))
+	file1 := kthAuxFileName("./filedao_v2.db", 1)
+	file2 := kthAuxFileName("./filedao_v2.db", 2)
+	r.Equal(files[0], file1)
+	r.Equal(files[1], file2)
+	os.RemoveAll(file1)
+	os.RemoveAll(file2)
+}
+
+func TestNewFileDAOSplitLegacy(t *testing.T) {
+	r := require.New(t)
+
+	cfg := config.Default.DB
+	cfg.DbPath = "./filedao_v2.db"
+	defer os.RemoveAll(cfg.DbPath)
+
+	cfg.SplitDBHeight = 5
+	cfg.SplitDBSizeMB = 20
+	fd, err := newFileDAOLegacy(cfg)
+	r.NoError(err)
+	ctx := context.Background()
+	r.NoError(fd.Start(ctx))
+	r.NoError(testCommitBlocks(t, fd, 1, 10, hash.ZeroHash256))
 	testVerifyChainDB(t, fd, 1, 10)
 	r.NoError(fd.Stop(ctx))
+	// block 1~5 in default file.db, block 6~10 in file-000000001.db
+	file1 := kthAuxFileName("./filedao_v2.db", 1)
+	defer os.RemoveAll(file1)
 
-	// remove the v2 file, create legacy db file
-	os.RemoveAll(cfg.DbPath)
-	cfg.SplitDBHeight = 5
-	cfg.SplitDBSizeMB = 200
-	legacy, err := newFileDAOLegacy(cfg)
-	r.NoError(err)
-	r.NoError(legacy.Start(ctx))
-	testCommitBlocks(t, legacy, 1, 10, hash.ZeroHash256)
-	testVerifyChainDB(t, legacy, 1, 10)
-	r.NoError(legacy.Stop(ctx))
-	// block 1~5 in master file.db, block 6~10 in file-000000001.db
-	cfg.DbPath = kthAuxFileName("./filedao_v2.db", 1)
-	defer os.RemoveAll(cfg.DbPath)
-	v, err := readFileHeader(cfg.DbPath, FileLegacyAuxiliary)
-	r.NoError(err)
-	r.Equal(FileLegacyAuxiliary, v.Version)
-
-	// add a v2 file
-	v2file := kthAuxFileName("./filedao_v2.db", 2)
-	cfg.DbPath = v2file
-	defer os.RemoveAll(v2file)
-	v2, err := newFileDAOv2(11, cfg)
-	r.NoError(err)
-	r.NoError(v2.Start(ctx))
-	testCommitBlocks(t, v2, 11, 32, hash.ZeroHash256)
-	testVerifyChainDB(t, v2, 11, 32)
-	v2.Stop(ctx)
-
-	// now we have:
-	// block 1~5 in legacy file.db
-	// block 6~10 in legacy file-000000001.db
-	// block 11~32 in v2 file-000000002.db
-	cfg.DbPath = "./filedao_v2.db"
+	// now use test FileDAO that will split at height 20, 30 and 50
 	fd, err = NewFileDAO(cfg)
 	r.NoError(err)
-	r.NotNil(fd)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	r.EqualValues(1, fd.(*fileDAO).topIndex)
+	r.NoError(fd.Start(ctx))
+	testFd := newTestSplitFile(fd.(*fileDAO), []uint64{20, 30, 50})
+	r.NoError(testCommitBlocks(t, testFd, 11, 28, hash.ZeroHash256))
+	// skip block 29, commit block 30 which is a split height
+	r.Equal(ErrInvalidTipHeight, testCommitBlocks(t, testFd, 30, 55, hash.ZeroHash256))
+	r.NoError(testCommitBlocks(t, testFd, 29, 55, hash.ZeroHash256))
+	testVerifyChainDB(t, testFd, 1, 55)
+	r.NoError(fd.Stop(ctx))
+
+	// now we should have:
+	// block 1~5 in legacy file.db
+	// block 6~20 in legacy file-000000001.db
+	// block 21~30 in v2 file-000000002.db
+	// block 31~50 in v2 file-000000003.db
+	// block 51~55 in v2 file-000000004.db
+	file2 := kthAuxFileName("./filedao_v2.db", 2)
+	file3 := kthAuxFileName("./filedao_v2.db", 3)
+	file4 := kthAuxFileName("./filedao_v2.db", 4)
+	defer os.RemoveAll(file2)
+	defer os.RemoveAll(file3)
+	defer os.RemoveAll(file4)
+	h, err := readFileHeader(cfg.DbPath, FileAll)
 	r.NoError(err)
 	r.Equal(FileLegacyMaster, h.Version)
+	h, err = readFileHeader(file1, FileLegacyAuxiliary)
+	r.NoError(err)
+	r.Equal(FileLegacyAuxiliary, h.Version)
+	h, err = readFileHeader(file2, FileV2)
+	r.NoError(err)
+	r.Equal(FileV2, h.Version)
+	h, err = readFileHeader(file3, FileV2)
+	r.NoError(err)
+	r.Equal(FileV2, h.Version)
+	h, err = readFileHeader(file4, FileV2)
+	r.NoError(err)
+	r.Equal(FileV2, h.Version)
+	top, files := checkAuxFiles(cfg.DbPath, FileLegacyAuxiliary)
+	r.EqualValues(1, top)
+	r.Equal(1, len(files))
+	r.Equal(files[0], file1)
+	top, files = checkAuxFiles(cfg.DbPath, FileV2)
+	r.EqualValues(4, top)
+	r.Equal(3, len(files))
+	r.Equal(files[0], file2)
+	r.Equal(files[1], file3)
+	r.Equal(files[2], file4)
+
+	// open 4 db files and verify again
+	fd, err = NewFileDAO(cfg)
+	r.NoError(err)
+	r.EqualValues(4, fd.(*fileDAO).topIndex)
 	r.NoError(fd.Start(ctx))
 	defer fd.Stop(ctx)
-	testVerifyChainDB(t, fd, 1, 32)
+	testVerifyChainDB(t, fd, 1, 55)
 }
 
 func TestCheckFiles(t *testing.T) {
@@ -255,90 +298,4 @@ func TestCheckFiles(t *testing.T) {
 	for i := 1; i <= 3; i++ {
 		r.Equal(files[i-1], kthAuxFileName("./filedao_v2.db", uint64(i)))
 	}
-}
-
-func testCommitBlocks(t *testing.T, fd FileDAO, start, end uint64, h hash.Hash256) hash.Hash256 {
-	r := require.New(t)
-
-	ctx := context.Background()
-	builder := block.NewTestingBuilder()
-	for i := start; i <= end; i++ {
-		blk := createTestingBlock(builder, i, h)
-		r.NoError(fd.PutBlock(ctx, blk))
-		h = blk.HashBlock()
-	}
-	return h
-}
-
-func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
-	r := require.New(t)
-
-	height, err := fd.Height()
-	r.NoError(err)
-	r.Equal(end, height)
-	for i := end; i >= start; i-- {
-		h, err := fd.GetBlockHash(i)
-		r.NoError(err)
-		height, err = fd.GetBlockHeight(h)
-		r.NoError(err)
-		r.Equal(height, i)
-		blk, err := fd.GetBlockByHeight(i)
-		r.NoError(err)
-		r.Equal(h, blk.HashBlock())
-		receipt, err := fd.GetReceipts(i)
-		r.NoError(err)
-		r.EqualValues(1, receipt[0].Status)
-		r.Equal(height, receipt[0].BlockHeight)
-		r.Equal(blk.Header.PrevHash(), receipt[0].ActionHash)
-		log, err := fd.TransactionLogs(i)
-		r.NoError(err)
-		r.NotNil(log)
-		l := log.Logs[0]
-		r.Equal(receipt[0].ActionHash[:], l.ActionHash)
-		r.EqualValues(1, l.NumTransactions)
-		tx := l.Transactions[0]
-		r.Equal(big.NewInt(100).String(), tx.Amount)
-		r.Equal(hex.EncodeToString(l.ActionHash[:]), tx.Sender)
-		r.Equal(hex.EncodeToString(l.ActionHash[:]), tx.Recipient)
-		r.Equal(iotextypes.TransactionLogType_NATIVE_TRANSFER, tx.Type)
-
-		if false {
-			// test DeleteTipBlock()
-			r.NoError(fd.DeleteTipBlock())
-			_, err = fd.GetBlockHash(i)
-			r.Equal(db.ErrNotExist, err)
-			_, err = fd.GetBlockHeight(h)
-			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlock(h)
-			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlockByHeight(i)
-			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetReceipts(i)
-			r.Equal(db.ErrNotExist, errors.Cause(err))
-			log, err = fd.TransactionLogs(i)
-			r.Equal(ErrNotSupported, err)
-		}
-	}
-}
-
-func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	r := &action.Receipt{
-		Status:      1,
-		BlockHeight: height,
-		ActionHash:  h,
-	}
-	blk, _ := builder.
-		SetHeight(height).
-		SetPrevBlockHash(h).
-		SetReceipts([]*action.Receipt{
-			r.AddTransactionLogs(&action.TransactionLog{
-				Type:      iotextypes.TransactionLogType_NATIVE_TRANSFER,
-				Amount:    big.NewInt(100),
-				Sender:    hex.EncodeToString(h[:]),
-				Recipient: hex.EncodeToString(h[:]),
-			}),
-		}).
-		SetTimeStamp(testutil.TimestampNow().UTC()).
-		SignAndBuild(identityset.PrivateKey(27))
-	return &blk
 }

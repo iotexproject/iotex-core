@@ -126,6 +126,27 @@ func (fm *FileV2Manager) GetBlock(hash hash.Hash256) (*block.Block, error) {
 	return nil, db.ErrNotExist
 }
 
+// AddFileDAO add a new v2 file
+func (fm *FileV2Manager) AddFileDAO(fd *fileDAOv2, start uint64) error {
+	fm.lock.Lock()
+	defer fm.lock.Unlock()
+
+	// update current top's end
+	top := fm.Indices[len(fm.Indices)-1]
+	end, err := top.fd.Height()
+	if err != nil {
+		return err
+	}
+	if start != end+1 {
+		// new file's first block != current tip height
+		return ErrInvalidTipHeight
+	}
+
+	top.end = end
+	fm.Indices = append(fm.Indices, &fileV2Index{fd: fd, start: start, end: end})
+	return nil
+}
+
 // TopFd returns the top (with maximum height) v2 file
 func (fm *FileV2Manager) TopFd() FileDAO {
 	fm.lock.RLock()

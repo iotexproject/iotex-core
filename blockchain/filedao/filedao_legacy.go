@@ -602,12 +602,3 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 func heightKey(height uint64) []byte {
 	return append(heightPrefix, byteutil.Uint64ToBytes(height)...)
 }
-
-// newFileDAOLegacyInMem creates an in-memory legacy file for testing only
-func newFileDAOLegacyInMem(compressBlock bool, cfg config.DB) (FileDAO, error) {
-	return &fileDAOLegacy{
-		compressBlock: compressBlock,
-		cfg:           cfg,
-		kvStore:       db.NewMemKVStore(),
-	}, nil
-}

@@ -9,6 +9,8 @@ package filedao
 import (
 	"context"
 	"fmt"
+	"os"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -62,6 +64,9 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
+		lock     sync.Mutex
+		topIndex uint64
+		cfg      config.DB
 		currFd   FileDAO
 		legacyFd FileDAO
 		v2Fd     *FileV2Manager // a collection of v2 db files
@@ -97,12 +102,7 @@ func NewFileDAO(cfg config.DB) (FileDAO, error) {
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
 func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
-	legacyFd, err := newFileDAOLegacyInMem(cfg.CompressLegacy, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &fileDAO{legacyFd: legacyFd}, nil
+	return newTestInMemFd()
 }
 
 func (fd *fileDAO) Start(ctx context.Context) error {
@@ -242,8 +242,78 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 		log.L().Error("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
 		return ErrAlreadyExist
 	}
-	// TODO: check if need to split DB
+
+	// check if we need to split DB
+	if fd.cfg.SplitDBSize() > 0 {
+		if err := fd.prepNextDbFile(blk.Height()); err != nil {
+			return err
+		}
+	}
 	return fd.currFd.PutBlock(ctx, blk)
+}
+
+func (fd *fileDAO) prepNextDbFile(height uint64) error {
+	fd.lock.Lock()
+	defer fd.lock.Unlock()
+
+	tip, err := fd.currFd.Height()
+	if err != nil {
+		return err
+	}
+	if height != tip+1 {
+		return ErrInvalidTipHeight
+	}
+
+	split, err := fd.needToSplitDB(height)
+	if err != nil || !split {
+		return err
+	}
+	return fd.addNewV2File(height)
+}
+
+func (fd *fileDAO) needToSplitDB(height uint64) (bool, error) {
+	filename := fd.cfg.DbPath
+	if fd.topIndex > 0 {
+		filename = kthAuxFileName(fd.cfg.DbPath, fd.topIndex)
+	}
+
+	dat, err := os.Stat(filename)
+	if err != nil {
+		return false, err
+	}
+	return uint64(dat.Size()) > fd.cfg.SplitDBSize(), nil
+}
+
+func (fd *fileDAO) addNewV2File(height uint64) error {
+	// create a new v2 file
+	cfg := fd.cfg
+	cfg.DbPath = kthAuxFileName(cfg.DbPath, fd.topIndex+1)
+	v2, err := newFileDAOv2(height, cfg)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err == nil {
+			fd.currFd = v2
+			fd.topIndex++
+		}
+	}()
+
+	// add the new v2 file to existing v2 manager
+	ctx := context.Background()
+	if fd.v2Fd != nil {
+		if err = fd.v2Fd.AddFileDAO(v2, height); err != nil {
+			return err
+		}
+		err = v2.Start(ctx)
+		return err
+	}
+
+	// create v2 manager
+	fd.v2Fd, _ = newFileV2Manager([]*fileDAOv2{v2})
+	err = fd.v2Fd.Start(ctx)
+	return err
 }
 
 func (fd *fileDAO) DeleteTipBlock() error {
@@ -252,17 +322,18 @@ func (fd *fileDAO) DeleteTipBlock() error {
 
 // CreateFileDAO creates FileDAO according to master file
 func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
-	fd := fileDAO{}
+	fd := fileDAO{cfg: cfg}
 	fds := []*fileDAOv2{}
-	_, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
+	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {
 		legacyFd, err := newFileDAOLegacy(cfg)
 		if err != nil {
 			return nil, err
 		}
 		fd.legacyFd = legacyFd
+		fd.topIndex, _ = checkAuxFiles(cfg.DbPath, FileLegacyAuxiliary)
 
-		// legacy master file with no v2 files
+		// legacy master file with no v2 files, early exit
 		if len(v2Files) == 0 {
 			return &fd, nil
 		}
@@ -272,9 +343,14 @@ func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
 	}
 
 	// populate v2 files into v2 manager
-	for _, name := range v2Files {
-		cfg.DbPath = name
-		fds = append(fds, openFileDAOv2(cfg))
+	if len(v2Files) > 0 {
+		for _, name := range v2Files {
+			cfg.DbPath = name
+			fds = append(fds, openFileDAOv2(cfg))
+		}
+
+		// v2 file's top index overrides v1's top
+		fd.topIndex = v2Top
 	}
 	v2Fd, err := newFileV2Manager(fds)
 	if err != nil {
