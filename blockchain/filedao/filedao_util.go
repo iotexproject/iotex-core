@@ -21,32 +21,32 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 )
 
-func checkChainDBFiles(cfg config.DB) (*FileHeader, []string, error) {
-	h, err := readFileHeader(cfg, FileAll)
+func checkMasterChainDBFile(defaultName string) (*FileHeader, error) {
+	h, err := readFileHeader(defaultName, FileAll)
 	if err == ErrFileNotExist || err == ErrFileInvalid {
-		return nil, nil, err
+		return nil, err
 	}
 
 	switch h.Version {
 	case FileLegacyAuxiliary:
-		// default chain db file is legacy format, but not master, the default file has been corrupted
-		return h, nil, ErrFileInvalid
+		// default chain db file is legacy format, but not master, the master file has been corrupted
+		return h, ErrFileInvalid
 	case FileLegacyMaster, FileV2:
-		return h, checkAuxFiles(cfg, FileV2), nil
+		return h, nil
 	default:
 		panic(fmt.Errorf("corrupted file version: %s", h.Version))
 	}
 }
 
-func readFileHeader(cfg config.DB, fileType string) (*FileHeader, error) {
-	size, exist := fileExists(cfg.DbPath)
+func readFileHeader(filename, fileType string) (*FileHeader, error) {
+	size, exist := fileExists(filename)
 	if !exist || size == 0 {
 		// default chain db file does not exist
 		return nil, ErrFileNotExist
 	}
 
+	file := db.NewBoltDB(config.DB{DbPath: filename, NumRetries: 3})
 	ctx := context.Background()
-	file := db.NewBoltDB(cfg)
 	if err := file.Start(ctx); err != nil {
 		// not a valid db file
 		return nil, ErrFileInvalid
@@ -82,46 +82,44 @@ func fileExists(name string) (int64, bool) {
 	return info.Size(), true
 }
 
-func checkAuxFiles(cfg config.DB, fileType string) []string {
-	possible := possibleDBFiles(cfg.DbPath)
-
-	var files []string
-	for _, name := range possible {
-		cfg.DbPath = name
-		header, err := readFileHeader(cfg, fileType)
-		if err == nil && header.Version == fileType {
-			files = append(files, name)
-		}
-	}
-	return files
-}
-
-func possibleDBFiles(fullname string) []string {
-	file := path.Base(fullname)
+func checkAuxFiles(filename, fileType string) (uint64, []string) {
+	file := path.Base(filename)
 	if file == "/" {
-		return nil
+		return 0, nil
 	}
 
-	dir := path.Dir(fullname)
+	dir := path.Dir(filename)
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil
+		return 0, nil
 	}
 
-	var possible []string
+	var (
+		top      uint64
+		possible []string
+	)
 	for _, v := range files {
 		if v.IsDir() {
 			continue
 		}
-		if _, ok := isAuxFile(v.Name(), file); ok {
-			possible = append(possible, dir+"/"+v.Name())
+		index, ok := isAuxFile(v.Name(), file)
+		if !ok {
+			continue
+		}
+		name := dir + "/" + v.Name()
+		header, err := readFileHeader(name, fileType)
+		if err == nil && header.Version == fileType {
+			possible = append(possible, name)
+			if index > top {
+				top = index
+			}
 		}
 	}
-	return possible
+	return top, possible
 }
 
 // isAuxFile returns true if file is an auxiliary chain db filename, and its index
-func isAuxFile(file, base string) (int, bool) {
+func isAuxFile(file, base string) (uint64, bool) {
 	extB := path.Ext(base)
 	ext := path.Ext(file)
 	if extB != ext {
@@ -136,14 +134,14 @@ func isAuxFile(file, base string) (int, bool) {
 	}
 
 	index, err := strconv.Atoi(file[1:])
-	if err != nil {
+	if err != nil || index < 0 {
 		return 0, false
 	}
-	return index, true
+	return uint64(index), true
 }
 
 // kthAuxFileName returns k-th auxiliary chain db filename
-func kthAuxFileName(file string, k int) string {
+func kthAuxFileName(file string, k uint64) string {
 	ext := path.Ext(file)
 	file = strings.TrimSuffix(file, ext)
 	return file + fmt.Sprintf("-%08d", k) + ext

@@ -64,13 +64,13 @@ type (
 	fileDAO struct {
 		currFd   FileDAO
 		legacyFd FileDAO
-		v2Fd     FileV2Manager // a collection of v2 db files
+		v2Fd     *FileV2Manager // a collection of v2 db files
 	}
 )
 
 // NewFileDAO creates an instance of FileDAO
 func NewFileDAO(cfg config.DB) (FileDAO, error) {
-	header, v2Files, err := checkChainDBFiles(cfg)
+	header, err := checkMasterChainDBFile(cfg.DbPath)
 	if err == ErrFileInvalid {
 		return nil, err
 	}
@@ -80,17 +80,16 @@ func NewFileDAO(cfg config.DB) (FileDAO, error) {
 		if err := createNewV2File(1, cfg); err != nil {
 			return nil, err
 		}
-		return CreateFileDAO(false, []string{cfg.DbPath}, cfg)
+		header = &FileHeader{Version: FileV2}
 	}
 
 	switch header.Version {
 	case FileLegacyMaster:
-		// default file is legacy format
-		return CreateFileDAO(true, v2Files, cfg)
+		// master file is legacy format
+		return CreateFileDAO(true, cfg)
 	case FileV2:
-		// default file is v2 format, add it to filenames
-		v2Files = append(v2Files, cfg.DbPath)
-		return CreateFileDAO(false, v2Files, cfg)
+		// master file is v2 format
+		return CreateFileDAO(false, cfg)
 	default:
 		panic(fmt.Errorf("corrupted file version: %s", header.Version))
 	}
@@ -163,8 +162,8 @@ func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 		height uint64
 		err    error
 	)
-	for _, file := range fd.v2Fd {
-		if height, err = file.fd.GetBlockHeight(hash); err == nil {
+	if fd.v2Fd != nil {
+		if height, err = fd.v2Fd.GetBlockHeight(hash); err == nil {
 			return height, nil
 		}
 	}
@@ -180,8 +179,8 @@ func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
 		blk *block.Block
 		err error
 	)
-	for _, file := range fd.v2Fd {
-		if blk, err = file.fd.GetBlock(hash); err == nil {
+	if fd.v2Fd != nil {
+		if blk, err = fd.v2Fd.GetBlock(hash); err == nil {
 			return blk, nil
 		}
 	}
@@ -251,37 +250,38 @@ func (fd *fileDAO) DeleteTipBlock() error {
 	return fd.currFd.DeleteTipBlock()
 }
 
-// CreateFileDAO creates FileDAO from legacy and new files
-func CreateFileDAO(legacy bool, v2Files []string, cfg config.DB) (FileDAO, error) {
-	if legacy == false && len(v2Files) == 0 {
-		return nil, ErrNotSupported
-	}
-
-	var (
-		legacyFd FileDAO
-		err      error
-	)
+// CreateFileDAO creates FileDAO according to master file
+func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
+	fd := fileDAO{}
+	fds := []*fileDAOv2{}
+	_, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {
-		legacyFd, err = newFileDAOLegacy(cfg)
+		legacyFd, err := newFileDAOLegacy(cfg)
 		if err != nil {
 			return nil, err
 		}
-	}
+		fd.legacyFd = legacyFd
 
-	var v2Fd FileV2Manager
-	if len(v2Files) > 0 {
-		fds := make([]*fileDAOv2, len(v2Files))
-		for i, name := range v2Files {
-			cfg.DbPath = name
-			fds[i] = openFileDAOv2(cfg)
+		// legacy master file with no v2 files
+		if len(v2Files) == 0 {
+			return &fd, nil
 		}
-		v2Fd = NewFileV2Manager(fds)
+	} else {
+		// v2 master file
+		fds = append(fds, openFileDAOv2(cfg))
 	}
 
-	return &fileDAO{
-		legacyFd: legacyFd,
-		v2Fd:     v2Fd,
-	}, nil
+	// populate v2 files into v2 manager
+	for _, name := range v2Files {
+		cfg.DbPath = name
+		fds = append(fds, openFileDAOv2(cfg))
+	}
+	v2Fd, err := newFileV2Manager(fds)
+	if err != nil {
+		return nil, err
+	}
+	fd.v2Fd = v2Fd
+	return &fd, nil
 }
 
 // createNewV2File creates a new v2 chain db file

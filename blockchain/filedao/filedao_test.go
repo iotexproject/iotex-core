@@ -71,9 +71,9 @@ func TestReadFileHeader(t *testing.T) {
 	cfg.DbPath = "./filedao_v2.db"
 
 	// test non-existing file
-	h, err := readFileHeader(cfg, FileLegacyMaster)
+	h, err := readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileNotExist, err)
-	h, err = readFileHeader(cfg, FileAll)
+	h, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
@@ -82,9 +82,9 @@ func TestReadFileHeader(t *testing.T) {
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
 	r.NoError(legacy.Stop(ctx))
-	h, err = readFileHeader(cfg, FileLegacyMaster)
+	h, err = readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileInvalid, err)
-	h, err = readFileHeader(cfg, FileAll)
+	h, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileInvalid, err)
 
 	// commit 1 block to make it a valid legacy file
@@ -110,7 +110,7 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileLegacyMaster, nil},
 	}
 	for _, v := range test1 {
-		h, err = readFileHeader(cfg, v.checkType)
+		h, err = readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
@@ -129,14 +129,14 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileV2, nil},
 	}
 	for _, v := range test2 {
-		h, err = readFileHeader(cfg, v.checkType)
+		h, err = readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
 		}
 	}
 
-	r.Panics(func() { readFileHeader(cfg, "") })
+	r.Panics(func() { readFileHeader(cfg.DbPath, "") })
 }
 
 func TestNewFileDAO(t *testing.T) {
@@ -147,15 +147,14 @@ func TestNewFileDAO(t *testing.T) {
 	defer os.RemoveAll(cfg.DbPath)
 
 	// test non-existing file
-	h, v2files, err := checkChainDBFiles(cfg)
+	h, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
-	r.Nil(v2files)
 
 	// test empty db file, this will create new v2 file
 	fd, err := NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
-	h, err = readFileHeader(cfg, FileAll)
+	h, err = readFileHeader(cfg.DbPath, FileAll)
 	r.NoError(err)
 	r.Equal(FileV2, h.Version)
 	ctx := context.Background()
@@ -174,10 +173,10 @@ func TestNewFileDAO(t *testing.T) {
 	testCommitBlocks(t, legacy, 1, 10, hash.ZeroHash256)
 	testVerifyChainDB(t, legacy, 1, 10)
 	r.NoError(legacy.Stop(ctx))
-	// block 1~5 in default file.db, block 6~10 in file-000000001.db
+	// block 1~5 in master file.db, block 6~10 in file-000000001.db
 	cfg.DbPath = kthAuxFileName("./filedao_v2.db", 1)
 	defer os.RemoveAll(cfg.DbPath)
-	v, err := readFileHeader(cfg, FileLegacyAuxiliary)
+	v, err := readFileHeader(cfg.DbPath, FileLegacyAuxiliary)
 	r.NoError(err)
 	r.Equal(FileLegacyAuxiliary, v.Version)
 
@@ -200,7 +199,7 @@ func TestNewFileDAO(t *testing.T) {
 	fd, err = NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
-	h, err = readFileHeader(cfg, FileAll)
+	h, err = readFileHeader(cfg.DbPath, FileAll)
 	r.NoError(err)
 	r.Equal(FileLegacyMaster, h.Version)
 	r.NoError(fd.Start(ctx))
@@ -213,7 +212,7 @@ func TestCheckFiles(t *testing.T) {
 
 	auxTests := []struct {
 		file, base string
-		index      int
+		index      uint64
 		ok         bool
 	}{
 		{"/tmp/chain-00000003.db", "/tmp/chain", 0, false},
@@ -222,6 +221,7 @@ func TestCheckFiles(t *testing.T) {
 		{"/tmp/chair-00000003.dat", "/tmp/chain.db", 0, false},
 		{"/tmp/chain=00000003.db", "/tmp/chain.db", 0, false},
 		{"/tmp/chain-0000003.db", "/tmp/chain.db", 0, false},
+		{"/tmp/chain--0000003.db", "/tmp/chain.db", 0, false},
 		{"/tmp/chain-00000003.db", "/tmp/chain.db", 3, true},
 	}
 
@@ -233,24 +233,27 @@ func TestCheckFiles(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = "./filedao_v2.db"
-	files := possibleDBFiles(cfg.DbPath)
+	_, files := checkAuxFiles(cfg.DbPath, FileLegacyAuxiliary)
+	r.Nil(files)
+	_, files = checkAuxFiles(cfg.DbPath, FileV2)
 	r.Nil(files)
 
 	// create 3 v2 files
 	for i := 1; i <= 3; i++ {
-		cfg.DbPath = kthAuxFileName("./filedao_v2.db", i)
+		cfg.DbPath = kthAuxFileName("./filedao_v2.db", uint64(i))
 		r.NoError(createNewV2File(1, cfg))
 	}
 	defer func() {
 		for i := 1; i <= 3; i++ {
-			os.RemoveAll(kthAuxFileName("./filedao_v2.db", i))
+			os.RemoveAll(kthAuxFileName("./filedao_v2.db", uint64(i)))
 		}
 	}()
 	cfg.DbPath = "./filedao_v2.db"
-	files = checkAuxFiles(cfg, FileV2)
+	top, files := checkAuxFiles(cfg.DbPath, FileV2)
+	r.EqualValues(3, top)
 	r.Equal(3, len(files))
 	for i := 1; i <= 3; i++ {
-		r.Equal(files[i-1], kthAuxFileName("./filedao_v2.db", i))
+		r.Equal(files[i-1], kthAuxFileName("./filedao_v2.db", uint64(i)))
 	}
 }
 

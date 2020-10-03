@@ -37,10 +37,11 @@ var (
 )
 
 type (
+	// fileDAOv2 handles chain db file after file split activation at v1.1.2
 	fileDAOv2 struct {
+		filename  string
 		header    *FileHeader
 		tip       *FileTip
-		cfg       config.DB
 		blkBuffer *stagingBuffer
 		blkCache  *cache.ThreadSafeLruCache
 		kvStore   db.KVStore
@@ -58,6 +59,7 @@ func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 	}
 
 	fd := fileDAOv2{
+		filename: cfg.DbPath,
 		header: &FileHeader{
 			Version:        FileV2,
 			Compressor:     cfg.Compressor,
@@ -67,7 +69,6 @@ func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 		tip: &FileTip{
 			Height: bottom - 1,
 		},
-		cfg:      cfg,
 		blkCache: cache.NewThreadSafeLruCache(16),
 		kvStore:  db.NewBoltDB(cfg),
 		batch:    batch.NewBatch(),
@@ -78,7 +79,7 @@ func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 // openFileDAOv2 opens an existing v2 file
 func openFileDAOv2(cfg config.DB) *fileDAOv2 {
 	return &fileDAOv2{
-		cfg:      cfg,
+		filename: cfg.DbPath,
 		blkCache: cache.NewThreadSafeLruCache(16),
 		kvStore:  db.NewBoltDB(cfg),
 		batch:    batch.NewBatch(),

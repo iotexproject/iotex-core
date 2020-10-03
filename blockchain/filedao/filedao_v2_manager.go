@@ -3,6 +3,12 @@ package filedao
 import (
 	"context"
 	"sort"
+	"sync"
+
+	"github.com/iotexproject/go-pkgs/hash"
+
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/db"
 )
 
 type (
@@ -12,22 +18,31 @@ type (
 	}
 
 	// FileV2Manager manages collection of v2 files
-	FileV2Manager []*fileV2Index
+	FileV2Manager struct {
+		lock    sync.RWMutex
+		Indices []*fileV2Index
+	}
 )
 
-// NewFileV2Manager creates an instance of FileV2Manager
-func NewFileV2Manager(fds []*fileDAOv2) FileV2Manager {
-	fm := make(FileV2Manager, len(fds))
-	for i := range fds {
-		fm[i] = &fileV2Index{fd: fds[i]}
+// newFileV2Manager creates an instance of FileV2Manager
+func newFileV2Manager(fds []*fileDAOv2) (*FileV2Manager, error) {
+	if len(fds) == 0 {
+		return nil, ErrNotSupported
 	}
-	return fm
+
+	fm := FileV2Manager{
+		Indices: make([]*fileV2Index, len(fds)),
+	}
+	for i := range fds {
+		fm.Indices[i] = &fileV2Index{fd: fds[i]}
+	}
+	return &fm, nil
 }
 
 // Start starts the FileV2Manager
-func (fm FileV2Manager) Start(ctx context.Context) error {
-	for i := range fm {
-		fd := fm[i].fd
+func (fm *FileV2Manager) Start(ctx context.Context) error {
+	for i := range fm.Indices {
+		fd := fm.Indices[i].fd
 		if err := fd.Start(ctx); err != nil {
 			return err
 		}
@@ -42,17 +57,17 @@ func (fm FileV2Manager) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		fm[i].start = start
-		fm[i].end = end
+		fm.Indices[i].start = start
+		fm.Indices[i].end = end
 	}
-	sort.Slice(fm, func(i, j int) bool { return fm[i].start < fm[j].start })
+	sort.Slice(fm.Indices, func(i, j int) bool { return fm.Indices[i].start < fm.Indices[j].start })
 	return nil
 }
 
 // Stop stops the FileV2Manager
-func (fm FileV2Manager) Stop(ctx context.Context) error {
-	for i := range fm {
-		if err := fm[i].fd.Stop(ctx); err != nil {
+func (fm *FileV2Manager) Stop(ctx context.Context) error {
+	for i := range fm.Indices {
+		if err := fm.Indices[i].fd.Stop(ctx); err != nil {
 			return err
 		}
 	}
@@ -60,17 +75,19 @@ func (fm FileV2Manager) Stop(ctx context.Context) error {
 }
 
 // FileDAOByHeight returns FileDAO for the given height
-func (fm FileV2Manager) FileDAOByHeight(height uint64) FileDAO {
-	top := len(fm) - 1
-	if height >= fm[top].start {
-		return fm[top].fd
+func (fm *FileV2Manager) FileDAOByHeight(height uint64) FileDAO {
+	fm.lock.RLock()
+	defer fm.lock.RUnlock()
+
+	right := len(fm.Indices) - 1
+	if height >= fm.Indices[right].start {
+		return fm.Indices[right].fd
 	}
 
 	left := 0
-	right := len(fm) - 1
 	for left <= right {
 		mid := (left + right) / 2
-		v := fm[mid]
+		v := fm.Indices[mid]
 		if v.start <= height && height <= v.end {
 			return v.fd
 		}
@@ -83,7 +100,36 @@ func (fm FileV2Manager) FileDAOByHeight(height uint64) FileDAO {
 	return nil
 }
 
+// GetBlockHeight returns height by hash
+func (fm *FileV2Manager) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+	fm.lock.RLock()
+	defer fm.lock.RUnlock()
+
+	for _, file := range fm.Indices {
+		if height, err := file.fd.GetBlockHeight(hash); err == nil {
+			return height, nil
+		}
+	}
+	return 0, db.ErrNotExist
+}
+
+// GetBlock returns block by hash
+func (fm *FileV2Manager) GetBlock(hash hash.Hash256) (*block.Block, error) {
+	fm.lock.RLock()
+	defer fm.lock.RUnlock()
+
+	for _, file := range fm.Indices {
+		if blk, err := file.fd.GetBlock(hash); err == nil {
+			return blk, nil
+		}
+	}
+	return nil, db.ErrNotExist
+}
+
 // TopFd returns the top (with maximum height) v2 file
-func (fm FileV2Manager) TopFd() FileDAO {
-	return fm[len(fm)-1].fd
+func (fm *FileV2Manager) TopFd() FileDAO {
+	fm.lock.RLock()
+	defer fm.lock.RUnlock()
+
+	return fm.Indices[len(fm.Indices)-1].fd
 }

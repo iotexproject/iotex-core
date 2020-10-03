@@ -426,7 +426,7 @@ func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.
 	}
 
 	if legacy {
-		fileDAO, err := filedao.CreateFileDAO(true, nil, cfg)
+		fileDAO, err := filedao.CreateFileDAO(true, cfg)
 		if err != nil {
 			return nil, err
 		}

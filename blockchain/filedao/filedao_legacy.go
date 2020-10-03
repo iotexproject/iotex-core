@@ -46,7 +46,7 @@ var (
 )
 
 type (
-	// fileDAOLegacy handles chain db file before file split activation at Ithaca height
+	// fileDAOLegacy handles chain db file before file split activation at v1.1.2
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
@@ -87,14 +87,14 @@ func (fd *fileDAOLegacy) Start(ctx context.Context) error {
 
 	// loop thru all legacy files
 	base := fd.cfg.DbPath
-	files := checkAuxFiles(fd.cfg, FileLegacyAuxiliary)
+	_, files := checkAuxFiles(base, FileLegacyAuxiliary)
 	var maxN uint64
 	for _, file := range files {
 		index, ok := isAuxFile(file, base)
 		if !ok {
 			continue
 		}
-		if _, _, err := fd.openDB(uint64(index)); err != nil {
+		if _, _, err := fd.openDB(index); err != nil {
 			return err
 		}
 		if uint64(index) > maxN {
@@ -457,7 +457,7 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 		return fd.kvStore, 0, nil
 	}
 	topIndex := fd.topIndex.Load().(uint64)
-	dat, err := os.Stat(kthAuxFileName(fd.cfg.DbPath, int(topIndex)))
+	dat, err := os.Stat(kthAuxFileName(fd.cfg.DbPath, topIndex))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			// something wrong getting FileInfo
@@ -567,7 +567,7 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 		return fd.kvStore, 0, nil
 	}
 	cfg := fd.cfg
-	cfg.DbPath = kthAuxFileName(cfg.DbPath, int(idx))
+	cfg.DbPath = kthAuxFileName(cfg.DbPath, idx)
 
 	fd.mutex.Lock()
 	defer fd.mutex.Unlock()
