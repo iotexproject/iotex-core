@@ -53,7 +53,7 @@ func TestSuggestGasPriceForUserAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
@@ -129,7 +129,7 @@ func TestSuggestGasPriceForSystemAction(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(t, err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		blkMemDao,
@@ -182,7 +182,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
-	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	blkMemDao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(cfg, blkMemDao, factory.NewMinter(sf, ap))
 	require.NoError(bc.Start(context.Background()))
 	require.NotNil(bc)

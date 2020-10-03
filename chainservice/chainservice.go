@@ -189,7 +189,7 @@ func New(
 	// create BlockDAO
 	var dao blockdao.BlockDAO
 	if ops.isTesting {
-		dao = blockdao.NewBlockDAOInMemForTest(indexers, cfg.DB)
+		dao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
 		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock

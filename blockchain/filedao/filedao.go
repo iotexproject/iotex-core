@@ -101,7 +101,7 @@ func NewFileDAO(cfg config.DB) (FileDAO, error) {
 }
 
 // NewFileDAOInMemForTest creates an in-memory FileDAO for testing
-func NewFileDAOInMemForTest(cfg config.DB) (FileDAO, error) {
+func NewFileDAOInMemForTest() (FileDAO, error) {
 	return newTestInMemFd()
 }
 

@@ -86,12 +86,12 @@ func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
 }
 
 // NewBlockDAOInMemForTest creates a in-memory block DAO for testing
-func NewBlockDAOInMemForTest(indexers []BlockIndexer, cfg config.DB) BlockDAO {
-	blkStore, err := filedao.NewFileDAOInMemForTest(cfg)
+func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
+	blkStore, err := filedao.NewFileDAOInMemForTest()
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, cfg)
+	return createBlockDAO(blkStore, indexers, config.DB{MaxCacheSize: 16})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist

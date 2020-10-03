@@ -166,7 +166,7 @@ func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
 		if bc.dao != nil {
 			return nil
 		}
-		bc.dao = blockdao.NewBlockDAOInMemForTest(indexers, cfg.DB)
+		bc.dao = blockdao.NewBlockDAOInMemForTest(indexers)
 		return nil
 	}
 }

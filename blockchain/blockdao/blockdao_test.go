@@ -422,7 +422,7 @@ func TestBlockDAO(t *testing.T) {
 
 func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
 	if inMemory {
-		return NewBlockDAOInMemForTest(nil, cfg), nil
+		return NewBlockDAOInMemForTest(nil), nil
 	}
 
 	if legacy {
