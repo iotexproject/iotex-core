@@ -2,12 +2,12 @@ package db
 
 import (
 	"context"
+	"encoding/hex"
 	"sync"
-
-	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/db/batch"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 // kvStoreWithCache is an implementation of KVStore, wrapping kvstore with LRU caches of latest states
@@ -44,17 +44,16 @@ func (kvc *kvStoreWithCache) Stop(ctx context.Context) error {
 
 // Put inserts a <key, value> record into stateCaches and kvstore
 func (kvc *kvStoreWithCache) Put(namespace string, key, value []byte) (err error) {
+	if err := kvc.store.Put(namespace, key, value); err != nil {
+		return err
+	}
 	kvc.updateStateCachesIfExists(namespace, key, value)
-	return kvc.store.Put(namespace, key, value)
+	return nil
 }
 
 // Get retrieves a <key, value> record from stateCaches, and if not exists, retrieves from kvstore
 func (kvc *kvStoreWithCache) Get(namespace string, key []byte) ([]byte, error) {
-	cachedData, err := kvc.getStateCaches(namespace, key)
-	if err != nil {
-		return nil, err
-	}
-	if cachedData != nil {
+	if cachedData, isExist := kvc.getStateCaches(namespace, key); isExist {
 		return cachedData, nil
 	}
 	kvStoreData, err := kvc.store.Get(namespace, key)
@@ -73,25 +72,34 @@ func (kvc *kvStoreWithCache) Filter(namespace string, cond Condition, minKey, ma
 
 // Delete deletes a record from statecaches if exists, and from kvstore
 func (kvc *kvStoreWithCache) Delete(namespace string, key []byte) (err error) {
-	kvc.deleteStateCachesIfExists(namespace, key)
-	return kvc.store.Delete(namespace, key)
+	if err := kvc.store.Delete(namespace, key); err != nil {
+		return err
+	}
+	kvc.deleteStateCaches(namespace, key)
+	return nil
 }
 
 // WriteBatch commits a batch into stateCaches and kvstore
 func (kvc *kvStoreWithCache) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
+	if err := kvc.store.WriteBatch(kvsb); err != nil {
+		return err
+	}
+	kvsb.Lock()
+	defer kvsb.ClearAndUnlock()
 	for i := 0; i < kvsb.Size(); i++ {
 		write, e := kvsb.Entry(i)
 		if e != nil {
 			return e
 		}
 		ns := write.Namespace()
-		if write.WriteType() == batch.Put {
+		switch write.WriteType() {
+		case batch.Put:
 			kvc.updateStateCachesIfExists(ns, write.Key(), write.Value())
-		} else if write.WriteType() == batch.Delete {
-			kvc.deleteStateCachesIfExists(ns, write.Key())
+		case batch.Delete:
+			kvc.deleteStateCaches(ns, write.Key())
 		}
 	}
-	return kvc.store.WriteBatch(kvsb)
+	return nil
 }
 
 // ======================================
@@ -103,13 +111,12 @@ func (kvc *kvStoreWithCache) putStateCaches(namespace string, key, value []byte)
 	kvc.mutex.Lock()
 	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
-		sc.Add(string(key), value)
+		sc.Add(hex.EncodeToString(key), value)
 	} else {
 		sc := cache.NewThreadSafeLruCache(kvc.cacheSize)
-		sc.Add(string(key), value)
+		sc.Add(hex.EncodeToString(key), value)
 		kvc.stateCaches[namespace] = sc
 	}
-	return
 }
 
 // update on stateCaches if the key exists
@@ -117,34 +124,33 @@ func (kvc *kvStoreWithCache) updateStateCachesIfExists(namespace string, key, va
 	kvc.mutex.Lock()
 	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
-		if _, ok := sc.Get(string(key)); ok {
-			sc.Add(string(key), value)
+		if _, ok := sc.Get(hex.EncodeToString(key)); ok {
+			sc.Add(hex.EncodeToString(key), value)
 		}
 	}
-	return
 }
 
 // remove on stateCaches if the key exists
-func (kvc *kvStoreWithCache) deleteStateCachesIfExists(namespace string, key []byte) {
+func (kvc *kvStoreWithCache) deleteStateCaches(namespace string, key []byte) {
 	kvc.mutex.Lock()
 	defer kvc.mutex.Unlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
-		sc.Remove(string(key))
+		sc.Remove(hex.EncodeToString(key))
 	}
-	return
 }
 
 // look up stateCachces
-func (kvc *kvStoreWithCache) getStateCaches(namespace string, key []byte) ([]byte, error) {
+func (kvc *kvStoreWithCache) getStateCaches(namespace string, key []byte) ([]byte, bool) {
 	kvc.mutex.RLock()
 	defer kvc.mutex.RUnlock()
 	if sc, ok := kvc.stateCaches[namespace]; ok {
-		if data, ok := sc.Get(string(key)); ok {
+		if data, ok := sc.Get(hex.EncodeToString(key)); ok {
 			if byteData, ok := data.([]byte); ok {
-				return byteData, nil
+				return byteData, true
 			}
-			return nil, errors.New("failed to convert interface{} to bytes from stateCaches")
+			log.L().Fatal("failed to convert interface{} to bytes from stateCaches")
+			return nil, true
 		}
 	}
-	return nil, nil
+	return nil, false
 }
