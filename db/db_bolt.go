@@ -251,16 +251,8 @@ func (b *BoltDB) Delete(namespace string, key []byte) (err error) {
 
 // WriteBatch commits a batch
 func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
-	succeed := true
 	kvsb.Lock()
-	defer func() {
-		if succeed {
-			// clear the batch if commit succeeds
-			kvsb.ClearAndUnlock()
-		} else {
-			kvsb.Unlock()
-		}
-	}()
+	defer kvsb.Unlock()
 
 	for c := uint8(0); c < b.config.NumRetries; c++ {
 		if err = b.db.Update(func(tx *bolt.Tx) error {
@@ -272,7 +264,8 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 				ns := write.Namespace()
 				errFmt := write.ErrorFormat()
 				errArgs := write.ErrorArgs()
-				if write.WriteType() == batch.Put {
+				switch write.WriteType() {
+				case batch.Put:
 					bucket, e := tx.CreateBucketIfNotExists([]byte(ns))
 					if e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)
@@ -283,7 +276,7 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 					if e := bucket.Put(write.Key(), write.Value()); e != nil {
 						return errors.Wrapf(e, errFmt, errArgs)
 					}
-				} else if write.WriteType() == batch.Delete {
+				case batch.Delete:
 					bucket := tx.Bucket([]byte(ns))
 					if bucket == nil {
 						continue
@@ -300,7 +293,6 @@ func (b *BoltDB) WriteBatch(kvsb batch.KVStoreBatch) (err error) {
 	}
 
 	if err != nil {
-		succeed = false
 		err = errors.Wrap(ErrIO, err.Error())
 	}
 	return err

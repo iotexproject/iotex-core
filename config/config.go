@@ -118,6 +118,7 @@ var (
 				GravityChainAPIs: []string{},
 			},
 			EnableTrielessStateDB:         true,
+			EnableStateDBCaching:          true,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
@@ -126,6 +127,7 @@ var (
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
+			StateDBCacheSize:              1000,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
 		},
@@ -247,6 +249,8 @@ type (
 		Committee            committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
+		// EnableStateDBCaching enables cachedStateDBOption
+		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
@@ -265,6 +269,8 @@ type (
 		MaxCacheSize int `yaml:"maxCacheSize"`
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
+		// StateDBCacheSize is the max size of statedb LRU cache
+		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}

@@ -236,7 +236,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return errors.Wrapf(err, "failed to put block at height %d", blk.Height())
 	}
-
+	fd.batch.Clear()
 	// update file tip
 	tip = &FileTip{Height: blk.Height(), Hash: blk.HashBlock()}
 	fd.storeTip(tip)
@@ -291,6 +291,7 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 	if err := fd.kvStore.WriteBatch(fd.batch); err != nil {
 		return err
 	}
+	fd.batch.Clear()
 	fd.storeTip(tip)
 	return nil
 }

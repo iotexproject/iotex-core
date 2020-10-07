@@ -174,7 +174,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
 	require.NoError(err)
