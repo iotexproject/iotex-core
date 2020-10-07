@@ -118,6 +118,7 @@ var (
 				GravityChainAPIs: []string{},
 			},
 			EnableTrielessStateDB:         true,
+			EnableStateDBCaching:          true,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
@@ -248,6 +249,8 @@ type (
 		Committee            committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
+		// EnableStateDBCaching enables cachedStateDBOption
+		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
