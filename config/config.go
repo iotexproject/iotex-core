@@ -118,7 +118,7 @@ var (
 				GravityChainAPIs: []string{},
 			},
 			EnableTrielessStateDB:         true,
-			EnableStateDBCaching:          true,
+			EnableStateDBCaching:          false,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
