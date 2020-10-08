@@ -3,7 +3,6 @@ package filedao
 import (
 	"context"
 	"sort"
-	"sync"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -19,7 +18,6 @@ type (
 
 	// FileV2Manager manages collection of v2 files
 	FileV2Manager struct {
-		lock    sync.RWMutex
 		Indices []*fileV2Index
 	}
 )
@@ -76,9 +74,6 @@ func (fm *FileV2Manager) Stop(ctx context.Context) error {
 
 // FileDAOByHeight returns FileDAO for the given height
 func (fm *FileV2Manager) FileDAOByHeight(height uint64) FileDAO {
-	fm.lock.RLock()
-	defer fm.lock.RUnlock()
-
 	right := len(fm.Indices) - 1
 	if height >= fm.Indices[right].start {
 		return fm.Indices[right].fd
@@ -102,9 +97,6 @@ func (fm *FileV2Manager) FileDAOByHeight(height uint64) FileDAO {
 
 // GetBlockHeight returns height by hash
 func (fm *FileV2Manager) GetBlockHeight(hash hash.Hash256) (uint64, error) {
-	fm.lock.RLock()
-	defer fm.lock.RUnlock()
-
 	for _, file := range fm.Indices {
 		if height, err := file.fd.GetBlockHeight(hash); err == nil {
 			return height, nil
@@ -115,9 +107,6 @@ func (fm *FileV2Manager) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 
 // GetBlock returns block by hash
 func (fm *FileV2Manager) GetBlock(hash hash.Hash256) (*block.Block, error) {
-	fm.lock.RLock()
-	defer fm.lock.RUnlock()
-
 	for _, file := range fm.Indices {
 		if blk, err := file.fd.GetBlock(hash); err == nil {
 			return blk, nil
@@ -128,9 +117,6 @@ func (fm *FileV2Manager) GetBlock(hash hash.Hash256) (*block.Block, error) {
 
 // AddFileDAO add a new v2 file
 func (fm *FileV2Manager) AddFileDAO(fd *fileDAOv2, start uint64) error {
-	fm.lock.Lock()
-	defer fm.lock.Unlock()
-
 	// update current top's end
 	top := fm.Indices[len(fm.Indices)-1]
 	end, err := top.fd.Height()
@@ -148,9 +134,7 @@ func (fm *FileV2Manager) AddFileDAO(fd *fileDAOv2, start uint64) error {
 }
 
 // TopFd returns the top (with maximum height) v2 file
-func (fm *FileV2Manager) TopFd() FileDAO {
-	fm.lock.RLock()
-	defer fm.lock.RUnlock()
-
-	return fm.Indices[len(fm.Indices)-1].fd
+func (fm *FileV2Manager) TopFd() (FileDAO, uint64) {
+	top := fm.Indices[len(fm.Indices)-1]
+	return top.fd, top.start
 }

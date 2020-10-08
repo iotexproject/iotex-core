@@ -9,7 +9,6 @@ package filedao
 import (
 	"context"
 	"fmt"
-	"os"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -64,12 +63,13 @@ type (
 
 	// fileDAO implements FileDAO
 	fileDAO struct {
-		lock     sync.Mutex
-		topIndex uint64
-		cfg      config.DB
-		currFd   FileDAO
-		legacyFd FileDAO
-		v2Fd     *FileV2Manager // a collection of v2 db files
+		lock        sync.Mutex
+		topIndex    uint64
+		splitHeight uint64
+		cfg         config.DB
+		currFd      FileDAO
+		legacyFd    FileDAO
+		v2Fd        *FileV2Manager // a collection of v2 db files
 	}
 )
 
@@ -118,7 +118,7 @@ func (fd *fileDAO) Start(ctx context.Context) error {
 	}
 
 	if fd.v2Fd != nil {
-		fd.currFd = fd.v2Fd.TopFd()
+		fd.currFd, fd.splitHeight = fd.v2Fd.TopFd()
 	} else {
 		fd.currFd = fd.legacyFd
 	}
@@ -244,7 +244,7 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	}
 
 	// check if we need to split DB
-	if fd.cfg.SplitDBSize() > 0 {
+	if fd.cfg.V2BlocksToSplitDB > 0 {
 		if err := fd.prepNextDbFile(blk.Height()); err != nil {
 			return err
 		}
@@ -253,9 +253,6 @@ func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 }
 
 func (fd *fileDAO) prepNextDbFile(height uint64) error {
-	fd.lock.Lock()
-	defer fd.lock.Unlock()
-
 	tip, err := fd.currFd.Height()
 	if err != nil {
 		return err
@@ -264,24 +261,13 @@ func (fd *fileDAO) prepNextDbFile(height uint64) error {
 		return ErrInvalidTipHeight
 	}
 
-	split, err := fd.needToSplitDB(height)
-	if err != nil || !split {
-		return err
-	}
-	return fd.addNewV2File(height)
-}
+	fd.lock.Lock()
+	defer fd.lock.Unlock()
 
-func (fd *fileDAO) needToSplitDB(height uint64) (bool, error) {
-	filename := fd.cfg.DbPath
-	if fd.topIndex > 0 {
-		filename = kthAuxFileName(fd.cfg.DbPath, fd.topIndex)
+	if height > fd.splitHeight && height-fd.splitHeight >= fd.cfg.V2BlocksToSplitDB {
+		return fd.addNewV2File(height)
 	}
-
-	dat, err := os.Stat(filename)
-	if err != nil {
-		return false, err
-	}
-	return uint64(dat.Size()) > fd.cfg.SplitDBSize(), nil
+	return nil
 }
 
 func (fd *fileDAO) addNewV2File(height uint64) error {
@@ -297,6 +283,7 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 		if err == nil {
 			fd.currFd = v2
 			fd.topIndex++
+			fd.splitHeight = height
 		}
 	}()
 
@@ -322,7 +309,7 @@ func (fd *fileDAO) DeleteTipBlock() error {
 
 // CreateFileDAO creates FileDAO according to master file
 func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
-	fd := fileDAO{cfg: cfg}
+	fd := fileDAO{splitHeight: 1, cfg: cfg}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
 	if legacy {

@@ -373,9 +373,11 @@ type (
 		MaxCacheSize int `yaml:"maxCacheSize"`
 		// BlockStoreBatchSize is the number of blocks to be stored together as a unit (to get better compression)
 		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
-		// Compressor is the compression used on block data, used by new DB file after Ithaca
+		// V2BlocksToSplitDB is the accumulated number of blocks to split a new file after v1.1.2
+		V2BlocksToSplitDB uint64 `yaml:"v2BlocksToSplitDB"`
+		// Compressor is the compression used on block data, used by new DB file after v1.1.2
 		Compressor string `yaml:"compressor"`
-		// CompressLegacy enables gzip compression on block data, used by legacy DB file before Ithaca
+		// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
 		CompressLegacy bool `yaml:"compressLegacy"`
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`

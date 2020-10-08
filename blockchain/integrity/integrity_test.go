@@ -1174,7 +1174,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.ActPool.MinGasPriceStr = "0"
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
-		// testValidateBlockchain(cfg, t)
+		testValidateBlockchain(cfg, t)
 	})
 
 	testTriePath2, err := testutil.PathOfTempFile("trie")

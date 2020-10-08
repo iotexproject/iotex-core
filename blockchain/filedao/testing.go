@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
-	"os"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -34,10 +33,10 @@ type (
 		*fileDAOv2
 	}
 
-	// testSplitFile will split new db file at certain heights
-	testSplitFile struct {
+	// testFailPutBlock will fail PutBlock() at certain height
+	testFailPutBlock struct {
 		*fileDAO
-		splitHeight []uint64
+		failHeight uint64
 	}
 )
 
@@ -81,62 +80,28 @@ func (fd *testInMemFd) PutBlock(ctx context.Context, blk *block.Block) error {
 	return fd.fileDAOv2.PutBlock(ctx, blk)
 }
 
-func newTestSplitFile(fd *fileDAO, heights []uint64) FileDAO {
-	return &testSplitFile{fileDAO: fd, splitHeight: heights}
+func newTestFailPutBlock(fd *fileDAO, height uint64) FileDAO {
+	return &testFailPutBlock{fileDAO: fd, failHeight: height}
 }
 
-func (tf *testSplitFile) PutBlock(ctx context.Context, blk *block.Block) error {
+func (tf *testFailPutBlock) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
-	if _, err := tf.fileDAO.GetBlockHeight(h); err == nil {
+	if _, err := tf.GetBlockHeight(h); err == nil {
 		return ErrAlreadyExist
 	}
 
 	// check if we need to split DB
-	if err := tf.prepNextDbFile(blk.Height()); err != nil {
-		return err
-	}
-	return tf.fileDAO.currFd.PutBlock(ctx, blk)
-}
-
-func (tf *testSplitFile) prepNextDbFile(height uint64) error {
-	tf.fileDAO.lock.Lock()
-	defer tf.fileDAO.lock.Unlock()
-
-	tip, err := tf.fileDAO.currFd.Height()
-	if err != nil {
-		return err
-	}
-	if height != tip+1 {
-		return ErrInvalidTipHeight
-	}
-
-	// split DB at certain heights for testing
-	split, err := tf.needToSplitDB(height)
-	if err != nil || !split {
-		return err
-	}
-	return tf.fileDAO.addNewV2File(height)
-}
-
-func (tf *testSplitFile) needToSplitDB(height uint64) (bool, error) {
-	filename := tf.fileDAO.cfg.DbPath
-	if tf.fileDAO.topIndex > 0 {
-		filename = kthAuxFileName(tf.fileDAO.cfg.DbPath, tf.fileDAO.topIndex)
-	}
-
-	_, err := os.Stat(filename)
-	if err != nil {
-		// something wrong getting FileInfo
-		return false, err
-	}
-
-	for i := range tf.splitHeight {
-		if tf.splitHeight[i] == height {
-			return true, nil
+	if tf.cfg.V2BlocksToSplitDB > 0 {
+		if err := tf.prepNextDbFile(blk.Height()); err != nil {
+			return err
 		}
 	}
-	return false, nil
+
+	if tf.failHeight == blk.Height() {
+		return ErrInvalidTipHeight
+	}
+	return tf.currFd.PutBlock(ctx, blk)
 }
 
 func testCommitBlocks(t *testing.T, fd FileDAO, start, end uint64, h hash.Hash256) error {

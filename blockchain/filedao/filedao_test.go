@@ -135,6 +135,7 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	r := require.New(t)
 
 	cfg := config.Default.DB
+	cfg.V2BlocksToSplitDB = 10
 	cfg.DbPath = "./filedao_v2.db"
 	defer os.RemoveAll(cfg.DbPath)
 
@@ -151,13 +152,28 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	r.Equal(FileV2, h.Version)
 	ctx := context.Background()
 	r.NoError(fd.Start(ctx))
+	fm := fd.(*fileDAO)
+	r.EqualValues(0, fm.topIndex)
+	r.EqualValues(1, fm.splitHeight)
 	r.NoError(testCommitBlocks(t, fd, 1, 10, hash.ZeroHash256))
+	r.EqualValues(0, fm.topIndex)
+	r.EqualValues(1, fm.splitHeight)
 	testVerifyChainDB(t, fd, 1, 10)
 
-	// use test FileDAO that will split at height 20 and 40
-	testFd := newTestSplitFile(fd.(*fileDAO), []uint64{20, 40})
-	r.NoError(testCommitBlocks(t, testFd, 11, 45, hash.ZeroHash256))
-	testVerifyChainDB(t, testFd, 1, 45)
+	// block 11 will split a new file
+	// and test PutBlock() fail right after splitting file
+	testFailFd := newTestFailPutBlock(fm, 11)
+	r.Equal(ErrInvalidTipHeight, testCommitBlocks(t, testFailFd, 11, 11, hash.ZeroHash256))
+	r.EqualValues(1, fm.topIndex)
+	r.EqualValues(11, fm.splitHeight)
+	// commit correct block 11 won't split file again
+	r.NoError(testCommitBlocks(t, fd, 11, 11, hash.ZeroHash256))
+	r.EqualValues(1, fm.topIndex)
+	r.EqualValues(11, fm.splitHeight)
+	r.NoError(testCommitBlocks(t, fd, 12, 25, hash.ZeroHash256))
+	r.EqualValues(2, fm.topIndex)
+	r.EqualValues(21, fm.splitHeight)
+	testVerifyChainDB(t, fd, 1, 25)
 	r.NoError(fd.Stop(ctx))
 	top, files := checkAuxFiles(cfg.DbPath, FileV2)
 	r.EqualValues(2, top)
@@ -190,25 +206,31 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 	file1 := kthAuxFileName("./filedao_v2.db", 1)
 	defer os.RemoveAll(file1)
 
-	// now use test FileDAO that will split at height 20, 30 and 50
+	// set FileDAO to split at height 15, 30 and 40
+	cfg.V2BlocksToSplitDB = 15
 	fd, err = NewFileDAO(cfg)
 	r.NoError(err)
-	r.EqualValues(1, fd.(*fileDAO).topIndex)
 	r.NoError(fd.Start(ctx))
-	testFd := newTestSplitFile(fd.(*fileDAO), []uint64{20, 30, 50})
-	r.NoError(testCommitBlocks(t, testFd, 11, 28, hash.ZeroHash256))
+	fm := fd.(*fileDAO)
+	r.EqualValues(1, fm.topIndex)
+	r.EqualValues(1, fm.splitHeight)
+	r.NoError(testCommitBlocks(t, fd, 11, 28, hash.ZeroHash256))
+	r.EqualValues(2, fm.topIndex)
+	r.EqualValues(16, fm.splitHeight)
 	// skip block 29, commit block 30 which is a split height
-	r.Equal(ErrInvalidTipHeight, testCommitBlocks(t, testFd, 30, 55, hash.ZeroHash256))
-	r.NoError(testCommitBlocks(t, testFd, 29, 55, hash.ZeroHash256))
-	testVerifyChainDB(t, testFd, 1, 55)
+	r.Equal(ErrInvalidTipHeight, testCommitBlocks(t, fd, 30, 55, hash.ZeroHash256))
+	r.NoError(testCommitBlocks(t, fd, 29, 55, hash.ZeroHash256))
+	r.EqualValues(4, fm.topIndex)
+	r.EqualValues(46, fm.splitHeight)
+	testVerifyChainDB(t, fd, 1, 55)
 	r.NoError(fd.Stop(ctx))
 
 	// now we should have:
 	// block 1~5 in legacy file.db
-	// block 6~20 in legacy file-000000001.db
-	// block 21~30 in v2 file-000000002.db
-	// block 31~50 in v2 file-000000003.db
-	// block 51~55 in v2 file-000000004.db
+	// block 6~15 in legacy file-000000001.db
+	// block 16~30 in v2 file-000000002.db
+	// block 31~45 in v2 file-000000003.db
+	// block 46~55 in v2 file-000000004.db
 	file2 := kthAuxFileName("./filedao_v2.db", 2)
 	file3 := kthAuxFileName("./filedao_v2.db", 3)
 	file4 := kthAuxFileName("./filedao_v2.db", 4)
@@ -243,11 +265,21 @@ func TestNewFileDAOSplitLegacy(t *testing.T) {
 
 	// open 4 db files and verify again
 	fd, err = NewFileDAO(cfg)
+	fm = fd.(*fileDAO)
+	r.EqualValues(4, fm.topIndex)
+	r.EqualValues(1, fm.splitHeight)
 	r.NoError(err)
-	r.EqualValues(4, fd.(*fileDAO).topIndex)
 	r.NoError(fd.Start(ctx))
-	defer fd.Stop(ctx)
-	testVerifyChainDB(t, fd, 1, 55)
+	// Start() will update splitHeight from top v2 file
+	r.EqualValues(4, fm.topIndex)
+	r.EqualValues(46, fm.splitHeight)
+	// commit another 20 blocks
+	r.NoError(testCommitBlocks(t, fd, 56, 75, hash.ZeroHash256))
+	r.EqualValues(5, fm.topIndex)
+	r.EqualValues(61, fm.splitHeight)
+	testVerifyChainDB(t, fd, 1, 75)
+	fd.Stop(ctx)
+	os.RemoveAll(kthAuxFileName("./filedao_v2.db", fm.topIndex))
 }
 
 func TestCheckFiles(t *testing.T) {
@@ -291,8 +323,7 @@ func TestCheckFiles(t *testing.T) {
 			os.RemoveAll(kthAuxFileName("./filedao_v2.db", uint64(i)))
 		}
 	}()
-	cfg.DbPath = "./filedao_v2.db"
-	top, files := checkAuxFiles(cfg.DbPath, FileV2)
+	top, files := checkAuxFiles("./filedao_v2.db", FileV2)
 	r.EqualValues(3, top)
 	r.Equal(3, len(files))
 	for i := 1; i <= 3; i++ {
