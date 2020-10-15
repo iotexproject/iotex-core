@@ -1469,6 +1469,13 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		end = api.bc.TipHeight()
 	}
 	for i := start; i <= end; i++ {
+		header, err := api.dao.HeaderByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if !filter.ExistInBloomFilter(header.LogsBloomfilter()) {
+			continue
+		}
 		receipts, err := api.dao.GetReceipts(i)
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())
