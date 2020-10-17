@@ -148,7 +148,7 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
-	header, err := fd.header(h)
+	header, err := fd.Header(h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
@@ -173,6 +173,22 @@ func (fd *fileDAOLegacy) GetBlockByHeight(height uint64) (*block.Block, error) {
 		return nil, err
 	}
 	return fd.GetBlock(hash)
+}
+
+func (fd *fileDAOLegacy) HeaderByHeight(height uint64) (*block.Header, error) {
+	hash, err := fd.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return fd.Header(hash)
+}
+
+func (fd *fileDAOLegacy) FooterByHeight(height uint64) (*block.Footer, error) {
+	hash, err := fd.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return fd.footer(hash)
 }
 
 func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
@@ -201,7 +217,7 @@ func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	return blockReceipts, nil
 }
 
-func (fd *fileDAOLegacy) header(h hash.Hash256) (*block.Header, error) {
+func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
 	value, err := fd.getBlockValue(blockHeaderNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)

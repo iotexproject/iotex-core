@@ -71,6 +71,30 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 	return &fd, nil
 }
 
+func (fd *testInMemFd) Header(h hash.Hash256) (*block.Header, error) {
+	blk, err := fd.GetBlock(h)
+	if err != nil {
+		return nil, err
+	}
+	return &blk.Header, nil
+}
+
+func (fd *testInMemFd) HeaderByHeight(height uint64) (*block.Header, error) {
+	blk, err := fd.GetBlockByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	return &blk.Header, nil
+}
+
+func (fd *testInMemFd) FooterByHeight(height uint64) (*block.Footer, error) {
+	blk, err := fd.GetBlockByHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	return &blk.Footer, nil
+}
+
 func (fd *testInMemFd) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
@@ -104,7 +128,7 @@ func (tf *testFailPutBlock) PutBlock(ctx context.Context, blk *block.Block) erro
 	return tf.currFd.PutBlock(ctx, blk)
 }
 
-func testCommitBlocks(t *testing.T, fd FileDAO, start, end uint64, h hash.Hash256) error {
+func testCommitBlocks(t *testing.T, fd BaseFileDAO, start, end uint64, h hash.Hash256) error {
 	ctx := context.Background()
 	builder := block.NewTestingBuilder()
 	for i := start; i <= end; i++ {

@@ -45,14 +45,9 @@ type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
 		filedao.FileDAO
-		Header(hash.Hash256) (*block.Header, error)
-		Body(hash.Hash256) (*block.Body, error)
-		Footer(hash.Hash256) (*block.Footer, error)
 		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		DeleteBlockToTarget(uint64) error
-		HeaderByHeight(uint64) (*block.Header, error)
-		FooterByHeight(uint64) (*block.Footer, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -222,14 +217,13 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	blk, err := dao.blockStore.GetBlockByHeight(height)
+	header, err := dao.blockStore.HeaderByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	header := blk.Header
-	lruCachePut(dao.headerCache, height, &header)
-	return &header, nil
+	lruCachePut(dao.headerCache, height, header)
+	return header, nil
 }
 
 func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
@@ -239,14 +233,13 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	}
 	cacheMtc.WithLabelValues("miss_footer").Inc()
 
-	blk, err := dao.blockStore.GetBlockByHeight(height)
+	footer, err := dao.blockStore.FooterByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	footer := blk.Footer
-	lruCachePut(dao.footerCache, height, &footer)
-	return &footer, nil
+	lruCachePut(dao.footerCache, height, footer)
+	return footer, nil
 }
 
 func (dao *blockDAO) Height() (uint64, error) {
@@ -260,48 +253,13 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	blk, err := dao.GetBlock(h)
+	header, err := dao.blockStore.Header(h)
 	if err != nil {
 		return nil, err
 	}
 
-	header := blk.Header
-	lruCachePut(dao.headerCache, h, &header)
-	return &header, nil
-}
-
-func (dao *blockDAO) Body(h hash.Hash256) (*block.Body, error) {
-	if v, ok := lruCacheGet(dao.bodyCache, h); ok {
-		cacheMtc.WithLabelValues("hit_body").Inc()
-		return v.(*block.Body), nil
-	}
-	cacheMtc.WithLabelValues("miss_body").Inc()
-
-	blk, err := dao.GetBlock(h)
-	if err != nil {
-		return nil, err
-	}
-
-	body := blk.Body
-	lruCachePut(dao.bodyCache, h, &body)
-	return &body, nil
-}
-
-func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
-	if v, ok := lruCacheGet(dao.footerCache, h); ok {
-		cacheMtc.WithLabelValues("hit_footer").Inc()
-		return v.(*block.Footer), nil
-	}
-	cacheMtc.WithLabelValues("miss_footer").Inc()
-
-	blk, err := dao.GetBlock(h)
-	if err != nil {
-		return nil, err
-	}
-
-	footer := blk.Footer
-	lruCachePut(dao.footerCache, h, &footer)
-	return &footer, nil
+	lruCachePut(dao.headerCache, h, header)
+	return header, nil
 }
 
 func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, error) {
