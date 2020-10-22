@@ -9,6 +9,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"github.com/iotexproject/iotex-address/address"
 	"math"
 	"math/big"
 	"strconv"
@@ -73,7 +74,9 @@ var (
 
 	testTransfer1, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
-	transferHash1    = testTransfer1.Hash()
+	transferHash1 = testTransfer1.Hash()
+	transferPb1   = testTransfer1.Proto()
+
 	testTransfer2, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2 = testTransfer2.Hash()
@@ -81,6 +84,7 @@ var (
 	testExecution1, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash1 = testExecution1.Hash()
+	executionPb1   = testExecution1.Proto()
 
 	testExecution2, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
@@ -92,6 +96,21 @@ var (
 
 	blkHash      = map[uint64]string{}
 	implicitLogs = map[hash.Hash256]*block.TransactionLog{}
+
+	topics = [][]byte{
+		identityset.Address(10).Bytes(),
+		identityset.Address(10).Bytes(),
+		identityset.Address(10).Bytes(),
+	}
+
+	topicArr = []*iotexapi.Topics{
+		&iotexapi.Topics{
+			Topic: topics,
+		},
+		&iotexapi.Topics{
+			Topic: topics,
+		},
+	}
 )
 
 var (
@@ -135,6 +154,23 @@ var (
 			6,
 			2,
 		},
+	}
+
+	getProtocolAccountTests = []struct {
+		in      string
+		address string
+		balance string
+	}{
+		{identityset.Address(30).String(),
+			address.RewardingPoolAddr,
+			"200000000000000000000000000",
+		},
+		//{	//TODO Received unexpected error:
+		//        	            	rpc error: code = Internal desc = protocol staking isn't registered
+		//	identityset.Address(27).String(),
+		//	address.StakingBucketPoolAddr,
+		//	"200000000000000000000000000",
+		//},
 	}
 
 	getActionsTests = []struct {
@@ -409,6 +445,26 @@ var (
 			hex.EncodeToString(executionHash2[:]),
 			identityset.Address(30).String(),
 			"",
+		},
+	}
+
+	streamLogsTests = []struct {
+		address string
+		topic []*iotexapi.Topics
+		contractAddress string
+		data []byte
+		blkHeight uint64
+		actHash []byte
+		index uint32
+	}{
+		{
+			identityset.Address(30).String(),
+			topicArr,
+			identityset.Address(30).String(),
+			identityset.Address(30).Bytes(),
+			100,
+			identityset.Address(30).Bytes(),
+			1,
 		},
 	}
 
@@ -780,6 +836,26 @@ func TestServer_GetAccount(t *testing.T) {
 	require.Error(err)
 }
 
+func TestServer_GetProtocolAccount(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, true)
+	require.NoError(err)
+
+	// success
+	for _, test := range getProtocolAccountTests {
+		res, err := svr.getProtocolAccount(context.Background(), test.address)
+		require.NoError(err)
+		accountMeta := res.AccountMeta
+		require.Equal(test.address, accountMeta.Address)
+		require.Equal(test.balance, accountMeta.Balance)
+	}
+	// failure
+	_, err = svr.getProtocolAccount(context.Background(), "")
+	require.Error(err)
+}
+
 func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
@@ -1094,6 +1170,7 @@ func TestServer_SendAction(t *testing.T) {
 	chain.EXPECT().ChainID().Return(uint32(1)).Times(2)
 	ap.EXPECT().Add(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
+	// success
 	for i, test := range sendActionTests {
 		request := &iotexapi.SendActionRequest{Action: test.actionPb}
 		res, err := svr.SendAction(context.Background(), request)
@@ -1101,7 +1178,56 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
+
+	// failure
+	_, err := svr.SendAction(context.Background(), &iotexapi.SendActionRequest{})
+	require.Error(err)
 }
+
+//type aPIServiceStreamLogsServer struct {
+//	grpc.ServerStream
+//}
+//
+//func (x *aPIServiceStreamLogsServer) Send(m *iotexapi.StreamLogsResponse) error {
+//	return x.ServerStream.SendMsg(m)
+//}
+//
+//func TestServer_StreamLogs(t *testing.T) {
+//	require := require.New(t)
+//	cfg := newConfig(t)
+//
+//	svr, err := createServer(cfg, true)
+//	require.NoError(err)
+//
+//	// success
+//	for _, test := range streamLogsTests {
+//		request := &iotexapi.StreamLogsRequest{
+//			Filter: &iotexapi.LogsFilter{
+//				Topics: test.topic,
+//			},
+//		}
+//		iotexapi._APIService_StreamLogs_Handler()
+//		stream := grpc.ServerStream()
+//		apiServer := &aPIServiceStreamLogsServer{
+//			grpc.ServerStream
+//		}
+//		err := apiServer.Send(&iotexapi.StreamLogsResponse{
+//			Log: &iotextypes.Log{
+//				ContractAddress: test.contractAddress,
+//				Topics: topics,
+//				Data: test.data,
+//				BlkHeight: test.blkHeight,
+//				ActHash: test.actHash,
+//				Index: test.index,
+//			},
+//		})
+//		err = svr.StreamLogs(request, apiServer)
+//		require.NoError(err)
+//	}
+//	// failure
+//	err = svr.StreamLogs(&iotexapi.StreamLogsRequest{}, &aPIServiceStreamLogsServer{})
+//	require.Error(err)
+//}
 
 func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
