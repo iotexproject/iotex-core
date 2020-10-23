@@ -74,7 +74,7 @@ func (s *Standalone) Stop(ctx context.Context) error {
 
 // HandleConsensusMsg handles incoming consensus message
 func (s *Standalone) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
-	log.L().Warn("Noop scheme does not handle incoming block propose requests.")
+	log.L().Warn("Standalone scheme does not handle incoming block propose requests.")
 	return nil
 }
 

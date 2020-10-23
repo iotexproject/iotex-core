@@ -7,7 +7,6 @@
 package block
 
 import (
-	"bytes"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -23,6 +22,7 @@ import (
 
 // Errors
 var (
+	ErrTxRootMismatch      = errors.New("transaction merkle root does not match")
 	ErrDeltaStateMismatch  = errors.New("delta state digest doesn't match")
 	ErrReceiptRootMismatch = errors.New("receipt root hash does not match")
 )
@@ -86,9 +86,16 @@ func (b *Block) Deserialize(buf []byte) error {
 	b.Receipts = nil
 
 	// verify merkle root can match after deserialize
-	txroot := b.CalculateTxRoot()
-	if !bytes.Equal(b.Header.txRoot[:], txroot[:]) {
-		return errors.New("Failed to match merkle root after deserialize")
+	if err := b.VerifyTxRoot(b.CalculateTxRoot()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// VerifyTxRoot verifies the transaction root hash
+func (b *Block) VerifyTxRoot(root hash.Hash256) error {
+	if b.Header.txRoot != root {
+		return ErrTxRootMismatch
 	}
 	return nil
 }

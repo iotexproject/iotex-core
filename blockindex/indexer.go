@@ -172,7 +172,11 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
 		return err
 	}
-	return x.kvStore.WriteBatch(x.batch)
+	if err := x.kvStore.WriteBatch(x.batch); err != nil {
+		return err
+	}
+	x.batch.Clear()
+	return nil
 }
 
 // Height return the blockchain height
@@ -352,7 +356,11 @@ func (x *blockIndexer) commit() error {
 	if err := x.tac.Finalize(); err != nil {
 		return err
 	}
-	return x.kvStore.WriteBatch(x.batch)
+	if err := x.kvStore.WriteBatch(x.batch); err != nil {
+		return err
+	}
+	x.batch.Clear()
+	return nil
 }
 
 // getIndexerForAddr returns the counting indexer for an address

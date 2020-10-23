@@ -113,10 +113,11 @@ func migrateDbFile() error {
 	}
 
 	cfg.DB.DbPath = oldFile
-	oldDAO := blockdao.NewBlockDAO(nil, cfg.Chain.CompressBlock, cfg.DB)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	cfg.DB.DbPath = newFile
-	newDAO := blockdao.NewBlockDAO(nil, cfg.Chain.CompressBlock, cfg.DB)
+	newDAO := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {

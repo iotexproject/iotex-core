@@ -179,7 +179,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -237,7 +237,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(ap1)
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -261,7 +261,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(ap2)
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
-	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2}, cfg.DB)
+	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
@@ -328,7 +328,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NotNil(ap1)
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain1 := bc.NewBlockchain(
 		cfg,
 		dao,
@@ -351,7 +351,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NotNil(ap2)
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
-	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2}, cfg.DB)
+	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
 	chain2 := bc.NewBlockchain(
 		cfg,
 		dao2,
@@ -411,7 +411,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NotNil(ap)
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	chain := bc.NewBlockchain(
 		cfg,
 		dao,

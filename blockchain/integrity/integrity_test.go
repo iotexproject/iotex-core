@@ -529,7 +529,7 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(err)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -573,7 +573,7 @@ func TestBlockchain_MintNewBlock(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -645,7 +645,7 @@ func TestBlockchain_MintNewBlock_PopAccount(t *testing.T) {
 	require.NoError(t, err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	require.NoError(t, err)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,
@@ -741,7 +741,8 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.Chain.CompressBlock, cfg.DB)
+		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+		dao := blockdao.NewBlockDAO([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -978,7 +979,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAO(indexers, cfg.Chain.CompressBlock, cfg.DB)
+		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+		dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -1172,7 +1174,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.ActPool.MinGasPriceStr = "0"
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
-		// testValidateBlockchain(cfg, t)
+		testValidateBlockchain(cfg, t)
 	})
 
 	testTriePath2, err := testutil.PathOfTempFile("trie")
@@ -1675,7 +1677,8 @@ func newChain(t *testing.T, stateTX bool) (blockchain.Blockchain, factory.Factor
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create BlockDAO
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao := blockdao.NewBlockDAO(indexers, cfg.Chain.CompressBlock, cfg.DB)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	dao := blockdao.NewBlockDAO(indexers, cfg.DB)
 	require.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,

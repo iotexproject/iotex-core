@@ -135,6 +135,10 @@ func TestReceiptSystemLog(t *testing.T) {
 			r.Nil(sysLog)
 		}
 	}
+
+	// can serialize an empty log
+	log := &BlkTransactionLog{}
+	r.Equal([]byte{}, log.Serialize())
 }
 
 func TestSystemLogFromReceipt(t *testing.T) {

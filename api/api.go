@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -803,7 +804,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
 	if !api.dao.ContainsTransactionLog() {
-		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
+		return nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
 	h, err := hex.DecodeString(in.ActionHash)
@@ -842,7 +843,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 	ctx context.Context,
 	in *iotexapi.GetTransactionLogByBlockHeightRequest) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
 	if !api.dao.ContainsTransactionLog() {
-		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
+		return nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
 	tip, err := api.dao.Height()
@@ -1468,6 +1469,13 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		end = api.bc.TipHeight()
 	}
 	for i := start; i <= end; i++ {
+		header, err := api.dao.HeaderByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if !filter.ExistInBloomFilter(header.LogsBloomfilter()) {
+			continue
+		}
 		receipts, err := api.dao.GetReceipts(i)
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())

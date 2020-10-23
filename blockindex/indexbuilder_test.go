@@ -170,10 +170,10 @@ func TestIndexBuilder(t *testing.T) {
 		inMem bool
 	}{
 		{
-			blockdao.NewBlockDAOInMemForTest(nil, cfg), true,
+			blockdao.NewBlockDAOInMemForTest(nil), true,
 		},
 		{
-			blockdao.NewBlockDAO(nil, false, cfg), false,
+			blockdao.NewBlockDAO(nil, cfg), false,
 		},
 	} {
 		t.Run("test indexbuilder", func(t *testing.T) {

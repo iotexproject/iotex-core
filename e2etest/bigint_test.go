@@ -83,7 +83,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	r.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	r.NoError(err)
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
 	bc := blockchain.NewBlockchain(
 		cfg,
 		dao,

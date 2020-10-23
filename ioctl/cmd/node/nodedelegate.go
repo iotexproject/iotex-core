@@ -47,7 +47,7 @@ var (
 	}
 	delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
-		config.Chinese: "打印在特定epoch内的共识委托信息",
+		config.Chinese: "打印在特定epoch内的公认代表的信息",
 	}
 	flagEpochNumUsages = map[config.Language]string{
 		config.English: "specify specific epoch",
@@ -214,7 +214,7 @@ func delegatesV2(pb *vote.ProbationList, epochMeta *iotexapi.GetEpochMetaRespons
 	request = &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("BlockProducersByEpoch"),
-		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
+		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochMeta.EpochData.Num, 10))},
 	}
 	bpResponse, err := cli.ReadState(ctx, request)
 	if err != nil {

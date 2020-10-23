@@ -14,11 +14,11 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
@@ -98,7 +98,7 @@ type (
 		twoLayerTrie             trie.TwoLayerTrie // global state trie, this is a read only trie
 		dao                      db.KVStore        // the underlying DB for account/contract storage
 		timerFactory             *prometheustimer.TimerFactory
-		workingsets              *lru.Cache // lru cache for workingsets
+		workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 		protocolView             protocol.View
 		skipBlockValidationOnPut bool
 	}
@@ -182,6 +182,7 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		registry:           protocol.NewRegistry(),
 		saveHistory:        cfg.Chain.EnableArchiveMode,
 		protocolView:       protocol.View{},
+		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 
 	for _, opt := range opts {
@@ -200,9 +201,6 @@ func NewFactory(cfg config.Config, opts ...Option) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sf.timerFactory = timerFactory
-	if sf.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
-		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
-	}
 
 	return sf, nil
 }
@@ -260,7 +258,7 @@ func (sf *factory) Stop(ctx context.Context) error {
 	if err := sf.dao.Stop(ctx); err != nil {
 		return err
 	}
-	sf.workingsets.Purge()
+	sf.workingsets.Clear()
 	return sf.lifecycle.OnStop(ctx)
 }
 
@@ -357,7 +355,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 			sf.currentChainHeight = h
 			return nil
 		},
-		readviewFunc: func(name string) (uint64, interface{}, error) {
+		readviewFunc: func(name string) (interface{}, error) {
 			return sf.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
@@ -645,9 +643,8 @@ func (sf *factory) States(opts ...protocol.StateOption) (uint64, state.Iterator,
 }
 
 // ReadView reads the view
-func (sf *factory) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sf.protocolView.Read(name)
-	return sf.currentChainHeight, v, err
+func (sf *factory) ReadView(name string) (interface{}, error) {
+	return sf.protocolView.Read(name)
 }
 
 //======================================

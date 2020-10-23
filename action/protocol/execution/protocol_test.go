@@ -329,6 +329,10 @@ func (sct *SmartContractTest) prepareBlockchain(
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 	cfg.Genesis.EnableGravityChainVoting = false
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	r.NoError(err)
+
+	cfg.Chain.TrieDBPath = testTriePath
 	cfg.ActPool.MinGasPriceStr = "0"
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
@@ -342,7 +346,16 @@ func (sct *SmartContractTest) prepareBlockchain(
 	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 	r.NoError(rp.Register(registry))
 	// create state factory
-	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	var sf factory.Factory
+	if cfg.Chain.EnableTrielessStateDB {
+		if cfg.Chain.EnableStateDBCaching {
+			sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+		} else {
+			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+		}
+	} else {
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	}
 	r.NoError(err)
 	ap, err := actpool.NewActPool(sf, cfg.ActPool)
 	r.NoError(err)
@@ -350,7 +363,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	r.NoError(err)
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 	r.NotNil(dao)
 	bc := blockchain.NewBlockchain(
 		cfg,
@@ -423,7 +436,9 @@ func (sct *SmartContractTest) deployContracts(
 func (sct *SmartContractTest) run(r *require.Assertions) {
 	// prepare blockchain
 	ctx := context.Background()
-	bc, sf, dao, ap := sct.prepareBlockchain(ctx, config.Default, r)
+	cfg := config.Default
+	cfg.Chain.EnableTrielessStateDB = false
+	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
 	defer func() {
 		r.NoError(bc.Stop(ctx))
 	}()
@@ -543,7 +558,7 @@ func TestProtocol_Handle(t *testing.T) {
 		rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
 		require.NoError(rp.Register(registry))
 		// create state factory
-		sf, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+		sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 		require.NoError(err)
 		ap, err := actpool.NewActPool(sf, cfg.ActPool)
 		require.NoError(err)
@@ -553,7 +568,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		// create BlockDAO
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+		dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 		require.NotNil(dao)
 		bc := blockchain.NewBlockchain(
 			cfg,
@@ -838,7 +853,7 @@ func TestMaxTime(t *testing.T) {
 	})
 }
 
-func benchmarkHotContract(b *testing.B, async bool) {
+func benchmarkHotContractWithFactory(b *testing.B, async bool) {
 	sct := SmartContractTest{
 		InitBalances: []ExpectedBalance{
 			{
@@ -852,7 +867,7 @@ func benchmarkHotContract(b *testing.B, async bool) {
 				RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
 				RawByteCode:   "608060405234801561001057600080fd5b506040516040806108018339810180604052810190808051906020019092919080519060200190929190505050816004819055508060058190555050506107a58061005c6000396000f300608060405260043610610078576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680631249c58b1461007d57806327e235e31461009457806353277879146100eb5780636941b84414610142578063810ad50514610199578063a9059cbb14610223575b600080fd5b34801561008957600080fd5b50610092610270565b005b3480156100a057600080fd5b506100d5600480360381019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610475565b6040518082815260200191505060405180910390f35b3480156100f757600080fd5b5061012c600480360381019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061048d565b6040518082815260200191505060405180910390f35b34801561014e57600080fd5b50610183600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506104a5565b6040518082815260200191505060405180910390f35b3480156101a557600080fd5b506101da600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506104bd565b604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018281526020019250505060405180910390f35b34801561022f57600080fd5b5061026e600480360381019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919080359060200190929190505050610501565b005b436004546000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054011115151561032a576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260108152602001807f746f6f20736f6f6e20746f206d696e740000000000000000000000000000000081525060200191505060405180910390fd5b436000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550600554600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008282540192505081905550600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600081548092919060010191905055503373ffffffffffffffffffffffffffffffffffffffff16600073ffffffffffffffffffffffffffffffffffffffff167fec61728879a33aa50b55e1f4789dcfc1c680f30a24d7b8694a9f874e242a97b46005546040518082815260200191505060405180910390a3565b60016020528060005260406000206000915090505481565b60026020528060005260406000206000915090505481565b60006020528060005260406000206000915090505481565b60036020528060005260406000206000915090508060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060010154905082565b80600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054101515156105b8576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260148152602001807f696e73756666696369656e742062616c616e636500000000000000000000000081525060200191505060405180910390fd5b80600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254039250508190555080600160008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254019250508190555060408051908101604052803373ffffffffffffffffffffffffffffffffffffffff16815260200182815250600360008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550602082015181600101559050508173ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff167fec61728879a33aa50b55e1f4789dcfc1c680f30a24d7b8694a9f874e242a97b4836040518082815260200191505060405180910390a350505600a165627a7a7230582047e5e1380e66d6b109548617ae59ff7baf70ee2d4a6734559b8fc5cabca0870b0029000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000186a0",
 				RawAmount:     "0",
-				RawGasLimit:   50000000,
+				RawGasLimit:   5000000,
 				RawGasPrice:   "0",
 			},
 		},
@@ -861,6 +876,7 @@ func benchmarkHotContract(b *testing.B, async bool) {
 	ctx := context.Background()
 	cfg := config.Default
 	cfg.Genesis.NumSubEpochs = uint64(b.N)
+	cfg.Chain.EnableTrielessStateDB = false
 	if async {
 		cfg.Genesis.GreenlandBlockHeight = 0
 	} else {
@@ -915,11 +931,94 @@ func benchmarkHotContract(b *testing.B, async bool) {
 	b.StopTimer()
 }
 
+func benchmarkHotContractWithStateDB(b *testing.B, cachedStateDBOption bool) {
+	sct := SmartContractTest{
+		InitBalances: []ExpectedBalance{
+			{
+				Account:    "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+				RawBalance: "1000000000000000000000000000",
+			},
+		},
+		Deployments: []ExecutionConfig{
+			{
+				ContractIndex: 0,
+				RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+				RawByteCode:   "608060405234801561001057600080fd5b506040516040806108018339810180604052810190808051906020019092919080519060200190929190505050816004819055508060058190555050506107a58061005c6000396000f300608060405260043610610078576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680631249c58b1461007d57806327e235e31461009457806353277879146100eb5780636941b84414610142578063810ad50514610199578063a9059cbb14610223575b600080fd5b34801561008957600080fd5b50610092610270565b005b3480156100a057600080fd5b506100d5600480360381019080803573ffffffffffffffffffffffffffffffffffffffff169060200190929190505050610475565b6040518082815260200191505060405180910390f35b3480156100f757600080fd5b5061012c600480360381019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919050505061048d565b6040518082815260200191505060405180910390f35b34801561014e57600080fd5b50610183600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506104a5565b6040518082815260200191505060405180910390f35b3480156101a557600080fd5b506101da600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506104bd565b604051808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020018281526020019250505060405180910390f35b34801561022f57600080fd5b5061026e600480360381019080803573ffffffffffffffffffffffffffffffffffffffff16906020019092919080359060200190929190505050610501565b005b436004546000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054011115151561032a576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260108152602001807f746f6f20736f6f6e20746f206d696e740000000000000000000000000000000081525060200191505060405180910390fd5b436000803373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002081905550600554600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008282540192505081905550600260003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff168152602001908152602001600020600081548092919060010191905055503373ffffffffffffffffffffffffffffffffffffffff16600073ffffffffffffffffffffffffffffffffffffffff167fec61728879a33aa50b55e1f4789dcfc1c680f30a24d7b8694a9f874e242a97b46005546040518082815260200191505060405180910390a3565b60016020528060005260406000206000915090505481565b60026020528060005260406000206000915090505481565b60006020528060005260406000206000915090505481565b60036020528060005260406000206000915090508060000160009054906101000a900473ffffffffffffffffffffffffffffffffffffffff16908060010154905082565b80600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002054101515156105b8576040517f08c379a00000000000000000000000000000000000000000000000000000000081526004018080602001828103825260148152602001807f696e73756666696369656e742062616c616e636500000000000000000000000081525060200191505060405180910390fd5b80600160003373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254039250508190555080600160008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1681526020019081526020016000206000828254019250508190555060408051908101604052803373ffffffffffffffffffffffffffffffffffffffff16815260200182815250600360008473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060008201518160000160006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff160217905550602082015181600101559050508173ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff167fec61728879a33aa50b55e1f4789dcfc1c680f30a24d7b8694a9f874e242a97b4836040518082815260200191505060405180910390a350505600a165627a7a7230582047e5e1380e66d6b109548617ae59ff7baf70ee2d4a6734559b8fc5cabca0870b0029000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000186a0",
+				RawAmount:     "0",
+				RawGasLimit:   5000000,
+				RawGasPrice:   "0",
+			},
+		},
+	}
+	r := require.New(b)
+	ctx := context.Background()
+	cfg := config.Default
+	cfg.Genesis.NumSubEpochs = uint64(b.N)
+	if cachedStateDBOption {
+		cfg.Chain.EnableStateDBCaching = true
+	} else {
+		cfg.Chain.EnableStateDBCaching = false
+	}
+	bc, sf, dao, ap := sct.prepareBlockchain(ctx, cfg, r)
+	defer func() {
+		r.NoError(bc.Stop(ctx))
+	}()
+	contractAddresses := sct.deployContracts(bc, sf, dao, ap, r)
+	r.Equal(1, len(contractAddresses))
+	contractAddr := contractAddresses[0]
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		receipts, err := runExecutions(
+			bc, sf, dao, ap, []*ExecutionConfig{
+				{
+					RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+					RawByteCode:   "1249c58b",
+					RawAmount:     "0",
+					RawGasLimit:   5000000,
+					RawGasPrice:   "0",
+					Failed:        false,
+					Comment:       "mint token",
+				},
+			},
+			[]string{contractAddr},
+		)
+		r.NoError(err)
+		r.Equal(1, len(receipts))
+		r.Equal(uint64(1), receipts[0].Status)
+		ecfgs := []*ExecutionConfig{}
+		contractAddrs := []string{}
+		for j := 0; j < 100; j++ {
+			ecfgs = append(ecfgs, &ExecutionConfig{
+				RawPrivateKey: "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+				RawByteCode:   fmt.Sprintf("a9059cbb000000000000000000000000123456789012345678900987%016x0000000000000000000000000000000000000000000000000000000000000039", 100*i+j),
+				RawAmount:     "0",
+				RawGasLimit:   5000000,
+				RawGasPrice:   "0",
+				Failed:        false,
+				Comment:       "send token",
+			})
+			contractAddrs = append(contractAddrs, contractAddr)
+		}
+		receipts, err = runExecutions(bc, sf, dao, ap, ecfgs, contractAddrs)
+		r.NoError(err)
+		for _, receipt := range receipts {
+			r.Equal(uint64(1), receipt.Status)
+		}
+	}
+	b.StopTimer()
+}
+
 func BenchmarkHotContract(b *testing.B) {
 	b.Run("async mode", func(b *testing.B) {
-		benchmarkHotContract(b, true)
+		benchmarkHotContractWithFactory(b, true)
 	})
 	b.Run("sync mode", func(b *testing.B) {
-		benchmarkHotContract(b, false)
+		benchmarkHotContractWithFactory(b, false)
+	})
+	b.Run("cachedStateDB", func(b *testing.B) {
+		benchmarkHotContractWithStateDB(b, true)
+	})
+	b.Run("defaultStateDB", func(b *testing.B) {
+		benchmarkHotContractWithStateDB(b, false)
 	})
 }

@@ -20,6 +20,11 @@ RELEASES_URL="https://github.com/iotexproject/iotex-core/releases"
 S3URL="https://s3-ap-southeast-1.amazonaws.com/ioctl"
 INSTALL_DIRECTORY='/usr/local/bin'
 
+BREW_UPDATE_CMD="brew update"
+BREW_INSTALL_CMD="brew install ioctl"
+BREW_UNSTABLE_TAP_CMD="brew tap iotexproject/ioctl-unstable"
+BREW_UNSTABLE_INSTALL_CMD="brew install --HEAD iotexproject/ioctl-unstable/ioctl-unstable"
+
 downloadJSON() {
     url="$2"
 
@@ -112,6 +117,22 @@ else
     BINARY="ioctl-${OS}-${ARCH}"
 fi
 
+if [ "${OS}" = "darwin" ];then
+    if test -x "$(command -v brew)"; then
+        if [ "$1" = "unstable" ]; then
+            $BREW_UNSTABLE_TAP_CMD && $BREW_UNSTABLE_INSTALL_CMD
+            echo "Command-line tools is installed to `command -v ioctl-unstable`"
+        else
+            $BREW_UPDATE_CMD && $BREW_INSTALL_CMD
+            echo "Command-line tools is installed to `command -v ioctl`"
+        fi
+        exit 0
+    else
+        echo "None command 'brew' is available to perform installed."
+        exit 1
+    fi
+fi
+
 # add .exe if on windows
 if [ "$OS" = "windows" ]; then
     BINARY="$BINARY.exe"
@@ -148,5 +169,3 @@ else
     echo "Moving executable to $INSTALL_DIRECTORY/$INSTALL_NAME"
     sudo mv "$DOWNLOAD_FILE" "$INSTALL_DIRECTORY/$INSTALL_NAME"
 fi
-
-

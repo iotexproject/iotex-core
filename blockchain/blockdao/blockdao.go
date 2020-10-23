@@ -23,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -43,15 +44,10 @@ var (
 type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
-		FileDAO
-		Header(hash.Hash256) (*block.Header, error)
-		Body(hash.Hash256) (*block.Body, error)
-		Footer(hash.Hash256) (*block.Footer, error)
+		filedao.FileDAO
 		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		DeleteBlockToTarget(uint64) error
-		HeaderByHeight(uint64) (*block.Header, error)
-		FooterByHeight(uint64) (*block.Footer, error)
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -64,7 +60,7 @@ type (
 	}
 
 	blockDAO struct {
-		blockStore   FileDAO
+		blockStore   filedao.FileDAO
 		indexers     []BlockIndexer
 		timerFactory *prometheustimer.TimerFactory
 		lifecycle    lifecycle.Lifecycle
@@ -76,8 +72,8 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, compressBlock bool, cfg config.DB) BlockDAO {
-	blkStore, err := NewFileDAO(compressBlock, cfg)
+func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
+	blkStore, err := filedao.NewFileDAO(cfg)
 	if err != nil {
 		return nil
 	}
@@ -85,12 +81,12 @@ func NewBlockDAO(indexers []BlockIndexer, compressBlock bool, cfg config.DB) Blo
 }
 
 // NewBlockDAOInMemForTest creates a in-memory block DAO for testing
-func NewBlockDAOInMemForTest(indexers []BlockIndexer, cfg config.DB) BlockDAO {
-	blkStore, err := NewFileDAOInMemForTest(cfg)
+func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
+	blkStore, err := filedao.NewFileDAOInMemForTest()
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, cfg)
+	return createBlockDAO(blkStore, indexers, config.DB{MaxCacheSize: 16})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -221,14 +217,13 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	blk, err := dao.blockStore.GetBlockByHeight(height)
+	header, err := dao.blockStore.HeaderByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	header := blk.Header
-	lruCachePut(dao.headerCache, height, &header)
-	return &header, nil
+	lruCachePut(dao.headerCache, height, header)
+	return header, nil
 }
 
 func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
@@ -238,14 +233,13 @@ func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	}
 	cacheMtc.WithLabelValues("miss_footer").Inc()
 
-	blk, err := dao.blockStore.GetBlockByHeight(height)
+	footer, err := dao.blockStore.FooterByHeight(height)
 	if err != nil {
 		return nil, err
 	}
 
-	footer := blk.Footer
-	lruCachePut(dao.footerCache, height, &footer)
-	return &footer, nil
+	lruCachePut(dao.footerCache, height, footer)
+	return footer, nil
 }
 
 func (dao *blockDAO) Height() (uint64, error) {
@@ -259,48 +253,13 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	blk, err := dao.GetBlock(h)
+	header, err := dao.blockStore.Header(h)
 	if err != nil {
 		return nil, err
 	}
 
-	header := blk.Header
-	lruCachePut(dao.headerCache, h, &header)
-	return &header, nil
-}
-
-func (dao *blockDAO) Body(h hash.Hash256) (*block.Body, error) {
-	if v, ok := lruCacheGet(dao.bodyCache, h); ok {
-		cacheMtc.WithLabelValues("hit_body").Inc()
-		return v.(*block.Body), nil
-	}
-	cacheMtc.WithLabelValues("miss_body").Inc()
-
-	blk, err := dao.GetBlock(h)
-	if err != nil {
-		return nil, err
-	}
-
-	body := blk.Body
-	lruCachePut(dao.bodyCache, h, &body)
-	return &body, nil
-}
-
-func (dao *blockDAO) Footer(h hash.Hash256) (*block.Footer, error) {
-	if v, ok := lruCacheGet(dao.footerCache, h); ok {
-		cacheMtc.WithLabelValues("hit_footer").Inc()
-		return v.(*block.Footer), nil
-	}
-	cacheMtc.WithLabelValues("miss_footer").Inc()
-
-	blk, err := dao.GetBlock(h)
-	if err != nil {
-		return nil, err
-	}
-
-	footer := blk.Footer
-	lruCachePut(dao.footerCache, h, &footer)
-	return &footer, nil
+	lruCachePut(dao.headerCache, h, header)
+	return header, nil
 }
 
 func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, error) {
@@ -412,7 +371,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}
@@ -461,8 +420,4 @@ func lruCacheDel(c *cache.ThreadSafeLruCache, k interface{}) {
 	if c != nil {
 		c.Remove(k)
 	}
-}
-
-func hashKey(h hash.Hash256) []byte {
-	return append(hashPrefix, h[:]...)
 }

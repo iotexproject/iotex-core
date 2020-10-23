@@ -227,34 +227,34 @@ func (mr *MockBlockDAOMockRecorder) Header(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Header", reflect.TypeOf((*MockBlockDAO)(nil).Header), arg0)
 }
 
-// Body mocks base method
-func (m *MockBlockDAO) Body(arg0 hash.Hash256) (*block.Body, error) {
+// HeaderByHeight mocks base method
+func (m *MockBlockDAO) HeaderByHeight(arg0 uint64) (*block.Header, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Body", arg0)
-	ret0, _ := ret[0].(*block.Body)
+	ret := m.ctrl.Call(m, "HeaderByHeight", arg0)
+	ret0, _ := ret[0].(*block.Header)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Body indicates an expected call of Body
-func (mr *MockBlockDAOMockRecorder) Body(arg0 interface{}) *gomock.Call {
+// HeaderByHeight indicates an expected call of HeaderByHeight
+func (mr *MockBlockDAOMockRecorder) HeaderByHeight(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Body", reflect.TypeOf((*MockBlockDAO)(nil).Body), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeaderByHeight", reflect.TypeOf((*MockBlockDAO)(nil).HeaderByHeight), arg0)
 }
 
-// Footer mocks base method
-func (m *MockBlockDAO) Footer(arg0 hash.Hash256) (*block.Footer, error) {
+// FooterByHeight mocks base method
+func (m *MockBlockDAO) FooterByHeight(arg0 uint64) (*block.Footer, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Footer", arg0)
+	ret := m.ctrl.Call(m, "FooterByHeight", arg0)
 	ret0, _ := ret[0].(*block.Footer)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Footer indicates an expected call of Footer
-func (mr *MockBlockDAOMockRecorder) Footer(arg0 interface{}) *gomock.Call {
+// FooterByHeight indicates an expected call of FooterByHeight
+func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Footer", reflect.TypeOf((*MockBlockDAO)(nil).Footer), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
 // GetActionByActionHash mocks base method
@@ -299,36 +299,6 @@ func (m *MockBlockDAO) DeleteBlockToTarget(arg0 uint64) error {
 func (mr *MockBlockDAOMockRecorder) DeleteBlockToTarget(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBlockToTarget", reflect.TypeOf((*MockBlockDAO)(nil).DeleteBlockToTarget), arg0)
-}
-
-// HeaderByHeight mocks base method
-func (m *MockBlockDAO) HeaderByHeight(arg0 uint64) (*block.Header, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HeaderByHeight", arg0)
-	ret0, _ := ret[0].(*block.Header)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// HeaderByHeight indicates an expected call of HeaderByHeight
-func (mr *MockBlockDAOMockRecorder) HeaderByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HeaderByHeight", reflect.TypeOf((*MockBlockDAO)(nil).HeaderByHeight), arg0)
-}
-
-// FooterByHeight mocks base method
-func (m *MockBlockDAO) FooterByHeight(arg0 uint64) (*block.Footer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "FooterByHeight", arg0)
-	ret0, _ := ret[0].(*block.Footer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// FooterByHeight indicates an expected call of FooterByHeight
-func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

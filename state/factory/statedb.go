@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 
@@ -42,7 +42,7 @@ type stateDB struct {
 	registry                 *protocol.Registry
 	dao                      db.KVStore // the underlying DB for account/contract storage
 	timerFactory             *prometheustimer.TimerFactory
-	workingsets              *lru.Cache // lru cache for workingsets
+	workingsets              *cache.ThreadSafeLruCache // lru cache for workingsets
 	protocolView             protocol.View
 	skipBlockValidationOnPut bool
 }
@@ -70,6 +70,20 @@ func DefaultStateDBOption() StateDBOption {
 		}
 		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
 		sdb.dao = db.NewBoltDB(cfg.DB)
+
+		return nil
+	}
+}
+
+// CachedStateDBOption creates state db with cache from config
+func CachedStateDBOption() StateDBOption {
+	return func(sdb *stateDB, cfg config.Config) error {
+		dbPath := cfg.Chain.TrieDBPath
+		if len(dbPath) == 0 {
+			return errors.New("Invalid empty trie db path")
+		}
+		cfg.DB.DbPath = dbPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
+		sdb.dao = db.NewKvStoreWithCache(db.NewBoltDB(cfg.DB), cfg.Chain.StateDBCacheSize)
 
 		return nil
 	}
@@ -106,6 +120,7 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		currentChainHeight: 0,
 		registry:           protocol.NewRegistry(),
 		protocolView:       protocol.View{},
+		workingsets:        cache.NewThreadSafeLruCache(int(cfg.Chain.WorkingSetCacheSize)),
 	}
 	for _, opt := range opts {
 		if err := opt(&sdb, cfg); err != nil {
@@ -123,9 +138,6 @@ func NewStateDB(cfg config.Config, opts ...StateDBOption) (Factory, error) {
 		log.L().Error("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	sdb.timerFactory = timerFactory
-	if sdb.workingsets, err = lru.New(int(cfg.Chain.WorkingSetCacheSize)); err != nil {
-		return nil, errors.Wrap(err, "failed to generate lru cache for workingsets")
-	}
 	return &sdb, nil
 }
 
@@ -173,7 +185,7 @@ func (sdb *stateDB) Start(ctx context.Context) error {
 func (sdb *stateDB) Stop(ctx context.Context) error {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
-	sdb.workingsets.Purge()
+	sdb.workingsets.Clear()
 	return sdb.dao.Stop(ctx)
 }
 
@@ -214,12 +226,10 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 				return errors.Wrapf(err, "failed to convert account %v to bytes", s)
 			}
 			flusher.KVStoreWithBuffer().MustPut(ns, key, ss)
-
 			return nil
 		},
 		delStateFunc: func(ns string, key []byte) error {
 			flusher.KVStoreWithBuffer().MustDelete(ns, key)
-
 			return nil
 		},
 		statesFunc: func(opts ...protocol.StateOption) (uint64, state.Iterator, error) {
@@ -244,7 +254,7 @@ func (sdb *stateDB) newWorkingSet(ctx context.Context, height uint64) (*workingS
 			sdb.currentChainHeight = h
 			return nil
 		},
-		readviewFunc: func(name string) (uint64, interface{}, error) {
+		readviewFunc: func(name string) (interface{}, error) {
 			return sdb.ReadView(name)
 		},
 		writeviewFunc: func(name string, v interface{}) error {
@@ -451,9 +461,8 @@ func (sdb *stateDB) StatesAtHeight(height uint64, opts ...protocol.StateOption) 
 }
 
 // ReadView reads the view
-func (sdb *stateDB) ReadView(name string) (uint64, interface{}, error) {
-	v, err := sdb.protocolView.Read(name)
-	return sdb.currentChainHeight, v, err
+func (sdb *stateDB) ReadView(name string) (interface{}, error) {
+	return sdb.protocolView.Read(name)
 }
 
 //======================================

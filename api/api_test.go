@@ -2100,7 +2100,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		return nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer}, cfg.DB)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
 	if dao == nil {
 		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}

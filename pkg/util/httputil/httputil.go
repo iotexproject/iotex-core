@@ -10,8 +10,8 @@ import (
 
 const (
 	_connectionCount = 400
-	_readTimeout     = 5 * time.Second
-	_writeTimeout    = 5 * time.Second
+	_readTimeout     = 35 * time.Second
+	_writeTimeout    = 35 * time.Second
 	_idleTimeout     = 120 * time.Second
 )
 

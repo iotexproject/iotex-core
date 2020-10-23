@@ -124,13 +124,12 @@ func (mr *MockFactoryMockRecorder) States(arg0 ...interface{}) *gomock.Call {
 }
 
 // ReadView mocks base method
-func (m *MockFactory) ReadView(arg0 string) (uint64, interface{}, error) {
+func (m *MockFactory) ReadView(arg0 string) (interface{}, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadView", arg0)
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(interface{})
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	ret0, _ := ret[0].(interface{})
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ReadView indicates an expected call of ReadView

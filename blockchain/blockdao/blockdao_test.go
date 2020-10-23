@@ -16,8 +16,10 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -222,16 +224,10 @@ func TestBlockDAO(t *testing.T) {
 				header, err := dao.Header(hash)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				body, err := dao.Body(hash)
-				require.NoError(err)
-				require.Equal(&tipBlk.Body, body)
-				footer, err := dao.Footer(hash)
-				require.NoError(err)
-				require.Equal(&tipBlk.Footer, footer)
 				header, err = dao.HeaderByHeight(height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				footer, err = dao.FooterByHeight(height)
+				footer, err := dao.FooterByHeight(height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Footer, footer)
 			}
@@ -242,7 +238,7 @@ func TestBlockDAO(t *testing.T) {
 		require.EqualValues(len(blks), height)
 
 		// commit an existing block
-		require.Equal(ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
+		require.Equal(filedao.ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
 
 		// check non-exist block
 		h, err := dao.GetBlockHash(5)
@@ -344,16 +340,10 @@ func TestBlockDAO(t *testing.T) {
 				header, err := dao.Header(h)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				body, err := dao.Body(h)
-				require.NoError(err)
-				require.Equal(&tipBlk.Body, body)
-				footer, err := dao.Footer(h)
-				require.NoError(err)
-				require.Equal(&tipBlk.Footer, footer)
 				header, err = dao.HeaderByHeight(height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				footer, err = dao.FooterByHeight(height)
+				footer, err := dao.FooterByHeight(height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Footer, footer)
 			}
@@ -384,17 +374,15 @@ func TestBlockDAO(t *testing.T) {
 	}()
 
 	daoList := []struct {
-		inMemory, legacy, compressBlock bool
+		inMemory, legacy bool
+		compressBlock    string
 	}{
-		{
-			true, false, false,
-		},
-		{
-			false, true, false,
-		},
-		{
-			false, true, true,
-		},
+		{true, false, ""},
+		{false, true, ""},
+		{false, true, compress.Gzip},
+		{false, false, ""},
+		{false, false, compress.Gzip},
+		{false, false, compress.Snappy},
 	}
 
 	cfg := config.Default.DB
@@ -420,29 +408,21 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy, compressBlock bool, cfg config.DB) (BlockDAO, error) {
-	var dao BlockDAO
+func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
 	if inMemory {
-		dao = NewBlockDAOInMemForTest(nil, cfg)
-	} else {
-		var (
-			fileDAO FileDAO
-		)
-		if legacy {
-			file, err := newFileDAOLegacy(db.NewBoltDB(cfg), compressBlock, cfg)
-			if err != nil {
-				return nil, err
-			}
-			fileDAO, err = createFileDAO(file)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// TODO: add new file DAO
-		}
-		dao = createBlockDAO(fileDAO, nil, cfg)
+		return NewBlockDAOInMemForTest(nil), nil
 	}
-	return dao, nil
+
+	if legacy {
+		fileDAO, err := filedao.CreateFileDAO(true, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return createBlockDAO(fileDAO, nil, cfg), nil
+	}
+
+	cfg.Compressor = compressBlock
+	return NewBlockDAO(nil, cfg), nil
 }
 
 func BenchmarkBlockCache(b *testing.B) {
@@ -462,10 +442,8 @@ func BenchmarkBlockCache(b *testing.B) {
 		}()
 		cfg.DbPath = indexPath
 		cfg.DbPath = testPath
-
-		db := config.Default.DB
-		db.MaxCacheSize = cacheSize
-		blkDao := NewBlockDAO([]BlockIndexer{}, false, db)
+		cfg.MaxCacheSize = cacheSize
+		blkDao := NewBlockDAO([]BlockIndexer{}, cfg)
 		require.NoError(b, blkDao.Start(context.Background()))
 		defer func() {
 			require.NoError(b, blkDao.Stop(context.Background()))

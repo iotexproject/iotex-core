@@ -29,4 +29,5 @@ message blockEndorsementCollection{
 message endorsementManager{
 	repeated string blkHash = 1;
 	repeated blockEndorsementCollection blockEndorsements = 2;
+	iotextypes.Block cachedMintedBlk = 3;
 }

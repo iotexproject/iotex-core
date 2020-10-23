@@ -17,7 +17,7 @@ mockgen -destination=./test/mock/mock_blockchain/mock_blockchain.go  \
 mkdir -p ./test/mock/mock_blockdao
 mockgen -destination=./test/mock/mock_blockdao/mock_blockdao.go  \
         -source=./blockchain/blockdao/blockdao.go \
-        -aux_files=github.com/iotexproject/iotex-core/blockchain/blockdao=./blockchain/blockdao/filedao.go \
+        -aux_files=github.com/iotexproject/iotex-core/blockchain/blockdao=./blockchain/filedao/filedao.go \
         -package=mock_blockdao \
         BlockDAO
 

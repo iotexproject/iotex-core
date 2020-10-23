@@ -4,16 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package blockdao
+package filedao
 
 import (
 	"context"
-	"fmt"
-	"io/ioutil"
 	"os"
-	"path"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -51,7 +46,7 @@ var (
 )
 
 type (
-	// fileDAOLegacy handles chain db file before file split activation at Ithaca height
+	// fileDAOLegacy handles chain db file before file split activation at v1.1.2
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
@@ -64,14 +59,12 @@ type (
 	}
 )
 
-func newFileDAOLegacy(kvStore db.KVStore, compressBlock bool, cfg config.DB) (FileDAO, error) {
-	if kvStore == nil {
-		return nil, errors.New("empty KVStore")
-	}
+// newFileDAOLegacy creates a new legacy file
+func newFileDAOLegacy(cfg config.DB) (FileDAO, error) {
 	return &fileDAOLegacy{
-		compressBlock: compressBlock,
+		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
-		kvStore:       kvStore,
+		kvStore:       db.NewBoltDB(cfg),
 	}, nil
 }
 
@@ -93,28 +86,19 @@ func (fd *fileDAOLegacy) Start(ctx context.Context) error {
 	}
 
 	// loop thru all legacy files
-	model, dir := getFileNameAndDir(fd.cfg.DbPath)
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return err
-	}
+	base := fd.cfg.DbPath
+	_, files := checkAuxFiles(base, FileLegacyAuxiliary)
 	var maxN uint64
 	for _, file := range files {
-		name := file.Name()
-		lens := len(name)
-		if lens < patternLen || !strings.Contains(name, model) {
+		index, ok := isAuxFile(file, base)
+		if !ok {
 			continue
 		}
-		num := name[lens-patternLen : lens-suffixLen]
-		n, err := strconv.Atoi(num)
-		if err != nil {
-			continue
-		}
-		if _, _, err := fd.openDB(uint64(n)); err != nil {
+		if _, _, err := fd.openDB(index); err != nil {
 			return err
 		}
-		if uint64(n) > maxN {
-			maxN = uint64(n)
+		if uint64(index) > maxN {
+			maxN = uint64(index)
 		}
 	}
 	if maxN == 0 {
@@ -132,12 +116,9 @@ func (fd *fileDAOLegacy) Stop(ctx context.Context) error {
 }
 
 func (fd *fileDAOLegacy) Height() (uint64, error) {
-	value, err := fd.kvStore.Get(blockNS, topHeightKey)
+	value, err := getValueMustBe8Bytes(fd.kvStore, blockNS, topHeightKey)
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get top height")
-	}
-	if len(value) != 8 {
-		return 0, errors.Wrap(ErrDataCorruption, "blockchain height missing")
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
@@ -159,18 +140,15 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	value, err := fd.kvStore.Get(blockHashHeightMappingNS, hashKey(h))
+	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
-	}
-	if len(value) != 8 {
-		return 0, errors.Wrapf(ErrDataCorruption, "height missing for block with hash = %x", h)
 	}
 	return enc.MachineEndian.Uint64(value), nil
 }
 
 func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
-	header, err := fd.header(h)
+	header, err := fd.Header(h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
@@ -195,6 +173,22 @@ func (fd *fileDAOLegacy) GetBlockByHeight(height uint64) (*block.Block, error) {
 		return nil, err
 	}
 	return fd.GetBlock(hash)
+}
+
+func (fd *fileDAOLegacy) HeaderByHeight(height uint64) (*block.Header, error) {
+	hash, err := fd.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return fd.Header(hash)
+}
+
+func (fd *fileDAOLegacy) FooterByHeight(height uint64) (*block.Footer, error) {
+	hash, err := fd.GetBlockHash(height)
+	if err != nil {
+		return nil, err
+	}
+	return fd.footer(hash)
 }
 
 func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
@@ -223,13 +217,13 @@ func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	return blockReceipts, nil
 }
 
-func (fd *fileDAOLegacy) header(h hash.Hash256) (*block.Header, error) {
+func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
 	value, err := fd.getBlockValue(blockHeaderNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block header %x", h)
 		}
@@ -251,7 +245,7 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		return nil, errors.Wrapf(err, "failed to get block body %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block body %x", h)
 		}
@@ -274,7 +268,7 @@ func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
 		return nil, errors.Wrapf(err, "failed to get block footer %x", h)
 	}
 	if fd.compressBlock {
-		value, err = compress.Decompress(value)
+		value, err = compress.DecompGzip(value)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error when decompressing a block footer %x", h)
 		}
@@ -300,7 +294,11 @@ func (fd *fileDAOLegacy) TransactionLogs(height uint64) (*iotextypes.Transaction
 		return nil, ErrNotSupported
 	}
 
-	logsBytes, err := fd.kvStore.Get(systemLogNS, heightKey(height))
+	kvStore, _, err := fd.getDBFromHeight(height)
+	if err != nil {
+		return nil, err
+	}
+	logsBytes, err := kvStore.Get(systemLogNS, heightKey(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get transaction log")
 	}
@@ -321,15 +319,15 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 		return errors.Wrap(err, "failed to serialize block footer")
 	}
 	if fd.compressBlock {
-		serHeader, err = compress.Compress(serHeader)
+		serHeader, err = compress.CompGzip(serHeader)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block header")
 		}
-		serBody, err = compress.Compress(serBody)
+		serBody, err = compress.CompGzip(serBody)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block body")
 		}
-		serFooter, err = compress.Compress(serFooter)
+		serFooter, err = compress.CompGzip(serFooter)
 		if err != nil {
 			return errors.Wrapf(err, "error when compressing a block footer")
 		}
@@ -475,12 +473,7 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 		return fd.kvStore, 0, nil
 	}
 	topIndex := fd.topIndex.Load().(uint64)
-	file, dir := getFileNameAndDir(fd.cfg.DbPath)
-	if err != nil {
-		return
-	}
-	longFileName := dir + "/" + file + fmt.Sprintf("-%08d", topIndex) + ".db"
-	dat, err := os.Stat(longFileName)
+	dat, err := os.Stat(kthAuxFileName(fd.cfg.DbPath, topIndex))
 	if err != nil {
 		if !os.IsNotExist(err) {
 			// something wrong getting FileInfo
@@ -561,12 +554,12 @@ func (fd *fileDAOLegacy) getDBFromIndex(idx uint64) (kvStore db.KVStore, index u
 }
 
 // getBlockValue get block's data from db,if this db failed,it will try the previous one
-func (fd *fileDAOLegacy) getBlockValue(blockNS string, h hash.Hash256) ([]byte, error) {
+func (fd *fileDAOLegacy) getBlockValue(ns string, h hash.Hash256) ([]byte, error) {
 	whichDB, index, err := fd.getDBFromHash(h)
 	if err != nil {
 		return nil, err
 	}
-	value, err := whichDB.Get(blockNS, h[:])
+	value, err := whichDB.Get(ns, h[:])
 	if errors.Cause(err) == db.ErrNotExist {
 		idx := index - 1
 		if index == 0 {
@@ -576,7 +569,7 @@ func (fd *fileDAOLegacy) getBlockValue(blockNS string, h hash.Hash256) ([]byte, 
 		if err != nil {
 			return nil, err
 		}
-		value, err = db.Get(blockNS, h[:])
+		value, err = db.Get(ns, h[:])
 		if err != nil {
 			return nil, err
 		}
@@ -590,13 +583,11 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 		return fd.kvStore, 0, nil
 	}
 	cfg := fd.cfg
-	model, _ := getFileNameAndDir(cfg.DbPath)
-	name := model + fmt.Sprintf("-%08d", idx) + ".db"
+	cfg.DbPath = kthAuxFileName(cfg.DbPath, idx)
 
 	fd.mutex.Lock()
 	defer fd.mutex.Unlock()
 	// open or create this db file
-	cfg.DbPath = path.Dir(cfg.DbPath) + "/" + name
 	var newFile bool
 	_, err = os.Stat(cfg.DbPath)
 	if err != nil {
@@ -621,15 +612,6 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 	}
 	fd.lifecycle.Add(kvStore)
 	index = idx
-	return
-}
-
-func getFileNameAndDir(p string) (fileName, dir string) {
-	var withSuffix, suffix string
-	withSuffix = path.Base(p)
-	suffix = path.Ext(withSuffix)
-	fileName = strings.TrimSuffix(withSuffix, suffix)
-	dir = path.Dir(p)
 	return
 }
 

@@ -99,7 +99,7 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
-		kvboltDB := kvStore.(*boltDB)
+		kvboltDB := kvStore.(*BoltDB)
 		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
 		assert.NotNil(err)
 
@@ -180,6 +180,7 @@ func TestDBBatch(t *testing.T) {
 		require.NoError(err)
 		require.Equal(testV2[0], value)
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[0])
 		require.NoError(err)
@@ -195,6 +196,7 @@ func TestDBBatch(t *testing.T) {
 
 		batch.Put(bucket1, testK1[0], testV1[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		require.Equal(0, batch.Size())
 
@@ -207,9 +209,11 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(testV1[1], value)
 
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		batch.Put(bucket1, testK1[2], testV1[2], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)
@@ -223,6 +227,7 @@ func TestDBBatch(t *testing.T) {
 		batch.Put(bucket1, testK1[2], testV1[2], "")
 		batch.Delete(bucket2, testK2[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)

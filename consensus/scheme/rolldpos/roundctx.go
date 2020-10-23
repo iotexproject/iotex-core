@@ -230,6 +230,14 @@ func (ctx *roundCtx) AddVoteEndorsement(
 	return nil
 }
 
+func (ctx *roundCtx) SetMintedBlock(blk *block.Block) error {
+	return ctx.eManager.SetMintedBlock(blk)
+}
+
+func (ctx *roundCtx) CachedMintedBlock() *block.Block {
+	return ctx.eManager.CachedMintedBlock()
+}
+
 // private functions
 
 func (ctx *roundCtx) endorsements(blkHash []byte, topics []ConsensusVoteTopic) []*endorsement.Endorsement {
