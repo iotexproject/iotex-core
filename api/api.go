@@ -1663,3 +1663,30 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (ret *io
 	}
 	return
 }
+
+func (api *Server) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
+	ret := new(iotexapi.GetActPoolActionsResponse)
+
+	if len(in.ActionHashes) < 1 {
+		for _, sealeds := range api.ap.PendingActionMap() {
+			for _, sealed := range sealeds {
+				ret.Actions = append(ret.Actions, sealed.Proto())
+			}
+		}
+		return ret, nil
+	}
+
+	for _, hashStr := range in.ActionHashes {
+		hs, err := hash.HexStringToHash256(hashStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
+		}
+		sealed, err := api.ap.GetActionByHash(hs)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		ret.Actions = append(ret.Actions, sealed.Proto())
+	}
+
+	return ret, nil
+}
