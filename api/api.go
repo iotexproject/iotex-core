@@ -1664,6 +1664,7 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (ret *io
 	return
 }
 
+// GetActPoolActions returns the all Transaction Identifiers in the mempool
 func (api *Server) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
 	ret := new(iotexapi.GetActPoolActionsResponse)
 
