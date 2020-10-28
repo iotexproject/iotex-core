@@ -103,17 +103,18 @@ var (
 			PrivateNetworkPSK: "",
 		},
 		Chain: Chain{
-			ChainDBPath:          "/var/data/chain.db",
-			TrieDBPath:           "/var/data/trie.db",
-			IndexDBPath:          "/var/data/index.db",
-			CandidateIndexDBPath: "/var/data/candidate.index.db",
-			StakingIndexDBPath:   "/var/data/staking.index.db",
-			ID:                   1,
-			Address:              "",
-			ProducerPrivKey:      generateRandomKey(SigP256k1),
-			SignatureScheme:      []string{SigP256k1},
-			EmptyGenesis:         false,
-			GravityChainDB:       DB{DbPath: "/var/data/poll.db", NumRetries: 10},
+			ChainDBPath:            "/var/data/chain.db",
+			TrieDBPath:             "/var/data/trie.db",
+			IndexDBPath:            "/var/data/index.db",
+			BloomfilterIndexDBPath: "/var/data/bloomfilter.index.db",
+			CandidateIndexDBPath:   "/var/data/candidate.index.db",
+			StakingIndexDBPath:     "/var/data/staking.index.db",
+			ID:                     1,
+			Address:                "",
+			ProducerPrivKey:        generateRandomKey(SigP256k1),
+			SignatureScheme:        []string{SigP256k1},
+			EmptyGenesis:           false,
+			GravityChainDB:         DB{DbPath: "/var/data/poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -130,6 +131,7 @@ var (
 			StateDBCacheSize:              1000,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
+			RangeBloomFilterSize:          4096,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -235,18 +237,19 @@ type (
 
 	// Chain is the config struct for blockchain package
 	Chain struct {
-		ChainDBPath          string           `yaml:"chainDBPath"`
-		TrieDBPath           string           `yaml:"trieDBPath"`
-		IndexDBPath          string           `yaml:"indexDBPath"`
-		CandidateIndexDBPath string           `yaml:"candidateIndexDBPath"`
-		StakingIndexDBPath   string           `yaml:"stakingIndexDBPath"`
-		ID                   uint32           `yaml:"id"`
-		Address              string           `yaml:"address"`
-		ProducerPrivKey      string           `yaml:"producerPrivKey"`
-		SignatureScheme      []string         `yaml:"signatureScheme"`
-		EmptyGenesis         bool             `yaml:"emptyGenesis"`
-		GravityChainDB       DB               `yaml:"gravityChainDB"`
-		Committee            committee.Config `yaml:"committee"`
+		ChainDBPath            string           `yaml:"chainDBPath"`
+		TrieDBPath             string           `yaml:"trieDBPath"`
+		IndexDBPath            string           `yaml:"indexDBPath"`
+		BloomfilterIndexDBPath string           `yaml:"bloomfilterIndexDBPath"`
+		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
+		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
+		ID                     uint32           `yaml:"id"`
+		Address                string           `yaml:"address"`
+		ProducerPrivKey        string           `yaml:"producerPrivKey"`
+		SignatureScheme        []string         `yaml:"signatureScheme"`
+		EmptyGenesis           bool             `yaml:"emptyGenesis"`
+		GravityChainDB         DB               `yaml:"gravityChainDB"`
+		Committee              committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
 		// EnableStateDBCaching enables cachedStateDBOption
@@ -273,6 +276,8 @@ type (
 		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
+		// RangeBloomFilterSize is the number of blocks that rangeBloomfilter will store in bloomfilterIndexer
+		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
 	}
 
 	// Consensus is the config struct for consensus package

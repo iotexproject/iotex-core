@@ -229,7 +229,7 @@ func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, re
 		for _, l := range receipt.Logs() {
 			bloom.Add([]byte(l.Address))
 			for i, topic := range l.Topics {
-				bloom.Add(append(byteutil.Uint64ToBytes(uint64(i)), topic[:]...)) //position-sensitive 
+				bloom.Add(append(byteutil.Uint64ToBytes(uint64(i)), topic[:]...)) //position-sensitive
 			}
 		}
 	}
@@ -244,8 +244,8 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 			bfx.curRangeBloomfilter.Add([]byte(l.Address))
 			bfx.curRangeBloomfilter.Add(append(Heightkey, []byte(l.Address)...)) // concatenate with block number
 			for i, topic := range l.Topics {
-				bfx.curRangeBloomfilter.Add(append(byteutil.Uint64ToBytes(uint64(i)), topic[:]...)) //position-sensitive 
-				bfx.curRangeBloomfilter.Add(append(Heightkey, topic[:]...)) // concatenate with block number
+				bfx.curRangeBloomfilter.Add(append(byteutil.Uint64ToBytes(uint64(i)), topic[:]...)) //position-sensitive
+				bfx.curRangeBloomfilter.Add(append(Heightkey, topic[:]...))                         // concatenate with block number
 			}
 		}
 	}

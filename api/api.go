@@ -39,6 +39,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
+	logfilter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
@@ -96,6 +97,7 @@ type Server struct {
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
+	bfIndexer         blockindex.BloomFilterIndexer
 	ap                actpool.ActPool
 	gs                *gasstation.GasStation
 	broadcastHandler  BroadcastOutbound
@@ -114,6 +116,7 @@ func NewServer(
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
+	bfIndexer blockindex.BloomFilterIndexer,
 	actPool actpool.ActPool,
 	registry *protocol.Registry,
 	opts ...Option,
@@ -139,6 +142,7 @@ func NewServer(
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
+		bfIndexer:         bfIndexer,
 		ap:                actPool,
 		broadcastHandler:  apiCfg.broadcastHandler,
 		cfg:               cfg,
@@ -664,17 +668,17 @@ func (api *Server) GetLogs(
 	}
 
 	var (
-		startBlock, count uint64
-		err               error
+		logs []*iotextypes.Log
+		err  error
 	)
 	switch {
 	case in.GetByBlock() != nil:
-		count = 1
 		req := in.GetByBlock()
-		startBlock, err = api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
+		startBlock, err := api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
+		logs, err = api.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		if req.FromBlock > api.bc.TipHeight() {
@@ -683,13 +687,21 @@ func (api *Server) GetLogs(
 		if req.Count > 1000 {
 			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
 		}
-		startBlock = req.FromBlock
-		count = req.Count
+		startBlock := req.FromBlock
+		count := req.Count
+		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, startBlock+count-1)
+	case in.GetByLongRange() != nil:
+		req := in.GetByLongRange()
+		if req.FromBlock > api.bc.TipHeight() {
+			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
+		}
+		startBlock := req.GetFromBlock()
+		endBlock := req.GetToBlock()
+		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
 
-	logs, err := api.getLogsInBlock(NewLogFilter(in.GetFilter(), nil, nil), startBlock, count)
 	return &iotexapi.GetLogsResponse{Logs: logs}, err
 }
 
@@ -718,7 +730,7 @@ func (api *Server) StreamLogs(in *iotexapi.StreamLogsRequest, stream iotexapi.AP
 	}
 	errChan := make(chan error)
 	// register the log filter so it will match logs in new blocks
-	if err := api.chainListener.AddResponder(NewLogFilter(in.GetFilter(), stream, errChan)); err != nil {
+	if err := api.chainListener.AddResponder(logfilter.NewLogFilter(in.GetFilter(), stream, errChan)); err != nil {
 		return status.Error(codes.Internal, err.Error())
 	}
 
@@ -1458,7 +1470,7 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 	return res
 }
 
-func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
+func (api *Server) getUnindexedLogsInRange(filter *logfilter.LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
@@ -1469,19 +1481,79 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		end = api.bc.TipHeight()
 	}
 	for i := start; i <= end; i++ {
-		header, err := api.dao.HeaderByHeight(i)
+		logsInBlock, err := api.getLogsInBlock(filter, i)
 		if err != nil {
-			return logs, status.Error(codes.InvalidArgument, err.Error())
+			return logs, err
 		}
-		if !filter.ExistInBloomFilter(header.LogsBloomfilter()) {
-			continue
+		if logsInBlock != nil {
+			logs = append(logs, logsInBlock...)
 		}
-		receipts, err := api.dao.GetReceipts(i)
-		if err != nil {
-			return logs, status.Error(codes.InvalidArgument, err.Error())
-		}
-		logs = append(logs, filter.MatchLogs(receipts)...)
 	}
+	return logs, nil
+}
+
+func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	logBloomFilter, err := api.bfIndexer.BloomFilterByHeight(blockNumber)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	if !filter.ExistInBloomFilterv2(logBloomFilter) {
+		return nil, nil
+	}
+	receipts, err := api.dao.GetReceipts(blockNumber)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	return filter.MatchLogs(receipts), nil
+}
+
+// TODO: improve using goroutine
+func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end uint64) ([]*iotextypes.Log, error) {
+	if end > api.bc.TipHeight() || end == 0 {
+		end = api.bc.TipHeight()
+	}
+
+	size := api.bfIndexer.RangeBloomFilterSize()
+	logs := []*iotextypes.Log{}
+
+	// getLogs for unindexed height in range one by one
+	if start%size != 0 {
+		unindexedEnd := size * (start/size + 1) //round up
+		if end < unindexedEnd {
+			unindexedEnd = end
+		}
+		unindexed, err := api.getUnindexedLogsInRange(filter, start, unindexedEnd-start+1)
+		if err != nil {
+			return nil, err
+		}
+		logs = append(logs, unindexed...)
+		if len(logs) > int(api.cfg.API.RangeQueryLimit) {
+			return nil, status.Error(codes.InvalidArgument, "range results exceed the limit")
+		}
+		start = unindexedEnd
+	}
+	if start == end {
+		return logs, nil
+	}
+
+	// getLogs via range Blooom filter
+	blockNumbers, err := api.bfIndexer.FilterBlocksInRange(filter, start, end)
+	if err != nil {
+		return nil, err
+	}
+	for _, i := range blockNumbers {
+		indexed, err := api.getLogsInBlock(filter, i)
+		if err != nil {
+			return nil, err
+		}
+		if indexed != nil {
+			logs = append(logs, indexed...)
+		}
+		if len(logs) > int(api.cfg.API.RangeQueryLimit) {
+			return nil, status.Error(codes.InvalidArgument, "range results exceed the limit")
+		}
+	}
+
 	return logs, nil
 }
 
