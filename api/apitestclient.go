@@ -62,4 +62,6 @@ type ServiceClient interface {
 	StreamLogs(ctx context.Context, in *iotexapi.StreamLogsRequest, opts ...grpc.CallOption) (iotexapi.APIService_StreamLogsClient, error)
 	// get native election buckets
 	GetElectionBuckets(ctx context.Context, in *iotexapi.GetElectionBucketsRequest, opts ...grpc.CallOption) (*iotexapi.GetElectionBucketsResponse, error)
+	// get actions from act pool
+	GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest, opts ...grpc.CallOption) (*iotexapi.GetActPoolActionsResponse, error)
 }

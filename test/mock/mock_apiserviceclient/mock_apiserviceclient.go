@@ -474,3 +474,23 @@ func (mr *MockServiceClientMockRecorder) GetElectionBuckets(ctx, in interface{},
 	varargs := append([]interface{}{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetElectionBuckets", reflect.TypeOf((*MockServiceClient)(nil).GetElectionBuckets), varargs...)
 }
+
+// GetActPoolActions mocks base method
+func (m *MockServiceClient) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest, opts ...grpc.CallOption) (*iotexapi.GetActPoolActionsResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetActPoolActions", varargs...)
+	ret0, _ := ret[0].(*iotexapi.GetActPoolActionsResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActPoolActions indicates an expected call of GetActPoolActions
+func (mr *MockServiceClientMockRecorder) GetActPoolActions(ctx, in interface{}, opts ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActPoolActions", reflect.TypeOf((*MockServiceClient)(nil).GetActPoolActions), varargs...)
+}
