@@ -1,4 +1,4 @@
-package api
+package logfilter
 
 import (
 	"bytes"
@@ -11,6 +11,12 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
+)
+
+const (
+	// BlockHeightPrefix is an prefix which will concatenate with blocknumber when adding into rangeBloomFilter
+	BlockHeightPrefix = "height"
 )
 
 // LogFilter contains options for contract log filtering.
@@ -123,8 +129,8 @@ func (l *LogFilter) match(log *iotextypes.Log) bool {
 }
 
 // ExistInBloomFilter returns true if topics of filter exist in the bloom filter
-func (l *LogFilter) ExistInBloomFilter(filter bloom.BloomFilter) bool {
-	if filter == nil {
+func (l *LogFilter) ExistInBloomFilter(bf bloom.BloomFilter) bool {
+	if bf == nil {
 		return true
 	}
 
@@ -134,11 +140,90 @@ func (l *LogFilter) ExistInBloomFilter(filter bloom.BloomFilter) bool {
 		}
 
 		for _, v := range e.Topic {
-			if filter.Exist(v) {
+			if bf.Exist(v) {
 				return true
 			}
 		}
 	}
 	// {} or nil matches any address or topic list
 	return len(l.pbFilter.Topics) == 0
+}
+
+// ExistInBloomFilterv2 returns true if addresses and topics of filter exist in the range bloom filter (topic: position-sensitive)
+func (l *LogFilter) ExistInBloomFilterv2(bf bloom.BloomFilter) bool {
+	if len(l.pbFilter.Address) > 0 {
+		flag := false
+		for _, addr := range l.pbFilter.Address {
+			if bf.Exist([]byte(addr)) {
+				flag = true
+			}
+		}
+		if !flag {
+			return false
+		}
+	}
+
+	if len(l.pbFilter.Topics) > 0 {
+		for i, e := range l.pbFilter.Topics {
+			if e == nil || len(e.Topic) == 0 {
+				continue
+			}
+			match := false
+			for _, v := range e.Topic {
+				if bf.Exist(append(byteutil.Uint64ToBytes(uint64(i)), v...)) {
+					match = true
+					continue
+				}
+			}
+			if !match {
+				return false
+			}
+		}
+		return true
+	}
+
+	// {} or nil matches any address or topic list
+	return true
+}
+
+// SelectBlocksFromRangeBloomFilter filters out RangeBloomFilter for selecting block numbers which have logFilter's topics/address
+// TODO[dorothy]: optimize using goroutine
+func (l *LogFilter) SelectBlocksFromRangeBloomFilter(bf bloom.BloomFilter, start, end uint64) []uint64 {
+	blkNums := make([]uint64, 0)
+	for blockHeight := start; blockHeight <= end; blockHeight++ {
+		Heightkey := append([]byte(BlockHeightPrefix), byteutil.Uint64ToBytes(blockHeight)...)
+		if len(l.pbFilter.Address) > 0 {
+			flag := false
+			for _, addr := range l.pbFilter.Address {
+				if bf.Exist(append(Heightkey, []byte(addr)...)) {
+					flag = true
+				}
+			}
+			if !flag {
+				continue
+			}
+		}
+		if len(l.pbFilter.Topics) > 0 {
+			flag := false
+			for _, e := range l.pbFilter.Topics {
+				if e == nil || len(e.Topic) == 0 {
+					continue
+				}
+				for _, v := range e.Topic {
+					if bf.Exist(append(Heightkey, v...)) {
+						flag = true
+						break
+					}
+				}
+				if flag {
+					break
+				}
+			}
+			if !flag {
+				continue
+			}
+		}
+		blkNums = append(blkNums, blockHeight)
+	}
+	return blkNums
 }
