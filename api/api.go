@@ -1470,28 +1470,6 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 	return res
 }
 
-func (api *Server) getUnindexedLogsInRange(filter *logfilter.LogFilter, start, count uint64) ([]*iotextypes.Log, error) {
-	if count == 0 {
-		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
-	}
-	// filter logs within start --> end
-	var logs []*iotextypes.Log
-	end := start + count - 1
-	if end > api.bc.TipHeight() {
-		end = api.bc.TipHeight()
-	}
-	for i := start; i <= end; i++ {
-		logsInBlock, err := api.getLogsInBlock(filter, i)
-		if err != nil {
-			return logs, err
-		}
-		if logsInBlock != nil {
-			logs = append(logs, logsInBlock...)
-		}
-	}
-	return logs, nil
-}
-
 func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
 	logBloomFilter, err := api.bfIndexer.BloomFilterByHeight(blockNumber)
 	if err != nil {
@@ -1512,30 +1490,14 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end uint64
 	if end > api.bc.TipHeight() || end == 0 {
 		end = api.bc.TipHeight()
 	}
-
-	size := api.bfIndexer.RangeBloomFilterSize()
-	logs := []*iotextypes.Log{}
-
-	// getLogs for unindexed height in range one by one
-	if start%size != 0 {
-		unindexedEnd := size * (start/size + 1) //round up
-		if end < unindexedEnd {
-			unindexedEnd = end
-		}
-		unindexed, err := api.getUnindexedLogsInRange(filter, start, unindexedEnd-start+1)
-		if err != nil {
-			return nil, err
-		}
-		logs = append(logs, unindexed...)
-		if len(logs) > int(api.cfg.API.RangeQueryLimit) {
-			return nil, status.Error(codes.InvalidArgument, "range results exceed the limit")
-		}
-		start = unindexedEnd
-	}
 	if start == end {
-		return logs, nil
+		return nil, errors.New("start and end height can not be the same")
+	}
+	if start != 0 {
+		start = start - 1
 	}
 
+	logs := []*iotextypes.Log{}
 	// getLogs via range Blooom filter
 	blockNumbers, err := api.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {

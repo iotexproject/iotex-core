@@ -63,22 +63,25 @@ func NewBloomfilterIndexer(kv db.KVStore, rangeSize uint64) (BloomFilterIndexer,
 }
 
 // Start starts the bloomfilter indexer
-func (bfx *bloomfilterIndexer) Start(ctx context.Context) (err error) {
+func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 	if err := bfx.kvStore.Start(ctx); err != nil {
 		return err
 	}
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
-	bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(2048, 3)
-	if err != nil {
-		return err
-	}
-
-	_, err = bfx.kvStore.Get(BlockBloomFilterNamespace, []byte(CurrentHeightKey))
+	tipHeight, err := bfx.kvStore.Get(BlockBloomFilterNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
+		bfx.curRangeBloomfilter, err = bfx.rangeBloomFilter(byteutil.BytesToUint64(tipHeight))
+		if err != nil {
+			return err
+		}
 	case db.ErrNotExist:
 		if err = bfx.kvStore.Put(BlockBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+			return err
+		}
+		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(2048, 3)
+		if err != nil {
 			return err
 		}
 	default:
@@ -128,7 +131,10 @@ func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
 		return err
 	}
 	if (height-1)%bfx.rangeSize == 0 {
-		bfx.curRangeBloomfilter = nil
+		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(2048, 3)
+		if err != nil {
+			return err
+		}
 	} else {
 		bfx.curRangeBloomfilter, err = bfx.rangeBloomFilter(height - 1)
 		if err != nil {
@@ -155,10 +161,7 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 	bfx.mutex.RLock()
 	defer bfx.mutex.RUnlock()
 	blockNumbers := make([]uint64, 0)
-	if start%bfx.rangeSize != 0 {
-		return nil, errors.New("Invalid arguments")
-	}
-	queryHeight := start + bfx.rangeSize
+	queryHeight := (start/bfx.rangeSize + 1) * bfx.rangeSize // round up
 	for queryHeight <= end {
 		bigBloom, err := bfx.rangeBloomFilter(queryHeight)
 		if err != nil {
@@ -166,11 +169,15 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 		}
 		if l.ExistInBloomFilterv2(bigBloom) {
 			blocks := l.SelectBlocksFromRangeBloomFilter(bigBloom, queryHeight-bfx.rangeSize+1, queryHeight)
-			blockNumbers = append(blockNumbers, blocks...)
+			for _, num := range blocks {
+				if num > start && num <= end {
+					blockNumbers = append(blockNumbers, num)
+				}
+			}
 		}
 		queryHeight += bfx.rangeSize
 	}
-
+	// in case that mode of end is not 0, we need to get range Bloomfilter [end-(end%bfx.rangeSize)+1, end]
 	if end%bfx.rangeSize != 0 {
 		bigBloom, err := bfx.rangeBloomFilter(end)
 		if err != nil {

@@ -198,10 +198,17 @@ func TestBloomfilterIndexer(t *testing.T) {
 	}
 
 	expectedRes3 := [][]uint64{
-		[]uint64{5},
+		[]uint64{4, 5},
 		[]uint64{5},
 		[]uint64{},
 		[]uint64{5},
+	}
+
+	expectedRes4 := [][]uint64{
+		[]uint64{1, 2, 3},
+		[]uint64{1, 2},
+		[]uint64{3},
+		[]uint64{},
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
@@ -239,9 +246,13 @@ func TestBloomfilterIndexer(t *testing.T) {
 			require.NoError(err)
 			require.Equal(expectedRes2[i], res)
 
-			res2, err := indexer.FilterBlocksInRange(lf, rangeBloomfilterSize, rangeBloomfilterSize+1)
+			res2, err := indexer.FilterBlocksInRange(lf, rangeBloomfilterSize-1, rangeBloomfilterSize+1)
 			require.NoError(err)
 			require.Equal(expectedRes3[i], res2)
+
+			res3, err := indexer.FilterBlocksInRange(lf, uint64(0), rangeBloomfilterSize-1)
+			require.NoError(err)
+			require.Equal(expectedRes4[i], res3)
 		}
 	}
 
