@@ -76,7 +76,7 @@ type rewardPoolMessage struct {
 
 func (m *rewardPoolMessage) String() string {
 	if output.Format == "" {
-		message := fmt.Sprintf("TotalUnclaimed: %s IOTX   TotalAvailable: %s IOTX	TotalBalance: %s IOTX",
+		message := fmt.Sprintf("Total Unclaimed:\t %s IOTX\nTotal Available:\t %s IOTX\nTotal Balance:\t\t %s IOTX",
 			m.TotalUnclaimed, m.TotalAvailable, m.TotalBalance)
 		return message
 	}

@@ -30,7 +30,6 @@ var (
 	testV1  = [3][]byte{[]byte("value_1"), []byte("value_2"), []byte("value_3")}
 	testK2  = [3][]byte{[]byte("key_4"), []byte("key_5"), []byte("key_6")}
 	testV2  = [3][]byte{[]byte("value_4"), []byte("value_5"), []byte("value_6")}
-	cfg     = config.Default.DB
 )
 
 func TestKVStorePutGet(t *testing.T) {
@@ -56,19 +55,22 @@ func TestKVStorePutGet(t *testing.T) {
 		assert.Nil(value)
 	}
 
-	t.Run("In-memory KV Store", func(t *testing.T) {
-		testKVStorePutGet(NewMemKVStore(), t)
-	})
-
 	path := "test-kv-store.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testKVStorePutGet(NewBoltDB(cfg), t)
-	})
+
+	for _, v := range []KVStore{
+		NewMemKVStore(),
+		NewBoltDB(cfg),
+	} {
+		t.Run("test put get", func(t *testing.T) {
+			testKVStorePutGet(v, t)
+		})
+	}
 
 }
 
@@ -97,7 +99,7 @@ func TestBatchRollback(t *testing.T) {
 		assert.Equal(testV1[2], value)
 
 		testV := [3][]byte{[]byte("value1.1"), []byte("value2.1"), []byte("value3.1")}
-		kvboltDB := kvStore.(*boltDB)
+		kvboltDB := kvStore.(*BoltDB)
 		err = kvboltDB.batchPutForceFail(bucket1, testK1[:], testV[:])
 		assert.NotNil(err)
 
@@ -115,10 +117,12 @@ func TestBatchRollback(t *testing.T) {
 	path := "test-batch-rollback.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+
+	t.Run("test rollback", func(t *testing.T) {
 		testBatchRollback(NewBoltDB(cfg), t)
 	})
 
@@ -176,6 +180,7 @@ func TestDBBatch(t *testing.T) {
 		require.NoError(err)
 		require.Equal(testV2[0], value)
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[0])
 		require.NoError(err)
@@ -191,6 +196,7 @@ func TestDBBatch(t *testing.T) {
 
 		batch.Put(bucket1, testK1[0], testV1[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		require.Equal(0, batch.Size())
 
@@ -203,9 +209,11 @@ func TestDBBatch(t *testing.T) {
 		require.Equal(testV1[1], value)
 
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		batch.Put(bucket1, testK1[2], testV1[2], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)
@@ -219,6 +227,7 @@ func TestDBBatch(t *testing.T) {
 		batch.Put(bucket1, testK1[2], testV1[2], "")
 		batch.Delete(bucket2, testK2[1], "")
 		require.NoError(kvStore.WriteBatch(batch))
+		batch.Clear()
 
 		value, err = kvStore.Get(bucket1, testK1[2])
 		require.NoError(err)
@@ -231,13 +240,19 @@ func TestDBBatch(t *testing.T) {
 	path := "test-batch-commit.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testBatchRollback(NewBoltDB(cfg), t)
-	})
 
+	for _, v := range []KVStore{
+		NewMemKVStore(),
+		NewBoltDB(cfg),
+	} {
+		t.Run("test batch", func(t *testing.T) {
+			testBatchRollback(v, t)
+		})
+	}
 }
 
 func TestCacheKV(t *testing.T) {
@@ -275,21 +290,22 @@ func TestCacheKV(t *testing.T) {
 		require.NoError(kv.WriteBatch(cb))
 	}
 
-	t.Run("In-memory KV Store", func(t *testing.T) {
-		kv := NewMemKVStore()
-		testFunc(kv, t)
-	})
-
 	path := "test-cache-kv.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testFunc(NewBoltDB(cfg), t)
-	})
 
+	for _, v := range []KVStore{
+		NewMemKVStore(),
+		NewBoltDB(cfg),
+	} {
+		t.Run("test cache kv", func(t *testing.T) {
+			testFunc(v, t)
+		})
+	}
 }
 
 func TestDeleteBucket(t *testing.T) {
@@ -302,15 +318,18 @@ func TestDeleteBucket(t *testing.T) {
 		}()
 
 		require.NoError(kv.Put(bucket1, testK1[0], testV1[0]))
-		v, _ := kv.Get(bucket1, testK1[0])
+		v, err := kv.Get(bucket1, testK1[0])
+		require.NoError(err)
 		require.Equal(testV1[0], v)
 
 		require.NoError(kv.Put(bucket2, testK1[0], testV1[0]))
-		v, _ = kv.Get(bucket2, testK1[0])
+		v, err = kv.Get(bucket2, testK1[0])
+		require.NoError(err)
 		require.Equal(testV1[0], v)
 
 		require.NoError(kv.Delete(bucket1, nil))
-		v, _ = kv.Get(bucket1, testK1[0])
+		v, err = kv.Get(bucket1, testK1[0])
+		require.Equal(ErrNotExist, errors.Cause(err))
 		require.Equal([]uint8([]byte(nil)), v)
 
 		v, _ = kv.Get(bucket2, testK1[0])
@@ -320,10 +339,12 @@ func TestDeleteBucket(t *testing.T) {
 	path := "test-delete.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(t, err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+
+	t.Run("test delete bucket", func(t *testing.T) {
 		testFunc(NewBoltDB(cfg), t)
 	})
 }
@@ -420,10 +441,12 @@ func TestFilter(t *testing.T) {
 	path := "test-filter.bolt"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
+	testutil.CleanupPath(t, testPath)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	t.Run("Bolt DB", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
+
+	t.Run("test filter", func(t *testing.T) {
 		testFunc(NewBoltDB(cfg), t)
 	})
 }

@@ -25,8 +25,8 @@ var (
 		config.Chinese: "function (合约地址|别名) ABI文件路径 函数名 [IOTX数量] [--with-arguments 调用输入]",
 	}
 	invokeFunctionCmdShorts = map[config.Language]string{
-		config.English: "invoke smart contract on IoTex blockchain with function name",
-		config.Chinese: "invoke 通过 函数名方式 调用IoTex区块链上的智能合约",
+		config.English: "invoke smart contract on IoTeX blockchain with function name",
+		config.Chinese: "invoke 通过 函数名方式 调用IoTeX区块链上的智能合约",
 	}
 )
 

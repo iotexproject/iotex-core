@@ -30,7 +30,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/server/itx"
@@ -175,7 +174,7 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(copyDB(testDBPath, testDBPath2))
 	require.NoError(copyDB(indexDBPath, indexDBPath2))
 	registry := protocol.NewRegistry()
-	sf2, err := factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+	sf2, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
 	require.NoError(err)
 	ap2, err := actpool.NewActPool(sf2, cfg.ActPool)
 	require.NoError(err)
@@ -549,7 +548,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 
 	// Recover to height 3 from empty state DB
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	dao = blockdao.NewBlockDAO(nil, cfg.DB)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,
@@ -572,7 +572,8 @@ func TestStartExistingBlockchain(t *testing.T) {
 	// Recover to height 2 from an existing state DB with Height 3
 	require.NoError(svr.Stop(ctx))
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
-	dao = blockdao.NewBlockDAO(db.NewBoltDB(cfg.DB), nil, cfg.Chain.CompressBlock, cfg.DB)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	dao = blockdao.NewBlockDAO(nil, cfg.DB)
 	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
 		protocol.BlockchainCtx{
 			Genesis: cfg.Genesis,

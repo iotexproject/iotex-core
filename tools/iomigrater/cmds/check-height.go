@@ -8,7 +8,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
@@ -54,12 +53,8 @@ func checkDbFileHeight(filePath string) (uint64, error) {
 	}
 
 	cfg.DB.DbPath = filePath
-	blockDao := blockdao.NewBlockDAO(
-		db.NewBoltDB(cfg.DB),
-		nil,
-		cfg.Chain.CompressBlock,
-		cfg.DB,
-	)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	blockDao := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	// Load height value.
 	ctx := context.Background()

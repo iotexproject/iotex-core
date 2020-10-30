@@ -65,7 +65,7 @@ var (
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
 	bytecodeFlag = flag.NewStringVarP("bytecode", "b", "", "set the byte code")
-	yesFlag      = flag.BoolVarP("assume-yes", "y", false, " answer yes for all confirmations")
+	yesFlag      = flag.BoolVarP("assume-yes", "y", false, "answer yes for all confirmations")
 	passwordFlag = flag.NewStringVarP("password", "P", "", "input password for account")
 )
 

@@ -15,9 +15,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/cmd/alias"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
+	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
@@ -97,6 +99,7 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	if err != nil {
 		return nil, output.NewError(0, "failed to read contract", err)
 	}
+
 	var decimal int64
 	if result != "" {
 		decimal, err = strconv.ParseInt(result, 16, 8)
@@ -106,16 +109,6 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	} else {
 		decimal = int64(0)
 	}
-	amountFloat, ok := (*big.Float).SetString(new(big.Float), amount)
-	if !ok {
-		return nil, output.NewError(output.ConvertError, "failed to convert string into bit float", err)
-	}
-	amountResultFloat := amountFloat.Mul(amountFloat, new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10),
-		big.NewInt(decimal), nil)))
-	if !amountResultFloat.IsInt() {
-		return nil, output.NewError(output.ValidationError, "unappropriated amount", nil)
-	}
-	var amountResultInt *big.Int
-	amountResultInt, _ = amountResultFloat.Int(amountResultInt)
-	return amountResultInt, nil
+
+	return util.StringToRau(amount, int(decimal))
 }

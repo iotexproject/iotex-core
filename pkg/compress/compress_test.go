@@ -7,17 +7,42 @@
 package compress
 
 import (
+	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestCompression(t *testing.T) {
-	data := []byte("11111111111111111111111111111111111111110000000000000000000000000000000000000000")
-	cd, err := Compress(data)
-	require.NoError(t, err)
-	dcd, err := Decompress(cd)
-	require.NoError(t, err)
-	assert.Equal(t, data, dcd)
+func TestCompressDataBytes(t *testing.T) {
+	r := require.New(t)
+
+	// cannot compress nil nor decompress empty byte slice
+	_, err := Compress(nil, "")
+	r.Equal(ErrInputEmpty, err)
+	_, err = Decompress([]byte{}, Gzip)
+	r.Error(err)
+	_, err = Decompress([]byte{}, Snappy)
+	r.Error(err)
+	r.Panics(func() { Compress([]byte{}, "invalid") })
+	r.Panics(func() { Decompress([]byte{}, "invalid") })
+
+	zero := [32]byte{}
+	blkHash, _ := hex.DecodeString("22cd0c2d1f7d65298cec7599e2d0e3c650dd8b4ed2b1c816d909026c60d785b2")
+	compressTests := [][]byte{
+		[]byte{},
+		[]byte{1, 2, 3},
+		zero[:],
+		blkHash,
+		[]byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ`1234567890-=~!@#$%^&*()_+å∫ç∂´´©˙ˆˆ˚¬µ˜˜πœ®ß†¨¨∑≈¥Ω[]',./{}|:<>?"),
+	}
+	for _, ser := range compressTests {
+		for _, compress := range []string{Gzip, Snappy} {
+			v, err := Compress(ser, compress)
+			r.NoError(err)
+
+			ser1, err := Decompress(v, compress)
+			r.NoError(err)
+			r.Equal(ser, ser1)
+		}
+	}
 }

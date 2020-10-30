@@ -119,7 +119,11 @@ func New(
 		}
 	} else {
 		if cfg.Chain.EnableTrielessStateDB {
-			sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			if cfg.Chain.EnableStateDBCaching {
+				sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			} else {
+				sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			}
 		} else {
 			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
 		}
@@ -183,15 +187,14 @@ func New(
 	}
 
 	// create BlockDAO
-	var kvStore db.KVStore
+	var dao blockdao.BlockDAO
 	if ops.isTesting {
-		kvStore = db.NewMemKVStore()
+		dao = blockdao.NewBlockDAOInMemForTest(indexers)
 	} else {
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath
-		kvStore = db.NewBoltDB(cfg.DB)
+		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+		dao = blockdao.NewBlockDAO(indexers, cfg.DB)
 	}
-	var dao blockdao.BlockDAO
-	dao = blockdao.NewBlockDAO(kvStore, indexers, cfg.Chain.CompressBlock, cfg.DB)
 
 	// Create ActPool
 	actOpts := make([]actpool.Option, 0)

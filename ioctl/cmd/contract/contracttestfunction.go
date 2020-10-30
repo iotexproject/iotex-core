@@ -27,8 +27,8 @@ var (
 		config.Chinese: "function (合约地址|别名) ABI文件路径 函数名 [IOTX数量] [--with-arguments 调用输入]",
 	}
 	testFunctionCmdShorts = map[config.Language]string{
-		config.English: "test smart contract on IoTex blockchain with function name",
-		config.Chinese: "调用函数测试IoTex区块链上的智能合约",
+		config.English: "test smart contract on IoTeX blockchain with function name",
+		config.Chinese: "调用函数测试IoTeX区块链上的智能合约",
 	}
 )
 

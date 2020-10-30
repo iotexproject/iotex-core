@@ -59,8 +59,7 @@ func TestIndexBuilder(t *testing.T) {
 		},
 	}
 
-	testIndexer := func(kvStore db.KVStore, indexer Indexer, t *testing.T) {
-		dao := blockdao.NewBlockDAO(kvStore, nil, false, config.Default.DB)
+	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
 		ctx := protocol.WithBlockchainCtx(
 			context.Background(),
 			protocol.BlockchainCtx{
@@ -152,28 +151,44 @@ func TestIndexBuilder(t *testing.T) {
 		}
 	}
 
-	t.Run("In-memory KV indexer", func(t *testing.T) {
-		indexer, err := NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
-		require.NoError(err)
-		testIndexer(db.NewMemKVStore(), indexer, t)
-	})
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
 	indexPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	cfg := config.Default.DB
-	t.Run("Bolt DB indexer", func(t *testing.T) {
+	testutil.CleanupPath(t, testPath)
+	testutil.CleanupPath(t, indexPath)
+	defer func() {
 		testutil.CleanupPath(t, testPath)
 		testutil.CleanupPath(t, indexPath)
-		defer func() {
-			testutil.CleanupPath(t, testPath)
-			testutil.CleanupPath(t, indexPath)
-		}()
-		cfg.DbPath = indexPath
-		indexer, err := NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
-		require.NoError(err)
-		cfg.DbPath = testPath
-		testIndexer(db.NewBoltDB(cfg), indexer, t)
-	})
+	}()
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+
+	for _, v := range []struct {
+		dao   blockdao.BlockDAO
+		inMem bool
+	}{
+		{
+			blockdao.NewBlockDAOInMemForTest(nil), true,
+		},
+		{
+			blockdao.NewBlockDAO(nil, cfg), false,
+		},
+	} {
+		t.Run("test indexbuilder", func(t *testing.T) {
+			var (
+				indexer Indexer
+				err     error
+			)
+			if v.inMem {
+				indexer, err = NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
+			} else {
+				cfg.DbPath = indexPath
+				indexer, err = NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+			}
+			require.NoError(err)
+			testIndexer(v.dao, indexer, t)
+		})
+	}
 }

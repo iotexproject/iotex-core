@@ -10,7 +10,6 @@ import (
 	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
-	db "github.com/iotexproject/iotex-core/db"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	reflect "reflect"
 )
@@ -64,6 +63,21 @@ func (m *MockBlockDAO) Stop(ctx context.Context) error {
 func (mr *MockBlockDAOMockRecorder) Stop(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockBlockDAO)(nil).Stop), ctx)
+}
+
+// Height mocks base method
+func (m *MockBlockDAO) Height() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Height")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Height indicates an expected call of Height
+func (mr *MockBlockDAOMockRecorder) Height() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockBlockDAO)(nil).Height))
 }
 
 // GetBlockHash mocks base method
@@ -126,96 +140,6 @@ func (mr *MockBlockDAOMockRecorder) GetBlockByHeight(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBlockByHeight", reflect.TypeOf((*MockBlockDAO)(nil).GetBlockByHeight), arg0)
 }
 
-// Height mocks base method
-func (m *MockBlockDAO) Height() (uint64, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Height")
-	ret0, _ := ret[0].(uint64)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Height indicates an expected call of Height
-func (mr *MockBlockDAOMockRecorder) Height() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Height", reflect.TypeOf((*MockBlockDAO)(nil).Height))
-}
-
-// Header mocks base method
-func (m *MockBlockDAO) Header(arg0 hash.Hash256) (*block.Header, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Header", arg0)
-	ret0, _ := ret[0].(*block.Header)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Header indicates an expected call of Header
-func (mr *MockBlockDAOMockRecorder) Header(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Header", reflect.TypeOf((*MockBlockDAO)(nil).Header), arg0)
-}
-
-// Body mocks base method
-func (m *MockBlockDAO) Body(arg0 hash.Hash256) (*block.Body, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Body", arg0)
-	ret0, _ := ret[0].(*block.Body)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Body indicates an expected call of Body
-func (mr *MockBlockDAOMockRecorder) Body(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Body", reflect.TypeOf((*MockBlockDAO)(nil).Body), arg0)
-}
-
-// Footer mocks base method
-func (m *MockBlockDAO) Footer(arg0 hash.Hash256) (*block.Footer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Footer", arg0)
-	ret0, _ := ret[0].(*block.Footer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Footer indicates an expected call of Footer
-func (mr *MockBlockDAOMockRecorder) Footer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Footer", reflect.TypeOf((*MockBlockDAO)(nil).Footer), arg0)
-}
-
-// GetActionByActionHash mocks base method
-func (m *MockBlockDAO) GetActionByActionHash(arg0 hash.Hash256, arg1 uint64) (action.SealedEnvelope, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetActionByActionHash", arg0, arg1)
-	ret0, _ := ret[0].(action.SealedEnvelope)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetActionByActionHash indicates an expected call of GetActionByActionHash
-func (mr *MockBlockDAOMockRecorder) GetActionByActionHash(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByActionHash", reflect.TypeOf((*MockBlockDAO)(nil).GetActionByActionHash), arg0, arg1)
-}
-
-// GetReceiptByActionHash mocks base method
-func (m *MockBlockDAO) GetReceiptByActionHash(arg0 hash.Hash256, arg1 uint64) (*action.Receipt, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetReceiptByActionHash", arg0, arg1)
-	ret0, _ := ret[0].(*action.Receipt)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetReceiptByActionHash indicates an expected call of GetReceiptByActionHash
-func (mr *MockBlockDAOMockRecorder) GetReceiptByActionHash(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionHash", reflect.TypeOf((*MockBlockDAO)(nil).GetReceiptByActionHash), arg0, arg1)
-}
-
 // GetReceipts mocks base method
 func (m *MockBlockDAO) GetReceipts(arg0 uint64) ([]*action.Receipt, error) {
 	m.ctrl.T.Helper()
@@ -229,6 +153,35 @@ func (m *MockBlockDAO) GetReceipts(arg0 uint64) ([]*action.Receipt, error) {
 func (mr *MockBlockDAOMockRecorder) GetReceipts(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceipts", reflect.TypeOf((*MockBlockDAO)(nil).GetReceipts), arg0)
+}
+
+// ContainsTransactionLog mocks base method
+func (m *MockBlockDAO) ContainsTransactionLog() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContainsTransactionLog")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ContainsTransactionLog indicates an expected call of ContainsTransactionLog
+func (mr *MockBlockDAOMockRecorder) ContainsTransactionLog() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsTransactionLog))
+}
+
+// TransactionLogs mocks base method
+func (m *MockBlockDAO) TransactionLogs(arg0 uint64) (*iotextypes.TransactionLogs, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransactionLogs", arg0)
+	ret0, _ := ret[0].(*iotextypes.TransactionLogs)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TransactionLogs indicates an expected call of TransactionLogs
+func (mr *MockBlockDAOMockRecorder) TransactionLogs(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionLogs", reflect.TypeOf((*MockBlockDAO)(nil).TransactionLogs), arg0)
 }
 
 // PutBlock mocks base method
@@ -245,32 +198,33 @@ func (mr *MockBlockDAOMockRecorder) PutBlock(arg0, arg1 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PutBlock", reflect.TypeOf((*MockBlockDAO)(nil).PutBlock), arg0, arg1)
 }
 
-// DeleteBlockToTarget mocks base method
-func (m *MockBlockDAO) DeleteBlockToTarget(arg0 uint64) error {
+// DeleteTipBlock mocks base method
+func (m *MockBlockDAO) DeleteTipBlock() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBlockToTarget", arg0)
+	ret := m.ctrl.Call(m, "DeleteTipBlock")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteBlockToTarget indicates an expected call of DeleteBlockToTarget
-func (mr *MockBlockDAOMockRecorder) DeleteBlockToTarget(arg0 interface{}) *gomock.Call {
+// DeleteTipBlock indicates an expected call of DeleteTipBlock
+func (mr *MockBlockDAOMockRecorder) DeleteTipBlock() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBlockToTarget", reflect.TypeOf((*MockBlockDAO)(nil).DeleteBlockToTarget), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteTipBlock", reflect.TypeOf((*MockBlockDAO)(nil).DeleteTipBlock))
 }
 
-// KVStore mocks base method
-func (m *MockBlockDAO) KVStore() db.KVStore {
+// Header mocks base method
+func (m *MockBlockDAO) Header(arg0 hash.Hash256) (*block.Header, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KVStore")
-	ret0, _ := ret[0].(db.KVStore)
-	return ret0
+	ret := m.ctrl.Call(m, "Header", arg0)
+	ret0, _ := ret[0].(*block.Header)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// KVStore indicates an expected call of KVStore
-func (mr *MockBlockDAOMockRecorder) KVStore() *gomock.Call {
+// Header indicates an expected call of Header
+func (mr *MockBlockDAOMockRecorder) Header(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KVStore", reflect.TypeOf((*MockBlockDAO)(nil).KVStore))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Header", reflect.TypeOf((*MockBlockDAO)(nil).Header), arg0)
 }
 
 // HeaderByHeight mocks base method
@@ -303,33 +257,48 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FooterByHeight", reflect.TypeOf((*MockBlockDAO)(nil).FooterByHeight), arg0)
 }
 
-// ContainsTransactionLog mocks base method
-func (m *MockBlockDAO) ContainsTransactionLog() bool {
+// GetActionByActionHash mocks base method
+func (m *MockBlockDAO) GetActionByActionHash(arg0 hash.Hash256, arg1 uint64) (action.SealedEnvelope, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ContainsTransactionLog")
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// ContainsTransactionLog indicates an expected call of ContainsTransactionLog
-func (mr *MockBlockDAOMockRecorder) ContainsTransactionLog() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainsTransactionLog", reflect.TypeOf((*MockBlockDAO)(nil).ContainsTransactionLog))
-}
-
-// TransactionLogs mocks base method
-func (m *MockBlockDAO) TransactionLogs(arg0 uint64) (*iotextypes.TransactionLogs, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TransactionLogs", arg0)
-	ret0, _ := ret[0].(*iotextypes.TransactionLogs)
+	ret := m.ctrl.Call(m, "GetActionByActionHash", arg0, arg1)
+	ret0, _ := ret[0].(action.SealedEnvelope)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// TransactionLogs indicates an expected call of TransactionLogs
-func (mr *MockBlockDAOMockRecorder) TransactionLogs(arg0 interface{}) *gomock.Call {
+// GetActionByActionHash indicates an expected call of GetActionByActionHash
+func (mr *MockBlockDAOMockRecorder) GetActionByActionHash(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransactionLogs", reflect.TypeOf((*MockBlockDAO)(nil).TransactionLogs), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActionByActionHash", reflect.TypeOf((*MockBlockDAO)(nil).GetActionByActionHash), arg0, arg1)
+}
+
+// GetReceiptByActionHash mocks base method
+func (m *MockBlockDAO) GetReceiptByActionHash(arg0 hash.Hash256, arg1 uint64) (*action.Receipt, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetReceiptByActionHash", arg0, arg1)
+	ret0, _ := ret[0].(*action.Receipt)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetReceiptByActionHash indicates an expected call of GetReceiptByActionHash
+func (mr *MockBlockDAOMockRecorder) GetReceiptByActionHash(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetReceiptByActionHash", reflect.TypeOf((*MockBlockDAO)(nil).GetReceiptByActionHash), arg0, arg1)
+}
+
+// DeleteBlockToTarget mocks base method
+func (m *MockBlockDAO) DeleteBlockToTarget(arg0 uint64) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteBlockToTarget", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteBlockToTarget indicates an expected call of DeleteBlockToTarget
+func (mr *MockBlockDAOMockRecorder) DeleteBlockToTarget(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBlockToTarget", reflect.TypeOf((*MockBlockDAO)(nil).DeleteBlockToTarget), arg0)
 }
 
 // MockBlockIndexer is a mock of BlockIndexer interface

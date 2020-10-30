@@ -118,6 +118,7 @@ var (
 				GravityChainAPIs: []string{},
 			},
 			EnableTrielessStateDB:         true,
+			EnableStateDBCaching:          false,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
@@ -126,6 +127,7 @@ var (
 			AllowedBlockGasResidue:        10000,
 			MaxCacheSize:                  0,
 			PollInitialCandidatesInterval: 10 * time.Second,
+			StateDBCacheSize:              1000,
 			WorkingSetCacheSize:           20,
 			EnableArchiveMode:             false,
 		},
@@ -185,8 +187,11 @@ var (
 			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
 		DB: DB{
-			NumRetries:   3,
-			MaxCacheSize: 64,
+			NumRetries:          3,
+			MaxCacheSize:        64,
+			BlockStoreBatchSize: 16,
+			Compressor:          "Snappy",
+			CompressLegacy:      false,
 			SQLITE3: SQLITE3{
 				SQLite3File: "./explorer.db",
 			},
@@ -244,6 +249,8 @@ type (
 		Committee            committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
+		// EnableStateDBCaching enables cachedStateDBOption
+		EnableStateDBCaching bool `yaml:"enableStateDBCaching"`
 		// EnableArchiveMode is only meaningful when EnableTrielessStateDB is false
 		EnableArchiveMode bool `yaml:"enableArchiveMode"`
 		// EnableAsyncIndexWrite enables writing the block actions' and receipts' index asynchronously
@@ -254,7 +261,7 @@ type (
 		EnableStakingProtocol bool `yaml:"enableStakingProtocol"`
 		// EnableStakingIndexer enables staking indexer
 		EnableStakingIndexer bool `yaml:"enableStakingIndexer"`
-		// CompressBlock enables gzip compression on block data
+		// deprecated by DB.CompressBlock
 		CompressBlock bool `yaml:"compressBlock"`
 		// AllowedBlockGasResidue is the amount of gas remained when block producer could stop processing more actions
 		AllowedBlockGasResidue uint64 `yaml:"allowedBlockGasResidue"`
@@ -262,6 +269,8 @@ type (
 		MaxCacheSize int `yaml:"maxCacheSize"`
 		// PollInitialCandidatesInterval is the config for committee init db
 		PollInitialCandidatesInterval time.Duration `yaml:"pollInitialCandidatesInterval"`
+		// StateDBCacheSize is the max size of statedb LRU cache
+		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
 	}
@@ -362,6 +371,14 @@ type (
 		NumRetries uint8 `yaml:"numRetries"`
 		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
 		MaxCacheSize int `yaml:"maxCacheSize"`
+		// BlockStoreBatchSize is the number of blocks to be stored together as a unit (to get better compression)
+		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
+		// V2BlocksToSplitDB is the accumulated number of blocks to split a new file after v1.1.2
+		V2BlocksToSplitDB uint64 `yaml:"v2BlocksToSplitDB"`
+		// Compressor is the compression used on block data, used by new DB file after v1.1.2
+		Compressor string `yaml:"compressor"`
+		// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
+		CompressLegacy bool `yaml:"compressLegacy"`
 		// RDS is the config for rds
 		RDS RDS `yaml:"RDS"`
 		// SQLite3 is the config for SQLITE3

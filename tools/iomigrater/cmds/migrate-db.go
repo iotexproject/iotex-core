@@ -9,7 +9,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/tools/iomigrater/common"
 )
 
@@ -114,20 +113,11 @@ func migrateDbFile() error {
 	}
 
 	cfg.DB.DbPath = oldFile
-	oldDAO := blockdao.NewBlockDAO(
-		db.NewBoltDB(cfg.DB),
-		nil,
-		cfg.Chain.CompressBlock,
-		cfg.DB,
-	)
+	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+	oldDAO := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	cfg.DB.DbPath = newFile
-	newDAO := blockdao.NewBlockDAO(
-		db.NewBoltDB(cfg.DB),
-		nil,
-		cfg.Chain.CompressBlock,
-		cfg.DB,
-	)
+	newDAO := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	ctx := context.Background()
 	if err := oldDAO.Start(ctx); err != nil {

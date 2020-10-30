@@ -66,7 +66,6 @@ type (
 		genesisHash hash.Hash256
 		kvStore     db.KVStoreWithRange
 		batch       batch.KVStoreBatch
-		cBatch      batch.KVStoreBatch
 		dirtyAddr   addrIndex
 		tbk         db.CountingIndex
 		tac         db.CountingIndex
@@ -85,7 +84,6 @@ func NewIndexer(kv db.KVStore, genesisHash hash.Hash256) (Indexer, error) {
 	x := blockIndexer{
 		kvStore:     kvRange,
 		batch:       batch.NewBatch(),
-		cBatch:      batch.NewBatch(),
 		dirtyAddr:   make(addrIndex),
 		genesisHash: genesisHash,
 	}
@@ -174,7 +172,11 @@ func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
 	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
 		return err
 	}
-	return x.kvStore.WriteBatch(x.batch)
+	if err := x.kvStore.WriteBatch(x.batch); err != nil {
+		return err
+	}
+	x.batch.Clear()
+	return nil
 }
 
 // Height return the blockchain height
@@ -305,7 +307,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 		hash:      hash[:],
 		numAction: uint32(len(blk.Actions)),
 		tsfAmount: blk.CalculateTransferAmount()}
-	if err := x.tbk.UseBatch(x.cBatch); err != nil {
+	if err := x.tbk.UseBatch(x.batch); err != nil {
 		return err
 	}
 	if err := x.tbk.Add(bd.Serialize(), true); err != nil {
@@ -315,7 +317,7 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	// store height of the block, so getReceiptByActionHash() can use height to directly pull receipts
 	ad := (&actionIndex{
 		blkHeight: blk.Height()}).Serialize()
-	if err := x.tac.UseBatch(x.cBatch); err != nil {
+	if err := x.tac.UseBatch(x.batch); err != nil {
 		return err
 	}
 	// index actions in the block
@@ -338,7 +340,7 @@ func (x *blockIndexer) commit() error {
 	var commitErr error
 	for k, v := range x.dirtyAddr {
 		if commitErr == nil {
-			if err := v.AddTotalSize(); err != nil {
+			if err := v.Finalize(); err != nil {
 				commitErr = err
 			}
 		}
@@ -348,16 +350,17 @@ func (x *blockIndexer) commit() error {
 		return commitErr
 	}
 	// total block and total action index
-	if err := x.tbk.AddTotalSize(); err != nil {
+	if err := x.tbk.Finalize(); err != nil {
 		return err
 	}
-	if err := x.tac.AddTotalSize(); err != nil {
+	if err := x.tac.Finalize(); err != nil {
 		return err
 	}
-	if err := db.CommitWithFillPercent(x.kvStore, x.cBatch, 1.0); err != nil {
+	if err := x.kvStore.WriteBatch(x.batch); err != nil {
 		return err
 	}
-	return x.kvStore.WriteBatch(x.batch)
+	x.batch.Clear()
+	return nil
 }
 
 // getIndexerForAddr returns the counting indexer for an address
@@ -375,7 +378,7 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 		if err != nil {
 			return nil, err
 		}
-		if err := indexer.UseBatch(x.cBatch); err != nil {
+		if err := indexer.UseBatch(x.batch); err != nil {
 			return nil, err
 		}
 		x.dirtyAddr[address] = indexer

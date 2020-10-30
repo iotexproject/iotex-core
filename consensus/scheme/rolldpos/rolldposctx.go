@@ -583,10 +583,19 @@ func (ctx *rollDPoSCtx) Active() bool {
 ///////////////////////////////////////////
 
 func (ctx *rollDPoSCtx) mintNewBlock() (*EndorsedConsensusMessage, error) {
-	blk, err := ctx.chain.MintNewBlock(ctx.round.StartTime())
-	if err != nil {
-		return nil, err
+	var err error
+	blk := ctx.round.CachedMintedBlock()
+	if blk == nil {
+		// in case that there is no cached block in eManagerDB, it mints a new block.
+		blk, err = ctx.chain.MintNewBlock(ctx.round.StartTime())
+		if err != nil {
+			return nil, err
+		}
+		if err = ctx.round.SetMintedBlock(blk); err != nil {
+			return nil, err
+		}
 	}
+
 	var proofOfUnlock []*endorsement.Endorsement
 	if ctx.round.IsUnlocked() {
 		proofOfUnlock = ctx.round.ProofOfLock()

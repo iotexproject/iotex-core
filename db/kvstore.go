@@ -44,13 +44,6 @@ type (
 		Range(string, []byte, uint64) ([][]byte, error)
 	}
 
-	// KVStoreWithBucketFillPercent is KVStore with option to set bucket fill percent
-	KVStoreWithBucketFillPercent interface {
-		KVStore
-		// WriteBatchWithFillPercent
-		WriteBatchWithFillPercent(batch.KVStoreBatch, float64) error
-	}
-
 	// KVStoreForRangeIndex is KVStore for range index
 	KVStoreForRangeIndex interface {
 		KVStore

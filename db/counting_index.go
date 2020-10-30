@@ -43,8 +43,8 @@ type (
 		Commit() error
 		// UseBatch
 		UseBatch(batch.KVStoreBatch) error
-		// AddTotalSize
-		AddTotalSize() error
+		// Finalize
+		Finalize() error
 	}
 
 	// countingIndex is CountingIndex implementation based on KVStore
@@ -121,7 +121,8 @@ func (c *countingIndex) Add(value []byte, inBatch bool) error {
 	b := batch.NewBatch()
 	b.Put(c.bucket, byteutil.Uint64ToBytesBigEndian(c.size), value, "failed to add %d-th item", c.size+1)
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size+1), "failed to update size = %d", c.size+1)
-	if err := CommitWithFillPercent(c.kvStore, b, 1.0); err != nil {
+	b.AddFillPercent(c.bucket, 1.0)
+	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
 	c.size++
@@ -168,7 +169,8 @@ func (c *countingIndex) Revert(count uint64) error {
 		b.Delete(c.bucket, byteutil.Uint64ToBytesBigEndian(start+i), "failed to delete %d-th item", start+i)
 	}
 	b.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(start), "failed to update size = %d", start)
-	if err := CommitWithFillPercent(c.kvStore, b, 1.0); err != nil {
+	b.AddFillPercent(c.bucket, 1.0)
+	if err := c.kvStore.WriteBatch(b); err != nil {
 		return err
 	}
 	c.size = start
@@ -188,7 +190,8 @@ func (c *countingIndex) Commit() error {
 		return nil
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
-	if err := CommitWithFillPercent(c.kvStore, c.batch, 1.0); err != nil {
+	c.batch.AddFillPercent(c.bucket, 1.0)
+	if err := c.kvStore.WriteBatch(c.batch); err != nil {
 		return err
 	}
 	c.batch = nil
@@ -204,12 +207,13 @@ func (c *countingIndex) UseBatch(b batch.KVStoreBatch) error {
 	return nil
 }
 
-// AddTotalSize updates the total size before committing the (usually common) batch
-func (c *countingIndex) AddTotalSize() error {
+// Finalize updates the total size before committing the (usually common) batch
+func (c *countingIndex) Finalize() error {
 	if c.batch == nil {
 		return ErrInvalid
 	}
 	c.batch.Put(c.bucket, CountKey, byteutil.Uint64ToBytesBigEndian(c.size), "failed to update size = %d", c.size)
+	c.batch.AddFillPercent(c.bucket, 1.0)
 	c.batch = nil
 	return nil
 }

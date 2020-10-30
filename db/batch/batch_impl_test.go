@@ -27,22 +27,32 @@ var (
 )
 
 func TestBaseKVStoreBatch(t *testing.T) {
+	require := require.New(t)
+
 	b := NewBatch()
-	require.Equal(t, 0, b.Size())
+	require.Equal(0, b.Size())
 	b.Put("ns", []byte{}, []byte{}, "")
-	require.Equal(t, 1, b.Size())
+	require.Equal(1, b.Size())
 	_, err := b.Entry(1)
-	require.Error(t, err)
+	require.Error(err)
 	b.Delete("ns", []byte{}, "")
-	require.Equal(t, 2, b.Size())
+	require.Equal(2, b.Size())
 	wi, err := b.Entry(1)
-	require.NoError(t, err)
-	require.Equal(t, Delete, wi.WriteType())
-	require.True(t, bytes.Equal([]byte{0, 110, 115, 1, 110, 115}, b.SerializeQueue(nil, nil)))
-	require.True(t, bytes.Equal([]byte{}, b.SerializeQueue(nil, func(wi *WriteInfo) bool {
+	require.NoError(err)
+	require.Equal(Delete, wi.WriteType())
+	b.AddFillPercent("test", 0.5)
+	p, ok := b.CheckFillPercent("ns")
+	require.False(ok)
+	p, ok = b.CheckFillPercent("test")
+	require.True(ok)
+	require.Equal(0.5, p)
+
+	// test serialize/translate
+	require.True(bytes.Equal([]byte{0, 110, 115, 1, 110, 115}, b.SerializeQueue(nil, nil)))
+	require.True(bytes.Equal([]byte{}, b.SerializeQueue(nil, func(wi *WriteInfo) bool {
 		return wi.Namespace() == "ns"
 	})))
-	require.True(t, bytes.Equal([]byte{110, 115, 110, 115}, b.SerializeQueue(func(wi *WriteInfo) []byte {
+	require.True(bytes.Equal([]byte{110, 115, 110, 115}, b.SerializeQueue(func(wi *WriteInfo) []byte {
 		return wi.SerializeWithoutWriteType()
 	}, nil)))
 	newb := b.Translate(func(wi *WriteInfo) *WriteInfo {
@@ -59,11 +69,11 @@ func TestBaseKVStoreBatch(t *testing.T) {
 		return wi
 	})
 	newEntry1, err := newb.Entry(1)
-	require.NoError(t, err)
-	require.Equal(t, "to_delete_ns", newEntry1.Namespace())
-	require.Equal(t, Put, newEntry1.WriteType())
+	require.NoError(err)
+	require.Equal("to_delete_ns", newEntry1.Namespace())
+	require.Equal(Put, newEntry1.WriteType())
 	b.Clear()
-	require.Equal(t, 0, b.Size())
+	require.Equal(0, b.Size())
 }
 
 func TestCachedBatch(t *testing.T) {

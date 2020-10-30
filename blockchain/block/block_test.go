@@ -114,12 +114,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	var newblk Block
 	err = newblk.Deserialize(raw)
 	require.NoError(t, err)
-
-	require.Equal(t, uint64(123456789), newblk.Header.height)
-	require.Equal(t, uint64(101), newblk.Actions[0].Nonce())
-	require.Equal(t, uint64(102), newblk.Actions[1].Nonce())
-	require.Equal(t, blk.Header.txRoot, blk.TxRoot())
-	require.Equal(t, blk.Header.receiptRoot, blk.ReceiptRoot())
+	require.Equal(t, blk, newblk)
 }
 
 func TestBlockCompressionSize(t *testing.T) {
@@ -127,7 +122,7 @@ func TestBlockCompressionSize(t *testing.T) {
 		blk := makeBlock(t, n)
 		blkBytes, err := blk.Serialize()
 		require.NoError(t, err)
-		compressedBlkBytes, err := compress.Compress(blkBytes)
+		compressedBlkBytes, err := compress.CompGzip(blkBytes)
 		require.NoError(t, err)
 		log.L().Info(
 			"Compression result",
@@ -146,7 +141,7 @@ func BenchmarkBlockCompression(b *testing.B) {
 				blkBytes, err := blk.Serialize()
 				require.NoError(b, err)
 				b.StartTimer()
-				_, err = compress.Compress(blkBytes)
+				_, err = compress.CompGzip(blkBytes)
 				b.StopTimer()
 				require.NoError(b, err)
 			}
@@ -161,10 +156,10 @@ func BenchmarkBlockDecompression(b *testing.B) {
 				blk := makeBlock(b, i)
 				blkBytes, err := blk.Serialize()
 				require.NoError(b, err)
-				blkBytes, err = compress.Compress(blkBytes)
+				blkBytes, err = compress.CompGzip(blkBytes)
 				require.NoError(b, err)
 				b.StartTimer()
-				_, err = compress.Decompress(blkBytes)
+				_, err = compress.DecompGzip(blkBytes)
 				b.StopTimer()
 				require.NoError(b, err)
 			}

@@ -151,30 +151,6 @@ func (ib *IndexBuilder) init() error {
 	if startHeight >= tipHeight {
 		// successfully migrated to latest block
 		zap.L().Info("Finished migrating DB", zap.Uint64("height", startHeight))
-		return ib.purgeObsoleteIndex()
-	}
-	return nil
-}
-
-func (ib *IndexBuilder) purgeObsoleteIndex() error {
-	store := ib.dao.KVStore()
-	if err := store.Delete(blockAddressActionMappingNS, nil); err != nil {
-		return err
-	}
-	if err := store.Delete(blockAddressActionCountMappingNS, nil); err != nil {
-		return err
-	}
-	if err := store.Delete(blockActionBlockMappingNS, nil); err != nil {
-		return err
-	}
-	if err := store.Delete(blockActionReceiptMappingNS, nil); err != nil {
-		return err
-	}
-	if err := store.Delete(numActionsNS, nil); err != nil {
-		return err
-	}
-	if err := store.Delete(transferAmountNS, nil); err != nil {
-		return err
 	}
 	return nil
 }

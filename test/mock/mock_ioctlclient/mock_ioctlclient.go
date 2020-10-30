@@ -195,3 +195,17 @@ func (mr *MockClientMockRecorder) NewKeyStore(arg0, arg1, arg2 interface{}) *gom
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewKeyStore", reflect.TypeOf((*MockClient)(nil).NewKeyStore), arg0, arg1, arg2)
 }
+
+// GetAliasMap mocks base method
+func (m *MockClient) GetAliasMap() map[string]string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAliasMap")
+	ret0, _ := ret[0].(map[string]string)
+	return ret0
+}
+
+// GetAliasMap indicates an expected call of GetAliasMap
+func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
+}

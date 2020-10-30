@@ -78,7 +78,7 @@ func (log *BlkTransactionLog) Serialize() []byte {
 
 func (log *BlkTransactionLog) toProto() *iotextypes.TransactionLogs {
 	if len(log.actionLogs) == 0 {
-		return nil
+		return &iotextypes.TransactionLogs{}
 	}
 
 	sysLog := iotextypes.TransactionLogs{}

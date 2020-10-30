@@ -42,6 +42,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
@@ -191,6 +192,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		Nonce:        state.Nonce,
 		PendingNonce: pendingNonce,
 		NumActions:   numActions,
+		IsContract:   state.IsContract(),
 	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
@@ -636,9 +638,16 @@ func (api *Server) GetRawBlocks(
 				receiptsPb = append(receiptsPb, receipt.ConvertToReceiptPb())
 			}
 		}
+		var transactionLogs *iotextypes.TransactionLogs
+		if in.WithTransactionLogs {
+			if transactionLogs, err = api.dao.TransactionLogs(uint64(height)); err != nil {
+				return nil, status.Error(codes.NotFound, err.Error())
+			}
+		}
 		res = append(res, &iotexapi.BlockInfo{
-			Block:    blk.ConvertToBlockPb(),
-			Receipts: receiptsPb,
+			Block:           blk.ConvertToBlockPb(),
+			Receipts:        receiptsPb,
+			TransactionLogs: transactionLogs,
 		})
 	}
 
@@ -795,7 +804,7 @@ func (api *Server) GetTransactionLogByActionHash(
 		return nil, status.Error(codes.Unimplemented, blockindex.ErrActionIndexNA.Error())
 	}
 	if !api.dao.ContainsTransactionLog() {
-		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
+		return nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
 	h, err := hex.DecodeString(in.ActionHash)
@@ -834,7 +843,7 @@ func (api *Server) GetTransactionLogByBlockHeight(
 	ctx context.Context,
 	in *iotexapi.GetTransactionLogByBlockHeightRequest) (*iotexapi.GetTransactionLogByBlockHeightResponse, error) {
 	if !api.dao.ContainsTransactionLog() {
-		return nil, status.Error(codes.Unimplemented, blockdao.ErrNotSupported.Error())
+		return nil, status.Error(codes.Unimplemented, filedao.ErrNotSupported.Error())
 	}
 
 	tip, err := api.dao.Height()
@@ -1126,7 +1135,7 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if count == 0 {
 		return nil, status.Error(codes.InvalidArgument, "count must be greater than zero")
 	}
-	if count > api.cfg.API.RangeQueryLimit {
+	if count > api.cfg.API.RangeQueryLimit && count != math.MaxUint64 {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
 
@@ -1138,17 +1147,13 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	if len(blk.Actions) == 0 {
-		return &iotexapi.GetActionsResponse{}, nil
-	}
 	if start >= uint64(len(blk.Actions)) {
 		return nil, status.Error(codes.InvalidArgument, "start exceeds the limit")
 	}
 
-	res := api.actionsInBlock(blk, start, count)
 	return &iotexapi.GetActionsResponse{
 		Total:      uint64(len(blk.Actions)),
-		ActionInfo: res,
+		ActionInfo: api.actionsInBlock(blk, start, count),
 	}, nil
 }
 
@@ -1301,15 +1306,17 @@ func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta 
 	receiptRoot := header.ReceiptRoot()
 	deltaStateDigest := header.DeltaStateDigest()
 	logsBloom := header.LogsBloomfilter()
+	prevHash := header.PrevHash()
 
 	blockMeta := &iotextypes.BlockMeta{
-		Hash:             hex.EncodeToString(hash[:]),
-		Height:           height,
-		Timestamp:        ts,
-		ProducerAddress:  producerAddress,
-		TxRoot:           hex.EncodeToString(txRoot[:]),
-		ReceiptRoot:      hex.EncodeToString(receiptRoot[:]),
-		DeltaStateDigest: hex.EncodeToString(deltaStateDigest[:]),
+		Hash:              hex.EncodeToString(hash[:]),
+		Height:            height,
+		Timestamp:         ts,
+		ProducerAddress:   producerAddress,
+		TxRoot:            hex.EncodeToString(txRoot[:]),
+		ReceiptRoot:       hex.EncodeToString(receiptRoot[:]),
+		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
+		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
 	}
 	if logsBloom != nil {
 		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
@@ -1390,13 +1397,26 @@ func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi
 }
 
 func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iotexapi.ActionInfo {
+	var res []*iotexapi.ActionInfo
+	if len(blk.Actions) == 0 || start >= uint64(len(blk.Actions)) {
+		return res
+	}
+
 	h := blk.HashBlock()
 	blkHash := hex.EncodeToString(h[:])
 	blkHeight := blk.Height()
 	ts := blk.Header.BlockHeaderCoreProto().Timestamp
 
-	var res []*iotexapi.ActionInfo
-	for i := start; i < uint64(len(blk.Actions)) && i < start+count; i++ {
+	lastAction := start + count
+	if count == math.MaxUint64 {
+		// count = -1 means to get all actions
+		lastAction = uint64(len(blk.Actions))
+	} else {
+		if lastAction >= uint64(len(blk.Actions)) {
+			lastAction = uint64(len(blk.Actions))
+		}
+	}
+	for i := start; i < lastAction; i++ {
 		selp := blk.Actions[i]
 		actHash := selp.Hash()
 		sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
@@ -1449,6 +1469,13 @@ func (api *Server) getLogsInBlock(filter *LogFilter, start, count uint64) ([]*io
 		end = api.bc.TipHeight()
 	}
 	for i := start; i <= end; i++ {
+		header, err := api.dao.HeaderByHeight(i)
+		if err != nil {
+			return logs, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if !filter.ExistInBloomFilter(header.LogsBloomfilter()) {
+			continue
+		}
 		receipts, err := api.dao.GetReceipts(i)
 		if err != nil {
 			return logs, status.Error(codes.InvalidArgument, err.Error())
@@ -1635,4 +1662,32 @@ func (api *Server) getProtocolAccount(ctx context.Context, addr string) (ret *io
 		BlockIdentifier: out.GetBlockIdentifier(),
 	}
 	return
+}
+
+// GetActPoolActions returns the all Transaction Identifiers in the mempool
+func (api *Server) GetActPoolActions(ctx context.Context, in *iotexapi.GetActPoolActionsRequest) (*iotexapi.GetActPoolActionsResponse, error) {
+	ret := new(iotexapi.GetActPoolActionsResponse)
+
+	if len(in.ActionHashes) < 1 {
+		for _, sealeds := range api.ap.PendingActionMap() {
+			for _, sealed := range sealeds {
+				ret.Actions = append(ret.Actions, sealed.Proto())
+			}
+		}
+		return ret, nil
+	}
+
+	for _, hashStr := range in.ActionHashes {
+		hs, err := hash.HexStringToHash256(hashStr)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, errors.Wrap(err, "failed to hex string to hash256").Error())
+		}
+		sealed, err := api.ap.GetActionByHash(hs)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		ret.Actions = append(ret.Actions, sealed.Proto())
+	}
+
+	return ret, nil
 }

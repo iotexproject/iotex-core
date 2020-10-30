@@ -24,9 +24,9 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
-	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -154,12 +154,8 @@ func BoltDBDaoOption(indexers ...blockdao.BlockIndexer) Option {
 			return nil
 		}
 		cfg.DB.DbPath = cfg.Chain.ChainDBPath // TODO: remove this after moving TrieDBPath from cfg.Chain to cfg.DB
-		bc.dao = blockdao.NewBlockDAO(
-			db.NewBoltDB(cfg.DB),
-			indexers,
-			cfg.Chain.CompressBlock,
-			cfg.DB,
-		)
+		cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
+		bc.dao = blockdao.NewBlockDAO(indexers, cfg.DB)
 		return nil
 	}
 }
@@ -170,12 +166,7 @@ func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
 		if bc.dao != nil {
 			return nil
 		}
-		bc.dao = blockdao.NewBlockDAO(
-			db.NewMemKVStore(),
-			indexers,
-			cfg.Chain.CompressBlock,
-			cfg.DB,
-		)
+		bc.dao = blockdao.NewBlockDAOInMemForTest(indexers)
 		return nil
 	}
 }
@@ -465,18 +456,14 @@ func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
 			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		}, nil
 	}
-	tipHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return nil, err
-	}
-	header, err := bc.dao.Header(tipHash)
+	header, err := bc.dao.HeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, err
 	}
 
 	return &protocol.TipInfo{
 		Height:    tipHeight,
-		Hash:      tipHash,
+		Hash:      header.HashBlock(),
 		Timestamp: header.Timestamp(),
 	}, nil
 }
@@ -493,7 +480,7 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 	err = bc.dao.PutBlock(ctx, blk)
 	putTimer.End()
 	switch {
-	case errors.Cause(err) == blockdao.ErrAlreadyExist:
+	case errors.Cause(err) == filedao.ErrAlreadyExist:
 		return nil
 	case err != nil:
 		return err
