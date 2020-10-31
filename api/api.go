@@ -681,23 +681,19 @@ func (api *Server) GetLogs(
 		logs, err = api.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
-		if req.FromBlock > api.bc.TipHeight() {
-			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-		}
-		if req.Count > 1000 {
-			return nil, status.Error(codes.InvalidArgument, "maximum query range is 1000 blocks")
-		}
-		startBlock := req.FromBlock
-		count := req.Count
-		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, startBlock+count-1)
-	case in.GetByLongRange() != nil:
-		req := in.GetByLongRange()
-		if req.FromBlock > api.bc.TipHeight() {
-			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
-		}
 		startBlock := req.GetFromBlock()
+		if startBlock > api.bc.TipHeight() {
+			return nil, status.Error(codes.InvalidArgument, "start block > tip height")
+		}
 		endBlock := req.GetToBlock()
-		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock)
+		if endBlock > api.bc.TipHeight() || endBlock == 0 {
+			endBlock = api.bc.TipHeight()
+		}
+		paginationSize := req.GetPaginationSize()
+		if paginationSize == 0 {
+			paginationSize = 1000
+		}
+		logs, err = api.getLogsInRange(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock, endBlock, paginationSize)
 	default:
 		return nil, status.Error(codes.InvalidArgument, "invalid GetLogsRequest type")
 	}
@@ -1486,33 +1482,30 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 }
 
 // TODO: improve using goroutine
-func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end uint64) ([]*iotextypes.Log, error) {
-	if end > api.bc.TipHeight() || end == 0 {
-		end = api.bc.TipHeight()
-	}
-	if start == end {
-		return nil, errors.New("start and end height can not be the same")
+func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, paginationSize uint64) ([]*iotextypes.Log, error) {
+	if start > end {
+		return nil, errors.New("invalid start and end height")
 	}
 	if start != 0 {
 		start = start - 1
 	}
 
 	logs := []*iotextypes.Log{}
-	// getLogs via range Blooom filter
+	// getLogs via range Blooom filter (start, end]
 	blockNumbers, err := api.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
 		return nil, err
 	}
 	for _, i := range blockNumbers {
-		indexed, err := api.getLogsInBlock(filter, i)
+		logsInBlock, err := api.getLogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
 		}
-		if indexed != nil {
-			logs = append(logs, indexed...)
-		}
-		if len(logs) > int(api.cfg.API.RangeQueryLimit) {
-			return nil, status.Error(codes.InvalidArgument, "range results exceed the limit")
+		for _, log := range logsInBlock {
+			logs = append(logs, log)
+			if len(logs) >= int(paginationSize) {
+				return logs, nil
+			}
 		}
 	}
 

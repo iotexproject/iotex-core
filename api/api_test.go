@@ -1831,7 +1831,7 @@ func TestServer_GetLogs(t *testing.T) {
 			Lookup: &iotexapi.GetLogsRequest_ByRange{
 				ByRange: &iotexapi.GetLogsByRange{
 					FromBlock: test.fromBlock,
-					Count:     test.count,
+					ToBlock:   test.fromBlock + test.count - 1,
 				},
 			},
 		}
@@ -2253,7 +2253,6 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	res, err := svr.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
 	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
-
 
 	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
