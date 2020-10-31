@@ -95,7 +95,7 @@ func parseAmount(contract address.Address, amount string) (*big.Int, error) {
 	if err != nil {
 		return nil, output.NewError(output.ConvertError, "failed to decode 313ce567", err)
 	}
-	result, err := Read(contract, big.NewInt(0), decimalBytecode)
+	result, err := Read(contract, "0", decimalBytecode)
 	if err != nil {
 		return nil, output.NewError(0, "failed to read contract", err)
 	}
