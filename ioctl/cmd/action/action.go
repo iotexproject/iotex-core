@@ -60,7 +60,7 @@ var defaultGasPrice = big.NewInt(unit.Qev)
 
 // Flags
 var (
-	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 0, "set gas limit")
+	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", defaultGasLimit, "set gas limit")
 	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
