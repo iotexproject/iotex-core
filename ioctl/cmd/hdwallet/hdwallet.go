@@ -9,14 +9,12 @@ package hdwallet
 import (
 	"crypto/ecdsa"
 	"errors"
-	"os"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Multi-language support
@@ -46,23 +44,13 @@ var HdwalletCmd = &cobra.Command{
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
 const DefaultRootDerivationPath = "m/44'/304'/0'/0"
 
-var hdWalletConfigDir = config.ReadConfig.Wallet + "/hdwallet"
+var hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
 
 func init() {
 	HdwalletCmd.AddCommand(hdwalletCreateCmd)
 	HdwalletCmd.AddCommand(hdwalletDeleteCmd)
 	HdwalletCmd.AddCommand(hdwalletImportCmd)
 	HdwalletCmd.AddCommand(hdwalletUseCmd)
-}
-
-func removeHdwalletKeystoreDir() error {
-
-	if fileutil.FileExists(hdWalletConfigDir) {
-		if err := os.RemoveAll(hdWalletConfigDir); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func hashECDSAPublicKey(publicKey *ecdsa.PublicKey) []byte {

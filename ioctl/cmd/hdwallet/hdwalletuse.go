@@ -8,11 +8,13 @@ package hdwallet
 
 import (
 	"fmt"
+	"io/ioutil"
+	"strconv"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/crypto"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -27,8 +29,8 @@ var (
 		config.Chinese: "生成钱包账号",
 	}
 	hdwalletUseCmdUses = map[config.Language]string{
-		config.English: "use",
-		config.Chinese: "use 使用",
+		config.English: "use ID1 ID2",
+		config.Chinese: "use ID1 ID2",
 	}
 )
 
@@ -36,16 +38,24 @@ var (
 var hdwalletUseCmd = &cobra.Command{
 	Use:   config.TranslateInLang(hdwalletUseCmdUses, config.UILanguage),
 	Short: config.TranslateInLang(hdwalletUseCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(0),
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		err := hdwalletUse()
+		var arg [2]uint32
+		for i := 0; i < 2; i++ {
+			u64, err := strconv.ParseUint(args[i], 10, 32)
+			if err != nil {
+				return output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[i]), err)
+			}
+			arg[i] = uint32(u64)
+		}
+		err := hdwalletUse(arg)
 		return output.PrintError(err)
 	},
 }
 
-func hdwalletUse() error {
-	if !fileutil.FileExists(hdWalletConfigDir) {
+func hdwalletUse(arg [2]uint32) error {
+	if !fileutil.FileExists(hdWalletConfigFile) {
 		output.PrintResult("No hdwallet created yet. please create first.")
 		return nil
 	}
@@ -56,23 +66,39 @@ func hdwalletUse() error {
 		return output.NewError(output.InputError, "failed to get password", err)
 	}
 
-	ks := keystore.NewKeyStore(hdWalletConfigDir,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-	accounts := ks.Accounts()
-	if len(accounts) == 0 {
-		output.PrintResult("something wrong with keystore.")
-		return nil
+	content, err := ioutil.ReadFile(hdWalletConfigFile)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to read config", err)
 	}
 
-	private, err := crypto.KeystoreToPrivateKey(accounts[0], password)
+	mnemonic, err := util.DecryptString(string(content), password)
+	if err != nil {
+		return output.NewError(output.InputError, "failed to decrypt", err)
+	}
+
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return err
 	}
-	addr, err := address.FromBytes(private.PublicKey().Hash())
+
+	derivationPath := fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], arg[0], arg[1])
+
+	path := hdwallet.MustParseDerivationPath(derivationPath)
+	account, err := wallet.Derive(path, false)
 	if err != nil {
 		return err
+	}
+
+	private, err := wallet.PrivateKey(account)
+	if err != nil {
+		return err
+	}
+	addr, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	if err != nil {
+		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 	}
 	output.PrintResult(fmt.Sprintf("address: %s\nprivateKey: %x\npublicKey: %x",
-		addr.String(), private.Bytes(), private.PublicKey().Bytes()))
+		addr.String(), crypto.FromECDSA(private), crypto.FromECDSAPub(&private.PublicKey)))
+
 	return nil
 }

@@ -24,7 +24,6 @@ require (
 	github.com/iotexproject/iotex-antenna-go/v2 v2.4.0
 	github.com/iotexproject/iotex-election v0.3.4
 	github.com/iotexproject/iotex-proto v0.4.4-0.20201026183041-140a556df55d
-	github.com/jbenet/go-base58 v0.0.0-20150317085156-6237cf65f3a6
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
@@ -39,7 +38,6 @@ require (
 	github.com/spf13/cobra v0.0.4
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d // indirect
-	github.com/tyler-smith/go-bip32 v1.0.0
 	github.com/tyler-smith/go-bip39 v1.0.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
@@ -57,5 +55,3 @@ require (
 replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.3.1
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3
-
-replace github.com/iotexproject/iotex-core => /media/millken/work/iotex/iotex-core

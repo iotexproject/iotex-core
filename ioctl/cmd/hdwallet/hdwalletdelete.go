@@ -8,6 +8,7 @@ package hdwallet
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -54,7 +55,7 @@ func hdwalletDelete() error {
 		return nil
 	}
 
-	if err := removeHdwalletKeystoreDir(); err != nil {
+	if err := os.Remove(hdWalletConfigFile); err != nil {
 		return err
 	}
 

@@ -8,17 +8,16 @@ package hdwallet
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	"github.com/spf13/cobra"
 
 	"github.com/tyler-smith/go-bip39"
 
-	"github.com/ethereum/go-ethereum/accounts/keystore"
-	gohdwallet "github.com/miguelmota/go-ethereum-hdwallet"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-core/pkg/util/fileutil"
 )
 
 // Multi-language support
@@ -47,10 +46,7 @@ var hdwalletCreateCmd = &cobra.Command{
 
 func hdwalletCreate() error {
 
-	ks := keystore.NewKeyStore(hdWalletConfigDir,
-		keystore.StandardScryptN, keystore.StandardScryptP)
-
-	if len(ks.Accounts()) > 0 {
+	if fileutil.FileExists(hdWalletConfigFile) {
 		output.PrintResult("already created hdwallet, if you forgot password，use delete/import command.")
 		return nil
 	}
@@ -72,24 +68,18 @@ func hdwalletCreate() error {
 	entropy, _ := bip39.NewEntropy(128)
 	mnemonic, _ := bip39.NewMnemonic(entropy)
 
+	out, err := util.EncryptString(mnemonic, password)
+	if err != nil {
+		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
+	}
+
+	if err := ioutil.WriteFile(hdWalletConfigFile, []byte(out), 0600); err != nil {
+		return output.NewError(output.WriteFileError,
+			fmt.Sprintf("failed to write to config file %s", hdWalletConfigFile), err)
+	}
+
 	output.PrintResult(fmt.Sprintf("Mnemonic pharse: %s\n"+
 		"Save them somewhere safe and secret.", mnemonic))
 
-	wallet, err := gohdwallet.NewFromMnemonic(string(mnemonic))
-	if err != nil {
-		return err
-	}
-	derivationPath := gohdwallet.MustParseDerivationPath(DefaultRootDerivationPath)
-	account, err := wallet.Derive(derivationPath, false)
-	if err != nil {
-		return err
-	}
-	privateKey, err := wallet.PrivateKey(account)
-	if err != nil {
-		return err
-	}
-
-	_, err = ks.ImportECDSA(privateKey, password)
-
-	return err
+	return nil
 }
