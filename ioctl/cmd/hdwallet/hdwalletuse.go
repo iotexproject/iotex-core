@@ -7,11 +7,11 @@
 package hdwallet
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
@@ -56,7 +56,7 @@ var hdwalletUseCmd = &cobra.Command{
 
 func hdwalletUse(arg [2]uint32) error {
 	if !fileutil.FileExists(hdWalletConfigFile) {
-		output.PrintResult("No hdwallet created yet. please create first.")
+		output.PrintResult("Run 'ioctl hdwallet create' to create your HDWallet first.")
 		return nil
 	}
 
@@ -70,13 +70,21 @@ func hdwalletUse(arg [2]uint32) error {
 	if err != nil {
 		return output.NewError(output.InputError, "failed to read config", err)
 	}
-
-	mnemonic, err := util.DecryptString(string(content), password)
+	cl := len(content)
+	if cl <= 32 {
+		return fmt.Errorf("incorrect data")
+	}
+	enc, hash := content[:cl-32], content[cl-32:]
+	seed, err := util.Decrypt(enc, []byte(password))
 	if err != nil {
 		return output.NewError(output.InputError, "failed to decrypt", err)
 	}
 
-	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
+	if !bytes.Equal(hash, util.HashSHA256(seed)) {
+		return fmt.Errorf("password error")
+	}
+
+	wallet, err := hdwallet.NewFromSeed(seed)
 	if err != nil {
 		return err
 	}
@@ -97,8 +105,7 @@ func hdwalletUse(arg [2]uint32) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 	}
-	output.PrintResult(fmt.Sprintf("address: %s\nprivateKey: %x\npublicKey: %x",
-		addr.String(), crypto.FromECDSA(private), crypto.FromECDSAPub(&private.PublicKey)))
+	output.PrintResult(fmt.Sprintf("address: %s\n", addr.String()))
 
 	return nil
 }

@@ -55,9 +55,6 @@ func hdwalletDelete() error {
 		return nil
 	}
 
-	if err := os.Remove(hdWalletConfigFile); err != nil {
-		return err
-	}
-
+	os.Remove(hdWalletConfigFile)
 	return nil
 }

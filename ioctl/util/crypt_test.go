@@ -8,9 +8,13 @@ package util
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestEnc(t *testing.T) {
+	require := require.New(t)
+
 	data := []struct {
 		input string
 		key   string
@@ -22,18 +26,12 @@ func TestEnc(t *testing.T) {
 		{"Long input with more than 16 characters", "Car"},
 	}
 	for _, d := range data {
-		enc, err := EncryptString(d.input, d.key)
-		if err != nil {
-			t.Errorf("Unable to encrypt '%v' with key '%v': %v", d.input, d.key, err)
-			continue
-		}
-		dec, err := DecryptString(enc, d.key)
-		if err != nil {
-			t.Errorf("Unable to decrypt '%v' with key '%v': %v", enc, d.key, err)
-			continue
-		}
-		if dec != d.input {
-			t.Errorf("Decrypt Key %v\n  Input: %v\n  Expect: %v\n  Actual: %v", d.key, enc, d.input, enc)
-		}
+		enc, err := Encrypt([]byte(d.input), []byte(d.key))
+		require.NoError(err)
+
+		dec, err := Decrypt(enc, []byte(d.key))
+		require.NoError(err)
+
+		require.Equal(string(dec), d.input)
 	}
 }
