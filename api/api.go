@@ -1486,12 +1486,12 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	if start > end {
 		return nil, errors.New("invalid start and end height")
 	}
-	if start != 0 {
-		start = start - 1
+	if start == 0 {
+		start = 1
 	}
 
 	logs := []*iotextypes.Log{}
-	// getLogs via range Blooom filter (start, end]
+	// getLogs via range Blooom filter [start, end]
 	blockNumbers, err := api.bfIndexer.FilterBlocksInRange(filter, start, end)
 	if err != nil {
 		return nil, err

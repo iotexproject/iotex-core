@@ -242,15 +242,15 @@ func TestBloomfilterIndexer(t *testing.T) {
 		for i, l := range testFilter {
 			lf := logfilter.NewLogFilter(l, nil, nil)
 
-			res, err := indexer.FilterBlocksInRange(lf, uint64(0), rangeBloomfilterSize+1)
+			res, err := indexer.FilterBlocksInRange(lf, uint64(1), rangeBloomfilterSize+1)
 			require.NoError(err)
 			require.Equal(expectedRes2[i], res)
 
-			res2, err := indexer.FilterBlocksInRange(lf, rangeBloomfilterSize-1, rangeBloomfilterSize+1)
+			res2, err := indexer.FilterBlocksInRange(lf, rangeBloomfilterSize, rangeBloomfilterSize+1)
 			require.NoError(err)
 			require.Equal(expectedRes3[i], res2)
 
-			res3, err := indexer.FilterBlocksInRange(lf, uint64(0), rangeBloomfilterSize-1)
+			res3, err := indexer.FilterBlocksInRange(lf, uint64(1), rangeBloomfilterSize-1)
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res3)
 		}
