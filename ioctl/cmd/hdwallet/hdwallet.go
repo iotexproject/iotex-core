@@ -50,6 +50,7 @@ func init() {
 	HdwalletCmd.AddCommand(hdwalletCreateCmd)
 	HdwalletCmd.AddCommand(hdwalletDeleteCmd)
 	HdwalletCmd.AddCommand(hdwalletImportCmd)
+	HdwalletCmd.AddCommand(hdwalletExportCmd)
 	HdwalletCmd.AddCommand(hdwalletUseCmd)
 }
 

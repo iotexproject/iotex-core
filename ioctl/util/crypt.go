@@ -17,22 +17,19 @@ import (
 
 // HashSHA256 will compute a cryptographically useful hash of the input string.
 func HashSHA256(input []byte) []byte {
-
 	data := sha256.Sum256(input)
 	return data[:]
-
 }
 
 // Decrypt Takes two strings, cryptoText and key.
 // cryptoText is the text to be decrypted and the key is the key to use for the decryption.
 // The function will output the resulting plain text string with an error variable.
 func Decrypt(cryptoText, key []byte) (plainText []byte, err error) {
-
 	if len(cryptoText) < aes.BlockSize {
 		return nil, fmt.Errorf("cipherText too short. It decodes to %v bytes but the minimum length is 16", len(cryptoText))
 	}
 
-	return decryptAES(HashSHA256(key), cryptoText)
+	return decryptAES(key, cryptoText)
 }
 
 func decryptAES(key, data []byte) ([]byte, error) {
@@ -54,12 +51,10 @@ func decryptAES(key, data []byte) ([]byte, error) {
 // plainText is the text that needs to be encrypted by key.
 // The function will output the resulting crypto text and an error variable.
 func Encrypt(plainText, key []byte) (cipherText []byte, err error) {
-
-	return encryptAES(HashSHA256(key), plainText)
+	return encryptAES(key, plainText)
 }
 
 func encryptAES(key, data []byte) ([]byte, error) {
-
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err

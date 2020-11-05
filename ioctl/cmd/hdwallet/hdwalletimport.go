@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
 	"github.com/tyler-smith/go-bip39"
@@ -50,7 +49,7 @@ var hdwalletImportCmd = &cobra.Command{
 
 func hdwalletImport() error {
 	if fileutil.FileExists(hdWalletConfigFile) {
-		output.PrintResult("please run 'ioctl hdwallet delete' before import")
+		output.PrintResult("Please run 'ioctl hdwallet delete' before import")
 		return nil
 	}
 
@@ -80,14 +79,14 @@ func hdwalletImport() error {
 		return output.NewError(output.ValidationError, ErrPasswdNotMatch.Error(), nil)
 	}
 
-	seed, _ := hdwallet.NewSeedFromMnemonic(mnemonic)
+	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
+	enckey := util.HashSHA256([]byte(password))
 
-	out, err := util.Encrypt(seed, []byte(password))
+	out, err := util.Encrypt(enctxt, enckey)
 	if err != nil {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
 	}
 
-	out = append(out, util.HashSHA256(seed)...)
 	if err := ioutil.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
 			fmt.Sprintf("failed to write to config file %s", hdWalletConfigFile), err)

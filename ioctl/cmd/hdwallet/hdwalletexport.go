@@ -10,12 +10,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"strconv"
 
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -24,37 +21,29 @@ import (
 
 // Multi-language support
 var (
-	hdwalletUseCmdShorts = map[config.Language]string{
-		config.English: "create hdwallet account",
-		config.Chinese: "生成钱包账号",
+	hdwalletExportCmdShorts = map[config.Language]string{
+		config.English: "export hdwallet mnemonic using password",
+		config.Chinese: "通过密码导出钱包助记词",
 	}
-	hdwalletUseCmdUses = map[config.Language]string{
-		config.English: "use ID1 ID2",
-		config.Chinese: "use ID1 ID2",
+	hdwalletExportCmdUses = map[config.Language]string{
+		config.English: "export",
+		config.Chinese: "export 导出",
 	}
 )
 
-// hdwalletUseCmd represents the hdwallet use command
-var hdwalletUseCmd = &cobra.Command{
-	Use:   config.TranslateInLang(hdwalletUseCmdUses, config.UILanguage),
-	Short: config.TranslateInLang(hdwalletUseCmdShorts, config.UILanguage),
-	Args:  cobra.ExactArgs(2),
+// hdwalletExportCmd represents the hdwallet export command
+var hdwalletExportCmd = &cobra.Command{
+	Use:   config.TranslateInLang(hdwalletExportCmdUses, config.UILanguage),
+	Short: config.TranslateInLang(hdwalletExportCmdShorts, config.UILanguage),
+	Args:  cobra.ExactArgs(0),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		var arg [2]uint32
-		for i := 0; i < 2; i++ {
-			u64, err := strconv.ParseUint(args[i], 10, 32)
-			if err != nil {
-				return output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[i]), err)
-			}
-			arg[i] = uint32(u64)
-		}
-		err := hdwalletUse(arg)
+		err := hdwalletExport()
 		return output.PrintError(err)
 	},
 }
 
-func hdwalletUse(arg [2]uint32) error {
+func hdwalletExport() error {
 	if !fileutil.FileExists(hdWalletConfigFile) {
 		output.PrintResult("Run 'ioctl hdwallet create' to create your HDWallet first.")
 		return nil
@@ -89,28 +78,8 @@ func hdwalletUse(arg [2]uint32) error {
 		return fmt.Errorf("password error")
 	}
 
-	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
-	if err != nil {
-		return err
-	}
-
-	derivationPath := fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], arg[0], arg[1])
-
-	path := hdwallet.MustParseDerivationPath(derivationPath)
-	account, err := wallet.Derive(path, false)
-	if err != nil {
-		return err
-	}
-
-	private, err := wallet.PrivateKey(account)
-	if err != nil {
-		return err
-	}
-	addr, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
-	if err != nil {
-		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
-	}
-	output.PrintResult(fmt.Sprintf("address: %s\n", addr.String()))
+	output.PrintResult(fmt.Sprintf("Mnemonic pharse: %s\n"+
+		"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
 
 	return nil
 }

@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 
 	"github.com/tyler-smith/go-bip39"
@@ -69,14 +68,13 @@ func hdwalletCreate() error {
 	entropy, _ := bip39.NewEntropy(128)
 	mnemonic, _ := bip39.NewMnemonic(entropy)
 
-	seed, _ := hdwallet.NewSeedFromMnemonic(mnemonic)
+	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
+	enckey := util.HashSHA256([]byte(password))
 
-	out, err := util.Encrypt(seed, []byte(password))
+	out, err := util.Encrypt(enctxt, enckey)
 	if err != nil {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
 	}
-
-	out = append(out, util.HashSHA256(seed)...)
 
 	if err := ioutil.WriteFile(hdWalletConfigFile, out, 0600); err != nil {
 		return output.NewError(output.WriteFileError,
