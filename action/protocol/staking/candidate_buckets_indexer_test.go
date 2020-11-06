@@ -78,3 +78,61 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 
 	require.NoError(cbi.Stop(ctx))
 }
+
+func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
+	require := require.New(t)
+
+	ctx := context.Background()
+	store := db.NewMemKVStore()
+	cbi, err := NewStakingCandidatesBucketsIndexer(store)
+	require.NoError(err)
+
+	require.NoError(cbi.Start(ctx))
+
+	voteBuckets := &iotextypes.VoteBucketList{}
+	voteBuckets.Buckets = append(voteBuckets.Buckets, &iotextypes.VoteBucket{
+		Index:     uint64(1234),
+		AutoStake: true,
+	})
+
+	require.EqualError(cbi.PutBuckets(0, nil), "proto: Marshal called with nil")
+
+	tests := []struct {
+		height  uint64
+		buckets *iotextypes.VoteBucketList
+	}{
+		{1, &iotextypes.VoteBucketList{}},
+		{2, voteBuckets},
+	}
+
+	for _, v := range tests {
+		require.NoError(cbi.PutBuckets(v.height, v.buckets))
+	}
+
+	//incorrect parameter
+	tests2 := []struct {
+		height        uint64
+		offset, limit uint32
+	}{
+		{0, 0, 0},
+		{2, 1111111, 1},
+		{21111111, 1111111, 1333333},
+	}
+	for _, v2 := range tests2 {
+		_, _, err = cbi.GetBuckets(v2.height, v2.offset, v2.limit)
+		require.NoError(err)
+	}
+
+	b, h, err := cbi.GetBuckets(2, 0, 1)
+	require.NoError(err)
+	require.Equal(h, uint64(2))
+
+	var r iotextypes.VoteBucketList
+	require.NoError(proto.Unmarshal(b, &r))
+	require.Equal(len(r.Buckets), 1)
+	require.Equal(r.Buckets[0].Index, uint64(1234))
+	require.Equal(r.Buckets[0].AutoStake, true)
+	require.Equal(r.Buckets[0].Owner, "")
+
+	require.NoError(cbi.Stop(ctx))
+}
