@@ -107,11 +107,6 @@ func hdwalletUse(arg [2]uint32) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 	}
-
-	config.ReadConfig.DefaultAccount.AddressOrAlias = addr.String()
-	if err = writeConfig(); err != nil {
-		return err
-	}
 	output.PrintResult(fmt.Sprintf("address: %s\n", addr.String()))
 
 	return nil

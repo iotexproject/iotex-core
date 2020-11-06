@@ -9,16 +9,12 @@ package hdwallet
 import (
 	"crypto/ecdsa"
 	"errors"
-	"fmt"
-	"io/ioutil"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/ioctl/config"
-	"github.com/iotexproject/iotex-core/ioctl/output"
 )
 
 // Multi-language support
@@ -62,17 +58,4 @@ func hashECDSAPublicKey(publicKey *ecdsa.PublicKey) []byte {
 	k := crypto.FromECDSAPub(publicKey)
 	h := hash.Hash160b(k[1:])
 	return h[:]
-}
-
-// writeConfig writes to config file
-func writeConfig() error {
-	out, err := yaml.Marshal(&config.ReadConfig)
-	if err != nil {
-		return output.NewError(output.SerializationError, "failed to marshal config", err)
-	}
-	if err := ioutil.WriteFile(config.DefaultConfigFile, out, 0600); err != nil {
-		return output.NewError(output.WriteFileError,
-			fmt.Sprintf("failed to write to config file %s", config.DefaultConfigFile), err)
-	}
-	return nil
 }
