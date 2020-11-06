@@ -33,6 +33,7 @@ github.com/btcsuite/goleveldb v0.0.0-20160330041536-7834afc9e8cd/go.mod h1:F+uVa
 github.com/btcsuite/snappy-go v0.0.0-20151229074030-0bdef8d06723/go.mod h1:8woku9dyThutzjeg+3xrA5iCpBRH8XEEg3lh6TiUghc=
 github.com/btcsuite/websocket v0.0.0-20150119174127-31079b680792/go.mod h1:ghJtEyQwv5/p4Mg4C0fgbePVuGr935/5ddU9Z3TmDRY=
 github.com/btcsuite/winsvc v1.0.0/go.mod h1:jsenWakMcC0zFBFurPLEAyrnc/teJEM1O46fmI40EZs=
+github.com/bwmarrin/discordgo v0.19.0 h1:kMED/DB0NR1QhRcalb85w0Cu3Ep2OrGAqZH1R5awQiY=
 github.com/bwmarrin/discordgo v0.19.0/go.mod h1:O9S4p+ofTFwB02em7jkpkV8M3R0/PUVOwN61zSZ0r4Q=
 github.com/cenkalti/backoff v2.2.1+incompatible h1:tNowT99t7UNflLxfYYSlKYsBpXdEet03Pg2g16Swow4=
 github.com/cenkalti/backoff v2.2.1+incompatible/go.mod h1:90ReRw6GdpyfrHakVjL/QHaoyV4aDUVVkXQJJJ3NXXM=
@@ -181,11 +182,15 @@ github.com/iotexproject/iotex-antenna-go/v2 v2.4.0 h1:NcEYgkmT28uEykC9aYFB4U5eEb
 github.com/iotexproject/iotex-antenna-go/v2 v2.4.0/go.mod h1:gN2/O/8/Up1AqocrntePkgbHQSxAFyq5o+LUi4x4r9Q=
 github.com/iotexproject/iotex-election v0.3.4 h1:DT9o12PZsLbM9S4fEgAvQu0/44tW7fryj2N4z3cz2ts=
 github.com/iotexproject/iotex-election v0.3.4/go.mod h1:3qlM/RJKcwcPiTAtorMVHDv4muw3H5PKIzpRa5qqC2E=
+github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54 h1:nUHBrG5mlqxWzv/wjOkv8M7cwi5uTjZjSqLpo26HS00=
+github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54/go.mod h1:rA7Vl9hDRRb3qYUuwH4ywMKsITjO5J1ThyLWoA+VQ2U=
 github.com/iotexproject/iotex-proto v0.4.0/go.mod h1:SttnbjoUJKHuKtDxCDJ5ewziAY4XrMPE2wo++Xod4b0=
 github.com/iotexproject/iotex-proto v0.4.4-0.20200917180526-08c6eb18e59c h1:e5mHPvy/wMygCpJKZ7hMsc8XwXYc41bfbNjpRdJTy0Y=
 github.com/iotexproject/iotex-proto v0.4.4-0.20200917180526-08c6eb18e59c/go.mod h1:VamfHxZ58AbpWJumRIE/u9tt/TouIlDkzk0dazVKKRY=
 github.com/iotexproject/iotex-proto v0.4.4-0.20201026183041-140a556df55d h1:ZSepnFhcUVBtX1yMplvU84UInPomGfglDSyid4TX7hg=
 github.com/iotexproject/iotex-proto v0.4.4-0.20201026183041-140a556df55d/go.mod h1:VamfHxZ58AbpWJumRIE/u9tt/TouIlDkzk0dazVKKRY=
+github.com/iotexproject/iotex-proto v0.4.4-0.20201029172022-a8466422b0f1 h1:arzcxsl3VzUnrx6qFtV0tbou575YXvIlPbqm1q+DZlU=
+github.com/iotexproject/iotex-proto v0.4.4-0.20201029172022-a8466422b0f1/go.mod h1:VamfHxZ58AbpWJumRIE/u9tt/TouIlDkzk0dazVKKRY=
 github.com/ipfs/go-cid v0.0.1 h1:GBjWPktLnNyX0JiQCNFpUuUSoMw5KMyqrsejHYlILBE=
 github.com/ipfs/go-cid v0.0.1/go.mod h1:GHWU/WuQdMPmIosc4Yn1bcCT7dSeX4lBafM7iqUPQvM=
 github.com/ipfs/go-datastore v0.0.1/go.mod h1:d4KVXhMt913cLBEI/PXAy6ko+W7e9AhyAKBGh803qeE=

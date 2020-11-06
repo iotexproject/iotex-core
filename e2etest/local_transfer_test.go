@@ -265,6 +265,8 @@ func TestLocalTransfer(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterIndex")
+	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
 	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateIndex")
@@ -275,11 +277,13 @@ func TestLocalTransfer(t *testing.T) {
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
 		testutil.CleanupPath(t, testSystemLogPath)
+		testutil.CleanupPath(t, testBloomfilterIndexPath)
+		testutil.CleanupPath(t, testCandidateIndexPath)
 	}()
 
 	networkPort := 4689
 	apiPort := testutil.RandomPort()
-	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
+	cfg, err := newTransferConfig(testDBPath, testTriePath, testIndexPath, testBloomfilterIndexPath, testSystemLogPath, testCandidateIndexPath, networkPort, apiPort)
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
 	}()
@@ -501,6 +505,7 @@ func newTransferConfig(
 	chainDBPath,
 	trieDBPath,
 	indexDBPath string,
+	bloomfilterIndex string,
 	systemLogDBPath string,
 	candidateIndexDBPath string,
 	networkPort,
@@ -514,6 +519,7 @@ func newTransferConfig(
 	cfg.Chain.ChainDBPath = chainDBPath
 	cfg.Chain.TrieDBPath = trieDBPath
 	cfg.Chain.IndexDBPath = indexDBPath
+	cfg.Chain.BloomfilterIndexDBPath = bloomfilterIndex
 	cfg.System.SystemLogDBPath = systemLogDBPath
 	cfg.Chain.CandidateIndexDBPath = candidateIndexDBPath
 	cfg.Chain.EnableAsyncIndexWrite = true
