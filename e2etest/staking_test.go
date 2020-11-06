@@ -178,6 +178,8 @@ func TestStakingContract(t *testing.T) {
 	require.NoError(err)
 	testIndexPath, err := testutil.PathOfTempFile("index")
 	require.NoError(err)
+	testBloomfilterIndexPath, err := testutil.PathOfTempFile("bloomfilterindex")
+	require.NoError(err)
 	testCandidateIndexPath, err := testutil.PathOfTempFile("candidateindex")
 	require.NoError(err)
 	testSystemLogPath, err := testutil.PathOfTempFile("systemlog")
@@ -188,6 +190,7 @@ func TestStakingContract(t *testing.T) {
 		testutil.CleanupPath(t, testTriePath)
 		testutil.CleanupPath(t, testDBPath)
 		testutil.CleanupPath(t, testIndexPath)
+		testutil.CleanupPath(t, testBloomfilterIndexPath)
 		testutil.CleanupPath(t, testCandidateIndexPath)
 		testutil.CleanupPath(t, testSystemLogPath)
 		testutil.CleanupPath(t, testConsensusPath)
@@ -199,6 +202,7 @@ func TestStakingContract(t *testing.T) {
 	cfg.Chain.TrieDBPath = testTriePath
 	cfg.Chain.ChainDBPath = testDBPath
 	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.BloomfilterIndexDBPath = testBloomfilterIndexPath
 	cfg.Chain.CandidateIndexDBPath = testCandidateIndexPath
 	cfg.System.SystemLogDBPath = testSystemLogPath
 	cfg.Consensus.RollDPoS.ConsensusDBPath = testConsensusPath
