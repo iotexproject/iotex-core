@@ -79,7 +79,7 @@ func contractTestFunction(args []string) error {
 		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
 	}
 
-	rowResult, err := action.Read(contract, amount, bytecode)
+	rowResult, err := action.Read(contract, amount.String(), bytecode)
 	if err != nil {
 		return err
 	}

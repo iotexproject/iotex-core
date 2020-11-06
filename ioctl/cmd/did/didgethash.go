@@ -9,7 +9,6 @@ package did
 import (
 	"encoding/hex"
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -66,7 +65,7 @@ func getHash(args []string) (err error) {
 		return output.NewError(output.ConvertError, "invalid bytecode", err)
 	}
 
-	result, err := action.Read(addr, big.NewInt(0), bytecode)
+	result, err := action.Read(addr, "0", bytecode)
 	if err != nil {
 		return
 	}
