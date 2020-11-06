@@ -25,8 +25,8 @@ require (
 	github.com/iotexproject/go-pkgs v0.1.2-0.20200523040337-5f1d9ddaa8ee
 	github.com/iotexproject/iotex-address v0.2.2
 	github.com/iotexproject/iotex-antenna-go/v2 v2.4.0
-	github.com/iotexproject/iotex-election v0.3.4
-	github.com/iotexproject/iotex-proto v0.4.4-0.20201026183041-140a556df55d
+	github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54
+	github.com/iotexproject/iotex-proto v0.4.4-0.20201029172022-a8466422b0f1
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
