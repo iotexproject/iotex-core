@@ -34,7 +34,7 @@ IOTEX_HOME="$HOME/iotex-var"
 DOCKER_COMPOSE_HOME="$IOTEX_HOME/docker-compose"
 ACCOUNTS_File="$USER_DIR/accounts"
 PROJECT_ABS_DIR=$(cd "$(dirname "$0")";pwd)
-REPO_ABS_DIR=$(cd "$PROJECT_ABS_DIR/..";pwd)
+REPO_ABS_DIR=$(cd "$PROJECT_ABS_DIR/../..";pwd)
 
 # Image
 IOTEX_IMAGE="iotex-core:local"
