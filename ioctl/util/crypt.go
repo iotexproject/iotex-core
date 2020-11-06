@@ -21,13 +21,18 @@ func HashSHA256(input []byte) []byte {
 	return data[:]
 }
 
-// Decrypt Takes two strings, data and key.
-// data is the text to be decrypted and the key is the key to use for the decryption.
+// Decrypt Takes two strings, cryptoText and key.
+// cryptoText is the text to be decrypted and the key is the key to use for the decryption.
 // The function will output the resulting plain text string with an error variable.
-func Decrypt(data, key []byte) ([]byte, error) {
-	if len(data) < aes.BlockSize {
-		return nil, fmt.Errorf("cipherText too short. It decodes to %v bytes but the minimum length is 16", len(data))
+func Decrypt(cryptoText, key []byte) (plainText []byte, err error) {
+	if len(cryptoText) < aes.BlockSize {
+		return nil, fmt.Errorf("cipherText too short. It decodes to %v bytes but the minimum length is 16", len(cryptoText))
 	}
+
+	return decryptAES(key, cryptoText)
+}
+
+func decryptAES(key, data []byte) ([]byte, error) {
 	// split the input up in to the IV seed and then the actual encrypted data.
 	iv := data[:aes.BlockSize]
 	data = data[aes.BlockSize:]
@@ -42,10 +47,14 @@ func Decrypt(data, key []byte) ([]byte, error) {
 	return data, nil
 }
 
-// Encrypt Takes two string, data and key.
-// data is the text that needs to be encrypted by key.
+// Encrypt Takes two string, plainText and key.
+// plainText is the text that needs to be encrypted by key.
 // The function will output the resulting crypto text and an error variable.
-func Encrypt(data, key []byte) ([]byte, error) {
+func Encrypt(plainText, key []byte) (cipherText []byte, err error) {
+	return encryptAES(key, plainText)
+}
+
+func encryptAES(key, data []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
