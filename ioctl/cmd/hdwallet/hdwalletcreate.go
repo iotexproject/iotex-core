@@ -70,7 +70,6 @@ func hdwalletCreate() error {
 
 	enctxt := append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
 	enckey := util.HashSHA256([]byte(password))
-
 	out, err := util.Encrypt(enctxt, enckey)
 	if err != nil {
 		return output.NewError(output.ValidationError, "failed to encrypting mnemonic", nil)
