@@ -10,9 +10,13 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/stretchr/testify/require"
@@ -66,6 +70,17 @@ func Test_Hdwallet(t *testing.T) {
 	require.NoError(err)
 	addr1, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
 	require.NoError(err)
+
+	tempDir, err := ioutil.TempDir("", t.Name())
+	require.NoError(err)
+	defer os.RemoveAll(tempDir)
+	config.DefaultConfigFile = filepath.Join(tempDir, "config.default")
+	config.ReadConfig.DefaultAccount.AddressOrAlias = addr1.String()
+	require.NoError(writeConfig())
+
+	cfg, err := config.LoadConfig()
+	require.NoError(err)
+	require.Equal(cfg.DefaultAccount.AddressOrAlias, addr1.String())
 
 	// simulating 'hdwallet import' here
 	enctxt = append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
