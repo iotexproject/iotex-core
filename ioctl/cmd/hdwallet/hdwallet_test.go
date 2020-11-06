@@ -124,10 +124,10 @@ func TestEncryptDecryptWithMnemonic(t *testing.T) {
 
 	dectxtLen := len(dectxt)
 
-	mnemonic1 := dectxt[:dectxtLen-32]
+	mnemonic1, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
 
 	require.Equal(mnemonic, string(mnemonic1))
-
+	require.Equal(util.HashSHA256(mnemonic1), hash)
 }
 
 func TestFixedMnemonicAndDerivationPath(t *testing.T) {

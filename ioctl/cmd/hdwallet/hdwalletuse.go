@@ -72,7 +72,6 @@ func hdwalletUse(arg [2]uint32) error {
 	}
 
 	enckey := util.HashSHA256([]byte(password))
-
 	dectxt, err := util.Decrypt(enctxt, enckey)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to decrypt", err)
@@ -80,13 +79,12 @@ func hdwalletUse(arg [2]uint32) error {
 
 	dectxtLen := len(dectxt)
 	if dectxtLen <= 32 {
-		return fmt.Errorf("incorrect data")
+		return output.NewError(output.ValidationError, "incorrect data", nil)
 	}
 
 	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
-
 	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
-		return fmt.Errorf("password error")
+		return output.NewError(output.ValidationError, "password error", nil)
 	}
 
 	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
@@ -95,7 +93,6 @@ func hdwalletUse(arg [2]uint32) error {
 	}
 
 	derivationPath := fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], arg[0], arg[1])
-
 	path := hdwallet.MustParseDerivationPath(derivationPath)
 	account, err := wallet.Derive(path, false)
 	if err != nil {

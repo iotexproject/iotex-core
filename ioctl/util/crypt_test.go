@@ -26,10 +26,10 @@ func TestEnc(t *testing.T) {
 		{"Long input with more than 16 characters", "Car"},
 	}
 	for _, d := range data {
-		enc, err := Encrypt([]byte(d.input), []byte(d.key))
+		enc, err := Encrypt([]byte(d.input), HashSHA256([]byte(d.key)))
 		require.NoError(err)
 
-		dec, err := Decrypt(enc, []byte(d.key))
+		dec, err := Decrypt(enc, HashSHA256([]byte(d.key)))
 		require.NoError(err)
 
 		require.Equal(string(dec), d.input)

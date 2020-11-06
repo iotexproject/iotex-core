@@ -61,7 +61,6 @@ func hdwalletExport() error {
 	}
 
 	enckey := util.HashSHA256([]byte(password))
-
 	dectxt, err := util.Decrypt(enctxt, enckey)
 	if err != nil {
 		return output.NewError(output.InputError, "failed to decrypt", err)
@@ -69,13 +68,12 @@ func hdwalletExport() error {
 
 	dectxtLen := len(dectxt)
 	if dectxtLen <= 32 {
-		return fmt.Errorf("incorrect data")
+		return output.NewError(output.ValidationError, "incorrect data", nil)
 	}
 
 	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
-
 	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
-		return fmt.Errorf("password error")
+		return output.NewError(output.ValidationError, "password error", nil)
 	}
 
 	output.PrintResult(fmt.Sprintf("Mnemonic pharse: %s\n"+
