@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/spf13/cobra"
-
 	"github.com/tyler-smith/go-bip39"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"
@@ -45,7 +45,6 @@ var hdwalletCreateCmd = &cobra.Command{
 }
 
 func hdwalletCreate() error {
-
 	if fileutil.FileExists(hdWalletConfigFile) {
 		output.PrintResult("already created hdwallet, if you forgot password，use delete/import command.")
 		return nil
@@ -82,6 +81,11 @@ func hdwalletCreate() error {
 
 	output.PrintResult(fmt.Sprintf("Mnemonic pharse: %s\n"+
 		"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
-
 	return nil
+}
+
+// DeriveKey derives the key according to path
+func DeriveKey(account, change, index uint32, password string) (string, crypto.PrivateKey, error) {
+	// derive key as "m/44'/304'/account'/change/index"
+	return "", nil, nil
 }

@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -108,9 +109,28 @@ func decodeBytecode() ([]byte, error) {
 	return hex.DecodeString(util.TrimHexPrefix(bytecodeFlag.Value().(string)))
 }
 
+func parseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
+	// parse derive path
+	// for hdw::1/1/2, return 1, 1, 2
+	// for hdw::1/2, treat as default account = 0, return 0, 1, 2
+	return 0, 0, 0, nil
+}
+
+func aliasIsHdwalletKey(addressOrAlias string) bool {
+	if strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::") {
+		// return whether the hdwallet file exists
+		return true
+	}
+	return false
+}
+
 // Signer returns signer's address
 func Signer() (address string, err error) {
 	addressOrAlias := signerFlag.Value().(string)
+	if aliasIsHdwalletKey(addressOrAlias) {
+		return addressOrAlias, nil
+	}
+
 	if addressOrAlias == "" {
 		addressOrAlias, err = config.GetContextAddressOrAlias()
 		if err != nil {
@@ -121,6 +141,10 @@ func Signer() (address string, err error) {
 }
 
 func nonce(executor string) (uint64, error) {
+	if aliasIsHdwalletKey(executor) {
+		// for hdwallet key, get the nonce in SendAction()
+		return 0, nil
+	}
 	nonce := nonceFlag.Value().(uint64)
 	if nonce != 0 {
 		return nonce, nil
@@ -250,7 +274,7 @@ func SendAction(elp action.Envelope, signer string) error {
 	var prvKey crypto.PrivateKey
 	var err error
 
-	if account.IsSignerExist(signer) {
+	if account.IsSignerExist(signer) || aliasIsHdwalletKey(signer) {
 		// Get signer's password
 		password := passwordFlag.Value().(string)
 		if password == "" {
@@ -261,7 +285,20 @@ func SendAction(elp action.Envelope, signer string) error {
 			}
 		}
 
-		prvKey, err = account.LocalAccountToPrivateKey(signer, password)
+		if aliasIsHdwalletKey(signer) {
+			account, change, index, err := parseHdwPath(signer)
+			if err != nil {
+				return output.NewError(output.InputError, "invalid hdwallet key format", err)
+			}
+			signer, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+			nonce, err := nonce(signer)
+			if err != nil {
+				return output.NewError(0, "failed to get nonce ", err)
+			}
+			elp.SetNonce(nonce)
+		} else {
+			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
+		}
 		if err != nil {
 			return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 		}
