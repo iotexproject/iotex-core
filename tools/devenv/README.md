@@ -28,4 +28,5 @@ After installation of this local development environment, one can use:
 - truffle to write/compile/test contracts and ioctl to deploy them, e.g., https://docs.iotex.io/developer/ioctl/contract.html
 - [IoTeX Studio](http://ide.iotex.io/) to write/compile/test/deploy contracts
 - [ioPay](https://iopay.iotex.io/) Set:
+
 ![](images/01.jpeg)
