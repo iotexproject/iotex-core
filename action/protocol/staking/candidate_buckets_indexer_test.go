@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -66,17 +68,35 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 		require.NoError(err)
 	}
 
-	b, h, err := cbi.GetCandidates(2, 0, 1)
+	b, h, err := cbi.GetCandidates(tests[1].height, 0, 1)
 	require.NoError(err)
-	require.Equal(h, uint64(2))
+	require.Equal(h, tests[1].height)
 
 	var r iotextypes.CandidateListV2
 	require.NoError(proto.Unmarshal(b, &r))
 	require.Equal(len(r.Candidates), 1)
-	require.Equal(r.Candidates[0].Name, "abc")
-	require.Equal(r.Candidates[0].SelfStakeBucketIdx, uint64(123))
+	require.Equal(r.Candidates[0].Name, tests[1].candidates.Candidates[0].Name)
+	require.Equal(r.Candidates[0].SelfStakeBucketIdx, tests[1].candidates.Candidates[0].SelfStakeBucketIdx)
 
 	require.NoError(cbi.Stop(ctx))
+
+	//get candidates after stop kv db
+	path := "test-kv-store.bolt"
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+
+	store = db.NewBoltDB(cfg)
+	cbi, err = NewStakingCandidatesBucketsIndexer(store)
+	require.NoError(err)
+
+	require.NoError(cbi.Start(ctx))
+	require.NoError(cbi.Stop(ctx))
+	_, _, err = cbi.GetCandidates(tests[1].height, 0, 1)
+	require.EqualError(err, "database not open: DB I/O operation error")
+
+	testutil.CleanupPath(t, testPath)
 }
 
 func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
@@ -123,16 +143,16 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 		require.NoError(err)
 	}
 
-	b, h, err := cbi.GetBuckets(2, 0, 1)
+	b, h, err := cbi.GetBuckets(tests[1].height, 0, 1)
 	require.NoError(err)
 	require.Equal(h, uint64(2))
 
 	var r iotextypes.VoteBucketList
 	require.NoError(proto.Unmarshal(b, &r))
 	require.Equal(len(r.Buckets), 1)
-	require.Equal(r.Buckets[0].Index, uint64(1234))
-	require.Equal(r.Buckets[0].AutoStake, true)
-	require.Equal(r.Buckets[0].Owner, "")
+	require.Equal(r.Buckets[0].Index, tests[1].buckets.Buckets[0].Index)
+	require.Equal(r.Buckets[0].AutoStake, tests[1].buckets.Buckets[0].AutoStake)
+	require.Equal(r.Buckets[0].Owner, tests[1].buckets.Buckets[0].Owner)
 
 	require.NoError(cbi.Stop(ctx))
 }
