@@ -350,15 +350,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 }
 
 // Read reads smart contract on IoTeX blockchain
-func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, error) {
-	caller, err := Signer()
-	if err != nil {
-		caller = address.ZeroAddress
-	}
-	exec, err := action.NewExecution(contract.String(), 0, amount, defaultGasLimit, defaultGasPrice, bytecode)
-	if err != nil {
-		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
-	}
+func Read(contract address.Address, amount string, bytecode []byte) (string, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -374,8 +366,12 @@ func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, e
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
 		ctx,
 		&iotexapi.ReadContractRequest{
-			Execution:     exec.Proto(),
-			CallerAddress: caller,
+			Execution: &iotextypes.Execution{
+				Amount:   amount,
+				Contract: contract.String(),
+				Data:     bytecode,
+			},
+			CallerAddress: address.ZeroAddress,
 		},
 	)
 	if err == nil {
