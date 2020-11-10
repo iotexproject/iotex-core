@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -30,7 +31,7 @@ func TestStoreProto(t *testing.T) {
 	require.NoError(store.FromProto(storeProto))
 }
 
-func TestStoreSerDer(t *testing.T) {
+func TestSerialize(t *testing.T) {
 	require := require.New(t)
 	store, err := makeStore()
 	require.NoError(err)
@@ -45,7 +46,7 @@ func TestStoreSerDer(t *testing.T) {
 	require.Equal(store1.Block.Header.blockSig, store.Block.Header.blockSig)
 }
 
-func makeStore() (Store, error) {
+func makeStore() (*Store, error) {
 	receipts := []*action.Receipt{
 		{
 			BlockHeight: 1,
@@ -62,10 +63,10 @@ func makeStore() (Store, error) {
 		SignAndBuild(identityset.PrivateKey(29))
 
 	if err != nil {
-		return Store{}, err
+		return nil, err
 	}
 
-	return Store{
+	return &Store{
 		Block: &nblk,
 	}, nil
 }
