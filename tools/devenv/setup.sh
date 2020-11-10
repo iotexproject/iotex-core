@@ -118,11 +118,11 @@ function createAccounts() {
 function setAllAccountToGenesis() {
     sedCheck
     if [ $SED_IS_GNU -eq 1 ];then
-        cat $ACCOUNTS_File  | while read line; do if [[ $line == \"address\"* ]];then account=$(echo $line|awk -F'"' '{print $4 ": \"100000000000000000000000000000000000\""}');sed -i "/^  initBalances:/a\ \ \ \ $account" $IOTEX_HOME/etc/config.yaml;fi;done
+        cat $ACCOUNTS_File  | while read line; do if [[ $line == \"address\"* ]];then account=$(echo $line|awk -F'"' '{print $4 ": \"100000000000000000000000000000000000\""}');sed -i "/^  initBalances:/a\ \ \ \ $account" $IOTEX_HOME/etc/genesis.yaml;fi;done
     else
         cat $ACCOUNTS_File  | while read line; do if [[ $line == \"address\"* ]];then account=$(echo $line|awk -F'"' '{print $4 ": \"100000000000000000000000000000000000\""}');sed -i '' "/^  initBalances:/a\\
 \ \ \ \ $account
-" $IOTEX_HOME/etc/config.yaml;fi;done
+" $IOTEX_HOME/etc/genesis.yaml;fi;done
     fi
 }
 
