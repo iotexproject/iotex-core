@@ -67,7 +67,7 @@ func contractTestBytecode(args []string) error {
 		}
 	}
 
-	result, err := action.Read(contract, amount, bytecode)
+	result, err := action.Read(contract, amount.String(), bytecode)
 	if err != nil {
 		return err
 	}
