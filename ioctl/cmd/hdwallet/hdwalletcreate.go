@@ -7,10 +7,14 @@
 package hdwallet
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 
+	ecrypt "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-address/address"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
 	"github.com/tyler-smith/go-bip39"
 
@@ -87,5 +91,56 @@ func hdwalletCreate() error {
 // DeriveKey derives the key according to path
 func DeriveKey(account, change, index uint32, password string) (string, crypto.PrivateKey, error) {
 	// derive key as "m/44'/304'/account'/change/index"
-	return "", nil, nil
+	hdWalletConfigFile := config.ReadConfig.Wallet + "/hdwallet"
+	if !fileutil.FileExists(hdWalletConfigFile) {
+		return "", nil, output.NewError(output.InputError, "Run 'ioctl hdwallet create' to create your HDWallet first.", nil)
+	}
+
+	enctxt, err := ioutil.ReadFile(hdWalletConfigFile)
+	if err != nil {
+		return "", nil, output.NewError(output.InputError, "failed to read config", err)
+	}
+
+	enckey := util.HashSHA256([]byte(password))
+	dectxt, err := util.Decrypt(enctxt, enckey)
+	if err != nil {
+		return "", nil, output.NewError(output.InputError, "failed to decrypt", err)
+	}
+
+	dectxtLen := len(dectxt)
+	if dectxtLen <= 32 {
+		return "", nil, output.NewError(output.ValidationError, "incorrect data", nil)
+	}
+
+	mnemonic, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
+	if !bytes.Equal(hash, util.HashSHA256(mnemonic)) {
+		return "", nil, output.NewError(output.ValidationError, "password error", nil)
+	}
+
+	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
+	if err != nil {
+		return "", nil, err
+	}
+
+	derivationPath := fmt.Sprintf("m/44'/304'/%d'/%d/%d", account, change, index)
+	path := hdwallet.MustParseDerivationPath(derivationPath)
+	walletAccount, err := wallet.Derive(path, false)
+	if err != nil {
+		return "", nil, output.NewError(output.InputError, "failed to get account by derive path", err)
+	}
+
+	private, err := wallet.PrivateKey(walletAccount)
+	if err != nil {
+		return "", nil, output.NewError(output.InputError, "failed to get private key", err)
+	}
+	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	if err != nil {
+		return "", nil, output.NewError(output.InputError, "failed to Bytes private key", err)
+	}
+
+	addr, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	if err != nil {
+		return "", nil, output.NewError(output.ConvertError, "failed to convert public key into address", err)
+	}
+	return addr.String(), prvKey, nil
 }

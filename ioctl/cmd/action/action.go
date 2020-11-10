@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -113,12 +114,24 @@ func parseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
 	// parse derive path
 	// for hdw::1/1/2, return 1, 1, 2
 	// for hdw::1/2, treat as default account = 0, return 0, 1, 2
-	return 0, 0, 0, nil
+	args := strings.Split(addressOrAlias[5:], "/")
+	if len(args) < 2 || len(args) > 3 {
+		return 0, 0, 0, output.NewError(output.ValidationError, "derivation path error", nil)
+	}
+
+	arg := make([]uint32, 3)
+	for i := len(args) - 1; i >= 0; i-- {
+		u64, err := strconv.ParseUint(args[i], 10, 32)
+		if err != nil {
+			return 0, 0, 0, output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[i]), err)
+		}
+		arg[i] = uint32(u64)
+	}
+	return arg[0], arg[1], arg[2], nil
 }
 
 func aliasIsHdwalletKey(addressOrAlias string) bool {
 	if strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::") {
-		// return whether the hdwallet file exists
 		return true
 	}
 	return false
@@ -291,6 +304,9 @@ func SendAction(elp action.Envelope, signer string) error {
 				return output.NewError(output.InputError, "invalid hdwallet key format", err)
 			}
 			signer, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+			if err != nil {
+				return output.NewError(output.InputError, "failed to get derive key", err)
+			}
 			nonce, err := nonce(signer)
 			if err != nil {
 				return output.NewError(0, "failed to get nonce ", err)
