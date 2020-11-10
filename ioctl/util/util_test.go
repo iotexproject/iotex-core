@@ -64,3 +64,31 @@ func TestTrimHexPrefix(t *testing.T) {
 		require.Equal(expects[i], TrimHexPrefix(s))
 	}
 }
+
+func TestParseHdwPath(t *testing.T) {
+	r := require.New(t)
+
+	tests := []struct {
+		addressOrAlias string
+		a, b, c        uint32
+		err            string
+	}{
+		{"hdw::0/1/2", 0, 1, 2, ""},
+		{"hdw::0/1", 0, 1, 0, ""},
+		{"hdw::0", 0, 0, 0, "derivation path error"},
+		{"hdw::", 0, 0, 0, "derivation path error"},
+		{"hdw::0/1/2/3", 0, 0, 0, "derivation path error"},
+		{"hdw::a/3", 0, 0, 0, "must be integer value"},
+		{"hdw::a/b", 0, 0, 0, "must be integer value"},
+		{"hdw::1/23b", 0, 0, 0, "must be integer value"},
+	}
+	for _, v := range tests {
+		a, b, c, err := ParseHdwPath(v.addressOrAlias)
+		r.Equal(a, v.a)
+		r.Equal(b, v.b)
+		r.Equal(c, v.c)
+		if err != nil {
+			r.Contains(err.Error(), v.err)
+		}
+	}
+}
