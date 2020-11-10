@@ -91,6 +91,26 @@ func Test_Hdwallet(t *testing.T) {
 
 	require.Equal(addr1, addr2)
 
+	//test DeriveKey
+	account1 := 0
+	change := 1
+	index := 2
+
+	derivationPath = fmt.Sprintf("m/44'/304'/%d'/%d/%d", account1, change, index)
+	path = hdwallet.MustParseDerivationPath(derivationPath)
+	account, err = wallet.Derive(path, false)
+	require.NoError(err)
+
+	private, err = wallet.PrivateKey(account)
+	require.NoError(err)
+	addr3, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	require.NoError(err)
+
+	require.Equal(addr2, addr3)
+
+	account1 = 123
+	derivationPath = fmt.Sprintf("m/44'/304'/%d'/%d/%d", account1, change, index)
+	require.Equal("m/44'/304'/123'/1/2", derivationPath)
 }
 
 func TestEncryptDecryptWithMnemonic(t *testing.T) {
