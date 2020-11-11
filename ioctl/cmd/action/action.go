@@ -277,7 +277,7 @@ func SendAction(elp action.Envelope, signer string) error {
 			}
 			signer, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
 			if err != nil {
-				return output.NewError(output.InputError, "failed to get derive key", err)
+				return output.NewError(output.InputError, "failed to derive key from HDWallet", err)
 			}
 			nonce, err := nonce(signer)
 			if err != nil {
@@ -286,11 +286,10 @@ func SendAction(elp action.Envelope, signer string) error {
 			elp.SetNonce(nonce)
 		} else {
 			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
+			if err != nil {
+				return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
+			}
 		}
-		if err != nil {
-			return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
-		}
-
 	} else {
 		// Get private key
 		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
@@ -301,7 +300,7 @@ func SendAction(elp action.Envelope, signer string) error {
 
 		prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
 		if err != nil {
-			return output.NewError(output.InputError, "failed to HexString private key", err)
+			return output.NewError(output.InputError, "failed to get private key from HexString input", err)
 		}
 	}
 
