@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -209,4 +210,35 @@ func CheckArgs(validNum ...int) cobra.PositionalArgs {
 // TrimHexPrefix removes 0x prefix from a string if it has
 func TrimHexPrefix(s string) string {
 	return strings.TrimPrefix(s, "0x")
+}
+
+// ParseHdwPath parse hdwallet path
+func ParseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
+	// parse derive path
+	// for hdw::1/1/2, return 1, 1, 2
+	// for hdw::1/2, treat as default account = 0, return 0, 1, 2
+	args := strings.Split(addressOrAlias[5:], "/")
+	if len(args) < 2 || len(args) > 3 {
+		return 0, 0, 0, output.NewError(output.ValidationError, "derivation path error", nil)
+	}
+
+	arg := make([]uint32, 3)
+	j := 0
+	for i := 3 - len(args); i < 3; i++ {
+		u64, err := strconv.ParseUint(args[j], 10, 32)
+		if err != nil {
+			return 0, 0, 0, output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[j]), err)
+		}
+		arg[i] = uint32(u64)
+		j++
+	}
+	return arg[0], arg[1], arg[2], nil
+}
+
+// AliasIsHdwalletKey check whether to use hdwallet key
+func AliasIsHdwalletKey(addressOrAlias string) bool {
+	if strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::") {
+		return true
+	}
+	return false
 }
