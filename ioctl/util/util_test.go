@@ -86,7 +86,6 @@ func TestParseHdwPath(t *testing.T) {
 	}
 	for _, v := range tests {
 		a, b, c, err := ParseHdwPath(v.addressOrAlias)
-		t.Logf("s=%s,a=%d,b=%d,c=%d", v.addressOrAlias, a, b, c)
 		r.Equal(a, v.a)
 		r.Equal(b, v.b)
 		r.Equal(c, v.c)
