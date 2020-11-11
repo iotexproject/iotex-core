@@ -223,12 +223,14 @@ func ParseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
 	}
 
 	arg := make([]uint32, 3)
-	for i := len(args) - 1; i >= 0; i-- {
-		u64, err := strconv.ParseUint(args[i], 10, 32)
+	j := 0
+	for i := 3 - len(args); i < 3; i++ {
+		u64, err := strconv.ParseUint(args[j], 10, 32)
 		if err != nil {
-			return 0, 0, 0, output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[i]), err)
+			return 0, 0, 0, output.NewError(output.InputError, fmt.Sprintf("%v must be integer value", args[j]), err)
 		}
 		arg[i] = uint32(u64)
+		j++
 	}
 	return arg[0], arg[1], arg[2], nil
 }

@@ -122,7 +122,7 @@ func DeriveKey(account, change, index uint32, password string) (string, crypto.P
 		return "", nil, err
 	}
 
-	derivationPath := fmt.Sprintf("m/44'/304'/%d'/%d/%d", account, change, index)
+	derivationPath := fmt.Sprintf("%s/%d'/%d/%d", DefaultRootDerivationPath, account, change, index)
 	path := hdwallet.MustParseDerivationPath(derivationPath)
 	walletAccount, err := wallet.Derive(path, false)
 	if err != nil {

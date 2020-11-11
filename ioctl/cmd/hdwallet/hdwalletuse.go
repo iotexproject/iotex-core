@@ -92,7 +92,7 @@ func hdwalletUse(arg [2]uint32) error {
 		return err
 	}
 
-	derivationPath := fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], arg[0], arg[1])
+	derivationPath := fmt.Sprintf("%s/0'/%d/%d", DefaultRootDerivationPath, arg[0], arg[1])
 	path := hdwallet.MustParseDerivationPath(derivationPath)
 	account, err := wallet.Derive(path, false)
 	if err != nil {

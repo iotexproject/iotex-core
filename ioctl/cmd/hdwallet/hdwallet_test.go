@@ -56,7 +56,7 @@ func Test_Hdwallet(t *testing.T) {
 	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
 	require.NoError(err)
 
-	derivationPath := fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], 1, 2)
+	derivationPath := fmt.Sprintf("%s/0'/%d/%d", DefaultRootDerivationPath, 1, 2)
 
 	path := hdwallet.MustParseDerivationPath(derivationPath)
 	account, err := wallet.Derive(path, false)
@@ -78,7 +78,7 @@ func Test_Hdwallet(t *testing.T) {
 	wallet, err = hdwallet.NewFromMnemonic(string(mnemonic))
 	require.NoError(err)
 
-	derivationPath = fmt.Sprintf("%s/%d/%d", DefaultRootDerivationPath[:len(DefaultRootDerivationPath)-2], 1, 2)
+	derivationPath = fmt.Sprintf("%s/0'/%d/%d", DefaultRootDerivationPath, 1, 2)
 
 	path = hdwallet.MustParseDerivationPath(derivationPath)
 	account, err = wallet.Derive(path, false)
@@ -96,7 +96,7 @@ func Test_Hdwallet(t *testing.T) {
 	change := 1
 	index := 2
 
-	derivationPath = fmt.Sprintf("m/44'/304'/%d'/%d/%d", account1, change, index)
+	derivationPath = fmt.Sprintf("%s/%d'/%d/%d", DefaultRootDerivationPath, account1, change, index)
 	path = hdwallet.MustParseDerivationPath(derivationPath)
 	account, err = wallet.Derive(path, false)
 	require.NoError(err)
@@ -109,8 +109,16 @@ func Test_Hdwallet(t *testing.T) {
 	require.Equal(addr2, addr3)
 
 	account1 = 123
-	derivationPath = fmt.Sprintf("m/44'/304'/%d'/%d/%d", account1, change, index)
-	require.Equal("m/44'/304'/123'/1/2", derivationPath)
+	derivationPath = fmt.Sprintf("%s/%d'/%d/%d", DefaultRootDerivationPath, account1, change, index)
+	path = hdwallet.MustParseDerivationPath(derivationPath)
+	account, err = wallet.Derive(path, false)
+	require.NoError(err)
+
+	private, err = wallet.PrivateKey(account)
+	require.NoError(err)
+	addr4, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	require.NoError(err)
+	require.NotEqual(addr2, addr4)
 }
 
 func TestEncryptDecryptWithMnemonic(t *testing.T) {
