@@ -51,7 +51,7 @@ func init() {
 	HdwalletCmd.AddCommand(hdwalletDeleteCmd)
 	HdwalletCmd.AddCommand(hdwalletImportCmd)
 	HdwalletCmd.AddCommand(hdwalletExportCmd)
-	HdwalletCmd.AddCommand(hdwalletUseCmd)
+	HdwalletCmd.AddCommand(hdwalletDeriveCmd)
 }
 
 func hashECDSAPublicKey(publicKey *ecdsa.PublicKey) []byte {
