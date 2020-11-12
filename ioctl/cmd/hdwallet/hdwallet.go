@@ -42,7 +42,7 @@ var HdwalletCmd = &cobra.Command{
 
 // DefaultRootDerivationPath for iotex
 // https://github.com/satoshilabs/slips/blob/master/slip-0044.md
-const DefaultRootDerivationPath = "m/44'/304'/0'/0"
+const DefaultRootDerivationPath = "m/44'/304'"
 
 var hdWalletConfigFile = config.ReadConfig.Wallet + "/hdwallet"
 

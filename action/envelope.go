@@ -234,3 +234,6 @@ func (elp *Envelope) Serialize() []byte {
 func (elp *Envelope) Hash() hash.Hash256 {
 	return hash.Hash256b(elp.Serialize())
 }
+
+// SetNonce sets the nonce value
+func (elp *Envelope) SetNonce(n uint64) { elp.nonce = n }
