@@ -7,7 +7,6 @@
 package hdwallet
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -60,7 +59,7 @@ func hdwalletDerive(path string) error {
 		return err
 	}
 
-	addr, err := address.FromBytes(hashECDSAPublicKey(pri.PublicKey().EcdsaPublicKey().(*ecdsa.PublicKey)))
+	addr, err := address.FromBytes(pri.PublicKey().Hash())
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to convert public key into address", err)
 	}
