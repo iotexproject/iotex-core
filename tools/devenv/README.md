@@ -27,6 +27,6 @@ This is the script to start the local development environment of IoTeX blockchai
 After installation of this local development environment, one can use:
 - truffle to write/compile/test contracts and ioctl to deploy them, e.g., https://docs.iotex.io/developer/ioctl/contract.html
 - [IoTeX Studio](http://ide.iotex.io/) to write/compile/test/deploy contracts
-- [ioPay](https://iopay.iotex.io/) Set:
+- [ioPay](https://iopay.iotex.io/) Set to use the local endpoint, as shown below:
 
 ![](images/01.jpeg)
