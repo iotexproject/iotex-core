@@ -67,7 +67,6 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 	}
 	for _, v2 := range tests2 {
 		a, b, err := cbi.GetCandidates(v2.height, v2.offset, v2.limit)
-		t.Logf("%v, a=%s, b= %d", v2, a, b)
 		require.NoError(err)
 
 		var r iotextypes.CandidateListV2
@@ -113,30 +112,33 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 		require.NoError(cbi.PutBuckets(v.height, v.buckets))
 	}
 
-	//incorrect parameter
 	tests2 := []struct {
 		height        uint64
 		offset, limit uint32
+		r1            int
+		r2            uint64
 	}{
-		{0, 0, 0},
-		{2, 1111111, 1},
-		{21111111, 1111111, 1333333},
+		{0, 0, 0, 0, 0},
+		{2, 0, 1, 1, 2},
+		{2, 0, 100, 1, 2},
+		{2, 1234, 0, 0, 2},
+		{2, 1111111, 1, 0, 2},
+		{21111111, 1111111, 1333333, 0, 2},
 	}
 	for _, v2 := range tests2 {
-		_, _, err = cbi.GetBuckets(v2.height, v2.offset, v2.limit)
+		a, b, err := cbi.GetBuckets(v2.height, v2.offset, v2.limit)
 		require.NoError(err)
+
+		var r iotextypes.VoteBucketList
+		require.NoError(proto.Unmarshal(a, &r))
+		require.Equal(len(r.Buckets), v2.r1)
+		require.Equal(b, v2.r2)
+
+		if len(r.Buckets) > 0 {
+			require.Equal(r.Buckets[0].Index, tests[1].buckets.Buckets[0].Index)
+			require.Equal(r.Buckets[0].AutoStake, tests[1].buckets.Buckets[0].AutoStake)
+			require.Equal(r.Buckets[0].Owner, tests[1].buckets.Buckets[0].Owner)
+		}
 	}
-
-	b, h, err := cbi.GetBuckets(tests[1].height, 0, 1)
-	require.NoError(err)
-	require.Equal(h, uint64(2))
-
-	var r iotextypes.VoteBucketList
-	require.NoError(proto.Unmarshal(b, &r))
-	require.Equal(len(r.Buckets), 1)
-	require.Equal(r.Buckets[0].Index, tests[1].buckets.Buckets[0].Index)
-	require.Equal(r.Buckets[0].AutoStake, tests[1].buckets.Buckets[0].AutoStake)
-	require.Equal(r.Buckets[0].Owner, tests[1].buckets.Buckets[0].Owner)
-
 	require.NoError(cbi.Stop(ctx))
 }
