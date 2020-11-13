@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"testing"
 
+	ecrypt "github.com/ethereum/go-ethereum/crypto"
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -64,7 +66,10 @@ func Test_Hdwallet(t *testing.T) {
 
 	private, err := wallet.PrivateKey(account)
 	require.NoError(err)
-	addr1, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+
+	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	require.NoError(err)
+	addr1, err := address.FromBytes(prvKey.PublicKey().Hash())
 	require.NoError(err)
 
 	// simulating 'hdwallet import' here
@@ -86,7 +91,9 @@ func Test_Hdwallet(t *testing.T) {
 
 	private, err = wallet.PrivateKey(account)
 	require.NoError(err)
-	addr2, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	require.NoError(err)
+	addr2, err := address.FromBytes(prvKey.PublicKey().Hash())
 	require.NoError(err)
 
 	require.Equal(addr1, addr2)
@@ -103,7 +110,9 @@ func Test_Hdwallet(t *testing.T) {
 
 	private, err = wallet.PrivateKey(account)
 	require.NoError(err)
-	addr3, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	require.NoError(err)
+	addr3, err := address.FromBytes(prvKey.PublicKey().Hash())
 	require.NoError(err)
 
 	require.Equal(addr2, addr3)
@@ -116,7 +125,9 @@ func Test_Hdwallet(t *testing.T) {
 
 	private, err = wallet.PrivateKey(account)
 	require.NoError(err)
-	addr4, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	require.NoError(err)
+	addr4, err := address.FromBytes(prvKey.PublicKey().Hash())
 	require.NoError(err)
 	require.NotEqual(addr2, addr4)
 }
@@ -158,7 +169,9 @@ func TestFixedMnemonicAndDerivationPath(t *testing.T) {
 
 	private, err := wallet.PrivateKey(account)
 	require.NoError(err)
-	addr, err := address.FromBytes(hashECDSAPublicKey(&private.PublicKey))
+	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
+	require.NoError(err)
+	addr, err := address.FromBytes(prvKey.PublicKey().Hash())
 	require.NoError(err)
 
 	require.Equal(addr.String(), "io13hwqt04le40puf73aa9w9zm9fq04qqn7qcjc6z")

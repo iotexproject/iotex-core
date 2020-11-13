@@ -26,8 +26,8 @@ import (
 // Multi-language support
 var (
 	hdwalletDeriveCmdShorts = map[config.Language]string{
-		config.English: "create hdwallet account using hdwallet derive key",
-		config.Chinese: "通过派生key生成钱包账号",
+		config.English: "derive key from HDWallet",
+		config.Chinese: "查询HDWallet钱包的派生key地址",
 	}
 	hdwalletDeriveCmdUses = map[config.Language]string{
 		config.English: "derive id1/id2/id3",
@@ -65,7 +65,6 @@ func hdwalletDerive(path string) error {
 		return err
 	}
 	output.PrintResult(fmt.Sprintf("address: %s\n", addr))
-
 	return nil
 }
 
