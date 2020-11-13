@@ -7,13 +7,10 @@
 package hdwallet
 
 import (
-	"crypto/ecdsa"
 	"errors"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/cobra"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 )
 
@@ -51,11 +48,5 @@ func init() {
 	HdwalletCmd.AddCommand(hdwalletDeleteCmd)
 	HdwalletCmd.AddCommand(hdwalletImportCmd)
 	HdwalletCmd.AddCommand(hdwalletExportCmd)
-	HdwalletCmd.AddCommand(hdwalletUseCmd)
-}
-
-func hashECDSAPublicKey(publicKey *ecdsa.PublicKey) []byte {
-	k := crypto.FromECDSAPub(publicKey)
-	h := hash.Hash160b(k[1:])
-	return h[:]
+	HdwalletCmd.AddCommand(hdwalletDeriveCmd)
 }
