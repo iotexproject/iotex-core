@@ -1,4 +1,4 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2020 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
@@ -64,12 +64,7 @@ func Test_Hdwallet(t *testing.T) {
 	account, err := wallet.Derive(path, false)
 	require.NoError(err)
 
-	private, err := wallet.PrivateKey(account)
-	require.NoError(err)
-
-	prvKey, err := crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
-	require.NoError(err)
-	addr1, err := address.FromBytes(prvKey.PublicKey().Hash())
+	private1, err := wallet.PrivateKey(account)
 	require.NoError(err)
 
 	// simulating 'hdwallet import' here
@@ -89,14 +84,9 @@ func Test_Hdwallet(t *testing.T) {
 	account, err = wallet.Derive(path, false)
 	require.NoError(err)
 
-	private, err = wallet.PrivateKey(account)
+	private2, err := wallet.PrivateKey(account)
 	require.NoError(err)
-	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
-	require.NoError(err)
-	addr2, err := address.FromBytes(prvKey.PublicKey().Hash())
-	require.NoError(err)
-
-	require.Equal(addr1, addr2)
+	require.Equal(private1, private2)
 
 	//test DeriveKey
 	account1 := 0
@@ -108,14 +98,10 @@ func Test_Hdwallet(t *testing.T) {
 	account, err = wallet.Derive(path, false)
 	require.NoError(err)
 
-	private, err = wallet.PrivateKey(account)
-	require.NoError(err)
-	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
-	require.NoError(err)
-	addr3, err := address.FromBytes(prvKey.PublicKey().Hash())
+	private3, err := wallet.PrivateKey(account)
 	require.NoError(err)
 
-	require.Equal(addr2, addr3)
+	require.Equal(private2, private3)
 
 	account1 = 123
 	derivationPath = fmt.Sprintf("%s/%d'/%d/%d", DefaultRootDerivationPath, account1, change, index)
@@ -123,13 +109,9 @@ func Test_Hdwallet(t *testing.T) {
 	account, err = wallet.Derive(path, false)
 	require.NoError(err)
 
-	private, err = wallet.PrivateKey(account)
+	private4, err := wallet.PrivateKey(account)
 	require.NoError(err)
-	prvKey, err = crypto.BytesToPrivateKey(ecrypt.FromECDSA(private))
-	require.NoError(err)
-	addr4, err := address.FromBytes(prvKey.PublicKey().Hash())
-	require.NoError(err)
-	require.NotEqual(addr2, addr4)
+	require.NotEqual(private2, private4)
 }
 
 func TestEncryptDecryptWithMnemonic(t *testing.T) {
