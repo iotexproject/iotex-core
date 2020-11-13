@@ -148,6 +148,12 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			if blk.Receipts == nil {
+				blk.Receipts, err = dao.GetReceipts(i)
+				if err != nil {
+					return err
+				}
+			}
 			producer, err := address.FromBytes(blk.PublicKey().Hash())
 			if err != nil {
 				return err

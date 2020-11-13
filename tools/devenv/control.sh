@@ -77,4 +77,3 @@ function main() {
 }
 
 main $@
-n
