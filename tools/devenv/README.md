@@ -1,8 +1,9 @@
 # Start dev env as easy as possible
 
 This is the script to start the local development environment of IoTeX blockchain which basically:
-- starts an IoTeX blockchain in standalone mode and creates the following 10 accounts with IOTEX_IMAGE
-- installs ioctl if not already installed, sets ioctl's endpoint to localhost:14014
+- Docker build from branch master to IOTEX_IMAGE
+- Starts an IoTeX blockchain in standalone mode and creates the following 10 accounts with IOTEX_IMAGE
+- Installs ioctl if not already installed, sets ioctl's endpoint to localhost:14014
 
 ```
 (0) io1pt6zphmmc6c8wzdlnuu0gd42la88jtgywcfvsm
