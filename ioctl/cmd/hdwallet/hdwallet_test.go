@@ -7,7 +7,6 @@
 package hdwallet
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"testing"
@@ -43,17 +42,11 @@ func Test_Hdwallet(t *testing.T) {
 	require.NoError(err)
 
 	dectxtLen := len(dectxt)
-	if dectxtLen <= 32 {
-		err = fmt.Errorf("incorrect data")
-	}
-	require.NoError(err)
+	require.True(dectxtLen > 32)
 
 	mnemonic1, hash := dectxt[:dectxtLen-32], dectxt[dectxtLen-32:]
 
-	if !bytes.Equal(hash, util.HashSHA256(mnemonic1)) {
-		err = fmt.Errorf("password error")
-	}
-	require.NoError(err)
+	require.Equal(hash, util.HashSHA256(mnemonic1))
 
 	wallet, err := hdwallet.NewFromMnemonic(string(mnemonic))
 	require.NoError(err)
