@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
@@ -91,9 +92,23 @@ func init() {
 
 // Sign sign message with signer
 func Sign(signer, password, message string) (signedMessage string, err error) {
-	pri, err := LocalAccountToPrivateKey(signer, password)
-	if err != nil {
-		return
+	var pri crypto.PrivateKey
+	if !util.AliasIsHdwalletKey(signer) {
+		pri, err = LocalAccountToPrivateKey(signer, password)
+		if err != nil {
+			return
+		}
+	} else {
+		account, change, index, err1 := util.ParseHdwPath(signer)
+		if err1 != nil {
+			err = output.NewError(output.InputError, "invalid hdwallet key format", err1)
+			return
+		}
+
+		_, pri, err = hdwallet.DeriveKey(account, change, index, password)
+		if err != nil {
+			return
+		}
 	}
 	mes := message
 	head := message[:2]
