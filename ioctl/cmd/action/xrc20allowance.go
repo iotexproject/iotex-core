@@ -63,7 +63,7 @@ func allowance(arg string) error {
 	if err != nil {
 		return output.NewError(output.ConvertError, "cannot generate bytecode from given command", err)
 	}
-	result, err := Read(contract, big.NewInt(0), bytecode)
+	result, err := Read(contract, "0", bytecode)
 	if err != nil {
 		return output.NewError(0, "failed to read contract", err)
 	}

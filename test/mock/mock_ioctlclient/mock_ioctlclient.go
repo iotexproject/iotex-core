@@ -209,3 +209,17 @@ func (mr *MockClientMockRecorder) GetAliasMap() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAliasMap", reflect.TypeOf((*MockClient)(nil).GetAliasMap))
 }
+
+// WriteConfig mocks base method
+func (m *MockClient) WriteConfig(arg0 config.Config) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteConfig", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// WriteConfig indicates an expected call of WriteConfig
+func (mr *MockClientMockRecorder) WriteConfig(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteConfig", reflect.TypeOf((*MockClient)(nil).WriteConfig), arg0)
+}
