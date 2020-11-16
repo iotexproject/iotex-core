@@ -59,6 +59,7 @@ type ChainService struct {
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api                *api.Server
 	indexBuilder       *blockindex.IndexBuilder
+	bfIndexer          blockindex.BloomFilterIndexer
 	candidateIndexer   *poll.CandidateIndexer
 	candBucketsIndexer *staking.CandidatesBucketsIndexer
 	registry           *protocol.Registry
@@ -99,6 +100,7 @@ func New(
 	var (
 		indexers           []blockdao.BlockIndexer
 		indexer            blockindex.Indexer
+		bfIndexer          blockindex.BloomFilterIndexer
 		candidateIndexer   *poll.CandidateIndexer
 		candBucketsIndexer *staking.CandidatesBucketsIndexer
 		err                error
@@ -171,6 +173,15 @@ func New(
 		if !cfg.Chain.EnableAsyncIndexWrite {
 			indexers = append(indexers, indexer)
 		}
+
+		// create bloomfilter indexer
+		cfg.DB.DbPath = cfg.Chain.BloomfilterIndexDBPath
+		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Chain.RangeBloomFilterSize)
+		if err != nil {
+			return nil, err
+		}
+		indexers = append(indexers, bfIndexer)
+
 		// create candidate indexer
 		cfg.DB.DbPath = cfg.Chain.CandidateIndexDBPath
 		candidateIndexer, err = poll.NewCandidateIndexer(db.NewBoltDB(cfg.DB))
@@ -340,6 +351,7 @@ func New(
 		sf,
 		dao,
 		indexer,
+		bfIndexer,
 		actPool,
 		registry,
 		api.WithBroadcastOutbound(func(ctx context.Context, chainID uint32, msg proto.Message) error {
@@ -388,6 +400,7 @@ func New(
 		consensus:          consensus,
 		electionCommittee:  electionCommittee,
 		indexBuilder:       indexBuilder,
+		bfIndexer:          bfIndexer,
 		candidateIndexer:   candidateIndexer,
 		candBucketsIndexer: candBucketsIndexer,
 		api:                apiSvr,

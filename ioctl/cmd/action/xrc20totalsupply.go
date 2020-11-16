@@ -48,7 +48,7 @@ func totalSupply() error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get contract address", err)
 	}
-	result, err := Read(contract, big.NewInt(0), bytecode)
+	result, err := Read(contract, "0", bytecode)
 	if err != nil {
 		return output.NewError(0, "failed to read contract", err)
 	}

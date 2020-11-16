@@ -768,6 +768,13 @@ var (
 			count:     100,
 			numLogs:   4,
 		},
+		{
+			address:   []string{},
+			topics:    []*iotexapi.Topics{},
+			fromBlock: 1,
+			count:     100,
+			numLogs:   4,
+		},
 	}
 
 	getImplicitTransfersByActionHashTest = []struct {
@@ -1948,7 +1955,7 @@ func TestServer_GetLogs(t *testing.T) {
 			Lookup: &iotexapi.GetLogsRequest_ByRange{
 				ByRange: &iotexapi.GetLogsByRange{
 					FromBlock: test.fromBlock,
-					Count:     test.count,
+					ToBlock:   test.fromBlock + test.count - 1,
 				},
 			},
 		}
@@ -2205,28 +2212,32 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	ap, err := setupActPool(sf, cfg.ActPool)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+	}
+	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Chain.RangeBloomFilterSize)
+	if err != nil {
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create bloomfilter indexer")
 	}
 	// create BlockDAO
-	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
 	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
@@ -2239,7 +2250,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		)),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -2257,22 +2268,22 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	r := rewarding.NewProtocol(0, 0)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, err
 	}
 
-	return bc, dao, indexer, sf, ap, registry, nil
+	return bc, dao, indexer, bfIndexer, sf, ap, registry, nil
 }
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
@@ -2314,7 +2325,7 @@ func newConfig(t *testing.T) config.Config {
 
 func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	// TODO (zhi): revise
-	bc, dao, indexer, sf, ap, registry, err := setupChain(cfg)
+	bc, dao, indexer, bfIndexer, sf, ap, registry, err := setupChain(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -2343,6 +2354,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		sf:             sf,
 		dao:            dao,
 		indexer:        indexer,
+		bfIndexer:      bfIndexer,
 		ap:             ap,
 		cfg:            cfg,
 		gs:             gasstation.NewGasStation(bc, sf.SimulateExecution, dao, cfg.API),
@@ -2351,4 +2363,59 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 	}
 
 	return svr, nil
+}
+
+func TestServer_GetActPoolActions(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+	ctx := context.Background()
+
+	svr, err := createServer(cfg, false)
+	require.NoError(err)
+	var requests []string
+
+	res, err := svr.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
+	require.NoError(err)
+	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
+
+	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
+		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3,
+		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4,
+		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	require.NoError(err)
+	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
+	require.NoError(err)
+
+	err = svr.ap.Add(ctx, tsf1)
+	require.NoError(err)
+	err = svr.ap.Add(ctx, tsf2)
+	require.NoError(err)
+	err = svr.ap.Add(ctx, execution1)
+	require.NoError(err)
+
+	h1 := tsf1.Hash()
+	requests = append(requests, hex.EncodeToString(h1[:]))
+
+	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{})
+	require.NoError(err)
+	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
+
+	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	require.NoError(err)
+	require.Equal(1, len(res.Actions))
+
+	h2 := tsf2.Hash()
+	requests = append(requests, hex.EncodeToString(h2[:]))
+	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: requests})
+	require.NoError(err)
+	require.Equal(2, len(res.Actions))
+
+	h3 := tsf3.Hash()
+	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	require.Error(err)
 }

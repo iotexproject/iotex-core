@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/ioctl/cmd/account"
+	"github.com/iotexproject/iotex-core/ioctl/cmd/hdwallet"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
@@ -60,7 +61,7 @@ var defaultGasPrice = big.NewInt(unit.Qev)
 
 // Flags
 var (
-	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", 0, "set gas limit")
+	gasLimitFlag = flag.NewUint64VarP("gas-limit", "l", defaultGasLimit, "set gas limit")
 	gasPriceFlag = flag.NewStringVarP("gas-price", "p", "1", "set gas price (unit: 10^(-6)IOTX), use suggested gas price if input is \"0\"")
 	nonceFlag    = flag.NewUint64VarP("nonce", "n", 0, "set nonce (default using pending nonce)")
 	signerFlag   = flag.NewStringVarP("signer", "s", "", "choose a signing account")
@@ -111,6 +112,10 @@ func decodeBytecode() ([]byte, error) {
 // Signer returns signer's address
 func Signer() (address string, err error) {
 	addressOrAlias := signerFlag.Value().(string)
+	if util.AliasIsHdwalletKey(addressOrAlias) {
+		return addressOrAlias, nil
+	}
+
 	if addressOrAlias == "" {
 		addressOrAlias, err = config.GetContextAddressOrAlias()
 		if err != nil {
@@ -121,6 +126,10 @@ func Signer() (address string, err error) {
 }
 
 func nonce(executor string) (uint64, error) {
+	if util.AliasIsHdwalletKey(executor) {
+		// for hdwallet key, get the nonce in SendAction()
+		return 0, nil
+	}
 	nonce := nonceFlag.Value().(uint64)
 	if nonce != 0 {
 		return nonce, nil
@@ -250,7 +259,7 @@ func SendAction(elp action.Envelope, signer string) error {
 	var prvKey crypto.PrivateKey
 	var err error
 
-	if account.IsSignerExist(signer) {
+	if account.IsSignerExist(signer) || util.AliasIsHdwalletKey(signer) {
 		// Get signer's password
 		password := passwordFlag.Value().(string)
 		if password == "" {
@@ -261,11 +270,26 @@ func SendAction(elp action.Envelope, signer string) error {
 			}
 		}
 
-		prvKey, err = account.LocalAccountToPrivateKey(signer, password)
-		if err != nil {
-			return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
+		if util.AliasIsHdwalletKey(signer) {
+			account, change, index, err := util.ParseHdwPath(signer)
+			if err != nil {
+				return output.NewError(output.InputError, "invalid hdwallet key format", err)
+			}
+			signer, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+			if err != nil {
+				return output.NewError(output.InputError, "failed to derive key from HDWallet", err)
+			}
+			nonce, err := nonce(signer)
+			if err != nil {
+				return output.NewError(0, "failed to get nonce ", err)
+			}
+			elp.SetNonce(nonce)
+		} else {
+			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
+			if err != nil {
+				return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
+			}
 		}
-
 	} else {
 		// Get private key
 		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
@@ -276,7 +300,7 @@ func SendAction(elp action.Envelope, signer string) error {
 
 		prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
 		if err != nil {
-			return output.NewError(output.InputError, "failed to HexString private key", err)
+			return output.NewError(output.InputError, "failed to get private key from HexString input", err)
 		}
 	}
 
@@ -350,15 +374,7 @@ func Execute(contract string, amount *big.Int, bytecode []byte) error {
 }
 
 // Read reads smart contract on IoTeX blockchain
-func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, error) {
-	caller, err := Signer()
-	if err != nil {
-		caller = address.ZeroAddress
-	}
-	exec, err := action.NewExecution(contract.String(), 0, amount, defaultGasLimit, defaultGasPrice, bytecode)
-	if err != nil {
-		return "", output.NewError(output.InstantiationError, "cannot make an Execution instance", err)
-	}
+func Read(contract address.Address, amount string, bytecode []byte) (string, error) {
 	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 	if err != nil {
 		return "", output.NewError(output.NetworkError, "failed to connect to endpoint", err)
@@ -374,8 +390,12 @@ func Read(contract address.Address, amount *big.Int, bytecode []byte) (string, e
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
 		ctx,
 		&iotexapi.ReadContractRequest{
-			Execution:     exec.Proto(),
-			CallerAddress: caller,
+			Execution: &iotextypes.Execution{
+				Amount:   amount,
+				Contract: contract.String(),
+				Data:     bytecode,
+			},
+			CallerAddress: address.ZeroAddress,
 		},
 	)
 	if err == nil {

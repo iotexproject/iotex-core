@@ -9,7 +9,6 @@ package did
 import (
 	"encoding/hex"
 	"errors"
-	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -63,7 +62,7 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return output.NewError(output.ConvertError, "invalid contract address", err)
 	}
-	result, err := action.Read(addr, big.NewInt(0), bytecode)
+	result, err := action.Read(addr, "0", bytecode)
 	if err != nil {
 		return
 	}
