@@ -20,10 +20,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -1108,6 +1110,92 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
+}
+
+func TestServer_SendActionErrorCase(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	broadcastHandlerCount := 0
+	ctx := context.Background()
+
+	testTransfer, _ = testutil.SignedTransfer(identityset.Address(1).String(),
+		identityset.PrivateKey(2), 1, big.NewInt(10), []byte{}, 0,
+		big.NewInt(0))
+	tests := []struct {
+		server func() (*Server, error)
+		action *iotextypes.Action
+		err    string
+	}{
+		{
+			func() (*Server, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			&iotextypes.Action{},
+			"invalid public key",
+		},
+		{
+			func() (*Server, error) {
+				cfg := newConfig(t)
+				cfg.ActPool.MaxNumActsPerPool = 8
+				return createServer(cfg, true)
+			},
+			testTransfer.Proto(),
+			"insufficient space for action: invalid actpool",
+		},
+	}
+
+	for _, test := range tests {
+		request := &iotexapi.SendActionRequest{Action: test.action}
+		svr, err := test.server()
+		require.NoError(err)
+
+		svr.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
+			broadcastHandlerCount++
+			return nil
+		}
+		_, err = svr.SendAction(ctx, request)
+		require.Contains(err.Error(), test.err)
+	}
+}
+
+func TestServer_getProtocolAccount(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, true)
+	require.NoError(err)
+
+	// success
+	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	require.NoError(err)
+	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+
+	//failure
+	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	require.Error(err)
+
+}
+
+type aPIServiceStreamLogsServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIServiceStreamLogsServer) Send(m *iotexapi.StreamLogsResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func TestServer_StreamLogs(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, true)
+	require.NoError(err)
+
+	err = svr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
+	require.Error(err)
 }
 
 func TestServer_GetReceiptByAction(t *testing.T) {
