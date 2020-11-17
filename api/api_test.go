@@ -1116,7 +1116,6 @@ func TestServer_SendActionErrorCase(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	broadcastHandlerCount := 0
 	ctx := context.Background()
 
 	testTransfer, _ = testutil.SignedTransfer(identityset.Address(1).String(),
@@ -1151,10 +1150,6 @@ func TestServer_SendActionErrorCase(t *testing.T) {
 		svr, err := test.server()
 		require.NoError(err)
 
-		svr.broadcastHandler = func(_ context.Context, _ uint32, _ proto.Message) error {
-			broadcastHandlerCount++
-			return nil
-		}
 		_, err = svr.SendAction(ctx, request)
 		require.Contains(err.Error(), test.err)
 	}
