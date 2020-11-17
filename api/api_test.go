@@ -20,7 +20,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -1177,14 +1176,6 @@ func TestServer_getProtocolAccount(t *testing.T) {
 	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
 	require.Error(err)
 
-}
-
-type aPIServiceStreamLogsServer struct {
-	grpc.ServerStream
-}
-
-func (x *aPIServiceStreamLogsServer) Send(m *iotexapi.StreamLogsResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func TestServer_StreamLogs(t *testing.T) {
