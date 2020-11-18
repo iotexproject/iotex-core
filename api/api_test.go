@@ -1166,8 +1166,9 @@ func TestServer_getProtocolAccount(t *testing.T) {
 	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
 	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
 
-	//failure
+	//failure: protocol staking isn't registered
 	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
 	require.Error(err)
 
