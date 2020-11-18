@@ -22,8 +22,11 @@ INSTALL_DIRECTORY='/usr/local/bin'
 
 BREW_UPDATE_CMD="brew update"
 BREW_INSTALL_CMD="brew install ioctl"
+BREW_REINSTALL_CMD="brew reinstall ioctl"
 BREW_UNSTABLE_TAP_CMD="brew tap iotexproject/ioctl-unstable"
 BREW_UNSTABLE_INSTALL_CMD="brew install --HEAD iotexproject/ioctl-unstable/ioctl-unstable"
+BREW_UNSTABLE_REINSTALL_CMD="brew reinstall ioctl-unstable"
+BREW_INSTALLED_PATH="/usr/local/bin"
 
 downloadJSON() {
     url="$2"
@@ -120,10 +123,25 @@ fi
 if [ "${OS}" = "darwin" ];then
     if test -x "$(command -v brew)"; then
         if [ "$1" = "unstable" ]; then
-            $BREW_UNSTABLE_TAP_CMD && $BREW_UNSTABLE_INSTALL_CMD
+            if [ `command -v ioctl` ]; then
+                rm -f $BREW_INSTALLED_PATH/ioctl
+            fi
+
+            if [ `command -v ioctl-unstable` ]; then
+                $BREW_UNSTABLE_REINSTALL_CMD
+            else
+                $BREW_UNSTABLE_TAP_CMD && $BREW_UNSTABLE_INSTALL_CMD
+            fi
+            ln -s $BREW_INSTALLED_PATH/ioctl-unstable $BREW_INSTALLED_PATH/ioctl
             echo "Command-line tools is installed to `command -v ioctl-unstable`"
         else
-            $BREW_UPDATE_CMD && $BREW_INSTALL_CMD
+            if [ `command -v ioctl` ]; then
+                rm -f $BREW_INSTALLED_PATH/ioctl
+                $BREW_UPDATE_CMD && $BREW_REINSTALL_CMD
+            else
+                $BREW_UPDATE_CMD && $BREW_INSTALL_CMD
+            fi
+
             echo "Command-line tools is installed to `command -v ioctl`"
         fi
         exit 0
