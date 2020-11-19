@@ -76,7 +76,7 @@ func hdwalletExport() error {
 		return output.NewError(output.ValidationError, "password error", nil)
 	}
 
-	output.PrintResult(fmt.Sprintf("Mnemonic pharse: %s\n"+
+	output.PrintResult(fmt.Sprintf("Mnemonic phrase: %s\n"+
 		"It is used to recover your wallet in case you forgot the password. Write them down and store it in a safe place.", mnemonic))
 
 	return nil

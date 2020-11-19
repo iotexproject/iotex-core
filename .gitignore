@@ -3,6 +3,7 @@
 *.db
 
 .cache
+.vscode
 
 *.DS_Store
 .AppleDouble
