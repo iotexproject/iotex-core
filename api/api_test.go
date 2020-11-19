@@ -786,6 +786,16 @@ func TestServer_GetAccount(t *testing.T) {
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
+
+	// success: reward pool
+	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	require.NoError(err)
+	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
+
+	//failure: protocol staking isn't registered
+	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
 func TestServer_GetActions(t *testing.T) {
@@ -1109,18 +1119,9 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
-}
 
-func TestServer_SendActionErrorCase(t *testing.T) {
-	require := require.New(t)
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
+	// 2 failure cases
 	ctx := context.Background()
-
-	testTransfer, _ = testutil.SignedTransfer(identityset.Address(1).String(),
-		identityset.PrivateKey(2), 1, big.NewInt(10), []byte{}, 0,
-		big.NewInt(0))
 	tests := []struct {
 		server func() (*Server, error)
 		action *iotextypes.Action
@@ -1140,7 +1141,7 @@ func TestServer_SendActionErrorCase(t *testing.T) {
 				cfg.ActPool.MaxNumActsPerPool = 8
 				return createServer(cfg, true)
 			},
-			testTransfer.Proto(),
+			testTransferPb,
 			"insufficient space for action: invalid actpool",
 		},
 	}
@@ -1153,25 +1154,6 @@ func TestServer_SendActionErrorCase(t *testing.T) {
 		_, err = svr.SendAction(ctx, request)
 		require.Contains(err.Error(), test.err)
 	}
-}
-
-func TestServer_getProtocolAccount(t *testing.T) {
-	require := require.New(t)
-	cfg := newConfig(t)
-
-	svr, err := createServer(cfg, true)
-	require.NoError(err)
-
-	// success
-	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
-	require.NoError(err)
-	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
-	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
-
-	//failure: protocol staking isn't registered
-	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
-	require.Error(err)
-
 }
 
 func TestServer_StreamLogs(t *testing.T) {
