@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -785,6 +786,16 @@ func TestServer_GetAccount(t *testing.T) {
 	// failure
 	_, err = svr.GetAccount(context.Background(), &iotexapi.GetAccountRequest{})
 	require.Error(err)
+
+	// success: reward pool
+	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	require.NoError(err)
+	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
+	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
+
+	//failure: protocol staking isn't registered
+	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
+	require.Contains(err.Error(), "protocol staking isn't registered")
 }
 
 func TestServer_GetActions(t *testing.T) {
@@ -1108,6 +1119,52 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(i+1, broadcastHandlerCount)
 		require.Equal(test.actionHash, res.ActionHash)
 	}
+
+	// 2 failure cases
+	ctx := context.Background()
+	tests := []struct {
+		server func() (*Server, error)
+		action *iotextypes.Action
+		err    string
+	}{
+		{
+			func() (*Server, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			&iotextypes.Action{},
+			"invalid public key",
+		},
+		{
+			func() (*Server, error) {
+				cfg := newConfig(t)
+				cfg.ActPool.MaxNumActsPerPool = 8
+				return createServer(cfg, true)
+			},
+			testTransferPb,
+			"insufficient space for action: invalid actpool",
+		},
+	}
+
+	for _, test := range tests {
+		request := &iotexapi.SendActionRequest{Action: test.action}
+		svr, err := test.server()
+		require.NoError(err)
+
+		_, err = svr.SendAction(ctx, request)
+		require.Contains(err.Error(), test.err)
+	}
+}
+
+func TestServer_StreamLogs(t *testing.T) {
+	require := require.New(t)
+	cfg := newConfig(t)
+
+	svr, err := createServer(cfg, true)
+	require.NoError(err)
+
+	err = svr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
+	require.Error(err)
 }
 
 func TestServer_GetReceiptByAction(t *testing.T) {
