@@ -339,6 +339,9 @@ func SendAction(elp action.Envelope, signer string) error {
 
 // Execute sends signed execution transaction to blockchain
 func Execute(contract string, amount *big.Int, bytecode []byte) error {
+	if len(contract) == 0 && len(bytecode) == 0 {
+		return output.NewError(0, "failed to deploy contract with empty bytecode", nil)
+	}
 	gasPriceRau, err := gasPriceInRau()
 	if err != nil {
 		return output.NewError(0, "failed to get gas price", err)
