@@ -50,6 +50,7 @@ func init() {
 	}
 	_logMu.Lock()
 	_globalCfg.Zap = &zapCfg
+	_subLoggers = make(map[string]*zap.Logger)
 	_logMu.Unlock()
 	zap.ReplaceGlobals(l)
 }
