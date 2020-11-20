@@ -3,11 +3,8 @@ module github.com/iotexproject/iotex-core
 go 1.13
 
 require (
-	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
-	github.com/coreos/go-etcd v2.0.0+incompatible // indirect
-	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/ethereum/go-ethereum v1.9.5
 	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
@@ -42,8 +39,6 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/syndtr/goleveldb v1.0.1-0.20190923125748-758128399b1d // indirect
 	github.com/tyler-smith/go-bip39 v1.0.2
-	github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8 // indirect
-	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
