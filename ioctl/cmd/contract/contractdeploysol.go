@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -17,14 +18,13 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
-	"github.com/iotexproject/iotex-core/ioctl/util"
 )
 
 // Multi-language support
 var (
 	deploySolCmdUses = map[config.Language]string{
-		config.English: "sol CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT] [--init-amount IOTX数量]",
-		config.Chinese: "sol 合约名 [代码文件...] [--with-arguments 初始化输入] [--init-amount IOTX数量]",
+		config.English: "sol CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT]",
+		config.Chinese: "sol 合约名 [代码文件...] [--with-arguments 初始化输入]",
 	}
 	deploySolCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with sol files on IoTeX blockchain",
@@ -46,7 +46,6 @@ var contractDeploySolCmd = &cobra.Command{
 
 func init() {
 	withArgumentsFlag.RegisterCommand(contractDeploySolCmd)
-	initialAmountFlag.RegisterCommand(contractDeploySolCmd)
 }
 
 func contractDeploySol(args []string) error {
@@ -111,10 +110,6 @@ func contractDeploySol(args []string) error {
 		bytecode = append(bytecode, packedArg...)
 	}
 
-	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
-	if err != nil {
-		return output.NewError(output.FlagError, "invalid amount", err)
-	}
-
+	amount := big.NewInt(0)
 	return action.Execute("", amount, bytecode)
 }
