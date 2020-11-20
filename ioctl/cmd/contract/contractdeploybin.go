@@ -8,7 +8,6 @@ package contract
 
 import (
 	"io/ioutil"
-	"math/big"
 
 	"github.com/spf13/cobra"
 
@@ -21,8 +20,8 @@ import (
 // Multi-language support
 var (
 	deployBinCmdUses = map[config.Language]string{
-		config.English: "bin BIN_PATH [ABI_PATH INIT_INPUT]",
-		config.Chinese: "bin BIN文件路径 [ABI文件路径 初始化输入]",
+		config.English: "bin BIN_PATH [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
+		config.Chinese: "bin BIN文件路径 [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
 	}
 	deployBinCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bin on IoTeX blockchain",
@@ -40,6 +39,10 @@ var contractDeployBinCmd = &cobra.Command{
 		err := contractDeployBin(args)
 		return output.PrintError(err)
 	},
+}
+
+func init() {
+	initialAmountFlag.RegisterCommand(contractDeployBinCmd)
 }
 
 func contractDeployBin(args []string) error {
@@ -65,6 +68,11 @@ func contractDeployBin(args []string) error {
 
 		bytecode = append(bytecode, packedArg...)
 	}
-	amount := big.NewInt(0)
+
+	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
+	if err != nil {
+		return output.NewError(output.FlagError, "invalid amount", err)
+	}
+
 	return action.Execute("", amount, bytecode)
 }
