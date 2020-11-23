@@ -192,6 +192,7 @@ var (
 			NumRetries:          3,
 			MaxCacheSize:        64,
 			BlockStoreBatchSize: 16,
+			V2BlocksToSplitDB:   1000000,
 			Compressor:          "Snappy",
 			CompressLegacy:      false,
 			SQLITE3: SQLITE3{
