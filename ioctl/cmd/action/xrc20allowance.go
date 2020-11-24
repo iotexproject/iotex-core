@@ -41,6 +41,10 @@ var xrc20AllowanceCmd = &cobra.Command{
 	},
 }
 
+func init() {
+	RegisterWriteCommand(xrc20AllowanceCmd)
+}
+
 func allowance(arg string) error {
 	caller, err := Signer()
 	if err != nil {

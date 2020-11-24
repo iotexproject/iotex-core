@@ -23,8 +23,8 @@ import (
 // Multi-language support
 var (
 	deploySolCmdUses = map[config.Language]string{
-		config.English: "sol CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT] [--init-amount IOTX数量]",
-		config.Chinese: "sol 合约名 [代码文件...] [--with-arguments 初始化输入] [--init-amount IOTX数量]",
+		config.English: "sol [FILE_NAME:]CONTRACT_NAME [CODE_FILES...] [--with-arguments INIT_INPUT] [--init-amount IOTX数量]",
+		config.Chinese: "sol [文件名:]合约名 [代码文件...] [--with-arguments 初始化输入] [--init-amount IOTX数量]",
 	}
 	deploySolCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with sol files on IoTeX blockchain",
@@ -77,6 +77,10 @@ func contractDeploySol(args []string) error {
 
 	for name := range contracts {
 		if strings.HasSuffix(name, contractName) {
+			if contractName != args[0] {
+				return output.NewError(output.CompilerError,
+					fmt.Sprintf("there are more than one %s contract", args[0]), nil)
+			}
 			contractName = name
 		}
 	}
