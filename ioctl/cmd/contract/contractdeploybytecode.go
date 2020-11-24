@@ -7,8 +7,6 @@
 package contract
 
 import (
-	"math/big"
-
 	"github.com/spf13/cobra"
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
@@ -20,8 +18,8 @@ import (
 // Multi-language support
 var (
 	deployBytecodeCmdUses = map[config.Language]string{
-		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT]",
-		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入]",
+		config.English: "bytecode BYTECODE [ABI_PATH INIT_INPUT] [--init-amount AMOUNT_IOTX]",
+		config.Chinese: "bytecode BYTECODE [ABI文件路径 初始化输入] [--init-amount IOTX数量]",
 	}
 	deployBytecodeCmdShorts = map[config.Language]string{
 		config.English: "deploy smart contract with bytecode on IoTeX blockchain",
@@ -39,6 +37,10 @@ var contractDeployBytecodeCmd = &cobra.Command{
 		err := contractDeployBytecode(args)
 		return output.PrintError(err)
 	},
+}
+
+func init() {
+	initialAmountFlag.RegisterCommand(contractDeployBytecodeCmd)
 }
 
 func contractDeployBytecode(args []string) error {
@@ -61,6 +63,10 @@ func contractDeployBytecode(args []string) error {
 		bytecode = append(bytecode, packedArg...)
 	}
 
-	amount := big.NewInt(0)
+	amount, err := util.StringToRau(initialAmountFlag.Value().(string), util.IotxDecimalNum)
+	if err != nil {
+		return output.NewError(output.FlagError, "invalid amount", err)
+	}
+
 	return action.Execute("", amount, bytecode)
 }
