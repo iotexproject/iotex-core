@@ -8,12 +8,13 @@ package bc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"

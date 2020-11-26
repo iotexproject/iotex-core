@@ -2,11 +2,12 @@ package rolldpos
 
 import (
 	"context"
-	"errors"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/require"
 	"strconv"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )

@@ -8,8 +8,9 @@ package did
 
 import (
 	"encoding/hex"
-	"errors"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"

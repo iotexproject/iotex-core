@@ -9,8 +9,9 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 

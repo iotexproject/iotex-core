@@ -7,8 +7,9 @@
 package update
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"

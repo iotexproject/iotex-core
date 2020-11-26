@@ -6,7 +6,7 @@
 
 package scheme
 
-import "errors"
+import "github.com/pkg/errors"
 
 var (
 	// ErrNotImplemented indicates the method is not implemented yet

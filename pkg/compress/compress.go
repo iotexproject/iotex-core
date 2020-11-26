@@ -9,8 +9,9 @@ package compress
 import (
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"io/ioutil"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/snappy"
 )

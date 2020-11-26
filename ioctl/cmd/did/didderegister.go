@@ -7,9 +7,10 @@
 package did
 
 import (
-	"errors"
 	"math/big"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/spf13/cobra"

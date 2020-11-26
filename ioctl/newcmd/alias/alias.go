@@ -7,7 +7,7 @@
 package alias
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iotexproject/iotex-address/address"
