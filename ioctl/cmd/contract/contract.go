@@ -27,6 +27,8 @@ const solCompiler = "solc"
 var (
 	withArgumentsFlag = flag.NewStringVar("with-arguments", "",
 		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
+	initialAmountFlag = flag.NewStringVar("init-amount", "0",
+		config.TranslateInLang(flagInitialAmountUsage, config.UILanguage))
 )
 
 // Multi-language support
@@ -50,6 +52,10 @@ var (
 	flagWithArgumentsUsage = map[config.Language]string{
 		config.English: "pass arguments in JSON format",
 		config.Chinese: "按照JSON格式传入参数",
+	}
+	flagInitialAmountUsage = map[config.Language]string{
+		config.English: "transfer an initial amount to the new deployed contract",
+		config.Chinese: "为部署的新合约转入一笔初始资金",
 	}
 )
 
