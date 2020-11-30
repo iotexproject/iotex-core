@@ -19,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -233,6 +235,45 @@ func TestCreatePreStates(t *testing.T) {
 	require.NoError(err)
 }
 
+func TestCreatePreStatesWithRegisterProtocol(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+
+	store := db.NewMemKVStore()
+	cbi, err := NewStakingCandidatesBucketsIndexer(store)
+	require.NoError(err)
+
+	ctx := context.Background()
+	require.NoError(cbi.Start(ctx))
+	p, err := NewProtocol(nil, genesis.Default.Staking, cbi, genesis.Default.GreenlandBlockHeight)
+	require.NoError(err)
+
+	rol := rolldpos.NewProtocol(23, 4, 3)
+	reg := protocol.NewRegistry()
+	reg.Register("rolldpos", rol)
+
+	ctx = protocol.WithRegistry(ctx, reg)
+	ctx = protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			},
+		),
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight,
+		},
+	)
+	v, err := p.Start(ctx, sm)
+	require.NoError(err)
+	require.NoError(sm.WriteView(protocolID, v))
+	_, err = NewCandidateStateManager(sm, true)
+	require.Error(err)
+
+	require.NoError(p.CreatePreStates(ctx, sm))
+}
 func Test_CreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
