@@ -232,3 +232,111 @@ func TestCreatePreStates(t *testing.T) {
 	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	require.NoError(err)
 }
+
+func Test_CreateGenesisStates(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+
+	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
+	cfg := genesis.Default.Staking
+
+	testBootstrapCandidates := []struct {
+		BootstrapCandidate []genesis.BootstrapCandidate
+		errStr             string
+	}{
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      "xxxxxxxxxxxxxxxx",
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: "test123",
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   "xxxxxxxxxxxxxxxx",
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     "xxxxxxxxxxxxxxxx",
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: "test123",
+				},
+			},
+			"invalid staking amount",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+				{
+					OwnerAddress:      identityset.Address(24).String(),
+					OperatorAddress:   identityset.Address(25).String(),
+					RewardAddress:     identityset.Address(25).String(),
+					Name:              "test2",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"",
+		},
+	}
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			},
+		),
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
+		},
+	)
+	for _, test := range testBootstrapCandidates {
+		cfg.BootstrapCandidates = test.BootstrapCandidate
+		p, err := NewProtocol(nil, cfg, nil, genesis.Default.GreenlandBlockHeight)
+		require.NoError(err)
+
+		v, err := p.Start(ctx, sm)
+		require.NoError(err)
+		require.NoError(sm.WriteView(protocolID, v))
+
+		err = p.CreateGenesisStates(ctx, sm)
+		if err != nil {
+			require.Contains(err.Error(), test.errStr)
+		}
+	}
+}
