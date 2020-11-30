@@ -19,7 +19,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -231,4 +233,152 @@ func TestCreatePreStates(t *testing.T) {
 	total := &totalAmount{}
 	_, err = sm.State(total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
 	require.NoError(err)
+}
+
+func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+
+	store := db.NewMemKVStore()
+	cbi, err := NewStakingCandidatesBucketsIndexer(store)
+	require.NoError(err)
+
+	ctx := context.Background()
+	require.NoError(cbi.Start(ctx))
+	p, err := NewProtocol(nil, genesis.Default.Staking, cbi, genesis.Default.GreenlandBlockHeight)
+	require.NoError(err)
+
+	rol := rolldpos.NewProtocol(23, 4, 3)
+	reg := protocol.NewRegistry()
+	reg.Register("rolldpos", rol)
+
+	ctx = protocol.WithRegistry(ctx, reg)
+	ctx = protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			},
+		),
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight,
+		},
+	)
+	v, err := p.Start(ctx, sm)
+	require.NoError(err)
+	require.NoError(sm.WriteView(protocolID, v))
+	_, err = NewCandidateStateManager(sm, true)
+	require.Error(err)
+
+	require.NoError(p.CreatePreStates(ctx, sm))
+}
+
+func Test_CreateGenesisStates(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	sm := testdb.NewMockStateManager(ctrl)
+
+	selfStake, _ := big.NewInt(0).SetString("1200000000000000000000000", 10)
+	cfg := genesis.Default.Staking
+
+	testBootstrapCandidates := []struct {
+		BootstrapCandidate []genesis.BootstrapCandidate
+		errStr             string
+	}{
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      "xxxxxxxxxxxxxxxx",
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: "test123",
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   "xxxxxxxxxxxxxxxx",
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     "xxxxxxxxxxxxxxxx",
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"address prefix io don't match",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: "test123",
+				},
+			},
+			"invalid staking amount",
+		},
+		{
+			[]genesis.BootstrapCandidate{
+				{
+					OwnerAddress:      identityset.Address(22).String(),
+					OperatorAddress:   identityset.Address(23).String(),
+					RewardAddress:     identityset.Address(23).String(),
+					Name:              "test1",
+					SelfStakingTokens: selfStake.String(),
+				},
+				{
+					OwnerAddress:      identityset.Address(24).String(),
+					OperatorAddress:   identityset.Address(25).String(),
+					RewardAddress:     identityset.Address(25).String(),
+					Name:              "test2",
+					SelfStakingTokens: selfStake.String(),
+				},
+			},
+			"",
+		},
+	}
+	ctx := protocol.WithBlockCtx(
+		protocol.WithBlockchainCtx(
+			context.Background(),
+			protocol.BlockchainCtx{
+				Genesis: genesis.Default,
+			},
+		),
+		protocol.BlockCtx{
+			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
+		},
+	)
+	for _, test := range testBootstrapCandidates {
+		cfg.BootstrapCandidates = test.BootstrapCandidate
+		p, err := NewProtocol(nil, cfg, nil, genesis.Default.GreenlandBlockHeight)
+		require.NoError(err)
+
+		v, err := p.Start(ctx, sm)
+		require.NoError(err)
+		require.NoError(sm.WriteView(protocolID, v))
+
+		err = p.CreateGenesisStates(ctx, sm)
+		if err != nil {
+			require.Contains(err.Error(), test.errStr)
+		}
+	}
 }
