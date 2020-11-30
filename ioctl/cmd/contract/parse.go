@@ -19,6 +19,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/iotexproject/iotex-address/address"
+
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -372,7 +374,10 @@ func parseOutputArgument(v interface{}, t *abi.Type) (string, bool) {
 			var ethAddr common.Address
 			ethAddr, ok = v.(common.Address)
 			if ok {
-				str = ethAddr.String()
+				ioAddress, err := address.FromBytes(ethAddr.Bytes())
+				if err == nil {
+					str = ioAddress.String()
+				}
 			}
 		}
 
