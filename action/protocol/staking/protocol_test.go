@@ -235,7 +235,7 @@ func TestCreatePreStates(t *testing.T) {
 	require.NoError(err)
 }
 
-func TestCreatePreStatesWithRegisterProtocol(t *testing.T) {
+func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -274,6 +274,7 @@ func TestCreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	require.NoError(p.CreatePreStates(ctx, sm))
 }
+
 func Test_CreateGenesisStates(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
