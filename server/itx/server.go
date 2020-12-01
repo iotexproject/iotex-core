@@ -90,13 +90,13 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 func (s *Server) Start(ctx context.Context) error {
 	cctx, cancel := context.WithCancel(context.Background())
 	s.subModuleCancel = cancel
-	if err := s.p2pAgent.Start(cctx); err != nil {
-		return errors.Wrap(err, "error when starting P2P agent")
-	}
 	for _, cs := range s.chainservices {
 		if err := cs.Start(cctx); err != nil {
 			return errors.Wrap(err, "error when starting blockchain")
 		}
+	}
+	if err := s.p2pAgent.Start(cctx); err != nil {
+		return errors.Wrap(err, "error when starting P2P agent")
 	}
 	if err := s.dispatcher.Start(cctx); err != nil {
 		return errors.Wrap(err, "error when starting dispatcher")
@@ -108,9 +108,6 @@ func (s *Server) Start(ctx context.Context) error {
 // Stop stops the server
 func (s *Server) Stop(ctx context.Context) error {
 	defer s.subModuleCancel()
-	if err := s.p2pAgent.Stop(ctx); err != nil {
-		return errors.Wrap(err, "error when stopping P2P agent")
-	}
 	if err := s.dispatcher.Stop(ctx); err != nil {
 		return errors.Wrap(err, "error when stopping dispatcher")
 	}
@@ -118,6 +115,9 @@ func (s *Server) Stop(ctx context.Context) error {
 		if err := cs.Stop(ctx); err != nil {
 			return errors.Wrap(err, "error when stopping blockchain")
 		}
+	}
+	if err := s.p2pAgent.Stop(ctx); err != nil {
+		return errors.Wrap(err, "error when stopping P2P agent")
 	}
 	return nil
 }
