@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 
-	"github.com/golang/mock/gomock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"

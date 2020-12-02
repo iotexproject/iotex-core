@@ -9,9 +9,8 @@ package update
 import (
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/ioctl/config"

@@ -11,9 +11,8 @@ import (
 	"compress/gzip"
 	"io/ioutil"
 
-	"github.com/pkg/errors"
-
 	"github.com/golang/snappy"
+	"github.com/pkg/errors"
 )
 
 // constants
