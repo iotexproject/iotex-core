@@ -3,9 +3,10 @@ package testdb
 import (
 	"bytes"
 	"context"
-	"errors"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
+
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/db"

@@ -6,7 +6,7 @@
 
 package batch
 
-import "errors"
+import "github.com/pkg/errors"
 
 var (
 	// ErrAlreadyDeleted indicates the key has been deleted
