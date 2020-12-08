@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -44,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -557,6 +559,247 @@ func TestCreateBlockchain(t *testing.T) {
 	height = bc.TipHeight()
 	require.Equal(5, int(height))
 }
+
+func TestGetBlockHash(t *testing.T) {
+	require := require.New(t)
+
+	ctx := context.Background()
+	cfg := config.Default
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
+
+	testTriePath, err := testutil.PathOfTempFile("trie")
+	require.NoError(err)
+	testDBPath, err := testutil.PathOfTempFile("db")
+	require.NoError(err)
+	testIndexPath, err := testutil.PathOfTempFile("index")
+	require.NoError(err)
+
+	cfg.Plugins[config.GatewayPlugin] = true
+	cfg.Chain.TrieDBPath = testTriePath
+	cfg.Chain.ChainDBPath = testDBPath
+	cfg.Chain.IndexDBPath = testIndexPath
+	cfg.Chain.EnableAsyncIndexWrite = false
+	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.ActPool.MinGasPriceStr = "0"
+	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(rp.Register(registry))
+	// create state factory
+	sf, err := factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(err)
+	// create indexer
+	cfg.DB.DbPath = cfg.Chain.IndexDBPath
+	indexer, err := blockindex.NewIndexer(db.NewBoltDB(cfg.DB), hash.ZeroHash256)
+	require.NoError(err)
+	// create BlockDAO
+	cfg.DB.DbPath = cfg.Chain.ChainDBPath
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer})
+	require.NotNil(dao)
+	bc := blockchain.NewBlockchain(
+		cfg,
+		dao,
+		factory.NewMinter(sf, ap),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
+	exeProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	require.NoError(exeProtocol.Register(registry))
+	require.NoError(bc.Start(ctx))
+	require.NotNil(bc)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	priKey0 := identityset.PrivateKey(28)
+	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060c18061001f6000396000f300608060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063ee82ac5e146044575b600080fd5b348015604f57600080fd5b50606c60048036038101908080359060200190929190505050608a565b60405180826000191660001916815260200191505060405180910390f35b6000814090509190505600a165627a7a723058206c423968f55bc271094a85f4ef9f4cbd9a2373cd43e9c55409d25ea29ec78a1c0029")
+
+	execution, err := action.NewExecution(action.EmptyAddress, 1, big.NewInt(0), uint64(100000), big.NewInt(0), data)
+	require.NoError(err)
+
+	bd := &action.EnvelopeBuilder{}
+	elp := bd.SetAction(execution).
+		SetNonce(1).
+		SetGasLimit(100000).Build()
+	selp, err := action.Sign(elp, priKey0)
+	require.NoError(err)
+
+	require.NoError(ap.Add(context.Background(), selp))
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.Receipts))
+	eHash := execution.Hash()
+	r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
+	require.NotNil(r)
+	require.Equal(eHash, r.ActionHash)
+	t.Logf("%x = %x  contract = %s\n", selp.Hash(), r.ActionHash, r.ContractAddress)
+
+	blockNumber := abi.U256(big.NewInt(0))
+	data, _ = hex.DecodeString("ee82ac5e")
+	data = append(data, blockNumber...)
+	nonce := uint64(2)
+	amount := big.NewInt(0)
+	gasLimit := testutil.TestGasLimit * 5
+	gasPrice := big.NewInt(testutil.TestGasPriceInt64)
+	execution, err = action.NewExecution(r.ContractAddress, nonce, amount, gasLimit, gasPrice, data)
+	require.NoError(err)
+
+	ap.Reset()
+	bd = &action.EnvelopeBuilder{}
+	elp = bd.SetNonce(nonce).
+		SetGasPrice(gasPrice).
+		SetGasLimit(gasLimit).
+		SetAction(execution).Build()
+	selp, err = action.Sign(elp, priKey0)
+	require.NoError(err)
+
+	require.NoError(ap.Add(context.Background(), selp))
+	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+	require.Equal(1, len(blk.Receipts))
+
+	r, err = dao.GetReceiptByActionHash(execution.Hash(), nonce)
+	require.NoError(err)
+	log.S().Infof("r %+v", r)
+}
+
+// func readExecution(
+// 	bc blockchain.Blockchain,
+// 	sf factory.Factory,
+// 	dao blockdao.BlockDAO,
+// 	ap actpool.ActPool,
+// 	contractAddr string,
+// 	executorPriKey iocrypto.PrivateKey,
+// 	nonce uint64,
+// 	amount *big.Int,
+// 	gasLimit uint64,
+// 	gasPrice *big.Int,
+// 	byteCode []byte,
+// ) ([]byte, *action.Receipt, error) {
+// 	exec, err := action.NewExecution(
+// 		contractAddr,
+// 		nonce,
+// 		amount,
+// 		gasLimit,
+// 		gasPrice,
+// 		byteCode,
+// 	)
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	addr, err := address.FromBytes(executorPriKey.PublicKey().Hash())
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+// 	ctx, err := bc.Context()
+// 	if err != nil {
+// 		return nil, nil, err
+// 	}
+
+// 	return sf.SimulateExecution(ctx, addr, exec, dao.GetBlockHash)
+// }
+
+// func addTestingGetBlockHash(cfg config.Config, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool) error {
+
+// 	priKey0 := identityset.PrivateKey(27)
+// 	// addr1 := identityset.Address(28).String()
+// 	// priKey1 := identityset.PrivateKey(28)
+// 	// addr2 := identityset.Address(29).String()
+// 	//priKey2 := identityset.PrivateKey(29)
+// 	// addr3 := identityset.Address(30).String()
+// 	//priKey3 := identityset.PrivateKey(30)
+// 	// addr4 := identityset.Address(31).String()
+// 	// priKey4 := identityset.PrivateKey(31)
+// 	// addr5 := identityset.Address(32).String()
+// 	// priKey5 := identityset.PrivateKey(32)
+// 	// addr6 := identityset.Address(33).String()
+// 	// Add block 2
+// 	// test --> A, B, C, D, E, F
+
+// 	// deploy simple smart contract
+// 	data, _ := hex.DecodeString("608060405234801561001057600080fd5b5060c18061001f6000396000f300608060405260043610603f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063ee82ac5e146044575b600080fd5b348015604f57600080fd5b50606c60048036038101908080359060200190929190505050608a565b60405180826000191660001916815260200191505060405180910390f35b6000814090509190505600a165627a7a723058206c423968f55bc271094a85f4ef9f4cbd9a2373cd43e9c55409d25ea29ec78a1c0029")
+
+// 	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := ap.Add(context.Background(), ex1); err != nil {
+// 		return err
+// 	}
+// 	deployHash = ex1.Hash()
+// 	fmt.Printf("deployHash: %x\n", deployHash)
+// 	blk, err := bc.MintNewBlock(testutil.TimestampNow().Add(time.Second))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := bc.CommitBlock(blk); err != nil {
+// 		return err
+// 	}
+// 	ap.Reset()
+
+// 	// get deployed contract address
+// 	var contract string
+// 	if dao != nil {
+// 		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+// 		if err != nil {
+// 			return err
+// 		}
+// 		contract = r.ContractAddress
+// 	}
+// 	blockNumber := abi.U256(big.NewInt(0))
+
+// 	data, _ = hex.DecodeString("ee82ac5e")
+// 	data = append(data, blockNumber...)
+
+// 	// d, r, err := readExecution(bc, sf, dao, ap, contract, priKey0, 2, big.NewInt(0), testutil.TestGasLimit*5, big.NewInt(testutil.TestGasPriceInt64), data)
+// 	// fmt.Printf("===%s=== %v\n", d, r.Logs())
+// 	nonce := uint64(2)
+// 	amount := big.NewInt(0)
+// 	gasLimit := testutil.TestGasLimit * 5
+// 	gasPrice := big.NewInt(testutil.TestGasPriceInt64)
+// 	execution, err := action.NewExecution(contract, nonce, amount, gasLimit, gasPrice, data)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	bd := &action.EnvelopeBuilder{}
+// 	elp := bd.SetNonce(nonce).
+// 		SetGasPrice(gasPrice).
+// 		SetGasLimit(gasLimit).
+// 		SetAction(execution).Build()
+// 	selp, err := action.Sign(elp, priKey0)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	if err := ap.Add(context.Background(), selp); err != nil {
+// 		return err
+// 	}
+// 	blk, err = bc.MintNewBlock(testutil.TimestampNow())
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if err := bc.CommitBlock(blk); err != nil {
+// 		return err
+// 	}
+
+// 	fmt.Printf("contract: %s %x\n", contract, blk.HashBlock())
+// 	r, err := dao.GetReceiptByActionHash(execution.Hash(), nonce)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fmt.Printf("data => %x status = %d r = %d\n", ex1.Hash(), r.Status, len(r.Logs()))
+// 	return nil
+// }
 
 func TestBlockchain_MintNewBlock(t *testing.T) {
 	ctx := context.Background()
