@@ -686,7 +686,6 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
 	)
 
-	// Add block 2
 	funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
 
 	var blockNumber []byte
@@ -703,9 +702,9 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 		return err
 	}
 	if bc.TipHash() != bcHash2 {
-		return fmt.Errorf("bcHash3(%x) != bc.TipHash(%x)", bcHash2, bc.TipHash())
+		return fmt.Errorf("bcHash2(%x) != bc.TipHash(%x)", bcHash2, bc.TipHash())
 	}
-	fmt.Printf("acHash3 = %x bcHash3 = %x \n", acHash2, bcHash2)
+	fmt.Printf("acHash2 = %x bcHash2 = %x \n", acHash2, bcHash2)
 
 	// Add block 3
 	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, data)
@@ -736,7 +735,6 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 	fmt.Printf("acHash4 = %x bcHash4 = %x \n", acHash4, bcHash4)
 
 	// verify getBlockHash
-
 	//getBlockHash(0)
 	blockNumber = abi.U256(big.NewInt(0))
 	data = append(funcSig[:4], blockNumber...)
