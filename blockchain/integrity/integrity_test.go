@@ -701,7 +701,6 @@ func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.F
 		require.NoError(err)
 		bcHash, err := dao.GetBlockHash(test.targetHeight)
 		require.NoError(err)
-		log.S().Infof("bcHash = %x, getBlockHash = %x", bcHash, r.Logs()[0].Topics[0])
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
 	}
 }
