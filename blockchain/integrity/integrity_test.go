@@ -45,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/mptrie"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -567,7 +568,7 @@ func TestGetBlockHash(t *testing.T) {
 	// disable account-based testing
 	cfg.Chain.TrieDBPath = ""
 	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.HawaiiBlockHeight = 2
+	cfg.Genesis.HawaiiBlockHeight = 3
 	cfg.ActPool.MinGasPriceStr = "0"
 	// create chain
 	registry := protocol.NewRegistry()
@@ -602,11 +603,11 @@ func TestGetBlockHash(t *testing.T) {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	require.NoError(addTestingGetBlockHash(bc, sf, dao, ap))
+	addTestingGetBlockHash(t, bc, sf, dao, ap)
 }
 
-func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool) error {
-
+func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool) {
+	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
 	// deploy simple smart contract
@@ -626,29 +627,12 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 	data, _ := hex.DecodeString("6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032")
 
 	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
-	if err != nil {
-		return err
-	}
-	if err := ap.Add(context.Background(), ex1); err != nil {
-		return err
-	}
+	require.NoError(err)
+	require.NoError(ap.Add(context.Background(), ex1))
 	deployHash = ex1.Hash()
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
-	if err != nil {
-		return err
-	}
-	if err := bc.CommitBlock(blk); err != nil {
-		return err
-	}
-
-	var daoHash hash.Hash256
-	daoHash, err = dao.GetBlockHash(1)
-	if err != nil {
-		return err
-	}
-	if bc.TipHash() != daoHash {
-		return fmt.Errorf("no match hash %x != %x", bc.TipHash(), daoHash)
-	}
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
 
 	ap.Reset()
 	blockTime := time.Unix(1546329600, 0)
@@ -656,9 +640,7 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 	var contract string
 	if dao != nil {
 		r, err := dao.GetReceiptByActionHash(deployHash, 1)
-		if err != nil {
-			return err
-		}
+		require.NoError(err)
 		contract = r.ContractAddress
 	}
 	addOneBlock := func(contract string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (hash.Hash256, error) {
@@ -680,112 +662,48 @@ func addTestingGetBlockHash(bc blockchain.Blockchain, sf factory.Factory, dao bl
 		return ex1.Hash(), nil
 	}
 
+	getBlockHash := func(x int64) []byte {
+		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
+		blockNumber := abi.U256(big.NewInt(x))
+		return append(funcSig[:4], blockNumber...)
+	}
+
 	var (
 		zero     = big.NewInt(0)
 		gasLimit = testutil.TestGasLimit * 5
 		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
 	)
 
-	funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
+	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to all zero
+	require.NoError(err)
+	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to block 2
+	require.NoError(err)
+	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, getBlockHash(1)) // equal to block 2
+	require.NoError(err)
+	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, getBlockHash(3)) // equal to block 1
+	require.NoError(err)
+	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
+	require.NoError(err)
 
-	var blockNumber []byte
-	blockNumber = abi.U256(big.NewInt(0))
-	data = append(funcSig[:4], blockNumber...)
-
-	// Add block 2
-	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
+	tests := []struct {
+		acHash       hash.Hash256
+		commitHeight uint64
+		targetHeight uint64
+	}{
+		{acHash2, 2, 0},
+		{acHash3, 3, 2},
+		{acHash4, 4, 2},
+		{acHash5, 5, 1},
+		{acHash6, 6, 3},
 	}
-	bcHash2, err := dao.GetBlockHash(2)
-	if err != nil {
-		return err
+	for _, test := range tests {
+		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		require.NoError(err)
+		bcHash, err := dao.GetBlockHash(test.targetHeight)
+		require.NoError(err)
+		log.S().Infof("bcHash = %x, getBlockHash = %x", bcHash, r.Logs()[0].Topics[0])
+		require.Equal(r.Logs()[0].Topics[0], bcHash)
 	}
-	if bc.TipHash() != bcHash2 {
-		return fmt.Errorf("bcHash2(%x) != bc.TipHash(%x)", bcHash2, bc.TipHash())
-	}
-	fmt.Printf("acHash2 = %x bcHash2 = %x \n", acHash2, bcHash2)
-
-	// Add block 3
-	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
-	}
-	bcHash3, err := dao.GetBlockHash(3)
-	if err != nil {
-		return err
-	}
-	if bc.TipHash() != bcHash3 {
-		return fmt.Errorf("bcHash3(%x) != bc.TipHash(%x)", bcHash3, bc.TipHash())
-	}
-	fmt.Printf("acHash3 = %x bcHash3 = %x \n", acHash3, bcHash3)
-
-	// Add block 4
-	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
-	}
-	bcHash4, err := dao.GetBlockHash(4)
-	if err != nil {
-		return err
-	}
-	if bc.TipHash() != bcHash4 {
-		return fmt.Errorf("bcHash4(%x) != bc.TipHash(%x)", bcHash4, bc.TipHash())
-	}
-	fmt.Printf("acHash4 = %x bcHash4 = %x \n", acHash4, bcHash4)
-
-	// verify getBlockHash
-	//getBlockHash(0)
-	blockNumber = abi.U256(big.NewInt(0))
-	data = append(funcSig[:4], blockNumber...)
-
-	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
-	}
-	r, err := dao.GetReceiptByActionHash(acHash5, 5)
-	if err != nil {
-		return err
-	}
-	getBlockHash0 := r.Logs()[0].Topics[0]
-	if getBlockHash0 != bcHash4 {
-		return fmt.Errorf("getBlockHash(0) %x != bcHash4 %x", getBlockHash0, bcHash4)
-	}
-
-	//getBlockHash(2)
-	blockNumber = abi.U256(big.NewInt(2))
-	data = append(funcSig[:4], blockNumber...)
-
-	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
-	}
-	r, err = dao.GetReceiptByActionHash(acHash6, 6)
-	if err != nil {
-		return err
-	}
-	getBlockHash2 := r.Logs()[0].Topics[0]
-	if getBlockHash2 != bcHash3 {
-		return fmt.Errorf("getBlockHash(2) %x != bcHash3 %x", getBlockHash2, bcHash2)
-	}
-
-	//getBlockHash(4)
-	blockNumber = abi.U256(big.NewInt(4))
-	data = append(funcSig[:4], blockNumber...)
-
-	acHash7, err := addOneBlock(contract, 7, zero, gasLimit, gasPrice, data)
-	if err != nil {
-		return err
-	}
-	r, err = dao.GetReceiptByActionHash(acHash7, 7)
-	if err != nil {
-		return err
-	}
-	getBlockHash4 := r.Logs()[0].Topics[0]
-	if getBlockHash4 != bcHash2 {
-		return fmt.Errorf("getBlockHash(4) %x != bcHash2 %x", getBlockHash4, bcHash2)
-	}
-	return nil
 }
 
 func TestBlockchain_MintNewBlock(t *testing.T) {
