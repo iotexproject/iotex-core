@@ -257,8 +257,8 @@ func SendRaw(selp *iotextypes.Action) error {
 	return nil
 }
 
-// SendAction sends signed action to blockchain
-func SendAction(elp action.Envelope, signer string) error {
+// PrivateKeyFromSigner returns private key from signer
+func PrivateKeyFromSigner(signer string) (crypto.PrivateKey, error) {
 	var prvKey crypto.PrivateKey
 	var err error
 
@@ -269,45 +269,58 @@ func SendAction(elp action.Envelope, signer string) error {
 			output.PrintQuery(fmt.Sprintf("Enter password #%s:\n", signer))
 			password, err = util.ReadSecretFromStdin()
 			if err != nil {
-				return output.NewError(output.InputError, "failed to get password", err)
+				return nil, output.NewError(output.InputError, "failed to get password", err)
 			}
 		}
 
 		if util.AliasIsHdwalletKey(signer) {
 			account, change, index, err := util.ParseHdwPath(signer)
 			if err != nil {
-				return output.NewError(output.InputError, "invalid hdwallet key format", err)
+				return nil, output.NewError(output.InputError, "invalid hdwallet key format", err)
 			}
-			signer, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
+			_, prvKey, err = hdwallet.DeriveKey(account, change, index, password)
 			if err != nil {
-				return output.NewError(output.InputError, "failed to derive key from HDWallet", err)
+				return nil, output.NewError(output.InputError, "failed to derive key from HDWallet", err)
 			}
-			nonce, err := nonce(signer)
-			if err != nil {
-				return output.NewError(0, "failed to get nonce ", err)
-			}
-			elp.SetNonce(nonce)
 		} else {
 			prvKey, err = account.LocalAccountToPrivateKey(signer, password)
 			if err != nil {
-				return output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
+				return nil, output.NewError(output.KeystoreError, "failed to get private key from keystore", err)
 			}
 		}
-	} else {
-		// Get private key
-		output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
-		prvKeyString, err := util.ReadSecretFromStdin()
-		if err != nil {
-			return output.NewError(output.InputError, "failed to get private key", err)
-		}
-
-		prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
-		if err != nil {
-			return output.NewError(output.InputError, "failed to get private key from HexString input", err)
-		}
+		return prvKey, nil
 	}
 
-	defer prvKey.Zero()
+	// Get private key
+	output.PrintQuery(fmt.Sprintf("Enter private key #%s:", signer))
+	prvKeyString, err := util.ReadSecretFromStdin()
+	if err != nil {
+		return nil, output.NewError(output.InputError, "failed to get private key", err)
+	}
+
+	prvKey, err = crypto.HexStringToPrivateKey(prvKeyString)
+	if err != nil {
+		return nil, output.NewError(output.InputError, "failed to create private key from HexString input", err)
+	}
+	return prvKey, nil
+}
+
+// SendAction sends signed action to blockchain
+func SendAction(elp action.Envelope, signer string) error {
+	prvKey, err := PrivateKeyFromSigner(signer)
+	if err != nil {
+		return err
+	}
+
+	if util.AliasIsHdwalletKey(signer) {
+		addr, _ := address.FromBytes(prvKey.PublicKey().Hash())
+		signer = addr.String()
+		nonce, err := nonce(signer)
+		if err != nil {
+			return output.NewError(0, "failed to get nonce ", err)
+		}
+		elp.SetNonce(nonce)
+	}
 
 	sealed, err := action.Sign(elp, prvKey)
 	prvKey.Zero()
