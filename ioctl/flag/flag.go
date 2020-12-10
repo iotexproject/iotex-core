@@ -6,7 +6,21 @@
 
 package flag
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/iotexproject/iotex-core/ioctl/config"
+)
+
+// vars
+var (
+	flagWithArgumentsUsage = map[config.Language]string{
+		config.English: "pass arguments in JSON format",
+		config.Chinese: "按照JSON格式传入参数",
+	}
+	WithArgumentsFlag = NewStringVar("with-arguments", "",
+		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
+)
 
 type (
 	flagBase struct {
