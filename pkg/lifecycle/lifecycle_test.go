@@ -8,10 +8,10 @@ package lifecycle
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/test/mock/mock_lifecycle"

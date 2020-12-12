@@ -101,17 +101,29 @@ func newParams(
 		gasLimit = preAleutianActionGasLimit
 	}
 
-	context := vm.Context{
-		CanTransfer: CanTransfer,
-		Transfer:    MakeTransfer,
-		GetHash: func(n uint64) common.Hash {
+	var getHashFn vm.GetHashFunc
+	if hu.IsPre(config.Hawaii, blkCtx.BlockHeight) {
+		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - n)
 			if err != nil {
 				return common.BytesToHash(hash[:])
 			}
-
 			return common.Hash{}
-		},
+		}
+	} else {
+		getHashFn = func(n uint64) common.Hash {
+			hash, err := getBlockHash(stateDB.blockHeight - (n + 1))
+			if err == nil {
+				return common.BytesToHash(hash[:])
+			}
+			return common.Hash{}
+		}
+	}
+
+	context := vm.Context{
+		CanTransfer: CanTransfer,
+		Transfer:    MakeTransfer,
+		GetHash:     getHashFn,
 		Origin:      executorAddr,
 		Coinbase:    common.BytesToAddress(blkCtx.Producer.Bytes()),
 		BlockNumber: new(big.Int).SetUint64(blkCtx.BlockHeight),

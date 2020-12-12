@@ -7,8 +7,9 @@
 package validator
 
 import (
-	"errors"
 	"math/big"
+
+	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-address/address"
 )
