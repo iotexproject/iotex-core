@@ -139,16 +139,15 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 
 	arguments := make([]interface{}, 0, len(method.Inputs))
 	for _, param := range method.Inputs {
+		if param.Name == "" {
+			param.Name = "_"
+		}
+
 		rowArg, ok := rowArguments[param.Name]
 		if !ok {
-			if param.Name == "" {
-				rowArg, ok = rowArguments["_"]
-			}
-
-			if !ok {
-				return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
-			}
+			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
 		}
+
 		arg, err := parseInputArgument(&param.Type, rowArg)
 		if err != nil {
 			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)
