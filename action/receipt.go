@@ -13,9 +13,8 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 var (
@@ -32,13 +31,14 @@ type (
 
 	// Receipt represents the result of a contract
 	Receipt struct {
-		Status          uint64
-		BlockHeight     uint64
-		ActionHash      hash.Hash256
-		GasConsumed     uint64
-		ContractAddress string
-		logs            []*Log
-		transactionLogs []*TransactionLog
+		Status             uint64
+		BlockHeight        uint64
+		ActionHash         hash.Hash256
+		GasConsumed        uint64
+		ContractAddress    string
+		logs               []*Log
+		transactionLogs    []*TransactionLog
+		executionRevertMsg string
 	}
 
 	// Log stores an evm contract event
@@ -73,6 +73,9 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	for _, l := range receipt.logs {
 		r.Logs = append(r.Logs, l.ConvertToLogPb())
 	}
+	if receipt.executionRevertMsg != "" {
+		r.ExecutionRevertMsg = receipt.executionRevertMsg
+	}
 	return r
 }
 
@@ -89,6 +92,7 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 		receipt.logs[i] = &Log{}
 		receipt.logs[i].ConvertFromLogPb(log)
 	}
+	receipt.executionRevertMsg = pbReceipt.GetExecutionRevertMsg()
 }
 
 // Serialize returns a serialized byte stream for the Receipt
@@ -142,6 +146,17 @@ func (receipt *Receipt) AddTransactionLogs(logs ...*TransactionLog) *Receipt {
 			receipt.transactionLogs = append(receipt.transactionLogs, l)
 		}
 	}
+	return receipt
+}
+
+// ExecutionRevertMsg returns the list of execution revert error logs stored in receipt.
+func (receipt *Receipt) ExecutionRevertMsg() string {
+	return receipt.executionRevertMsg
+}
+
+// AddExecutionRevertMsg add executionerrorlogs to receipt and filter out "" log.
+func (receipt *Receipt) AddExecutionRevertMsg(revertReason string) *Receipt {
+	receipt.executionRevertMsg = revertReason
 	return receipt
 }
 

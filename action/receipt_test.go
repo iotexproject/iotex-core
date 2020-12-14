@@ -37,7 +37,7 @@ func TestConvert(t *testing.T) {
 	testLog := newTestLog()
 	testLog.Topics = topics
 	testLog.NotFixTopicCopyBug = true
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}, nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "test", []*Log{testLog}, nil, "balance not enough"}
 
 	typeReceipt := receipt.ConvertToReceiptPb()
 	require.NotNil(typeReceipt)
@@ -48,6 +48,7 @@ func TestConvert(t *testing.T) {
 	require.Equal(receipt.ActionHash, receipt2.ActionHash)
 	require.Equal(receipt.GasConsumed, receipt2.GasConsumed)
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
+	require.Equal(receipt.executionRevertMsg, receipt2.executionRevertMsg)
 	// block earlier than AleutianHeight overwrites all topics with last topic data
 	require.NotEqual(testLog, receipt2.logs[0])
 	h := receipt.Hash()
@@ -63,7 +64,7 @@ func TestConvert(t *testing.T) {
 
 func TestSerDer(t *testing.T) {
 	require := require.New(t)
-	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil}
+	receipt := &Receipt{1, 1, hash.ZeroHash256, 1, "", nil, nil, ""}
 	ser, err := receipt.Serialize()
 	require.NoError(err)
 
@@ -76,7 +77,8 @@ func TestSerDer(t *testing.T) {
 	require.Equal(receipt.ContractAddress, receipt2.ContractAddress)
 
 	hash := receipt.Hash()
-	require.Equal("9b1d77d8b8902e8d4e662e7cd07d8a74179e032f030d92441ca7fba1ca68e0f4", hex.EncodeToString(hash[:]))
+	oldHash := "9b1d77d8b8902e8d4e662e7cd07d8a74179e032f030d92441ca7fba1ca68e0f4"
+	require.Equal(oldHash, hex.EncodeToString(hash[:]))
 }
 func TestConvertLog(t *testing.T) {
 	require := require.New(t)

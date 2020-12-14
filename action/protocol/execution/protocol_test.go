@@ -24,8 +24,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
-
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -45,6 +43,7 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ExpectedBalance defines an account-balance pair
@@ -100,6 +99,7 @@ type ExecutionConfig struct {
 	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
+	ExpectedErrorMsg        string            `json:"expectedErrorMsg"`
 }
 
 func (cfg *ExecutionConfig) PrivateKey() crypto.PrivateKey {
@@ -337,6 +337,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
+	cfg.Genesis.HawaiiBlockHeight = 0
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
 	}
@@ -507,6 +508,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs()), i)
 			// TODO: check value of logs
+		}
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
+			r.Equal(exec.ExpectedErrorMsg, receipt.ExecutionRevertMsg())
 		}
 	}
 }
