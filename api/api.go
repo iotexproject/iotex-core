@@ -45,7 +45,9 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -288,6 +290,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 
 	var numActions int64
 	for _, blk := range blks {
+		log.S().Infof("blk %+v", blk)
 		numActions += blk.NumActions
 	}
 
@@ -319,7 +322,27 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			GravityChainStartHeight: gravityChainStartHeight,
 		}
 	}
-	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
+	copts := []consensus.Option{}
+	consensus, err := consensus.NewConsensus(api.cfg, api.bc, api.sf, copts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create consensus")
+	}
+	bs, err := blocksync.NewBlockSyncer(
+		api.cfg,
+		api.bc,
+		api.dao,
+		consensus,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create blockSyncer")
+	}
+
+	stage := "synced"
+
+	if bs.TargetHeight() > tipHeight {
+		stage = "syncing"
+	}
+	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, Stage: stage}, nil
 }
 
 // GetServerMeta gets the server metadata
