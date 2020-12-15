@@ -84,7 +84,7 @@ type sendMessage struct {
 
 func (m *sendMessage) String() string {
 	if output.Format == "" {
-		return fmt.Sprintf("%s\nWait for several seconds and query this action by hash:%s", m.Info, m.URL)
+		return fmt.Sprintf("%s\nWait for several seconds and query this action by hash: %s", m.Info, m.URL)
 	}
 	return output.FormatString(output.Result, m)
 }
@@ -244,7 +244,10 @@ func SendRaw(selp *iotextypes.Action) error {
 	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash}
 	switch config.ReadConfig.Explorer {
 	case "iotexscan":
-		message.URL = "iotexscan.io/action/" + txhash
+		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
+			message.URL = "testnet."
+		}
+		message.URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
 		message.URL = "iotxplorer.io/actions/" + txhash
 	default:
