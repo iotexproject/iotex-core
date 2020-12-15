@@ -1,7 +1,7 @@
 account:
   initBalances:
     # overwrite with your test address
-    io1ck66hvsyaz2k58a7e2zzughfmug7l8zvhywjhv: "100000000000000000000000000000000000"
+    io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms: "100000000000000000000000000000000000"
 blockchain:
   blockInterval: 5s
   numSubEpochs: 15
