@@ -155,9 +155,11 @@ func (receipt *Receipt) ExecutionRevertMsg() string {
 	return receipt.executionRevertMsg
 }
 
-// AddExecutionRevertMsg add executionerrorlogs to receipt and filter out "" log.
-func (receipt *Receipt) AddExecutionRevertMsg(revertReason string) *Receipt {
-	receipt.executionRevertMsg = revertReason
+// SetExecutionRevertMsg sets executionerrorlogs to receipt.
+func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
+	if receipt.executionRevertMsg == "" && revertReason != "" {
+		receipt.executionRevertMsg = revertReason
+	}
 	return receipt
 }
 
