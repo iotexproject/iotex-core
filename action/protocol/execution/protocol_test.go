@@ -24,6 +24,8 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/account"
@@ -43,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 // ExpectedBalance defines an account-balance pair

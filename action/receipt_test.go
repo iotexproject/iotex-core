@@ -79,6 +79,11 @@ func TestSerDer(t *testing.T) {
 	hash := receipt.Hash()
 	oldHash := "9b1d77d8b8902e8d4e662e7cd07d8a74179e032f030d92441ca7fba1ca68e0f4"
 	require.Equal(oldHash, hex.EncodeToString(hash[:]))
+
+	// starting HawaiiHeight execution revert message is added to receipt
+	receipt.executionRevertMsg = "test"
+	hash2 := receipt.Hash()
+	require.NotEqual(oldHash, hash2)
 }
 func TestConvertLog(t *testing.T) {
 	require := require.New(t)
