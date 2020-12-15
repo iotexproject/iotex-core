@@ -7,6 +7,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"math"
 	"math/big"
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -27,6 +29,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 var (
@@ -35,6 +38,9 @@ var (
 	preAleutianActionGasLimit = genesis.Default.ActionGasLimit
 
 	inContractTransfer = hash.BytesToHash256([]byte{byte(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER)})
+
+	// revertSelector is a special function selector for revert reason unpacking.
+	revertSelector = crypto.Keccak256([]byte("Error(string)"))[:4]
 
 	// ErrInconsistentNonce is the error that the nonce is different from executor's nonce
 	ErrInconsistentNonce = errors.New("Nonce is not identical to executor nonce")
@@ -232,6 +238,14 @@ func ExecuteContract(
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
 		hu.IsPre(config.Greenland, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
+	}
+
+	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
+		// in case of the execution revert error, parse the retVal and add to receipt
+		data := retval[4:]
+		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
+		revertMsg := string(data[64 : 64+msgLength])
+		receipt.SetExecutionRevertMsg(revertMsg)
 	}
 	log.S().Debugf("Receipt: %+v, %v", receipt, err)
 	return retval, receipt, nil
