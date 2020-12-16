@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -1548,7 +1549,10 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return nil, status.Error(codes.Internal, "execution simulation gets failure status")
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && receipt.ExecutionRevertMsg() != "" {
+			return nil, status.Errorf(codes.Internal, fmt.Sprintf("execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg()))
+		}
+		return nil, status.Error(codes.Internal, "execution simulation is failed")
 	}
 	estimatedGas := receipt.GasConsumed
 	enough, err := api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
