@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -46,7 +45,6 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
-	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
@@ -96,7 +94,6 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
-	bs                blocksync.BlockSync
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
@@ -116,7 +113,6 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
-	bs blocksync.BlockSync,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
@@ -143,7 +139,6 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
-		bs:                bs,
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
@@ -264,48 +259,50 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			},
 		}, nil
 	}
+	if api.indexer == nil {
+		// TODO: in case indexer does not exist, may consider return a value like 0 instead of exit
+		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+	}
+	totalActions, err := api.indexer.GetTotalActions()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	blockLimit := int64(api.cfg.API.TpsWindow)
+	if blockLimit <= 0 {
+		return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
+	}
+
+	// avoid genesis block
+	if int64(tipHeight) < blockLimit {
+		blockLimit = int64(tipHeight)
+	}
+	r, err := api.getBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
+	if err != nil {
+		return nil, status.Error(codes.NotFound, err.Error())
+	}
+	blks := r.BlkMetas
+
+	if len(blks) == 0 {
+		return nil, status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
+	}
+
+	var numActions int64
+	for _, blk := range blks {
+		numActions += blk.NumActions
+	}
+
+	t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
+	t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
+	// duration of time difference in milli-seconds
+	// TODO: use config.Genesis.BlockInterval after PR1289 merges
+	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
+	tps := float32(numActions*1000) / float32(timeDiff)
 
 	chainMeta := &iotextypes.ChainMeta{
-		Height: tipHeight,
-	}
-	if api.indexer != nil {
-		totalActions, err := api.indexer.GetTotalActions()
-		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
-		}
-		blockLimit := int64(api.cfg.API.TpsWindow)
-		if blockLimit <= 0 {
-			return nil, status.Errorf(codes.Internal, "block limit is %d", blockLimit)
-		}
-
-		// avoid genesis block
-		if int64(tipHeight) < blockLimit {
-			blockLimit = int64(tipHeight)
-		}
-		r, err := api.getBlockMetas(tipHeight-uint64(blockLimit)+1, uint64(blockLimit))
-		if err != nil {
-			return nil, status.Error(codes.NotFound, err.Error())
-		}
-		blks := r.BlkMetas
-
-		if len(blks) == 0 {
-			return nil, status.Error(codes.NotFound, "get 0 blocks! not able to calculate aps")
-		}
-
-		var numActions int64
-		for _, blk := range blks {
-			numActions += blk.NumActions
-		}
-
-		t1 := time.Unix(blks[0].Timestamp.GetSeconds(), int64(blks[0].Timestamp.GetNanos()))
-		t2 := time.Unix(blks[len(blks)-1].Timestamp.GetSeconds(), int64(blks[len(blks)-1].Timestamp.GetNanos()))
-		// duration of time difference in milli-seconds
-		// TODO: use config.Genesis.BlockInterval after PR1289 merges
-		timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
-		tps := float32(numActions*1000) / float32(timeDiff)
-		chainMeta.NumActions = int64(totalActions)
-		chainMeta.Tps = int64(math.Ceil(float64(tps)))
-		chainMeta.TpsFloat = tps
+		Height:     tipHeight,
+		NumActions: int64(totalActions),
+		Tps:        int64(math.Ceil(float64(tps))),
+		TpsFloat:   tps,
 	}
 
 	rp := rolldpos.FindProtocol(api.registry)
@@ -322,16 +319,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			GravityChainStartHeight: gravityChainStartHeight,
 		}
 	}
-
-	targetHeight := api.bs.TargetHeight()
-	var stage string
-	if targetHeight > tipHeight {
-		stage = fmt.Sprintf("syncing up, targetHeight: %d", targetHeight)
-	} else {
-		stage = fmt.Sprintf("synced done, targetHeight: %d", targetHeight)
-	}
-
-	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, Stage: stage}, nil
+	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
 }
 
 // GetServerMeta gets the server metadata

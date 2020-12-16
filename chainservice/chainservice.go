@@ -348,7 +348,6 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
-		bs,
 		sf,
 		dao,
 		indexer,
