@@ -1549,7 +1549,7 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && receipt.ExecutionRevertMsg() != "" {
+		if receipt.ExecutionRevertMsg() != "" {
 			return nil, status.Errorf(codes.Internal, fmt.Sprintf("execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg()))
 		}
 		return nil, status.Error(codes.Internal, "execution simulation is failed")
