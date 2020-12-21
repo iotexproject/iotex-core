@@ -46,8 +46,7 @@ type (
 	// bloomfilterIndexer is a struct for bloomfilter indexer
 	bloomfilterIndexer struct {
 		mutex               sync.RWMutex // mutex for curRangeBloomfilter
-		kvStore             db.KVStore
-		batch               batch.KVStoreBatch
+		flusher             db.KVStoreFlusher
 		rangeSize           uint64
 		curRangeBloomfilter bloom.BloomFilter
 	}
@@ -58,21 +57,24 @@ func NewBloomfilterIndexer(kv db.KVStore, rangeSize uint64) (BloomFilterIndexer,
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
+	flusher, err := db.NewKVStoreFlusher(kv, batch.NewCachedBatch())
+	if err != nil {
+		return nil, err
+	}
 	return &bloomfilterIndexer{
-		kvStore:   kv,
-		batch:     batch.NewBatch(),
+		flusher:   flusher,
 		rangeSize: rangeSize,
 	}, nil
 }
 
 // Start starts the bloomfilter indexer
 func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
-	if err := bfx.kvStore.Start(ctx); err != nil {
+	if err := bfx.flusher.KVStoreWithBuffer().Start(ctx); err != nil {
 		return err
 	}
 	bfx.mutex.Lock()
 	defer bfx.mutex.Unlock()
-	tipHeightData, err := bfx.kvStore.Get(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
+	tipHeightData, err := bfx.flusher.KVStoreWithBuffer().Get(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
 	switch errors.Cause(err) {
 	case nil:
 		tipHeight := byteutil.BytesToUint64(tipHeightData)
@@ -85,7 +87,7 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 			}
 		}
 	case db.ErrNotExist:
-		if err = bfx.kvStore.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
+		if err = bfx.flusher.KVStoreWithBuffer().Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return err
 		}
 		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
@@ -97,12 +99,12 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 
 // Stop stops the bloomfilter indexer
 func (bfx *bloomfilterIndexer) Stop(ctx context.Context) error {
-	return bfx.kvStore.Stop(ctx)
+	return bfx.flusher.KVStoreWithBuffer().Stop(ctx)
 }
 
 // Height returns the tipHeight from underlying DB
 func (bfx *bloomfilterIndexer) Height() (uint64, error) {
-	h, err := bfx.kvStore.Get(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
+	h, err := bfx.flusher.KVStoreWithBuffer().Get(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
 	if err != nil {
 		return 0, err
 	}
@@ -191,7 +193,7 @@ func (bfx *bloomfilterIndexer) rangeBloomfilterKey(blockNumber uint64) uint64 {
 // rangeBloomFilter reads rangebloomfilter by given block number from underlying DB
 func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (bloom.BloomFilter, error) {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	bfBytes, err := bfx.kvStore.Get(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey))
+	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey))
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +202,7 @@ func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (bloom.Bloom
 
 // blockBloomFilter reads block bloomfilter by given block number from underlying DB
 func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.BloomFilter, error) {
-	bfBytes, err := bfx.kvStore.Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
+	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
 	if err != nil {
 		return nil, err
 	}
@@ -209,27 +211,25 @@ func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.Bloom
 
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	bfx.batch.Delete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), "failed to delete RangeBloomFilter at block number %d", blockNumber)
-	bfx.batch.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), "failed to delete BlockBloomFilter at block number %d", blockNumber)
-	bfx.batch.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize), "failed to update current height")
+	bfx.flusher.KVStoreWithBuffer().MustDelete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey))
+	bfx.flusher.KVStoreWithBuffer().MustDelete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
+	bfx.flusher.KVStoreWithBuffer().MustDelete(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
 
-	if err := bfx.kvStore.WriteBatch(bfx.batch); err != nil {
+	if err := bfx.flusher.Flush(); err != nil {
 		return errors.Wrapf(err, "failed to write batch")
 	}
-	bfx.batch.Clear()
 	return nil
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	bfx.batch.Put(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes(), "failed to put RangeBloomFilter at block number %d", blockNumber)
-	bfx.batch.Put(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes(), "failed to put BlockBloomFilter at block number %d", blockNumber)
-	bfx.batch.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber), "failed to update current height")
+	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes())
+	bfx.flusher.KVStoreWithBuffer().MustPut(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes())
+	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber))
 
-	if err := bfx.kvStore.WriteBatch(bfx.batch); err != nil {
+	if err := bfx.flusher.Flush(); err != nil {
 		return errors.Wrapf(err, "failed to write batch")
 	}
-	bfx.batch.Clear()
 	return nil
 }
 
