@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/pkg/errors"
 )
@@ -46,6 +47,7 @@ type (
 	bloomfilterIndexer struct {
 		mutex               sync.RWMutex // mutex for curRangeBloomfilter
 		kvStore             db.KVStore
+		batch               batch.KVStoreBatch
 		rangeSize           uint64
 		curRangeBloomfilter bloom.BloomFilter
 	}
@@ -58,6 +60,7 @@ func NewBloomfilterIndexer(kv db.KVStore, rangeSize uint64) (BloomFilterIndexer,
 	}
 	return &bloomfilterIndexer{
 		kvStore:   kv,
+		batch:     batch.NewBatch(),
 		rangeSize: rangeSize,
 	}, nil
 }
@@ -206,24 +209,28 @@ func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.Bloom
 
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	if err := bfx.kvStore.Delete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey)); err != nil {
-		return errors.Wrapf(err, "failed to delete RangeBloomFilter")
+	bfx.batch.Delete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), "failed to delete RangeBloomFilter at block number %d", blockNumber)
+	bfx.batch.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), "failed to delete BlockBloomFilter at block number %d", blockNumber)
+	bfx.batch.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize), "failed to update current height")
+
+	if err := bfx.kvStore.WriteBatch(bfx.batch); err != nil {
+		return errors.Wrapf(err, "failed to write batch")
 	}
-	if err := bfx.kvStore.Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber)); err != nil {
-		return errors.Wrapf(err, "failed to delete BlockBloomFilter")
-	}
-	return bfx.kvStore.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize))
+	bfx.batch.Clear()
+	return nil
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	if err := bfx.kvStore.Put(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes()); err != nil {
-		return errors.Wrapf(err, "failed to put RangeBloomFilter")
+	bfx.batch.Put(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes(), "failed to put RangeBloomFilter at block number %d", blockNumber)
+	bfx.batch.Put(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes(), "failed to put BlockBloomFilter at block number %d", blockNumber)
+	bfx.batch.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber), "failed to update current height")
+
+	if err := bfx.kvStore.WriteBatch(bfx.batch); err != nil {
+		return errors.Wrapf(err, "failed to write batch")
 	}
-	if err := bfx.kvStore.Put(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes()); err != nil {
-		return errors.Wrapf(err, "failed to put BlockBloomFilter")
-	}
-	return bfx.kvStore.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber))
+	bfx.batch.Clear()
+	return nil
 }
 
 func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
