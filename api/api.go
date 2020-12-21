@@ -45,6 +45,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
@@ -94,6 +95,7 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
+	bs                blocksync.BlockSync
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
@@ -113,6 +115,7 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	bs blocksync.BlockSync,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
@@ -139,6 +142,7 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
+		bs:                bs,
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
@@ -259,9 +263,12 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			},
 		}, nil
 	}
+	syncStatus := api.bs.SyncStatus()
 	if api.indexer == nil {
-		// TODO: in case indexer does not exist, may consider return a value like 0 instead of exit
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		chainMeta := &iotextypes.ChainMeta{
+			Height: tipHeight,
+		}
+		return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
 	}
 	totalActions, err := api.indexer.GetTotalActions()
 	if err != nil {
@@ -319,7 +326,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			GravityChainStartHeight: gravityChainStartHeight,
 		}
 	}
-	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
+	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
 }
 
 // GetServerMeta gets the server metadata
