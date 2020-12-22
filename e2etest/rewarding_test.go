@@ -610,23 +610,24 @@ func newConfig(
 	cfg.ActPool.MinGasPriceStr = big.NewInt(0).String()
 
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 2400 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 1800 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 1800 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 1800 * time.Millisecond
-	cfg.Consensus.RollDPoS.FSM.CommitTTL = 600 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.UnmatchedEventInterval = 120 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = 200 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = 100 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.AcceptLockEndorsementTTL = 100 * time.Millisecond
+	cfg.Consensus.RollDPoS.FSM.CommitTTL = 100 * time.Millisecond
 	cfg.Consensus.RollDPoS.FSM.EventChanSize = 100000
 	cfg.Consensus.RollDPoS.ToleratedOvertime = 1200 * time.Millisecond
 	cfg.Consensus.RollDPoS.Delay = 6 * time.Second
 
 	cfg.API.Port = apiPort
 
-	cfg.Genesis.BlockInterval = 6 * time.Second
+	cfg.Genesis.BlockInterval = 500 * time.Millisecond
 	cfg.Genesis.Blockchain.NumSubEpochs = 2
 	cfg.Genesis.Blockchain.NumDelegates = numNodes
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
-	cfg.Genesis.EnableGravityChainVoting = false
-	cfg.Genesis.PollMode = "lifeLong"
+	cfg.Genesis.EnableGravityChainVoting = true
+	cfg.Genesis.PollMode = ""
+	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg
 }
