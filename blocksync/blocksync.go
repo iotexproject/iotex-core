@@ -86,7 +86,7 @@ type blockSyncer struct {
 	neighborsHandler      Neighbors
 	syncStageTask         *routine.RecurringTask
 	syncStageHeight       uint64
-	syncSpeed             uint64
+	syncBlockIncrease     uint64
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -119,9 +119,8 @@ func NewBlockSyncer(
 		worker:                newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 		processSyncRequestTTL: cfg.BlockSync.ProcessSyncRequestTTL,
 	}
-	bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, time.Second*5)
-	atomic.StoreUint64(&bs.syncStageHeight, 0)
-	atomic.StoreUint64(&bs.syncSpeed, 0)
+	bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, config.DardanellesBlockInterval)
+	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
 	return bs, nil
 }
 
@@ -213,17 +212,16 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 }
 
 func (bs *blockSyncer) syncStageChecker() {
-	syncStageHeight := atomic.LoadUint64(&bs.syncStageHeight)
-	if syncStageHeight > 0 {
-		atomic.StoreUint64(&bs.syncSpeed, (bs.bc.TipHeight()-syncStageHeight)/5)
-
-	}
-	atomic.StoreUint64(&bs.syncStageHeight, bs.bc.TipHeight())
+	tipHeight := bs.bc.TipHeight()
+	atomic.StoreUint64(&bs.syncBlockIncrease, tipHeight-bs.syncStageHeight)
+	bs.syncStageHeight = tipHeight
 }
 
 // SyncStatus report block sync status
 func (bs *blockSyncer) SyncStatus() string {
-	targetHeight := bs.TargetHeight()
-	syncSpeed := atomic.LoadUint64(&bs.syncSpeed)
-	return fmt.Sprintf("syncSpeed: %d/s, targetHeight: %d", syncSpeed, targetHeight)
+	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
+	if syncBlockIncrease == 1 {
+		return "synced to blockchain tip"
+	}
+	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/config.DardanellesBlockInterval.Seconds())
 }

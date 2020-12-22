@@ -264,10 +264,10 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 		}, nil
 	}
 	syncStatus := api.bs.SyncStatus()
+	chainMeta := &iotextypes.ChainMeta{
+		Height: tipHeight,
+	}
 	if api.indexer == nil {
-		chainMeta := &iotextypes.ChainMeta{
-			Height: tipHeight,
-		}
 		return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
 	}
 	totalActions, err := api.indexer.GetTotalActions()
@@ -305,7 +305,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
 	tps := float32(numActions*1000) / float32(timeDiff)
 
-	chainMeta := &iotextypes.ChainMeta{
+	chainMeta = &iotextypes.ChainMeta{
 		Height:     tipHeight,
 		NumActions: int64(totalActions),
 		Tps:        int64(math.Ceil(float64(tps))),
