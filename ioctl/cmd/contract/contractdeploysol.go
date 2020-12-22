@@ -16,6 +16,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -45,7 +46,6 @@ var contractDeploySolCmd = &cobra.Command{
 }
 
 func init() {
-	withArgumentsFlag.RegisterCommand(contractDeploySolCmd)
 	initialAmountFlag.RegisterCommand(contractDeploySolCmd)
 }
 
@@ -95,7 +95,7 @@ func contractDeploySol(args []string) error {
 		return output.NewError(output.ConvertError, "failed to decode bytecode", err)
 	}
 
-	if withArgumentsFlag.Value().(string) != "" {
+	if flag.WithArgumentsFlag.Value().(string) != "" {
 		abiByte, err := json.Marshal(contract.Info.AbiDefinition)
 		if err != nil {
 			return output.NewError(output.SerializationError, "failed to marshal abi", err)
@@ -107,7 +107,7 @@ func contractDeploySol(args []string) error {
 		}
 
 		// Constructor's method name is "" (empty string)
-		packedArg, err := packArguments(abi, "", withArgumentsFlag.Value().(string))
+		packedArg, err := packArguments(abi, "", flag.WithArgumentsFlag.Value().(string))
 		if err != nil {
 			return output.NewError(output.ConvertError, "failed to pack given arguments", err)
 		}

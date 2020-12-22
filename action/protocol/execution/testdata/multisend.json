@@ -1,4 +1,7 @@
 {
+    "initGenesis": {
+        "isBering" : true
+    },
     "initBalances": [{
         "account": "io10t2hrfgcv0j4g2urc0qvjsvsqfwgykvgvff9eg",
         "rawBalance": "1000000000000000000000000000"
@@ -19,6 +22,7 @@
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
         "expectedBalances": [],
+        "expectedStatus" : 1,
         "failed": false,
         "comment": "deploy multisend contract"
     }],
@@ -39,6 +43,7 @@
             "rawBalance": "321"
         }],
         "expectedLogs": [{},{},{},{}],
+        "expectedStatus" : 1,
         "comment": "send to two accounts"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
@@ -57,6 +62,8 @@
             "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
             "rawBalance": "321"
         }],
+        "expectedStatus" : 106,
+        "expectedErrorMsg" : "not enough token",
         "comment": "not enough tokens"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
@@ -75,6 +82,7 @@
             "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
             "rawBalance": "321"
         }],
+        "expectedStatus" : 101,
         "comment": "broken bytecode"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
@@ -93,6 +101,8 @@
             "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
             "rawBalance": "321"
         }],
+        "expectedStatus" : 106,
+        "expectedErrorMsg" : "number of recipients is larger than 300",
         "comment": "more than 300 recipients"
     }, {
         "rawPrivateKey": "cff7405126a8e16ea6fd09279836e52abdcae8e4008309effc6d09556535f637",
@@ -110,6 +120,7 @@
             "account": "io1ntprz4p5zw38fvtfrcczjtcv3rkr3nqs6sm3pj",
             "rawBalance": "321"
         }],
+        "expectedStatus" : 1,
         "expectedLogs": [{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}],
         "comment": "transfer to 300 recipients"
     }]

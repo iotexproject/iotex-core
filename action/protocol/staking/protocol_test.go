@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -96,7 +95,7 @@ func TestProtocol(t *testing.T) {
 	r.Equal(0, len(c))
 
 	// address package also defined protocol address, make sure they match
-	r.Equal(hash.BytesToHash160(stk.addr.Bytes()), address.StakingProtocolAddrHash)
+	r.Equal(stk.addr.Bytes(), address.StakingProtocolAddrHash[:])
 
 	// write a number of buckets into stateDB
 	for _, e := range tests {

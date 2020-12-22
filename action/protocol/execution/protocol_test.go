@@ -100,6 +100,7 @@ type ExecutionConfig struct {
 	ExpectedStatus          uint64            `json:"expectedStatus"`
 	ExpectedBalances        []ExpectedBalance `json:"expectedBalances"`
 	ExpectedLogs            []Log             `json:"expectedLogs"`
+	ExpectedErrorMsg        string            `json:"expectedErrorMsg"`
 }
 
 func (cfg *ExecutionConfig) PrivateKey() crypto.PrivateKey {
@@ -337,6 +338,7 @@ func (sct *SmartContractTest) prepareBlockchain(
 	if sct.InitGenesis.IsBering {
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
+	cfg.Genesis.HawaiiBlockHeight = 0
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
 	}
@@ -507,6 +509,9 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 		if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) {
 			r.Equal(len(exec.ExpectedLogs), len(receipt.Logs()), i)
 			// TODO: check value of logs
+		}
+		if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
+			r.Equal(exec.ExpectedErrorMsg, receipt.ExecutionRevertMsg())
 		}
 	}
 }

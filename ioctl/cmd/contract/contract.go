@@ -25,8 +25,6 @@ const solCompiler = "solc"
 
 // Flags
 var (
-	withArgumentsFlag = flag.NewStringVar("with-arguments", "",
-		config.TranslateInLang(flagWithArgumentsUsage, config.UILanguage))
 	initialAmountFlag = flag.NewStringVar("init-amount", "0",
 		config.TranslateInLang(flagInitialAmountUsage, config.UILanguage))
 )
@@ -48,10 +46,6 @@ var (
 	flagInsecureUsages = map[config.Language]string{
 		config.English: "insecure connection for once",
 		config.Chinese: "一次不安全的连接",
-	}
-	flagWithArgumentsUsage = map[config.Language]string{
-		config.English: "pass arguments in JSON format",
-		config.Chinese: "按照JSON格式传入参数",
 	}
 	flagInitialAmountUsage = map[config.Language]string{
 		config.English: "transfer an initial amount to the new deployed contract",
@@ -76,6 +70,10 @@ func init() {
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpointUsages, config.UILanguage))
 	ContractCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure,
 		config.TranslateInLang(flagInsecureUsages, config.UILanguage))
+
+	flag.WithArgumentsFlag.RegisterCommand(contractDeploySolCmd)
+	flag.WithArgumentsFlag.RegisterCommand(contractInvokeFunctionCmd)
+	flag.WithArgumentsFlag.RegisterCommand(contractTestFunctionCmd)
 }
 
 // Compile compiles smart contract from source code
@@ -139,10 +137,15 @@ func packArguments(targetAbi *abi.ABI, targetMethod string, rowInput string) ([]
 
 	arguments := make([]interface{}, 0, len(method.Inputs))
 	for _, param := range method.Inputs {
+		if param.Name == "" {
+			param.Name = "_"
+		}
+
 		rowArg, ok := rowArguments[param.Name]
 		if !ok {
 			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), nil)
 		}
+
 		arg, err := parseInputArgument(&param.Type, rowArg)
 		if err != nil {
 			return nil, output.NewError(output.InputError, fmt.Sprintf("failed to parse argument \"%s\"", param.Name), err)

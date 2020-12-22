@@ -32,13 +32,14 @@ type (
 
 	// Receipt represents the result of a contract
 	Receipt struct {
-		Status          uint64
-		BlockHeight     uint64
-		ActionHash      hash.Hash256
-		GasConsumed     uint64
-		ContractAddress string
-		logs            []*Log
-		transactionLogs []*TransactionLog
+		Status             uint64
+		BlockHeight        uint64
+		ActionHash         hash.Hash256
+		GasConsumed        uint64
+		ContractAddress    string
+		logs               []*Log
+		transactionLogs    []*TransactionLog
+		executionRevertMsg string
 	}
 
 	// Log stores an evm contract event
@@ -73,6 +74,9 @@ func (receipt *Receipt) ConvertToReceiptPb() *iotextypes.Receipt {
 	for _, l := range receipt.logs {
 		r.Logs = append(r.Logs, l.ConvertToLogPb())
 	}
+	if receipt.executionRevertMsg != "" {
+		r.ExecutionRevertMsg = receipt.executionRevertMsg
+	}
 	return r
 }
 
@@ -89,6 +93,7 @@ func (receipt *Receipt) ConvertFromReceiptPb(pbReceipt *iotextypes.Receipt) {
 		receipt.logs[i] = &Log{}
 		receipt.logs[i].ConvertFromLogPb(log)
 	}
+	receipt.executionRevertMsg = pbReceipt.GetExecutionRevertMsg()
 }
 
 // Serialize returns a serialized byte stream for the Receipt
@@ -141,6 +146,19 @@ func (receipt *Receipt) AddTransactionLogs(logs ...*TransactionLog) *Receipt {
 		if l != nil {
 			receipt.transactionLogs = append(receipt.transactionLogs, l)
 		}
+	}
+	return receipt
+}
+
+// ExecutionRevertMsg returns the list of execution revert error logs stored in receipt.
+func (receipt *Receipt) ExecutionRevertMsg() string {
+	return receipt.executionRevertMsg
+}
+
+// SetExecutionRevertMsg sets executionerrorlogs to receipt.
+func (receipt *Receipt) SetExecutionRevertMsg(revertReason string) *Receipt {
+	if receipt.executionRevertMsg == "" && revertReason != "" {
+		receipt.executionRevertMsg = revertReason
 	}
 	return receipt
 }

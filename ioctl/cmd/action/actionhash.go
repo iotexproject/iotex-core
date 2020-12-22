@@ -23,7 +23,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
@@ -31,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 )
 
 // Multi-language support
@@ -247,6 +247,9 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 		if index, ok := staking.BucketIndexFromReceiptLog(receipt.Logs[0]); ok {
 			result += fmt.Sprintf("\nbucket index: %d", index)
 		}
+	}
+	if receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) {
+		result += fmt.Sprintf("\nexecution revert reason: %s", receipt.ExecutionRevertMsg)
 	}
 	return result
 }
