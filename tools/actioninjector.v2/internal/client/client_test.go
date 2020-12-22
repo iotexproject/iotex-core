@@ -80,7 +80,7 @@ func TestClient(t *testing.T) {
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), uint64(4096))
-	apiServer, err := api.NewServer(cfg, bc, sf, nil, indexer, bfIndexer, ap, nil, newOption)
+	apiServer, err := api.NewServer(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())
 	// test New()
