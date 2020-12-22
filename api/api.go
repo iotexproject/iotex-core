@@ -305,12 +305,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
 	tps := float32(numActions*1000) / float32(timeDiff)
 
-	chainMeta = &iotextypes.ChainMeta{
-		Height:     tipHeight,
-		NumActions: int64(totalActions),
-		Tps:        int64(math.Ceil(float64(tps))),
-		TpsFloat:   tps,
-	}
+	chainMeta.NumActions = int64(totalActions)
+	chainMeta.Tps = int64(math.Ceil(float64(tps)))
+	chainMeta.TpsFloat = tps
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp != nil {
