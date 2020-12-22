@@ -264,7 +264,10 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			},
 		}, nil
 	}
-	syncStatus := api.bs.SyncStatus()
+	syncStatus := ""
+	if api.bs != nil {
+		syncStatus = api.bs.SyncStatus()
+	}
 	chainMeta := &iotextypes.ChainMeta{
 		Height: tipHeight,
 	}
