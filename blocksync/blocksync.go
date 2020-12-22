@@ -79,7 +79,6 @@ type blockSyncer struct {
 	bc                    blockchain.Blockchain
 	dao                   BlockDAO
 	unicastHandler        UnicastOutbound
-	neighborsHandler      Neighbors
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -108,7 +107,6 @@ func NewBlockSyncer(
 		dao:                   dao,
 		buf:                   buf,
 		unicastHandler:        bsCfg.unicastHandler,
-		neighborsHandler:      bsCfg.neighborsHandler,
 		worker:                newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 		processSyncRequestTTL: cfg.BlockSync.ProcessSyncRequestTTL,
 	}

@@ -63,13 +63,15 @@ func TestBroadcast(t *testing.T) {
 		_, err := net.DialTCP("tcp", nil, &tcpAddr)
 		return err == nil, nil
 	}))
+	addrs, err := bootnode.Self()
+	require.NoError(t, err)
 	for i := 0; i < n; i++ {
 		port := bootnodePort + i + 1
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
 				Port:           port,
-				BootstrapNodes: []string{bootnode.Self()[0].String()},
+				BootstrapNodes: []string{addrs[0].String()},
 			},
 		}
 		agent := NewAgent(cfg, b, u)
@@ -133,12 +135,14 @@ func TestUnicast(t *testing.T) {
 	}, b, u)
 	require.NoError(t, bootnode.Start(ctx))
 
+	addrs, err := bootnode.Self()
+	require.NoError(t, err)
 	for i := 0; i < n; i++ {
 		cfg := config.Config{
 			Network: config.Network{
 				Host:           "127.0.0.1",
 				Port:           testutil.RandomPort(),
-				BootstrapNodes: []string{bootnode.Self()[0].String()},
+				BootstrapNodes: []string{addrs[0].String()},
 			},
 		}
 		agent := NewAgent(cfg, b, u)
@@ -158,7 +162,11 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
-			return counts[uint8(i)] == len(neighbors) && src == agents[i].Info().ID.Pretty(), nil
+			info, err := agents[i].Info()
+			if err != nil {
+				return false, err
+			}
+			return counts[uint8(i)] == len(neighbors) && src == info.ID.Pretty(), nil
 		}))
 	}
 }

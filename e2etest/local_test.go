@@ -83,7 +83,9 @@ func TestLocalCommit(t *testing.T) {
 	// create client
 	cfg, err = newTestConfig()
 	require.NoError(err)
-	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
+	addrs, err := svr.P2PAgent().Self()
+	require.NoError(err)
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	p := p2p.NewAgent(
 		cfg,
 		func(_ context.Context, _ uint32, _ proto.Message) {
@@ -421,8 +423,10 @@ func TestLocalSync(t *testing.T) {
 	cfg.Chain.ChainDBPath = testDBPath2
 	cfg.Chain.IndexDBPath = indexDBPath2
 
+	addrs, err := svr.P2PAgent().Self()
+	require.NoError(err)
 	// Create client
-	cfg.Network.BootstrapNodes = []string{validNetworkAddr(svr.P2PAgent().Self())}
+	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 
 	cfg.BlockSync.Interval = 1 * time.Second
 	cli, err := itx.NewServer(cfg)
