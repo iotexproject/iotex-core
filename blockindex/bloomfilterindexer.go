@@ -90,6 +90,9 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 		if err = bfx.flusher.KVStoreWithBuffer().Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(0)); err != nil {
 			return err
 		}
+		if err := bfx.flusher.Flush(); err != nil {
+			return errors.Wrapf(err, "failed to flush")
+		}
 		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
 	default:
 		return err
@@ -213,10 +216,10 @@ func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
 	bfx.flusher.KVStoreWithBuffer().MustDelete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey))
 	bfx.flusher.KVStoreWithBuffer().MustDelete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
-	bfx.flusher.KVStoreWithBuffer().MustDelete(RangeBloomFilterNamespace, []byte(CurrentHeightKey))
+	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize))
 
 	if err := bfx.flusher.Flush(); err != nil {
-		return errors.Wrapf(err, "failed to write batch")
+		return errors.Wrapf(err, "failed to flush deletion")
 	}
 	return nil
 }
@@ -228,7 +231,7 @@ func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.B
 	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber))
 
 	if err := bfx.flusher.Flush(); err != nil {
-		return errors.Wrapf(err, "failed to write batch")
+		return errors.Wrapf(err, "failed to flush commit")
 	}
 	return nil
 }
