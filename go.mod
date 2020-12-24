@@ -10,7 +10,6 @@ require (
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.3.1 // indirect
-	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 	github.com/golang/mock v1.4.4
 	github.com/golang/protobuf v1.4.3
 	github.com/golang/snappy v0.0.2-0.20200707131729-196ae77b8a26
@@ -19,7 +18,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/iotexproject/go-fsm v1.0.0
 	github.com/iotexproject/go-p2p v0.2.12
-	github.com/iotexproject/go-pkgs v0.1.4
+	github.com/iotexproject/go-pkgs v0.1.5-0.20201224063319-53f43a4e99b6
 	github.com/iotexproject/iotex-address v0.2.4
 	github.com/iotexproject/iotex-antenna-go/v2 v2.4.2-0.20201211202736-96d536a425fe
 	github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54
