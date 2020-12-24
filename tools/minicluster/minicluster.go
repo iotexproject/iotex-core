@@ -19,11 +19,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotexproject/go-pkgs/cache/lru"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -261,7 +263,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := new(sync.Map)
+		pendingActionMap := cache.NewThreadSafeLruCache(0)
 
 		log.L().Info("Start action injections.")
 
@@ -286,7 +288,7 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash lru.Key, vi interface{}) bool {
 			totalPendingActions++
 			return true
 		})

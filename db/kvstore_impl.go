@@ -8,10 +8,10 @@ package db
 
 import (
 	"context"
-	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -31,15 +31,15 @@ const (
 
 // memKVStore is the in-memory implementation of KVStore for testing purpose
 type memKVStore struct {
-	data   *sync.Map
-	bucket *sync.Map
+	data   *cache.ThreadSafeLruCache
+	bucket *cache.ThreadSafeLruCache
 }
 
 // NewMemKVStore instantiates an in-memory KV store
 func NewMemKVStore() KVStore {
 	return &memKVStore{
-		bucket: &sync.Map{},
-		data:   &sync.Map{},
+		bucket: cache.NewThreadSafeLruCache(0),
+		data:   cache.NewThreadSafeLruCache(0),
 	}
 }
 
@@ -49,17 +49,20 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
-	_, _ = m.bucket.LoadOrStore(namespace, struct{}{})
-	m.data.Store(namespace+keyDelimiter+string(key), value)
+	_, ok := m.bucket.Get(namespace)
+	if !ok {
+		m.bucket.Add(namespace, struct{}{})
+	}
+	m.data.Add(namespace+keyDelimiter+string(key), value)
 	return nil
 }
 
 // Get retrieves a record
 func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
-	if _, ok := m.bucket.Load(namespace); !ok {
+	if _, ok := m.bucket.Get(namespace); !ok {
 		return nil, errors.Wrapf(ErrNotExist, "namespace = %x doesn't exist", []byte(namespace))
 	}
-	value, _ := m.data.Load(namespace + keyDelimiter + string(key))
+	value, _ := m.data.Get(namespace + keyDelimiter + string(key))
 	if value != nil {
 		return value.([]byte), nil
 	}
@@ -68,14 +71,14 @@ func (m *memKVStore) Get(namespace string, key []byte) ([]byte, error) {
 
 // Get retrieves a record
 func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte, error) {
-	if _, ok := m.bucket.Load(namespace); !ok {
+	if _, ok := m.bucket.Get(namespace); !ok {
 		return nil, errors.Wrapf(ErrNotExist, "namespace = %s doesn't exist", namespace)
 	}
 	value := make([][]byte, count)
 	start := byteutil.BytesToUint64BigEndian(key)
 	for i := uint64(0); i < count; i++ {
 		key = byteutil.Uint64ToBytesBigEndian(start + i)
-		v, _ := m.data.Load(namespace + keyDelimiter + string(key))
+		v, _ := m.data.Get(namespace + keyDelimiter + string(key))
 		if v == nil {
 			return nil, errors.Wrapf(ErrNotExist, "key = %x doesn't exist", key)
 		}
@@ -87,7 +90,7 @@ func (m *memKVStore) Range(namespace string, key []byte, count uint64) ([][]byte
 
 // Delete deletes a record
 func (m *memKVStore) Delete(namespace string, key []byte) error {
-	m.data.Delete(namespace + keyDelimiter + string(key))
+	m.data.Remove(namespace + keyDelimiter + string(key))
 	return nil
 }
 
