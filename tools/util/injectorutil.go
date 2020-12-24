@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff"
-	"github.com/iotexproject/go-pkgs/cache/lru"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -677,7 +676,7 @@ func CheckPendingActionList(
 	var retErr error
 	empty := true
 
-	pendingActionMap.Range(func(selphash lru.Key, vi interface{}) bool {
+	pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
 		empty = false
 		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
 		if err == nil {

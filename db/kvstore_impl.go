@@ -49,8 +49,7 @@ func (m *memKVStore) Stop(_ context.Context) error { return nil }
 
 // Put inserts a <key, value> record
 func (m *memKVStore) Put(namespace string, key, value []byte) error {
-	_, ok := m.bucket.Get(namespace)
-	if !ok {
+	if _, ok := m.bucket.Get(namespace); !ok {
 		m.bucket.Add(namespace, struct{}{})
 	}
 	m.data.Add(namespace+keyDelimiter+string(key), value)

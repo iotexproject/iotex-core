@@ -1,12 +1,12 @@
 package api
 
 import (
-	"github.com/iotexproject/go-pkgs/cache"
-	"github.com/iotexproject/go-pkgs/cache/lru"
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -43,7 +43,7 @@ func (cl *chainListener) Start() error {
 // Stop stops the block chainListener
 func (cl *chainListener) Stop() error {
 	// notify all responders to exit
-	cl.streamMap.Range(func(key lru.Key, _ interface{}) bool {
+	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
 		r, ok := key.(Responder)
 		if !ok {
 			log.S().Panic("streamMap stores a key which is not a Responder")
@@ -58,7 +58,7 @@ func (cl *chainListener) Stop() error {
 // ReceiveBlock handles the block
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	// pass the block to every responder
-	cl.streamMap.Range(func(key lru.Key, _ interface{}) bool {
+	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
 		r, ok := key.(Responder)
 		if !ok {
 			log.S().Panic("streamMap stores a key which is not a Responder")

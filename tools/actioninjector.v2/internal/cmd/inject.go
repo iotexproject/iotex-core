@@ -22,7 +22,6 @@ import (
 
 	"github.com/cenkalti/backoff"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/iotexproject/go-pkgs/cache/lru"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -170,7 +169,7 @@ func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) syncNonces(ctx context.Context) {
-	p.nonces.Range(func(key lru.Key, value interface{}) bool {
+	p.nonces.Range(func(key cache.Key, value interface{}) bool {
 		addr := key.(string)
 		err := backoff.Retry(func() error {
 			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
