@@ -268,8 +268,8 @@ github.com/iotexproject/go-pkgs v0.1.1/go.mod h1:U3Mb0Wm6XtYpFRODg3pe34DEaWhFwqI
 github.com/iotexproject/go-pkgs v0.1.2-0.20200212033110-8fa5cf96fc1b/go.mod h1:vP6jDCmhY5F4jtWD1hf1BTlY5hu+0q0oqALfBL7pY+k=
 github.com/iotexproject/go-pkgs v0.1.4 h1:JTO4/MgxaHP4vJXA2wsCUgJa+liNAnqxISByJmv5vP8=
 github.com/iotexproject/go-pkgs v0.1.4/go.mod h1:rV7K/DWOrkhi4nrvfPDjaV4J6wyRw21aJfZFXkCKy4s=
-github.com/iotexproject/go-pkgs v0.1.5-0.20201223215545-4caf39f269e5 h1:QXp9nr89OWjq1NRP5SZO6yPjkJxlsduvwkcWhvbdws4=
-github.com/iotexproject/go-pkgs v0.1.5-0.20201223215545-4caf39f269e5/go.mod h1:rV7K/DWOrkhi4nrvfPDjaV4J6wyRw21aJfZFXkCKy4s=
+github.com/iotexproject/go-pkgs v0.1.5-0.20201224063319-53f43a4e99b6 h1:PkmhSXwQ+Z2GXaZveeMOOQ6epyDMOD1KpKby9VvPQDc=
+github.com/iotexproject/go-pkgs v0.1.5-0.20201224063319-53f43a4e99b6/go.mod h1:rV7K/DWOrkhi4nrvfPDjaV4J6wyRw21aJfZFXkCKy4s=
 github.com/iotexproject/iotex-address v0.2.1/go.mod h1:ONmTqmg6zO7VWF9TcWN+UrreFr/xpazlv9PWOALbLFA=
 github.com/iotexproject/iotex-address v0.2.3/go.mod h1:K78yPSMB4K7gF/iQ7djT1amph0RBrP3rSkFfH7gNG70=
 github.com/iotexproject/iotex-address v0.2.4 h1:qrkM+X6Z6Rljto1KH8ZgAUrnzU5AqMqN0OCXcQEauS4=
