@@ -235,9 +235,11 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
+		claimActionCtx.Caller = identityset.Address(28)
+
 		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		assert.Equal(t, big.NewInt(980), primAcc.Balance)
 
 		// Claim negative amount of token will fail
 		_, err = p.Claim(claimCtx, sm, big.NewInt(-5))
@@ -252,10 +254,11 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(15), totalBalance)
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(5), unclaimedBalance)
+		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		assert.Equal(t, big.NewInt(980), primAcc.Balance)
+		claimActionCtx.Caller = identityset.Address(0)
 
 		// Claim another 5 token
 		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5))
@@ -272,9 +275,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err = p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
+		claimActionCtx.Caller = identityset.Address(28)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000010), primAcc.Balance)
+		assert.Equal(t, big.NewInt(980), primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
 		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
