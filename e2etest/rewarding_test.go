@@ -627,7 +627,7 @@ func newConfig(
 	cfg.Genesis.Blockchain.TimeBasedRotation = true
 	cfg.Genesis.Delegates = cfg.Genesis.Delegates[3 : numNodes+3]
 	cfg.Genesis.EnableGravityChainVoting = true
-	cfg.Genesis.PollMode = ""
+	cfg.Genesis.PollMode = "lifeLong"
 	cfg.Genesis.Rewarding.FoundationBonusLastEpoch = 2
 	return cfg
 }
