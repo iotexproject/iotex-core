@@ -8,6 +8,8 @@ package blocksync
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -20,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 )
 
@@ -68,6 +71,7 @@ type BlockSync interface {
 	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error
 	ProcessBlock(ctx context.Context, blk *block.Block) error
 	ProcessBlockSync(ctx context.Context, blk *block.Block) error
+	SyncStatus() string
 }
 
 // blockSyncer implements BlockSync interface
@@ -80,6 +84,9 @@ type blockSyncer struct {
 	dao                   BlockDAO
 	unicastHandler        UnicastOutbound
 	neighborsHandler      Neighbors
+	syncStageTask         *routine.RecurringTask
+	syncStageHeight       uint64
+	syncBlockIncrease     uint64
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -112,6 +119,8 @@ func NewBlockSyncer(
 		worker:                newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 		processSyncRequestTTL: cfg.BlockSync.ProcessSyncRequestTTL,
 	}
+	bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, config.DardanellesBlockInterval)
+	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
 	return bs, nil
 }
 
@@ -125,6 +134,9 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
+	if err := bs.syncStageTask.Start(ctx); err != nil {
+		return err
+	}
 	bs.commitHeight = bs.buf.CommitHeight()
 	return bs.worker.Start(ctx)
 }
@@ -132,6 +144,9 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	log.L().Debug("Stopping block syncer.")
+	if err := bs.syncStageTask.Stop(ctx); err != nil {
+		return err
+	}
 	return bs.worker.Stop(ctx)
 }
 
@@ -194,4 +209,19 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		}
 	}
 	return nil
+}
+
+func (bs *blockSyncer) syncStageChecker() {
+	tipHeight := bs.bc.TipHeight()
+	atomic.StoreUint64(&bs.syncBlockIncrease, tipHeight-bs.syncStageHeight)
+	bs.syncStageHeight = tipHeight
+}
+
+// SyncStatus report block sync status
+func (bs *blockSyncer) SyncStatus() string {
+	syncBlockIncrease := atomic.LoadUint64(&bs.syncBlockIncrease)
+	if syncBlockIncrease == 1 {
+		return "synced to blockchain tip"
+	}
+	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/config.DardanellesBlockInterval.Seconds())
 }
