@@ -1,9 +1,18 @@
 chain:
-  chainDBPath: chain.db
-  trieDBPath: trie.db
-  indexDBPath: index.db
-  candidateIndexDBPath: candidate.index.db
+  chainDBPath: /var/data/chain.db
+  trieDBPath: /var/data/trie.db
+  indexDBPath: /var/data/index.db
+  candidateIndexDBPath: /var/data/candidate.index.db
   gravityChainDB:
-    dbPath: poll.db
+    dbPath: /var/data/poll.db
 system:
-  systemLogDBPath: systemlog.db
+  systemLogDBPath: /var/log/systemlog.db
+log:
+  zap:
+    level: info
+    encoding: json
+    disableStacktrace: true
+    outputPaths: ["stderr", "stdout"]
+    errorOutputPaths: ["stderr"]
+  stderrRedirectFile: /var/log/s.log
+  stdLogRedirect: true
