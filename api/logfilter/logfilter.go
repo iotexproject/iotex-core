@@ -157,6 +157,7 @@ func (l *LogFilter) ExistInBloomFilterv2(bf bloom.BloomFilter) bool {
 		for _, addr := range l.pbFilter.Address {
 			if bf.Exist([]byte(addr)) {
 				flag = true
+				fmt.Println("ExistInBloomFilterv2, address is exist")
 			}
 		}
 		if !flag {
@@ -198,9 +199,11 @@ func (l *LogFilter) SelectBlocksFromRangeBloomFilter(bf bloom.BloomFilter, start
 			for _, addr := range l.pbFilter.Address {
 				if bf.Exist(append(Heightkey, []byte(addr)...)) {
 					flag = true
+					fmt.Println("SelectBlocksFromRangeBloomFilter, address exist in the height:", blockHeight)
 				}
 			}
 			if !flag {
+				fmt.Println("SelectBlocksFromRangeBloomFilter, should not be included in the height:", blockHeight)
 				continue
 			}
 		}
@@ -224,7 +227,6 @@ func (l *LogFilter) SelectBlocksFromRangeBloomFilter(bf bloom.BloomFilter, start
 				continue
 			}
 		}
-		fmt.Println("append block height", blockHeight)
 		blkNums = append(blkNums, blockHeight)
 	}
 	return blkNums
