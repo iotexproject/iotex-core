@@ -230,8 +230,8 @@ func TestBlockEpochReward(t *testing.T) {
 	// Start mini-cluster
 	for i := 0; i < numNodes; i++ {
 		go itx.StartServer(context.Background(), svrs[i], probeSvr, configs[i])
+		defer svrs[i].Stop(context.Background())
 	}
-
 	// target address for grpc connection. Default is "127.0.0.1:14014"
 	grpcAddr := "127.0.0.1:14014"
 
