@@ -1479,6 +1479,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	fmt.Println("get bloomfilter from DB", blockNumber)
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
 		return nil, nil
 	}
@@ -1486,6 +1487,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	fmt.Println("get receipts from DB", blockNumber)
 	return filter.MatchLogs(receipts), nil
 }
 
@@ -1504,7 +1506,9 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("filtered block list", blockNumbers)
 	for _, i := range blockNumbers {
+		fmt.Println("get Logs in block before, height:", i)
 		logsInBlock, err := api.getLogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
