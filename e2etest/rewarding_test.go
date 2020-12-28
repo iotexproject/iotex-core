@@ -595,7 +595,9 @@ func newConfig(
 	HTTPAdminPort int,
 ) config.Config {
 	cfg := config.Default
-
+	defer func() {
+		delete(cfg.Plugins, config.GatewayPlugin)
+	}()
 	cfg.Plugins[config.GatewayPlugin] = true
 	cfg.Chain.EnableAsyncIndexWrite = false
 
