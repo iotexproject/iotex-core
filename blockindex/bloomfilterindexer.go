@@ -168,15 +168,16 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 	queryHeight := bfx.rangeBloomfilterKey(start)  // range which includes start
 	endQueryHeight := bfx.rangeBloomfilterKey(end) // range which includes end
 	for queryHeight <= endQueryHeight {
-		fmt.Println("FilterBlocksInRange, query height: ", queryHeight)
 		bigBloom, err := bfx.rangeBloomFilter(queryHeight)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get rangeBloomFilter from indexer by given height %d", queryHeight)
 		}
 		if l.ExistInBloomFilterv2(bigBloom) {
+			fmt.Println("FilterBlocksInRange exist in bloomfilter v2, query height: ", queryHeight)
 			blocks := l.SelectBlocksFromRangeBloomFilter(bigBloom, queryHeight-bfx.rangeSize+1, queryHeight)
 			for _, num := range blocks {
 				if num >= start && num <= end {
+					fmt.Println("FilterBlocksInRange selected block number, block number: ", num)
 					blockNumbers = append(blockNumbers, num)
 				}
 			}

@@ -2,6 +2,7 @@ package logfilter
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -223,6 +224,7 @@ func (l *LogFilter) SelectBlocksFromRangeBloomFilter(bf bloom.BloomFilter, start
 				continue
 			}
 		}
+		fmt.Println("append block height", blockHeight)
 		blkNums = append(blkNums, blockHeight)
 	}
 	return blkNums

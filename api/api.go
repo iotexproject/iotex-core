@@ -1481,6 +1481,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	}
 	fmt.Println("get bloomfilter from DB", blockNumber)
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
+		fmt.Println("not exist:", blockNumber)
 		return nil, nil
 	}
 	receipts, err := api.dao.GetReceipts(blockNumber)
@@ -1506,9 +1507,7 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("filtered block list", blockNumbers)
 	for _, i := range blockNumbers {
-		fmt.Println("get Logs in block before, height:", i)
 		logsInBlock, err := api.getLogsInBlock(filter, i)
 		if err != nil {
 			return nil, err
