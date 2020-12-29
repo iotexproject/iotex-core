@@ -7,9 +7,10 @@
 package prometheustimer
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 
-	"github.com/facebookgo/clock"
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -21,7 +22,6 @@ type (
 		labelNames    []string
 		defaultLabels []string
 		vect          *prometheus.GaugeVec
-		clk           clock.Clock
 	}
 	// Timer defines a timer to measure performance
 	Timer struct {
@@ -62,7 +62,6 @@ func New(name, tip string, labelNames []string, defaultLabels []string) (*TimerF
 		labelNames:    labelNames,
 		defaultLabels: defaultLabels,
 		vect:          vect,
-		clk:           clock.New(),
 	}, err
 }
 
@@ -99,7 +98,7 @@ func (factory *TimerFactory) log(value float64, labels ...string) {
 }
 
 func (factory *TimerFactory) now() int64 {
-	return factory.clk.Now().UnixNano()
+	return time.Now().UnixNano()
 }
 
 // NewStopWatch returns a StopWatch with start time as now
