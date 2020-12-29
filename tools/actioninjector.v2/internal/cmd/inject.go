@@ -35,6 +35,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	yaml "gopkg.in/yaml.v2"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -57,7 +58,7 @@ type AddressKey struct {
 
 type injectProcessor struct {
 	api      iotexapi.APIServiceClient
-	nonces   *sync.Map
+	nonces   *cache.ThreadSafeLruCache
 	accounts []*AddressKey
 }
 
@@ -78,7 +79,7 @@ func newInjectionProcessor() (*injectProcessor, error) {
 	api := iotexapi.NewAPIServiceClient(conn)
 	p := &injectProcessor{
 		api:    api,
-		nonces: &sync.Map{},
+		nonces: cache.NewThreadSafeLruCache(0),
 	}
 	p.randAccounts(injectCfg.randAccounts)
 
@@ -100,7 +101,7 @@ func (p *injectProcessor) randAccounts(num int) error {
 			return err
 		}
 		a, _ := account.PrivateKeyToAccount(private)
-		p.nonces.Store(a.Address().String(), 1)
+		p.nonces.Add(a.Address().String(), 1)
 		addrKeys = append(addrKeys, &AddressKey{PriKey: private, EncodedAddr: a.Address().String()})
 	}
 	p.accounts = addrKeys
@@ -132,7 +133,7 @@ func (p *injectProcessor) loadAccounts(keypairsPath string) error {
 		if err != nil {
 			return err
 		}
-		p.nonces.Store(addr.String(), 0)
+		p.nonces.Add(addr.String(), 0)
 		addrKeys = append(addrKeys, &AddressKey{EncodedAddr: addr.String(), PriKey: sk})
 	}
 
@@ -168,14 +169,14 @@ func (p *injectProcessor) syncNoncesProcess(ctx context.Context) {
 }
 
 func (p *injectProcessor) syncNonces(ctx context.Context) {
-	p.nonces.Range(func(key interface{}, value interface{}) bool {
+	p.nonces.Range(func(key cache.Key, value interface{}) bool {
 		addr := key.(string)
 		err := backoff.Retry(func() error {
 			resp, err := p.api.GetAccount(ctx, &iotexapi.GetAccountRequest{Address: addr})
 			if err != nil {
 				return err
 			}
-			p.nonces.Store(addr, resp.GetAccountMeta().GetPendingNonce())
+			p.nonces.Add(addr, resp.GetAccountMeta().GetPendingNonce())
 			return nil
 		}, backoff.NewExponentialBackOff())
 		if err != nil {
@@ -270,11 +271,11 @@ func (p *injectProcessor) pickAction() (iotex.SendActionCaller, error) {
 func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	val, ok := p.nonces.Load(sender.EncodedAddr)
+	val, ok := p.nonces.Get(sender.EncodedAddr)
 	if ok {
 		nonce = val.(uint64)
 	}
-	p.nonces.Store(sender.EncodedAddr, nonce+1)
+	p.nonces.Add(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)
@@ -299,11 +300,11 @@ func (p *injectProcessor) executionCaller() (iotex.SendActionCaller, error) {
 func (p *injectProcessor) transferCaller() (iotex.SendActionCaller, error) {
 	var nonce uint64
 	sender := p.accounts[rand.Intn(len(p.accounts))]
-	val, ok := p.nonces.Load(sender.EncodedAddr)
+	val, ok := p.nonces.Get(sender.EncodedAddr)
 	if ok {
 		nonce = val.(uint64)
 	}
-	p.nonces.Store(sender.EncodedAddr, nonce+1)
+	p.nonces.Add(sender.EncodedAddr, nonce+1)
 
 	operatorAccount, _ := account.PrivateKeyToAccount(sender.PriKey)
 	c := iotex.NewAuthedClient(p.api, operatorAccount)

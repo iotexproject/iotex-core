@@ -1,12 +1,12 @@
 package api
 
 import (
-	"sync"
-
-	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/go-pkgs/cache"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 var (
@@ -24,13 +24,15 @@ type (
 
 	// chainListener implements the Listener interface
 	chainListener struct {
-		streamMap sync.Map // all registered <Responder, chan error>
+		streamMap *cache.ThreadSafeLruCache // all registered <Responder, chan error>
 	}
 )
 
 // NewChainListener returns a new blockchain chainListener
 func NewChainListener() Listener {
-	return &chainListener{}
+	return &chainListener{
+		streamMap: cache.NewThreadSafeLruCache(0),
+	}
 }
 
 // Start starts the chainListener
@@ -41,13 +43,13 @@ func (cl *chainListener) Start() error {
 // Stop stops the block chainListener
 func (cl *chainListener) Stop() error {
 	// notify all responders to exit
-	cl.streamMap.Range(func(key, _ interface{}) bool {
+	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
 		r, ok := key.(Responder)
 		if !ok {
 			log.S().Panic("streamMap stores a key which is not a Responder")
 		}
 		r.Exit()
-		cl.streamMap.Delete(key)
+		cl.streamMap.Remove(key)
 		return true
 	})
 	return nil
@@ -56,13 +58,13 @@ func (cl *chainListener) Stop() error {
 // ReceiveBlock handles the block
 func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 	// pass the block to every responder
-	cl.streamMap.Range(func(key, _ interface{}) bool {
+	cl.streamMap.Range(func(key cache.Key, _ interface{}) bool {
 		r, ok := key.(Responder)
 		if !ok {
 			log.S().Panic("streamMap stores a key which is not a Responder")
 		}
 		if err := r.Respond(blk); err != nil {
-			cl.streamMap.Delete(key)
+			cl.streamMap.Remove(key)
 		}
 		return true
 	})
@@ -71,9 +73,10 @@ func (cl *chainListener) ReceiveBlock(blk *block.Block) error {
 
 // AddResponder adds a new responder
 func (cl *chainListener) AddResponder(r Responder) error {
-	_, loaded := cl.streamMap.LoadOrStore(r, struct{}{})
+	_, loaded := cl.streamMap.Get(r)
 	if loaded {
 		return errorResponderAdded
 	}
+	cl.streamMap.Add(r, struct{}{})
 	return nil
 }

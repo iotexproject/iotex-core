@@ -24,6 +24,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/config"
@@ -261,7 +262,7 @@ func main() {
 		}
 
 		expectedBalancesMap := util.GetAllBalanceMap(client, chainAddrs)
-		pendingActionMap := new(sync.Map)
+		pendingActionMap := cache.NewThreadSafeLruCache(0)
 
 		log.L().Info("Start action injections.")
 
@@ -286,7 +287,7 @@ func main() {
 		})
 
 		totalPendingActions := 0
-		pendingActionMap.Range(func(selphash, vi interface{}) bool {
+		pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
 			totalPendingActions++
 			return true
 		})
