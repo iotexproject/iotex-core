@@ -214,26 +214,32 @@ func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.Bloom
 
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	bfx.flusher.KVStoreWithBuffer().MustDelete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey))
-	bfx.flusher.KVStoreWithBuffer().MustDelete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
-	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize))
-
-	if err := bfx.flusher.Flush(); err != nil {
-		return errors.Wrapf(err, "failed to flush deletion")
+	if err := bfx.flusher.KVStoreWithBuffer().Delete(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey)); err != nil {
+		return err
 	}
-	return nil
+	if err := bfx.flusher.KVStoreWithBuffer().Delete(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber)); err != nil {
+		return err
+	}
+	if err := bfx.flusher.KVStoreWithBuffer().Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(rangeBloomfilterKey-bfx.rangeSize)); err != nil {
+		return err
+	}
+
+	return bfx.flusher.Flush()
 }
 
 func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.BloomFilter) error {
 	rangeBloomfilterKey := bfx.rangeBloomfilterKey(blockNumber)
-	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes())
-	bfx.flusher.KVStoreWithBuffer().MustPut(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes())
-	bfx.flusher.KVStoreWithBuffer().MustPut(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber))
-
-	if err := bfx.flusher.Flush(); err != nil {
-		return errors.Wrapf(err, "failed to flush commit")
+	if err := bfx.flusher.KVStoreWithBuffer().Put(RangeBloomFilterNamespace, byteutil.Uint64ToBytes(rangeBloomfilterKey), bfx.curRangeBloomfilter.Bytes()); err != nil {
+		return err
 	}
-	return nil
+	if err := bfx.flusher.KVStoreWithBuffer().Put(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber), blkBloomfilter.Bytes()); err != nil {
+		return err
+	}
+	if err := bfx.flusher.KVStoreWithBuffer().Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytes(blockNumber)); err != nil {
+		return err
+	}
+
+	return bfx.flusher.Flush()
 }
 
 func (bfx *bloomfilterIndexer) calculateBlockBloomFilter(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
