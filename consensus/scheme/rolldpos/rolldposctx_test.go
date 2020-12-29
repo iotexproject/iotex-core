@@ -50,10 +50,6 @@ func TestRollDPoSCtx(t *testing.T) {
 		config.Default.Genesis.NumDelegates,
 		config.Default.Genesis.NumSubEpochs,
 	)
-	t.Run("case 3:panic because of clock is nil", func(t *testing.T) {
-		_, err := newRollDPoSCtx(consensusfsm.NewConsensusConfig(cfg), dbConfig, true, time.Second, true, b, rp, nil, dummyCandidatesByHeightFunc, "", nil, 0)
-		require.Error(err)
-	})
 
 	cfg.Consensus.RollDPoS.FSM.AcceptBlockTTL = time.Second * 10
 	cfg.Consensus.RollDPoS.FSM.AcceptProposalEndorsementTTL = time.Second
