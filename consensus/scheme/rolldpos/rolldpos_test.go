@@ -77,22 +77,6 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
 	})
-	t.Run("mock-clock", func(t *testing.T) {
-		sk := identityset.PrivateKey(0)
-		r, err := NewRollDPoSBuilder().
-			SetConfig(cfg).
-			SetAddr(identityset.Address(0).String()).
-			SetPriKey(sk).
-			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
-			SetBroadcast(func(_ proto.Message) error {
-				return nil
-			}).
-			SetDelegatesByEpochFunc(delegatesByEpoch).
-			RegisterProtocol(rp).
-			Build()
-		assert.NoError(t, err)
-		assert.NotNil(t, r)
-	})
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
