@@ -1475,13 +1475,6 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 }
 
 func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	logBloomFilter, err := api.bfIndexer.BloomFilterByHeight(blockNumber)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
-	}
-	if !filter.ExistInBloomFilterv2(logBloomFilter) {
-		return nil, nil
-	}
 	receipts, err := api.dao.GetReceipts(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())

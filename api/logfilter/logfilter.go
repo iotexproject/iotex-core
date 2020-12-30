@@ -2,6 +2,7 @@ package logfilter
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -149,7 +150,7 @@ func (l *LogFilter) ExistInBloomFilter(bf bloom.BloomFilter) bool {
 	return len(l.pbFilter.Topics) == 0
 }
 
-// ExistInBloomFilterv2 returns true if addresses and topics of filter exist in the range bloom filter (topic: position-sensitive)
+// ExistInBloomFilterv2 returns true if addresses and topics of filter exist in the bloom filter v2 (topic: position-sensitive)
 func (l *LogFilter) ExistInBloomFilterv2(bf bloom.BloomFilter) bool {
 	if len(l.pbFilter.Address) > 0 {
 		flag := false
@@ -186,44 +187,34 @@ func (l *LogFilter) ExistInBloomFilterv2(bf bloom.BloomFilter) bool {
 	return true
 }
 
-// SelectBlocksFromRangeBloomFilter filters out RangeBloomFilter for selecting block numbers which have logFilter's topics/address
-// TODO[dorothy]: optimize using goroutine
-func (l *LogFilter) SelectBlocksFromRangeBloomFilter(bf bloom.BloomFilter, start, end uint64) []uint64 {
-	blkNums := make([]uint64, 0)
-	for blockHeight := start; blockHeight <= end; blockHeight++ {
-		Heightkey := append([]byte(BlockHeightPrefix), byteutil.Uint64ToBytes(blockHeight)...)
-		if len(l.pbFilter.Address) > 0 {
-			flag := false
-			for _, addr := range l.pbFilter.Address {
-				if bf.Exist(append(Heightkey, []byte(addr)...)) {
-					flag = true
-				}
-			}
-			if !flag {
-				continue
+// ExistInRangeBloomFilter returns true if addresses and topics of filter exist in the range bloom filter
+func (l *LogFilter) ExistInRangeBloomFilter(bf bloom.BloomFilter) bool {
+	if len(l.pbFilter.Address) > 0 {
+		flag := false
+		for _, addr := range l.pbFilter.Address {
+			if bf.Exist([]byte(addr)) {
+				flag = true
+				fmt.Println("ExistInBloomFilterv2, address is exist")
 			}
 		}
-		if len(l.pbFilter.Topics) > 0 {
-			flag := false
-			for _, e := range l.pbFilter.Topics {
-				if e == nil || len(e.Topic) == 0 {
-					continue
-				}
-				for _, v := range e.Topic {
-					if bf.Exist(append(Heightkey, v...)) {
-						flag = true
-						break
-					}
-				}
-				if flag {
-					break
-				}
-			}
-			if !flag {
-				continue
-			}
+		if !flag {
+			return false
 		}
-		blkNums = append(blkNums, blockHeight)
 	}
-	return blkNums
+
+	if len(l.pbFilter.Topics) > 0 {
+		for _, e := range l.pbFilter.Topics {
+			if e == nil || len(e.Topic) == 0 {
+				continue
+			}
+			for _, v := range e.Topic {
+				if bf.Exist(v) {
+					return true
+				}
+			}
+		}
+	}
+
+	// {} or nil matches any address or topic list
+	return len(l.pbFilter.Topics) == 0
 }
