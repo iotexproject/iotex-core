@@ -139,7 +139,6 @@ func TestBloomfilterIndexer(t *testing.T) {
 	require := require.New(t)
 
 	blks := getTestLogBlocks(t)
-	rangeBloomfilterSize := uint64(4)
 
 	testFilter := []*iotexapi.LogsFilter{
 		{
@@ -190,6 +189,14 @@ func TestBloomfilterIndexer(t *testing.T) {
 		false,
 	}
 
+	expectedCount := []uint64{
+		4,
+		12,
+		16,
+		20,
+		6,
+	}
+
 	expectedRes2 := [][]uint64{
 		[]uint64{1, 2, 3, 4, 5},
 		[]uint64{1, 2, 5},
@@ -213,14 +220,19 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {
 		ctx := context.Background()
-		indexer, err := NewBloomfilterIndexer(kvStore, rangeBloomfilterSize)
+		cfg := config.Default.Indexer
+		cfg.RangeBloomFilterBlocks = 4
+		cfg.RangeBloomFilterSize = 4096
+		cfg.RangeBloomFilterNumHash = 4
+
+		indexer, err := NewBloomfilterIndexer(kvStore, cfg)
 		require.NoError(err)
 		require.NoError(indexer.Start(ctx))
 		defer func() {
 			require.NoError(indexer.Stop(ctx))
 		}()
 
-		require.Equal(indexer.RangeBloomFilterSize(), rangeBloomfilterSize)
+		require.Equal(cfg.RangeBloomFilterBlocks, indexer.RangeBloomFilterBlocks())
 
 		height, err := indexer.Height()
 		require.NoError(err)
@@ -228,29 +240,35 @@ func TestBloomfilterIndexer(t *testing.T) {
 
 		testinglf := logfilter.NewLogFilter(testFilter[2], nil, nil)
 
-		for i := 0; i < int(rangeBloomfilterSize)+1; i++ {
+		for i := 0; i < int(cfg.RangeBloomFilterBlocks)+1; i++ {
 			require.NoError(indexer.PutBlock(context.Background(), blks[i]))
 			height, err := indexer.Height()
 			require.NoError(err)
 			require.EqualValues(i+1, int(height))
 
-			blockLevelbf, err := indexer.BloomFilterByHeight(uint64(i + 1))
+			blockLevelbf, err := indexer.BlockFilterByHeight(uint64(i + 1))
 			require.NoError(err)
 			require.Equal(expectedRes[i], testinglf.ExistInBloomFilterv2(blockLevelbf))
+
+			rangeLevelBf, err := indexer.RangeFilterByHeight(uint64(i + 1))
+			require.NoError(err)
+			require.Equal(cfg.RangeBloomFilterSize, rangeLevelBf.Size())
+			require.Equal(cfg.RangeBloomFilterNumHash, rangeLevelBf.NumHash())
+			require.Equal(expectedCount[i], rangeLevelBf.NumElements())
 		}
 
 		for i, l := range testFilter {
 			lf := logfilter.NewLogFilter(l, nil, nil)
 
-			res, err := indexer.FilterBlocksInRange(lf, uint64(1), rangeBloomfilterSize+1)
+			res, err := indexer.FilterBlocksInRange(lf, uint64(1), cfg.RangeBloomFilterBlocks+1)
 			require.NoError(err)
 			require.Equal(expectedRes2[i], res)
 
-			res2, err := indexer.FilterBlocksInRange(lf, rangeBloomfilterSize, rangeBloomfilterSize+1)
+			res2, err := indexer.FilterBlocksInRange(lf, cfg.RangeBloomFilterBlocks, cfg.RangeBloomFilterBlocks+1)
 			require.NoError(err)
 			require.Equal(expectedRes3[i], res2)
 
-			res3, err := indexer.FilterBlocksInRange(lf, uint64(1), rangeBloomfilterSize-1)
+			res3, err := indexer.FilterBlocksInRange(lf, uint64(1), cfg.RangeBloomFilterBlocks-1)
 			require.NoError(err)
 			require.Equal(expectedRes4[i], res3)
 		}
