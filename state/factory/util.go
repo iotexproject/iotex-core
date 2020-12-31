@@ -57,7 +57,8 @@ func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.B
 	if blkCtx.BlockHeight < bcCtx.Genesis.AleutianBlockHeight {
 		return nil
 	}
-	bloom, _ := bloom.NewBloomFilter(2048, 3)
+	// block-level bloom filter used legacy implementation
+	bloom, _ := bloom.NewBloomFilterLegacy(2048, 3)
 	for _, receipt := range receipts {
 		for _, l := range receipt.Logs() {
 			for _, topic := range l.Topics {
