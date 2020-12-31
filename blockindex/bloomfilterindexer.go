@@ -79,7 +79,7 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 	case nil:
 		tipHeight := byteutil.BytesToUint64(tipHeightData)
 		if tipHeight%bfx.rangeSize == 0 {
-			bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
+			bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(524288, 12)
 		} else {
 			bfx.curRangeBloomfilter, err = bfx.rangeBloomFilter(tipHeight)
 			if err != nil {
@@ -93,7 +93,7 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 		if err := bfx.flusher.Flush(); err != nil {
 			return errors.Wrapf(err, "failed to flush")
 		}
-		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
+		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(524288, 12)
 	default:
 		return err
 	}
@@ -124,7 +124,7 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 		return err
 	}
 	if blk.Height()%bfx.rangeSize == 0 {
-		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(2048, 3)
+		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(524288, 12)
 		if err != nil {
 			return errors.Wrapf(err, "Can not create new bloomfilter")
 		}
@@ -153,7 +153,11 @@ func (bfx *bloomfilterIndexer) RangeBloomFilterSize() uint64 {
 
 // BloomFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
 func (bfx *bloomfilterIndexer) BloomFilterByHeight(height uint64) (bloom.BloomFilter, error) {
-	return bfx.blockBloomFilter(height)
+	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return nil, err
+	}
+	return bloom.BloomFilterFromBytes(bfBytes)
 }
 
 // FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
@@ -200,16 +204,7 @@ func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (bloom.Bloom
 	if err != nil {
 		return nil, err
 	}
-	return bloom.BloomFilterFromBytes(bfBytes, 2048, 3)
-}
-
-// blockBloomFilter reads block bloomfilter by given block number from underlying DB
-func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.BloomFilter, error) {
-	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
-	if err != nil {
-		return nil, err
-	}
-	return bloom.BloomFilterFromBytes(bfBytes, 2048, 3)
+	return bloom.BloomFilterFromBytes(bfBytes)
 }
 
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {
