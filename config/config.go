@@ -120,6 +120,7 @@ var (
 			},
 			EnableTrielessStateDB:         true,
 			EnableStateDBCaching:          false,
+			EnableArchiveMode:             false,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
@@ -130,8 +131,6 @@ var (
 			PollInitialCandidatesInterval: 10 * time.Second,
 			StateDBCacheSize:              1000,
 			WorkingSetCacheSize:           20,
-			EnableArchiveMode:             false,
-			RangeBloomFilterSize:          4096,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -201,6 +200,11 @@ var (
 			SplitDBSizeMB:         0,
 			SplitDBHeight:         900000,
 			HistoryStateRetention: 2000,
+		},
+		Indexer: Indexer{
+			RangeBloomFilterBlocks:  10000,
+			RangeBloomFilterSize:    500000,
+			RangeBloomFilterNumHash: 12,
 		},
 		Genesis: genesis.Default,
 	}
@@ -277,8 +281,6 @@ type (
 		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
-		// RangeBloomFilterSize is the number of blocks that rangeBloomfilter will store in bloomfilterIndexer
-		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -397,6 +399,16 @@ type (
 		HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	}
 
+	// Indexer is the config for indexer
+	Indexer struct {
+		// RangeBloomFilterBlocks is the number of blocks each rangeBloomfilter will store in bloomfilterIndexer
+		RangeBloomFilterBlocks uint64 `yaml:"rangeBloomFilterBlocks"`
+		// RangeBloomFilterSize is the size (in bits) of rangeBloomfilter
+		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
+		// RangeBloomFilterNumHash is the number of hash functions of rangeBloomfilter
+		RangeBloomFilterNumHash uint64 `yaml:"rangeBloomFilterNumHash"`
+	}
+
 	// RDS is the cloud rds config
 	RDS struct {
 		// AwsRDSEndpoint is the endpoint of aws rds
@@ -429,6 +441,7 @@ type (
 		API        API                         `yaml:"api"`
 		System     System                      `yaml:"system"`
 		DB         DB                          `yaml:"db"`
+		Indexer    Indexer                     `yaml:"indexer"`
 		Log        log.GlobalConfig            `yaml:"log"`
 		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis    genesis.Genesis             `yaml:"genesis"`

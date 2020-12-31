@@ -2163,7 +2163,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
 	}
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Chain.RangeBloomFilterSize)
+	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create bloomfilter indexer")
 	}
