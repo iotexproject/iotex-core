@@ -194,7 +194,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 		[]uint64{1, 2, 3, 4, 5},
 		[]uint64{1, 2, 5},
 		[]uint64{3},
-		[]uint64{5},
+		[]uint64{2, 5},
 	}
 
 	expectedRes3 := [][]uint64{
@@ -208,7 +208,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 		[]uint64{1, 2, 3},
 		[]uint64{1, 2},
 		[]uint64{3},
-		[]uint64{},
+		[]uint64{2},
 	}
 
 	testIndexer := func(kvStore db.KVStore, t *testing.T) {

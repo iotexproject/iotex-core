@@ -149,6 +149,35 @@ func (l *LogFilter) ExistInBloomFilter(bf bloom.BloomFilter) bool {
 	return len(l.pbFilter.Topics) == 0
 }
 
+// ExistInRangeBloomFilter returns true if topics of filter exist in the range bloom filter
+func (l *LogFilter) ExistInRangeBloomFilter(bf bloom.BloomFilter) bool {
+	if len(l.pbFilter.Address) > 0 {
+		flag := false
+		for _, addr := range l.pbFilter.Address {
+			if bf.Exist([]byte(addr)) {
+				flag = true
+			}
+		}
+		if !flag {
+			return false
+		}
+	}
+
+	for _, e := range l.pbFilter.Topics {
+		if e == nil || len(e.Topic) == 0 {
+			continue
+		}
+
+		for _, v := range e.Topic {
+			if bf.Exist(v) {
+				return true
+			}
+		}
+	}
+	// {} or nil matches any address or topic list
+	return len(l.pbFilter.Topics) == 0
+}
+
 // ExistInBloomFilterv2 returns true if addresses and topics of filter exist in the range bloom filter (topic: position-sensitive)
 func (l *LogFilter) ExistInBloomFilterv2(bf bloom.BloomFilter) bool {
 	if len(l.pbFilter.Address) > 0 {

@@ -171,7 +171,7 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to get rangeBloomFilter from indexer by given height %d", queryHeight)
 		}
-		if l.ExistInBloomFilterv2(bigBloom) {
+		if l.ExistInRangeBloomFilter(bigBloom) {
 			blocks := l.SelectBlocksFromRangeBloomFilter(bigBloom, queryHeight-bfx.rangeSize+1, queryHeight)
 			for _, num := range blocks {
 				if num >= start && num <= end {
@@ -262,9 +262,9 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 		for _, l := range receipt.Logs() {
 			bfx.curRangeBloomfilter.Add([]byte(l.Address))
 			bfx.curRangeBloomfilter.Add(append(Heightkey, []byte(l.Address)...)) // concatenate with block number
-			for i, topic := range l.Topics {
-				bfx.curRangeBloomfilter.Add(append(byteutil.Uint64ToBytes(uint64(i)), topic[:]...)) //position-sensitive
-				bfx.curRangeBloomfilter.Add(append(Heightkey, topic[:]...))                         // concatenate with block number
+			for _, topic := range l.Topics {
+				bfx.curRangeBloomfilter.Add(topic[:])
+				bfx.curRangeBloomfilter.Add(append(Heightkey, topic[:]...)) // concatenate with block number
 			}
 		}
 	}
