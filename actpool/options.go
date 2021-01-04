@@ -8,18 +8,7 @@ package actpool
 
 import (
 	"time"
-
-	"github.com/facebookgo/clock"
 )
-
-type clockOption struct{ c clock.Clock }
-
-// WithClock returns an option to overwrite clock.
-func WithClock(c clock.Clock) interface{ ActQueueOption } {
-	return &clockOption{c}
-}
-
-func (o *clockOption) SetActQueueOption(aq *actQueue) { aq.clock = o.c }
 
 type ttlOption struct{ ttl time.Duration }
 

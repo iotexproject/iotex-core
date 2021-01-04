@@ -10,7 +10,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -190,7 +189,7 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.roundCalc.NewRound(height+1, r.ctx.BlockInterval(height), r.ctx.clock.Now(), nil)
+	round, err := r.ctx.roundCalc.NewRound(height+1, r.ctx.BlockInterval(height), time.Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}
@@ -236,7 +235,6 @@ type Builder struct {
 	priKey           crypto.PrivateKey
 	chain            ChainManager
 	broadcastHandler scheme.Broadcast
-	clock            clock.Clock
 	// TODO: explorer dependency deleted at #1085, need to add api params
 	rp                   *rolldpos.Protocol
 	delegatesByEpochFunc DelegatesByEpochFunc
@@ -277,12 +275,6 @@ func (b *Builder) SetBroadcast(broadcastHandler scheme.Broadcast) *Builder {
 	return b
 }
 
-// SetClock sets the clock
-func (b *Builder) SetClock(clock clock.Clock) *Builder {
-	b.clock = clock
-	return b
-}
-
 // SetDelegatesByEpochFunc sets delegatesByEpochFunc
 func (b *Builder) SetDelegatesByEpochFunc(
 	delegatesByEpochFunc DelegatesByEpochFunc,
@@ -305,9 +297,6 @@ func (b *Builder) Build() (*RollDPoS, error) {
 	if b.broadcastHandler == nil {
 		return nil, errors.Wrap(ErrNewRollDPoS, "broadcast callback is nil")
 	}
-	if b.clock == nil {
-		b.clock = clock.New()
-	}
 	b.cfg.DB.DbPath = b.cfg.Consensus.RollDPoS.ConsensusDBPath
 	ctx, err := newRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(b.cfg),
@@ -321,13 +310,12 @@ func (b *Builder) Build() (*RollDPoS, error) {
 		b.delegatesByEpochFunc,
 		b.encodedAddr,
 		b.priKey,
-		b.clock,
 		b.cfg.Genesis.BeringBlockHeight,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing consensus context")
 	}
-	cfsm, err := consensusfsm.NewConsensusFSM(ctx, b.clock)
+	cfsm, err := consensusfsm.NewConsensusFSM(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when constructing the consensus FSM")
 	}
