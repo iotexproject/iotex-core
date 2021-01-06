@@ -11,12 +11,24 @@ import (
 
 	// we need mysql import because it's called in file, (but compile will complain because there is no display)
 	_ "github.com/go-sql-driver/mysql"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
+// RDS is the cloud rds config
+type RDS struct {
+	// AwsRDSEndpoint is the endpoint of aws rds
+	AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
+	// AwsRDSPort is the port of aws rds
+	AwsRDSPort uint64 `yaml:"awsRDSPort"`
+	// AwsRDSUser is the user to access aws rds
+	AwsRDSUser string `yaml:"awsRDSUser"`
+	// AwsPass is the pass to access aws rds
+	AwsPass string `yaml:"awsPass"`
+	// AwsDBName is the db name of aws rds
+	AwsDBName string `yaml:"awsDBName"`
+}
+
 // NewAwsRDS instantiates an aws rds
-func NewAwsRDS(cfg config.RDS) Store {
+func NewAwsRDS(cfg RDS) Store {
 	connectStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 		cfg.AwsRDSUser, cfg.AwsPass, cfg.AwsRDSEndpoint, cfg.AwsRDSPort, cfg.AwsDBName,
 	)
