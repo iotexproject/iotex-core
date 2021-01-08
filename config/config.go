@@ -199,9 +199,9 @@ var (
 			HistoryStateRetention: 2000,
 		},
 		Indexer: Indexer{
-			RangeBloomFilterBlocks:  10000,
-			RangeBloomFilterSize:    500000,
-			RangeBloomFilterNumHash: 12,
+			RangeBloomFilterNumElements: 100000,
+			RangeBloomFilterSize:        1200000,
+			RangeBloomFilterNumHash:     8,
 		},
 		Genesis: genesis.Default,
 	}
@@ -394,8 +394,8 @@ type (
 
 	// Indexer is the config for indexer
 	Indexer struct {
-		// RangeBloomFilterBlocks is the number of blocks each rangeBloomfilter will store in bloomfilterIndexer
-		RangeBloomFilterBlocks uint64 `yaml:"rangeBloomFilterBlocks"`
+		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
+		RangeBloomFilterNumElements uint64 `yaml:"rangeBloomFilterNumElements"`
 		// RangeBloomFilterSize is the size (in bits) of rangeBloomfilter
 		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
 		// RangeBloomFilterNumHash is the number of hash functions of rangeBloomfilter

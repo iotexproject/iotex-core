@@ -18,7 +18,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -768,8 +767,11 @@ func TestServer_GetAccount(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServer(cfg, true)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	// success
 	for _, test := range getAccountTests {
@@ -802,8 +804,11 @@ func TestServer_GetActions(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getActionsTests {
 		request := &iotexapi.GetActionsRequest{
@@ -828,8 +833,11 @@ func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServer(cfg, true)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getActionTests {
 		request := &iotexapi.GetActionsRequest{
@@ -866,8 +874,11 @@ func TestServer_GetActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
@@ -914,8 +925,11 @@ func TestServer_GetUnconfirmedActionsByAddress(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServer(cfg, true)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getUnconfirmedActionsByAddressTests {
 		request := &iotexapi.GetActionsRequest{
@@ -942,8 +956,11 @@ func TestServer_GetActionsByBlock(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getActionsByBlockTests {
 		request := &iotexapi.GetActionsRequest{
@@ -973,9 +990,11 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
-	require.NotNil(svr.indexer)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getBlockMetasTests {
 		request := &iotexapi.GetBlockMetasRequest{
@@ -1007,8 +1026,11 @@ func TestServer_GetBlockMeta(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getBlockMetaTests {
 		header, err := svr.bc.BlockHeaderByHeight(test.blkHeight)
@@ -1073,8 +1095,11 @@ func TestServer_GetChainMeta(t *testing.T) {
 		}
 
 		cfg.API.TpsWindow = test.tpsWindow
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		if pol != nil {
 			require.NoError(pol.ForceRegister(svr.registry))
 		}
@@ -1123,12 +1148,12 @@ func TestServer_SendAction(t *testing.T) {
 	// 2 failure cases
 	ctx := context.Background()
 	tests := []struct {
-		server func() (*Server, error)
+		server func() (*Server, string, error)
 		action *iotextypes.Action
 		err    string
 	}{
 		{
-			func() (*Server, error) {
+			func() (*Server, string, error) {
 				cfg := newConfig(t)
 				return createServer(cfg, true)
 			},
@@ -1136,7 +1161,7 @@ func TestServer_SendAction(t *testing.T) {
 			"invalid public key",
 		},
 		{
-			func() (*Server, error) {
+			func() (*Server, string, error) {
 				cfg := newConfig(t)
 				cfg.ActPool.MaxNumActsPerPool = 8
 				return createServer(cfg, true)
@@ -1148,8 +1173,11 @@ func TestServer_SendAction(t *testing.T) {
 
 	for _, test := range tests {
 		request := &iotexapi.SendActionRequest{Action: test.action}
-		svr, err := test.server()
+		svr, file, err := test.server()
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, file)
+		}()
 
 		_, err = svr.SendAction(ctx, request)
 		require.Contains(err.Error(), test.err)
@@ -1160,8 +1188,11 @@ func TestServer_StreamLogs(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, true)
+	svr, bfIndexFile, err := createServer(cfg, true)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	err = svr.StreamLogs(&iotexapi.StreamLogsRequest{}, nil)
 	require.Error(err)
@@ -1171,8 +1202,11 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getReceiptByActionTests {
 		request := &iotexapi.GetReceiptByActionRequest{ActionHash: test.in}
@@ -1189,8 +1223,11 @@ func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range readContractTests {
 		hash, err := hash.HexStringToHash256(test.execHash)
@@ -1216,8 +1253,11 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 
 	for _, test := range suggestGasPriceTests {
 		cfg.API.GasStation.DefaultGas = test.defaultGasPrice
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		res, err := svr.SuggestGasPrice(context.Background(), &iotexapi.SuggestGasPriceRequest{})
 		require.NoError(err)
 		require.Equal(test.suggestedGasPrice, res.GasPrice)
@@ -1228,8 +1268,11 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range estimateGasForActionTests {
 		hash, err := hash.HexStringToHash256(test.actionHash)
@@ -1249,8 +1292,11 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 func TestServer_EstimateActionGasConsumption(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	// test for contract deploy
 	data := "608060405234801561001057600080fd5b50610123600102600281600019169055503373ffffffffffffffffffffffffffffffffffffffff166001026003816000191690555060035460025417600481600019169055506102ae806100656000396000f300608060405260043610610078576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680630cc0e1fb1461007d57806328f371aa146100b05780636b1d752b146100df578063d4b8399214610112578063daea85c514610145578063eb6fd96a14610188575b600080fd5b34801561008957600080fd5b506100926101bb565b60405180826000191660001916815260200191505060405180910390f35b3480156100bc57600080fd5b506100c56101c1565b604051808215151515815260200191505060405180910390f35b3480156100eb57600080fd5b506100f46101d7565b60405180826000191660001916815260200191505060405180910390f35b34801561011e57600080fd5b506101276101dd565b60405180826000191660001916815260200191505060405180910390f35b34801561015157600080fd5b50610186600480360381019080803573ffffffffffffffffffffffffffffffffffffffff1690602001909291905050506101e3565b005b34801561019457600080fd5b5061019d61027c565b60405180826000191660001916815260200191505060405180910390f35b60035481565b6000600454600019166001546000191614905090565b60025481565b60045481565b3373ffffffffffffffffffffffffffffffffffffffff166001028173ffffffffffffffffffffffffffffffffffffffff16600102176001816000191690555060016000808373ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200190815260200160002060006101000a81548160ff02191690831515021790555050565b600154815600a165627a7a7230582089b5f99476d642b66a213c12cd198207b2e813bb1caf3bd75e22be535ebf5d130029"
@@ -1421,10 +1467,14 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 }
 
 func TestServer_ReadUnclaimedBalance(t *testing.T) {
+	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, err := createServer(cfg, false)
-	require.NoError(t, err)
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range readUnclaimedBalanceTests {
 		out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1433,48 +1483,56 @@ func TestServer_ReadUnclaimedBalance(t *testing.T) {
 			Arguments:  [][]byte{[]byte(test.addr)},
 		})
 		if test.returnErr {
-			require.Error(t, err)
+			require.Error(err)
 			continue
 		}
-		require.NoError(t, err)
+		require.NoError(err)
 		val, ok := big.NewInt(0).SetString(string(out.Data), 10)
-		require.True(t, ok)
-		assert.Equal(t, test.balance, val)
+		require.True(ok)
+		require.Equal(test.balance, val)
 	}
 }
 
 func TestServer_TotalBalance(t *testing.T) {
+	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
-	require.NoError(t, err)
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("TotalBalance"),
 		Arguments:  nil,
 	})
-	require.NoError(t, err)
+	require.NoError(err)
 	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
-	require.True(t, ok)
-	assert.Equal(t, unit.ConvertIotxToRau(200000000), val)
+	require.True(ok)
+	require.Equal(unit.ConvertIotxToRau(200000000), val)
 }
 
 func TestServer_AvailableBalance(t *testing.T) {
+	require := require.New(t)
 	cfg := newConfig(t)
 	cfg.Consensus.Scheme = config.RollDPoSScheme
-	svr, err := createServer(cfg, false)
-	require.NoError(t, err)
+	svr, bfIndexFile, err := createServer(cfg, false)
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	out, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
 		MethodName: []byte("AvailableBalance"),
 		Arguments:  nil,
 	})
-	require.NoError(t, err)
+	require.NoError(err)
 	val, ok := big.NewInt(0).SetString(string(out.Data), 10)
-	require.True(t, ok)
-	assert.Equal(t, unit.ConvertIotxToRau(199999936), val)
+	require.True(ok)
+	require.Equal(unit.ConvertIotxToRau(199999936), val)
 }
 
 func TestServer_ReadCandidatesByEpoch(t *testing.T) {
@@ -1531,8 +1589,11 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		require.NoError(pol.ForceRegister(svr.registry))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1602,8 +1663,11 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		require.NoError(pol.ForceRegister(svr.registry))
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
@@ -1671,8 +1735,11 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 				cfg.Chain.PollInitialCandidatesInterval,
 				slasher)
 		}
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		require.NoError(pol.ForceRegister(svr.registry))
 
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
@@ -1692,8 +1759,11 @@ func TestServer_ReadRollDPoSMeta(t *testing.T) {
 	cfg := newConfig(t)
 
 	for _, test := range readRollDPoSMetaTests {
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
@@ -1710,8 +1780,11 @@ func TestServer_ReadEpochCtx(t *testing.T) {
 	cfg := newConfig(t)
 
 	for _, test := range readEpochCtxTests {
-		svr, err := createServer(cfg, false)
+		svr, bfIndexFile, err := createServer(cfg, false)
 		require.NoError(err)
+		defer func() {
+			testutil.CleanupPath(t, bfIndexFile)
+		}()
 		res, err := svr.ReadState(context.Background(), &iotexapi.ReadStateRequest{
 			ProtocolID: []byte(test.protocolID),
 			MethodName: []byte(test.methodName),
@@ -1731,8 +1804,11 @@ func TestServer_GetEpochMeta(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 	for _, test := range getEpochMetaTests {
 		if test.pollProtocolType == lld {
 			pol := poll.NewLifeLongDelegatesProtocol(cfg.Genesis.Delegates)
@@ -1848,8 +1924,11 @@ func TestServer_GetRawBlocks(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getRawBlocksTest {
 		request := &iotexapi.GetRawBlocksRequest{
@@ -1876,8 +1955,11 @@ func TestServer_GetLogs(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	for _, test := range getLogsTest {
 		request := &iotexapi.GetLogsRequest{
@@ -1903,8 +1985,11 @@ func TestServer_GetTransactionLogByActionHash(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	request := &iotexapi.GetTransactionLogByActionHashRequest{
 		ActionHash: hex.EncodeToString(hash.ZeroHash256[:]),
@@ -1932,8 +2017,11 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	request := &iotexapi.GetTransactionLogByBlockHeightRequest{}
 	for _, test := range getImplicitLogByBlockHeightTest {
@@ -2145,32 +2233,34 @@ func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	return ap.Add(ctx, execution1)
 }
 
-func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, error) {
+func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, blockindex.Indexer, blockindex.BloomFilterIndexer, factory.Factory, actpool.ActPool, *protocol.Registry, string, error) {
 	cfg.Chain.ProducerPrivKey = hex.EncodeToString(identityset.PrivateKey(0).Bytes())
 	registry := protocol.NewRegistry()
 	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	ap, err := setupActPool(sf, cfg.ActPool)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(10000000000).String()
 	cfg.Genesis.InitBalanceMap[identityset.Address(28).String()] = unit.ConvertIotxToRau(10000000000).String()
 	// create indexer
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), cfg.Genesis.Hash())
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create indexer")
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create indexer")
 	}
-	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
+	testPath, _ := testutil.PathOfTempFile("bloomfilter")
+	cfg.DB.DbPath = testPath
+	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create bloomfilter indexer")
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create bloomfilter indexer")
 	}
 	// create BlockDAO
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf, indexer, bfIndexer})
 	if dao == nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockdao")
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockdao")
 	}
 	// create chain
 	bc := blockchain.NewBlockchain(
@@ -2183,7 +2273,7 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 		)),
 	)
 	if bc == nil {
-		return nil, nil, nil, nil, nil, nil, nil, errors.New("failed to create blockchain")
+		return nil, nil, nil, nil, nil, nil, nil, "", errors.New("failed to create blockchain")
 	}
 	defer func() {
 		delete(cfg.Plugins, config.GatewayPlugin)
@@ -2201,22 +2291,22 @@ func setupChain(cfg config.Config) (blockchain.Blockchain, blockdao.BlockDAO, bl
 	r := rewarding.NewProtocol(0, 0)
 
 	if err := rolldposProtocol.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	if err := acc.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	if err := evm.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	if err := r.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 	if err := p.Register(registry); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, "", err
 	}
 
-	return bc, dao, indexer, bfIndexer, sf, ap, registry, nil
+	return bc, dao, indexer, bfIndexer, sf, ap, registry, testPath, nil
 }
 
 func setupActPool(sf factory.Factory, cfg config.ActPool) (actpool.ActPool, error) {
@@ -2256,29 +2346,29 @@ func newConfig(t *testing.T) config.Config {
 	return cfg
 }
 
-func createServer(cfg config.Config, needActPool bool) (*Server, error) {
+func createServer(cfg config.Config, needActPool bool) (*Server, string, error) {
 	// TODO (zhi): revise
-	bc, dao, indexer, bfIndexer, sf, ap, registry, err := setupChain(cfg)
+	bc, dao, indexer, bfIndexer, sf, ap, registry, bfIndexFile, err := setupChain(cfg)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	ctx := context.Background()
 
 	// Start blockchain
 	if err := bc.Start(ctx); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	// Add testing blocks
 	if err := addTestingBlocks(bc, ap); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if needActPool {
 		// Add actions to actpool
-		ctx := protocol.WithRegistry(context.Background(), registry)
+		ctx = protocol.WithRegistry(ctx, registry)
 		if err := addActsToActPool(ctx, ap); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
@@ -2295,7 +2385,7 @@ func createServer(cfg config.Config, needActPool bool) (*Server, error) {
 		hasActionIndex: true,
 	}
 
-	return svr, nil
+	return svr, bfIndexFile, nil
 }
 
 func TestServer_GetActPoolActions(t *testing.T) {
@@ -2303,9 +2393,11 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	cfg := newConfig(t)
 	ctx := context.Background()
 
-	svr, err := createServer(cfg, false)
+	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
-	var requests []string
+	defer func() {
+		testutil.CleanupPath(t, bfIndexFile)
+	}()
 
 	res, err := svr.GetActPoolActions(ctx, &iotexapi.GetActPoolActionsRequest{})
 	require.NoError(err)
@@ -2331,6 +2423,7 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	err = svr.ap.Add(ctx, execution1)
 	require.NoError(err)
 
+	var requests []string
 	h1 := tsf1.Hash()
 	requests = append(requests, hex.EncodeToString(h1[:]))
 
