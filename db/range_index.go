@@ -32,8 +32,6 @@ type (
 	// for all key 0x123 <= k <  0x5678, value[k] = v2
 	// for all key          k >= 0x5678, value[k] = v3
 	//
-	// position 0 (k = 0x0000000000000000) stores the value to return beyond the largest inserted key
-	//
 	RangeIndex interface {
 		// Insert inserts a value into the index
 		Insert(uint64, []byte) error
@@ -86,6 +84,11 @@ func NewRangeIndex(kv KVStore, name, init []byte) (RangeIndex, error) {
 
 // Insert inserts a value into the index
 func (r *rangeIndex) Insert(key uint64, value []byte) error {
+	if key == 0 {
+		// by definition, Get(0) = initial value
+		// so insert 0 is not allowed
+		return errors.New("cannot insert 0 for range index")
+	}
 	return r.kvStore.Insert(r.bucket, key, value)
 }
 
