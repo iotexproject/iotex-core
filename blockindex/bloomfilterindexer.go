@@ -16,6 +16,7 @@ import (
 	filter "github.com/iotexproject/iotex-core/api/logfilter"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -35,10 +36,12 @@ type (
 	// BloomFilterIndexer is the interface for bloomfilter indexer
 	BloomFilterIndexer interface {
 		blockdao.BlockIndexer
-		// RangeBloomFilterSize returns the number of blocks that each rangeBloomfilter includes
-		RangeBloomFilterSize() uint64
-		// BloomFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
-		BloomFilterByHeight(uint64) (bloom.BloomFilter, error)
+		// RangeBloomFilterBlocks returns the number of blocks that each rangeBloomfilter includes
+		RangeBloomFilterBlocks() uint64
+		// BlockFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
+		BlockFilterByHeight(uint64) (bloom.BloomFilter, error)
+		// RangeFilterByHeight returns the range bloomfilter for the height
+		RangeFilterByHeight(uint64) (bloom.BloomFilter, error)
 		// FilterBlocksInRange returns the block numbers by given logFilter in range from start to end
 		FilterBlocksInRange(*filter.LogFilter, uint64, uint64) ([]uint64, error)
 	}
@@ -48,12 +51,14 @@ type (
 		mutex               sync.RWMutex // mutex for curRangeBloomfilter
 		flusher             db.KVStoreFlusher
 		rangeSize           uint64
+		bfSize              uint64
+		bfNumHash           uint64
 		curRangeBloomfilter bloom.BloomFilter
 	}
 )
 
 // NewBloomfilterIndexer creates a new bloomfilterindexer struct by given kvstore and rangebloomfilter size
-func NewBloomfilterIndexer(kv db.KVStore, rangeSize uint64) (BloomFilterIndexer, error) {
+func NewBloomfilterIndexer(kv db.KVStore, cfg config.Indexer) (BloomFilterIndexer, error) {
 	if kv == nil {
 		return nil, errors.New("empty kvStore")
 	}
@@ -63,7 +68,9 @@ func NewBloomfilterIndexer(kv db.KVStore, rangeSize uint64) (BloomFilterIndexer,
 	}
 	return &bloomfilterIndexer{
 		flusher:   flusher,
-		rangeSize: rangeSize,
+		rangeSize: cfg.RangeBloomFilterBlocks,
+		bfSize:    cfg.RangeBloomFilterSize,
+		bfNumHash: cfg.RangeBloomFilterNumHash,
 	}, nil
 }
 
@@ -79,7 +86,7 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 	case nil:
 		tipHeight := byteutil.BytesToUint64(tipHeightData)
 		if tipHeight%bfx.rangeSize == 0 {
-			bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
+			bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
 		} else {
 			bfx.curRangeBloomfilter, err = bfx.rangeBloomFilter(tipHeight)
 			if err != nil {
@@ -93,7 +100,7 @@ func (bfx *bloomfilterIndexer) Start(ctx context.Context) error {
 		if err := bfx.flusher.Flush(); err != nil {
 			return errors.Wrapf(err, "failed to flush")
 		}
-		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(2048, 3)
+		bfx.curRangeBloomfilter, _ = bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
 	default:
 		return err
 	}
@@ -124,7 +131,7 @@ func (bfx *bloomfilterIndexer) PutBlock(ctx context.Context, blk *block.Block) (
 		return err
 	}
 	if blk.Height()%bfx.rangeSize == 0 {
-		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(2048, 3)
+		bfx.curRangeBloomfilter, err = bloom.NewBloomFilter(bfx.bfSize, bfx.bfNumHash)
 		if err != nil {
 			return errors.Wrapf(err, "Can not create new bloomfilter")
 		}
@@ -144,16 +151,25 @@ func (bfx *bloomfilterIndexer) DeleteTipBlock(blk *block.Block) (err error) {
 	return nil
 }
 
-// RangeBloomFilterSize returns the number of blocks that each rangeBloomfilter includes
-func (bfx *bloomfilterIndexer) RangeBloomFilterSize() uint64 {
+// RangeBloomFilterBlocks returns the number of blocks that each rangeBloomfilter includes
+func (bfx *bloomfilterIndexer) RangeBloomFilterBlocks() uint64 {
 	bfx.mutex.RLock()
 	defer bfx.mutex.RUnlock()
 	return bfx.rangeSize
 }
 
-// BloomFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
-func (bfx *bloomfilterIndexer) BloomFilterByHeight(height uint64) (bloom.BloomFilter, error) {
-	return bfx.blockBloomFilter(height)
+// BlockFilterByHeight returns the block-level bloomfilter which includes not only topic but also address of logs info by given block height
+func (bfx *bloomfilterIndexer) BlockFilterByHeight(height uint64) (bloom.BloomFilter, error) {
+	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(height))
+	if err != nil {
+		return nil, err
+	}
+	return bloom.BloomFilterFromBytes(bfBytes)
+}
+
+// RangeFilterByHeight returns the range bloomfilter for the height
+func (bfx *bloomfilterIndexer) RangeFilterByHeight(height uint64) (bloom.BloomFilter, error) {
+	return bfx.rangeBloomFilter(height)
 }
 
 // FilterBlocksInRange returns the block numbers by given logFilter in range [start, end]
@@ -186,11 +202,8 @@ func (bfx *bloomfilterIndexer) FilterBlocksInRange(l *filter.LogFilter, start, e
 }
 
 func (bfx *bloomfilterIndexer) rangeBloomfilterKey(blockNumber uint64) uint64 {
-	if blockNumber%bfx.rangeSize == 0 {
-		return blockNumber
-	}
-	// round up
-	return bfx.rangeSize * (blockNumber/bfx.rangeSize + 1)
+	numRange := (blockNumber + bfx.rangeSize - 1) / bfx.rangeSize
+	return bfx.rangeSize * numRange
 }
 
 // rangeBloomFilter reads rangebloomfilter by given block number from underlying DB
@@ -200,16 +213,7 @@ func (bfx *bloomfilterIndexer) rangeBloomFilter(blockNumber uint64) (bloom.Bloom
 	if err != nil {
 		return nil, err
 	}
-	return bloom.BloomFilterFromBytes(bfBytes, 2048, 3)
-}
-
-// blockBloomFilter reads block bloomfilter by given block number from underlying DB
-func (bfx *bloomfilterIndexer) blockBloomFilter(blockNumber uint64) (bloom.BloomFilter, error) {
-	bfBytes, err := bfx.flusher.KVStoreWithBuffer().Get(BlockBloomFilterNamespace, byteutil.Uint64ToBytes(blockNumber))
-	if err != nil {
-		return nil, err
-	}
-	return bloom.BloomFilterFromBytes(bfBytes, 2048, 3)
+	return bloom.BloomFilterFromBytes(bfBytes)
 }
 
 func (bfx *bloomfilterIndexer) delete(blockNumber uint64) error {

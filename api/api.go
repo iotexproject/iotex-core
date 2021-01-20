@@ -1475,7 +1475,7 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 }
 
 func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	logBloomFilter, err := api.bfIndexer.BloomFilterByHeight(blockNumber)
+	logBloomFilter, err := api.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
