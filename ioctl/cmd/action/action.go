@@ -241,11 +241,11 @@ func SendRaw(selp *iotextypes.Action) error {
 	}
 	shash := hash.Hash256b(byteutil.Must(proto.Marshal(selp)))
 	txhash := hex.EncodeToString(shash[:])
-	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash}
+	message := sendMessage{Info: "Action has been sent to blockchain.", TxHash: txhash, URL: "https://"}
 	switch config.ReadConfig.Explorer {
 	case "iotexscan":
 		if strings.Contains(config.ReadConfig.Endpoint, "testnet") {
-			message.URL = "testnet."
+			message.URL += "testnet."
 		}
 		message.URL += "iotexscan.io/action/" + txhash
 	case "iotxplorer":
