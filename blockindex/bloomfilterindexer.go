@@ -256,6 +256,8 @@ func (bfx *bloomfilterIndexer) commit(blockNumber uint64, blkBloomfilter bloom.B
 	b.Put(RangeBloomFilterNamespace, bfx.currRangeBfKey, bfBytes, "failed to put range bloom filter")
 	b.Put(BlockBloomFilterNamespace, byteutil.Uint64ToBytesBigEndian(blockNumber), blkBloomfilter.Bytes(), "failed to put block bloom filter")
 	b.Put(RangeBloomFilterNamespace, []byte(CurrentHeightKey), byteutil.Uint64ToBytesBigEndian(blockNumber), "failed to put current height")
+	b.AddFillPercent(RangeBloomFilterNamespace, 1.0)
+	b.AddFillPercent(BlockBloomFilterNamespace, 1.0)
 	return bfx.kvStore.WriteBatch(b)
 }
 
