@@ -10,7 +10,7 @@ import (
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	proto "google.golang.org/protobuf/proto"
 	reflect "reflect"
 )
@@ -79,7 +79,7 @@ func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1, arg2 interface{}) 
 }
 
 // HandleSyncRequest mocks base method
-func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
+func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peer.AddrInfo, arg2 *iotexrpc.BlockSync) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -182,7 +182,7 @@ func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2, arg3 int
 }
 
 // HandleTell mocks base method
-func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 peerstore.PeerInfo, arg3 proto.Message) {
+func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 peer.AddrInfo, arg3 proto.Message) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
 }

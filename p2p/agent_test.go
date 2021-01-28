@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -48,7 +48,7 @@ func TestBroadcast(t *testing.T) {
 			counts[idx] = 1
 		}
 	}
-	u := func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {}
+	u := func(_ context.Context, _ uint32, _ peer.AddrInfo, _ proto.Message) {}
 	bootnodePort := testutil.RandomPort()
 	bootnode := NewAgent(Network{Host: "127.0.0.1", Port: bootnodePort, ReconnectInterval: 150 * time.Second}, hash.ZeroHash256, b, u)
 	require.NoError(t, bootnode.Start(ctx))
@@ -112,7 +112,7 @@ func TestUnicast(t *testing.T) {
 	var src string
 	var mutex sync.RWMutex
 	b := func(_ context.Context, _ uint32, _ string, _ proto.Message) {}
-	u := func(_ context.Context, _ uint32, peer peerstore.PeerInfo, msg proto.Message) {
+	u := func(_ context.Context, _ uint32, peer peer.AddrInfo, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		testMsg, ok := msg.(*testingpb.TestPayload)
@@ -154,10 +154,7 @@ func TestUnicast(t *testing.T) {
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 20*time.Second, func() (bool, error) {
 			mutex.RLock()
 			defer mutex.RUnlock()
-			info, err := agents[i].Info()
-			if err != nil {
-				return false, err
-			}
+			info := agents[i].Info()
 			return counts[uint8(i)] == len(neighbors) && src == info.ID.Pretty(), nil
 		}))
 	}
