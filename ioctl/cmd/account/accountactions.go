@@ -115,7 +115,7 @@ func accountActions(args []string) error {
 	}
 	showFields := []interface{}{
 		"Hash",
-		//"Time",
+		"Time",
 		"Status",
 		"Sender",
 		"Type",
@@ -125,8 +125,8 @@ func accountActions(args []string) error {
 	}
 	tbl := table.New(showFields...)
 
-	for k := range response.ActionInfo {
-		k = len(response.ActionInfo) - 1 - k
+	for i := range response.ActionInfo {
+		k := len(response.ActionInfo) - 1 - i
 		actionInfo := response.ActionInfo[k]
 		requestGetReceipt := &iotexapi.GetReceiptByActionRequest{ActionHash: actionInfo.ActHash}
 		responseReceipt, err := cli.GetReceiptByAction(ctx, requestGetReceipt)
@@ -147,7 +147,7 @@ func accountActions(args []string) error {
 		}
 		tbl.AddRow(
 			actionInfo.ActHash,
-			//getActionTime(actionInfo),
+			getActionTime(actionInfo),
 			iotextypes.ReceiptStatus_name[int32(responseReceipt.ReceiptInfo.Receipt.GetStatus())],
 			actionInfo.Sender,
 			getActionTypeString(actionInfo),
@@ -180,8 +180,8 @@ func getActionTo(actionInfo *iotexapi.ActionInfo) string {
 		transfer := actionInfo.Action.Core.GetTransfer()
 		recipient = transfer.GetRecipient()
 	case "Execution":
-		transfer := actionInfo.Action.Core.GetExecution()
-		recipient = transfer.GetContract()
+		execution := actionInfo.Action.Core.GetExecution()
+		recipient = execution.GetContract()
 	}
 	if recipient == "" {
 		recipient = "-"
@@ -196,7 +196,7 @@ func getActionTime(actionInfo *iotexapi.ActionInfo) string {
 		if err != nil {
 			return t
 		}
-		t = ts.Local().String()
+		t = ts.String()
 	}
 	return t
 }
