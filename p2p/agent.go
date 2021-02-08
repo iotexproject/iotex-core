@@ -11,24 +11,24 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	p2p "github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-p2p"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
-	multiaddr "github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	goproto "github.com/iotexproject/iotex-proto/golang"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 const (
@@ -83,6 +83,7 @@ type Agent struct {
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
 	unicastBlocklist           *BlockList
+	reconnectTask              *routine.RecurringTask
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -221,66 +222,26 @@ func (p *Agent) Start(ctx context.Context) error {
 		return errors.Wrap(err, "error when adding unicast pubsub")
 	}
 
-	if len(p.cfg.BootstrapNodes) > 0 {
-		var tryNum, errNum, connNum, desiredConnNum int
-
-		conn := make(chan interface{}, len(p.cfg.BootstrapNodes))
-		connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
-		desiredConnNum = int(math.RoundToEven(float64(len(p.cfg.BootstrapNodes)) / 2))
-		if float64(desiredConnNum) <= float64(len(p.cfg.BootstrapNodes))/2 {
-			desiredConnNum++
-		}
-
-		// try to connect to all bootstrap node beside itself.
-		for _, bootstrapNode := range p.cfg.BootstrapNodes {
-			bootAddr := multiaddr.StringCast(bootstrapNode)
-			if strings.Contains(bootAddr.String(), host.HostIdentity()) {
-				continue
-			}
-
-			tryNum++
-			go func() {
-				if err := exponentialRetry(
-					func() error { return host.ConnectWithMultiaddr(ctx, bootAddr) },
-					dialRetryInterval,
-					numDialRetries,
-				); err != nil {
-					err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
-					connErrChan <- err
-					return
-				}
-				conn <- true
-				log.L().Info("Connected bootstrap node.", zap.String("address", bootAddr.String()))
-			}()
-		}
-		// wait on bootnodes connection
-		for {
-			select {
-			case err := <-connErrChan:
-				log.L().Info("Connection failed.", zap.Error(err))
-				errNum++
-				if errNum == tryNum {
-					return errors.New("failed to connect to any bootstrap node")
-				}
-			case <-conn:
-				connNum++
-			}
-			// can add more condition later
-			if connNum >= desiredConnNum {
-				break
-			}
-		}
-	}
-	host.JoinOverlay(ctx)
+	// connect to bootstrap nodes
 	p.host = host
+	if err = p.connect(ctx); err != nil {
+		return err
+	}
+	p.host.JoinOverlay(ctx)
 	close(ready)
-	return nil
+
+	// check network connectivity every 2 blocks, and reconnect in case of disconnection
+	p.reconnectTask = routine.NewRecurringTask(p.reconnect, 2*config.DardanellesBlockInterval)
+	return p.reconnectTask.Start(ctx)
 }
 
 // Stop disconnects from P2P network
 func (p *Agent) Stop(ctx context.Context) error {
 	if p.host == nil {
 		return nil
+	}
+	if err := p.reconnectTask.Stop(ctx); err != nil {
+		return err
 	}
 	if err := p.host.Close(); err != nil {
 		return errors.Wrap(err, "error when closing Agent host")
@@ -407,6 +368,69 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 		res = append(res, nbs[i])
 	}
 	return res, nil
+}
+
+// connect connects to bootstrap nodes
+func (p *Agent) connect(ctx context.Context) error {
+	if len(p.cfg.BootstrapNodes) == 0 {
+		return nil
+	}
+
+	var tryNum, errNum, connNum, desiredConnNum int
+	conn := make(chan struct{}, len(p.cfg.BootstrapNodes))
+	connErrChan := make(chan error, len(p.cfg.BootstrapNodes))
+
+	// try to connect to all bootstrap node beside itself.
+	for _, bootstrapNode := range p.cfg.BootstrapNodes {
+		bootAddr := multiaddr.StringCast(bootstrapNode)
+		if strings.Contains(bootAddr.String(), p.host.HostIdentity()) {
+			continue
+		}
+
+		tryNum++
+		go func() {
+			if err := exponentialRetry(
+				func() error { return p.host.ConnectWithMultiaddr(ctx, bootAddr) },
+				dialRetryInterval,
+				numDialRetries,
+			); err != nil {
+				err := errors.Wrap(err, fmt.Sprintf("error when connecting bootstrap node %s", bootAddr.String()))
+				connErrChan <- err
+				return
+			}
+			conn <- struct{}{}
+			log.L().Info("Connected bootstrap node.", zap.String("address", bootAddr.String()))
+		}()
+	}
+
+	// wait until half+1 bootnodes get connected
+	desiredConnNum = len(p.cfg.BootstrapNodes)/2 + 1
+	for {
+		select {
+		case err := <-connErrChan:
+			log.L().Info("Connection failed.", zap.Error(err))
+			errNum++
+			if errNum == tryNum {
+				return errors.New("failed to connect to any bootstrap node")
+			}
+		case <-conn:
+			connNum++
+		}
+		// can add more condition later
+		if connNum >= desiredConnNum {
+			break
+		}
+	}
+	return nil
+}
+
+func (p *Agent) reconnect() {
+	ctx := context.Background()
+	peers, err := p.Neighbors(ctx)
+	if err != nil || len(peers) == 0 {
+		log.L().Info("Network lost, try re-connecting.", zap.Error(err))
+		p.connect(ctx)
+	}
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {
