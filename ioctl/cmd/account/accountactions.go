@@ -56,7 +56,7 @@ var accountActionsCmd = &cobra.Command{
 }
 
 func init() {
-	countLimit = accountActionsCmd.Flags().Uint64("count", 15, config.TranslateInLang(flagCountUsages, config.UILanguage))
+	countLimit = accountActionsCmd.Flags().Uint64("limit", 15, config.TranslateInLang(flagCountUsages, config.UILanguage))
 }
 
 func accountActions(args []string) error {
