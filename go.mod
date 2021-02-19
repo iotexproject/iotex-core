@@ -31,10 +31,11 @@ require (
 	github.com/multiformats/go-multiaddr v0.0.2
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.3.0
+	github.com/rodaine/table v1.0.1
 	github.com/rs/zerolog v1.18.0
 	github.com/schollz/progressbar/v2 v2.15.0
 	github.com/spf13/cobra v1.1.1
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	github.com/tyler-smith/go-bip39 v1.0.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
