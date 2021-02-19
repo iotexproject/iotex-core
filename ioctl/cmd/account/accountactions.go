@@ -190,13 +190,10 @@ func getActionTo(actionInfo *iotexapi.ActionInfo) string {
 }
 
 func getActionTime(actionInfo *iotexapi.ActionInfo) string {
-	t := ""
 	if actionInfo.Timestamp != nil {
-		ts, err := ptypes.Timestamp(actionInfo.Timestamp)
-		if err != nil {
-			return t
+		if ts, err := ptypes.Timestamp(actionInfo.Timestamp); err == nil {
+			return ts.String()
 		}
-		t = ts.String()
 	}
-	return t
+	return ""
 }
