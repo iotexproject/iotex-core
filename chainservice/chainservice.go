@@ -176,7 +176,7 @@ func New(
 
 		// create bloomfilter indexer
 		cfg.DB.DbPath = cfg.Chain.BloomfilterIndexDBPath
-		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Chain.RangeBloomFilterSize)
+		bfIndexer, err = blockindex.NewBloomfilterIndexer(db.NewBoltDB(cfg.DB), cfg.Indexer)
 		if err != nil {
 			return nil, err
 		}
@@ -348,6 +348,7 @@ func New(
 	apiSvr, err = api.NewServer(
 		cfg,
 		chain,
+		bs,
 		sf,
 		dao,
 		indexer,

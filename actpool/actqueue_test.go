@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,20 +196,19 @@ func TestActQueueRemoveActs(t *testing.T) {
 }
 
 func TestActQueueTimeOutAction(t *testing.T) {
-	c := clock.NewMock()
-	q := NewActQueue(nil, "", WithClock(c), WithTimeOut(3*time.Minute))
+
+	q := NewActQueue(nil, "", WithTimeOut(3*time.Second))
 	tsf1, err := testutil.SignedTransfer(addr2, priKey1, 1, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 	tsf2, err := testutil.SignedTransfer(addr2, priKey1, 3, big.NewInt(100), nil, uint64(0), big.NewInt(0))
 	require.NoError(t, err)
 
 	require.NoError(t, q.Put(tsf1))
-	c.Add(2 * time.Minute)
-
+	time.Sleep(2 * time.Second)
 	require.NoError(t, q.Put(tsf2))
 	q.(*actQueue).cleanTimeout()
 	assert.Equal(t, 2, q.Len())
-	c.Add(2 * time.Minute)
+	time.Sleep(2 * time.Second)
 	q.(*actQueue).cleanTimeout()
 	assert.Equal(t, 1, q.Len())
 }

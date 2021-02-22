@@ -126,7 +126,7 @@ func (h *Header) loadFromBlockHeaderCoreProto(pb *iotextypes.BlockHeaderCore) er
 	copy(h.deltaStateDigest[:], pb.GetDeltaStateDigest())
 	copy(h.receiptRoot[:], pb.GetReceiptRoot())
 	if pb.GetLogsBloom() != nil {
-		h.logsBloom, err = bloom.BloomFilterFromBytes(pb.GetLogsBloom(), 2048, 3)
+		h.logsBloom, err = bloom.BloomFilterFromBytesLegacy(pb.GetLogsBloom(), 2048, 3)
 	}
 	return err
 }

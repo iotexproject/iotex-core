@@ -8,15 +8,13 @@ package sql
 
 import (
 	"testing"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestRDSStorePutGet(t *testing.T) {
 	t.Skip("Skipping when RDS credentail not provided.")
 	testRDSStorePutGet := TestStorePutGet
 
-	cfg := config.RDS{}
+	cfg := RDS{}
 	t.Run("RDS Store", func(t *testing.T) {
 		testRDSStorePutGet(NewAwsRDS(cfg), t)
 	})
@@ -26,7 +24,7 @@ func TestRDSStoreTransaction(t *testing.T) {
 	t.Skip("Skipping when RDS credentail not provided.")
 	testRDSStoreTransaction := TestStoreTransaction
 
-	cfg := config.RDS{}
+	cfg := RDS{}
 	t.Run("RDS Store", func(t *testing.T) {
 		testRDSStoreTransaction(NewAwsRDS(cfg), t)
 	})

@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
@@ -128,7 +127,6 @@ type blockchain struct {
 	config         config.Config
 	blockValidator block.Validator
 	lifecycle      lifecycle.Lifecycle
-	clk            clock.Clock
 	pubSubManager  PubSubManager
 	timerFactory   *prometheustimer.TimerFactory
 
@@ -171,15 +169,6 @@ func InMemDaoOption(indexers ...blockdao.BlockIndexer) Option {
 	}
 }
 
-// ClockOption overrides the default clock
-func ClockOption(clk clock.Clock) Option {
-	return func(bc *blockchain, conf config.Config) error {
-		bc.clk = clk
-
-		return nil
-	}
-}
-
 // NewBlockchain creates a new blockchain and DB instance
 // TODO: replace sf with blockbuilderfactory
 func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFactory, opts ...Option) Blockchain {
@@ -188,7 +177,6 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		config:        cfg,
 		dao:           dao,
 		bbf:           bbf,
-		clk:           clock.New(),
 		pubSubManager: NewPubSub(cfg.BlockSync.BufferSize),
 	}
 	for _, opt := range opts {

@@ -8,12 +8,12 @@ package actpool
 
 import (
 	"container/heap"
-	"go.uber.org/zap"
 	"math/big"
 	"sort"
 	"time"
 
-	"github.com/facebookgo/clock"
+	"go.uber.org/zap"
+
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -76,7 +76,6 @@ type actQueue struct {
 	pendingNonce uint64
 	// Current pending balance for the account
 	pendingBalance *big.Int
-	clock          clock.Clock
 	ttl            time.Duration
 }
 
@@ -94,7 +93,6 @@ func NewActQueue(ap *actPool, address string, ops ...ActQueueOption) ActQueue {
 		index:          noncePriorityQueue{},
 		pendingNonce:   uint64(1), // Taking coinbase Action into account, pendingNonce should start with 1
 		pendingBalance: big.NewInt(0),
-		clock:          clock.New(),
 		ttl:            0,
 	}
 	for _, op := range ops {
@@ -115,7 +113,7 @@ func (q *actQueue) Put(act action.SealedEnvelope) error {
 	if _, exist := q.items[nonce]; exist {
 		return errors.Wrap(action.ErrNonce, "duplicate nonce")
 	}
-	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: q.clock.Now().Add(q.ttl)})
+	heap.Push(&q.index, nonceWithTTL{nonce: nonce, deadline: time.Now().Add(q.ttl)})
 	q.items[nonce] = act
 	return nil
 }
@@ -135,7 +133,7 @@ func (q *actQueue) FilterNonce(threshold uint64) []action.SealedEnvelope {
 func (q *actQueue) cleanTimeout() []action.SealedEnvelope {
 	removedFromQueue := make([]action.SealedEnvelope, 0)
 	for i := 0; i < len(q.index); i++ {
-		if q.clock.Now().After(q.index[i].deadline) {
+		if time.Now().After(q.index[i].deadline) {
 			// remove
 			removedFromQueue = append(removedFromQueue, q.items[q.index[i].nonce])
 			delete(q.items, q.index[i].nonce)

@@ -84,6 +84,7 @@ func init() {
 	AccountCmd.AddCommand(accountSignCmd)
 	AccountCmd.AddCommand(accountUpdateCmd)
 	AccountCmd.AddCommand(accountVerifyCmd)
+	AccountCmd.AddCommand(accountActionsCmd)
 	AccountCmd.PersistentFlags().StringVar(&config.ReadConfig.Endpoint, "endpoint",
 		config.ReadConfig.Endpoint, config.TranslateInLang(flagEndpoint, config.UILanguage))
 	AccountCmd.PersistentFlags().BoolVar(&config.Insecure, "insecure", config.Insecure, config.TranslateInLang(flagInsecure, config.UILanguage))

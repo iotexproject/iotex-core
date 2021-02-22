@@ -120,6 +120,7 @@ var (
 			},
 			EnableTrielessStateDB:         true,
 			EnableStateDBCaching:          false,
+			EnableArchiveMode:             false,
 			EnableAsyncIndexWrite:         true,
 			EnableSystemLogIndexer:        false,
 			EnableStakingProtocol:         true,
@@ -130,8 +131,6 @@ var (
 			PollInitialCandidatesInterval: 10 * time.Second,
 			StateDBCacheSize:              1000,
 			WorkingSetCacheSize:           20,
-			EnableArchiveMode:             false,
-			RangeBloomFilterSize:          4096,
 		},
 		ActPool: ActPool{
 			MaxNumActsPerPool:  32000,
@@ -189,18 +188,20 @@ var (
 			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
 		DB: DB{
-			NumRetries:          3,
-			MaxCacheSize:        64,
-			BlockStoreBatchSize: 16,
-			V2BlocksToSplitDB:   1000000,
-			Compressor:          "Snappy",
-			CompressLegacy:      false,
-			SQLITE3: SQLITE3{
-				SQLite3File: "./explorer.db",
-			},
+			NumRetries:            3,
+			MaxCacheSize:          64,
+			BlockStoreBatchSize:   16,
+			V2BlocksToSplitDB:     1000000,
+			Compressor:            "Snappy",
+			CompressLegacy:        false,
 			SplitDBSizeMB:         0,
 			SplitDBHeight:         900000,
 			HistoryStateRetention: 2000,
+		},
+		Indexer: Indexer{
+			RangeBloomFilterNumElements: 100000,
+			RangeBloomFilterSize:        1200000,
+			RangeBloomFilterNumHash:     8,
 		},
 		Genesis: genesis.Default,
 	}
@@ -277,8 +278,6 @@ type (
 		StateDBCacheSize int `yaml:"stateDBCacheSize"`
 		// WorkingSetCacheSize is the max size of workingset cache in state factory
 		WorkingSetCacheSize uint64 `yaml:"workingSetCacheSize"`
-		// RangeBloomFilterSize is the number of blocks that rangeBloomfilter will store in bloomfilterIndexer
-		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
 	}
 
 	// Consensus is the config struct for consensus package
@@ -385,10 +384,6 @@ type (
 		Compressor string `yaml:"compressor"`
 		// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
 		CompressLegacy bool `yaml:"compressLegacy"`
-		// RDS is the config for rds
-		RDS RDS `yaml:"RDS"`
-		// SQLite3 is the config for SQLITE3
-		SQLITE3 SQLITE3 `yaml:"SQLITE3"`
 		// SplitDBSize is the config for DB's split file size
 		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
 		// SplitDBHeight is the config for DB's split start height
@@ -397,24 +392,14 @@ type (
 		HistoryStateRetention uint64 `yaml:"historyStateRetention"`
 	}
 
-	// RDS is the cloud rds config
-	RDS struct {
-		// AwsRDSEndpoint is the endpoint of aws rds
-		AwsRDSEndpoint string `yaml:"awsRDSEndpoint"`
-		// AwsRDSPort is the port of aws rds
-		AwsRDSPort uint64 `yaml:"awsRDSPort"`
-		// AwsRDSUser is the user to access aws rds
-		AwsRDSUser string `yaml:"awsRDSUser"`
-		// AwsPass is the pass to access aws rds
-		AwsPass string `yaml:"awsPass"`
-		// AwsDBName is the db name of aws rds
-		AwsDBName string `yaml:"awsDBName"`
-	}
-
-	// SQLITE3 is the local sqlite3 config
-	SQLITE3 struct {
-		// SQLite3File is the sqlite3 db file
-		SQLite3File string `yaml:"sqlite3File"`
+	// Indexer is the config for indexer
+	Indexer struct {
+		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
+		RangeBloomFilterNumElements uint64 `yaml:"rangeBloomFilterNumElements"`
+		// RangeBloomFilterSize is the size (in bits) of rangeBloomfilter
+		RangeBloomFilterSize uint64 `yaml:"rangeBloomFilterSize"`
+		// RangeBloomFilterNumHash is the number of hash functions of rangeBloomfilter
+		RangeBloomFilterNumHash uint64 `yaml:"rangeBloomFilterNumHash"`
 	}
 
 	// Config is the root config struct, each package's config should be put as its sub struct
@@ -429,6 +414,7 @@ type (
 		API        API                         `yaml:"api"`
 		System     System                      `yaml:"system"`
 		DB         DB                          `yaml:"db"`
+		Indexer    Indexer                     `yaml:"indexer"`
 		Log        log.GlobalConfig            `yaml:"log"`
 		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
 		Genesis    genesis.Genesis             `yaml:"genesis"`

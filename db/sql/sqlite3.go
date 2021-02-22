@@ -9,11 +9,15 @@ package sql
 import (
 	// this is required for sqlite3 usage
 	_ "github.com/mattn/go-sqlite3"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
+// CQLITE3 is the local sqlite3 config
+type CQLITE3 struct {
+	// SQLite3File is the sqlite3 db file
+	SQLite3File string `yaml:"sqlite3File"`
+}
+
 // NewSQLite3 instantiates an sqlite3
-func NewSQLite3(cfg config.SQLITE3) Store {
+func NewSQLite3(cfg CQLITE3) Store {
 	return newStoreBase("sqlite3", cfg.SQLite3File)
 }

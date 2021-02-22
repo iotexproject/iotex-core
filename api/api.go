@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockindex"
+	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
@@ -95,6 +96,7 @@ func WithNativeElection(committee committee.Committee) Option {
 // Server provides api for user to query blockchain data
 type Server struct {
 	bc                blockchain.Blockchain
+	bs                blocksync.BlockSync
 	sf                factory.Factory
 	dao               blockdao.BlockDAO
 	indexer           blockindex.Indexer
@@ -114,6 +116,7 @@ type Server struct {
 func NewServer(
 	cfg config.Config,
 	chain blockchain.Blockchain,
+	bs blocksync.BlockSync,
 	sf factory.Factory,
 	dao blockdao.BlockDAO,
 	indexer blockindex.Indexer,
@@ -140,6 +143,7 @@ func NewServer(
 
 	svr := &Server{
 		bc:                chain,
+		bs:                bs,
 		sf:                sf,
 		dao:               dao,
 		indexer:           indexer,
@@ -260,9 +264,15 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			},
 		}, nil
 	}
+	syncStatus := ""
+	if api.bs != nil {
+		syncStatus = api.bs.SyncStatus()
+	}
+	chainMeta := &iotextypes.ChainMeta{
+		Height: tipHeight,
+	}
 	if api.indexer == nil {
-		// TODO: in case indexer does not exist, may consider return a value like 0 instead of exit
-		return nil, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
+		return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
 	}
 	totalActions, err := api.indexer.GetTotalActions()
 	if err != nil {
@@ -299,12 +309,9 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 	timeDiff := (t2.Sub(t1) + 10*time.Second) / time.Millisecond
 	tps := float32(numActions*1000) / float32(timeDiff)
 
-	chainMeta := &iotextypes.ChainMeta{
-		Height:     tipHeight,
-		NumActions: int64(totalActions),
-		Tps:        int64(math.Ceil(float64(tps))),
-		TpsFloat:   tps,
-	}
+	chainMeta.NumActions = int64(totalActions)
+	chainMeta.Tps = int64(math.Ceil(float64(tps)))
+	chainMeta.TpsFloat = tps
 
 	rp := rolldpos.FindProtocol(api.registry)
 	if rp != nil {
@@ -320,7 +327,7 @@ func (api *Server) GetChainMeta(ctx context.Context, in *iotexapi.GetChainMetaRe
 			GravityChainStartHeight: gravityChainStartHeight,
 		}
 	}
-	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta}, nil
+	return &iotexapi.GetChainMetaResponse{ChainMeta: chainMeta, SyncStage: syncStatus}, nil
 }
 
 // GetServerMeta gets the server metadata
@@ -1468,7 +1475,7 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 }
 
 func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
-	logBloomFilter, err := api.bfIndexer.BloomFilterByHeight(blockNumber)
+	logBloomFilter, err := api.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

@@ -27,6 +27,7 @@ import (
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/chainservice"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -158,7 +159,7 @@ func InjectByAps(
 	resetInterval int,
 	expectedBalances *map[string]*big.Int,
 	cs *chainservice.ChainService,
-	pendingActionMap *sync.Map,
+	pendingActionMap *cache.ThreadSafeLruCache,
 ) {
 	timeout := time.After(duration)
 	tick := time.NewTicker(time.Duration(1/aps*1000000) * time.Microsecond)
@@ -365,7 +366,7 @@ func injectTransfer(
 	payload string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *sync.Map,
+	pendingActionMap *cache.ThreadSafeLruCache,
 ) {
 	selp, _, err := createSignedTransfer(sender, recipient, unit.ConvertIotxToRau(amount), nonce, gasLimit,
 		gasPrice, payload)
@@ -382,7 +383,7 @@ func injectTransfer(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject transfer", zap.Error(err))
 	} else if pendingActionMap != nil {
-		pendingActionMap.Store(selp.Hash(), 1)
+		pendingActionMap.Add(selp.Hash(), 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
@@ -403,7 +404,7 @@ func injectExecInteraction(
 	data string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *sync.Map,
+	pendingActionMap *cache.ThreadSafeLruCache,
 ) {
 	selp, execution, err := createSignedExecution(executor, contract, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
@@ -415,7 +416,7 @@ func injectExecInteraction(
 	injectExecution(selp, execution, c, retryNum, retryInterval)
 
 	if pendingActionMap != nil {
-		pendingActionMap.Store(selp.Hash(), 1)
+		pendingActionMap.Add(selp.Hash(), 1)
 	}
 
 	if wg != nil {
@@ -469,7 +470,7 @@ func injectStake(
 	payload string,
 	retryNum int,
 	retryInterval int,
-	pendingActionMap *sync.Map,
+	pendingActionMap *cache.ThreadSafeLruCache,
 ) {
 	selp, _, err := createSignedStake(sender, nonce, sender.EncodedAddr, amount, duration, autoStake, []byte(payload), gasLimit, gasPrice)
 	if err != nil {
@@ -484,7 +485,7 @@ func injectStake(
 	}, bo); err != nil {
 		log.L().Error("Failed to inject stake", zap.Error(err))
 	} else if pendingActionMap != nil {
-		pendingActionMap.Store(selp.Hash(), 1)
+		pendingActionMap.Add(selp.Hash(), 1)
 		atomic.AddUint64(&totalTsfSentToAPI, 1)
 	}
 
@@ -669,13 +670,13 @@ func GetAllBalanceMap(
 // 2) remove the action from pending list
 func CheckPendingActionList(
 	cs *chainservice.ChainService,
-	pendingActionMap *sync.Map,
+	pendingActionMap *cache.ThreadSafeLruCache,
 	balancemap *map[string]*big.Int,
 ) (bool, error) {
 	var retErr error
 	empty := true
 
-	pendingActionMap.Range(func(selphash, vi interface{}) bool {
+	pendingActionMap.Range(func(selphash cache.Key, vi interface{}) bool {
 		empty = false
 		receipt, err := cs.APIServer().GetReceiptByActionHash(selphash.(hash.Hash256))
 		if err == nil {
@@ -744,7 +745,7 @@ func CheckPendingActionList(
 			} else {
 				atomic.AddUint64(&totalTsfFailed, 1)
 			}
-			pendingActionMap.Delete(selphash)
+			pendingActionMap.Remove(selphash)
 		}
 		return true
 	})
