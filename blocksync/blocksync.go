@@ -83,7 +83,6 @@ type blockSyncer struct {
 	bc                    blockchain.Blockchain
 	dao                   BlockDAO
 	unicastHandler        UnicastOutbound
-	neighborsHandler      Neighbors
 	syncStageTask         *routine.RecurringTask
 	syncStageHeight       uint64
 	syncBlockIncrease     uint64
@@ -115,7 +114,6 @@ func NewBlockSyncer(
 		dao:                   dao,
 		buf:                   buf,
 		unicastHandler:        bsCfg.unicastHandler,
-		neighborsHandler:      bsCfg.neighborsHandler,
 		worker:                newSyncWorker(chain.ChainID(), cfg, bsCfg.unicastHandler, bsCfg.neighborsHandler, buf),
 		processSyncRequestTTL: cfg.BlockSync.ProcessSyncRequestTTL,
 	}
