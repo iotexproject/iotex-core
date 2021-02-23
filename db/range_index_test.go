@@ -24,7 +24,7 @@ func TestRangeIndex(t *testing.T) {
 		k uint64
 		v []byte
 	}{
-		{0, []byte("beyond")},
+		{1, []byte("beyond")},
 		{7, []byte("seven")},
 		{29, []byte("twenty-nine")},
 		{100, []byte("hundred")},
@@ -47,14 +47,17 @@ func TestRangeIndex(t *testing.T) {
 		require.NoError(kv.Stop(context.Background()))
 	}()
 
-	index, err := NewRangeIndex(kv, []byte("test"), rangeTests[0].v)
+	index, err := NewRangeIndex(kv, []byte("test"), NotExist)
 	require.NoError(err)
 	v, err := index.Get(0)
 	require.NoError(err)
-	require.Equal(rangeTests[0].v, v)
+	require.Equal(NotExist, v)
 	v, err = index.Get(1)
 	require.NoError(err)
-	require.Equal(rangeTests[0].v, v)
+	require.Equal(NotExist, v)
+
+	// cannot insert 0
+	require.Error(index.Insert(0, NotExist))
 
 	for i, e := range rangeTests {
 		require.NoError(index.Insert(e.k, e.v))
@@ -93,7 +96,7 @@ func TestRangeIndex(t *testing.T) {
 	require.NoError(index.Delete(rangeTests[1].k))
 	v, err = index.Get(rangeTests[1].k)
 	require.NoError(err)
-	require.Equal(rangeTests[0].v, v)
+	require.Equal(NotExist, v)
 	for i := 2; i < len(rangeTests); i++ {
 		v, err = index.Get(rangeTests[i].k)
 		require.NoError(err)

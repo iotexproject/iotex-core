@@ -10,36 +10,24 @@ import (
 	"context"
 	"time"
 
-	"github.com/facebookgo/clock"
-
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 )
 
 var _ lifecycle.StartStopper = (*DelayTask)(nil)
-
-// DelayTaskOption is option to DelayTask.
-type DelayTaskOption interface {
-	SetDelayTaskOption(*DelayTask)
-}
 
 // DelayTask represents a timeout task
 type DelayTask struct {
 	cb       Task
 	duration time.Duration
 	ch       chan interface{}
-	clock    clock.Clock
 }
 
 // NewDelayTask creates an instance of DelayTask
-func NewDelayTask(cb Task, d time.Duration, ops ...DelayTaskOption) *DelayTask {
+func NewDelayTask(cb Task, d time.Duration) *DelayTask {
 	dt := &DelayTask{
 		cb:       cb,
 		duration: d,
 		ch:       make(chan interface{}, 1),
-		clock:    clock.New(),
-	}
-	for _, opt := range ops {
-		opt.SetDelayTaskOption(dt)
 	}
 	return dt
 }
@@ -54,7 +42,7 @@ func (t *DelayTask) Start(ctx context.Context) error {
 			return
 		case <-t.ch:
 			return
-		case <-t.clock.After(t.duration):
+		case <-time.After(t.duration):
 			t.cb()
 		}
 	}()

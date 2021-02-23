@@ -44,7 +44,10 @@ func GetReceiptByActionHash(url, hs string) error {
 		return err
 	}
 	if response.ReceiptInfo.Receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
-		return errors.New("action fail:" + hs)
+		if response.ReceiptInfo.Receipt.ExecutionRevertMsg != "" {
+			return errors.New("action is reverted: " + response.ReceiptInfo.Receipt.ExecutionRevertMsg)
+		}
+		return errors.New("action failed: " + hs)
 	}
 	return nil
 }

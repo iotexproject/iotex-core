@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -55,7 +56,7 @@ type (
 		topIndex      atomic.Value
 		htf           db.RangeIndex
 		kvStore       db.KVStore
-		kvStores      sync.Map //store like map[index]db.KVStore,index from 1...N
+		kvStores      *cache.ThreadSafeLruCache //store like map[index]db.KVStore,index from 1...N
 	}
 )
 
@@ -65,6 +66,7 @@ func newFileDAOLegacy(cfg config.DB) (FileDAO, error) {
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
 		kvStore:       db.NewBoltDB(cfg),
+		kvStores:      cache.NewThreadSafeLruCache(0),
 	}, nil
 }
 
@@ -499,7 +501,7 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 		return
 	}
 	// db exist,need load from kvStores
-	kv, ok := fd.kvStores.Load(topIndex)
+	kv, ok := fd.kvStores.Get(topIndex)
 	if ok {
 		kvStore, ok = kv.(db.KVStore)
 		if !ok {
@@ -540,7 +542,7 @@ func (fd *fileDAOLegacy) getDBFromIndex(idx uint64) (kvStore db.KVStore, index u
 	if idx == 0 {
 		return fd.kvStore, 0, nil
 	}
-	kv, ok := fd.kvStores.Load(idx)
+	kv, ok := fd.kvStores.Get(idx)
 	if ok {
 		kvStore, ok = kv.(db.KVStore)
 		if !ok {
@@ -599,7 +601,7 @@ func (fd *fileDAOLegacy) openDB(idx uint64) (kvStore db.KVStore, index uint64, e
 	}
 
 	kvStore = db.NewBoltDB(cfg)
-	fd.kvStores.Store(idx, kvStore)
+	fd.kvStores.Add(idx, kvStore)
 	err = kvStore.Start(context.Background())
 	if err != nil {
 		return

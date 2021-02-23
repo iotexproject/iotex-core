@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
@@ -39,7 +38,7 @@ func TestBackdoorEvt(t *testing.T) {
 				data:      data,
 			}
 		}).AnyTimes()
-	cfsm, err := NewConsensusFSM(mockCtx, clock.NewMock())
+	cfsm, err := NewConsensusFSM(mockCtx)
 	require.NoError(err)
 	require.NotNil(cfsm)
 	require.Equal(sPrepare, cfsm.CurrentState())
@@ -66,7 +65,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	mockClock := clock.NewMock()
 	mockCtx := NewMockContext(ctrl)
 	mockCtx.EXPECT().Logger().Return(log.Logger("consensus")).AnyTimes()
 	mockCtx.EXPECT().EventChanSize().Return(uint(10)).AnyTimes()
@@ -82,7 +80,7 @@ func TestStateTransitionFunctions(t *testing.T) {
 				data:      data,
 			}
 		}).AnyTimes()
-	cfsm, err := NewConsensusFSM(mockCtx, mockClock)
+	cfsm, err := NewConsensusFSM(mockCtx)
 	require.NoError(err)
 	require.NotNil(cfsm)
 	require.Equal(sPrepare, cfsm.CurrentState())
@@ -96,7 +94,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sPrepare, state)
 			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(10 * time.Second)
 			evt := <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
@@ -110,7 +107,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sPrepare, state)
 			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(10 * time.Second)
 			evt := <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 			// deactivate node
@@ -119,14 +115,12 @@ func TestStateTransitionFunctions(t *testing.T) {
 			require.NoError(err)
 			require.Equal(sPrepare, state)
 			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(10 * time.Second)
 			require.Equal(0, len(cfsm.evtq))
 			// reactivate node
 			mockCtx.EXPECT().Active().Return(true).Times(1)
 			_, err = cfsm.BackToPrepare(0)
 			require.NoError(err)
 			time.Sleep(100 * time.Millisecond)
-			mockClock.Add(10 * time.Second)
 			evt = <-cfsm.evtq
 			require.Equal(ePrepare, evt.Type())
 		})
@@ -143,16 +137,12 @@ func TestStateTransitionFunctions(t *testing.T) {
 					require.Equal(sAcceptBlockProposal, state)
 					time.Sleep(100 * time.Millisecond)
 					// garbage collection
-					mockClock.Add(cfsm.ctx.AcceptBlockTTL(0))
 					evt := <-cfsm.evtq
 					require.Equal(eFailedToReceiveBlock, evt.Type())
-					mockClock.Add(cfsm.ctx.AcceptProposalEndorsementTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingProposalEndorsement, evt.Type())
-					mockClock.Add(cfsm.ctx.AcceptLockEndorsementTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingLockEndorsement, evt.Type())
-					mockClock.Add(cfsm.ctx.CommitTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 				})
@@ -167,16 +157,12 @@ func TestStateTransitionFunctions(t *testing.T) {
 					require.Equal(sAcceptPreCommitEndorsement, state)
 					time.Sleep(100 * time.Millisecond)
 					// garbage collection
-					mockClock.Add(cfsm.ctx.AcceptBlockTTL(0))
 					evt := <-cfsm.evtq
 					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
-					mockClock.Add(cfsm.ctx.AcceptProposalEndorsementTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
-					mockClock.Add(cfsm.ctx.AcceptLockEndorsementTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eBroadcastPreCommitEndorsement, evt.Type())
-					mockClock.Add(cfsm.ctx.CommitTTL(0))
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingPreCommitEndorsement, evt.Type())
 				})
@@ -206,13 +192,10 @@ func TestStateTransitionFunctions(t *testing.T) {
 					require.Equal(eReceiveBlock, evt.Type())
 					// garbage collection
 					time.Sleep(100 * time.Millisecond)
-					mockClock.Add(4 * time.Second)
 					evt = <-cfsm.evtq
 					require.Equal(eFailedToReceiveBlock, evt.Type())
-					mockClock.Add(2 * time.Second)
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingProposalEndorsement, evt.Type())
-					mockClock.Add(2 * time.Second)
 					evt = <-cfsm.evtq
 					require.Equal(eStopReceivingLockEndorsement, evt.Type())
 				})
@@ -464,7 +447,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 			}
 			require.NoError(cfsm.handle(cEvt))
 			time.Sleep(10 * time.Millisecond)
-			mockClock.Add(cfsm.ctx.UnmatchedEventInterval(0))
 			evt := <-cfsm.evtq
 			require.Equal(cEvt, evt)
 		})
@@ -487,7 +469,6 @@ func TestStateTransitionFunctions(t *testing.T) {
 				mockCtx.EXPECT().IsStaleUnmatchedEvent(gomock.Any()).Return(false).Times(1)
 				require.NoError(cfsm.handle(cEvt))
 				time.Sleep(10 * time.Millisecond)
-				mockClock.Add(cfsm.ctx.UnmatchedEventInterval(0))
 				evtc := <-cfsm.evtq
 				require.Equal(evtc, cEvt)
 			})

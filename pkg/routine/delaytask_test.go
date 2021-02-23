@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -20,14 +19,12 @@ import (
 func TestDelayTaskTimeout(t *testing.T) {
 	c := make(chan bool)
 	ctx := context.Background()
-	ck := clock.NewMock()
-	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond, routine.WithClock(ck))
+	task := routine.NewDelayTask(func() { c <- true }, 100*time.Millisecond)
 	task.Start(ctx)
 	defer func() {
 		task.Stop(ctx)
 	}()
 
-	ck.Add(1 * time.Second)
 	assert.True(t, <-c, "Do executed")
 }
 

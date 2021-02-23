@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -556,6 +557,151 @@ func TestCreateBlockchain(t *testing.T) {
 	require.NoError(addTestingTsfBlocks(cfg, bc, nil, ap))
 	height = bc.TipHeight()
 	require.Equal(5, int(height))
+}
+
+func TestGetBlockHash(t *testing.T) {
+	require := require.New(t)
+	ctx := context.Background()
+
+	cfg := config.Default
+	// disable account-based testing
+	cfg.Chain.TrieDBPath = ""
+	cfg.Genesis.EnableGravityChainVoting = false
+	cfg.Genesis.HawaiiBlockHeight = 3
+	cfg.ActPool.MinGasPriceStr = "0"
+	// create chain
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool)
+	require.NoError(err)
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	bc := blockchain.NewBlockchain(
+		cfg,
+		dao,
+		factory.NewMinter(sf, ap),
+		blockchain.BlockValidatorOption(block.NewValidator(
+			sf,
+			protocol.NewGenericValidator(sf, accountutil.AccountState),
+		)),
+	)
+	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
+	require.NoError(ep.Register(registry))
+	rewardingProtocol := rewarding.NewProtocol(0, 0)
+	require.NoError(rewardingProtocol.Register(registry))
+	require.NoError(bc.Start(ctx))
+	require.NotNil(bc)
+	height := bc.TipHeight()
+	require.Equal(0, int(height))
+	fmt.Printf("Create blockchain pass, height = %d\n", height)
+	defer func() {
+		require.NoError(bc.Stop(ctx))
+	}()
+
+	addTestingGetBlockHash(t, bc, sf, dao, ap)
+}
+
+func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool) {
+	require := require.New(t)
+	priKey0 := identityset.PrivateKey(27)
+
+	// deploy simple smart contract
+	/*
+		pragma solidity <6.0 >=0.4.24;
+
+		contract Test {
+		    event GetBlockhash(bytes32 indexed hash);
+
+		    function getBlockHash(uint256 blockNumber) public  returns (bytes32) {
+		       bytes32 h = blockhash(blockNumber);
+		        emit GetBlockhash(h);
+		        return h;
+		    }
+		}
+	*/
+	data, _ := hex.DecodeString("6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032")
+
+	ex1, err := testutil.SignedExecution(action.EmptyAddress, priKey0, 1, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	require.NoError(err)
+	require.NoError(ap.Add(context.Background(), ex1))
+	deployHash = ex1.Hash()
+	blk, err := bc.MintNewBlock(testutil.TimestampNow())
+	require.NoError(err)
+	require.NoError(bc.CommitBlock(blk))
+
+	ap.Reset()
+	blockTime := time.Unix(1546329600, 0)
+	// get deployed contract address
+	var contract string
+	if dao != nil {
+		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		require.NoError(err)
+		contract = r.ContractAddress
+	}
+	addOneBlock := func(contract string, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (hash.Hash256, error) {
+		ex1, err := testutil.SignedExecution(contract, priKey0, nonce, amount, gasLimit, gasPrice, data)
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		blockTime = blockTime.Add(time.Second)
+		if err := ap.Add(context.Background(), ex1); err != nil {
+			return hash.ZeroHash256, err
+		}
+		blk, err = bc.MintNewBlock(blockTime)
+		if err != nil {
+			return hash.ZeroHash256, err
+		}
+		if err := bc.CommitBlock(blk); err != nil {
+			return hash.ZeroHash256, err
+		}
+		return ex1.Hash(), nil
+	}
+
+	getBlockHash := func(x int64) []byte {
+		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
+		blockNumber := abi.U256(big.NewInt(x))
+		return append(funcSig[:4], blockNumber...)
+	}
+
+	var (
+		zero     = big.NewInt(0)
+		gasLimit = testutil.TestGasLimit * 5
+		gasPrice = big.NewInt(testutil.TestGasPriceInt64)
+	)
+
+	acHash2, err := addOneBlock(contract, 2, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to all zero
+	require.NoError(err)
+	acHash3, err := addOneBlock(contract, 3, zero, gasLimit, gasPrice, getBlockHash(0)) // equal to block 2
+	require.NoError(err)
+	acHash4, err := addOneBlock(contract, 4, zero, gasLimit, gasPrice, getBlockHash(1)) // equal to block 2
+	require.NoError(err)
+	acHash5, err := addOneBlock(contract, 5, zero, gasLimit, gasPrice, getBlockHash(3)) // equal to block 1
+	require.NoError(err)
+	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
+	require.NoError(err)
+
+	tests := []struct {
+		acHash       hash.Hash256
+		commitHeight uint64
+		targetHeight uint64
+	}{
+		{acHash2, 2, 0},
+		{acHash3, 3, 2},
+		{acHash4, 4, 2},
+		{acHash5, 5, 1},
+		{acHash6, 6, 3},
+	}
+	for _, test := range tests {
+		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		require.NoError(err)
+		bcHash, err := dao.GetBlockHash(test.targetHeight)
+		require.NoError(err)
+		require.Equal(r.Logs()[0].Topics[0], bcHash)
+	}
 }
 
 func TestBlockchain_MintNewBlock(t *testing.T) {

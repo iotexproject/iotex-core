@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/ioctl/cmd/action"
 	"github.com/iotexproject/iotex-core/ioctl/config"
+	"github.com/iotexproject/iotex-core/ioctl/flag"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
 )
@@ -44,10 +45,6 @@ var contractTestFunctionCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	withArgumentsFlag.RegisterCommand(contractTestFunctionCmd)
-}
-
 func contractTestFunction(args []string) error {
 	addr, err := util.Address(args[0])
 	if err != nil {
@@ -74,7 +71,7 @@ func contractTestFunction(args []string) error {
 		}
 	}
 
-	bytecode, err := packArguments(abi, methodName, withArgumentsFlag.Value().(string))
+	bytecode, err := packArguments(abi, methodName, flag.WithArgumentsFlag.Value().(string))
 	if err != nil {
 		return output.NewError(output.ConvertError, "failed to pack given arguments", err)
 	}

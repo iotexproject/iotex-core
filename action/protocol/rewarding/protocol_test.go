@@ -297,7 +297,7 @@ func TestProtocol_Handle(t *testing.T) {
 	require.NoError(t, p.ForceRegister(registry))
 
 	// address package also defined protocol address, make sure they match
-	require.Equal(t, hash.BytesToHash160(p.addr.Bytes()), address.RewardingProtocolAddrHash)
+	require.Equal(t, p.addr.Bytes(), address.RewardingProtocolAddrHash[:])
 
 	cfg.Genesis.Rewarding.InitBalanceStr = "1000000"
 	cfg.Genesis.Rewarding.BlockRewardStr = "10"
