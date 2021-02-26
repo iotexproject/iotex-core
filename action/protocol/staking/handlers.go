@@ -313,6 +313,14 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		}
 	}
 
+	if p.hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && address.Equal(prevCandidate.Owner, candidate.Owner) {
+		// change to same candidate, do nothing
+		return log, &handleError{
+			err:           errors.New("change to same candidate"),
+			failureStatus: iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		}
+	}
+
 	// update bucket index
 	if err := delCandBucketIndex(csm, bucket.Candidate, act.BucketIndex()); err != nil {
 		return log, errors.Wrapf(err, "failed to delete candidate bucket index for candidate %s", bucket.Candidate.String())
@@ -381,6 +389,14 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 		}
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
+
+	if p.hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && address.Equal(newOwner, bucket.Owner) {
+		// change to same owner, do nothing
+		return log, &handleError{
+			err:           errors.New("transfer to same owner"),
+			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		}
+	}
 
 	// update bucket index
 	if err := delVoterBucketIndex(csm, bucket.Owner, act.BucketIndex()); err != nil {

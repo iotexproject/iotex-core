@@ -41,6 +41,11 @@ func (vr *VoteReviser) Revise(csm CandidateStateManager, height uint64) error {
 	return vr.flush(height, csm)
 }
 
+func (vr *VoteReviser) result(height uint64) (CandidateList, bool) {
+	cands, ok := vr.cache[height]
+	return cands, ok
+}
+
 func (vr *VoteReviser) storeToCache(height uint64, cands CandidateList) {
 	vr.cache[height] = cands
 }
