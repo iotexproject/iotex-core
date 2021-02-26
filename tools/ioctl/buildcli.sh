@@ -63,5 +63,5 @@ cd  $(dirname $0)
 
 gofmt -w ./
 
-CGO_ENABLED=1 GOARCH=amd64 go build -ldflags "${PackageFlags}" -o $release_dir/$project_name-$OS-amd64 -v .
+CGO_ENABLED=1 GOARCH=amd64 go build -tags netgo -ldflags "${PackageFlags}" -o $release_dir/$project_name-$OS-amd64 -v .
 #CGO_ENABLED=1 GOARCH=386 go build -o $release_dir/$project_name-$OS-386 -v .
