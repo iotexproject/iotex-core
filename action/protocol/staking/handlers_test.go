@@ -1546,6 +1546,26 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_Success,
 		},
+		// test change to same candidate (Hawaii fix)
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			"100000000000000000000",
+			"1200000000000000000000000",
+			101,
+			false,
+			0,
+			"test2",
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			genesis.Default.HawaiiBlockHeight,
+			time.Now(),
+			10000,
+			false,
+			nil,
+			iotextypes.ReceiptStatus_ErrCandidateAlreadyExist,
+		},
 	}
 
 	for _, test := range tests {
@@ -1566,7 +1586,7 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			Nonce:        test.nonce,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight:    1,
+			BlockHeight:    test.blkHeight,
 			BlockTimeStamp: time.Now(),
 			GasLimit:       1000000,
 		})
@@ -1611,20 +1631,20 @@ func TestProtocol_HandleChangeCandidate(t *testing.T) {
 			require.Equal(test.amount, bucket.StakedAmount.String())
 
 			// test candidate
-			candidate, _, err := getCandidate(sm, candidate.Owner)
-			require.NotNil(candidate)
+			cand, _, err := getCandidate(sm, candidate.Owner)
+			require.NotNil(cand)
 			require.NoError(err)
-			require.Equal(test.afterChange, candidate.Votes.String())
-			require.Equal(test.candidateName, candidate.Name)
-			require.Equal(candidate.Operator.String(), candidate.Operator.String())
-			require.Equal(candidate.Reward.String(), candidate.Reward.String())
-			require.Equal(candidate.Owner.String(), candidate.Owner.String())
-			require.Equal(test.afterChangeSelfStake, candidate.SelfStake.String())
+			require.Equal(test.afterChange, cand.Votes.String())
+			require.Equal(test.candidateName, cand.Name)
+			require.Equal(candidate.Operator.String(), cand.Operator.String())
+			require.Equal(candidate.Reward.String(), cand.Reward.String())
+			require.Equal(candidate.Owner.String(), cand.Owner.String())
+			require.Equal(test.afterChangeSelfStake, cand.SelfStake.String())
 			csm, err := NewCandidateStateManager(sm, false)
 			require.NoError(err)
-			candidate = csm.GetByOwner(candidate.Owner)
-			require.NotNil(candidate)
-			require.Equal(test.afterChange, candidate.Votes.String())
+			cand = csm.GetByOwner(candidate.Owner)
+			require.NotNil(cand)
+			require.Equal(test.afterChange, cand.Votes.String())
 
 			// test staker's account
 			caller, err := accountutil.LoadAccount(sm, hash.BytesToHash160(test.caller.Bytes()))
@@ -1741,6 +1761,25 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			nil,
 			iotextypes.ReceiptStatus_Success,
 		},
+		// test transfer to same owner
+		{
+			identityset.Address(2),
+			"100000000000000000000",
+			0,
+			101,
+			0,
+			big.NewInt(unit.Qev),
+			10000,
+			1,
+			genesis.Default.HawaiiBlockHeight,
+			time.Now(),
+			10000,
+			identityset.Address(2),
+			1,
+			false,
+			nil,
+			iotextypes.ReceiptStatus_ErrInvalidBucketType,
+		},
 	}
 
 	for _, test := range tests {
@@ -1764,7 +1803,7 @@ func TestProtocol_HandleTransferStake(t *testing.T) {
 			Nonce:        test.nonce,
 		})
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
-			BlockHeight:    1,
+			BlockHeight:    test.blkHeight,
 			BlockTimeStamp: time.Now(),
 			GasLimit:       10000000,
 		})
