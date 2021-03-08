@@ -76,7 +76,7 @@ func readFileHeader(filename, fileType string) (*FileHeader, error) {
 
 func fileExists(name string) error {
 	info, err := os.Stat(name)
-	if err != nil || info.IsDir() {
+	if err != nil || info.IsDir() || info.Size() == 0 {
 		return ErrFileNotExist
 	}
 	err = syscall.Access(name, syscall.O_RDWR)
