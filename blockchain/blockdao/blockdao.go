@@ -75,6 +75,7 @@ type (
 func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
 	blkStore, err := filedao.NewFileDAO(cfg)
 	if err != nil {
+		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
 		return nil
 	}
 	return createBlockDAO(blkStore, indexers, cfg)
