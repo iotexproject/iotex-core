@@ -37,7 +37,7 @@ var (
 // vars
 var (
 	ErrFileNotExist     = errors.New("file does not exist")
-	ErrFileAccess       = errors.New("file does not access")
+	ErrFileCantAccess   = errors.New("cannot access file")
 	ErrFileInvalid      = errors.New("file format is not valid")
 	ErrNotSupported     = errors.New("feature not supported")
 	ErrAlreadyExist     = errors.New("block already exist")
@@ -85,7 +85,7 @@ type (
 // NewFileDAO creates an instance of FileDAO
 func NewFileDAO(cfg config.DB) (FileDAO, error) {
 	header, err := checkMasterChainDBFile(cfg.DbPath)
-	if err == ErrFileInvalid || err == ErrFileAccess {
+	if err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
 	}
 
