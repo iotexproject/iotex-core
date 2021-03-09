@@ -49,26 +49,35 @@ type (
 
 	// StateDBAdapter represents the state db adapter for evm to access iotx blockchain
 	StateDBAdapter struct {
-		sm                 protocol.StateManager
-		logs               []*action.Log
-		transactionLogs    []*action.TransactionLog
-		err                error
-		blockHeight        uint64
-		executionHash      hash.Hash256
-		refund             uint64
-		cachedContract     contractMap
-		contractSnapshot   map[int]contractMap   // snapshots of contracts
-		suicided           deleteAccount         // account/contract calling Suicide
-		suicideSnapshot    map[int]deleteAccount // snapshots of suicide accounts
-		preimages          preimageMap
-		preimageSnapshot   map[int]preimageMap
-		notFixTopicCopyBug bool
-		asyncContractTrie  bool
+		sm                  protocol.StateManager
+		logs                []*action.Log
+		transactionLogs     []*action.TransactionLog
+		err                 error
+		blockHeight         uint64
+		executionHash       hash.Hash256
+		refund              uint64
+		cachedContract      contractMap
+		contractSnapshot    map[int]contractMap   // snapshots of contracts
+		suicided            deleteAccount         // account/contract calling Suicide
+		suicideSnapshot     map[int]deleteAccount // snapshots of suicide accounts
+		preimages           preimageMap
+		preimageSnapshot    map[int]preimageMap
+		notFixTopicCopyBug  bool
+		asyncContractTrie   bool
+		sortCachedContracts bool
 	}
 )
 
-// StateDBOption set StateDBAdapter construction param
-type StateDBOption func(*StateDBAdapter) error
+// StateDBAdapterOption set StateDBAdapter construction param
+type StateDBAdapterOption func(*StateDBAdapter) error
+
+// SortCachedContractsOption set sort cached contracts as true
+func SortCachedContractsOption() StateDBAdapterOption {
+	return func(adapter *StateDBAdapter) error {
+		adapter.sortCachedContracts = true
+		return nil
+	}
+}
 
 // NewStateDBAdapter creates a new state db with iotex blockchain
 func NewStateDBAdapter(
@@ -77,7 +86,7 @@ func NewStateDBAdapter(
 	notFixTopicCopyBug bool,
 	asyncContractTrie bool,
 	executionHash hash.Hash256,
-	opts ...StateDBOption,
+	opts ...StateDBAdapterOption,
 ) *StateDBAdapter {
 	s := &StateDBAdapter{
 		sm:                 sm,
@@ -371,15 +380,34 @@ func (stateDB *StateDBAdapter) RevertToSnapshot(snapshot int) {
 	// restore modified contracts
 	stateDB.cachedContract = nil
 	stateDB.cachedContract = stateDB.contractSnapshot[snapshot]
-	for addr, c := range stateDB.cachedContract {
-		if err := c.LoadRoot(); err != nil {
-			log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
-			return
+	if stateDB.sortCachedContracts {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c := stateDB.cachedContract[addr]
+			if err := c.LoadRoot(); err != nil {
+				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+				return
+			}
+		}
+	} else {
+		for addr, c := range stateDB.cachedContract {
+			if err := c.LoadRoot(); err != nil {
+				log.L().Error("Failed to load root for contract.", zap.Error(err), log.Hex("addrHash", addr[:]))
+				return
+			}
 		}
 	}
 	// restore preimages
 	stateDB.preimages = nil
 	stateDB.preimages = stateDB.preimageSnapshot[snapshot]
+}
+
+func (stateDB *StateDBAdapter) cachedContractAddrs() []hash.Hash160 {
+	addrs := make([]hash.Hash160, 0, len(stateDB.cachedContract))
+	for addr := range stateDB.cachedContract {
+		addrs = append(addrs, addr)
+	}
+	sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+	return addrs
 }
 
 // Snapshot returns the snapshot id
@@ -399,8 +427,14 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	stateDB.suicideSnapshot[sn] = sa
 	// save a copy of modified contracts
 	c := make(contractMap)
-	for k, v := range stateDB.cachedContract {
-		c[k] = v.Snapshot()
+	if stateDB.sortCachedContracts {
+		for _, addr := range stateDB.cachedContractAddrs() {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
+	} else {
+		for addr := range stateDB.cachedContract {
+			c[addr] = stateDB.cachedContract[addr].Snapshot()
+		}
 	}
 	stateDB.contractSnapshot[sn] = c
 	// save a copy of preimages
