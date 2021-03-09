@@ -14,6 +14,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
@@ -23,7 +24,7 @@ import (
 
 func checkMasterChainDBFile(defaultName string) (*FileHeader, error) {
 	h, err := readFileHeader(defaultName, FileAll)
-	if err == ErrFileNotExist || err == ErrFileInvalid {
+	if err == ErrFileNotExist || err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
 	}
 
@@ -39,10 +40,8 @@ func checkMasterChainDBFile(defaultName string) (*FileHeader, error) {
 }
 
 func readFileHeader(filename, fileType string) (*FileHeader, error) {
-	size, exist := fileExists(filename)
-	if !exist || size == 0 {
-		// default chain db file does not exist
-		return nil, ErrFileNotExist
+	if err := fileExists(filename); err != nil {
+		return nil, err
 	}
 
 	file := db.NewBoltDB(config.DB{DbPath: filename, NumRetries: 3})
@@ -74,12 +73,16 @@ func readFileHeader(filename, fileType string) (*FileHeader, error) {
 	}
 }
 
-func fileExists(name string) (int64, bool) {
+func fileExists(name string) error {
 	info, err := os.Stat(name)
-	if err != nil || info.IsDir() {
-		return 0, false
+	if err != nil || info.IsDir() || info.Size() == 0 {
+		return ErrFileNotExist
 	}
-	return info.Size(), true
+	err = syscall.Access(name, syscall.O_RDWR)
+	if err != nil {
+		return ErrFileCantAccess
+	}
+	return nil
 }
 
 func checkAuxFiles(filename, fileType string) (uint64, []string) {

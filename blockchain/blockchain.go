@@ -194,13 +194,11 @@ func NewBlockchain(cfg config.Config, dao blockdao.BlockDAO, bbf BlockBuilderFac
 		log.L().Panic("Failed to generate prometheus timer factory.", zap.Error(err))
 	}
 	chain.timerFactory = timerFactory
-	// Set block validator
-	if err != nil {
-		log.L().Panic("Failed to get block producer address.", zap.Error(err))
+	if chain.dao == nil {
+		log.L().Panic("blockdao is nil")
 	}
-	if chain.dao != nil {
-		chain.lifecycle.Add(chain.dao)
-	}
+	chain.lifecycle.Add(chain.dao)
+
 	return chain
 }
 
