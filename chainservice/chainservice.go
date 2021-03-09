@@ -385,9 +385,6 @@ func New(
 			return nil, err
 		}
 	}
-	if dao == nil {
-		return nil, errors.New("blockdao is nil")
-	}
 	executionProtocol := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	if executionProtocol != nil {
 		if err = executionProtocol.Register(registry); err != nil {

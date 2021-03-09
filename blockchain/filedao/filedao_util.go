@@ -40,8 +40,7 @@ func checkMasterChainDBFile(defaultName string) (*FileHeader, error) {
 }
 
 func readFileHeader(filename, fileType string) (*FileHeader, error) {
-	err := fileExists(filename)
-	if err != nil {
+	if err := fileExists(filename); err != nil {
 		return nil, err
 	}
 
