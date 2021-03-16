@@ -352,8 +352,10 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	}
 	// Add to local actpool
 	ctx = protocol.WithRegistry(ctx, api.registry)
+	hash := selp.Hash()
+	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = api.ap.Add(ctx, selp); err != nil {
-		log.L().Debug(err.Error())
+		l.Error("Failed to accept action", zap.Error(err))
 		var desc string
 		switch errors.Cause(err) {
 		case action.ErrBalance:
@@ -387,9 +389,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	// If there is no error putting into local actpool,
 	// Broadcast it to the network
 	if err = api.broadcastHandler(context.Background(), api.bc.ChainID(), in.Action); err != nil {
-		log.L().Warn("Failed to broadcast SendAction request.", zap.Error(err))
+		l.Warn("Failed to broadcast SendAction request.", zap.Error(err))
 	}
-	hash := selp.Hash()
 	return &iotexapi.SendActionResponse{ActionHash: hex.EncodeToString(hash[:])}, nil
 }
 

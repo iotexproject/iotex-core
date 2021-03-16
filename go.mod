@@ -37,10 +37,11 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tyler-smith/go-bip39 v1.0.2
+	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9

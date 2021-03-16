@@ -9,11 +9,9 @@ package blocksync
 import (
 	"sync"
 
-	"github.com/iotexproject/iotex-election/db"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus"
@@ -68,8 +66,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 	b.blocks[blkHeight] = blk
 	l := log.L().With(
 		zap.Uint64("recvHeight", blkHeight),
-		zap.Uint64("confirmedHeight", confirmedHeight),
-		zap.String("source", "blockBuffer"))
+		zap.Uint64("confirmedHeight", confirmedHeight))
 	var heightToSync uint64
 	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.bufferSize; heightToSync++ {
 		blk, ok := b.blocks[heightToSync]
@@ -78,15 +75,12 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		}
 		delete(b.blocks, heightToSync)
 		if err := commitBlock(b.bc, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
-			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected || errors.Cause(err) == db.ErrNotExist {
-				l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
-			} else {
-				l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
-			}
+			l.With(
+				zap.Uint64("syncHeight", heightToSync),
+				zap.Strings("actionHash", blk.ActionHashs())).Error("Failed to commit the block.", zap.Error(err))
 			break
 		}
 		b.commitHeight = heightToSync
-		l.Info("Successfully committed block.", zap.Uint64("syncedHeight", heightToSync))
 	}
 
 	// clean up on memory leak

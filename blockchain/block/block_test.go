@@ -53,16 +53,23 @@ func TestMerkle(t *testing.T) {
 	require.NoError(err)
 
 	// create block using above 5 tx and verify merkle
+	actions := []action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4}
 	block := NewBlockDeprecated(
 		0,
 		0,
 		hash.ZeroHash256,
 		testutil.TimestampNow(),
 		producerPubKey,
-		[]action.SealedEnvelope{selp0, selp1, selp2, selp3, selp4},
+		actions,
 	)
 	hash := block.CalculateTxRoot()
 	require.Equal("eb5cb75ae199d96de7c1cd726d5e1a3dff15022ed7bdc914a3d8b346f1ef89c9", hex.EncodeToString(hash[:]))
+
+	hashes := block.ActionHashs()
+	for i := range hashes {
+		h := actions[i].Hash()
+		require.Equal(hex.EncodeToString(h[:]), hashes[i])
+	}
 
 	t.Log("Merkle root match pass\n")
 }
