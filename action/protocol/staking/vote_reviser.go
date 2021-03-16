@@ -116,10 +116,14 @@ func (vr *VoteReviser) flush(height uint64, csm CandidateStateManager) error {
 		return nil
 	}
 	sort.Sort(cands)
+	log.L().Info("committed revise action",
+		zap.Uint64("height", height), zap.Int("number of cands", len(cands)))
 	for _, cand := range cands {
 		if err := csm.Upsert(cand); err != nil {
 			return err
 		}
+		log.L().Info("committed revise action",
+			zap.String("name", cand.Name), zap.String("votes", cand.Votes.String()))
 	}
 	return nil
 }

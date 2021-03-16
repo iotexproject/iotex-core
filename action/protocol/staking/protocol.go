@@ -8,6 +8,7 @@ package staking
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 	"time"
 
@@ -338,7 +339,9 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	}
 
 	if receiptErr, ok := err.(ReceiptError); ok {
-		log.L().Debug("Non-critical error when processing staking action", zap.Error(err))
+		actionCtx := protocol.MustGetActionCtx(ctx)
+		log.L().With(
+			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Info("Failed to commit staking action", zap.Error(err))
 		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err

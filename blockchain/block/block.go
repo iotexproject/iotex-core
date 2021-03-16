@@ -7,6 +7,7 @@
 package block
 
 import (
+	"encoding/hex"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -151,4 +152,14 @@ func (b *Block) TransactionLog() *BlkTransactionLog {
 		return nil
 	}
 	return &blkLog
+}
+
+// ActionHashs returns action hashs in the block
+func (b *Block) ActionHashs() []string {
+	actHash := make([]string, len(b.Actions))
+	for i := range b.Actions {
+		h := b.Actions[i].Hash()
+		actHash[i] = hex.EncodeToString(h[:])
+	}
+	return actHash
 }
