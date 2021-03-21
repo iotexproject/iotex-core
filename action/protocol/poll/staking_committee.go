@@ -34,8 +34,11 @@ import (
 	"github.com/iotexproject/iotex-core/state"
 )
 
-var nativeStakingContractCreator = address.ZeroAddress
-var nativeStakingContractNonce = uint64(0)
+var (
+	nativeStakingContractCreator = address.ZeroAddress
+	nativeStakingContractNonce   = uint64(0)
+	nativeStakingContractHash, _ = hash.HexStringToHash256("000000000000006e61746976655374616b696e67436f6e747261637448617368")
+)
 
 type stakingCommittee struct {
 	electionCommittee    committee.Committee
@@ -124,7 +127,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		return err
 	}
 	actionCtx.Nonce = nativeStakingContractNonce
-	actionCtx.ActionHash = execution.Hash()
+	actionCtx.ActionHash = nativeStakingContractHash
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {

@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 )
 
@@ -18,10 +17,9 @@ import (
 type AbstractAction struct {
 	version   uint32
 	nonce     uint64
-	srcPubkey crypto.PublicKey
 	gasLimit  uint64
 	gasPrice  *big.Int
-	hash      hash.Hash256
+	srcPubkey crypto.PublicKey
 }
 
 // Version returns the version
@@ -29,9 +27,6 @@ func (act *AbstractAction) Version() uint32 { return act.version }
 
 // Nonce returns the nonce
 func (act *AbstractAction) Nonce() uint64 { return act.nonce }
-
-// SrcPubkey returns the source public key
-func (act *AbstractAction) SrcPubkey() crypto.PublicKey { return act.srcPubkey }
 
 // GasLimit returns the gas limit
 func (act *AbstractAction) GasLimit() uint64 { return act.gasLimit }
@@ -44,9 +39,6 @@ func (act *AbstractAction) GasPrice() *big.Int {
 	}
 	return p.Set(act.gasPrice)
 }
-
-// Hash returns the hash value of referred SealedActionEnvelope hash.
-func (act *AbstractAction) Hash() hash.Hash256 { return act.hash }
 
 // BasicActionSize returns the basic size of action
 func (act *AbstractAction) BasicActionSize() uint32 {
@@ -67,16 +59,11 @@ func (act *AbstractAction) SetEnvelopeContext(selp SealedEnvelope) {
 	if act == nil {
 		return
 	}
-	ab := &Builder{}
-	*act = ab.SetVersion(selp.Version()).
-		SetNonce(selp.Nonce()).
-		SetSourcePublicKey(selp.SrcPubkey()).
-		SetGasLimit(selp.GasLimit()).
-		SetGasPrice(selp.GasPrice()).
-		Build()
-
-	// the reason to set hash here, after set act context, is because some actions use envelope information in their proto define. for example transfer use des addr as Receipt.
-	act.hash = selp.Hash()
+	act.version = selp.Version()
+	act.nonce = selp.Nonce()
+	act.gasLimit = selp.GasLimit()
+	act.gasPrice = selp.GasPrice()
+	act.srcPubkey = selp.SrcPubkey()
 }
 
 // SanityCheck validates the variables in the action

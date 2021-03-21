@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -59,11 +58,6 @@ func NewExecution(
 		amount:   amount,
 		data:     data,
 	}, nil
-}
-
-// ExecutorPublicKey returns the executor's public key
-func (ex *Execution) ExecutorPublicKey() crypto.PublicKey {
-	return ex.SrcPubkey()
 }
 
 // Contract returns a contract address

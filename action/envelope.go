@@ -120,7 +120,6 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if elp == nil {
 		return errors.New("nil action to load proto")
 	}
-	*elp = Envelope{}
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()

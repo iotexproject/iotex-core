@@ -24,17 +24,24 @@ func TestExecutionSignVerify(t *testing.T) {
 	executorKey := identityset.PrivateKey(27)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
-	ex, err := NewExecution(contractAddr.String(), 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
+	ex, err := NewExecution(contractAddr.String(), 2, big.NewInt(10), uint64(100000), big.NewInt(10), data)
 	require.NoError(err)
+	require.Nil(ex.srcPubkey)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetNonce(0).
-		SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
+	elp := bd.SetNonce(ex.nonce).
+		SetGasLimit(ex.gasLimit).
+		SetGasPrice(ex.gasPrice).
 		SetAction(ex).Build()
+
+	require.Equal("0801100218a08d0622023130622f0a0231301229696f3172633264326465377274757563616c7371763464396e673068323937743633773777766c7068", hex.EncodeToString(elp.Serialize()))
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
+	ex2, ok := w.Envelope.payload.(*Execution)
+	require.True(ok)
+	require.Equal(ex, ex2)
+	require.NotNil(ex.srcPubkey)
 
 	// sign the Execution
 	selp, err := Sign(elp, executorKey)

@@ -29,11 +29,9 @@ type Action interface {
 }
 
 type actionPayload interface {
-	Serialize() []byte
+	Action
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
-	SetEnvelopeContext(SealedEnvelope)
-	SanityCheck() error
 }
 
 type hasDestination interface {
