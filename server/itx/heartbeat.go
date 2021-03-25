@@ -9,6 +9,7 @@ package itx
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	"github.com/iotexproject/go-fsm"
@@ -16,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
@@ -52,11 +54,15 @@ func init() {
 // HeartbeatHandler is the handler to periodically log the system key metrics
 type HeartbeatHandler struct {
 	s *Server
+	l *zap.Logger
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server) *HeartbeatHandler {
-	return &HeartbeatHandler{s: s}
+func NewHeartbeatHandler(s *Server, cfg config.Network) *HeartbeatHandler {
+	return &HeartbeatHandler{
+		s: s,
+		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),
+	}
 }
 
 // Log executes the logging logic
@@ -67,24 +73,24 @@ func (h *HeartbeatHandler) Log() {
 	// Dispatcher metrics
 	dp, ok := h.s.Dispatcher().(*dispatcher.IotxDispatcher)
 	if !ok {
-		log.L().Error("dispatcher is not the instance of IotxDispatcher")
+		h.l.Error("dispatcher is not the instance of IotxDispatcher")
 		return
 	}
 	numDPEvts := dp.EventQueueSize()
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
-		log.L().Error("error when serializing the dispatcher event audit map.", zap.Error(err))
+		h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
 		return
 	}
 
 	ctx := context.Background()
 	peers, err := p2pAgent.Neighbors(ctx)
 	if err != nil {
-		log.L().Debug("error when get neighbors.", zap.Error(err))
+		h.l.Debug("error when get neighbors.", zap.Error(err))
 		peers = nil
 	}
 	numPeers := len(peers)
-	log.L().Info("Node status.",
+	h.l.Info("Node status.",
 		zap.Int("numPeers", numPeers),
 		zap.Int("pendingDispatcherEvents", numDPEvts),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
@@ -96,7 +102,7 @@ func (h *HeartbeatHandler) Log() {
 		// Consensus metrics
 		cs, ok := c.Consensus().(*consensus.IotxConsensus)
 		if !ok {
-			log.L().Info("consensus is not the instance of IotxConsensus.")
+			h.l.Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
@@ -115,14 +121,14 @@ func (h *HeartbeatHandler) Log() {
 			consensusMetrics, err = rolldpos.Metrics()
 			if err != nil {
 				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
-					log.L().Error("failed to read consensus metrics", zap.Error(err))
+					h.l.Error("failed to read consensus metrics", zap.Error(err))
 					return
 				}
 			}
 			consensusEpoch = consensusMetrics.LatestEpoch
 			consensusHeight = consensusMetrics.LatestHeight
 		} else {
-			log.L().Debug("scheme is not the instance of RollDPoS")
+			h.l.Debug("scheme is not the instance of RollDPoS")
 		}
 
 		// Block metrics
@@ -130,7 +136,7 @@ func (h *HeartbeatHandler) Log() {
 		actPoolCapacity := c.ActionPool().GetCapacity()
 		targetHeight := c.BlockSync().TargetHeight()
 
-		log.L().Info("chain service status",
+		h.l.Info("chain service status",
 			zap.Int("rolldposEvents", numPendingEvts),
 			zap.String("fsmState", string(state)),
 			zap.Uint64("blockchainHeight", height),

@@ -182,7 +182,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	probeSvr.Ready()
 
 	if cfg.System.HeartbeatInterval > 0 {
-		task := routine.NewRecurringTask(NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
+		task := routine.NewRecurringTask(NewHeartbeatHandler(svr, cfg.Network).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
 			log.L().Panic("Failed to start heartbeat routine.", zap.Error(err))
 		}
