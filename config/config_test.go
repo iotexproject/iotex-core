@@ -110,8 +110,9 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	_, err := New()
+	cfg, err := New()
 	require.NoError(t, err)
+	require.Equal(t, cfg.Chain.ExternChainID, ExternChainID())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
@@ -104,8 +105,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		if _, err := actionToRLP(elp.Action()); err != nil {
 			return err
 		}
-		// TODO: use global extern chain ID
-		sealed.externChainID = 4689
+		sealed.externChainID = config.ExternChainID()
 	}
 
 	// populate pubkey and signature

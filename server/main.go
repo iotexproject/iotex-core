@@ -59,6 +59,10 @@ func main() {
 	}
 	initLogger(cfg)
 
+	if config.ExternChainID() == 0 {
+		glog.Fatalln("Extern chain ID not set, call config.New() first")
+	}
+
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
