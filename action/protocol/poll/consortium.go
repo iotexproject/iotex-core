@@ -25,6 +25,7 @@ import (
 var (
 	consortiumCommitteeContractCreator = address.ZeroAddress
 	consortiumCommitteeContractNonce   = uint64(0)
+	// this is a special execution that is not signed, set hash = hex-string of "consortiumCommitteeContractHash"
 	consortiumCommitteeContractHash, _ = hash.HexStringToHash256("00636f6e736f727469756d436f6d6d6974746565436f6e747261637448617368")
 )
 

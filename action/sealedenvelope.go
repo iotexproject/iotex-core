@@ -51,6 +51,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		return errors.New("nil action to load proto")
 	}
 
+	*sealed = SealedEnvelope{}
 	if err := sealed.Envelope.LoadProto(pbAct.GetCore()); err != nil {
 		return err
 	}
