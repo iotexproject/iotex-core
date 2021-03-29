@@ -1158,7 +1158,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid public key",
+			"empty action proto to load",
 		},
 		{
 			func() (*Server, string, error) {

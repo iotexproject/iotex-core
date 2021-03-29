@@ -47,22 +47,23 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
-	srcPub, err := crypto.BytesToPublicKey(pbAct.GetSenderPubKey())
-	if err != nil {
-		return err
-	}
 	if sealed == nil {
 		return errors.New("nil action to load proto")
 	}
-	*sealed = SealedEnvelope{}
 
-	sealed.srcPubkey = srcPub
-	sealed.signature = make([]byte, len(pbAct.GetSignature()))
-	copy(sealed.signature, pbAct.GetSignature())
+	*sealed = SealedEnvelope{}
 	if err := sealed.Envelope.LoadProto(pbAct.GetCore()); err != nil {
 		return err
 	}
 
+	// populate pubkey and signature
+	srcPub, err := crypto.BytesToPublicKey(pbAct.GetSenderPubKey())
+	if err != nil {
+		return err
+	}
+	sealed.srcPubkey = srcPub
+	sealed.signature = make([]byte, len(pbAct.GetSignature()))
+	copy(sealed.signature, pbAct.GetSignature())
 	sealed.payload.SetEnvelopeContext(*sealed)
 	return nil
 }

@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
@@ -28,7 +28,6 @@ import (
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestProtocol_ValidateTransfer(t *testing.T) {
@@ -154,7 +153,6 @@ func TestProtocol_HandleTransfer(t *testing.T) {
 		if tLog != nil {
 			require.NotNil(tLog)
 			pbLog := tLog.Proto()
-			require.Equal(tsf.Hash(), hash.BytesToHash256(pbLog.ActionHash))
 			require.EqualValues(v.contractLog, pbLog.NumTransactions)
 			// TODO: verify gas transaction log
 			if len(pbLog.Transactions) > 1 {

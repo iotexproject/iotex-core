@@ -25,6 +25,8 @@ import (
 var (
 	consortiumCommitteeContractCreator = address.ZeroAddress
 	consortiumCommitteeContractNonce   = uint64(0)
+	// this is a special execution that is not signed, set hash = hex-string of "consortiumCommitteeContractHash"
+	consortiumCommitteeContractHash, _ = hash.HexStringToHash256("00636f6e736f727469756d436f6d6d6974746565436f6e747261637448617368")
 )
 
 type contractReader interface {
@@ -113,7 +115,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		return err
 	}
 	actionCtx.Nonce = consortiumCommitteeContractNonce
-	actionCtx.ActionHash = execution.Hash()
+	actionCtx.ActionHash = consortiumCommitteeContractHash
 	actionCtx.GasPrice = execution.GasPrice()
 	actionCtx.IntrinsicGas, err = execution.IntrinsicGas()
 	if err != nil {

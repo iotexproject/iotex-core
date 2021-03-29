@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -65,9 +64,6 @@ func (tsf *Transfer) Amount() *big.Int { return tsf.amount }
 
 // Payload returns the payload bytes
 func (tsf *Transfer) Payload() []byte { return tsf.payload }
-
-// SenderPublicKey returns the sender public key. It's the wrapper of Action.SrcPubkey
-func (tsf *Transfer) SenderPublicKey() crypto.PublicKey { return tsf.SrcPubkey() }
 
 // Recipient returns the recipient address. It's the wrapper of Action.DstAddr
 func (tsf *Transfer) Recipient() string { return tsf.recipient }
