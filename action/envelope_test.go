@@ -1,10 +1,10 @@
 package action
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
@@ -64,7 +64,9 @@ func TestEnvelope_Action(t *testing.T) {
 }
 func TestEnvelope_Proto(t *testing.T) {
 	req := require.New(t)
-	evlp, tsf := createEnvelope()
+	eb, tsf := createEnvelope()
+	evlp, ok := eb.(*envelope)
+	req.True(ok)
 	proto := evlp.Proto()
 	actCore := &iotextypes.ActionCore{
 		Version:  evlp.version,
@@ -83,25 +85,16 @@ func TestEnvelope_LoadProto(t *testing.T) {
 }
 func TestEnvelope_Serialize(t *testing.T) {
 	req := require.New(t)
-	evlp, _ := createEnvelope()
-	s := evlp.Serialize()
-	pS := []byte{8, 1, 16, 10, 24, 170, 156, 1, 34, 20, 49, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48,
-		48, 48, 48, 48, 82, 67, 10, 22,
-		49, 48, 49, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 18, 41, 105, 111, 49,
-		106, 104, 48, 101, 107,
-		109, 99, 99, 121, 119, 102, 107, 109, 106, 55, 101, 56, 113, 115, 117, 122, 115, 117, 112, 110, 108, 107, 51,
-		119, 53, 51, 51, 55,
-		104, 106, 106, 103, 50}
-	req.Equal(pS, s)
+	eb, _ := createEnvelope()
+	evlp, ok := eb.(*envelope)
+	req.True(ok)
+	req.Equal("0801100a18aa9c012214313130303030303030303030303030303030303052430a16313031303030303030303030303030303030303030301229696f316a6830656b6d63637977666b6d6a3765387173757a7375706e6c6b337735333337686a6a6732", hex.EncodeToString(evlp.serialize()))
 }
 func TestEnvelope_Hash(t *testing.T) {
 	req := require.New(t)
 	evlp, _ := createEnvelope()
 	h := evlp.Hash()
-	exp := []byte{12, 96, 244, 62, 13, 20, 16, 178, 130, 189, 206, 184, 104, 43, 140, 139, 17, 252, 15, 3, 245, 89,
-		130, 95, 81, 181, 95, 33, 100, 52, 71, 233}
-	expH := hash.BytesToHash256(exp)
-	req.Equal(expH, h)
+	req.Equal("0c60f43e0d1410b282bdceb8682b8c8b11fc0f03f559825f51b55f21643447e9", hex.EncodeToString(h[:]))
 }
 func createEnvelope() (Envelope, *Transfer) {
 	tsf, _ := NewTransfer(

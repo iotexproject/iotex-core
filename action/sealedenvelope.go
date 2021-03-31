@@ -51,8 +51,8 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		return errors.New("nil action to load proto")
 	}
 
-	*sealed = SealedEnvelope{}
-	if err := sealed.Envelope.LoadProto(pbAct.GetCore()); err != nil {
+	var elp Envelope = &envelope{}
+	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
 		return err
 	}
 
@@ -61,9 +61,12 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	if err != nil {
 		return err
 	}
+
+	// clear 'sealed' and populate new value
+	*sealed = SealedEnvelope{}
+	sealed.Envelope = elp
 	sealed.srcPubkey = srcPub
 	sealed.signature = make([]byte, len(pbAct.GetSignature()))
 	copy(sealed.signature, pbAct.GetSignature())
-	sealed.payload.SetEnvelopeContext(*sealed)
-	return nil
+	return elp.SetSealedContext(*sealed)
 }
