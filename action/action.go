@@ -13,13 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-)
-
-var (
-	// ErrAction indicates error for an action
-	ErrAction = errors.New("action error")
-	// ErrAddress indicates error of address
-	ErrAddress = errors.New("address error")
+	"github.com/iotexproject/go-pkgs/hash"
 )
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
@@ -46,13 +40,13 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		srcPubkey: sk.PublicKey(),
 	}
 
-	hash := act.Hash()
-	sig, err := sk.Sign(hash[:])
+	h := act.Hash()
+	sig, err := sk.Sign(h[:])
 	if err != nil {
-		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
+		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
 	}
 	sealed.signature = sig
-	act.SetSealedContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed, nil
 }
 
@@ -63,7 +57,7 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	act.SetSealedContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -75,7 +69,7 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 		srcPubkey: pk,
 		signature: sig,
 	}
-	act.SetSealedContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -90,14 +84,17 @@ func Verify(sealed SealedEnvelope) error {
 		return errors.Wrap(ErrInsufficientBalanceForGas, "insufficient gas")
 	}
 
-	hash := sealed.Envelope.Hash()
-	if sealed.SrcPubkey().Verify(hash[:], sealed.Signature()) {
+	h := sealed.rawHash()
+	if h == hash.ZeroHash256 {
+		return errors.New("invalid transaction with empty hash")
+	}
+	if sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
 		return nil
 	}
 	return errors.Wrapf(
 		ErrAction,
 		"failed to verify action hash = %x and signature = %x",
-		hash,
+		h,
 		sealed.Signature(),
 	)
 }

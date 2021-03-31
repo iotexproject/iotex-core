@@ -1145,7 +1145,7 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(test.actionHash, res.ActionHash)
 	}
 
-	// 2 failure cases
+	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
 		server func() (*Server, string, error)
@@ -1158,6 +1158,16 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
+			"invalid signature length =",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			&iotextypes.Action{
+				Signature: testutil.ValidSig,
+			},
 			"empty action proto to load",
 		},
 		{

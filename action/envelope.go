@@ -27,7 +27,6 @@ type (
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
-		SetSealedContext(SealedEnvelope) error
 	}
 
 	envelope struct {
@@ -253,9 +252,3 @@ func (elp *envelope) Hash() hash.Hash256 {
 
 // SetNonce sets the nonce value
 func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }
-
-// SetSealedContext sets the SealedEnvelope context to envelope
-func (elp *envelope) SetSealedContext(selp SealedEnvelope) error {
-	elp.payload.SetEnvelopeContext(selp)
-	return nil
-}
