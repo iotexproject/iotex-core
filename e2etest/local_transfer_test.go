@@ -323,7 +323,7 @@ func TestLocalTransfer(t *testing.T) {
 	probeSvr := probe.New(7788)
 	require.NoError(probeSvr.Start(ctx))
 	defer func() {
-		require.NoError(probeSvr.Stop(ctx))
+		probeSvr.Stop(ctx)
 	}()
 
 	// Start server
