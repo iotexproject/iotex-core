@@ -322,13 +322,14 @@ func TestLocalTransfer(t *testing.T) {
 	ctx := context.Background()
 	probeSvr := probe.New(7788)
 	require.NoError(probeSvr.Start(ctx))
-	defer func() {
-		probeSvr.Stop(ctx)
-	}()
 
 	// Start server
 	ctx, stopServer := context.WithCancel(ctx)
-	defer stopServer()
+	defer func() {
+		require.NoError(probeSvr.Stop(ctx))
+		stopServer()
+	}()
+
 	go itx.StartServer(ctx, svr, probeSvr, cfg)
 
 	// target address for grpc connection. Default is "127.0.0.1:14014"
