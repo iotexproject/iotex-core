@@ -1521,7 +1521,6 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	return logs, nil
 }
 
-// TODO: Since GasConsumed on the receipt may not be enough for the gas limit, we use binary search for the gas estimate. Need a better way to address it later.
 func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
@@ -1538,32 +1537,18 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	sc, _ = action.NewExecution(
-		sc.Contract(),
-		nonce,
-		sc.Amount(),
-		api.cfg.Genesis.BlockGasLimit,
-		big.NewInt(0),
-		sc.Data(),
-	)
-
-	ctx, err := api.bc.Context()
-	if err != nil {
-		return nil, err
-	}
-	_, receipt, err := api.sf.SimulateExecution(ctx, callerAddr, sc, api.dao.GetBlockHash)
-
+	enough, receipt, err := api.isGasLimitEnough(callerAddr, sc, nonce, api.cfg.Genesis.BlockGasLimit)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	if receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {
+	if !enough {
 		if receipt.ExecutionRevertMsg() != "" {
 			return nil, status.Errorf(codes.Internal, fmt.Sprintf("execution simulation is reverted due to the reason: %s", receipt.ExecutionRevertMsg()))
 		}
-		return nil, status.Error(codes.Internal, "execution simulation is failed")
+		return nil, status.Error(codes.Internal, fmt.Sprintf("execution simulation failed: status = %d", receipt.Status))
 	}
 	estimatedGas := receipt.GasConsumed
-	enough, err := api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
+	enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -1572,15 +1557,16 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		estimatedGas = high
 		for low <= high {
 			mid := (low + high) / 2
-			enough, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
+			enough, _, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
 			if err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 			if enough {
 				estimatedGas = mid
-				break
+				high = mid - 1
+			} else {
+				low = mid + 1
 			}
-			low = mid + 1
 		}
 	}
 
@@ -1601,7 +1587,7 @@ func (api *Server) isGasLimitEnough(
 	sc *action.Execution,
 	nonce uint64,
 	gasLimit uint64,
-) (bool, error) {
+) (bool, *action.Receipt, error) {
 	sc, _ = action.NewExecution(
 		sc.Contract(),
 		nonce,
@@ -1612,13 +1598,13 @@ func (api *Server) isGasLimitEnough(
 	)
 	ctx, err := api.bc.Context()
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
 	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
 	if err != nil {
-		return false, err
+		return false, nil, err
 	}
-	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), nil
+	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), receipt, nil
 }
 
 func (api *Server) getProductivityByEpoch(

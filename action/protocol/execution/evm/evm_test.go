@@ -188,3 +188,47 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
 	}
 }
+
+func TestGasEstimate(t *testing.T) {
+	require := require.New(t)
+
+	for _, v := range []struct {
+		gas, consume, refund uint64
+		data                 []byte
+	}{
+		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, make([]byte, 20000)},
+		{1000000, 245600, 100000, make([]byte, 5600)},
+		{500000, 21000, 10000, make([]byte, 36)},
+	} {
+		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.data)
+		require.NoError(err)
+		gasConsumed := v.gas - remainingGas
+		require.Equal(v.gas-evmLeftOver, gasConsumed+v.refund)
+
+		// if we use gasConsumed + refund, EVM will consume the exact amount of gas
+		evmLeftOver, remainingGas, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
+		require.NoError(err)
+		require.Zero(evmLeftOver)
+	}
+}
+
+// gasExecuteInEVM performs gas calculation during EVM execution
+func gasExecuteInEVM(gas, consume, refund uint64, data []byte) (uint64, uint64, error) {
+	remainingGas := gas
+
+	intriGas, err := intrinsicGas(data)
+	if err != nil {
+		return 0, 0, err
+	}
+	if remainingGas < intriGas {
+		return 0, 0, ErrInconsistentNonce
+	}
+	remainingGas -= intriGas
+
+	// simulate EVM consumes 'consume' amount of gas
+	if remainingGas < consume {
+		return 0, 0, ErrInconsistentNonce
+	}
+	remainingGas -= consume
+	return remainingGas, remainingGas + refund, nil
+}
