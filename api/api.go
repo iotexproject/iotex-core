@@ -1521,6 +1521,7 @@ func (api *Server) getLogsInRange(filter *logfilter.LogFilter, start, end, pagin
 	return logs, nil
 }
 
+// TODO: Since GasConsumed on the receipt may not be enough for the gas limit, we use binary search for the gas estimate. Need a better way to address it later.
 func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Execution, sender string) (*iotexapi.EstimateActionGasConsumptionResponse, error) {
 	sc := &action.Execution{}
 	if err := sc.LoadProto(exec); err != nil {
@@ -1561,10 +1562,28 @@ func (api *Server) estimateActionGasConsumptionForExecution(exec *iotextypes.Exe
 		}
 		return nil, status.Error(codes.Internal, "execution simulation is failed")
 	}
+	estimatedGas := receipt.GasConsumed
+	enough, err := api.isGasLimitEnough(callerAddr, sc, nonce, estimatedGas)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if !enough {
+		low, high := estimatedGas, api.cfg.Genesis.BlockGasLimit
+		estimatedGas = high
+		for low <= high {
+			mid := (low + high) / 2
+			enough, err = api.isGasLimitEnough(callerAddr, sc, nonce, mid)
+			if err != nil {
+				return nil, status.Error(codes.Internal, err.Error())
+			}
+			if enough {
+				estimatedGas = mid
+				break
+			}
+			low = mid + 1
+		}
+	}
 
-	// for our EVM, 2*GasConsumed will make it consume all the input gas
-	// add 25% as safety margin
-	estimatedGas := 2*receipt.GasConsumed + (receipt.GasConsumed >> 1)
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: estimatedGas,
 	}, nil
@@ -1575,6 +1594,31 @@ func (api *Server) estimateActionGasConsumptionForTransfer(transfer *iotextypes.
 	return &iotexapi.EstimateActionGasConsumptionResponse{
 		Gas: payloadSize*action.TransferPayloadGas + action.TransferBaseIntrinsicGas,
 	}, nil
+}
+
+func (api *Server) isGasLimitEnough(
+	caller address.Address,
+	sc *action.Execution,
+	nonce uint64,
+	gasLimit uint64,
+) (bool, error) {
+	sc, _ = action.NewExecution(
+		sc.Contract(),
+		nonce,
+		sc.Amount(),
+		gasLimit,
+		big.NewInt(0),
+		sc.Data(),
+	)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return false, err
+	}
+	_, receipt, err := api.sf.SimulateExecution(ctx, caller, sc, api.dao.GetBlockHash)
+	if err != nil {
+		return false, err
+	}
+	return receipt.Status == uint64(iotextypes.ReceiptStatus_Success), nil
 }
 
 func (api *Server) getProductivityByEpoch(

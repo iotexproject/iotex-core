@@ -1312,7 +1312,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 	}
 	res, err := svr.EstimateActionGasConsumption(context.Background(), request)
 	require.NoError(err)
-	require.Equal(uint64(716447), res.Gas)
+	require.Equal(uint64(286579), res.Gas)
 
 	// test for transfer
 	tran, err := action.NewTransfer(0, big.NewInt(0), "", []byte("123"), 0, big.NewInt(0))
