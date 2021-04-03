@@ -17,6 +17,9 @@ import (
 	"github.com/cenkalti/backoff"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
@@ -78,6 +81,7 @@ type simpleTransferTestCfg struct {
 	gasPrice        *big.Int
 	expectedResult  TransferState
 	message         string
+	expectedDesc    string
 }
 
 var (
@@ -106,6 +110,7 @@ var (
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
 			TsfSuccess, "Normal transfer from an account with enough balance and gas",
+			"",
 		},
 		{
 			AcntCreate, nil, big.NewInt(232222),
@@ -114,6 +119,7 @@ var (
 			make([]byte, 0),
 			uint64(200000), big.NewInt(1),
 			TsfSuccess, "Transfer with just enough balance",
+			"",
 		},
 		{
 			AcntCreate, nil, big.NewInt(1000000),
@@ -122,6 +128,7 @@ var (
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
 			TsfSuccess, "Normal transfer to an address not created on block chain",
+			"",
 		},
 		{
 			AcntCreate, nil, big.NewInt(100000),
@@ -130,6 +137,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfSuccess, "Transfer with 0 amount",
+			"",
 		},
 		{
 			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
@@ -138,6 +146,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfSuccess, "Transfer with same nonce from a single sender 1",
+			"",
 		},
 		{
 			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
@@ -146,6 +155,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfPending, "Transfer with a sequence of nonce from a single sender 1",
+			"",
 		},
 		{
 			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
@@ -154,6 +164,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfPending, "Transfer with a sequence of nonce from a single sender 2",
+			"",
 		},
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
@@ -162,6 +173,7 @@ var (
 			make([]byte, 0),
 			uint64(200000), big.NewInt(0),
 			TsfPending, "Transfer to multiple accounts with not enough total balance 1",
+			"",
 		},
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
@@ -170,6 +182,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(0),
 			TsfPending, "Transfer to multiple accounts with not enough total balance 2",
+			"",
 		},
 		{
 			AcntCreate, nil, big.NewInt(1000000),
@@ -178,33 +191,35 @@ var (
 			make([]byte, 100),             //payload
 			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
 			TsfFail, "Normal transfer to a bad address",
+			"Unknown", // TODO: "Blacklisted address",
 		},
-		/*
-			{
-				AcntNotRegistered, nil, big.NewInt(1000000),
-				AcntCreate, nil, big.NewInt(1000000),
-				1, big.NewInt(100), // nonce, amount
-				make([]byte, 100),             //payload
-				uint64(200000), big.NewInt(1), // gasLimit, gasPrice
-				TsfFail, "Normal transfer from an address not created on block chain",
-			},
-			{
-				AcntCreate, nil, big.NewInt(232221),
-				AcntCreate, nil, big.NewInt(100000),
-				1, big.NewInt(222222),
-				make([]byte, 0),
-				uint64(200000), big.NewInt(1),
-				TsfFail, "Transfer with not enough balance",
-			},
-			{
-				AcntCreate, nil, big.NewInt(232222),
-				AcntCreate, nil, big.NewInt(100000),
-				1, big.NewInt(222222),
-				make([]byte, 4),
-				uint64(200000), big.NewInt(1),
-				TsfFail, "Transfer with not enough balance with payload",
-			},
-		*/
+		{
+			AcntNotRegistered, nil, big.NewInt(1000000),
+			AcntCreate, nil, big.NewInt(1000000),
+			1, big.NewInt(100), // nonce, amount
+			make([]byte, 100),             //payload
+			uint64(200000), big.NewInt(1), // gasLimit, gasPrice
+			TsfFail, "Normal transfer from an address not created on block chain",
+			"Invalid balance",
+		},
+		{
+			AcntCreate, nil, big.NewInt(232221),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 0),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with not enough balance",
+			"Invalid balance",
+		},
+		{
+			AcntCreate, nil, big.NewInt(232222),
+			AcntCreate, nil, big.NewInt(100000),
+			1, big.NewInt(222222),
+			make([]byte, 4),
+			uint64(200000), big.NewInt(1),
+			TsfFail, "Transfer with not enough balance with payload",
+			"Invalid balance",
+		},
 		{
 			AcntCreate, nil, big.NewInt(100000),
 			AcntCreate, nil, big.NewInt(100000),
@@ -212,6 +227,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfFail, "Transfer with negative amount",
+			"Invalid balance", // TODO: "Unknown",
 		},
 		{
 			AcntCreate, nil, big.NewInt(1000000),
@@ -220,6 +236,7 @@ var (
 			make([]byte, 0),
 			uint64(1000), big.NewInt(1),
 			TsfFail, "Transfer with not enough gas limit",
+			"Insufficient balance for gas",
 		},
 		{
 			AcntCreate, nil, big.NewInt(100000),
@@ -228,6 +245,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfFail, "Transfer with nonce 0",
+			"Invalid nonce",
 		},
 		{
 			AcntExist, identityset.PrivateKey(0), big.NewInt(100000),
@@ -236,6 +254,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfFail, "Transfer with same nonce from a single sender 2",
+			"Invalid nonce",
 		},
 		{
 			AcntExist, identityset.PrivateKey(1), big.NewInt(100000),
@@ -244,6 +263,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(1),
 			TsfFinal, "Transfer with a sequence of nonce from a single sender 3",
+			"",
 		},
 		{
 			AcntExist, getLocalKey(0), big.NewInt(30000),
@@ -252,6 +272,7 @@ var (
 			make([]byte, 4),
 			uint64(200000), big.NewInt(0),
 			TsfFinal, "Transfer to multiple accounts with not enough total balance 3",
+			"",
 		},
 	}
 )
@@ -401,6 +422,22 @@ func TestLocalTransfer(t *testing.T) {
 			require.Equal(expectedRecvrBalance.String(), newRecvState.Balance.String(), tsfTest.message)
 		case TsfFail:
 			require.Error(err, tsfTest.message)
+
+			st, ok := status.FromError(err)
+			require.True(ok, tsfTest.message)
+			require.Equal(st.Code(), codes.Internal, tsfTest.message)
+
+			details := st.Details()
+			require.Equal(len(details), 1, tsfTest.message)
+
+			detail, ok := details[0].(*errdetails.BadRequest)
+			require.True(ok, tsfTest.message)
+			require.Equal(len(detail.FieldViolations), 1, tsfTest.message)
+
+			violation := detail.FieldViolations[0]
+			require.Equal(violation.Description, tsfTest.expectedDesc, tsfTest.message)
+			require.Equal(violation.Field, "Action rejected", tsfTest.message)
+
 			//The transfer should be rejected right after we inject it
 			//Wait long enough to make sure the failed transfer does not exit in either action pool or blockchain
 			err := backoff.Retry(func() error {
