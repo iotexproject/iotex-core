@@ -31,8 +31,6 @@ jobs:
         id: pr_get_commit_message
         run: echo ::set-output name=pr_commit_message::$(git log --format=%B -n 1 HEAD^2)
 
-      - name: debug Log commit message
-        run: echo "pr: ${{ steps.pr_get_commit_message.outputs.pr_commit_message }}, push: ${{ steps.ush_get_commit_message.outputs.push_commit_message }}"
     outputs:
       commit_message: $( [ -z "${{ steps.pr_get_commit_message.outputs.pr_commit_message }}" ] && echo "${{ steps.push_get_commit_message.outputs.push_commit_message }}" || echo "${{ steps.pr_get_commit_message.outputs.pr_commit_message }}" )
 
@@ -51,3 +49,6 @@ jobs:
 
       - name: Log commit message
         run: echo "${{ needs.pre_ci.outputs.commit_message }}"
+
+      # - name: run ansilbe playbook
+      #   run:
