@@ -50,5 +50,9 @@ jobs:
       - name: Log commit message
         run: echo "${{ needs.pre_ci.outputs.commit_message }}"
 
-      # - name: run ansilbe playbook
-      #   run:
+      - name: run ansilbe playbook
+        run: |
+          export GOPROXY=https://goproxy.io
+          go mod download
+          make clean build-all
+          cp ./bin/server ../../
