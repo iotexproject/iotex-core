@@ -268,7 +268,7 @@ func TestBlockDAO(t *testing.T) {
 			b2, err := receipts[i/3][i%3].Serialize()
 			require.NoError(err)
 			require.Equal(b1, b2)
-			action, err := dao.GetActionByActionHash(h, blk.Height())
+			action, _, err := dao.GetActionByActionHash(h, blk.Height())
 			require.NoError(err)
 			require.Equal(blk.Actions[i%3], action)
 		}
@@ -359,7 +359,7 @@ func TestBlockDAO(t *testing.T) {
 				b2, err := receipts[i/3][i%3].Serialize()
 				require.NoError(err)
 				require.Equal(b1, b2)
-				action, err := dao.GetActionByActionHash(h, blk.Height())
+				action, _, err := dao.GetActionByActionHash(h, blk.Height())
 				require.NoError(err)
 				require.Equal(blk.Actions[i%3], action)
 			}

@@ -799,7 +799,7 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
-	selp, _, _, err := api.getActionByActionHash(h)
+	selp, _, _, _, err := api.getActionByActionHash(h)
 	return selp, err
 }
 
@@ -1101,19 +1101,19 @@ func (api *Server) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error
 }
 
 // getActionByActionHash returns action by action hash
-func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, error) {
+func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
 	actIndex, err := api.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
 	blk, err := api.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
-	selp, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), err
+	selp, index, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1360,7 +1360,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	return gravityChainStartHeight, nil
 }
 
-func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (
+func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64, actIndex uint32) (
 	*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	header, err := api.dao.Header(blkHash)
@@ -1372,6 +1372,7 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 	if err != nil {
 		return nil, err
 	}
+
 	gas := new(big.Int)
 	gas = gas.Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 	return &iotexapi.ActionInfo{
@@ -1382,6 +1383,7 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 		Sender:    sender.String(),
 		GasFee:    gas.String(),
 		Timestamp: header.BlockHeaderCoreProto().Timestamp,
+		Index:     actIndex,
 	}, nil
 }
 
@@ -1395,13 +1397,14 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 		BlkHeight: 0,
 		Sender:    sender.String(),
 		Timestamp: nil,
+		Index: 0,
 	}, nil
 }
 
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, err := api.getActionByActionHash(actHash)
+	selp, blkHash, blkHeight, actIndex, err := api.getActionByActionHash(actHash)
 	if err == nil {
-		return api.committedAction(selp, blkHash, blkHeight)
+		return api.committedAction(selp, blkHash, blkHeight, actIndex)
 	}
 	// Try to fetch pending action from actpool
 	if checkPending {
@@ -1441,9 +1444,10 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
+			Timestamp: ts,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
-			Timestamp: ts,
+			Index:     uint32(i),
 		})
 	}
 	return res
@@ -1466,9 +1470,10 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 				Action:    selp.Proto(),
 				ActHash:   hex.EncodeToString(actHash[:]),
 				BlkHash:   blkHash,
+				Timestamp: ts,
 				BlkHeight: blkHeight,
 				Sender:    sender.String(),
-				Timestamp: ts,
+				Index:     uint32(ri),
 			},
 		}, res...)
 	}
@@ -1480,6 +1485,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
 		return nil, nil
 	}
@@ -1487,6 +1493,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
 	return filter.MatchLogs(receipts), nil
 }
 

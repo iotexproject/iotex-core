@@ -967,7 +967,7 @@ func TestConstantinople(t *testing.T) {
 			require.Equal(uint64(1), r.Status)
 			require.Equal(actHash, r.ActionHash)
 			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
+			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(a)
 			require.Equal(actHash, a.Hash())
