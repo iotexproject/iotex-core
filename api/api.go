@@ -1481,6 +1481,11 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 }
 
 func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint64) ([]*iotextypes.Log, error) {
+	h, err := api.dao.GetBlockHash(blockNumber)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	logBloomFilter, err := api.bfIndexer.BlockFilterByHeight(blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -1494,7 +1499,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	return filter.MatchLogs(receipts), nil
+	return filter.MatchLogs(receipts, h), nil
 }
 
 // TODO: improve using goroutine
