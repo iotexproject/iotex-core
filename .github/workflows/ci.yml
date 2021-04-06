@@ -12,7 +12,7 @@ jobs:
   pre_ci:
     name: Prepare CI environment
     # runs-on: ubuntu-latest
-    runs-on: [self-hosted]
+    runs-on: [self-hosted, build]
     steps:
       - name: Checkout Project
         uses: actions/checkout@v2
@@ -50,9 +50,9 @@ jobs:
       - name: Log commit message
         run: echo "${{ needs.pre_ci.outputs.commit_message }}"
 
-      - name: run ansilbe playbook
+      - name: make iotex server and ansilbe playbook deploy to runtest
         run: |
           export GOPROXY=https://goproxy.io
           go mod download
           make clean build-all
-          cp ./bin/server ../../
+          cp ./bin/server /data/actions-runner/iotex-ci/templates/iotex_node/
