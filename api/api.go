@@ -1360,7 +1360,7 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 	return gravityChainStartHeight, nil
 }
 
-func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64, actIndex uint32) (
+func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (
 	*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
 	header, err := api.dao.Header(blkHash)
@@ -1383,7 +1383,6 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 		Sender:    sender.String(),
 		GasFee:    gas.String(),
 		Timestamp: header.BlockHeaderCoreProto().Timestamp,
-		Index:     actIndex,
 	}, nil
 }
 
@@ -1404,7 +1403,12 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
 	selp, blkHash, blkHeight, actIndex, err := api.getActionByActionHash(actHash)
 	if err == nil {
-		return api.committedAction(selp, blkHash, blkHeight, actIndex)
+		act, err := api.committedAction(selp, blkHash, blkHeight)
+		if err != nil {
+			return nil, err
+		}
+		act.Index = actIndex
+		return act, nil
 	}
 	// Try to fetch pending action from actpool
 	if checkPending {

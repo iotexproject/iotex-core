@@ -53,8 +53,7 @@ func (l *LogFilter) Respond(blk *block.Block) error {
 		return nil
 	}
 
-	h := blk.HashBlock()
-	logs := l.MatchLogs(blk.Receipts, h)
+	logs := l.MatchLogs(blk.Receipts, blk.HashBlock())
 	if len(logs) == 0 {
 		return nil
 	}
