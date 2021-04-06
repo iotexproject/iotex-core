@@ -9,6 +9,7 @@ package evm
 import (
 	"bytes"
 	"math/big"
+	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +23,7 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
+	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 )
 
@@ -461,4 +463,44 @@ func TestPreimage(t *testing.T) {
 	_, err = stateDB.sm.State(&k, protocol.NamespaceOption(PreimageKVNameSpace), protocol.KeyOption(v3[:]))
 	require.NoError(err)
 	require.Equal([]byte("hen"), []byte(k))
+}
+
+func TestSortMap(t *testing.T) {
+	require := require.New(t)
+	size := 35
+	cMap := make(contractMap, size)
+	for i := 0; i < size; i++ {
+		addr := hash.BytesToHash160(identityset.Address(i).Bytes())
+		cMap[addr] = nil
+	}
+
+	t.Run("before fix sort map", func(t *testing.T) {
+		testHash1 := func(cm contractMap) []hash.Hash160 {
+			addrs := make([]hash.Hash160, 0, len(cm))
+			for addr := range cm {
+				addrs = append(addrs, addr)
+			}
+			return addrs
+		}
+		t1 := testHash1(cMap)
+		for i := 0; i < size; i++ {
+			require.NotEqual(t1, testHash1(cMap))
+		}
+	})
+
+	t.Run("after fix sort map", func(t *testing.T) {
+		testHash2 := func(cm contractMap) []hash.Hash160 {
+			addrs := make([]hash.Hash160, 0, len(cm))
+			for addr := range cm {
+				addrs = append(addrs, addr)
+			}
+			sort.Slice(addrs, func(i, j int) bool { return bytes.Compare(addrs[i][:], addrs[j][:]) < 0 })
+			return addrs
+		}
+		t2 := testHash2(cMap)
+
+		for i := 0; i < size; i++ {
+			require.Equal(t2, testHash2(cMap))
+		}
+	})
 }
