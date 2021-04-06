@@ -270,7 +270,7 @@ func TestBlockDAO(t *testing.T) {
 			require.Equal(b1, b2)
 			action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 			require.NoError(err)
-			require.Equal(actIndex, i%3)
+			require.Equal(int(actIndex), i%3)
 			require.Equal(blk.Actions[i%3], action)
 		}
 	}
@@ -362,7 +362,7 @@ func TestBlockDAO(t *testing.T) {
 				require.Equal(b1, b2)
 				action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 				require.NoError(err)
-				require.Equal(actIndex, i%3)
+				require.Equal(int(actIndex), i%3)
 				require.Equal(blk.Actions[i%3], action)
 			}
 		}
