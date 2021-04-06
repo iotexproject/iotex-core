@@ -49,10 +49,17 @@ jobs:
 
       - name: Log commit message
         run: echo "${{ needs.pre_ci.outputs.commit_message }}"
+      - name: get commit number about sync hight block
+        id: commit_number
+        run:
+          echo ::set-output name=sync_hight_block::$(echo "${{ needs.pre_ci.outputs.commit_message }}" |tr -cd "[0-9]")
+      - name: debug sync_hight_block
+        run: echo "${{ steps.commit_number.outputs.sync_hight_block }}"
 
-      - name: make iotex server and ansilbe playbook deploy to runtest
-        run: |
-          export GOPROXY=https://goproxy.io
-          go mod download
-          make clean build-all
-          cp ./bin/server /data/actions-runner/iotex-ci/templates/iotex_node/
+
+      # - name: make iotex server and ansilbe playbook deploy to runtest
+      #   run: |
+      #     export GOPROXY=https://goproxy.io
+      #     go mod download
+      #     make clean build-all
+      #     cp ./bin/server /data/actions-runner/iotex-ci/templates/iotex_node/
