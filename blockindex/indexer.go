@@ -30,6 +30,7 @@ const (
 	hashOffset          = 12
 	blockHashToHeightNS = "hh"
 	actionToBlockHashNS = "ab"
+	hashToKeyNS         = "hk"
 )
 
 var (
@@ -231,7 +232,11 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 	x.mutex.RLock()
 	defer x.mutex.RUnlock()
 
-	v, err := x.kvStore.Get(actionToBlockHashNS, h[hashOffset:])
+	key, err := x.getActionKey(h)
+	if err != nil {
+		return nil, err
+	}
+	v, err := x.kvStore.Get(actionToBlockHashNS, key[hashOffset:])
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +245,18 @@ func (x *blockIndexer) GetActionIndex(h []byte) (*actionIndex, error) {
 		return nil, err
 	}
 	return a, nil
+}
+
+func (x *blockIndexer) getActionKey(h []byte) ([]byte, error) {
+	key, err := x.kvStore.Get(hashToKeyNS, h[hashOffset:])
+	if err == nil {
+		return key, nil
+	}
+	if errors.Cause(err) == db.ErrNotExist {
+		// no mapping exists, key is equal to hash
+		return h, nil
+	}
+	return nil, err
 }
 
 // GetTotalActions return total number of all actions
@@ -322,8 +339,13 @@ func (x *blockIndexer) putBlock(blk *block.Block) error {
 	}
 	// index actions in the block
 	for _, selp := range blk.Actions {
+		actKey := selp.Key()
 		actHash := selp.Hash()
-		x.batch.Put(actionToBlockHashNS, actHash[hashOffset:], ad, "failed to put action hash %x", actHash)
+		x.batch.Put(actionToBlockHashNS, actKey[hashOffset:], ad, "failed to put action key %x", actKey)
+		if actHash != actKey {
+			// add hash --> key mapping
+			x.batch.Put(hashToKeyNS, actHash[hashOffset:], actKey[:], "failed to put hash -> storage key mapping")
+		}
 		// add to total account index
 		if err := x.tac.Add(actHash[:], true); err != nil {
 			return err

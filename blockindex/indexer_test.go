@@ -333,3 +333,55 @@ func TestIndexer(t *testing.T) {
 		testDelete(db.NewBoltDB(cfg), t)
 	})
 }
+
+func TestGetActionKey(t *testing.T) {
+	require := require.New(t)
+
+	path := "test-indexer"
+	testPath, err := testutil.PathOfTempFile(path)
+	require.NoError(err)
+	defer testutil.CleanupPath(t, testPath)
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+
+	ind, err := NewIndexer(db.NewBoltDB(cfg), hash.ZeroHash256)
+	require.NoError(err)
+	ctx := context.Background()
+	require.NoError(ind.Start(ctx))
+	defer func() {
+		require.NoError(ind.Stop(ctx))
+	}()
+
+	indexer, ok := ind.(*blockIndexer)
+	require.True(ok)
+	same := hash.Hash256b([]byte("hash == key"))
+	mappingTests := []struct {
+		height    uint64
+		hash, key hash.Hash256
+	}{
+		{
+			1000, same, same,
+		},
+		{
+			1001, hash.Hash256b([]byte("hash")), hash.Hash256b([]byte("key")),
+		},
+	}
+
+	for i := range mappingTests {
+		v := mappingTests[i]
+		ad := (&actionIndex{
+			blkHeight: v.height}).Serialize()
+		indexer.batch.Put(actionToBlockHashNS, v.key[hashOffset:], ad, "failed to put action key %x", v.key)
+		if v.hash != v.key {
+			// add hash --> key mapping
+			indexer.batch.Put(hashToKeyNS, v.hash[hashOffset:], v.key[:], "failed to put hash -> storage key mapping")
+		}
+	}
+	require.NoError(indexer.kvStore.WriteBatch(indexer.batch))
+
+	for _, v := range mappingTests {
+		a, err := indexer.GetActionIndex(v.hash[:])
+		require.NoError(err)
+		require.Equal(v.height, a.BlockHeight())
+	}
+}

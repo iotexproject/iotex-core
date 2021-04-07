@@ -18,7 +18,12 @@ type SealedEnvelope struct {
 	signature []byte
 }
 
-// Hash returns the hash value of SealedEnvelope.
+// Key is a unique identifer of the tx, used as key for DB storage
+func (sealed *SealedEnvelope) Key() hash.Hash256 {
+	return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
+}
+
+// Hash returns the hash value of SealedEnvelope, used by API query
 func (sealed *SealedEnvelope) Hash() hash.Hash256 {
 	return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
 }
