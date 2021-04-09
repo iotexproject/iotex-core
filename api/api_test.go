@@ -1234,7 +1234,7 @@ func TestServer_ReadContract(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		exec, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1279,7 +1279,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		act, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		act, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
