@@ -1396,7 +1396,7 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 		BlkHeight: 0,
 		Sender:    sender.String(),
 		Timestamp: nil,
-		Index: 0,
+		Index:     0,
 	}, nil
 }
 

@@ -3,8 +3,8 @@ package logfilter
 import (
 	"bytes"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/bloom"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"go.uber.org/zap"
