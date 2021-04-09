@@ -3,6 +3,7 @@ package logfilter
 import (
 	"bytes"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/go-pkgs/bloom"
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -51,7 +52,8 @@ func (l *LogFilter) Respond(blk *block.Block) error {
 	if !l.ExistInBloomFilter(blk.LogsBloomfilter()) {
 		return nil
 	}
-	logs := l.MatchLogs(blk.Receipts)
+
+	logs := l.MatchLogs(blk.Receipts, blk.HashBlock())
 	if len(logs) == 0 {
 		return nil
 	}
@@ -74,12 +76,13 @@ func (l *LogFilter) Exit() {
 }
 
 // MatchLogs returns matching logs in a given block
-func (l *LogFilter) MatchLogs(receipts []*action.Receipt) []*iotextypes.Log {
+func (l *LogFilter) MatchLogs(receipts []*action.Receipt, blkHash hash.Hash256) []*iotextypes.Log {
 	var logs []*iotextypes.Log
 	for _, r := range receipts {
 		for _, v := range r.Logs() {
 			log := v.ConvertToLogPb()
 			if l.match(log) {
+				log.BlkHash = blkHash[:]
 				logs = append(logs, log)
 			}
 		}
