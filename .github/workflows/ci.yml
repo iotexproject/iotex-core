@@ -56,10 +56,8 @@ jobs:
       - name: debug sync_hight_block
         run: echo "${{ steps.commit_number.outputs.sync_hight_block }}"
 
+      - name: make iotex server to docker images
+        run: |
+          sh /data/actions-runner/build_run_sync.sh
 
-      # - name: make iotex server and ansilbe playbook deploy to runtest
-      #   run: |
-      #     export GOPROXY=https://goproxy.io
-      #     go mod download
-      #     make clean build-all
-      #     cp ./bin/server /data/actions-runner/iotex-ci/templates/iotex_node/
+
