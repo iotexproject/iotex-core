@@ -41,9 +41,10 @@ type hasDestination interface {
 
 // Sign signs the action using sender's private key
 func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
-	sealed := SealedEnvelope{Envelope: act}
-
-	sealed.srcPubkey = sk.PublicKey()
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		srcPubkey: sk.PublicKey(),
+	}
 
 	hash := act.Hash()
 	sig, err := sk.Sign(hash[:])
@@ -51,7 +52,7 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
 	}
 	sealed.signature = sig
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.SetSealedContext(sealed)
 	return sealed, nil
 }
 
@@ -62,7 +63,7 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.SetSealedContext(sealed)
 	return sealed
 }
 
@@ -74,7 +75,7 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 		srcPubkey: pk,
 		signature: sig,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.SetSealedContext(sealed)
 	return sealed
 }
 
