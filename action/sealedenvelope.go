@@ -94,20 +94,22 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		return errors.Errorf("invalid signature length = %d, expecting 65", sigSize)
 	}
 
-	encoding := pbAct.GetEncoding()
-	if !IsValidEncoding(encoding) {
-		return errors.Errorf("invalid encoding = %v", encoding)
-	}
 	var elp Envelope = &envelope{}
 	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
 		return err
 	}
-	if IsRLP(encoding) {
+	encoding := pbAct.GetEncoding()
+	switch encoding {
+	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
 		if _, err := actionToRLP(elp.Action()); err != nil {
 			return err
 		}
 		sealed.evmNetworkID = config.EVMNetworkID()
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		break
+	default:
+		return errors.Errorf("unknown encoding type %s", encoding)
 	}
 
 	// populate pubkey and signature
@@ -137,14 +139,4 @@ func actionToRLP(action Action) (rlpTransaction, error) {
 		return nil, errors.Errorf("invalid action type %T not supported", act)
 	}
 	return tx, nil
-}
-
-// IsValidEncoding checks whether the encoding is valid or not
-func IsValidEncoding(enc iotextypes.Encoding) bool {
-	return enc == iotextypes.Encoding_IOTEX_PROTOBUF || enc == iotextypes.Encoding_ETHEREUM_RLP
-}
-
-// IsRLP returns whether the tx is RLP-encoded or not
-func IsRLP(enc iotextypes.Encoding) bool {
-	return enc == iotextypes.Encoding_ETHEREUM_RLP
 }

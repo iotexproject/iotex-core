@@ -55,7 +55,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		err      string
 	}{
 		{0, signByte, "invalid signature length ="},
-		{3, validSig, "invalid encoding = "},
+		{3, validSig, "unknown encoding type"},
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig
