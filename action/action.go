@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/iotexproject/go-pkgs/hash"
 )
 
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
@@ -40,7 +39,10 @@ func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
 		srcPubkey: sk.PublicKey(),
 	}
 
-	h := act.Hash()
+	h, err := sealed.envelopeHash()
+	if err != nil {
+		return sealed, errors.Wrap(err, "failed to generate envelope hash")
+	}
 	sig, err := sk.Sign(h[:])
 	if err != nil {
 		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
@@ -84,9 +86,9 @@ func Verify(sealed SealedEnvelope) error {
 		return errors.Wrap(ErrInsufficientBalanceForGas, "insufficient gas")
 	}
 
-	h := sealed.rawHash()
-	if h == hash.ZeroHash256 {
-		return errors.New("invalid transaction with empty hash")
+	h, err := sealed.envelopeHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to generate envelope hash")
 	}
 	if sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
 		return nil

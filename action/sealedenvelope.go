@@ -20,21 +20,20 @@ type SealedEnvelope struct {
 	signature     []byte
 }
 
-// rawHash returns the raw hash of embedded Envelope (this is the hash to be signed)
+// envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
 // an all-0 return value means the transaction is invalid
-func (sealed *SealedEnvelope) rawHash() hash.Hash256 {
-	if IsRLP(sealed.encoding) {
+func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
+	switch sealed.encoding {
+	case iotextypes.Encoding_ETHEREUM_RLP:
 		tx, err := actionToRLP(sealed.Action())
 		if err != nil {
-			return hash.ZeroHash256
+			return hash.ZeroHash256, err
 		}
-		h, err := rlpRawHash(tx, sealed.externChainID)
-		if err != nil {
-			return hash.ZeroHash256
-		}
-		return h
+		return rlpRawHash(tx, sealed.externChainID)
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		return hash.BytesToHash256(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
 	}
-	return sealed.Envelope.Hash()
+	return hash.ZeroHash256, errors.Errorf("unknown encoding type %s", sealed.encoding)
 }
 
 // Hash returns the hash value of SealedEnvelope.
