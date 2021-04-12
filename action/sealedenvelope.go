@@ -31,7 +31,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		}
 		return rlpRawHash(tx, sealed.externChainID)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
-		return hash.BytesToHash256(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
 	}
 	return hash.ZeroHash256, errors.Errorf("unknown encoding type %s", sealed.encoding)
 }
@@ -39,18 +39,21 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 // Hash returns the hash value of SealedEnvelope.
 // an all-0 return value means the transaction is invalid
 func (sealed *SealedEnvelope) Hash() hash.Hash256 {
-	if IsRLP(sealed.encoding) {
+	switch sealed.encoding {
+	case iotextypes.Encoding_ETHEREUM_RLP:
 		tx, err := actionToRLP(sealed.Action())
 		if err != nil {
-			return hash.ZeroHash256
+			panic(err)
 		}
 		h, err := rlpSignedHash(tx, sealed.externChainID, sealed.Signature())
 		if err != nil {
-			return hash.ZeroHash256
+			panic(err)
 		}
 		return h
+	case iotextypes.Encoding_IOTEX_PROTOBUF:
+		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
 	}
-	return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Proto())))
+	panic("unknown encoding type")
 }
 
 // SrcPubkey returns the source public key
