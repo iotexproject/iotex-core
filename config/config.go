@@ -46,7 +46,6 @@ var (
 	_secretPath   string
 	_subChainPath string
 	_plugins      strs
-	// externChainID is the external chain ID in RLP-encoded tx signature
 	_evmNetworkID uint32
 )
 
