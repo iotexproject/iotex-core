@@ -37,7 +37,8 @@ jobs:
   able_job:
     name: Runtest Job
     # runs-on: ubuntu-latest
-    runs-on: [self-hosted,build]
+    #runs-on: [self-hosted,build]
+    runs-on: [self-hosted]
     env:
       keyword: ${{ secrets.PR_CM_KEYWORD }}
 
