@@ -67,6 +67,7 @@ func main() {
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
+	log.S().Infof("Extern chain ID = %v", config.ExternChainID())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
