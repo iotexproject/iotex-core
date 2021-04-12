@@ -14,10 +14,10 @@ import (
 // SealedEnvelope is a signed action envelope.
 type SealedEnvelope struct {
 	Envelope
-	encoding      iotextypes.Encoding
-	externChainID uint32
-	srcPubkey     crypto.PublicKey
-	signature     []byte
+	encoding     iotextypes.Encoding
+	evmNetworkID uint32
+	srcPubkey    crypto.PublicKey
+	signature    []byte
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -29,7 +29,7 @@ func (sealed *SealedEnvelope) envelopeHash() (hash.Hash256, error) {
 		if err != nil {
 			return hash.ZeroHash256, err
 		}
-		return rlpRawHash(tx, sealed.externChainID)
+		return rlpRawHash(tx, sealed.evmNetworkID)
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		return hash.Hash256b(byteutil.Must(proto.Marshal(sealed.Envelope.Proto()))), nil
 	}
@@ -45,7 +45,7 @@ func (sealed *SealedEnvelope) Hash() hash.Hash256 {
 		if err != nil {
 			panic(err)
 		}
-		h, err := rlpSignedHash(tx, sealed.externChainID, sealed.Signature())
+		h, err := rlpSignedHash(tx, sealed.evmNetworkID, sealed.Signature())
 		if err != nil {
 			panic(err)
 		}
@@ -107,7 +107,7 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		if _, err := actionToRLP(elp.Action()); err != nil {
 			return err
 		}
-		sealed.externChainID = config.ExternChainID()
+		sealed.evmNetworkID = config.EVMNetworkID()
 	}
 
 	// populate pubkey and signature

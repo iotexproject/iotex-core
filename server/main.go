@@ -59,7 +59,7 @@ func main() {
 	}
 	initLogger(cfg)
 
-	if config.ExternChainID() == 0 {
+	if config.EVMNetworkID() == 0 {
 		glog.Fatalln("Extern chain ID not set, call config.New() first")
 	}
 
