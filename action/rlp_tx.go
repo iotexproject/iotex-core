@@ -10,14 +10,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/sha3"
-
-	"github.com/iotexproject/iotex-core/config"
 )
-
-func init() {
-	// register the extern chain ID
-	config.SetExternChainID(config.Default.Chain.ExternChainID)
-}
 
 type rlpTransaction interface {
 	Nonce() uint64

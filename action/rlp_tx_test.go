@@ -13,6 +13,8 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
+
+	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -81,11 +83,13 @@ func TestGenerateRlp(t *testing.T) {
 }
 
 func TestRlpDecodeVerify(t *testing.T) {
+	// register the extern chain ID
+	config.SetExternChainID(config.Default.Chain.ExternChainID)
+
 	require := require.New(t)
 
 	rlpTests := []struct {
 		raw    string
-		chain  uint32
 		nonce  uint64
 		limit  uint64
 		price  string
@@ -99,7 +103,6 @@ func TestRlpDecodeVerify(t *testing.T) {
 	}{
 		{
 			"f86e8085e8d4a51000825208943141df3f2e4415533bb6d6be2a351b2db9ee84ef88016345785d8a0000808224c6a0204d25fc0d7d8b3fdf162c6ee820f888f5533b1c382d79d5cbc8ec1d9091a9a8a016f1a58d7e0d0fd24be800f64a2d6433c5fcb31e3fc7562b7fbe62bc382a95bb",
-			4689,
 			0,
 			21000,
 			"1000000000000",
@@ -113,7 +116,6 @@ func TestRlpDecodeVerify(t *testing.T) {
 		},
 		{
 			"f8ab0d85e8d4a5100082520894ac7ac39de679b19aae042c0ce19facb86e0a411780b844a9059cbb0000000000000000000000003141df3f2e4415533bb6d6be2a351b2db9ee84ef000000000000000000000000000000000000000000000000000000003b9aca008224c5a0fac4e25db03c99fec618b74a962d322a334234696eb62c7e5b9889132ff4f4d7a02c88e451572ca36b6f690ce23ff9d6695dd71e888521fa706a8fc8c279099a61",
-			4689,
 			13,
 			21000,
 			"1000000000000",
@@ -127,7 +129,6 @@ func TestRlpDecodeVerify(t *testing.T) {
 		},
 		{
 			"f9024f2e830f42408381b3208080b901fc608060405234801561001057600080fd5b50336000806101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff16021790555061019c806100606000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c8063445df0ac146100465780638da5cb5b14610064578063fdacd576146100ae575b600080fd5b61004e6100dc565b6040518082815260200191505060405180910390f35b61006c6100e2565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b6100da600480360360208110156100c457600080fd5b8101908080359060200190929190505050610107565b005b60015481565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1681565b6000809054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16141561016457806001819055505b5056fea265627a7a72315820e54fe55a78b9d8bec22b4d3e6b94b7e59799daee3940423eb1aa30fe643eeb9a64736f6c634300051000328224c5a0439310c2d5509fc42486171b910cf8107542c86e23202a3a8ba43129cabcdbfea038966d36b41916f619c64bdc8c3ddcb021b35ea95d44875eb8201e9422fd98f0",
-			4689,
 			46,
 			8500000,
 			"1000000",
@@ -151,7 +152,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// extract signature and recover pubkey
 		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*v.chain - 8
+		recID := uint32(w.Int64()) - 2*config.ExternChainID() - 8
 		sig := make([]byte, 64, 65)
 		rSize := len(r.Bytes())
 		copy(sig[32-rSize:32], r.Bytes())
@@ -160,7 +161,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		sig = append(sig, byte(recID))
 
 		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(v.chain))).Hash(&tx)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.ExternChainID()))).Hash(&tx)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
