@@ -34,15 +34,17 @@ func rlpSignedHash(tx rlpTransaction, chainID uint32, sig []byte) (hash.Hash256,
 	if len(sig) != 65 {
 		return hash.ZeroHash256, errors.Errorf("invalid signature length = %d, expecting 65", len(sig))
 	}
-	if sig[64] >= 27 {
-		sig[64] -= 27
+	sc := make([]byte, 65)
+	copy(sc, sig)
+	if sc[64] >= 27 {
+		sc[64] -= 27
 	}
 
 	rawTx, err := generateRlpTx(tx)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
-	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sig)
+	signedTx, err := rawTx.WithSignature(types.NewEIP155Signer(big.NewInt(int64(chainID))), sc)
 	if err != nil {
 		return hash.ZeroHash256, err
 	}

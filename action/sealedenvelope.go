@@ -98,11 +98,20 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 	if err := elp.LoadProto(pbAct.GetCore()); err != nil {
 		return err
 	}
+	// populate pubkey and signature
+	srcPub, err := crypto.BytesToPublicKey(pbAct.GetSenderPubKey())
+	if err != nil {
+		return err
+	}
 	encoding := pbAct.GetEncoding()
 	switch encoding {
 	case iotextypes.Encoding_ETHEREUM_RLP:
 		// verify action type can support RLP-encoding
-		if _, err := actionToRLP(elp.Action()); err != nil {
+		tx, err := actionToRLP(elp.Action())
+		if err != nil {
+			return err
+		}
+		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
 			return err
 		}
 		sealed.evmNetworkID = config.EVMNetworkID()
@@ -110,12 +119,6 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		break
 	default:
 		return errors.Errorf("unknown encoding type %s", encoding)
-	}
-
-	// populate pubkey and signature
-	srcPub, err := crypto.BytesToPublicKey(pbAct.GetSenderPubKey())
-	if err != nil {
-		return err
 	}
 
 	// clear 'sealed' and populate new value

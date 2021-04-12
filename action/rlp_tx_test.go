@@ -1,6 +1,7 @@
 package action
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -176,11 +177,11 @@ func TestRlpDecodeVerify(t *testing.T) {
 		pb.Signature = sig
 
 		// send on wire
-		bytes, err := proto.Marshal(pb)
+		bs, err := proto.Marshal(pb)
 		require.NoError(err)
 
 		// receive from API
-		proto.Unmarshal(bytes, pb)
+		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
 		require.NoError(selp.LoadProto(pb))
 		rlpTx, err := actionToRLP(selp.Action())
@@ -196,10 +197,10 @@ func TestRlpDecodeVerify(t *testing.T) {
 		h := selp.Hash()
 		require.Equal(v.hash, hex.EncodeToString(h[:]))
 		require.Equal(pubkey, selp.SrcPubkey())
-		require.Equal(sig, selp.signature)
+		require.True(bytes.Equal(sig, selp.signature))
 		raw, err := selp.envelopeHash()
 		require.NoError(err)
-		require.Equal(rawHash[:], raw[:])
+		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(Verify(selp))
 	}
