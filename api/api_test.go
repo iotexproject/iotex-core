@@ -299,6 +299,14 @@ var (
 			20000,
 			10000,
 		},
+		// genesis block
+		{
+			0,
+			1,
+			1,
+			0,
+			0,
+		},
 	}
 
 	getBlockMetaTests = []struct {
@@ -710,7 +718,7 @@ var (
 		{
 			0,
 			1,
-			false,
+			true,
 			1,
 			0,
 			0,
@@ -1029,6 +1037,8 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
+	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash()
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -1054,6 +1064,11 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		meta := res.BlkMetas[0]
 		require.Equal(test.gasLimit, meta.GasLimit)
 		require.Equal(test.gasUsed, meta.GasUsed)
+		if test.start == 0 {
+			// genesis block
+			h := block.GenesisHash()
+			require.Equal(meta.Hash, hex.EncodeToString(h[:]))
+		}
 		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
