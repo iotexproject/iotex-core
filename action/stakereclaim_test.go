@@ -68,8 +68,6 @@ func TestUnstakeSignVerify(t *testing.T) {
 	elp := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
 		SetAction(stake).Build()
-	h := elp.Hash()
-	require.Equal("9c806c793d5e452ecf944aa18b07fb8ee0b07fa37807b6480d1208bd591c5c92", hex.EncodeToString(h[:]))
 	// sign
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)
@@ -125,8 +123,6 @@ func TestWithdrawSignVerify(t *testing.T) {
 	elp := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
 		SetAction(stake).Build()
-	h := elp.Hash()
-	require.Equal("9f7845013c46a387a0b8832d757a9f21aab054fa73c045ad3a66b52f2cad3627", hex.EncodeToString(h[:]))
 	// sign
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)

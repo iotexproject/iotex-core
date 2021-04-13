@@ -1,7 +1,6 @@
 package action
 
 import (
-	"encoding/hex"
 	"testing"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -36,9 +35,6 @@ func TestEnvelope_Proto(t *testing.T) {
 	eb, tsf := createEnvelope()
 	evlp, ok := eb.(*envelope)
 	req.True(ok)
-	req.Equal("0801100a18aa9c012214313130303030303030303030303030303030303052430a16313031303030303030303030303030303030303030301229696f316a6830656b6d63637977666b6d6a3765387173757a7375706e6c6b337735333337686a6a6732", hex.EncodeToString(evlp.serialize()))
-	h := evlp.Hash()
-	req.Equal("0c60f43e0d1410b282bdceb8682b8c8b11fc0f03f559825f51b55f21643447e9", hex.EncodeToString(h[:]))
 
 	proto := evlp.Proto()
 	actCore := &iotextypes.ActionCore{

@@ -3,13 +3,10 @@ package action
 import (
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
 type (
@@ -23,7 +20,6 @@ type (
 		Cost() (*big.Int, error)
 		IntrinsicGas() (uint64, error)
 		Action() Action
-		Hash() hash.Hash256
 		Proto() *iotextypes.ActionCore
 		LoadProto(pbAct *iotextypes.ActionCore) error
 		SetNonce(n uint64)
@@ -239,15 +235,6 @@ func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
 	return nil
-}
-
-func (elp *envelope) serialize() []byte {
-	return byteutil.Must(proto.Marshal(elp.Proto()))
-}
-
-// Hash returns the Envelope's hash value (this hash is to be signed)
-func (elp *envelope) Hash() hash.Hash256 {
-	return hash.Hash256b(elp.serialize())
 }
 
 // SetNonce sets the nonce value

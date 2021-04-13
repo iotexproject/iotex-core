@@ -1,6 +1,7 @@
 package action
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -84,7 +85,7 @@ func TestGenerateRlp(t *testing.T) {
 
 func TestRlpDecodeVerify(t *testing.T) {
 	// register the extern chain ID
-	config.SetExternChainID(config.Default.Chain.ExternChainID)
+	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
 
 	require := require.New(t)
 
@@ -152,7 +153,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// extract signature and recover pubkey
 		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.ExternChainID() - 8
+		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
 		sig := make([]byte, 64, 65)
 		rSize := len(r.Bytes())
 		copy(sig[32-rSize:32], r.Bytes())
@@ -161,7 +162,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		sig = append(sig, byte(recID))
 
 		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.ExternChainID()))).Hash(&tx)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -176,11 +177,11 @@ func TestRlpDecodeVerify(t *testing.T) {
 		pb.Signature = sig
 
 		// send on wire
-		bytes, err := proto.Marshal(pb)
+		bs, err := proto.Marshal(pb)
 		require.NoError(err)
 
 		// receive from API
-		proto.Unmarshal(bytes, pb)
+		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
 		require.NoError(selp.LoadProto(pb))
 		rlpTx, err := actionToRLP(selp.Action())
@@ -196,9 +197,10 @@ func TestRlpDecodeVerify(t *testing.T) {
 		h := selp.Hash()
 		require.Equal(v.hash, hex.EncodeToString(h[:]))
 		require.Equal(pubkey, selp.SrcPubkey())
-		require.Equal(sig, selp.signature)
-		raw := selp.rawHash()
-		require.Equal(rawHash[:], raw[:])
+		require.True(bytes.Equal(sig, selp.signature))
+		raw, err := selp.envelopeHash()
+		require.NoError(err)
+		require.True(bytes.Equal(rawHash[:], raw[:]))
 		require.NotEqual(raw, h)
 		require.NoError(Verify(selp))
 	}

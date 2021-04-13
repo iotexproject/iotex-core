@@ -46,8 +46,7 @@ var (
 	_secretPath   string
 	_subChainPath string
 	_plugins      strs
-	// externChainID is the external chain ID in RLP-encoded tx signature
-	_externChainID uint32
+	_evmNetworkID uint32
 )
 
 const (
@@ -116,7 +115,7 @@ var (
 			CandidateIndexDBPath:   "/var/data/candidate.index.db",
 			StakingIndexDBPath:     "/var/data/staking.index.db",
 			ID:                     1,
-			ExternChainID:          4689,
+			EVMNetworkID:           4689,
 			Address:                "",
 			ProducerPrivKey:        generateRandomKey(SigP256k1),
 			SignatureScheme:        []string{SigP256k1},
@@ -253,7 +252,7 @@ type (
 		CandidateIndexDBPath   string           `yaml:"candidateIndexDBPath"`
 		StakingIndexDBPath     string           `yaml:"stakingIndexDBPath"`
 		ID                     uint32           `yaml:"id"`
-		ExternChainID          uint32           `yaml:"externChainID"`
+		EVMNetworkID           uint32           `yaml:"evmNetworkID"`
 		Address                string           `yaml:"address"`
 		ProducerPrivKey        string           `yaml:"producerPrivKey"`
 		SignatureScheme        []string         `yaml:"signatureScheme"`
@@ -476,7 +475,7 @@ func New(validates ...Validate) (Config, error) {
 	}
 
 	// populdate chain ID
-	SetExternChainID(cfg.Chain.ExternChainID)
+	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 
 	// By default, the config needs to pass all the validation
 	if len(validates) == 0 {
@@ -524,16 +523,16 @@ func NewSub(validates ...Validate) (Config, error) {
 	return cfg, nil
 }
 
-// SetExternChainID sets the extern chain ID
-func SetExternChainID(id uint32) {
+// SetEVMNetworkID sets the extern chain ID
+func SetEVMNetworkID(id uint32) {
 	loadChainID.Do(func() {
-		_externChainID = id
+		_evmNetworkID = id
 	})
 }
 
-// ExternChainID returns the extern chain ID
-func ExternChainID() uint32 {
-	return atomic.LoadUint32(&_externChainID)
+// EVMNetworkID returns the extern chain ID
+func EVMNetworkID() uint32 {
+	return atomic.LoadUint32(&_evmNetworkID)
 }
 
 // ProducerAddress returns the configured producer address derived from key

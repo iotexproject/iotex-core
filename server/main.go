@@ -59,15 +59,15 @@ func main() {
 	}
 	initLogger(cfg)
 
-	if config.ExternChainID() == 0 {
-		glog.Fatalln("Extern chain ID not set, call config.New() first")
+	if config.EVMNetworkID() == 0 {
+		glog.Fatalln("EVM Network ID is not set, call config.New() first")
 	}
 
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
-	log.S().Infof("Extern chain ID = %v", config.ExternChainID())
+	log.S().Infof("EVM Network ID: %d", config.EVMNetworkID())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)

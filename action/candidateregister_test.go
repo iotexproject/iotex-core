@@ -111,8 +111,6 @@ func TestCandidateRegister(t *testing.T) {
 		elp := bd.SetGasLimit(test.GasLimit).
 			SetGasPrice(test.GasPrice).
 			SetAction(cr).Build()
-		h := elp.Hash()
-		require.Equal(test.ElpHash, hex.EncodeToString(h[:]))
 		// sign
 		selp, err := Sign(elp, test.SenderKey)
 		require.NoError(err)
