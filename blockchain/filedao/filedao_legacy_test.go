@@ -9,66 +9,82 @@ package filedao
 import (
 	"context"
 	"crypto/sha256"
+	"os"
+	"testing"
+
 	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestFileDAOLegacy_PutBlock(t *testing.T) {
+	var (
+		normalHeaderSize, compressHeaderSize int
+	)
+	testFdInterface := func(cfg config.DB, t *testing.T) {
+		r := require.New(t)
+
+		testutil.CleanupPath(t, cfg.DbPath)
+		fdLegacy, err := newFileDAOLegacy(cfg)
+		r.NoError(err)
+		fd, ok := fdLegacy.(*fileDAOLegacy)
+		r.True(ok)
+		ctx := context.Background()
+		r.NoError(fd.Start(ctx))
+		defer func() {
+			r.NoError(fd.Stop(ctx))
+		}()
+
+		blk := createTestingBlock(block.NewTestingBuilder(), 1, hash.ZeroHash256)
+		r.NoError(fd.PutBlock(ctx, blk))
+		kv, _, err := fd.getTopDB(blk.Height())
+		r.NoError(err)
+		h := blk.HashBlock()
+		header, err := kv.Get(blockHeaderNS, h[:])
+		r.NoError(err)
+		if cfg.CompressLegacy {
+			compressHeaderSize = len(header)
+		} else {
+			normalHeaderSize = len(header)
+		}
+
+		// verify API for genesis block
+		h, err = fd.GetBlockHash(0)
+		r.NoError(err)
+		r.Equal(block.GenesisHash(), h)
+		height, err := fd.GetBlockHeight(h)
+		r.NoError(err)
+		r.Zero(height)
+		blk, err = fd.GetBlockByHeight(0)
+		r.NoError(err)
+		r.Equal(block.GenesisBlock(), blk)
+	}
+
 	r := require.New(t)
-
-	// PutBlock with out compression
-	normalConfig := config.Default.DB
-	normalConfig.DbPath = "./filedao_legacy_normal.db"
-	normalConfig.CompressLegacy = false
-
-	normalFileDAO, err := newFileDAOLegacy(normalConfig)
+	testPath, err := testutil.PathOfTempFile("filedao-legacy")
 	r.NoError(err)
-	normalLegacy := normalFileDAO.(*fileDAOLegacy)
+	defer func() {
+		testutil.CleanupPath(t, testPath)
+	}()
 
-	normalContext := context.Background()
-	r.NoError(normalLegacy.Start(normalContext))
-	normalBuilder := block.NewTestingBuilder()
-	normalBlock := createTestingBlock(normalBuilder, 1, hash.ZeroHash256)
-	r.NoError(normalLegacy.PutBlock(normalContext, normalBlock))
-	normalKV, _, err := normalLegacy.getTopDB(normalBlock.Height())
-	r.NoError(err)
-	normalHash := normalBlock.HashBlock()
-	normalHeader, err := normalKV.Get(blockHeaderNS, normalHash[:])
-	r.NoError(err)
-
-	// PutBlock with compression
-	compressConfig := config.Default.DB
-	compressConfig.DbPath = "./filedao_legacy_compress.db"
-	compressConfig.CompressLegacy = true // enable compress
-
-	compressFileDAO, err := newFileDAOLegacy(compressConfig)
-	r.NoError(err)
-	compressLegacy := compressFileDAO.(*fileDAOLegacy)
-
-	compressContext := context.Background()
-	r.NoError(compressLegacy.Start(compressContext))
-	compressBuilder := block.NewTestingBuilder()
-	compressBlock := createTestingBlock(compressBuilder, 1, hash.ZeroHash256)
-	r.NoError(compressLegacy.PutBlock(compressContext, compressBlock))
-	compressKV, _, err := compressLegacy.getTopDB(compressBlock.Height())
-	r.NoError(err)
-	compressHash := compressBlock.HashBlock()
-	compressHeader, err := compressKV.Get(blockHeaderNS, compressHash[:])
-	r.NoError(err)
+	cfg := config.Default.DB
+	cfg.DbPath = testPath
+	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash()
+	for _, compress := range []bool{false, true} {
+		cfg.CompressLegacy = compress
+		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
+			testFdInterface(cfg, t)
+		})
+	}
 
 	// compare header length
-	r.True(len(normalHeader) > len(compressHeader))
-
-	r.NoError(compressLegacy.Stop(compressContext))
-	r.NoError(normalLegacy.Stop(normalContext))
-	r.NoError(os.RemoveAll(compressConfig.DbPath))
-	r.NoError(os.RemoveAll(normalConfig.DbPath))
+	r.True(normalHeaderSize > compressHeaderSize)
 }
 
 func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {

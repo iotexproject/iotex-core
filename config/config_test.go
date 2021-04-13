@@ -113,6 +113,7 @@ func TestNewDefaultConfig(t *testing.T) {
 	cfg, err := New()
 	require.NoError(t, err)
 	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
+	require.Equal(t, cfg.Genesis.Timestamp, GenesisTimestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

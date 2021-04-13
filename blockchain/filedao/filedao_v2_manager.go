@@ -74,6 +74,9 @@ func (fm *FileV2Manager) Stop(ctx context.Context) error {
 
 // FileDAOByHeight returns FileDAO for the given height
 func (fm *FileV2Manager) FileDAOByHeight(height uint64) BaseFileDAO {
+	if height == 0 {
+		return fm.Indices[0].fd
+	}
 	right := len(fm.Indices) - 1
 	if height >= fm.Indices[right].start {
 		return fm.Indices[right].fd
