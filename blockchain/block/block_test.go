@@ -97,6 +97,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 						Nonce:   101,
 					},
 					SenderPubKey: senderPubKey.Bytes(),
+					Signature:    testutil.ValidSig,
 				},
 				{
 					Core: &iotextypes.ActionCore{
@@ -107,6 +108,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 						Nonce:   102,
 					},
 					SenderPubKey: senderPubKey.Bytes(),
+					Signature:    testutil.ValidSig,
 				},
 			},
 		},
