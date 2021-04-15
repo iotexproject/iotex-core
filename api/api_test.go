@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
@@ -130,10 +131,10 @@ var (
 		{
 			identityset.Address(27).String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-			"9999999999999999999999999991",
-			1,
+			"9999999999999999999999898950",
+			5,
 			6,
-			2,
+			6,
 		},
 	}
 
@@ -773,6 +774,25 @@ func TestServer_GetAccount(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
+	// deploy a contract
+	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
+	contract, err := deployContract(svr, identityset.PrivateKey(13), 1, svr.bc.TipHeight(), contractCode)
+	require.NoError(err)
+	require.True(len(contract) > 0)
+
+	// read contract address
+	request := &iotexapi.GetAccountRequest{Address: contract}
+	res, err := svr.GetAccount(context.Background(), request)
+	require.NoError(err)
+	accountMeta := res.AccountMeta
+	require.Equal(contract, accountMeta.Address)
+	require.Equal("0", accountMeta.Balance)
+	require.EqualValues(0, accountMeta.Nonce)
+	require.EqualValues(1, accountMeta.PendingNonce)
+	require.EqualValues(0, accountMeta.NumActions)
+	require.True(accountMeta.IsContract)
+	require.Contains(contractCode, hex.EncodeToString(accountMeta.ContractCode))
+
 	// success
 	for _, test := range getAccountTests {
 		request := &iotexapi.GetAccountRequest{Address: test.in}
@@ -790,10 +810,10 @@ func TestServer_GetAccount(t *testing.T) {
 	require.Error(err)
 
 	// success: reward pool
-	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
 	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
-	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
+	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
 
 	//failure: protocol staking isn't registered
 	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
@@ -2057,6 +2077,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 }
 
 func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
+	ctx := context.Background()
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
 	addr1 := identityset.Address(28).String()
@@ -2076,7 +2097,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	)
 
 	blk1Time := testutil.TimestampNow()
-	if err := ap.Add(context.Background(), tsf); err != nil {
+	if err := ap.Add(ctx, tsf); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(blk1Time)
@@ -2100,7 +2121,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		if err != nil {
 			return err
 		}
-		if err := ap.Add(context.Background(), selp); err != nil {
+		if err := ap.Add(ctx, selp); err != nil {
 			return err
 		}
 		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
@@ -2114,7 +2135,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
-	if err := ap.Add(context.Background(), selp); err != nil {
+	if err := ap.Add(ctx, selp); err != nil {
 		return err
 	}
 	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
@@ -2126,7 +2147,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution1); err != nil {
+	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
@@ -2163,7 +2184,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
 	)
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
 	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -2173,7 +2194,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
 	)
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
 	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
@@ -2185,7 +2206,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution1); err != nil {
+	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
 	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
@@ -2197,7 +2218,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution2.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution2); err != nil {
+	if err := ap.Add(ctx, execution2); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
@@ -2206,6 +2227,35 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	h = blk.HashBlock()
 	blkHash[4] = hex.EncodeToString(h[:])
 	return bc.CommitBlock(blk)
+}
+
+func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+	data, _ := hex.DecodeString(code)
+	ex1, err := testutil.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return "", err
+	}
+	if err := svr.ap.Add(context.Background(), ex1); err != nil {
+		return "", err
+	}
+	blk, err := svr.bc.MintNewBlock(testutil.TimestampNow())
+	if err != nil {
+		return "", err
+	}
+	if err := svr.bc.CommitBlock(blk); err != nil {
+		return "", err
+	}
+	svr.ap.Reset()
+	// get deployed contract address
+	var contract string
+	if svr.dao != nil {
+		r, err := svr.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
+		if err != nil {
+			return "", err
+		}
+		contract = r.ContractAddress
+	}
+	return contract, nil
 }
 
 func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
