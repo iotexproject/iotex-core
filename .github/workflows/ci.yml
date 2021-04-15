@@ -1,3 +1,8 @@
+### 1, pre_ci job Check if the Git Commit is included "runtest"  Run IOTEX test sync from block 0
+### 2, If the Git Commit contains a runtest and a number (synchronized block height),
+###    it will stop running at that height
+### 3, e.g:  git commit -m " Any character runtest 7879430"
+
 name: Integration Workflow
 
 on:
