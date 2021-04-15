@@ -50,8 +50,6 @@ func TestStakingTransferSignVerify(t *testing.T) {
 	elp := bd.SetGasLimit(gaslimit).
 		SetGasPrice(gasprice).
 		SetAction(stake).Build()
-	h := elp.Hash()
-	require.Equal("d22b4b3e630e1d494951e9041a983608232cf64629262296b6ef1f57fa748fd2", hex.EncodeToString(h[:]))
 	// sign
 	selp, err := Sign(elp, senderKey)
 	require.NoError(err)

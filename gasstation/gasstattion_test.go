@@ -12,9 +12,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/iotexproject/iotex-core/actpool"
-	"github.com/iotexproject/iotex-core/pkg/unit"
-
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
@@ -24,15 +22,16 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestNewGasStation(t *testing.T) {
@@ -203,6 +202,7 @@ func TestEstimateGasForAction(t *testing.T) {
 	// base intrinsic gas 10000,plus data size*ExecutionDataGas
 	require.Equal(uint64(10000)+10*action.ExecutionDataGas, ret)
 }
+
 func getAction() (act *iotextypes.Action) {
 	pubKey1 := identityset.PrivateKey(28).PublicKey()
 	addr2 := identityset.Address(29).String()
@@ -216,9 +216,11 @@ func getAction() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
+		Signature:    testutil.ValidSig,
 	}
 	return
 }
+
 func getActionWithPayload() (act *iotextypes.Action) {
 	pubKey1 := identityset.PrivateKey(28).PublicKey()
 	addr2 := identityset.Address(29).String()
@@ -232,6 +234,7 @@ func getActionWithPayload() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
+		Signature:    testutil.ValidSig,
 	}
 	return
 }
