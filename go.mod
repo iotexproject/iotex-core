@@ -21,7 +21,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.4
 	github.com/iotexproject/iotex-antenna-go/v2 v2.4.2-0.20201211202736-96d536a425fe
 	github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54
-	github.com/iotexproject/iotex-proto v0.4.9-0.20210416214326-28e18e4a85cb
+	github.com/iotexproject/iotex-proto v0.5.0
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0

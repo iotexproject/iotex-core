@@ -271,24 +271,30 @@ var (
 	}
 
 	getBlockMetasTests = []struct {
-		start   uint64
-		count   uint64
-		numBlks int
+		start, count      uint64
+		numBlks           int
+		gasLimit, gasUsed uint64
 	}{
 		{
 			1,
 			4,
 			4,
+			20000,
+			10000,
 		},
 		{
 			2,
 			5,
 			3,
+			120000,
+			60100,
 		},
 		{
 			1,
 			0,
 			0,
+			20000,
+			10000,
 		},
 	}
 
@@ -791,7 +797,8 @@ func TestServer_GetAccount(t *testing.T) {
 	require.EqualValues(1, accountMeta.PendingNonce)
 	require.EqualValues(0, accountMeta.NumActions)
 	require.True(accountMeta.IsContract)
-	require.Contains(contractCode, hex.EncodeToString(accountMeta.ContractCode))
+	require.True(len(accountMeta.ContractByteCode) > 0)
+	require.Contains(contractCode, hex.EncodeToString(accountMeta.ContractByteCode))
 
 	// success
 	for _, test := range getAccountTests {
@@ -1032,6 +1039,9 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		}
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
+		meta := res.BlkMetas[0]
+		require.Equal(test.gasLimit, meta.GasLimit)
+		require.Equal(test.gasUsed, meta.GasUsed)
 		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {

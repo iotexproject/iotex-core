@@ -210,7 +210,7 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
-		accountMeta.ContractCode = code
+		accountMeta.ContractByteCode = code
 	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
@@ -1275,8 +1275,20 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	}
 	blockMeta.NumActions = int64(len(blk.Actions))
 	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	blockMeta.GasLimit, blockMeta.GasUsed = blk.GasLimitAndUsed()
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
 	return &blockMeta
+}
+
+// GasLimitAndUsed returns the gas limit and used in a block
+func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
+	var gasLimit, gasUsed uint64
+	for _, tx := range b.Actions {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range b.Receipts {
+		gasUsed += r.GasConsumed
+	}
+	return gasLimit, gasUsed
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
