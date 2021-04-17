@@ -35,6 +35,6 @@ func TestGenesisBlock(t *testing.T) {
 	LoadGenesisHash()
 	h := blk.HashBlock()
 	r.Equal(GenesisHash(), h)
-	r.Equal(GenesisHashMainnet, hex.EncodeToString(h[:]))
+	r.Equal("ab7d006c1f7a9345ad05eef1b4f062814a176c25c7558052e18896844ee71edb", hex.EncodeToString(h[:]))
 	r.NoError(VerifyBlock(blk))
 }

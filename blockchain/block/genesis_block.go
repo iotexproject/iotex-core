@@ -16,12 +16,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
-// constants
-const (
-	GenesisHashMainnet = "ab7d006c1f7a9345ad05eef1b4f062814a176c25c7558052e18896844ee71edb"
-	GenesisHashTestnet = "84b5d7158407b85c07ba1bcac0699dedc86d22bbcb29b6d77a5f696ac35047fd"
-)
-
 var (
 	loadGenesisHash sync.Once
 	_genesisHash    hash.Hash256
