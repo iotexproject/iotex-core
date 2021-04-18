@@ -69,11 +69,15 @@ func (h *Header) LogsBloomfilter() bloom.BloomFilter { return h.logsBloom }
 
 // BlockHeaderProto returns BlockHeader proto.
 func (h *Header) BlockHeaderProto() *iotextypes.BlockHeader {
-	return &iotextypes.BlockHeader{
-		Core:           h.BlockHeaderCoreProto(),
-		ProducerPubkey: h.pubkey.Bytes(),
-		Signature:      h.blockSig,
+	header := iotextypes.BlockHeader{
+		Core: h.BlockHeaderCoreProto(),
 	}
+
+	if h.height > 0 {
+		header.ProducerPubkey = h.pubkey.Bytes()
+		header.Signature = h.blockSig
+	}
+	return &header
 }
 
 // BlockHeaderCoreProto returns BlockHeaderCore proto.

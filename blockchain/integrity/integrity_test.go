@@ -569,6 +569,8 @@ func TestGetBlockHash(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.HawaiiBlockHeight = 3
 	cfg.ActPool.MinGasPriceStr = "0"
+	config.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	block.LoadGenesisHash()
 	// create chain
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -602,10 +604,10 @@ func TestGetBlockHash(t *testing.T) {
 		require.NoError(bc.Stop(ctx))
 	}()
 
-	addTestingGetBlockHash(t, bc, sf, dao, ap)
+	addTestingGetBlockHash(t, cfg.Genesis.HawaiiBlockHeight, bc, dao, ap)
 }
 
-func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.Factory, dao blockdao.BlockDAO, ap actpool.ActPool) {
+func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) {
 	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
@@ -683,6 +685,8 @@ func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.F
 	require.NoError(err)
 	acHash6, err := addOneBlock(contract, 6, zero, gasLimit, gasPrice, getBlockHash(2)) // equal to block 3
 	require.NoError(err)
+	acHash7, err := addOneBlock(contract, 7, zero, gasLimit, gasPrice, getBlockHash(6)) // equal to genesis block
+	require.NoError(err)
 
 	tests := []struct {
 		acHash       hash.Hash256
@@ -694,12 +698,20 @@ func addTestingGetBlockHash(t *testing.T, bc blockchain.Blockchain, sf factory.F
 		{acHash4, 4, 2},
 		{acHash5, 5, 1},
 		{acHash6, 6, 3},
+		{acHash7, 7, 0},
 	}
 	for _, test := range tests {
 		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
 		require.NoError(err)
-		bcHash, err := dao.GetBlockHash(test.targetHeight)
-		require.NoError(err)
+		var bcHash hash.Hash256
+		if test.commitHeight < hawaiiHeight {
+			// before hawaii it mistakenly return zero hash
+			// see https://github.com/iotexproject/iotex-core/commit/2585b444214f9009b6356fbaf59c992e8728fc01
+			bcHash = hash.ZeroHash256
+		} else {
+			bcHash, err = dao.GetBlockHash(test.targetHeight)
+			require.NoError(err)
+		}
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
 	}
 }
@@ -1318,6 +1330,8 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
+	config.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	block.LoadGenesisHash()
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)

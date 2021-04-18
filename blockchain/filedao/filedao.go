@@ -152,9 +152,6 @@ func (fd *fileDAO) Height() (uint64, error) {
 
 func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
 	if fd.v2Fd != nil {
-		if height == 0 {
-			return hash.ZeroHash256, nil
-		}
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
 			return v2.GetBlockHash(height)
 		}
