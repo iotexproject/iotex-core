@@ -313,22 +313,24 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := dao.timerFactory.NewTimer("put_block")
-	defer timer.End()
-
 	var err error
 	ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
 	if err != nil {
 		return err
 	}
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
+		timer.End()
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, blk.Height())
 	header := blk.Header
 	lruCachePut(dao.headerCache, blk.Height(), &header)
 	lruCachePut(dao.headerCache, header.HashHeader(), &header)
+	timer.End()
 
 	// index the block if there's indexer
+	timer = dao.timerFactory.NewTimer("index_block")
+	defer timer.End()
 	for _, indexer := range dao.indexers {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err
