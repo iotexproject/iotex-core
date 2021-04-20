@@ -22,3 +22,8 @@ import (
 func Hex(k string, d []byte) zap.Field {
 	return zap.String(k, hex.EncodeToString(d))
 }
+
+// DisableVerbose returns a zap field to log the error w/o adding "errorVerbose" filed
+func DisableVerbose(err error) zap.Field {
+	return zap.String("error", err.Error())
+}

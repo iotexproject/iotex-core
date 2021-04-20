@@ -341,7 +341,7 @@ func (p *Protocol) handle(ctx context.Context, act action.Action, csm CandidateS
 	if receiptErr, ok := err.(ReceiptError); ok {
 		actionCtx := protocol.MustGetActionCtx(ctx)
 		log.L().With(
-			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Info("Failed to commit staking action", zap.Error(err))
+			zap.String("actionHash", hex.EncodeToString(actionCtx.ActionHash[:]))).Error("Failed to commit staking action", log.DisableVerbose(err))
 		return p.settleAction(ctx, csm, receiptErr.ReceiptStatus(), logs, tLogs)
 	}
 	return nil, err

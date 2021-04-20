@@ -77,7 +77,7 @@ func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
 		if err := commitBlock(b.bc, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
 			l.With(
 				zap.Uint64("syncHeight", heightToSync),
-				zap.Strings("actionHash", blk.ActionHashs())).Error("Failed to commit the block.", zap.Error(err))
+				zap.Strings("actionHash", blk.ActionHashs())).Error("Failed to commit the block.", log.DisableVerbose(err))
 			break
 		}
 		b.commitHeight = heightToSync
