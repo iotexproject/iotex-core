@@ -8,16 +8,14 @@ package account
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
-
-	"github.com/spf13/cobra"
 
 	ioAddress "github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
+	"github.com/spf13/cobra"
 )
 
 // Multi-language support
@@ -39,11 +37,7 @@ var accountInfoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
-		arg := ""
-		if len(args) == 1 {
-			arg = args[0]
-		}
-		err := info(arg)
+		err := info(args[0])
 		return output.PrintError(err)
 	},
 }
@@ -70,7 +64,7 @@ func info(arg string) error {
 	}
 	accountMeta, err := GetAccountMeta(addr)
 	if err != nil {
-		return output.NewError(0, "", err) // TODO: undefined error
+		return output.NewError(output.APIError, "", err)
 	}
 	balance, ok := big.NewInt(0).SetString(accountMeta.Balance, 10)
 	if !ok {
@@ -93,8 +87,7 @@ func info(arg string) error {
 
 func (m *infoMessage) String() string {
 	if output.Format == "" {
-		s, _ := json.MarshalIndent(m, "", "  ")
-		return fmt.Sprintf("%s:\n%s", m.Address, string(s))
+		return fmt.Sprintf("%s:\n%s", m.Address, output.JSONString(m))
 	}
 	return output.FormatString(output.Result, m)
 }
