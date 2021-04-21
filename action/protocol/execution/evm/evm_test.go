@@ -125,7 +125,7 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			5550000,
 		},
-		// after Greenland
+		// Greenland -- Hawaii
 		{
 			action.EmptyAddress,
 			6544441,
@@ -133,6 +133,15 @@ func TestConstantinople(t *testing.T) {
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			6544441,
+		},
+		// after Hawaii
+		{
+			action.EmptyAddress,
+			11073241,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			11073241,
 		},
 	}
 
@@ -160,20 +169,21 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(hu)
+		chainConfig := getChainConfig(hu, e.height)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsHomestead(evm.BlockNumber))
-		require.Equal(false, evm.ChainConfig().IsDAOFork(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP150(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP158(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP155(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsByzantium(evm.BlockNumber))
-		require.Equal(true, evm.ChainConfig().IsConstantinople(evm.BlockNumber))
-		require.Equal(true, evm.ChainConfig().IsPetersburg(evm.BlockNumber))
+		evmChainConfig := evm.ChainConfig()
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
+		require.Equal(false, evmChainConfig.IsDAOFork(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
+		require.Equal(true, evmChainConfig.IsConstantinople(evm.BlockNumber))
+		require.Equal(true, evmChainConfig.IsPetersburg(evm.BlockNumber))
 
 		// verify chainRules
-		chainRules := chainConfig.Rules(ps.context.BlockNumber)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsHomestead)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP150)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP158)
@@ -183,9 +193,16 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(true, chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
-		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
-		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evm.ChainConfig().GreenlandBlock)
+		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
+		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
+
+		// support chainID starting hawaii
+		if hu.IsPost(config.Hawaii, e.height) {
+			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
+		} else {
+			require.Nil(evmChainConfig.ChainID)
+		}
 	}
 }
 
