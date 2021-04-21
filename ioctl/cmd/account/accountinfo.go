@@ -11,11 +11,13 @@ import (
 	"fmt"
 	"math/big"
 
-	ioAddress "github.com/iotexproject/iotex-address/address"
+	"github.com/iotexproject/iotex-address/address"
+	"github.com/spf13/cobra"
+
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/spf13/cobra"
+
 )
 
 // Multi-language support
@@ -55,7 +57,7 @@ type infoMessage struct {
 // info gets information of an IoTeX blockchain address
 func info(arg string) error {
 	addr := arg
-	if arg != ioAddress.StakingBucketPoolAddr && arg != ioAddress.RewardingPoolAddr {
+	if arg != address.StakingBucketPoolAddr && arg != address.RewardingPoolAddr {
 		var err error
 		addr, err = util.GetAddress(arg)
 		if err != nil {
