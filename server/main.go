@@ -60,8 +60,7 @@ func main() {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
 	if err = initLogger(cfg); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
-		return
+		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
 	if config.EVMNetworkID() == 0 {
