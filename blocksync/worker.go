@@ -97,7 +97,7 @@ func (w *syncWorker) Sync() {
 	}
 	intervals := w.buf.GetBlocksIntervalsToSync(w.targetHeight)
 	if intervals != nil {
-		log.L().Info("block sync intervals.",
+		log.L().Debug("block sync intervals.",
 			zap.Any("intervals", intervals),
 			zap.Uint64("targetHeight", w.targetHeight))
 	}

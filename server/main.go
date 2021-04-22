@@ -59,7 +59,9 @@ func main() {
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
-	initLogger(cfg)
+	if err = initLogger(cfg); err != nil {
+		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
+	}
 
 	if config.EVMNetworkID() == 0 {
 		glog.Fatalln("EVM Network ID is not set, call config.New() first")
@@ -118,12 +120,9 @@ func main() {
 	<-livenessCtx.Done()
 }
 
-func initLogger(cfg config.Config) {
+func initLogger(cfg config.Config) error {
 	addr := cfg.ProducerAddress()
-	if err := log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
-		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
-	)); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
-	}
+	))
 }
