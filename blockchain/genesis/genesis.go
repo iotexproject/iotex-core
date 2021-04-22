@@ -62,6 +62,7 @@ func defaultConfig() Genesis {
 			FairbankBlockHeight:     5165641,
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
+			IcelandBlockHeight:      21267641,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -173,8 +174,15 @@ type (
 		FairbankBlockHeight uint64 `yaml:"fairbankHeight"`
 		// GreenlandBlockHeight is the start height of storing latest 720 block meta and rewarding/staking bucket pool
 		GreenlandBlockHeight uint64 `yaml:"greenlandHeight"`
-		// HawaiiBlockHeight is the start height to fix GetBlockHash in EVM
+		// HawaiiBlockHeight is the start height to
+		// 1. fix GetBlockHash in EVM
+		// 2. add revert message to log
+		// 3. fix change to same candidate in staking protocol
+		// 4. fix sorted map in StateDBAdapter
+		// 5. use pending nonce in EVM
 		HawaiiBlockHeight uint64 `yaml:"hawaiiHeight"`
+		// IcelandBlockHeight is the start height to support chainID opcode in EVM
+		IcelandBlockHeight uint64 `yaml:"icelandHeight"`
 	}
 	// Account contains the configs for account protocol
 	Account struct {
@@ -450,6 +458,11 @@ func (g *Genesis) IsGreenland(height uint64) bool {
 // IsHawaii checks whether height is equal to or larger than hawaii height
 func (g *Genesis) IsHawaii(height uint64) bool {
 	return g.isPost(g.HawaiiBlockHeight, height)
+}
+
+// IsIceland checks whether height is equal to or larger than iceland height
+func (g *Genesis) IsIceland(height uint64) bool {
+	return g.isPost(g.IcelandBlockHeight, height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
