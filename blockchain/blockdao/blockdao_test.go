@@ -316,7 +316,7 @@ func TestBlockDAO(t *testing.T) {
 			if tipHeight == 0 {
 				h, err := dao.GetBlockHash(0)
 				require.NoError(err)
-				require.Equal(hash.ZeroHash256, h)
+				require.Equal(block.GenesisHash(), h)
 				continue
 			}
 			tipBlk := blks[tipHeight-1]
@@ -389,6 +389,8 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
+	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash()
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)

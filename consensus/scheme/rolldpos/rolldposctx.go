@@ -458,7 +458,9 @@ func (ctx *rollDPoSCtx) Commit(msg interface{}) (bool, error) {
 	if pendingBlock == nil {
 		return false, nil
 	}
-	ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
+	if ctx.round.Height()%100 == 0 {
+		ctx.logger().Info("consensus reached", zap.Uint64("blockHeight", ctx.round.Height()))
+	}
 	if err := pendingBlock.Finalize(
 		ctx.round.Endorsements(blkHash, []ConsensusVoteTopic{COMMIT}),
 		ctx.round.StartTime().Add(

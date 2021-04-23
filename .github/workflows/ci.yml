@@ -64,5 +64,5 @@ jobs:
 
       - name: make iotex server to docker images
         run: |
-          sh /data/actions-runner/build_run_sync.sh ${{ steps.commit_number.outputs.sync_hight_block }}
+          sh /data/actions-runner/build_runtest_sync.sh ${{ steps.commit_number.outputs.sync_hight_block }}
 

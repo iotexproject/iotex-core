@@ -148,8 +148,8 @@ func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
 }
 
 func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
-	if height == fd.header.Start-1 {
-		return hash.ZeroHash256, nil
+	if height == 0 {
+		return block.GenesisHash(), nil
 	}
 	if !fd.ContainsHeight(height) {
 		return hash.ZeroHash256, db.ErrNotExist
@@ -162,6 +162,9 @@ func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
+	if h == block.GenesisHash() {
+		return 0, nil
+	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
@@ -178,6 +181,9 @@ func (fd *fileDAOv2) GetBlock(h hash.Hash256) (*block.Block, error) {
 }
 
 func (fd *fileDAOv2) GetBlockByHeight(height uint64) (*block.Block, error) {
+	if height == 0 {
+		return block.GenesisBlock(), nil
+	}
 	blkInfo, err := fd.getBlockStore(height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block at height %d", height)

@@ -256,9 +256,11 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func getChainConfig(hu config.HeightUpgrade) *params.ChainConfig {
+func getChainConfig(hu config.HeightUpgrade, height uint64) *params.ChainConfig {
 	var chainConfig params.ChainConfig
-	// chainConfig.ChainID
+	if hu.IsPost(config.Hawaii, height) {
+		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
+	}
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(hu.BeringBlockHeight())
 	// enable earlier Ethereum forks at Greenland
@@ -275,7 +277,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, hu config.HeightUp
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig(hu)
+	chainConfig := getChainConfig(hu, blockHeight)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {

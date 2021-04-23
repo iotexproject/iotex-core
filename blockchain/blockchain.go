@@ -472,7 +472,9 @@ func (bc *blockchain) commitBlock(blk *block.Block) error {
 		return err
 	}
 	blkHash := blk.HashBlock()
-	blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
+	if blk.Height()%100 == 0 {
+		blk.HeaderLogger(log.L()).Info("Committed a block.", log.Hex("tipHash", blkHash[:]))
+	}
 	blockMtc.WithLabelValues("numActions").Set(float64(len(blk.Actions)))
 	// emit block to all block subscribers
 	bc.emitToSubscribers(blk)
