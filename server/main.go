@@ -20,9 +20,11 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -57,12 +59,27 @@ func main() {
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
-	initLogger(cfg)
+	if err = initLogger(cfg); err != nil {
+		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
+	}
+
+	if config.EVMNetworkID() == 0 {
+		glog.Fatalln("EVM Network ID is not set, call config.New() first")
+	}
+	if config.GenesisTimestamp() == 0 {
+		glog.Fatalln("Genesis timestamp is not set, call config.New() first")
+	}
+	block.LoadGenesisHash()
+	if block.GenesisHash() == hash.ZeroHash256 {
+		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
+	}
 
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
+	log.S().Infof("EVM Network ID: %d", config.EVMNetworkID())
+	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
@@ -103,12 +120,9 @@ func main() {
 	<-livenessCtx.Done()
 }
 
-func initLogger(cfg config.Config) {
+func initLogger(cfg config.Config) error {
 	addr := cfg.ProducerAddress()
-	if err := log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
-		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
-	)); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
-	}
+	))
 }

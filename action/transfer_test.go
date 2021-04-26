@@ -7,7 +7,6 @@
 package action
 
 import (
-	"encoding/hex"
 	"math/big"
 	"strings"
 	"testing"
@@ -28,16 +27,16 @@ func TestTransferSignVerify(t *testing.T) {
 	require.Nil(tsf.srcPubkey)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetNonce(tsf.nonce).
+	eb := bd.SetNonce(tsf.nonce).
 		SetGasLimit(tsf.gasLimit).
 		SetGasPrice(tsf.gasPrice).
 		SetAction(tsf).Build()
-
-	require.Equal("0801100118a08d0622023130522f0a0231301229696f3172633264326465377274757563616c7371763464396e673068323937743633773777766c7068", hex.EncodeToString(elp.Serialize()))
+	elp, ok := eb.(*envelope)
+	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
-	tsf2, ok := w.Envelope.payload.(*Transfer)
+	tsf2, ok := w.Envelope.Action().(*Transfer)
 	require.True(ok)
 	require.Equal(tsf, tsf2)
 	require.NotNil(tsf.srcPubkey)
@@ -62,11 +61,11 @@ func TestTransfer(t *testing.T) {
 	tsf.Proto()
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
+	eb := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
-
-	elp.Serialize()
+	elp, ok := eb.(*envelope)
+	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))

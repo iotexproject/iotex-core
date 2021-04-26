@@ -625,7 +625,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(data[31:], c)
 
-		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
+		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, exe.Hash())
 

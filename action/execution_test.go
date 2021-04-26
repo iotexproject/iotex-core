@@ -29,16 +29,16 @@ func TestExecutionSignVerify(t *testing.T) {
 	require.Nil(ex.srcPubkey)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetNonce(ex.nonce).
+	eb := bd.SetNonce(ex.nonce).
 		SetGasLimit(ex.gasLimit).
 		SetGasPrice(ex.gasPrice).
 		SetAction(ex).Build()
-
-	require.Equal("0801100218a08d0622023130622f0a0231301229696f3172633264326465377274757563616c7371763464396e673068323937743633773777766c7068", hex.EncodeToString(elp.Serialize()))
+	elp, ok := eb.(*envelope)
+	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, executorKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
-	ex2, ok := w.Envelope.payload.(*Execution)
+	ex2, ok := w.Envelope.Action().(*Execution)
 	require.True(ok)
 	require.Equal(ex, ex2)
 	require.NotNil(ex.srcPubkey)

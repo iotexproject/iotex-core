@@ -37,6 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
@@ -203,6 +204,14 @@ func (api *Server) GetAccount(ctx context.Context, in *iotexapi.GetAccountReques
 		NumActions:   numActions,
 		IsContract:   state.IsContract(),
 	}
+	if state.IsContract() {
+		var code evm.SerializableBytes
+		_, err = api.sf.State(&code, protocol.NamespaceOption(evm.CodeKVNameSpace), protocol.KeyOption(state.CodeHash))
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		accountMeta.ContractByteCode = code
+	}
 	header, err := api.bc.BlockHeaderByHeight(tipHeight)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
@@ -248,7 +257,7 @@ func (api *Server) GetBlockMetas(ctx context.Context, in *iotexapi.GetBlockMetas
 		return api.getBlockMetas(request.Start, request.Count)
 	case in.GetByHash() != nil:
 		request := in.GetByHash()
-		return api.getBlockMeta(request.BlkHash)
+		return api.getBlockMetaByHash(request.BlkHash)
 	default:
 		return nil, status.Error(codes.NotFound, "invalid GetBlockMetasRequest type")
 	}
@@ -355,7 +364,12 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	hash := selp.Hash()
 	l := log.L().With(zap.String("actionHash", hex.EncodeToString(hash[:])))
 	if err = api.ap.Add(ctx, selp); err != nil {
-		l.Error("Failed to accept action", zap.Error(err))
+		txBytes, serErr := proto.Marshal(in.Action)
+		if serErr != nil {
+			l.Error("Data corruption", zap.Error(serErr))
+		} else {
+			l.With(zap.String("txBytes", hex.EncodeToString(txBytes))).Error("Failed to accept action", zap.Error(err))
+		}
 		var desc string
 		switch errors.Cause(err) {
 		case action.ErrBalance:
@@ -373,7 +387,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 		default:
 			desc = "Unknown"
 		}
-		st := status.New(codes.Internal, err.Error())
+		errMsg := api.cfg.ProducerAddress().String() + ": " + err.Error()
+		st := status.New(codes.Internal, errMsg)
 		v := &errdetails.BadRequest_FieldViolation{
 			Field:       "Action rejected",
 			Description: desc,
@@ -632,18 +647,19 @@ func (api *Server) GetRawBlocks(
 	if in.StartHeight > tipHeight {
 		return nil, status.Error(codes.InvalidArgument, "start height should not exceed tip height")
 	}
+	endHeight := in.StartHeight + in.Count - 1
+	if endHeight > tipHeight {
+		endHeight = tipHeight
+	}
 	var res []*iotexapi.BlockInfo
-	for height := int(in.StartHeight); height <= int(tipHeight); height++ {
-		if uint64(len(res)) >= in.Count {
-			break
-		}
-		blk, err := api.dao.GetBlockByHeight(uint64(height))
+	for height := in.StartHeight; height <= endHeight; height++ {
+		blk, err := api.dao.GetBlockByHeight(height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		var receiptsPb []*iotextypes.Receipt
-		if in.WithReceipts {
-			receipts, err := api.dao.GetReceipts(uint64(height))
+		if in.WithReceipts && height > 0 {
+			receipts, err := api.dao.GetReceipts(height)
 			if err != nil {
 				return nil, status.Error(codes.NotFound, err.Error())
 			}
@@ -653,7 +669,7 @@ func (api *Server) GetRawBlocks(
 		}
 		var transactionLogs *iotextypes.TransactionLogs
 		if in.WithTransactionLogs {
-			if transactionLogs, err = api.dao.TransactionLogs(uint64(height)); err != nil {
+			if transactionLogs, err = api.dao.TransactionLogs(height); err != nil {
 				return nil, status.Error(codes.NotFound, err.Error())
 			}
 		}
@@ -799,7 +815,7 @@ func (api *Server) GetActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 		return action.SealedEnvelope{}, status.Error(codes.NotFound, blockindex.ErrActionIndexNA.Error())
 	}
 
-	selp, _, _, err := api.getActionByActionHash(h)
+	selp, _, _, _, err := api.getActionByActionHash(h)
 	return selp, err
 }
 
@@ -1101,19 +1117,19 @@ func (api *Server) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error
 }
 
 // getActionByActionHash returns action by action hash
-func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, error) {
+func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope, hash.Hash256, uint64, uint32, error) {
 	actIndex, err := api.indexer.GetActionIndex(h[:])
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
 	blk, err := api.dao.GetBlockByHeight(actIndex.BlockHeight())
 	if err != nil {
-		return action.SealedEnvelope{}, hash.ZeroHash256, 0, err
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
-	selp, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
-	return selp, blk.HashBlock(), actIndex.BlockHeight(), err
+	selp, index, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
 }
 
 // getUnconfirmedActionsByAddress returns all unconfirmed actions in actpool associated with an address
@@ -1203,12 +1219,19 @@ func (api *Server) getBlockMetas(start uint64, count uint64) (*iotexapi.GetBlock
 }
 
 // getBlockMeta returns blockmetas response by block hash
-func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
+func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasResponse, error) {
 	hash, err := hash.HexStringToHash256(blkHash)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blockMeta, err := api.getBlockMetaByHash(hash)
+	height, err := api.dao.GetBlockHeight(hash)
+	if err != nil {
+		if errors.Cause(err) == db.ErrNotExist {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	blockMeta, err := api.getBlockMetaByHeight(height)
 	if err != nil {
 		return nil, err
 	}
@@ -1218,114 +1241,38 @@ func (api *Server) getBlockMeta(blkHash string) (*iotexapi.GetBlockMetasResponse
 	}, nil
 }
 
-// getBlockMetaByHeight gets block meta by height
+// getBlockMetaByHeight gets BlockMeta by height
 func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	if api.indexer != nil {
-		blockMeta, err := api.getBlockMetasByHeader(height)
-		if errors.Cause(err) != db.ErrNotExist {
-			return blockMeta, err
-		}
-	}
-	return api.getBlockMetasByBlock(height)
-}
-
-// getBlockMetaByHash gets block meta by hash
-func (api *Server) getBlockMetaByHash(h hash.Hash256) (*iotextypes.BlockMeta, error) {
-	if api.indexer != nil {
-		blockMeta, err := api.getBlockMetaByHeader(h)
-		if errors.Cause(err) != db.ErrNotExist {
-			return blockMeta, err
-		}
-	}
-	return api.getBlockMetaByBlock(h)
-}
-
-// putBlockMetaUpgradeByBlock puts numActions and transferAmount for blockmeta by block
-func (api *Server) putBlockMetaUpgradeByBlock(blk *block.Block, blockMeta *iotextypes.BlockMeta) *iotextypes.BlockMeta {
-	blockMeta.NumActions = int64(len(blk.Actions))
-	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
-	return blockMeta
-}
-
-// putBlockMetaUpgradeByHeader puts numActions and transferAmount for blockmeta by header height
-func (api *Server) putBlockMetaUpgradeByHeader(height uint64, blockMeta *iotextypes.BlockMeta) (*iotextypes.BlockMeta, error) {
-	index, err := api.indexer.GetBlockIndex(height)
-	if err != nil {
-		return nil, errors.Wrapf(err, "missing block index at height %d", height)
-	}
-	blockMeta.NumActions = int64(index.NumAction())
-	blockMeta.TransferAmount = index.TsfAmount().String()
-	return blockMeta, nil
-}
-
-// getBlockMetasByHeader gets block header by height
-func (api *Server) getBlockMetasByHeader(height uint64) (*iotextypes.BlockMeta, error) {
-	header, err := api.bc.BlockHeaderByHeight(height)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-	blockMeta := api.getCommonBlockMeta(header)
-	blockMeta, err = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
-	if err != nil {
-		return nil, err
-	}
-	return blockMeta, nil
-}
-
-// getBlockMetasByBlock gets block by height
-func (api *Server) getBlockMetasByBlock(height uint64) (*iotextypes.BlockMeta, error) {
 	blk, err := api.dao.GetBlockByHeight(height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	blockMeta := api.getCommonBlockMeta(blk)
-	blockMeta = api.putBlockMetaUpgradeByBlock(blk, blockMeta)
-	return blockMeta, nil
+	// get block's receipt
+	if blk.Height() > 0 {
+		blk.Receipts, err = api.dao.GetReceipts(height)
+		if err != nil {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+	}
+	return generateBlockMeta(blk), nil
 }
 
-// getBlockMetaByHeader gets block header by hash
-func (api *Server) getBlockMetaByHeader(h hash.Hash256) (*iotextypes.BlockMeta, error) {
-	header, err := api.dao.Header(h)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-	blockMeta := api.getCommonBlockMeta(header)
-	blockMeta, err = api.putBlockMetaUpgradeByHeader(header.Height(), blockMeta)
-	if err != nil {
-		return nil, err
-	}
-	return blockMeta, nil
-}
-
-// getBlockMetaByBlock gets block by hash
-func (api *Server) getBlockMetaByBlock(h hash.Hash256) (*iotextypes.BlockMeta, error) {
-	blk, err := api.dao.GetBlock(h)
-	if err != nil {
-		return nil, status.Error(codes.NotFound, err.Error())
-	}
-	blockMeta := api.getCommonBlockMeta(blk)
-	blockMeta = api.putBlockMetaUpgradeByBlock(blk, blockMeta)
-	return blockMeta, nil
-}
-
-// getCommonBlockMeta gets blockmeta by empty interface
-func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta {
-	header, ok := common.(*block.Header)
-	if !ok {
-		blk := common.(*block.Block)
-		header = &blk.Header
-	}
+// generateBlockMeta generates BlockMeta from block
+func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
+	header := blk.Header
 	hash := header.HashBlock()
 	height := header.Height()
 	ts, _ := ptypes.TimestampProto(header.Timestamp())
-	producerAddress := header.ProducerAddress()
+	var producerAddress string
+	if blk.Height() > 0 {
+		producerAddress = header.ProducerAddress()
+	}
 	txRoot := header.TxRoot()
 	receiptRoot := header.ReceiptRoot()
 	deltaStateDigest := header.DeltaStateDigest()
-	logsBloom := header.LogsBloomfilter()
 	prevHash := header.PrevHash()
 
-	blockMeta := &iotextypes.BlockMeta{
+	blockMeta := iotextypes.BlockMeta{
 		Hash:              hex.EncodeToString(hash[:]),
 		Height:            height,
 		Timestamp:         ts,
@@ -1335,10 +1282,25 @@ func (api *Server) getCommonBlockMeta(common interface{}) *iotextypes.BlockMeta 
 		DeltaStateDigest:  hex.EncodeToString(deltaStateDigest[:]),
 		PreviousBlockHash: hex.EncodeToString(prevHash[:]),
 	}
-	if logsBloom != nil {
+	if logsBloom := header.LogsBloomfilter(); logsBloom != nil {
 		blockMeta.LogsBloom = hex.EncodeToString(logsBloom.Bytes())
 	}
-	return blockMeta
+	blockMeta.NumActions = int64(len(blk.Actions))
+	blockMeta.TransferAmount = blk.CalculateTransferAmount().String()
+	blockMeta.GasLimit, blockMeta.GasUsed = gasLimitAndUsed(blk)
+	return &blockMeta
+}
+
+// GasLimitAndUsed returns the gas limit and used in a block
+func gasLimitAndUsed(b *block.Block) (uint64, uint64) {
+	var gasLimit, gasUsed uint64
+	for _, tx := range b.Actions {
+		gasLimit += tx.GasLimit()
+	}
+	for _, r := range b.Receipts {
+		gasUsed += r.GasConsumed
+	}
+	return gasLimit, gasUsed
 }
 
 func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error) {
@@ -1372,6 +1334,7 @@ func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash
 	if err != nil {
 		return nil, err
 	}
+
 	gas := new(big.Int)
 	gas = gas.Mul(selp.GasPrice(), big.NewInt(int64(receipt.GasConsumed)))
 	return &iotexapi.ActionInfo{
@@ -1395,13 +1358,19 @@ func (api *Server) pendingAction(selp action.SealedEnvelope) (*iotexapi.ActionIn
 		BlkHeight: 0,
 		Sender:    sender.String(),
 		Timestamp: nil,
+		Index:     0,
 	}, nil
 }
 
 func (api *Server) getAction(actHash hash.Hash256, checkPending bool) (*iotexapi.ActionInfo, error) {
-	selp, blkHash, blkHeight, err := api.getActionByActionHash(actHash)
+	selp, blkHash, blkHeight, actIndex, err := api.getActionByActionHash(actHash)
 	if err == nil {
-		return api.committedAction(selp, blkHash, blkHeight)
+		act, err := api.committedAction(selp, blkHash, blkHeight)
+		if err != nil {
+			return nil, err
+		}
+		act.Index = actIndex
+		return act, nil
 	}
 	// Try to fetch pending action from actpool
 	if checkPending {
@@ -1441,9 +1410,10 @@ func (api *Server) actionsInBlock(blk *block.Block, start, count uint64) []*iote
 			Action:    selp.Proto(),
 			ActHash:   hex.EncodeToString(actHash[:]),
 			BlkHash:   blkHash,
+			Timestamp: ts,
 			BlkHeight: blkHeight,
 			Sender:    sender.String(),
-			Timestamp: ts,
+			Index:     uint32(i),
 		})
 	}
 	return res
@@ -1466,9 +1436,10 @@ func (api *Server) reverseActionsInBlock(blk *block.Block, reverseStart, count u
 				Action:    selp.Proto(),
 				ActHash:   hex.EncodeToString(actHash[:]),
 				BlkHash:   blkHash,
+				Timestamp: ts,
 				BlkHeight: blkHeight,
 				Sender:    sender.String(),
-				Timestamp: ts,
+				Index:     uint32(ri),
 			},
 		}, res...)
 	}
@@ -1480,6 +1451,7 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
 		return nil, nil
 	}
@@ -1487,7 +1459,13 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	return filter.MatchLogs(receipts), nil
+
+	h, err := api.dao.GetBlockHash(blockNumber)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
+	return filter.MatchLogs(receipts, h), nil
 }
 
 // TODO: improve using goroutine

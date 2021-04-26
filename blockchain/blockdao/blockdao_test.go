@@ -268,8 +268,9 @@ func TestBlockDAO(t *testing.T) {
 			b2, err := receipts[i/3][i%3].Serialize()
 			require.NoError(err)
 			require.Equal(b1, b2)
-			action, err := dao.GetActionByActionHash(h, blk.Height())
+			action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 			require.NoError(err)
+			require.Equal(int(actIndex), i%3)
 			require.Equal(blk.Actions[i%3], action)
 		}
 	}
@@ -315,7 +316,7 @@ func TestBlockDAO(t *testing.T) {
 			if tipHeight == 0 {
 				h, err := dao.GetBlockHash(0)
 				require.NoError(err)
-				require.Equal(hash.ZeroHash256, h)
+				require.Equal(block.GenesisHash(), h)
 				continue
 			}
 			tipBlk := blks[tipHeight-1]
@@ -359,8 +360,9 @@ func TestBlockDAO(t *testing.T) {
 				b2, err := receipts[i/3][i%3].Serialize()
 				require.NoError(err)
 				require.Equal(b1, b2)
-				action, err := dao.GetActionByActionHash(h, blk.Height())
+				action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 				require.NoError(err)
+				require.Equal(int(actIndex), i%3)
 				require.Equal(blk.Actions[i%3], action)
 			}
 		}
@@ -387,6 +389,8 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
+	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash()
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)

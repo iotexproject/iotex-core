@@ -40,7 +40,7 @@ func TestNewHeartbeatHandler(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = true
 	require.NoError(err)
 	require.NotNil(s)
-	handler := NewHeartbeatHandler(s)
+	handler := NewHeartbeatHandler(s, cfg.Network)
 	require.NotNil(handler)
 	require.Panics(func() { handler.Log() }, "P2pAgent is nil")
 

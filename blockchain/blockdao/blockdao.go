@@ -45,7 +45,7 @@ type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
 		filedao.FileDAO
-		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, error)
+		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, uint32, error)
 		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
 		DeleteBlockToTarget(uint64) error
 	}
@@ -269,17 +269,17 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, error) {
+func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
 	blk, err := dao.blockStore.GetBlockByHeight(height)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return action.SealedEnvelope{}, 0, err
 	}
-	for _, act := range blk.Actions {
+	for i, act := range blk.Actions {
 		if act.Hash() == h {
-			return act, nil
+			return act, uint32(i), nil
 		}
 	}
-	return action.SealedEnvelope{}, errors.Errorf("block %d does not have action %x", height, h)
+	return action.SealedEnvelope{}, 0, errors.Errorf("block %d does not have action %x", height, h)
 }
 
 func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {
@@ -313,22 +313,24 @@ func (dao *blockDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 
 func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	timer := dao.timerFactory.NewTimer("put_block")
-	defer timer.End()
-
 	var err error
 	ctx, err = dao.fillWithBlockInfoAsTip(ctx, dao.tipHeight)
 	if err != nil {
 		return err
 	}
 	if err := dao.blockStore.PutBlock(ctx, blk); err != nil {
+		timer.End()
 		return err
 	}
 	atomic.StoreUint64(&dao.tipHeight, blk.Height())
 	header := blk.Header
 	lruCachePut(dao.headerCache, blk.Height(), &header)
 	lruCachePut(dao.headerCache, header.HashHeader(), &header)
+	timer.End()
 
 	// index the block if there's indexer
+	timer = dao.timerFactory.NewTimer("index_block")
+	defer timer.End()
 	for _, indexer := range dao.indexers {
 		if err := indexer.PutBlock(ctx, blk); err != nil {
 			return err

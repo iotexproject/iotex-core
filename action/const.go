@@ -9,6 +9,10 @@ package action
 import "github.com/pkg/errors"
 
 var (
+	// ErrAction indicates error for an action
+	ErrAction = errors.New("invalid action")
+	// ErrAddress indicates error of address
+	ErrAddress = errors.New("invalid address")
 	// ErrActPool indicates the error of actpool
 	ErrActPool = errors.New("invalid actpool")
 	// ErrHitGasLimit is the error when hit gas limit

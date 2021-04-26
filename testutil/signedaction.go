@@ -7,12 +7,18 @@
 package testutil
 
 import (
+	"encoding/hex"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/action"
+)
+
+// vars
+var (
+	ValidSig, _ = hex.DecodeString("15e73ad521ec9e06600c59e49b127c9dee114ad64fb2fcbe5e0d9f4c8d2b766e73d708cca1dc050dd27b20f2ee607f30428bf035f45d4da8ec2fb04a90c2c30901")
 )
 
 // SignedTransfer return a signed transfer

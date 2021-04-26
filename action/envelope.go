@@ -3,32 +3,45 @@ package action
 import (
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// Envelope defines an envelope wrapped on action with some envelope metadata.
-type Envelope struct {
-	version  uint32
-	nonce    uint64
-	gasLimit uint64
-	payload  actionPayload
-	gasPrice *big.Int
-}
+type (
+	// Envelope defines an envelope wrapped on action with some envelope metadata.
+	Envelope interface {
+		Version() uint32
+		Nonce() uint64
+		GasLimit() uint64
+		GasPrice() *big.Int
+		Destination() (string, bool)
+		Cost() (*big.Int, error)
+		IntrinsicGas() (uint64, error)
+		Action() Action
+		Proto() *iotextypes.ActionCore
+		LoadProto(pbAct *iotextypes.ActionCore) error
+		SetNonce(n uint64)
+	}
+
+	envelope struct {
+		version  uint32
+		nonce    uint64
+		gasLimit uint64
+		gasPrice *big.Int
+		payload  actionPayload
+	}
+)
 
 // Version returns the version
-func (elp *Envelope) Version() uint32 { return elp.version }
+func (elp *envelope) Version() uint32 { return elp.version }
 
 // Nonce returns the nonce
-func (elp *Envelope) Nonce() uint64 { return elp.nonce }
+func (elp *envelope) Nonce() uint64 { return elp.nonce }
 
 // Destination returns the destination address
-func (elp *Envelope) Destination() (string, bool) {
+func (elp *envelope) Destination() (string, bool) {
 	r, ok := elp.payload.(hasDestination)
 	if !ok {
 		return "", false
@@ -38,10 +51,10 @@ func (elp *Envelope) Destination() (string, bool) {
 }
 
 // GasLimit returns the gas limit
-func (elp *Envelope) GasLimit() uint64 { return elp.gasLimit }
+func (elp *envelope) GasLimit() uint64 { return elp.gasLimit }
 
 // GasPrice returns the gas price
-func (elp *Envelope) GasPrice() *big.Int {
+func (elp *envelope) GasPrice() *big.Int {
 	p := &big.Int{}
 	if elp.gasPrice == nil {
 		return p
@@ -50,20 +63,20 @@ func (elp *Envelope) GasPrice() *big.Int {
 }
 
 // Cost returns cost of actions
-func (elp *Envelope) Cost() (*big.Int, error) {
+func (elp *envelope) Cost() (*big.Int, error) {
 	return elp.payload.Cost()
 }
 
 // IntrinsicGas returns intrinsic gas of action.
-func (elp *Envelope) IntrinsicGas() (uint64, error) {
+func (elp *envelope) IntrinsicGas() (uint64, error) {
 	return elp.payload.IntrinsicGas()
 }
 
 // Action returns the action payload.
-func (elp *Envelope) Action() Action { return elp.payload }
+func (elp *envelope) Action() Action { return elp.payload }
 
 // Proto convert Envelope to protobuf format.
-func (elp *Envelope) Proto() *iotextypes.ActionCore {
+func (elp *envelope) Proto() *iotextypes.ActionCore {
 	actCore := &iotextypes.ActionCore{
 		Version:  elp.version,
 		Nonce:    elp.nonce,
@@ -74,8 +87,7 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 	}
 
 	// TODO assert each action
-	act := elp.Action()
-	switch act := act.(type) {
+	switch act := elp.Action().(type) {
 	case *Transfer:
 		actCore.Action = &iotextypes.ActionCore_Transfer{Transfer: act.Proto()}
 	case *Execution:
@@ -113,14 +125,14 @@ func (elp *Envelope) Proto() *iotextypes.ActionCore {
 }
 
 // LoadProto loads fields from protobuf format.
-func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
+func (elp *envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
 	if elp == nil {
 		return errors.New("nil action to load proto")
 	}
-	*elp = Envelope{}
+	*elp = envelope{}
 	elp.version = pbAct.GetVersion()
 	elp.nonce = pbAct.GetNonce()
 	elp.gasLimit = pbAct.GetGasLimit()
@@ -220,20 +232,10 @@ func (elp *Envelope) LoadProto(pbAct *iotextypes.ActionCore) error {
 		}
 		elp.payload = act
 	default:
-		return errors.Errorf("no applicable action to handle in action proto %+v", pbAct)
+		return errors.Errorf("no applicable action to handle proto type %T", pbAct.Action)
 	}
 	return nil
 }
 
-// Serialize returns encoded binary.
-func (elp *Envelope) Serialize() []byte {
-	return byteutil.Must(proto.Marshal(elp.Proto()))
-}
-
-// Hash returns the hash value of SealedEnvelope.
-func (elp *Envelope) Hash() hash.Hash256 {
-	return hash.Hash256b(elp.Serialize())
-}
-
 // SetNonce sets the nonce value
-func (elp *Envelope) SetNonce(n uint64) { elp.nonce = n }
+func (elp *envelope) SetNonce(n uint64) { elp.nonce = n }

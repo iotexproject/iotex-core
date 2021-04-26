@@ -126,10 +126,10 @@ func (fd *fileDAOLegacy) Height() (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
-	h := hash.ZeroHash256
 	if height == 0 {
-		return h, nil
+		return block.GenesisHash(), nil
 	}
+	h := hash.ZeroHash256
 	value, err := fd.kvStore.Get(blockHashHeightMappingNS, heightKey(height))
 	if err != nil {
 		return h, errors.Wrap(err, "failed to get block hash")
@@ -142,6 +142,9 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
+	if h == block.GenesisHash() {
+		return 0, nil
+	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
@@ -150,6 +153,9 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
+	if h == block.GenesisHash() {
+		return block.GenesisBlock(), nil
+	}
 	header, err := fd.Header(h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)

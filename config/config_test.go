@@ -110,8 +110,10 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	_, err := New()
+	cfg, err := New()
 	require.NoError(t, err)
+	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
+	require.Equal(t, cfg.Genesis.Timestamp, GenesisTimestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

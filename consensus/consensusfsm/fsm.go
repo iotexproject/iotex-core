@@ -390,7 +390,7 @@ func (m *ConsensusFSM) prepare(evt fsm.Event) (fsm.State, error) {
 		m.ctx.Logger().Error("Error during prepare", zap.Error(err))
 		return m.BackToPrepare(0)
 	}
-	m.ctx.Logger().Info("Start a new round")
+	m.ctx.Logger().Debug("Start a new round")
 	proposal, err := m.ctx.Proposal()
 	if err != nil {
 		m.ctx.Logger().Error("failed to generate block proposal", zap.Error(err))

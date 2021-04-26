@@ -64,13 +64,19 @@ func NewExecution(
 func (ex *Execution) Contract() string { return ex.contract }
 
 // Destination returns a contract address
-func (ex *Execution) Destination() string { return ex.Contract() }
+func (ex *Execution) Destination() string { return ex.contract }
+
+// Recipient is same as Contract()
+func (ex *Execution) Recipient() string { return ex.contract }
 
 // Amount returns the amount
 func (ex *Execution) Amount() *big.Int { return ex.amount }
 
 // Data returns the data bytes
 func (ex *Execution) Data() []byte { return ex.data }
+
+// Payload is same as Data()
+func (ex *Execution) Payload() []byte { return ex.data }
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {
