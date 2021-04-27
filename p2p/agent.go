@@ -91,6 +91,7 @@ type Agent struct {
 // NewAgent instantiates a local P2P agent instance
 func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	gh := cfg.Genesis.Hash()
+	log.L().Info("p2p agent", log.Hex("topicSuffix", gh[22:]))
 	return &Agent{
 		cfg: cfg.Network,
 		// Make sure the honest node only care the messages related the chain from the same genesis

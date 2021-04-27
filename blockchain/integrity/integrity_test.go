@@ -569,7 +569,7 @@ func TestGetBlockHash(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.HawaiiBlockHeight = 3
 	cfg.ActPool.MinGasPriceStr = "0"
-	config.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash()
 	// create chain
 	registry := protocol.NewRegistry()
@@ -1330,7 +1330,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
-	config.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
 	block.LoadGenesisHash()
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {

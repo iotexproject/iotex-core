@@ -47,7 +47,7 @@ var (
 	_subChainPath string
 	_plugins      strs
 	_evmNetworkID uint32
-	_genesisTs    int64
+	loadChainID   sync.Once
 )
 
 const (
@@ -88,11 +88,6 @@ const (
 
 	SigP256k1  = "secp256k1"
 	SigP256sm2 = "p256sm2"
-)
-
-var (
-	loadChainID   sync.Once
-	loadGenesisTs sync.Once
 )
 
 var (
@@ -478,10 +473,6 @@ func New(validates ...Validate) (Config, error) {
 		}
 	}
 
-	// populdate chain ID and genesis timestamp
-	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	SetGenesisTimestamp(cfg.Genesis.Timestamp)
-
 	// By default, the config needs to pass all the validation
 	if len(validates) == 0 {
 		validates = Validates
@@ -538,18 +529,6 @@ func SetEVMNetworkID(id uint32) {
 // EVMNetworkID returns the extern chain ID
 func EVMNetworkID() uint32 {
 	return atomic.LoadUint32(&_evmNetworkID)
-}
-
-// SetGenesisTimestamp sets the genesis timestamp
-func SetGenesisTimestamp(ts int64) {
-	loadGenesisTs.Do(func() {
-		_genesisTs = ts
-	})
-}
-
-// GenesisTimestamp returns the genesis timestamp
-func GenesisTimestamp() int64 {
-	return atomic.LoadInt64(&_genesisTs)
 }
 
 // ProducerAddress returns the configured producer address derived from key

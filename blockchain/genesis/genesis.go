@@ -10,6 +10,8 @@ import (
 	"flag"
 	"math/big"
 	"sort"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -29,7 +31,11 @@ import (
 // Default contains the default genesis config
 var Default = defaultConfig()
 
-var genesisPath string
+var (
+	genesisPath   string
+	genesisTs     int64
+	loadGenesisTs sync.Once
+)
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
@@ -305,6 +311,18 @@ func New() (Genesis, error) {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
 	return genesis, nil
+}
+
+// SetGenesisTimestamp sets the genesis timestamp
+func SetGenesisTimestamp(ts int64) {
+	loadGenesisTs.Do(func() {
+		genesisTs = ts
+	})
+}
+
+// Timestamp returns the genesis timestamp
+func Timestamp() int64 {
+	return atomic.LoadInt64(&genesisTs)
 }
 
 // Hash is the hash of genesis config

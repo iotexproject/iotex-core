@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -257,7 +258,7 @@ func TestNewFdInterface(t *testing.T) {
 	cfg.DbPath = testPath
 	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash()
 
 	for _, compress := range []string{"", compress.Snappy} {
