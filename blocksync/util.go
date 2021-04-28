@@ -13,7 +13,11 @@ import (
 )
 
 func commitBlock(bc blockchain.Blockchain, cs consensus.Consensus, blk *block.Block) error {
-	if err := cs.ValidateBlockFooter(blk); err != nil {
+	ctx, err := bc.Context()
+	if err != nil {
+		return err
+	}
+	if err := cs.ValidateBlockFooter(ctx, blk); err != nil {
 		return err
 	}
 	if err := bc.ValidateBlock(blk); err != nil {

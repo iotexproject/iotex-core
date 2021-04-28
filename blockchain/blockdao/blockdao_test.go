@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -177,11 +176,13 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testBlockDao := func(dao BlockDAO, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
+		ctx := genesis.WithGenesisContext(
 			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
+			config.Default.Genesis,
+		)
+		ctx = action.WithEVMNetworkContext(
+			ctx,
+			action.EVMNetworkContext{ChainID: config.Default.Chain.EVMNetworkID},
 		)
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -197,19 +198,19 @@ func TestBlockDAO(t *testing.T) {
 			tipBlk := blks[i]
 
 			// test FileDAO's API
-			hash, err := dao.GetBlockHash(tipBlk.Height())
+			hash, err := dao.GetBlockHash(ctx, tipBlk.Height())
 			require.NoError(err)
 			require.Equal(tipBlk.HashBlock(), hash)
-			height, err := dao.GetBlockHeight(hash)
+			height, err := dao.GetBlockHeight(ctx, hash)
 			require.NoError(err)
 			require.Equal(tipBlk.Height(), height)
-			blk, err := dao.GetBlock(hash)
+			blk, err := dao.GetBlock(ctx, hash)
 			require.NoError(err)
 			require.Equal(tipBlk, blk)
-			blk, err = dao.GetBlockByHeight(height)
+			blk, err = dao.GetBlockByHeight(ctx, height)
 			require.NoError(err)
 			require.Equal(tipBlk, blk)
-			r, err := dao.GetReceipts(height)
+			r, err := dao.GetReceipts(ctx, height)
 			require.NoError(err)
 			require.Equal(len(receipts[i]), len(r))
 			for j := range receipts[i] {
@@ -222,13 +223,13 @@ func TestBlockDAO(t *testing.T) {
 
 			// test BlockDAO's API, 2nd loop to test LRU cache
 			for i := 0; i < 2; i++ {
-				header, err := dao.Header(hash)
+				header, err := dao.Header(ctx, hash)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				header, err = dao.HeaderByHeight(height)
+				header, err = dao.HeaderByHeight(ctx, height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				footer, err := dao.FooterByHeight(height)
+				footer, err := dao.FooterByHeight(ctx, height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Footer, footer)
 			}
@@ -242,19 +243,19 @@ func TestBlockDAO(t *testing.T) {
 		require.Equal(filedao.ErrAlreadyExist, dao.PutBlock(ctx, blks[2]))
 
 		// check non-exist block
-		h, err := dao.GetBlockHash(5)
+		h, err := dao.GetBlockHash(ctx, 5)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Equal(hash.ZeroHash256, h)
-		height, err = dao.GetBlockHeight(hash.ZeroHash256)
+		height, err = dao.GetBlockHeight(ctx, hash.ZeroHash256)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.EqualValues(0, height)
-		blk, err := dao.GetBlock(hash.ZeroHash256)
+		blk, err := dao.GetBlock(ctx, hash.ZeroHash256)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Nil(blk)
-		blk, err = dao.GetBlockByHeight(5)
+		blk, err = dao.GetBlockByHeight(ctx, 5)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Nil(blk)
-		r, err := dao.GetReceipts(5)
+		r, err := dao.GetReceipts(ctx, 5)
 		require.Equal(db.ErrNotExist, errors.Cause(err))
 		require.Nil(r)
 
@@ -262,14 +263,14 @@ func TestBlockDAO(t *testing.T) {
 		for i, v := range daoTests[0].hashTotal {
 			blk := blks[i/3]
 			h := hash.BytesToHash256(v)
-			receipt, err := dao.GetReceiptByActionHash(h, blk.Height())
+			receipt, err := dao.GetReceiptByActionHash(ctx, h, blk.Height())
 			require.NoError(err)
 			b1, err := receipt.Serialize()
 			require.NoError(err)
 			b2, err := receipts[i/3][i%3].Serialize()
 			require.NoError(err)
 			require.Equal(b1, b2)
-			action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
+			action, actIndex, err := dao.GetActionByActionHash(ctx, h, blk.Height())
 			require.NoError(err)
 			require.Equal(int(actIndex), i%3)
 			require.Equal(blk.Actions[i%3], action)
@@ -277,11 +278,13 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testDeleteDao := func(dao BlockDAO, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
+		ctx := genesis.WithGenesisContext(
 			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
+			config.Default.Genesis,
+		)
+		ctx = action.WithEVMNetworkContext(
+			ctx,
+			action.EVMNetworkContext{ChainID: config.Default.Chain.EVMNetworkID},
 		)
 		require.NoError(dao.Start(ctx))
 		defer func() {
@@ -303,49 +306,49 @@ func TestBlockDAO(t *testing.T) {
 			}
 			prevTipHeight, err := dao.Height()
 			require.NoError(err)
-			prevTipHash, err := dao.GetBlockHash(prevTipHeight)
+			prevTipHash, err := dao.GetBlockHash(ctx, prevTipHeight)
 			require.NoError(err)
-			require.NoError(dao.DeleteBlockToTarget(prevTipHeight - 1))
+			require.NoError(dao.DeleteBlockToTarget(ctx, prevTipHeight-1))
 			tipHeight, err := dao.Height()
 			require.NoError(err)
 			require.EqualValues(prevTipHeight-1, tipHeight)
-			_, err = dao.GetBlockHash(prevTipHeight)
+			_, err = dao.GetBlockHash(ctx, prevTipHeight)
 			require.Error(err)
-			_, err = dao.GetBlockHeight(prevTipHash)
+			_, err = dao.GetBlockHeight(ctx, prevTipHash)
 			require.Error(err)
 
 			if tipHeight == 0 {
-				h, err := dao.GetBlockHash(0)
+				h, err := dao.GetBlockHash(ctx, 0)
 				require.NoError(err)
-				require.Equal(block.GenesisHash(), h)
+				require.Equal(config.Default.Genesis.Hash(), h)
 				continue
 			}
 			tipBlk := blks[tipHeight-1]
 			require.Equal(tipBlk.Height(), tipHeight)
 
 			// test FileDAO's API
-			h, err := dao.GetBlockHash(tipHeight)
+			h, err := dao.GetBlockHash(ctx, tipHeight)
 			require.NoError(err)
 			require.Equal(tipBlk.HashBlock(), h)
-			height, err := dao.GetBlockHeight(h)
+			height, err := dao.GetBlockHeight(ctx, h)
 			require.NoError(err)
 			require.Equal(tipHeight, height)
-			blk, err := dao.GetBlock(h)
+			blk, err := dao.GetBlock(ctx, h)
 			require.NoError(err)
 			require.Equal(tipBlk, blk)
-			blk, err = dao.GetBlockByHeight(height)
+			blk, err = dao.GetBlockByHeight(ctx, height)
 			require.NoError(err)
 			require.Equal(tipBlk, blk)
 
 			// test BlockDAO's API, 2nd loop to test LRU cache
 			for i := 0; i < 2; i++ {
-				header, err := dao.Header(h)
+				header, err := dao.Header(ctx, h)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				header, err = dao.HeaderByHeight(height)
+				header, err = dao.HeaderByHeight(ctx, height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Header, header)
-				footer, err := dao.FooterByHeight(height)
+				footer, err := dao.FooterByHeight(ctx, height)
 				require.NoError(err)
 				require.Equal(&tipBlk.Footer, footer)
 			}
@@ -354,14 +357,14 @@ func TestBlockDAO(t *testing.T) {
 			for i, v := range action.hashTotal {
 				blk := blks[i/3]
 				h := hash.BytesToHash256(v)
-				receipt, err := dao.GetReceiptByActionHash(h, blk.Height())
+				receipt, err := dao.GetReceiptByActionHash(ctx, h, blk.Height())
 				require.NoError(err)
 				b1, err := receipt.Serialize()
 				require.NoError(err)
 				b2, err := receipts[i/3][i%3].Serialize()
 				require.NoError(err)
 				require.Equal(b1, b2)
-				action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
+				action, actIndex, err := dao.GetActionByActionHash(ctx, h, blk.Height())
 				require.NoError(err)
 				require.Equal(int(actIndex), i%3)
 				require.Equal(blk.Actions[i%3], action)
@@ -390,8 +393,6 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
@@ -413,7 +414,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
+func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (BlockDAO, error) {
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
@@ -438,7 +439,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		require.NoError(b, err)
 		indexPath, err := testutil.PathOfTempFile(path)
 		require.NoError(b, err)
-		cfg := config.DB{
+		cfg := db.Config{
 			NumRetries: 1,
 		}
 		defer func() {

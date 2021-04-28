@@ -15,12 +15,13 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
 )
@@ -45,15 +46,18 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			Caller: caller,
 		})
 
-	ctx = WithBlockchainCtx(
+	ctx = block.WithTipBlockContext(
 		ctx,
-		BlockchainCtx{
-			Genesis: config.Default.Genesis,
-			Tip: TipInfo{
-				Height:    0,
-				Hash:      config.Default.Genesis.Hash(),
-				Timestamp: time.Unix(config.Default.Genesis.Timestamp, 0),
-			},
+		block.TipBlockContext{
+			Height:    0,
+			Hash:      hash.ZeroHash256,
+			Timestamp: time.Unix(1234567, 0),
+		},
+	)
+	ctx = action.WithEVMNetworkContext(
+		ctx,
+		action.EVMNetworkContext{
+			ChainID: 4689,
 		},
 	)
 
@@ -77,7 +81,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.LoadProto(ctx, selp.Proto()))
 		require.NoError(valid.Validate(ctx, nselp))
 	})
 	t.Run("Gas limit low", func(t *testing.T) {
@@ -90,7 +94,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.LoadProto(ctx, selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "insufficient gas"))
@@ -105,7 +109,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.LoadProto(ctx, selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "invalid state of account"))
@@ -121,7 +125,7 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 		selp, err := action.Sign(elp, identityset.PrivateKey(28))
 		require.NoError(err)
 		nselp := action.SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.LoadProto(ctx, selp.Proto()))
 		err = valid.Validate(ctx, nselp)
 		require.Error(err)
 		require.True(strings.Contains(err.Error(), "nonce is too low"))

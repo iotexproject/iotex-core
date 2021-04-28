@@ -7,6 +7,7 @@
 package block
 
 import (
+	"context"
 	"encoding/hex"
 	"time"
 
@@ -62,13 +63,13 @@ func (b *Block) Serialize() ([]byte, error) {
 }
 
 // ConvertFromBlockPb converts Block to Block
-func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
+func (b *Block) ConvertFromBlockPb(ctx context.Context, pbBlock *iotextypes.Block) error {
 	b.Header = Header{}
 	if err := b.Header.LoadFromBlockHeaderProto(pbBlock.GetHeader()); err != nil {
 		return err
 	}
 	b.Body = Body{}
-	if err := b.Body.LoadProto(pbBlock.GetBody()); err != nil {
+	if err := b.Body.LoadProto(ctx, pbBlock.GetBody()); err != nil {
 		return err
 	}
 
@@ -76,12 +77,12 @@ func (b *Block) ConvertFromBlockPb(pbBlock *iotextypes.Block) error {
 }
 
 // Deserialize parses the byte stream into a Block
-func (b *Block) Deserialize(buf []byte) error {
+func (b *Block) Deserialize(ctx context.Context, buf []byte) error {
 	pbBlock := iotextypes.Block{}
 	if err := proto.Unmarshal(buf, &pbBlock); err != nil {
 		return err
 	}
-	if err := b.ConvertFromBlockPb(&pbBlock); err != nil {
+	if err := b.ConvertFromBlockPb(ctx, &pbBlock); err != nil {
 		return err
 	}
 	b.Receipts = nil

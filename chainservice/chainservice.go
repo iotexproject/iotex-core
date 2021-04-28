@@ -499,11 +499,15 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
-	if err := act.LoadProto(actPb); err != nil {
+	bcCtx, err := cs.chain.Context()
+	if err != nil {
+		return err
+	}
+	if err := act.LoadProto(bcCtx, actPb); err != nil {
 		return err
 	}
 	ctx = protocol.WithRegistry(ctx, cs.registry)
-	err := cs.actpool.Add(ctx, act)
+	err = cs.actpool.Add(ctx, act)
 	if err != nil {
 		log.L().Debug(err.Error())
 	}
@@ -513,7 +517,11 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 // HandleBlock handles incoming block request.
 func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	bcCtx, err := cs.chain.Context()
+	if err != nil {
+		return err
+	}
+	if err := blk.ConvertFromBlockPb(bcCtx, pbBlock); err != nil {
 		return err
 	}
 	return cs.blocksync.ProcessBlock(ctx, blk)
@@ -522,7 +530,11 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 // HandleBlockSync handles incoming block sync request.
 func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	bcCtx, err := cs.chain.Context()
+	if err != nil {
+		return err
+	}
+	if err := blk.ConvertFromBlockPb(bcCtx, pbBlock); err != nil {
 		return err
 	}
 	return cs.blocksync.ProcessBlockSync(ctx, blk)
@@ -535,7 +547,11 @@ func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.Pe
 
 // HandleConsensusMsg handles incoming consensus message.
 func (cs *ChainService) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
-	return cs.consensus.HandleConsensusMsg(msg)
+	bcCtx, err := cs.chain.Context()
+	if err != nil {
+		return err
+	}
+	return cs.consensus.HandleConsensusMsg(bcCtx, msg)
 }
 
 // ChainID returns ChainID.

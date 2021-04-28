@@ -10,6 +10,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/util"
 )
@@ -55,8 +56,8 @@ func (ns *nativeStakingV2) CreateGenesisStates(ctx context.Context, sm protocol.
 	if err != nil {
 		return err
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	cands = ns.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp)
+	tip := block.MustExtractTipBlockContext(ctx)
+	cands = ns.filterAndSortCandidatesByVoteScore(cands, tip.Timestamp)
 	return setCandidates(ctx, sm, ns.candIndexer, cands, uint64(1))
 }
 
@@ -82,8 +83,8 @@ func (ns *nativeStakingV2) CalculateCandidatesByHeight(ctx context.Context, sr p
 	if err != nil {
 		return cands, err
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	return ns.filterAndSortCandidatesByVoteScore(cands, bcCtx.Tip.Timestamp), nil
+	tip := block.MustExtractTipBlockContext(ctx)
+	return ns.filterAndSortCandidatesByVoteScore(cands, tip.Timestamp), nil
 }
 
 func (ns *nativeStakingV2) CalculateUnproductiveDelegates(

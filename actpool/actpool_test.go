@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/mock/mock_chainmanager"
 	"github.com/iotexproject/iotex-core/test/mock/mock_sealed_envelope_validator"
@@ -96,11 +97,9 @@ func TestValidate(t *testing.T) {
 	re := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(re))
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), re),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
+		config.Default.Genesis,
 	)
 	sf := mock_chainmanager.NewMockStateReader(ctrl)
 	sev := mock_sealed_envelope_validator.NewMockSealedEnvelopeValidator(ctrl)
@@ -1020,8 +1019,7 @@ func TestActPool_AddActionNotEnoughGasPrice(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{})
-	require.Error(t, ap.Add(ctx, tsf))
+	require.Error(t, ap.Add(context.Background(), tsf))
 }
 
 // Helper function to return the correct pending nonce just in case of empty queue

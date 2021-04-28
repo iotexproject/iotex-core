@@ -26,6 +26,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -51,11 +53,9 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
+		config.Default.Genesis,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -63,6 +63,7 @@ func initConstructStakingCommittee(ctrl *gomock.Controller) (Protocol, context.C
 			Caller: producer,
 		},
 	)
+	ctx = block.WithTipBlockContext(ctx, block.TipBlockContext{})
 
 	sm := mock_chainmanager.NewMockStateManager(ctrl)
 	committee := mock_committee.NewMockCommittee(ctrl)

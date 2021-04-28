@@ -52,12 +52,13 @@ func TestExecuteContractFailure(t *testing.T) {
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: config.Default.Genesis,
+	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
+	ctx = action.WithEVMNetworkContext(ctx, action.EVMNetworkContext{
+		ChainID: config.Default.Chain.EVMNetworkID,
 	})
 
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
-		func(uint64) (hash.Hash256, error) {
+		func(context.Context, uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
 		func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error) {
@@ -79,11 +80,7 @@ func TestConstantinople(t *testing.T) {
 		Caller: identityset.Address(27),
 	})
 
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	})
-
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
 
 	execHeights := []struct {
 		contract string
@@ -156,14 +153,14 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+		hu := config.NewHeightUpgrade(&config.Default.Genesis)
 		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hu.IsPost(config.Greenland, e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
 			BlockHeight: e.height,
 		})
-		ps, err := newParams(ctx, ex, stateDB, func(uint64) (hash.Hash256, error) {
+		ps, err := newParams(ctx, ex, stateDB, func(context.Context, uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		})
 		require.NoError(err)

@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"time"
 
 	"github.com/pkg/errors"
@@ -91,8 +92,8 @@ func (c *roundCalculator) UpdateRound(round *roundCtx, height uint64, blockInter
 }
 
 // Proposer returns the block producer of the round
-func (c *roundCalculator) Proposer(height uint64, blockInterval time.Duration, roundStartTime time.Time) string {
-	round, err := c.newRound(height, blockInterval, roundStartTime, nil, 0)
+func (c *roundCalculator) Proposer(ctx context.Context, height uint64, blockInterval time.Duration, roundStartTime time.Time) string {
+	round, err := c.newRound(ctx, height, blockInterval, roundStartTime, nil, 0)
 	if err != nil {
 		return ""
 	}
@@ -176,26 +177,29 @@ func (c *roundCalculator) Delegates(height uint64) ([]string, error) {
 
 // NewRoundWithToleration starts new round with tolerated over time
 func (c *roundCalculator) NewRoundWithToleration(
+	ctx context.Context,
 	height uint64,
 	blockInterval time.Duration,
 	now time.Time,
 	eManager *endorsementManager,
 	toleratedOvertime time.Duration,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, blockInterval, now, eManager, toleratedOvertime)
+	return c.newRound(ctx, height, blockInterval, now, eManager, toleratedOvertime)
 }
 
 // NewRound starts new round and returns roundCtx
 func (c *roundCalculator) NewRound(
+	ctx context.Context,
 	height uint64,
 	blockInterval time.Duration,
 	now time.Time,
 	eManager *endorsementManager,
 ) (round *roundCtx, err error) {
-	return c.newRound(height, blockInterval, now, eManager, 0)
+	return c.newRound(ctx, height, blockInterval, now, eManager, 0)
 }
 
 func (c *roundCalculator) newRound(
+	ctx context.Context,
 	height uint64,
 	blockInterval time.Duration,
 	now time.Time,
@@ -222,7 +226,7 @@ func (c *roundCalculator) newRound(
 		}
 	}
 	if eManager == nil {
-		if eManager, err = newEndorsementManager(nil); err != nil {
+		if eManager, err = newEndorsementManager(ctx, nil); err != nil {
 			return nil, err
 		}
 	}

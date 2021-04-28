@@ -1,23 +1,55 @@
 package action
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
 
-// SealedEnvelope is a signed action envelope.
-type SealedEnvelope struct {
-	Envelope
-	encoding     iotextypes.Encoding
-	evmNetworkID uint32
-	srcPubkey    crypto.PublicKey
-	signature    []byte
+type (
+	// SealedEnvelope is a signed action envelope.
+	SealedEnvelope struct {
+		Envelope
+		encoding     iotextypes.Encoding
+		evmNetworkID uint32
+		srcPubkey    crypto.PublicKey
+		signature    []byte
+	}
+
+	evmNetworkContextKey struct{}
+
+	// EVMNetworkContext is the context of evm network
+	EVMNetworkContext struct {
+		// ChainID chain id registered in evm network
+		ChainID uint32
+	}
+)
+
+// WithEVMNetworkContext add evm network information into context.
+func WithEVMNetworkContext(ctx context.Context, enc EVMNetworkContext) context.Context {
+	return context.WithValue(ctx, evmNetworkContextKey{}, enc)
+}
+
+// ExtractEVMNetworkContext gets EVMNetworkContext
+func ExtractEVMNetworkContext(ctx context.Context) (EVMNetworkContext, bool) {
+	enc, ok := ctx.Value(evmNetworkContextKey{}).(EVMNetworkContext)
+	return enc, ok
+}
+
+// MustExtractEVMNetworkContext must extract EVMNetworkdContext, else panic
+func MustExtractEVMNetworkContext(ctx context.Context) EVMNetworkContext {
+	enc, ok := ctx.Value(evmNetworkContextKey{}).(EVMNetworkContext)
+	if !ok {
+		log.S().Panic("Miss evm network context")
+	}
+	return enc
 }
 
 // envelopeHash returns the raw hash of embedded Envelope (this is the hash to be signed)
@@ -82,7 +114,7 @@ func (sealed *SealedEnvelope) Proto() *iotextypes.Action {
 }
 
 // LoadProto loads from proto scheme.
-func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
+func (sealed *SealedEnvelope) LoadProto(ctx context.Context, pbAct *iotextypes.Action) error {
 	if pbAct == nil {
 		return errors.New("empty action proto to load")
 	}
@@ -111,10 +143,14 @@ func (sealed *SealedEnvelope) LoadProto(pbAct *iotextypes.Action) error {
 		if err != nil {
 			return err
 		}
-		if _, err = rlpSignedHash(tx, config.EVMNetworkID(), pbAct.GetSignature()); err != nil {
+		enc, ok := ExtractEVMNetworkContext(ctx)
+		if !ok {
+			return errors.New("evm network chain id is not specified")
+		}
+		if _, err = rlpSignedHash(tx, enc.ChainID, pbAct.GetSignature()); err != nil {
 			return err
 		}
-		sealed.evmNetworkID = config.EVMNetworkID()
+		sealed.evmNetworkID = enc.ChainID
 	case iotextypes.Encoding_IOTEX_PROTOBUF:
 		break
 	default:

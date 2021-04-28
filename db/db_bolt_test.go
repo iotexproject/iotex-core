@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -25,7 +24,7 @@ func TestBucketExists(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = testPath
 	kv := NewBoltDB(cfg)
 	ctx := context.Background()
@@ -42,7 +41,7 @@ func BenchmarkBoltDB_Get(b *testing.B) {
 		require.NoError(b, err)
 		db := BoltDB{
 			path:   path,
-			config: config.Default.DB,
+			config: Default,
 		}
 		db.Start(context.Background())
 		defer db.Stop(context.Background())

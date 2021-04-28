@@ -26,6 +26,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -88,7 +89,7 @@ func newParams(
 ) (*Params, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
@@ -101,7 +102,7 @@ func newParams(
 	}
 
 	gasLimit := execution.GasLimit()
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
 	if blkCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
@@ -110,7 +111,7 @@ func newParams(
 	var getHashFn vm.GetHashFunc
 	if hu.IsPre(config.Hawaii, blkCtx.BlockHeight) {
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - n)
+			hash, err := getBlockHash(ctx, stateDB.blockHeight-n)
 			if err != nil {
 				return common.BytesToHash(hash[:])
 			}
@@ -118,7 +119,7 @@ func newParams(
 		}
 	} else {
 		getHashFn = func(n uint64) common.Hash {
-			hash, err := getBlockHash(stateDB.blockHeight - (n + 1))
+			hash, err := getBlockHash(ctx, stateDB.blockHeight-(n+1))
 			if err == nil {
 				return common.BytesToHash(hash[:])
 			}
@@ -178,8 +179,8 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
+	hu := config.NewHeightUpgrade(&g)
 	opts := []StateDBAdapterOption{}
 	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) {
 		opts = append(opts, SortCachedContractsOption())
@@ -380,7 +381,8 @@ func SimulateExecution(
 	ex *action.Execution,
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
+	tip := block.MustExtractTipBlockContext(ctx)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -394,9 +396,9 @@ func SimulateExecution(
 	ctx = protocol.WithBlockCtx(
 		ctx,
 		protocol.BlockCtx{
-			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(bcCtx.Genesis.BlockInterval),
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			BlockHeight:    tip.Height + 1,
+			BlockTimeStamp: tip.Timestamp.Add(g.BlockInterval),
+			GasLimit:       g.BlockGasLimit,
 			Producer:       zeroAddr,
 		},
 	)

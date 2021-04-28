@@ -7,6 +7,7 @@
 package action
 
 import (
+	"context"
 	"encoding/hex"
 	"math/big"
 	"strings"
@@ -22,6 +23,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 	require := require.New(t)
 	data, err := hex.DecodeString("")
 	require.NoError(err)
+	ctx := WithEVMNetworkContext(context.Background(), EVMNetworkContext{ChainID: 123})
 	v, err := NewExecution("", 0, big.NewInt(10), uint64(10), big.NewInt(10), data)
 	require.NoError(err)
 	t.Run("no error", func(t *testing.T) {
@@ -36,7 +38,7 @@ func TestActionProtoAndVerify(t *testing.T) {
 		require.NoError(Verify(selp))
 
 		nselp := &SealedEnvelope{}
-		require.NoError(nselp.LoadProto(selp.Proto()))
+		require.NoError(nselp.LoadProto(ctx, selp.Proto()))
 
 		require.Equal(selp.Hash(), nselp.Hash())
 	})

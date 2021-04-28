@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/account"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -180,12 +181,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: ge,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -204,13 +200,13 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Caller: identityset.Address(28),
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: ge,
-			Tip: protocol.TipInfo{
-				Height: 20,
-			},
+	ctx = block.WithTipBlockContext(
+		genesis.WithGenesisContext(
+			protocol.WithRegistry(ctx, registry),
+			ge,
+		),
+		block.TipBlockContext{
+			Height: 20,
 		},
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
@@ -318,11 +314,9 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
+		cfg.Genesis,
 	)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
@@ -483,11 +477,12 @@ func TestStateCheckLegacy(t *testing.T) {
 		genesis.Default.FoundationBonusP2StartEpoch,
 		genesis.Default.FoundationBonusP2EndEpoch,
 	)
-	chainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Genesis{
+	chainCtx := genesis.WithGenesisContext(
+		context.Background(),
+		genesis.Genesis{
 			Blockchain: genesis.Blockchain{GreenlandBlockHeight: 3},
 		},
-	})
+	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 		BlockHeight: 2,
 	})

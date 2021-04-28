@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -28,7 +29,7 @@ const TransferSizeLimit = 32 * 1024
 // handleTransfer handles a transfer
 func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	tsf, ok := act.(*action.Transfer)
 	if !ok {
@@ -52,7 +53,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	var depositLog *action.TransactionLog
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	if hu.IsPre(config.Pacific, blkCtx.BlockHeight) {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {

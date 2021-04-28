@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -55,6 +56,8 @@ func TestStakingContract(t *testing.T) {
 		dao := svr.ChainService(chainID).BlockDAO()
 		registry := svr.ChainService(chainID).Registry()
 		require.NotNil(bc)
+		ctx, err = bc.Context()
+		require.NoError(err)
 		require.NotNil(registry)
 		admin := identityset.PrivateKey(26)
 		state0 := hash.BytesToHash160(identityset.Address(26).Bytes())
@@ -74,7 +77,7 @@ func TestStakingContract(t *testing.T) {
 		blk, err := bc.MintNewBlock(fixedTime)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(ctx, deployHash, 1)
 		require.NoError(err)
 		require.Equal(r.ContractAddress, "io1nw4l6qpph9apnzrmfk3u2dk28y5e05dpnk6nv0")
 
@@ -130,22 +133,23 @@ func TestStakingContract(t *testing.T) {
 
 		height, err := dao.Height()
 		require.NoError(err)
-		blk, err = dao.GetBlockByHeight(height)
+		blk, err = dao.GetBlockByHeight(ctx, height)
 		require.NoError(err)
-		ctx = protocol.WithBlockchainCtx(
-			protocol.WithRegistry(ctx, registry),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-				Tip: protocol.TipInfo{
-					Height:    height,
-					Hash:      blk.HashHeader(),
-					Timestamp: blk.Timestamp(),
-				},
-			})
-		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
+		tip := block.TipBlockContext{
+			Height:    height,
+			Hash:      blk.HashHeader(),
+			Timestamp: blk.Timestamp(),
+		}
+		ctx = block.WithTipBlockContext(
+			genesis.WithGenesisContext(
+				protocol.WithRegistry(ctx, registry),
+				cfg.Genesis,
+			),
+			tip,
+		)
+		tally, err := ns.Votes(ctx, tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
-		tally, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
+		tally, err = ns.Votes(ctx, tip.Timestamp, true)
 		require.NoError(err)
 		require.Equal(numVoter*int(numBucket), len(tally.Candidates))
 		require.Equal(numVoter*int(numBucket), len(tally.Buckets))

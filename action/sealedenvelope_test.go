@@ -1,6 +1,7 @@
 package action
 
 import (
+	"context"
 	"encoding/hex"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 		Signature:    se.signature,
 	}
 	req.Equal(ac, proto)
-
+	ctx := WithEVMNetworkContext(context.Background(), EVMNetworkContext{ChainID: 123})
 	se2 := SealedEnvelope{}
 	for _, v := range []struct {
 		encoding iotextypes.Encoding
@@ -59,12 +60,12 @@ func TestSealedEnvelope_Proto(t *testing.T) {
 	} {
 		se.encoding = v.encoding
 		se.signature = v.sig
-		req.Contains(se2.LoadProto(se.Proto()).Error(), v.err)
+		req.Contains(se2.LoadProto(ctx, se.Proto()).Error(), v.err)
 	}
 
 	se.encoding = 1
 	se.signature = validSig
-	req.NoError(se.LoadProto(se.Proto()))
+	req.NoError(se.LoadProto(ctx, se.Proto()))
 	tsf2, ok := se.Envelope.Action().(*Transfer)
 	req.True(ok)
 	req.Equal(tsf, tsf2)

@@ -21,7 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -51,7 +51,7 @@ type (
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
-		cfg           config.DB
+		cfg           db.Config
 		mutex         sync.RWMutex // for create new db file
 		topIndex      atomic.Value
 		htf           db.RangeIndex
@@ -61,7 +61,7 @@ type (
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg config.DB) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
@@ -125,9 +125,13 @@ func (fd *fileDAOLegacy) Height() (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
-func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (fd *fileDAOLegacy) GetBlockHash(ctx context.Context, height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return hash.ZeroHash256, errors.New("genesis block doesn't exist")
+		}
+		return g.Hash(), nil
 	}
 	h := hash.ZeroHash256
 	value, err := fd.kvStore.Get(blockHashHeightMappingNS, heightKey(height))
@@ -141,8 +145,12 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return h, nil
 }
 
-func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+func (fd *fileDAOLegacy) GetBlockHeight(ctx context.Context, h hash.Hash256) (uint64, error) {
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return 0, errors.New("genesis block doesn't exist")
+	}
+	if g.IsAGenesisHash(h) {
 		return 0, nil
 	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
@@ -152,19 +160,23 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	return enc.MachineEndian.Uint64(value), nil
 }
 
-func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
-	if h == block.GenesisHash() {
-		return block.GenesisBlock(), nil
+func (fd *fileDAOLegacy) GetBlock(ctx context.Context, h hash.Hash256) (*block.Block, error) {
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return nil, errors.New("genesis block doesn't exist")
 	}
-	header, err := fd.Header(h)
+	if g.IsAGenesisHash(h) {
+		return g.Block(), nil
+	}
+	header, err := fd.Header(ctx, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
-	body, err := fd.body(h)
+	body, err := fd.body(ctx, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block body %x", h)
 	}
-	footer, err := fd.footer(h)
+	footer, err := fd.footer(ctx, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block footer %x", h)
 	}
@@ -175,31 +187,31 @@ func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
 	}, nil
 }
 
-func (fd *fileDAOLegacy) GetBlockByHeight(height uint64) (*block.Block, error) {
-	hash, err := fd.GetBlockHash(height)
+func (fd *fileDAOLegacy) GetBlockByHeight(ctx context.Context, height uint64) (*block.Block, error) {
+	hash, err := fd.GetBlockHash(ctx, height)
 	if err != nil {
 		return nil, err
 	}
-	return fd.GetBlock(hash)
+	return fd.GetBlock(ctx, hash)
 }
 
-func (fd *fileDAOLegacy) HeaderByHeight(height uint64) (*block.Header, error) {
-	hash, err := fd.GetBlockHash(height)
+func (fd *fileDAOLegacy) HeaderByHeight(ctx context.Context, height uint64) (*block.Header, error) {
+	hash, err := fd.GetBlockHash(ctx, height)
 	if err != nil {
 		return nil, err
 	}
-	return fd.Header(hash)
+	return fd.Header(ctx, hash)
 }
 
-func (fd *fileDAOLegacy) FooterByHeight(height uint64) (*block.Footer, error) {
-	hash, err := fd.GetBlockHash(height)
+func (fd *fileDAOLegacy) FooterByHeight(ctx context.Context, height uint64) (*block.Footer, error) {
+	hash, err := fd.GetBlockHash(ctx, height)
 	if err != nil {
 		return nil, err
 	}
-	return fd.footer(hash)
+	return fd.footer(ctx, hash)
 }
 
-func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
+func (fd *fileDAOLegacy) GetReceipts(ctx context.Context, height uint64) ([]*action.Receipt, error) {
 	kvStore, _, err := fd.getDBFromHeight(height)
 	if err != nil {
 		return nil, err
@@ -225,8 +237,8 @@ func (fd *fileDAOLegacy) GetReceipts(height uint64) ([]*action.Receipt, error) {
 	return blockReceipts, nil
 }
 
-func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
-	value, err := fd.getBlockValue(blockHeaderNS, h)
+func (fd *fileDAOLegacy) Header(ctx context.Context, h hash.Hash256) (*block.Header, error) {
+	value, err := fd.getBlockValue(ctx, blockHeaderNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)
 	}
@@ -247,8 +259,8 @@ func (fd *fileDAOLegacy) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
-	value, err := fd.getBlockValue(blockBodyNS, h)
+func (fd *fileDAOLegacy) body(ctx context.Context, h hash.Hash256) (*block.Body, error) {
+	value, err := fd.getBlockValue(ctx, blockBodyNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block body %x", h)
 	}
@@ -264,14 +276,14 @@ func (fd *fileDAOLegacy) body(h hash.Hash256) (*block.Body, error) {
 		// block body could be empty
 		return body, nil
 	}
-	if err := body.Deserialize(value); err != nil {
+	if err := body.Deserialize(ctx, value); err != nil {
 		return nil, errors.Wrapf(err, "failed to deserialize block body %x", h)
 	}
 	return body, nil
 }
 
-func (fd *fileDAOLegacy) footer(h hash.Hash256) (*block.Footer, error) {
-	value, err := fd.getBlockValue(blockFooterNS, h)
+func (fd *fileDAOLegacy) footer(ctx context.Context, h hash.Hash256) (*block.Footer, error) {
+	value, err := fd.getBlockValue(ctx, blockFooterNS, h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block footer %x", h)
 	}
@@ -388,7 +400,7 @@ func (fd *fileDAOLegacy) PutBlock(ctx context.Context, blk *block.Block) error {
 	return fd.kvStore.WriteBatch(b)
 }
 
-func (fd *fileDAOLegacy) DeleteTipBlock() error {
+func (fd *fileDAOLegacy) DeleteTipBlock(ctx context.Context) error {
 	// First obtain tip height from db
 	height, err := fd.Height()
 	if err != nil {
@@ -426,7 +438,7 @@ func (fd *fileDAOLegacy) DeleteTipBlock() error {
 	// Update tip height
 	b.Put(blockNS, topHeightKey, byteutil.Uint64ToBytes(height-1), "failed to put top height")
 	// Update tip hash
-	hash2, err := fd.GetBlockHash(height - 1)
+	hash2, err := fd.GetBlockHash(ctx, height-1)
 	if err != nil {
 		return errors.Wrap(err, "failed to get tip block hash")
 	}
@@ -521,8 +533,8 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 }
 
 // getDBFromHash returns db of this block stored
-func (fd *fileDAOLegacy) getDBFromHash(h hash.Hash256) (db.KVStore, uint64, error) {
-	height, err := fd.GetBlockHeight(h)
+func (fd *fileDAOLegacy) getDBFromHash(ctx context.Context, h hash.Hash256) (db.KVStore, uint64, error) {
+	height, err := fd.GetBlockHeight(ctx, h)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -562,8 +574,8 @@ func (fd *fileDAOLegacy) getDBFromIndex(idx uint64) (kvStore db.KVStore, index u
 }
 
 // getBlockValue get block's data from db,if this db failed,it will try the previous one
-func (fd *fileDAOLegacy) getBlockValue(ns string, h hash.Hash256) ([]byte, error) {
-	whichDB, index, err := fd.getDBFromHash(h)
+func (fd *fileDAOLegacy) getBlockValue(ctx context.Context, ns string, h hash.Hash256) ([]byte, error) {
+	whichDB, index, err := fd.getDBFromHash(ctx, h)
 	if err != nil {
 		return nil, err
 	}

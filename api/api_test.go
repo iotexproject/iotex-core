@@ -879,6 +879,7 @@ func TestServer_GetActions(t *testing.T) {
 func TestServer_GetAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
+	ctx := action.WithEVMNetworkContext(context.Background(), action.EVMNetworkContext{ChainID: cfg.Chain.EVMNetworkID})
 
 	svr, bfIndexFile, err := createServer(cfg, true)
 	require.NoError(err)
@@ -902,7 +903,7 @@ func TestServer_GetAction(t *testing.T) {
 		require.Equal(test.nonce, act.Action.GetCore().GetNonce())
 		require.Equal(test.senderPubKey, hex.EncodeToString(act.Action.SenderPubKey))
 		if !test.checkPending {
-			blk, err := svr.dao.GetBlockByHeight(test.blkNumber)
+			blk, err := svr.dao.GetBlockByHeight(ctx, test.blkNumber)
 			require.NoError(err)
 			timeStamp := blk.ConvertToBlockHeaderPb().GetCore().GetTimestamp()
 			blkHash := blk.HashBlock()
@@ -1037,8 +1038,6 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -1066,7 +1065,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		require.Equal(test.gasUsed, meta.GasUsed)
 		if test.start == 0 {
 			// genesis block
-			h := block.GenesisHash()
+			h := block.NewGenesisBlock(time.Unix(cfg.Genesis.Timestamp, 0)).HashBlock()
 			require.Equal(meta.Hash, hex.EncodeToString(h[:]))
 		}
 		var prevBlkPb *iotextypes.BlockMeta
@@ -1289,6 +1288,7 @@ func TestServer_GetReceiptByAction(t *testing.T) {
 func TestServer_ReadContract(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
+	ctx := action.WithEVMNetworkContext(context.Background(), action.EVMNetworkContext{ChainID: cfg.Chain.EVMNetworkID})
 
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1301,7 +1301,7 @@ func TestServer_ReadContract(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		exec, _, err := svr.dao.GetActionByActionHash(ctx, hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1334,6 +1334,7 @@ func TestServer_SuggestGasPrice(t *testing.T) {
 func TestServer_EstimateGasForAction(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
+	ctx := action.WithEVMNetworkContext(context.Background(), action.EVMNetworkContext{ChainID: cfg.Chain.EVMNetworkID})
 
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
@@ -1346,7 +1347,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		act, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		act, _, err := svr.dao.GetActionByActionHash(ctx, hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
@@ -2012,7 +2013,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 			header := blkInfos[0].Block.Header.Core
 			require.EqualValues(version.ProtocolVersion, header.Version)
 			require.Zero(header.Height)
-			ts, err := ptypes.TimestampProto(time.Unix(genesis.Timestamp(), 0))
+			ts, err := ptypes.TimestampProto(time.Unix(cfg.Genesis.Timestamp, 0))
 			require.NoError(err)
 			require.Equal(ts, header.Timestamp)
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.PrevBlockHash))
@@ -2295,10 +2296,14 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 		return "", err
 	}
 	svr.ap.Reset()
+	ctx, err := svr.bc.Context()
+	if err != nil {
+		return "", err
+	}
 	// get deployed contract address
 	var contract string
 	if svr.dao != nil {
-		r, err := svr.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
+		r, err := svr.dao.GetReceiptByActionHash(ctx, ex1.Hash(), height+1)
 		if err != nil {
 			return "", err
 		}

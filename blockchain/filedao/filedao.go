@@ -19,7 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -51,23 +51,23 @@ type (
 		Start(ctx context.Context) error
 		Stop(ctx context.Context) error
 		Height() (uint64, error)
-		GetBlockHash(uint64) (hash.Hash256, error)
-		GetBlockHeight(hash.Hash256) (uint64, error)
-		GetBlock(hash.Hash256) (*block.Block, error)
-		GetBlockByHeight(uint64) (*block.Block, error)
-		GetReceipts(uint64) ([]*action.Receipt, error)
+		GetBlockHash(context.Context, uint64) (hash.Hash256, error)
+		GetBlockHeight(context.Context, hash.Hash256) (uint64, error)
+		GetBlock(context.Context, hash.Hash256) (*block.Block, error)
+		GetBlockByHeight(context.Context, uint64) (*block.Block, error)
+		GetReceipts(context.Context, uint64) ([]*action.Receipt, error)
 		ContainsTransactionLog() bool
 		TransactionLogs(uint64) (*iotextypes.TransactionLogs, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock() error
+		DeleteTipBlock(context.Context) error
 	}
 
 	// FileDAO represents the data access object for managing block db file
 	FileDAO interface {
 		BaseFileDAO
-		Header(hash.Hash256) (*block.Header, error)
-		HeaderByHeight(uint64) (*block.Header, error)
-		FooterByHeight(uint64) (*block.Footer, error)
+		Header(context.Context, hash.Hash256) (*block.Header, error)
+		HeaderByHeight(context.Context, uint64) (*block.Header, error)
+		FooterByHeight(context.Context, uint64) (*block.Footer, error)
 	}
 
 	// fileDAO implements FileDAO
@@ -75,7 +75,7 @@ type (
 		lock        sync.Mutex
 		topIndex    uint64
 		splitHeight uint64
-		cfg         config.DB
+		cfg         db.Config
 		currFd      BaseFileDAO
 		legacyFd    FileDAO
 		v2Fd        *FileV2Manager // a collection of v2 db files
@@ -83,7 +83,7 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg config.DB) (FileDAO, error) {
+func NewFileDAO(cfg db.Config) (FileDAO, error) {
 	header, err := checkMasterChainDBFile(cfg.DbPath)
 	if err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
@@ -150,87 +150,87 @@ func (fd *fileDAO) Height() (uint64, error) {
 	return fd.currFd.Height()
 }
 
-func (fd *fileDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (fd *fileDAO) GetBlockHash(ctx context.Context, height uint64) (hash.Hash256, error) {
 	if fd.v2Fd != nil {
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
-			return v2.GetBlockHash(height)
+			return v2.GetBlockHash(ctx, height)
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlockHash(height)
+		return fd.legacyFd.GetBlockHash(ctx, height)
 	}
 	return hash.ZeroHash256, ErrNotSupported
 }
 
-func (fd *fileDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+func (fd *fileDAO) GetBlockHeight(ctx context.Context, hash hash.Hash256) (uint64, error) {
 	var (
 		height uint64
 		err    error
 	)
 	if fd.v2Fd != nil {
-		if height, err = fd.v2Fd.GetBlockHeight(hash); err == nil {
+		if height, err = fd.v2Fd.GetBlockHeight(ctx, hash); err == nil {
 			return height, nil
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlockHeight(hash)
+		return fd.legacyFd.GetBlockHeight(ctx, hash)
 	}
 	return 0, err
 }
 
-func (fd *fileDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+func (fd *fileDAO) GetBlock(ctx context.Context, hash hash.Hash256) (*block.Block, error) {
 	var (
 		blk *block.Block
 		err error
 	)
 	if fd.v2Fd != nil {
-		if blk, err = fd.v2Fd.GetBlock(hash); err == nil {
+		if blk, err = fd.v2Fd.GetBlock(ctx, hash); err == nil {
 			return blk, nil
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlock(hash)
+		return fd.legacyFd.GetBlock(ctx, hash)
 	}
 	return nil, err
 }
 
-func (fd *fileDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
+func (fd *fileDAO) GetBlockByHeight(ctx context.Context, height uint64) (*block.Block, error) {
 	if fd.v2Fd != nil {
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
-			return v2.GetBlockByHeight(height)
+			return v2.GetBlockByHeight(ctx, height)
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetBlockByHeight(height)
+		return fd.legacyFd.GetBlockByHeight(ctx, height)
 	}
 	return nil, ErrNotSupported
 }
 
-func (fd *fileDAO) Header(hash hash.Hash256) (*block.Header, error) {
+func (fd *fileDAO) Header(ctx context.Context, hash hash.Hash256) (*block.Header, error) {
 	var (
 		blk *block.Block
 		err error
 	)
 	if fd.v2Fd != nil {
-		if blk, err = fd.v2Fd.GetBlock(hash); err == nil {
+		if blk, err = fd.v2Fd.GetBlock(ctx, hash); err == nil {
 			return &blk.Header, nil
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.Header(hash)
+		return fd.legacyFd.Header(ctx, hash)
 	}
 	return nil, err
 }
 
-func (fd *fileDAO) HeaderByHeight(height uint64) (*block.Header, error) {
+func (fd *fileDAO) HeaderByHeight(ctx context.Context, height uint64) (*block.Header, error) {
 	if fd.v2Fd != nil {
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
-			blk, err := v2.GetBlockByHeight(height)
+			blk, err := v2.GetBlockByHeight(ctx, height)
 			if err != nil {
 				return nil, err
 			}
@@ -239,15 +239,15 @@ func (fd *fileDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.HeaderByHeight(height)
+		return fd.legacyFd.HeaderByHeight(ctx, height)
 	}
 	return nil, ErrNotSupported
 }
 
-func (fd *fileDAO) FooterByHeight(height uint64) (*block.Footer, error) {
+func (fd *fileDAO) FooterByHeight(ctx context.Context, height uint64) (*block.Footer, error) {
 	if fd.v2Fd != nil {
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
-			blk, err := v2.GetBlockByHeight(height)
+			blk, err := v2.GetBlockByHeight(ctx, height)
 			if err != nil {
 				return nil, err
 			}
@@ -256,20 +256,20 @@ func (fd *fileDAO) FooterByHeight(height uint64) (*block.Footer, error) {
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.FooterByHeight(height)
+		return fd.legacyFd.FooterByHeight(ctx, height)
 	}
 	return nil, ErrNotSupported
 }
 
-func (fd *fileDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
+func (fd *fileDAO) GetReceipts(ctx context.Context, height uint64) ([]*action.Receipt, error) {
 	if fd.v2Fd != nil {
 		if v2 := fd.v2Fd.FileDAOByHeight(height); v2 != nil {
-			return v2.GetReceipts(height)
+			return v2.GetReceipts(ctx, height)
 		}
 	}
 
 	if fd.legacyFd != nil {
-		return fd.legacyFd.GetReceipts(height)
+		return fd.legacyFd.GetReceipts(ctx, height)
 	}
 	return nil, ErrNotSupported
 }
@@ -295,7 +295,7 @@ func (fd *fileDAO) TransactionLogs(height uint64) (*iotextypes.TransactionLogs, 
 func (fd *fileDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
-	if _, err := fd.GetBlockHeight(h); err == nil {
+	if _, err := fd.GetBlockHeight(ctx, h); err == nil {
 		log.L().Error("Block already exists.", zap.Uint64("height", blk.Height()), log.Hex("hash", h[:]))
 		return ErrAlreadyExist
 	}
@@ -360,12 +360,12 @@ func (fd *fileDAO) addNewV2File(height uint64) error {
 	return err
 }
 
-func (fd *fileDAO) DeleteTipBlock() error {
-	return fd.currFd.DeleteTipBlock()
+func (fd *fileDAO) DeleteTipBlock(ctx context.Context) error {
+	return fd.currFd.DeleteTipBlock(ctx)
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
+func CreateFileDAO(legacy bool, cfg db.Config) (FileDAO, error) {
 	fd := fileDAO{splitHeight: 1, cfg: cfg}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
@@ -405,7 +405,7 @@ func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg config.DB) error {
+func createNewV2File(start uint64, cfg db.Config) error {
 	v2, err := newFileDAOv2(start, cfg)
 	if err != nil {
 		return err

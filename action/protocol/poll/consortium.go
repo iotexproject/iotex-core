@@ -15,6 +15,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -75,8 +77,8 @@ func NewConsortiumCommittee(indexer *CandidateIndexer, readContract ReadContract
 }
 
 func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if bcCtx.Genesis.ConsortiumCommitteeContractCode == "" {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.ConsortiumCommitteeContractCode == "" {
 		return nil, errors.New("cannot find consortium committee contract in gensis")
 	}
 
@@ -90,11 +92,11 @@ func (cc *consortiumCommittee) Start(ctx context.Context, sr protocol.StateReade
 }
 
 func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	blkCtx.Producer, _ = address.FromString(consortiumCommitteeContractCreator)
-	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(bcCtx.Genesis.ConsortiumCommitteeContractCode)
+	blkCtx.GasLimit = g.BlockGasLimit
+	bytes, err := hexutil.Decode(g.ConsortiumCommitteeContractCode)
 	if err != nil {
 		return err
 	}
@@ -102,7 +104,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		"",
 		consortiumCommitteeContractNonce,
 		big.NewInt(0),
-		bcCtx.Genesis.BlockGasLimit,
+		g.BlockGasLimit,
 		big.NewInt(0),
 		bytes,
 	)
@@ -128,7 +130,7 @@ func (cc *consortiumCommittee) CreateGenesisStates(ctx context.Context, sm proto
 		ctx,
 		sm,
 		execution,
-		func(height uint64) (hash.Hash256, error) {
+		func(context.Context, uint64) (hash.Hash256, error) {
 			return hash.ZeroHash256, nil
 		},
 		func(ctx context.Context, sm protocol.StateManager, amount *big.Int) (*action.TransactionLog, error) {
@@ -224,9 +226,9 @@ func (cc *consortiumCommittee) readDelegates(ctx context.Context) (state.Candida
 }
 
 func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Context, r contractReader) (state.CandidateList, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	tip := block.MustExtractTipBlockContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	epochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	epochNum := rp.GetEpochNum(tip.Height)
 	if cc.bufferEpochNum == epochNum && cc.bufferResult != nil {
 		return cc.bufferResult, nil
 	}

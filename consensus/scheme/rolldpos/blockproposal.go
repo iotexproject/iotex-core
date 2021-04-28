@@ -7,6 +7,8 @@
 package rolldpos
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -61,9 +63,9 @@ func (bp *blockProposal) ProposerAddress() string {
 	return bp.block.ProducerAddress()
 }
 
-func (bp *blockProposal) LoadProto(msg *iotextypes.BlockProposal) error {
+func (bp *blockProposal) LoadProto(ctx context.Context, msg *iotextypes.BlockProposal) error {
 	bp.block = &block.Block{}
-	if err := bp.block.ConvertFromBlockPb(msg.Block); err != nil {
+	if err := bp.block.ConvertFromBlockPb(ctx, msg.Block); err != nil {
 		return err
 	}
 	bp.proofOfLock = []*endorsement.Endorsement{}

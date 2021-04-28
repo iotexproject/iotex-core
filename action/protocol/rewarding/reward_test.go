@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/action/protocol/rewarding/rewardingpb"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -395,11 +396,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(
 			protocol.WithRegistry(context.Background(), registry),
-			protocol.BlockchainCtx{
-				Genesis: ge,
-			},
+			ge,
 		),
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -408,13 +407,13 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
 	require.NoError(t, p.CreateGenesisStates(ctx, sm))
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: ge,
-			Tip: protocol.TipInfo{
-				Height: 1,
-			},
+	ctx = block.WithTipBlockContext(
+		genesis.WithGenesisContext(
+			protocol.WithRegistry(ctx, registry),
+			ge,
+		),
+		block.TipBlockContext{
+			Height: 1,
 		},
 	)
 

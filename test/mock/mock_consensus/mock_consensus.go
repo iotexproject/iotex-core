@@ -65,17 +65,17 @@ func (mr *MockConsensusMockRecorder) Stop(arg0 interface{}) *gomock.Call {
 }
 
 // HandleConsensusMsg mocks base method
-func (m *MockConsensus) HandleConsensusMsg(arg0 *iotextypes.ConsensusMessage) error {
+func (m *MockConsensus) HandleConsensusMsg(arg0 context.Context, arg1 *iotextypes.ConsensusMessage) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0)
+	ret := m.ctrl.Call(m, "HandleConsensusMsg", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // HandleConsensusMsg indicates an expected call of HandleConsensusMsg
-func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0 interface{}) *gomock.Call {
+func (mr *MockConsensusMockRecorder) HandleConsensusMsg(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleConsensusMsg", reflect.TypeOf((*MockConsensus)(nil).HandleConsensusMsg), arg0, arg1)
 }
 
 // Calibrate mocks base method
@@ -91,32 +91,32 @@ func (mr *MockConsensusMockRecorder) Calibrate(arg0 interface{}) *gomock.Call {
 }
 
 // ValidateBlockFooter mocks base method
-func (m *MockConsensus) ValidateBlockFooter(arg0 *block.Block) error {
+func (m *MockConsensus) ValidateBlockFooter(arg0 context.Context, arg1 *block.Block) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateBlockFooter", arg0)
+	ret := m.ctrl.Call(m, "ValidateBlockFooter", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ValidateBlockFooter indicates an expected call of ValidateBlockFooter
-func (mr *MockConsensusMockRecorder) ValidateBlockFooter(arg0 interface{}) *gomock.Call {
+func (mr *MockConsensusMockRecorder) ValidateBlockFooter(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlockFooter", reflect.TypeOf((*MockConsensus)(nil).ValidateBlockFooter), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateBlockFooter", reflect.TypeOf((*MockConsensus)(nil).ValidateBlockFooter), arg0, arg1)
 }
 
 // Metrics mocks base method
-func (m *MockConsensus) Metrics() (scheme.ConsensusMetrics, error) {
+func (m *MockConsensus) Metrics(arg0 context.Context) (scheme.ConsensusMetrics, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Metrics")
+	ret := m.ctrl.Call(m, "Metrics", arg0)
 	ret0, _ := ret[0].(scheme.ConsensusMetrics)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Metrics indicates an expected call of Metrics
-func (mr *MockConsensusMockRecorder) Metrics() *gomock.Call {
+func (mr *MockConsensusMockRecorder) Metrics(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockConsensus)(nil).Metrics))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Metrics", reflect.TypeOf((*MockConsensus)(nil).Metrics), arg0)
 }
 
 // Activate mocks base method

@@ -495,13 +495,8 @@ func (ws *workingSet) CreateBuilder(
 		Build()
 
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	prevBlkHash := bcCtx.Tip.Hash
-	// The first block's previous block hash is pointing to the digest of genesis config. This is to guarantee all nodes
-	// could verify that they start from the same genesis
-	if blkCtx.BlockHeight == 1 {
-		prevBlkHash = bcCtx.Genesis.Hash()
-	}
+	tip := block.MustExtractTipBlockContext(ctx)
+	prevBlkHash := tip.Hash
 	digest, err := ws.digest()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get digest")

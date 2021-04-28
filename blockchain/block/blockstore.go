@@ -7,6 +7,8 @@
 package block
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -40,9 +42,9 @@ func (in *Store) ToProto() *iotextypes.BlockStore {
 }
 
 // FromProto converts from proto message
-func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
+func (in *Store) FromProto(ctx context.Context, pb *iotextypes.BlockStore) error {
 	in.Block = &Block{}
-	if err := in.Block.ConvertFromBlockPb(pb.Block); err != nil {
+	if err := in.Block.ConvertFromBlockPb(ctx, pb.Block); err != nil {
 		return err
 	}
 	// verify merkle root can match after deserialize
@@ -60,12 +62,12 @@ func (in *Store) FromProto(pb *iotextypes.BlockStore) error {
 }
 
 // Deserialize parses the byte stream into Store
-func (in *Store) Deserialize(buf []byte) error {
+func (in *Store) Deserialize(ctx context.Context, buf []byte) error {
 	pbStore := &iotextypes.BlockStore{}
 	if err := proto.Unmarshal(buf, pbStore); err != nil {
 		return err
 	}
-	return in.FromProto(pbStore)
+	return in.FromProto(ctx, pbStore)
 }
 
 // DeserializeBlockStoresPb decode byte stream into BlockStores pb message

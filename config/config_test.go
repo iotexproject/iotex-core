@@ -16,10 +16,9 @@ import (
 	"testing"
 
 	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 const (
@@ -99,7 +98,7 @@ chain:
 }
 
 func TestDB_SplitDBSize(t *testing.T) {
-	var db = DB{SplitDBSizeMB: uint64(1)}
+	var db = db.Config{SplitDBSizeMB: uint64(1)}
 	var expected = uint64(1 * 1024 * 1024)
 	require.Equal(t, expected, db.SplitDBSize())
 }
@@ -111,12 +110,8 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	cfg, err := New()
+	_, err := New()
 	require.NoError(t, err)
-	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
-	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
-	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

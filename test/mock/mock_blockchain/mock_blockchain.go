@@ -7,7 +7,6 @@ package mock_blockchain
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	hash "github.com/iotexproject/go-pkgs/hash"
 	action "github.com/iotexproject/iotex-core/action"
 	blockchain "github.com/iotexproject/iotex-core/blockchain"
 	block "github.com/iotexproject/iotex-core/blockchain/block"
@@ -123,20 +122,6 @@ func (m *MockBlockchain) ChainAddress() string {
 func (mr *MockBlockchainMockRecorder) ChainAddress() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChainAddress", reflect.TypeOf((*MockBlockchain)(nil).ChainAddress))
-}
-
-// TipHash mocks base method
-func (m *MockBlockchain) TipHash() hash.Hash256 {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "TipHash")
-	ret0, _ := ret[0].(hash.Hash256)
-	return ret0
-}
-
-// TipHash indicates an expected call of TipHash
-func (mr *MockBlockchainMockRecorder) TipHash() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TipHash", reflect.TypeOf((*MockBlockchain)(nil).TipHash))
 }
 
 // TipHeight mocks base method

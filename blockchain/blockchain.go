@@ -13,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -70,8 +69,6 @@ type (
 		ChainID() uint32
 		// ChainAddress returns chain address on parent chain, the root chain return empty.
 		ChainAddress() string
-		// TipHash returns tip block's hash
-		TipHash() hash.Hash256
 		// TipHeight returns tip block's height
 		TipHeight() uint64
 		// Genesis returns the genesis
@@ -231,24 +228,19 @@ func (bc *blockchain) Stop(ctx context.Context) error {
 }
 
 func (bc *blockchain) BlockHeaderByHeight(height uint64) (*block.Header, error) {
-	return bc.dao.HeaderByHeight(height)
+	ctx, err := bc.context(context.Background(), false)
+	if err != nil {
+		return nil, err
+	}
+	return bc.dao.HeaderByHeight(ctx, height)
 }
 
 func (bc *blockchain) BlockFooterByHeight(height uint64) (*block.Footer, error) {
-	return bc.dao.FooterByHeight(height)
-}
-
-// TipHash returns tip block's hash
-func (bc *blockchain) TipHash() hash.Hash256 {
-	tipHeight, err := bc.dao.Height()
+	ctx, err := bc.context(context.Background(), false)
 	if err != nil {
-		return hash.ZeroHash256
+		return nil, err
 	}
-	tipHash, err := bc.dao.GetBlockHash(tipHeight)
-	if err != nil {
-		return hash.ZeroHash256
-	}
-	return tipHash
+	return bc.dao.FooterByHeight(ctx, height)
 }
 
 // TipHeight returns tip block's height
@@ -339,22 +331,19 @@ func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Add
 }
 
 func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Context, error) {
-	var tip protocol.TipInfo
+	ctx = genesis.WithGenesisContext(
+		action.WithEVMNetworkContext(ctx, action.EVMNetworkContext{ChainID: bc.config.Chain.EVMNetworkID}),
+		bc.config.Genesis,
+	)
 	if tipInfoFlag {
 		if tipInfoValue, err := bc.tipInfo(); err == nil {
-			tip = *tipInfoValue
+			ctx = block.WithTipBlockContext(ctx, *tipInfoValue)
 		} else {
 			return nil, err
 		}
 	}
 
-	return protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: bc.config.Genesis,
-			Tip:     tip,
-		},
-	), nil
+	return ctx, nil
 }
 
 func (bc *blockchain) MintNewBlock(timestamp time.Time) (*block.Block, error) {
@@ -430,24 +419,28 @@ func (bc *blockchain) Genesis() genesis.Genesis {
 // private functions
 //=====================================
 
-func (bc *blockchain) tipInfo() (*protocol.TipInfo, error) {
+func (bc *blockchain) tipInfo() (*block.TipBlockContext, error) {
 	tipHeight, err := bc.dao.Height()
 	if err != nil {
 		return nil, err
 	}
 	if tipHeight == 0 {
-		return &protocol.TipInfo{
+		return &block.TipBlockContext{
 			Height:    0,
 			Hash:      bc.config.Genesis.Hash(),
 			Timestamp: time.Unix(bc.config.Genesis.Timestamp, 0),
 		}, nil
 	}
-	header, err := bc.dao.HeaderByHeight(tipHeight)
+	ctx, err := bc.context(context.Background(), false)
+	if err != nil {
+		return nil, err
+	}
+	header, err := bc.dao.HeaderByHeight(ctx, tipHeight)
 	if err != nil {
 		return nil, err
 	}
 
-	return &protocol.TipInfo{
+	return &block.TipBlockContext{
 		Height:    tipHeight,
 		Hash:      header.HashBlock(),
 		Timestamp: header.Timestamp(),

@@ -18,6 +18,7 @@ import (
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
@@ -32,10 +33,10 @@ import (
 type Consensus interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
+	HandleConsensusMsg(context.Context, *iotextypes.ConsensusMessage) error
 	Calibrate(uint64)
-	ValidateBlockFooter(*block.Block) error
-	Metrics() (scheme.ConsensusMetrics, error)
+	ValidateBlockFooter(context.Context, *block.Block) error
+	Metrics(context.Context) (scheme.ConsensusMetrics, error)
 	Activate(bool)
 	Active() bool
 }
@@ -108,11 +109,9 @@ func NewConsensus(
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				ctx := protocol.WithBlockchainCtx(
+				ctx := genesis.WithGenesisContext(
 					protocol.WithRegistry(context.Background(), re),
-					protocol.BlockchainCtx{
-						Genesis: cfg.Genesis,
-					},
+					cfg.Genesis,
 				)
 				tipHeight := bc.TipHeight()
 				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
@@ -205,13 +204,13 @@ func (c *IotxConsensus) Stop(ctx context.Context) error {
 }
 
 // Metrics returns consensus metrics
-func (c *IotxConsensus) Metrics() (scheme.ConsensusMetrics, error) {
-	return c.scheme.Metrics()
+func (c *IotxConsensus) Metrics(ctx context.Context) (scheme.ConsensusMetrics, error) {
+	return c.scheme.Metrics(ctx)
 }
 
 // HandleConsensusMsg handles consensus messages
-func (c *IotxConsensus) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
-	return c.scheme.HandleConsensusMsg(msg)
+func (c *IotxConsensus) HandleConsensusMsg(ctx context.Context, msg *iotextypes.ConsensusMessage) error {
+	return c.scheme.HandleConsensusMsg(ctx, msg)
 }
 
 // Calibrate triggers an event to calibrate consensus context
@@ -220,8 +219,8 @@ func (c *IotxConsensus) Calibrate(height uint64) {
 }
 
 // ValidateBlockFooter validates the signatures in block footer
-func (c *IotxConsensus) ValidateBlockFooter(blk *block.Block) error {
-	return c.scheme.ValidateBlockFooter(blk)
+func (c *IotxConsensus) ValidateBlockFooter(ctx context.Context, blk *block.Block) error {
+	return c.scheme.ValidateBlockFooter(ctx, blk)
 }
 
 // Scheme returns the scheme instance

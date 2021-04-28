@@ -24,8 +24,8 @@ import (
 
 // BlockDAO represents the block data access object
 type BlockDAO interface {
-	GetBlockHash(uint64) (hash.Hash256, error)
-	GetBlockByHeight(uint64) (*block.Block, error)
+	GetBlockHash(context.Context, uint64) (hash.Hash256, error)
+	GetBlockByHeight(context.Context, uint64) (*block.Block, error)
 }
 
 // SimulateFunc is function that simulate execution
@@ -70,9 +70,13 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 	if tip > uint64(gs.cfg.GasStation.SuggestBlockWindow) {
 		endBlockHeight = tip - uint64(gs.cfg.GasStation.SuggestBlockWindow)
 	}
+	ctx, err := gs.bc.Context()
+	if err != nil {
+		return gs.cfg.GasStation.DefaultGas, err
+	}
 
 	for height := tip; height > endBlockHeight; height-- {
-		blk, err := gs.dao.GetBlockByHeight(height)
+		blk, err := gs.dao.GetBlockByHeight(ctx, height)
 		if err != nil {
 			return gs.cfg.GasStation.DefaultGas, err
 		}
@@ -108,17 +112,17 @@ func (gs *GasStation) SuggestGasPrice() (uint64, error) {
 
 // EstimateGasForAction estimate gas for action
 func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, error) {
+	ctx, err := gs.bc.Context()
+	if err != nil {
+		return 0, err
+	}
 	var selp action.SealedEnvelope
-	if err := selp.LoadProto(actPb); err != nil {
+	if err := selp.LoadProto(ctx, actPb); err != nil {
 		return 0, err
 	}
 	// Special handling for executions
 	if sc, ok := selp.Action().(*action.Execution); ok {
 		callerAddr, err := address.FromBytes(selp.SrcPubkey().Hash())
-		if err != nil {
-			return 0, err
-		}
-		ctx, err := gs.bc.Context()
 		if err != nil {
 			return 0, err
 		}

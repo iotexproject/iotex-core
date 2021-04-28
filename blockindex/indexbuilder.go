@@ -74,7 +74,7 @@ func (ib *IndexBuilder) Start(ctx context.Context) error {
 	if err := ib.indexer.Start(ctx); err != nil {
 		return err
 	}
-	if err := ib.init(); err != nil {
+	if err := ib.init(ctx); err != nil {
 		return err
 	}
 	// start handler to index incoming new block
@@ -109,7 +109,7 @@ func (ib *IndexBuilder) ReceiveBlock(blk *block.Block) error {
 	return nil
 }
 
-func (ib *IndexBuilder) init() error {
+func (ib *IndexBuilder) init(ctx context.Context) error {
 	startHeight, err := ib.indexer.Height()
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (ib *IndexBuilder) init() error {
 	// update index to latest block
 	blks := make([]*block.Block, 0, 5000)
 	for startHeight++; startHeight <= tipHeight; startHeight++ {
-		blk, err := ib.dao.GetBlockByHeight(startHeight)
+		blk, err := ib.dao.GetBlockByHeight(ctx, startHeight)
 		if err != nil {
 			return err
 		}

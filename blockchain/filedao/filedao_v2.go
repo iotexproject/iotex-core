@@ -19,7 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -53,7 +53,7 @@ type (
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg db.Config) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -77,7 +77,7 @@ func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg config.DB) *fileDAOv2 {
+func openFileDAOv2(cfg db.Config) *fileDAOv2 {
 	return &fileDAOv2{
 		filename: cfg.DbPath,
 		blkCache: cache.NewThreadSafeLruCache(16),
@@ -124,7 +124,7 @@ func (fd *fileDAOv2) Start(ctx context.Context) error {
 	}
 
 	// populate staging buffer
-	if fd.blkBuffer, err = fd.populateStagingBuffer(); err != nil {
+	if fd.blkBuffer, err = fd.populateStagingBuffer(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -147,9 +147,13 @@ func (fd *fileDAOv2) ContainsHeight(height uint64) bool {
 	return fd.header.Start <= height && height <= fd.loadTip().Height
 }
 
-func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (fd *fileDAOv2) GetBlockHash(ctx context.Context, height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return hash.ZeroHash256, errors.New("genesis block doesn't exist")
+		}
+		return g.Hash(), nil
 	}
 	if !fd.ContainsHeight(height) {
 		return hash.ZeroHash256, db.ErrNotExist
@@ -161,8 +165,12 @@ func (fd *fileDAOv2) GetBlockHash(height uint64) (hash.Hash256, error) {
 	return hash.BytesToHash256(h), nil
 }
 
-func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+func (fd *fileDAOv2) GetBlockHeight(ctx context.Context, h hash.Hash256) (uint64, error) {
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return 0, errors.New("genesis block doesn't exist")
+	}
+	if g.IsAGenesisHash(h) {
 		return 0, nil
 	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
@@ -172,27 +180,31 @@ func (fd *fileDAOv2) GetBlockHeight(h hash.Hash256) (uint64, error) {
 	return byteutil.BytesToUint64BigEndian(value), nil
 }
 
-func (fd *fileDAOv2) GetBlock(h hash.Hash256) (*block.Block, error) {
-	height, err := fd.GetBlockHeight(h)
+func (fd *fileDAOv2) GetBlock(ctx context.Context, h hash.Hash256) (*block.Block, error) {
+	height, err := fd.GetBlockHeight(ctx, h)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get block")
 	}
-	return fd.GetBlockByHeight(height)
+	return fd.GetBlockByHeight(ctx, height)
 }
 
-func (fd *fileDAOv2) GetBlockByHeight(height uint64) (*block.Block, error) {
+func (fd *fileDAOv2) GetBlockByHeight(ctx context.Context, height uint64) (*block.Block, error) {
 	if height == 0 {
-		return block.GenesisBlock(), nil
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return nil, errors.New("genesis block doesn't exist")
+		}
+		return g.Block(), nil
 	}
-	blkInfo, err := fd.getBlockStore(height)
+	blkInfo, err := fd.getBlockStore(ctx, height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block at height %d", height)
 	}
 	return blkInfo.Block, nil
 }
 
-func (fd *fileDAOv2) GetReceipts(height uint64) ([]*action.Receipt, error) {
-	blkInfo, err := fd.getBlockStore(height)
+func (fd *fileDAOv2) GetReceipts(ctx context.Context, height uint64) ([]*action.Receipt, error) {
+	blkInfo, err := fd.getBlockStore(ctx, height)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get receipts at height %d", height)
 	}
@@ -219,7 +231,7 @@ func (fd *fileDAOv2) TransactionLogs(height uint64) (*iotextypes.TransactionLogs
 	return block.DeserializeSystemLogPb(value)
 }
 
-func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
+func (fd *fileDAOv2) PutBlock(ctx context.Context, blk *block.Block) error {
 	tip := fd.loadTip()
 	if blk.Height() != tip.Height+1 {
 		return ErrInvalidTipHeight
@@ -231,7 +243,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	}
 
 	// write block data
-	if err := fd.putBlock(blk); err != nil {
+	if err := fd.putBlock(ctx, blk); err != nil {
 		return errors.Wrap(err, "failed to write block")
 	}
 
@@ -250,7 +262,7 @@ func (fd *fileDAOv2) PutBlock(_ context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (fd *fileDAOv2) DeleteTipBlock() error {
+func (fd *fileDAOv2) DeleteTipBlock(ctx context.Context) error {
 	tip := fd.loadTip()
 	height := tip.Height
 
@@ -283,7 +295,7 @@ func (fd *fileDAOv2) DeleteTipBlock() error {
 		err error
 	)
 	if height > fd.header.Start {
-		h, err = fd.GetBlockHash(height - 1)
+		h, err = fd.GetBlockHash(ctx, height-1)
 		if err != nil {
 			return err
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/crypto"
@@ -72,8 +73,8 @@ func NewSlasher(
 
 // CreateGenesisStates creates genesis state for slasher
 func (sh *Slasher) CreateGenesisStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
+	hu := config.NewHeightUpgrade(&g)
 	if hu.IsPost(config.Easter, uint64(1)) {
 		if err := setNextEpochProbationList(sm,
 			indexer,
@@ -87,14 +88,14 @@ func (sh *Slasher) CreateGenesisStates(ctx context.Context, sm protocol.StateMan
 
 // CreatePreStates is to setup probation list
 func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
 		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
 			return errors.Wrap(err, "faild to update current epoch meta")
@@ -494,14 +495,15 @@ func (sh *Slasher) CalculateProbationList(
 
 func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protocol.StateReader) ([]string, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	tip := block.MustExtractTipBlockContext(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	delegates, _, err := sh.GetActiveBlockProducers(ctx, sr, false)
 	if err != nil {
 		return nil, err
 	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	productivityFunc := sh.productivity
 	if hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
 		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
@@ -510,7 +512,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 	}
 	numBlks, produce, err := rp.ProductivityByEpoch(
 		epochNum,
-		bcCtx.Tip.Height,
+		tip.Height,
 		productivityFunc,
 	)
 	if err != nil {

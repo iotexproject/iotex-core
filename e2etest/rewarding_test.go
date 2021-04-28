@@ -113,10 +113,11 @@ func TestBlockReward(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
+	ctx = action.WithEVMNetworkContext(
 		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
+		action.EVMNetworkContext{
+			ChainID: config.Default.Chain.EVMNetworkID,
 		},
 	)
 
@@ -136,7 +137,7 @@ func TestBlockReward(t *testing.T) {
 	assert.True(t, balance.Cmp(big.NewInt(0).Mul(blockReward, big.NewInt(5))) <= 0)
 
 	for i := 1; i <= 5; i++ {
-		blk, err := svr.ChainService(1).BlockDAO().GetBlockByHeight(uint64(i))
+		blk, err := svr.ChainService(1).BlockDAO().GetBlockByHeight(ctx, uint64(i))
 		require.NoError(t, err)
 		ok := false
 		var gr *action.GrantReward

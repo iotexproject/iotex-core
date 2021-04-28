@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -361,13 +362,13 @@ func (sdb *stateDB) PutBlock(ctx context.Context, blk *block.Block) error {
 	if err != nil {
 		return err
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithBlockCtx(
 		protocol.WithRegistry(ctx, sdb.registry),
 		protocol.BlockCtx{
 			BlockHeight:    blk.Height(),
 			BlockTimeStamp: blk.Timestamp(),
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			GasLimit:       g.BlockGasLimit,
 			Producer:       producer,
 		},
 	)
@@ -470,8 +471,8 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 //======================================
 
 func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
+	hu := config.NewHeightUpgrade(&g)
 	preEaster := hu.IsPre(config.Easter, height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {

@@ -134,8 +134,8 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
+	p.hu = config.NewHeightUpgrade(&g)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
@@ -212,9 +212,9 @@ func (p *Protocol) CreateGenesisStates(
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	if blkCtx.BlockHeight == hu.GreenlandBlockHeight() {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {

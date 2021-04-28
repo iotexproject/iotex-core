@@ -24,7 +24,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
@@ -45,9 +46,9 @@ type (
 	// BlockDAO represents the block data access object
 	BlockDAO interface {
 		filedao.FileDAO
-		GetActionByActionHash(hash.Hash256, uint64) (action.SealedEnvelope, uint32, error)
-		GetReceiptByActionHash(hash.Hash256, uint64) (*action.Receipt, error)
-		DeleteBlockToTarget(uint64) error
+		GetActionByActionHash(context.Context, hash.Hash256, uint64) (action.SealedEnvelope, uint32, error)
+		GetReceiptByActionHash(context.Context, hash.Hash256, uint64) (*action.Receipt, error)
+		DeleteBlockToTarget(context.Context, uint64) error
 	}
 
 	// BlockIndexer defines an interface to accept block to build index
@@ -72,7 +73,7 @@ type (
 )
 
 // NewBlockDAO instantiates a block DAO
-func NewBlockDAO(indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func NewBlockDAO(indexers []BlockIndexer, cfg db.Config) BlockDAO {
 	blkStore, err := filedao.NewFileDAO(cfg)
 	if err != nil {
 		log.L().Fatal(err.Error(), zap.Any("cfg", cfg))
@@ -87,7 +88,7 @@ func NewBlockDAOInMemForTest(indexers []BlockIndexer) BlockDAO {
 	if err != nil {
 		return nil
 	}
-	return createBlockDAO(blkStore, indexers, config.DB{MaxCacheSize: 16})
+	return createBlockDAO(blkStore, indexers, db.Config{MaxCacheSize: 16})
 }
 
 // Start starts block DAO and initiates the top height if it doesn't exist
@@ -106,34 +107,32 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
-	if !ok {
-		return nil, errors.New("failed to find blockchain ctx")
-	}
 	if height == 0 {
-		bcCtx.Tip = protocol.TipInfo{
+		gc, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return nil, errors.New("missing genesis context")
+		}
+		return block.WithTipBlockContext(ctx, block.TipBlockContext{
 			Height:    0,
-			Hash:      bcCtx.Genesis.Hash(),
-			Timestamp: time.Unix(bcCtx.Genesis.Timestamp, 0),
-		}
-	} else {
-		header, err := dao.HeaderByHeight(height)
-		if err != nil {
-			return nil, err
-		}
-		bcCtx.Tip = protocol.TipInfo{
-			Height:    height,
-			Hash:      header.HashHeader(),
-			Timestamp: header.Timestamp(),
-		}
+			Hash:      gc.Hash(),
+			Timestamp: time.Unix(gc.Timestamp, 0),
+		}), nil
 	}
-	return protocol.WithBlockchainCtx(ctx, bcCtx), nil
+	header, err := dao.HeaderByHeight(ctx, height)
+	if err != nil {
+		return nil, err
+	}
+	return block.WithTipBlockContext(ctx, block.TipBlockContext{
+		Height:    height,
+		Hash:      header.HashHeader(),
+		Timestamp: header.Timestamp(),
+	}), nil
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	gc, ok := genesis.ExtractGenesisContext(ctx)
 	if !ok {
-		return errors.New("failed to find blockchain ctx")
+		return errors.New("missing genesis context")
 	}
 	for ii, indexer := range dao.indexers {
 		tipHeight, err := indexer.Height()
@@ -145,12 +144,12 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			return errors.New("indexer tip height cannot by higher than dao tip height")
 		}
 		for i := tipHeight + 1; i <= dao.tipHeight; i++ {
-			blk, err := dao.GetBlockByHeight(i)
+			blk, err := dao.GetBlockByHeight(ctx, i)
 			if err != nil {
 				return err
 			}
 			if blk.Receipts == nil {
-				blk.Receipts, err = dao.GetReceipts(i)
+				blk.Receipts, err = dao.GetReceipts(ctx, i)
 				if err != nil {
 					return err
 				}
@@ -169,7 +168,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
-					GasLimit:       bcCtx.Genesis.BlockGasLimit,
+					GasLimit:       gc.BlockGasLimit,
 				},
 			), blk); err != nil {
 				return err
@@ -193,38 +192,38 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 
 func (dao *blockDAO) Stop(ctx context.Context) error { return dao.lifecycle.OnStop(ctx) }
 
-func (dao *blockDAO) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (dao *blockDAO) GetBlockHash(ctx context.Context, height uint64) (hash.Hash256, error) {
 	timer := dao.timerFactory.NewTimer("get_block_hash")
 	defer timer.End()
-	return dao.blockStore.GetBlockHash(height)
+	return dao.blockStore.GetBlockHash(ctx, height)
 }
 
-func (dao *blockDAO) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+func (dao *blockDAO) GetBlockHeight(ctx context.Context, hash hash.Hash256) (uint64, error) {
 	timer := dao.timerFactory.NewTimer("get_block_height")
 	defer timer.End()
-	return dao.blockStore.GetBlockHeight(hash)
+	return dao.blockStore.GetBlockHeight(ctx, hash)
 }
 
-func (dao *blockDAO) GetBlock(hash hash.Hash256) (*block.Block, error) {
+func (dao *blockDAO) GetBlock(ctx context.Context, hash hash.Hash256) (*block.Block, error) {
 	timer := dao.timerFactory.NewTimer("get_block")
 	defer timer.End()
-	return dao.blockStore.GetBlock(hash)
+	return dao.blockStore.GetBlock(ctx, hash)
 }
 
-func (dao *blockDAO) GetBlockByHeight(height uint64) (*block.Block, error) {
+func (dao *blockDAO) GetBlockByHeight(ctx context.Context, height uint64) (*block.Block, error) {
 	timer := dao.timerFactory.NewTimer("get_block_byheight")
 	defer timer.End()
-	return dao.blockStore.GetBlockByHeight(height)
+	return dao.blockStore.GetBlockByHeight(ctx, height)
 }
 
-func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
+func (dao *blockDAO) HeaderByHeight(ctx context.Context, height uint64) (*block.Header, error) {
 	if v, ok := lruCacheGet(dao.headerCache, height); ok {
 		cacheMtc.WithLabelValues("hit_header").Inc()
 		return v.(*block.Header), nil
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	header, err := dao.blockStore.HeaderByHeight(height)
+	header, err := dao.blockStore.HeaderByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -233,14 +232,14 @@ func (dao *blockDAO) HeaderByHeight(height uint64) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) FooterByHeight(height uint64) (*block.Footer, error) {
+func (dao *blockDAO) FooterByHeight(ctx context.Context, height uint64) (*block.Footer, error) {
 	if v, ok := lruCacheGet(dao.footerCache, height); ok {
 		cacheMtc.WithLabelValues("hit_footer").Inc()
 		return v.(*block.Footer), nil
 	}
 	cacheMtc.WithLabelValues("miss_footer").Inc()
 
-	footer, err := dao.blockStore.FooterByHeight(height)
+	footer, err := dao.blockStore.FooterByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -253,14 +252,14 @@ func (dao *blockDAO) Height() (uint64, error) {
 	return dao.blockStore.Height()
 }
 
-func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
+func (dao *blockDAO) Header(ctx context.Context, h hash.Hash256) (*block.Header, error) {
 	if header, ok := lruCacheGet(dao.headerCache, h); ok {
 		cacheMtc.WithLabelValues("hit_header").Inc()
 		return header.(*block.Header), nil
 	}
 	cacheMtc.WithLabelValues("miss_header").Inc()
 
-	header, err := dao.blockStore.Header(h)
+	header, err := dao.blockStore.Header(ctx, h)
 	if err != nil {
 		return nil, err
 	}
@@ -269,8 +268,8 @@ func (dao *blockDAO) Header(h hash.Hash256) (*block.Header, error) {
 	return header, nil
 }
 
-func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
-	blk, err := dao.blockStore.GetBlockByHeight(height)
+func (dao *blockDAO) GetActionByActionHash(ctx context.Context, h hash.Hash256, height uint64) (action.SealedEnvelope, uint32, error) {
+	blk, err := dao.blockStore.GetBlockByHeight(ctx, height)
 	if err != nil {
 		return action.SealedEnvelope{}, 0, err
 	}
@@ -282,8 +281,8 @@ func (dao *blockDAO) GetActionByActionHash(h hash.Hash256, height uint64) (actio
 	return action.SealedEnvelope{}, 0, errors.Errorf("block %d does not have action %x", height, h)
 }
 
-func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*action.Receipt, error) {
-	receipts, err := dao.blockStore.GetReceipts(height)
+func (dao *blockDAO) GetReceiptByActionHash(ctx context.Context, h hash.Hash256, height uint64) (*action.Receipt, error) {
+	receipts, err := dao.blockStore.GetReceipts(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -295,10 +294,10 @@ func (dao *blockDAO) GetReceiptByActionHash(h hash.Hash256, height uint64) (*act
 	return nil, errors.Errorf("receipt of action %x isn't found", h)
 }
 
-func (dao *blockDAO) GetReceipts(height uint64) ([]*action.Receipt, error) {
+func (dao *blockDAO) GetReceipts(ctx context.Context, height uint64) ([]*action.Receipt, error) {
 	timer := dao.timerFactory.NewTimer("get_receipt")
 	defer timer.End()
-	return dao.blockStore.GetReceipts(height)
+	return dao.blockStore.GetReceipts(ctx, height)
 }
 
 func (dao *blockDAO) ContainsTransactionLog() bool {
@@ -339,19 +338,19 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (dao *blockDAO) DeleteTipBlock() error {
+func (dao *blockDAO) DeleteTipBlock(ctx context.Context) error {
 	timer := dao.timerFactory.NewTimer("del_block")
 	defer timer.End()
-	return dao.blockStore.DeleteTipBlock()
+	return dao.blockStore.DeleteTipBlock(ctx)
 }
 
-func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
+func (dao *blockDAO) DeleteBlockToTarget(ctx context.Context, targetHeight uint64) error {
 	tipHeight, err := dao.blockStore.Height()
 	if err != nil {
 		return err
 	}
 	for tipHeight > targetHeight {
-		blk, err := dao.blockStore.GetBlockByHeight(tipHeight)
+		blk, err := dao.blockStore.GetBlockByHeight(ctx, tipHeight)
 		if err != nil {
 			return errors.Wrap(err, "failed to get tip block")
 		}
@@ -362,7 +361,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 			}
 		}
 
-		if err := dao.blockStore.DeleteTipBlock(); err != nil {
+		if err := dao.blockStore.DeleteTipBlock(ctx); err != nil {
 			return err
 		}
 		// purge from cache
@@ -380,7 +379,7 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	return nil
 }
 
-func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg config.DB) BlockDAO {
+func createBlockDAO(blkStore filedao.FileDAO, indexers []BlockIndexer, cfg db.Config) BlockDAO {
 	if blkStore == nil {
 		return nil
 	}

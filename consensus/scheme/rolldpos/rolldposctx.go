@@ -20,7 +20,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
@@ -90,7 +89,7 @@ type rollDPoSCtx struct {
 
 func newRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
-	consensusDBConfig config.DB,
+	consensusDBConfig db.Config,
 	active bool,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,
@@ -151,9 +150,9 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		if err := ctx.eManagerDB.Start(c); err != nil {
 			return errors.Wrap(err, "Error when starting the collectionDB")
 		}
-		eManager, err = newEndorsementManager(ctx.eManagerDB)
+		eManager, err = newEndorsementManager(c, ctx.eManagerDB)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), time.Now(), eManager, ctx.toleratedOvertime)
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(c, 0, ctx.BlockInterval(0), time.Now(), eManager, ctx.toleratedOvertime)
 
 	return err
 }
@@ -186,6 +185,7 @@ func (ctx *rollDPoSCtx) CheckVoteEndorser(
 
 // CheckBlockProposer checks the block proposal
 func (ctx *rollDPoSCtx) CheckBlockProposer(
+	c context.Context,
 	height uint64,
 	proposal *blockProposal,
 	en *endorsement.Endorsement,
@@ -203,7 +203,7 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 	if err != nil {
 		return err
 	}
-	if proposer := ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
+	if proposer := ctx.roundCalc.Proposer(c, height, ctx.BlockInterval(height), en.Timestamp()); proposer != endorserAddr.String() {
 		return errors.Errorf(
 			"%s is not proposer of the corresponding round, %s expected",
 			endorserAddr.String(),
@@ -211,14 +211,14 @@ func (ctx *rollDPoSCtx) CheckBlockProposer(
 		)
 	}
 	proposerAddr := proposal.ProposerAddress()
-	if ctx.roundCalc.Proposer(height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
+	if ctx.roundCalc.Proposer(c, height, ctx.BlockInterval(height), proposal.block.Timestamp()) != proposerAddr {
 		return errors.Errorf("%s is not proposer of the corresponding round", proposerAddr)
 	}
 	if !proposal.block.VerifySignature() {
 		return errors.Errorf("invalid block signature")
 	}
 	if proposerAddr != endorserAddr.String() {
-		round, err := ctx.roundCalc.NewRound(height, ctx.BlockInterval(height), en.Timestamp(), nil)
+		round, err := ctx.roundCalc.NewRound(c, height, ctx.BlockInterval(height), en.Timestamp(), nil)
 		if err != nil {
 			return err
 		}

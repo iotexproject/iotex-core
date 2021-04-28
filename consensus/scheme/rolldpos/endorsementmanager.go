@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"encoding/hex"
 	"time"
 
@@ -120,13 +121,13 @@ func newBlockEndorsementCollection(blk *block.Block) *blockEndorsementCollection
 	}
 }
 
-func (bc *blockEndorsementCollection) fromProto(blockPro *endorsementpb.BlockEndorsementCollection) error {
+func (bc *blockEndorsementCollection) fromProto(ctx context.Context, blockPro *endorsementpb.BlockEndorsementCollection) error {
 	bc.endorsers = make(map[string]*endorserEndorsementCollection)
 	if blockPro.Blk == nil {
 		bc.blk = nil
 	} else {
 		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(blockPro.Blk); err != nil {
+		if err := blk.ConvertFromBlockPb(ctx, blockPro.Blk); err != nil {
 			return err
 		}
 		bc.blk = blk
@@ -224,7 +225,7 @@ type endorsementManager struct {
 	cachedMintedBlk *block.Block
 }
 
-func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
+func newEndorsementManager(ctx context.Context, eManagerDB db.KVStore) (*endorsementManager, error) {
 	if eManagerDB == nil {
 		return &endorsementManager{
 			eManagerDB:      nil,
@@ -241,7 +242,7 @@ func newEndorsementManager(eManagerDB db.KVStore) (*endorsementManager, error) {
 		if err = proto.Unmarshal(bytes, managerProto); err != nil {
 			return nil, err
 		}
-		if err = manager.fromProto(managerProto); err != nil {
+		if err = manager.fromProto(ctx, managerProto); err != nil {
 			return nil, err
 		}
 		manager.eManagerDB = eManagerDB
@@ -280,18 +281,18 @@ func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorit
 	return
 }
 
-func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {
+func (m *endorsementManager) fromProto(ctx context.Context, managerPro *endorsementpb.EndorsementManager) error {
 	m.collections = make(map[string]*blockEndorsementCollection)
 	for i, block := range managerPro.BlockEndorsements {
 		bc := &blockEndorsementCollection{}
-		if err := bc.fromProto(block); err != nil {
+		if err := bc.fromProto(ctx, block); err != nil {
 			return err
 		}
 		m.collections[managerPro.BlkHash[i]] = bc
 	}
 	if managerPro.CachedMintedBlk != nil {
 		blk := &block.Block{}
-		if err := blk.ConvertFromBlockPb(managerPro.CachedMintedBlk); err != nil {
+		if err := blk.ConvertFromBlockPb(ctx, managerPro.CachedMintedBlk); err != nil {
 			return err
 		}
 		m.cachedMintedBlk = blk

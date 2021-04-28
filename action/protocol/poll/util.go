@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -110,7 +111,7 @@ func validate(ctx context.Context, sr protocol.StateReader, p Protocol, act acti
 
 func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Protocol) ([]action.Envelope, error) {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(blkCtx.BlockHeight)
 	lastBlkHeight := rp.GetEpochLastBlockHeight(epochNum)
@@ -120,7 +121,7 @@ func createPostSystemActions(ctx context.Context, sr protocol.StateReader, p Pro
 	if blkCtx.BlockHeight < epochHeight+(nextEpochHeight-epochHeight)/2 {
 		return nil, nil
 	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	beforeEaster := hu.IsPre(config.Easter, nextEpochHeight)
 	if _, _, err := candidatesutil.CandidatesFromDB(sr, nextEpochHeight, beforeEaster, true); errors.Cause(err) != state.ErrStateNotExist {
 		return nil, err
@@ -164,13 +165,13 @@ func setCandidates(
 	candidates state.CandidateList,
 	height uint64, // epoch start height
 ) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochNum := rp.GetEpochNum(height)
 	if height != rp.GetEpochHeight(epochNum) {
 		return errors.New("put poll result height should be epoch start height")
 	}
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	hu := config.NewHeightUpgrade(&g)
 	preEaster := hu.IsPre(config.Easter, height)
 	for _, candidate := range candidates {
 		delegate, err := accountutil.LoadOrCreateAccount(sm, candidate.Address)

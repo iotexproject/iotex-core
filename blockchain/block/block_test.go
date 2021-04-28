@@ -7,6 +7,7 @@
 package block
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -77,7 +78,8 @@ func TestMerkle(t *testing.T) {
 func TestConvertFromBlockPb(t *testing.T) {
 	blk := Block{}
 	senderPubKey := identityset.PrivateKey(27).PublicKey()
-	require.NoError(t, blk.ConvertFromBlockPb(&iotextypes.Block{
+	ctx := context.Background()
+	require.NoError(t, blk.ConvertFromBlockPb(ctx, &iotextypes.Block{
 		Header: &iotextypes.BlockHeader{
 			Core: &iotextypes.BlockHeaderCore{
 				Version:   version.ProtocolVersion,
@@ -121,7 +123,7 @@ func TestConvertFromBlockPb(t *testing.T) {
 	require.NoError(t, err)
 
 	var newblk Block
-	err = newblk.Deserialize(raw)
+	err = newblk.Deserialize(ctx, raw)
 	require.NoError(t, err)
 	require.Equal(t, blk, newblk)
 }

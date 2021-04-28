@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -154,7 +153,7 @@ func TestCountingIndex(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = testPath
 
 	for _, v := range []KVStore{
@@ -201,7 +200,7 @@ func TestBulk(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -241,7 +240,7 @@ func TestCheckBulk(t *testing.T) {
 		}
 	}
 
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = "test-bulk.dat"
 	t.Run("Bolt DB", func(t *testing.T) {
 		defer testutil.CleanupPath(t, cfg.DbPath)

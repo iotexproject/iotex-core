@@ -7,6 +7,8 @@
 package scheme
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -33,10 +35,10 @@ type Broadcast func(msg proto.Message) error
 type Scheme interface {
 	lifecycle.StartStopper
 
-	HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error
+	HandleConsensusMsg(context.Context, *iotextypes.ConsensusMessage) error
 	Calibrate(uint64)
-	ValidateBlockFooter(*block.Block) error
-	Metrics() (ConsensusMetrics, error)
+	ValidateBlockFooter(context.Context, *block.Block) error
+	Metrics(context.Context) (ConsensusMetrics, error)
 	Activate(bool)
 	Active() bool
 }

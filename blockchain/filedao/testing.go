@@ -21,6 +21,8 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -71,52 +73,68 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 	return &fd, nil
 }
 
-func (fd *testInMemFd) GetBlockHash(height uint64) (hash.Hash256, error) {
+func (fd *testInMemFd) GetBlockHash(ctx context.Context, height uint64) (hash.Hash256, error) {
 	if height == 0 {
-		return block.GenesisHash(), nil
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return hash.ZeroHash256, errors.New("genesis block doesn't exist")
+		}
+		return g.Hash(), nil
 	}
-	return fd.fileDAOv2.GetBlockHash(height)
+	return fd.fileDAOv2.GetBlockHash(ctx, height)
 }
 
-func (fd *testInMemFd) GetBlockHeight(h hash.Hash256) (uint64, error) {
-	if h == block.GenesisHash() {
+func (fd *testInMemFd) GetBlockHeight(ctx context.Context, h hash.Hash256) (uint64, error) {
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return 0, errors.New("genesis block doesn't exist")
+	}
+	if g.IsAGenesisHash(h) {
 		return 0, nil
 	}
-	return fd.fileDAOv2.GetBlockHeight(h)
+	return fd.fileDAOv2.GetBlockHeight(ctx, h)
 }
 
-func (fd *testInMemFd) GetBlock(h hash.Hash256) (*block.Block, error) {
-	if h == block.GenesisHash() {
-		return block.GenesisBlock(), nil
+func (fd *testInMemFd) GetBlock(ctx context.Context, h hash.Hash256) (*block.Block, error) {
+	g, ok := genesis.ExtractGenesisContext(ctx)
+	if !ok {
+		return nil, errors.New("genesis block doesn't exist")
 	}
-	return fd.fileDAOv2.GetBlock(h)
+	if g.IsAGenesisHash(h) {
+		return g.Block(), nil
+	}
+	return fd.fileDAOv2.GetBlock(ctx, h)
 }
 
-func (fd *testInMemFd) GetBlockByHeight(height uint64) (*block.Block, error) {
+func (fd *testInMemFd) GetBlockByHeight(ctx context.Context, height uint64) (*block.Block, error) {
 	if height == 0 {
-		return block.GenesisBlock(), nil
+		g, ok := genesis.ExtractGenesisContext(ctx)
+		if !ok {
+			return nil, errors.New("genesis block doesn't exist")
+		}
+		return g.Block(), nil
 	}
-	return fd.fileDAOv2.GetBlockByHeight(height)
+	return fd.fileDAOv2.GetBlockByHeight(ctx, height)
 }
 
-func (fd *testInMemFd) Header(h hash.Hash256) (*block.Header, error) {
-	blk, err := fd.GetBlock(h)
+func (fd *testInMemFd) Header(ctx context.Context, h hash.Hash256) (*block.Header, error) {
+	blk, err := fd.GetBlock(ctx, h)
 	if err != nil {
 		return nil, err
 	}
 	return &blk.Header, nil
 }
 
-func (fd *testInMemFd) HeaderByHeight(height uint64) (*block.Header, error) {
-	blk, err := fd.GetBlockByHeight(height)
+func (fd *testInMemFd) HeaderByHeight(ctx context.Context, height uint64) (*block.Header, error) {
+	blk, err := fd.GetBlockByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
 	return &blk.Header, nil
 }
 
-func (fd *testInMemFd) FooterByHeight(height uint64) (*block.Footer, error) {
-	blk, err := fd.GetBlockByHeight(height)
+func (fd *testInMemFd) FooterByHeight(ctx context.Context, height uint64) (*block.Footer, error) {
+	blk, err := fd.GetBlockByHeight(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +144,7 @@ func (fd *testInMemFd) FooterByHeight(height uint64) (*block.Footer, error) {
 func (fd *testInMemFd) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
-	if _, err := fd.GetBlockHeight(h); err == nil {
+	if _, err := fd.GetBlockHeight(ctx, h); err == nil {
 		return ErrAlreadyExist
 	}
 	return fd.fileDAOv2.PutBlock(ctx, blk)
@@ -139,7 +157,7 @@ func newTestFailPutBlock(fd *fileDAO, height uint64) FileDAO {
 func (tf *testFailPutBlock) PutBlock(ctx context.Context, blk *block.Block) error {
 	// bail out if block already exists
 	h := blk.HashBlock()
-	if _, err := tf.GetBlockHeight(h); err == nil {
+	if _, err := tf.GetBlockHeight(ctx, h); err == nil {
 		return ErrAlreadyExist
 	}
 
@@ -171,20 +189,29 @@ func testCommitBlocks(t *testing.T, fd BaseFileDAO, start, end uint64, h hash.Ha
 
 func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 	r := require.New(t)
+	ctx := genesis.WithGenesisContext(
+		action.WithEVMNetworkContext(
+			context.Background(),
+			action.EVMNetworkContext{
+				ChainID: config.Default.Chain.EVMNetworkID,
+			},
+		),
+		config.Default.Genesis,
+	)
 
 	height, err := fd.Height()
 	r.NoError(err)
 	r.Equal(end, height)
 	for i := end; i >= start; i-- {
-		h, err := fd.GetBlockHash(i)
+		h, err := fd.GetBlockHash(ctx, i)
 		r.NoError(err)
-		height, err = fd.GetBlockHeight(h)
+		height, err = fd.GetBlockHeight(ctx, h)
 		r.NoError(err)
 		r.Equal(height, i)
-		blk, err := fd.GetBlockByHeight(i)
+		blk, err := fd.GetBlockByHeight(ctx, i)
 		r.NoError(err)
 		r.Equal(h, blk.HashBlock())
-		receipt, err := fd.GetReceipts(i)
+		receipt, err := fd.GetReceipts(ctx, i)
 		r.NoError(err)
 		r.EqualValues(1, receipt[0].Status)
 		r.Equal(height, receipt[0].BlockHeight)
@@ -203,16 +230,16 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 
 		if false {
 			// test DeleteTipBlock()
-			r.NoError(fd.DeleteTipBlock())
-			_, err = fd.GetBlockHash(i)
+			r.NoError(fd.DeleteTipBlock(ctx))
+			_, err = fd.GetBlockHash(ctx, i)
 			r.Equal(db.ErrNotExist, err)
-			_, err = fd.GetBlockHeight(h)
+			_, err = fd.GetBlockHeight(ctx, h)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlock(h)
+			_, err = fd.GetBlock(ctx, h)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlockByHeight(i)
+			_, err = fd.GetBlockByHeight(ctx, i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetReceipts(i)
+			_, err = fd.GetReceipts(ctx, i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
 			log, err = fd.TransactionLogs(i)
 			r.Equal(ErrNotSupported, err)
@@ -221,7 +248,6 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
-	block.LoadGenesisHash()
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,

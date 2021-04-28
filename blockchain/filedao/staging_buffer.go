@@ -7,6 +7,8 @@
 package filedao
 
 import (
+	"context"
+
 	"github.com/golang/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -35,12 +37,12 @@ func (s *stagingBuffer) Get(pos uint64) (*block.Store, error) {
 	return s.buffer[pos], nil
 }
 
-func (s *stagingBuffer) Put(pos uint64, blkBytes []byte) (bool, error) {
+func (s *stagingBuffer) Put(ctx context.Context, pos uint64, blkBytes []byte) (bool, error) {
 	if pos >= s.size {
 		return false, ErrNotSupported
 	}
 	blk := &block.Store{}
-	if err := blk.Deserialize(blkBytes); err != nil {
+	if err := blk.Deserialize(ctx, blkBytes); err != nil {
 		return false, err
 	}
 	s.buffer[pos] = blk

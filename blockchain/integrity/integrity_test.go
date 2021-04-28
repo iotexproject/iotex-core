@@ -94,11 +94,15 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	if err := bc.CommitBlock(blk); err != nil {
 		return err
 	}
+	ctx, err := bc.Context()
+	if err != nil {
+		return err
+	}
 
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(ctx, deployHash, 1)
 		if err != nil {
 			return err
 		}
@@ -199,7 +203,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(storeHash, 8)
+		r, err := dao.GetReceiptByActionHash(ctx, storeHash, 8)
 		if err != nil {
 			return err
 		}
@@ -221,7 +225,7 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 	}
 
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(store2Hash, 9)
+		r, err := dao.GetReceiptByActionHash(ctx, store2Hash, 9)
 		if err != nil {
 			return err
 		}
@@ -239,13 +243,17 @@ func addTestingConstantinopleBlocks(bc blockchain.Blockchain, dao blockdao.Block
 }
 
 func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool) error {
+	ctx, err := bc.Context()
+	if err != nil {
+		return err
+	}
 	// Add block 1
 	addr0 := identityset.Address(27).String()
 	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf0); err != nil {
+	if err := ap.Add(ctx, tsf0); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
@@ -275,42 +283,42 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
 	tsf2, err := testutil.SignedTransfer(addr2, priKey0, 2, big.NewInt(30), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
 	tsf3, err := testutil.SignedTransfer(addr3, priKey0, 3, big.NewInt(50), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf3); err != nil {
+	if err := ap.Add(ctx, tsf3); err != nil {
 		return err
 	}
 	tsf4, err := testutil.SignedTransfer(addr4, priKey0, 4, big.NewInt(70), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf4); err != nil {
+	if err := ap.Add(ctx, tsf4); err != nil {
 		return err
 	}
 	tsf5, err := testutil.SignedTransfer(addr5, priKey0, 5, big.NewInt(110), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf5); err != nil {
+	if err := ap.Add(ctx, tsf5); err != nil {
 		return err
 	}
 	tsf6, err := testutil.SignedTransfer(addr6, priKey0, 6, big.NewInt(50<<20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), tsf6); err != nil {
+	if err := ap.Add(ctx, tsf6); err != nil {
 		return err
 	}
 	// deploy simple smart contract
@@ -319,7 +327,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	if err != nil {
 		return err
 	}
-	if err := ap.Add(context.Background(), ex1); err != nil {
+	if err := ap.Add(ctx, ex1); err != nil {
 		return err
 	}
 	deployHash = ex1.Hash()
@@ -336,7 +344,7 @@ func addTestingTsfBlocks(cfg config.Config, bc blockchain.Blockchain, dao blockd
 	var contract string
 	_, gateway := cfg.Plugins[config.GatewayPlugin]
 	if gateway && !cfg.Chain.EnableAsyncIndexWrite {
-		r, err := dao.GetReceiptByActionHash(deployHash, 2)
+		r, err := dao.GetReceiptByActionHash(ctx, deployHash, 2)
 		if err != nil {
 			return err
 		}
@@ -569,8 +577,6 @@ func TestGetBlockHash(t *testing.T) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.Genesis.HawaiiBlockHeight = 3
 	cfg.ActPool.MinGasPriceStr = "0"
-	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash()
 	// create chain
 	registry := protocol.NewRegistry()
 	acc := account.NewProtocol(rewarding.DepositGas)
@@ -611,6 +617,8 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 	require := require.New(t)
 	priKey0 := identityset.PrivateKey(27)
 
+	ctx, err := bc.Context()
+	require.NoError(err)
 	// deploy simple smart contract
 	/*
 		pragma solidity <6.0 >=0.4.24;
@@ -640,7 +648,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 	// get deployed contract address
 	var contract string
 	if dao != nil {
-		r, err := dao.GetReceiptByActionHash(deployHash, 1)
+		r, err := dao.GetReceiptByActionHash(ctx, deployHash, 1)
 		require.NoError(err)
 		contract = r.ContractAddress
 	}
@@ -701,7 +709,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 		{acHash7, 7, 0},
 	}
 	for _, test := range tests {
-		r, err := dao.GetReceiptByActionHash(test.acHash, test.commitHeight)
+		r, err := dao.GetReceiptByActionHash(ctx, test.acHash, test.commitHeight)
 		require.NoError(err)
 		var bcHash hash.Hash256
 		if test.commitHeight < hawaiiHeight {
@@ -709,7 +717,7 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 			// see https://github.com/iotexproject/iotex-core/commit/2585b444214f9009b6356fbaf59c992e8728fc01
 			bcHash = hash.ZeroHash256
 		} else {
-			bcHash, err = dao.GetBlockHash(test.targetHeight)
+			bcHash, err = dao.GetBlockHash(ctx, test.targetHeight)
 			require.NoError(err)
 		}
 		require.Equal(r.Logs()[0].Topics[0], bcHash)
@@ -919,6 +927,8 @@ func TestConstantinople(t *testing.T) {
 		defer func() {
 			require.NoError(bc.Stop(ctx))
 		}()
+		ctx, err = bc.Context()
+		require.NoError(err)
 
 		require.NoError(addTestingConstantinopleBlocks(bc, dao, sf, ap))
 
@@ -973,26 +983,26 @@ func TestConstantinople(t *testing.T) {
 			actHash := hashTopic[i].h
 			ai, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(actHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(ctx, actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
 			require.Equal(actHash, r.ActionHash)
 			require.Equal(uint64(i)+1, r.BlockHeight)
-			a, _, err := dao.GetActionByActionHash(actHash, ai.BlockHeight())
+			a, _, err := dao.GetActionByActionHash(ctx, actHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(a)
 			require.Equal(actHash, a.Hash())
 
 			actIndex, err := indexer.GetActionIndex(actHash[:])
 			require.NoError(err)
-			blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
+			blkHash, err := dao.GetBlockHash(ctx, actIndex.BlockHeight())
 			require.NoError(err)
 			require.Equal(hashTopic[i].blkHash, hex.EncodeToString(blkHash[:]))
 
 			if hashTopic[i].topic != nil {
 				funcSig := hash.Hash256b([]byte("Set(uint256)"))
-				blk, err := dao.GetBlockByHeight(1 + uint64(i))
+				blk, err := dao.GetBlockByHeight(ctx, 1+uint64(i))
 				require.NoError(err)
 				f := blk.Header.LogsBloomfilter()
 				require.NotNil(f)
@@ -1017,7 +1027,7 @@ func TestConstantinople(t *testing.T) {
 		}
 		caller := identityset.Address(27)
 		for _, v := range storeOutGasTests {
-			r, err := dao.GetReceiptByActionHash(v.actHash, v.height)
+			r, err := dao.GetReceiptByActionHash(ctx, v.actHash, v.height)
 			require.NoError(err)
 			require.EqualValues(v.status, r.Status)
 
@@ -1177,12 +1187,14 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		defer func() {
 			require.NoError(bc.Stop(ctx))
 		}()
+		ctx, err = bc.Context()
+		require.NoError(err)
 
 		// verify block header hash
 		for i := uint64(1); i <= 5; i++ {
-			hash, err := dao.GetBlockHash(i)
+			hash, err := dao.GetBlockHash(ctx, i)
 			require.NoError(err)
-			height, err = dao.GetBlockHeight(hash)
+			height, err = dao.GetBlockHeight(ctx, hash)
 			require.NoError(err)
 			require.Equal(i, height)
 			header, err := bc.BlockHeaderByHeight(height)
@@ -1193,7 +1205,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			require.Equal(height >= cfg.Genesis.AleutianBlockHeight, header.LogsBloomfilter() != nil)
 		}
 
-		empblk, err := dao.GetBlock(hash.ZeroHash256)
+		empblk, err := dao.GetBlock(ctx, hash.ZeroHash256)
 		require.Nil(empblk)
 		require.Error(err)
 
@@ -1203,11 +1215,9 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		// add wrong blocks
 		h := bc.TipHeight()
-		blkhash := bc.TipHash()
 		header, err = bc.BlockHeaderByHeight(h)
 		require.NoError(err)
-		require.Equal(blkhash, header.HashBlock())
-		fmt.Printf("Current tip = %d hash = %x\n", h, blkhash)
+		fmt.Printf("Current tip = %d hash = %x\n", h, header.HashBlock())
 
 		// add block with wrong height
 		selp, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 1, big.NewInt(50), nil, genesis.Default.ActionGasLimit, big.NewInt(0))
@@ -1215,7 +1225,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 		nblk, err := block.NewTestingBuilder().
 			SetHeight(h + 2).
-			SetPrevBlockHash(blkhash).
+			SetPrevBlockHash(header.HashBlock()).
 			SetTimeStamp(testutil.TimestampNow()).
 			AddActions(selp).SignAndBuild(identityset.PrivateKey(29))
 		require.NoError(err)
@@ -1238,7 +1248,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 		fmt.Printf("Cannot validate block %d: %v\n", header.Height(), err)
 
 		// add existing block again will have no effect
-		blk, err := dao.GetBlockByHeight(3)
+		blk, err := dao.GetBlockByHeight(ctx, 3)
 		require.NotNil(blk)
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
@@ -1260,7 +1270,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 			// verify deployed contract
 			ai, err := indexer.GetActionIndex(deployHash[:])
 			require.NoError(err)
-			r, err := dao.GetReceiptByActionHash(deployHash, ai.BlockHeight())
+			r, err := dao.GetReceiptByActionHash(ctx, deployHash, ai.BlockHeight())
 			require.NoError(err)
 			require.NotNil(r)
 			require.Equal(uint64(1), r.Status)
@@ -1268,7 +1278,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			// 2 topics in block 3 calling set()
 			funcSig := hash.Hash256b([]byte("Set(uint256)"))
-			blk, err := dao.GetBlockByHeight(3)
+			blk, err := dao.GetBlockByHeight(ctx, 3)
 			require.NoError(err)
 			f := blk.Header.LogsBloomfilter()
 			require.NotNil(f)
@@ -1277,7 +1287,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			// 3 topics in block 4 calling get()
 			funcSig = hash.Hash256b([]byte("Get(address,uint256)"))
-			blk, err = dao.GetBlockByHeight(4)
+			blk, err = dao.GetBlockByHeight(ctx, 4)
 			require.NoError(err)
 			f = blk.Header.LogsBloomfilter()
 			require.NotNil(f)
@@ -1294,7 +1304,7 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 
 			for h := uint64(1); h <= 5; h++ {
 				// verify getting number of actions
-				blk, err = dao.GetBlockByHeight(h)
+				blk, err = dao.GetBlockByHeight(ctx, h)
 				require.NoError(err)
 				blkIndex, err := indexer.GetBlockIndex(h)
 				require.NoError(err)
@@ -1330,8 +1340,6 @@ func TestLoadBlockchainfromDB(t *testing.T) {
 	cfg.Chain.IndexDBPath = testIndexPath
 	cfg.Genesis.EnableGravityChainVoting = false
 	cfg.ActPool.MinGasPriceStr = "0"
-	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
-	block.LoadGenesisHash()
 
 	t.Run("load blockchain from DB w/o explorer", func(t *testing.T) {
 		testValidateBlockchain(cfg, t)
@@ -1486,10 +1494,7 @@ func TestBlocks(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 10; i++ {
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -1514,9 +1519,9 @@ func TestActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis},
+		cfg.Genesis,
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1563,10 +1568,7 @@ func TestActions(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 5000; i++ {
 		tsf, err := testutil.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1578,14 +1580,11 @@ func TestActions(t *testing.T) {
 		require.NoError(ap.Add(context.Background(), tsf2))
 	}
 	blk, _ := bc.MintNewBlock(testutil.TimestampNow())
-	ctx = protocol.WithBlockchainCtx(
+	ctx = block.WithTipBlockContext(
 		ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 0,
-				Hash:   blk.PrevHash(),
-			},
+		block.TipBlockContext{
+			Height: 0,
+			Hash:   blk.PrevHash(),
 		},
 	)
 	require.NoError(bc.ValidateBlock(blk))
@@ -1733,6 +1732,8 @@ func testHistoryForContract(t *testing.T, statetx bool) {
 
 func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.ActPool, t *testing.T) string {
 	require := require.New(t)
+	ctx, err := bc.Context()
+	require.NoError(err)
 	genesisPriKey := identityset.PrivateKey(27)
 	// deploy a xrc20 contract with balance 2000000000000000000000000000
 	data, err := hex.DecodeString("60806040526002805460ff1916601217905534801561001d57600080fd5b506040516107cd3803806107cd83398101604090815281516020808401518385015160025460ff16600a0a84026003819055336000908152600485529586205590850180519395909491019261007592850190610092565b508051610089906001906020840190610092565b5050505061012d565b828054600181600116156101000203166002900490600052602060002090601f016020900481019282601f106100d357805160ff1916838001178555610100565b82800160010185558215610100579182015b828111156101005782518255916020019190600101906100e5565b5061010c929150610110565b5090565b61012a91905b8082111561010c5760008155600101610116565b90565b6106918061013c6000396000f3006080604052600436106100ae5763ffffffff7c010000000000000000000000000000000000000000000000000000000060003504166306fdde0381146100b3578063095ea7b31461013d57806318160ddd1461017557806323b872dd1461019c578063313ce567146101c657806342966c68146101f1578063670d14b21461020957806370a082311461022a57806395d89b411461024b578063a9059cbb14610260578063dd62ed3e14610286575b600080fd5b3480156100bf57600080fd5b506100c86102ad565b6040805160208082528351818301528351919283929083019185019080838360005b838110156101025781810151838201526020016100ea565b50505050905090810190601f16801561012f5780820380516001836020036101000a031916815260200191505b509250505060405180910390f35b34801561014957600080fd5b50610161600160a060020a036004351660243561033b565b604080519115158252519081900360200190f35b34801561018157600080fd5b5061018a610368565b60408051918252519081900360200190f35b3480156101a857600080fd5b50610161600160a060020a036004358116906024351660443561036e565b3480156101d257600080fd5b506101db6103dd565b6040805160ff9092168252519081900360200190f35b3480156101fd57600080fd5b506101616004356103e6565b34801561021557600080fd5b506100c8600160a060020a036004351661045e565b34801561023657600080fd5b5061018a600160a060020a03600435166104c6565b34801561025757600080fd5b506100c86104d8565b34801561026c57600080fd5b50610284600160a060020a0360043516602435610532565b005b34801561029257600080fd5b5061018a600160a060020a0360043581169060243516610541565b6000805460408051602060026001851615610100026000190190941693909304601f810184900484028201840190925281815292918301828280156103335780601f1061030857610100808354040283529160200191610333565b820191906000526020600020905b81548152906001019060200180831161031657829003601f168201915b505050505081565b336000908152600560209081526040808320600160a060020a039590951683529390529190912055600190565b60035481565b600160a060020a038316600090815260056020908152604080832033845290915281205482111561039e57600080fd5b600160a060020a03841660009081526005602090815260408083203384529091529020805483900390556103d384848461055e565b5060019392505050565b60025460ff1681565b3360009081526004602052604081205482111561040257600080fd5b3360008181526004602090815260409182902080548690039055600380548690039055815185815291517fcc16f5dbb4873280815c1ee09dbd06736cffcc184412cf7a71a0fdb75d397ca59281900390910190a2506001919050565b60066020908152600091825260409182902080548351601f6002600019610100600186161502019093169290920491820184900484028101840190945280845290918301828280156103335780601f1061030857610100808354040283529160200191610333565b60046020526000908152604090205481565b60018054604080516020600284861615610100026000190190941693909304601f810184900484028201840190925281815292918301828280156103335780601f1061030857610100808354040283529160200191610333565b61053d33838361055e565b5050565b600560209081526000928352604080842090915290825290205481565b6000600160a060020a038316151561057557600080fd5b600160a060020a03841660009081526004602052604090205482111561059a57600080fd5b600160a060020a038316600090815260046020526040902054828101116105c057600080fd5b50600160a060020a038083166000818152600460209081526040808320805495891680855282852080548981039091559486905281548801909155815187815291519390950194927fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef929181900390910190a3600160a060020a0380841660009081526004602052604080822054928716825290205401811461065f57fe5b505050505600a165627a7a723058207c03ad12a18902cfe387e684509d310abd583d862c11e3ee80c116af8b49ec5c00290000000000000000000000000000000000000000000000000000000077359400000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000004696f7478000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004696f747800000000000000000000000000000000000000000000000000000000")
@@ -1752,7 +1753,7 @@ func deployXrc20(bc blockchain.Blockchain, dao blockdao.BlockDAO, ap actpool.Act
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	require.NoError(bc.CommitBlock(blk))
-	r, err := dao.GetReceiptByActionHash(selp.Hash(), blk.Height())
+	r, err := dao.GetReceiptByActionHash(ctx, selp.Hash(), blk.Height())
 	require.NoError(err)
 	return r.ContractAddress
 }

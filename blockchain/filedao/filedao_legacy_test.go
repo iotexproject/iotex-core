@@ -27,7 +27,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg config.DB, t *testing.T) {
+	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -53,17 +53,18 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		} else {
 			normalHeaderSize = len(header)
 		}
+		ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
 
 		// verify API for genesis block
-		h, err = fd.GetBlockHash(0)
+		h, err = fd.GetBlockHash(ctx, 0)
 		r.NoError(err)
-		r.Equal(block.GenesisHash(), h)
-		height, err := fd.GetBlockHeight(h)
+		r.Equal(config.Default.Genesis.Hash(), h)
+		height, err := fd.GetBlockHeight(ctx, h)
 		r.NoError(err)
 		r.Zero(height)
-		blk, err = fd.GetBlockByHeight(0)
+		blk, err = fd.GetBlockByHeight(ctx, 0)
 		r.NoError(err)
-		r.Equal(block.GenesisBlock(), blk)
+		r.Equal(config.Default.Genesis.Block(), blk)
 	}
 
 	r := require.New(t)
@@ -75,8 +76,6 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -99,10 +98,13 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(
+		context.Background(),
+		config.Default.Genesis,
+	)
 	r.NoError(fd.Start(ctx))
 
-	err = legacy.DeleteTipBlock()
+	err = legacy.DeleteTipBlock(ctx)
 	r.Equal("cannot delete genesis block", err.Error())
 
 	height, err := legacy.Height()
@@ -113,12 +115,12 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	blk := createTestingBlock(builder, height+1, h)
 	r.NoError(fd.PutBlock(ctx, blk))
 
-	r.NoError(legacy.DeleteTipBlock())
-	_, err = fd.GetBlock(h)
+	r.NoError(legacy.DeleteTipBlock(ctx))
+	_, err = fd.GetBlock(ctx, h)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
-	_, err = legacy.GetBlockByHeight(height + 1)
+	_, err = legacy.GetBlockByHeight(ctx, height+1)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
-	_, err = fd.GetReceipts(1)
+	_, err = fd.GetReceipts(ctx, 1)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(fd.Stop(ctx))
@@ -135,11 +137,14 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r.NoError(err)
 	legacy := fd.(*fileDAOLegacy)
 
-	ctx := context.Background()
+	ctx := genesis.WithGenesisContext(
+		context.Background(),
+		config.Default.Genesis,
+	)
 	r.NoError(legacy.Start(ctx))
 
 	// getBlockValue when block is not exist
-	_, err = legacy.getBlockValue(blockHeaderNS, hash.ZeroHash256)
+	_, err = legacy.getBlockValue(ctx, blockHeaderNS, hash.ZeroHash256)
 	r.Equal(db.ErrNotExist, errors.Cause(err))
 
 	// getBlockValue when block is exist
@@ -147,14 +152,14 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	blk := createTestingBlock(builder, 1, sha256.Sum256([]byte("1")))
 	r.NoError(legacy.PutBlock(ctx, blk))
 
-	value, err := legacy.getBlockValue(blockHeaderNS, blk.HashBlock())
+	value, err := legacy.getBlockValue(ctx, blockHeaderNS, blk.HashBlock())
 	r.NoError(err)
 	header, err := blk.Header.Serialize()
 	r.NoError(err)
 	r.Equal(value, header)
 
 	// getBlockValue when NS is not exist
-	value, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
+	value, err = legacy.getBlockValue(ctx, blockHeaderNS+"_error_case", blk.HashBlock())
 	r.Error(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(legacy.Stop(ctx))

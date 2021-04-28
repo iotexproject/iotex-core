@@ -59,7 +59,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.NoError(chain.Stop(ctx))
@@ -155,7 +155,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.NoError(chain.Stop(ctx))

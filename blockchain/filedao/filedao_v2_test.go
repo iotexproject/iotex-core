@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
@@ -111,14 +112,20 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
 		fd, err := newFileDAOv2(start, cfg)
 		r.NoError(err)
 
-		ctx := context.Background()
+		ctx := genesis.WithGenesisContext(
+			action.WithEVMNetworkContext(
+				context.Background(),
+				action.EVMNetworkContext{ChainID: config.Default.Chain.EVMNetworkID},
+			),
+			config.Default.Genesis,
+		)
 		r.NoError(fd.Start(ctx))
 		defer fd.Stop(ctx)
 
@@ -138,15 +145,15 @@ func TestNewFdInterface(t *testing.T) {
 		r.Equal(ErrInvalidTipHeight, fd.PutBlock(ctx, blk))
 
 		// verify API for genesis block
-		h, err = fd.GetBlockHash(0)
+		h, err = fd.GetBlockHash(ctx, 0)
 		r.NoError(err)
-		r.Equal(block.GenesisHash(), h)
-		height, err = fd.GetBlockHeight(h)
+		r.Equal(config.Default.Genesis.Hash(), h)
+		height, err = fd.GetBlockHeight(ctx, h)
 		r.NoError(err)
 		r.Zero(height)
-		blk, err = fd.GetBlock(h)
+		blk, err = fd.GetBlock(ctx, h)
 		r.NoError(err)
-		r.Equal(block.GenesisBlock(), blk)
+		r.Equal(config.Default.Genesis.Block(), blk)
 
 		// commit blockStoreBatchSize blocks
 		for i := uint64(0); i < fd.header.BlockStoreSize; i++ {
@@ -190,15 +197,15 @@ func TestNewFdInterface(t *testing.T) {
 			height, err = fd.Height()
 			r.NoError(err)
 			r.Equal(i, height)
-			h, err = fd.GetBlockHash(i)
+			h, err = fd.GetBlockHash(ctx, i)
 			r.NoError(err)
-			height, err = fd.GetBlockHeight(h)
+			height, err = fd.GetBlockHeight(ctx, h)
 			r.NoError(err)
 			r.Equal(height, i)
-			blk, err = fd.GetBlockByHeight(i)
+			blk, err = fd.GetBlockByHeight(ctx, i)
 			r.NoError(err)
 			r.Equal(h, blk.HashBlock())
-			receipt, err := fd.GetReceipts(i)
+			receipt, err := fd.GetReceipts(ctx, i)
 			r.NoError(err)
 			r.EqualValues(1, receipt[0].Status)
 			r.Equal(height, receipt[0].BlockHeight)
@@ -215,17 +222,17 @@ func TestNewFdInterface(t *testing.T) {
 			r.Equal(iotextypes.TransactionLogType_NATIVE_TRANSFER, tx.Type)
 
 			// test DeleteTipBlock()
-			r.NoError(fd.DeleteTipBlock())
+			r.NoError(fd.DeleteTipBlock(ctx))
 			r.False(fd.ContainsHeight(i))
-			_, err = fd.GetBlockHash(i)
+			_, err = fd.GetBlockHash(ctx, i)
 			r.Equal(db.ErrNotExist, err)
-			_, err = fd.GetBlockHeight(h)
+			_, err = fd.GetBlockHeight(ctx, h)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlock(h)
+			_, err = fd.GetBlock(ctx, h)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetBlockByHeight(i)
+			_, err = fd.GetBlockByHeight(ctx, i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			_, err = fd.GetReceipts(i)
+			_, err = fd.GetReceipts(ctx, i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
 			log, err = fd.TransactionLogs(i)
 			r.Equal(ErrNotSupported, err)
@@ -235,10 +242,10 @@ func TestNewFdInterface(t *testing.T) {
 		height, err = fd.Height()
 		r.NoError(err)
 		r.Equal(start-1, height)
-		h, err = fd.GetBlockHash(height)
+		h, err = fd.GetBlockHash(ctx, height)
 		if height == 0 {
 			r.NoError(err)
-			r.Equal(block.GenesisHash(), h)
+			r.Equal(config.Default.Genesis.Hash(), h)
 		} else {
 			r.Equal(db.ErrNotExist, err)
 			r.Equal(hash.ZeroHash256, h)
@@ -258,8 +265,6 @@ func TestNewFdInterface(t *testing.T) {
 	cfg.DbPath = testPath
 	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
@@ -272,14 +277,17 @@ func TestNewFdInterface(t *testing.T) {
 }
 
 func TestNewFdStart(t *testing.T) {
-	testFdStart := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
 			testutil.CleanupPath(t, cfg.DbPath)
 			fd, err := newFileDAOv2(start, cfg)
 			r.NoError(err)
-			ctx := context.Background()
+			ctx := genesis.WithGenesisContext(
+				context.Background(),
+				config.Default.Genesis,
+			)
 			r.NoError(fd.Start(ctx))
 			defer fd.Stop(ctx)
 
@@ -302,15 +310,15 @@ func TestNewFdStart(t *testing.T) {
 			// verify API for all blocks
 			for i := start; i < start+num; i++ {
 				r.True(fd.ContainsHeight(i))
-				h, err := fd.GetBlockHash(i)
+				h, err := fd.GetBlockHash(ctx, i)
 				r.NoError(err)
-				height, err = fd.GetBlockHeight(h)
+				height, err = fd.GetBlockHeight(ctx, h)
 				r.NoError(err)
 				r.Equal(height, i)
-				blk, err := fd.GetBlockByHeight(i)
+				blk, err := fd.GetBlockByHeight(ctx, i)
 				r.NoError(err)
 				r.Equal(h, blk.HashBlock())
-				receipt, err := fd.GetReceipts(i)
+				receipt, err := fd.GetReceipts(ctx, i)
 				r.NoError(err)
 				r.EqualValues(1, receipt[0].Status)
 				r.Equal(height, receipt[0].BlockHeight)

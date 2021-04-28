@@ -2,6 +2,7 @@ package action
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"math/big"
 	"testing"
@@ -14,8 +15,6 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestGenerateRlp(t *testing.T) {
@@ -84,9 +83,6 @@ func TestGenerateRlp(t *testing.T) {
 }
 
 func TestRlpDecodeVerify(t *testing.T) {
-	// register the extern chain ID
-	config.SetEVMNetworkID(config.Default.Chain.EVMNetworkID)
-
 	require := require.New(t)
 
 	rlpTests := []struct {
@@ -142,6 +138,8 @@ func TestRlpDecodeVerify(t *testing.T) {
 			"1904bfcb93edc9bf961eead2e5c0de81dcc1d37d",
 		},
 	}
+	encid := uint32(4689)
+	ctx := WithEVMNetworkContext(context.Background(), EVMNetworkContext{ChainID: encid})
 
 	for _, v := range rlpTests {
 		encoded, err := hex.DecodeString(v.raw)
@@ -153,7 +151,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 
 		// extract signature and recover pubkey
 		w, r, s := tx.RawSignatureValues()
-		recID := uint32(w.Int64()) - 2*config.EVMNetworkID() - 8
+		recID := uint32(w.Int64()) - 2*encid - 8
 		sig := make([]byte, 64, 65)
 		rSize := len(r.Bytes())
 		copy(sig[32-rSize:32], r.Bytes())
@@ -162,7 +160,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		sig = append(sig, byte(recID))
 
 		// recover public key
-		rawHash := types.NewEIP155Signer(big.NewInt(int64(config.EVMNetworkID()))).Hash(&tx)
+		rawHash := types.NewEIP155Signer(big.NewInt(int64(encid))).Hash(&tx)
 		pubkey, err := crypto.RecoverPubkey(rawHash[:], sig)
 		require.NoError(err)
 		require.Equal(v.pubkey, pubkey.HexString())
@@ -183,7 +181,7 @@ func TestRlpDecodeVerify(t *testing.T) {
 		// receive from API
 		proto.Unmarshal(bs, pb)
 		selp := SealedEnvelope{}
-		require.NoError(selp.LoadProto(pb))
+		require.NoError(selp.LoadProto(ctx, pb))
 		rlpTx, err := actionToRLP(selp.Action())
 		require.NoError(err)
 

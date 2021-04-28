@@ -105,6 +105,10 @@ func (h *HeartbeatHandler) Log() {
 			h.l.Info("consensus is not the instance of IotxConsensus.")
 			return
 		}
+		bcCtx, err := c.Blockchain().Context()
+		if err != nil {
+			h.l.Info("failed to get blockchain context")
+		}
 		rolldpos, ok := cs.Scheme().(*rolldpos.RollDPoS)
 		numPendingEvts := 0
 		consensusEpoch := uint64(0)
@@ -118,7 +122,7 @@ func (h *HeartbeatHandler) Log() {
 			state = rolldpos.CurrentState()
 
 			// RollDpos Consensus Metrics
-			consensusMetrics, err = rolldpos.Metrics()
+			consensusMetrics, err = rolldpos.Metrics(bcCtx)
 			if err != nil {
 				if height > 0 || errors.Cause(err) != statedb.ErrStateNotExist {
 					h.l.Error("failed to read consensus metrics", zap.Error(err))

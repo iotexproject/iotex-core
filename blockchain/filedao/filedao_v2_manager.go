@@ -99,9 +99,9 @@ func (fm *FileV2Manager) FileDAOByHeight(height uint64) BaseFileDAO {
 }
 
 // GetBlockHeight returns height by hash
-func (fm *FileV2Manager) GetBlockHeight(hash hash.Hash256) (uint64, error) {
+func (fm *FileV2Manager) GetBlockHeight(ctx context.Context, hash hash.Hash256) (uint64, error) {
 	for _, file := range fm.Indices {
-		if height, err := file.fd.GetBlockHeight(hash); err == nil {
+		if height, err := file.fd.GetBlockHeight(ctx, hash); err == nil {
 			return height, nil
 		}
 	}
@@ -109,9 +109,9 @@ func (fm *FileV2Manager) GetBlockHeight(hash hash.Hash256) (uint64, error) {
 }
 
 // GetBlock returns block by hash
-func (fm *FileV2Manager) GetBlock(hash hash.Hash256) (*block.Block, error) {
+func (fm *FileV2Manager) GetBlock(ctx context.Context, hash hash.Hash256) (*block.Block, error) {
 	for _, file := range fm.Indices {
-		if blk, err := file.fd.GetBlock(hash); err == nil {
+		if blk, err := file.fd.GetBlock(ctx, hash); err == nil {
 			return blk, nil
 		}
 	}

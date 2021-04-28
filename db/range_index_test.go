@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
@@ -34,7 +33,7 @@ func TestRangeIndex(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
@@ -163,7 +162,7 @@ func TestRangeIndex2(t *testing.T) {
 	path := "test-ranger"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	cfg := config.Default.DB
+	cfg := Default
 	cfg.DbPath = testPath
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)

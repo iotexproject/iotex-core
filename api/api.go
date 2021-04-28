@@ -46,6 +46,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/blockindex"
 	"github.com/iotexproject/iotex-core/blocksync"
 	"github.com/iotexproject/iotex-core/config"
@@ -356,7 +357,8 @@ func (api *Server) SendAction(ctx context.Context, in *iotexapi.SendActionReques
 	log.L().Debug("receive send action request")
 	var selp action.SealedEnvelope
 	var err error
-	if err = selp.LoadProto(in.Action); err != nil {
+	ctx = action.WithEVMNetworkContext(ctx, action.EVMNetworkContext{ChainID: api.cfg.Chain.EVMNetworkID})
+	if err = selp.LoadProto(ctx, in.Action); err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	// Add to local actpool
@@ -486,7 +488,11 @@ func (api *Server) ReadState(ctx context.Context, in *iotexapi.ReadStateRequest)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
-	blkHash, err := api.dao.GetBlockHash(readStateHeight)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	blkHash, err := api.dao.GetBlockHash(bcCtx, readStateHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -651,15 +657,19 @@ func (api *Server) GetRawBlocks(
 	if endHeight > tipHeight {
 		endHeight = tipHeight
 	}
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
 	var res []*iotexapi.BlockInfo
 	for height := in.StartHeight; height <= endHeight; height++ {
-		blk, err := api.dao.GetBlockByHeight(height)
+		blk, err := api.dao.GetBlockByHeight(bcCtx, height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
 		var receiptsPb []*iotextypes.Receipt
 		if in.WithReceipts && height > 0 {
-			receipts, err := api.dao.GetReceipts(height)
+			receipts, err := api.dao.GetReceipts(bcCtx, height)
 			if err != nil {
 				return nil, status.Error(codes.NotFound, err.Error())
 			}
@@ -698,8 +708,12 @@ func (api *Server) GetLogs(
 	)
 	switch {
 	case in.GetByBlock() != nil:
+		bcCtx, err := api.bc.Context()
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 		req := in.GetByBlock()
-		startBlock, err := api.dao.GetBlockHeight(hash.BytesToHash256(req.BlockHash))
+		startBlock, err := api.dao.GetBlockHeight(bcCtx, hash.BytesToHash256(req.BlockHash))
 		if err != nil {
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
@@ -806,7 +820,11 @@ func (api *Server) GetReceiptByActionHash(h hash.Hash256) (*action.Receipt, erro
 	if err != nil {
 		return nil, err
 	}
-	return api.dao.GetReceiptByActionHash(h, actIndex.BlockHeight())
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	return api.dao.GetReceiptByActionHash(ctx, h, actIndex.BlockHeight())
 }
 
 // GetActionByActionHash returns action by action hash
@@ -887,7 +905,11 @@ func (api *Server) GetTransactionLogByBlockHeight(
 		return nil, status.Errorf(codes.InvalidArgument, "invalid block height = %d", in.BlockHeight)
 	}
 
-	h, err := api.dao.GetBlockHash(in.BlockHeight)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	h, err := api.dao.GetBlockHash(bcCtx, in.BlockHeight)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -954,11 +976,9 @@ func (api *Server) readState(ctx context.Context, p protocol.Protocol, height st
 	ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 		BlockHeight: tipHeight,
 	})
-	ctx = protocol.WithBlockchainCtx(
+	ctx = genesis.WithGenesisContext(
 		protocol.WithRegistry(ctx, api.registry),
-		protocol.BlockchainCtx{
-			Genesis: api.cfg.Genesis,
-		},
+		api.cfg.Genesis,
 	)
 
 	rp := rolldpos.FindProtocol(api.registry)
@@ -1010,6 +1030,10 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	if count > api.cfg.API.RangeQueryLimit {
 		return nil, status.Error(codes.InvalidArgument, "range exceeds the limit")
 	}
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
 
 	totalActions, err := api.indexer.GetTotalActions()
 	if err != nil {
@@ -1037,7 +1061,7 @@ func (api *Server) getActions(start uint64, count uint64) (*iotexapi.GetActionsR
 	var res []*iotexapi.ActionInfo
 	var hit bool
 	for height := api.bc.TipHeight(); height >= 1 && count > 0; height-- {
-		blk, err := api.dao.GetBlockByHeight(height)
+		blk, err := api.dao.GetBlockByHeight(ctx, height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -1113,7 +1137,11 @@ func (api *Server) getBlockHashByActionHash(h hash.Hash256) (hash.Hash256, error
 	if err != nil {
 		return hash.ZeroHash256, err
 	}
-	return api.dao.GetBlockHash(actIndex.BlockHeight())
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return hash.ZeroHash256, err
+	}
+	return api.dao.GetBlockHash(bcCtx, actIndex.BlockHeight())
 }
 
 // getActionByActionHash returns action by action hash
@@ -1122,13 +1150,17 @@ func (api *Server) getActionByActionHash(h hash.Hash256) (action.SealedEnvelope,
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
-
-	blk, err := api.dao.GetBlockByHeight(actIndex.BlockHeight())
+	ctx, err := api.bc.Context()
 	if err != nil {
 		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
 	}
 
-	selp, index, err := api.dao.GetActionByActionHash(h, actIndex.BlockHeight())
+	blk, err := api.dao.GetBlockByHeight(ctx, actIndex.BlockHeight())
+	if err != nil {
+		return action.SealedEnvelope{}, hash.ZeroHash256, 0, 0, err
+	}
+
+	selp, index, err := api.dao.GetActionByActionHash(ctx, h, actIndex.BlockHeight())
 	return selp, blk.HashBlock(), actIndex.BlockHeight(), index, err
 }
 
@@ -1176,7 +1208,11 @@ func (api *Server) getActionsByBlock(blkHash string, start uint64, count uint64)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	blk, err := api.dao.GetBlock(hash)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	blk, err := api.dao.GetBlock(ctx, hash)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
@@ -1224,7 +1260,11 @@ func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasRe
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	height, err := api.dao.GetBlockHeight(hash)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	height, err := api.dao.GetBlockHeight(bcCtx, hash)
 	if err != nil {
 		if errors.Cause(err) == db.ErrNotExist {
 			return nil, status.Error(codes.NotFound, err.Error())
@@ -1243,13 +1283,17 @@ func (api *Server) getBlockMetaByHash(blkHash string) (*iotexapi.GetBlockMetasRe
 
 // getBlockMetaByHeight gets BlockMeta by height
 func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	blk, err := api.dao.GetBlockByHeight(height)
+	ctx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	blk, err := api.dao.GetBlockByHeight(ctx, height)
 	if err != nil {
 		return nil, status.Error(codes.NotFound, err.Error())
 	}
 	// get block's receipt
 	if blk.Height() > 0 {
-		blk.Receipts, err = api.dao.GetReceipts(height)
+		blk.Receipts, err = api.dao.GetReceipts(ctx, height)
 		if err != nil {
 			return nil, status.Error(codes.NotFound, err.Error())
 		}
@@ -1325,12 +1369,16 @@ func (api *Server) getGravityChainStartHeight(epochHeight uint64) (uint64, error
 func (api *Server) committedAction(selp action.SealedEnvelope, blkHash hash.Hash256, blkHeight uint64) (
 	*iotexapi.ActionInfo, error) {
 	actHash := selp.Hash()
-	header, err := api.dao.Header(blkHash)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	header, err := api.dao.Header(bcCtx, blkHash)
 	if err != nil {
 		return nil, err
 	}
 	sender, _ := address.FromBytes(selp.SrcPubkey().Hash())
-	receipt, err := api.dao.GetReceiptByActionHash(actHash, blkHeight)
+	receipt, err := api.dao.GetReceiptByActionHash(bcCtx, actHash, blkHeight)
 	if err != nil {
 		return nil, err
 	}
@@ -1455,12 +1503,16 @@ func (api *Server) getLogsInBlock(filter *logfilter.LogFilter, blockNumber uint6
 	if !filter.ExistInBloomFilterv2(logBloomFilter) {
 		return nil, nil
 	}
-	receipts, err := api.dao.GetReceipts(blockNumber)
+	bcCtx, err := api.bc.Context()
+	if err != nil {
+		return nil, err
+	}
+	receipts, err := api.dao.GetReceipts(bcCtx, blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	h, err := api.dao.GetBlockHash(blockNumber)
+	h, err := api.dao.GetBlockHash(bcCtx, blockNumber)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}

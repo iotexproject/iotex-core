@@ -42,7 +42,7 @@ type (
 	preimageMap map[common.Hash]SerializableBytes
 
 	// GetBlockHash gets block hash by height
-	GetBlockHash func(uint64) (hash.Hash256, error)
+	GetBlockHash func(context.Context, uint64) (hash.Hash256, error)
 
 	// DepositGas deposits gas
 	DepositGas func(context.Context, protocol.StateManager, *big.Int) (*action.TransactionLog, error)
@@ -169,6 +169,7 @@ func (stateDB *StateDBAdapter) SubBalance(evmAddr common.Address, amount *big.In
 
 // AddBalance adds balance to account
 func (stateDB *StateDBAdapter) AddBalance(evmAddr common.Address, amount *big.Int) {
+	// debug.PrintStack()
 	if amount.Cmp(big.NewInt(int64(0))) == 0 {
 		return
 	}

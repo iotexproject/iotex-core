@@ -10,8 +10,6 @@ import (
 	"flag"
 	"math/big"
 	"sort"
-	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -23,6 +21,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -32,9 +31,7 @@ import (
 var Default = defaultConfig()
 
 var (
-	genesisPath   string
-	genesisTs     int64
-	loadGenesisTs sync.Once
+	genesisPath string
 )
 
 func init() {
@@ -313,16 +310,12 @@ func New() (Genesis, error) {
 	return genesis, nil
 }
 
-// SetGenesisTimestamp sets the genesis timestamp
-func SetGenesisTimestamp(ts int64) {
-	loadGenesisTs.Do(func() {
-		genesisTs = ts
-	})
+func (g *Genesis) Block() *block.Block {
+	return block.NewGenesisBlock(time.Unix(g.Timestamp, 0))
 }
 
-// Timestamp returns the genesis timestamp
-func Timestamp() int64 {
-	return atomic.LoadInt64(&genesisTs)
+func (g *Genesis) IsAGenesisHash(h hash.Hash256) bool {
+	return h == g.Hash() || h == g.Block().HashBlock()
 }
 
 // Hash is the hash of genesis config

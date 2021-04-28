@@ -78,9 +78,7 @@ func TestProtocol_HandleCreateStake(t *testing.T) {
 	require.NoError(putCandidate(sm, candidate))
 	candidateName := candidate.Name
 	candidateAddr := candidate.Owner
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -1173,9 +1171,7 @@ func TestProtocol_HandleUnstake(t *testing.T) {
 			blkCtx := protocol.MustGetBlockCtx(ctx)
 			greenland.GreenlandBlockHeight = blkCtx.BlockHeight
 		}
-		ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-			Genesis: greenland,
-		})
+		ctx = genesis.WithGenesisContext(ctx, greenland)
 		_, err = p.Start(ctx, sm)
 		require.NoError(err)
 		r, err := p.Handle(ctx, v.act, sm)
@@ -2595,9 +2591,7 @@ func initCreateStake(t *testing.T, sm protocol.StateManager, callerAddr address.
 		BlockTimeStamp: blkTimestamp,
 		GasLimit:       blkGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)
@@ -2631,9 +2625,7 @@ func initAll(t *testing.T, ctrl *gomock.Controller) (protocol.StateManager, *Pro
 	candidate2 := testCandidates[1].d.Clone()
 	candidate2.Votes = big.NewInt(0)
 	require.NoError(putCandidate(sm, candidate2))
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := p.Start(ctx, sm)
 	require.NoError(err)
 	cc, ok := v.(*ViewData)

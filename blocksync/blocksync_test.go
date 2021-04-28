@@ -67,7 +67,7 @@ func TestNewBlockSyncer(t *testing.T) {
 		nil,
 	)
 	dao := mock_blockdao.NewMockBlockDAO(ctrl)
-	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao.EXPECT().GetBlockByHeight(gomock.Any(), gomock.Any()).AnyTimes().Return(blk, nil)
 
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -121,7 +121,7 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 		nil,
 	)
 	dao := mock_blockdao.NewMockBlockDAO(ctrl)
-	dao.EXPECT().GetBlockByHeight(gomock.Any()).AnyTimes().Return(blk, nil)
+	dao.EXPECT().GetBlockByHeight(gomock.Any(), gomock.Any()).AnyTimes().Return(blk, nil)
 	mBc.EXPECT().TipHeight().AnyTimes().Return(uint64(0))
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -147,7 +147,7 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 
 	chain := mock_blockchain.NewMockBlockchain(ctrl)
 	dao := mock_blockdao.NewMockBlockDAO(ctrl)
-	dao.EXPECT().GetBlockByHeight(uint64(1)).Return(nil, errors.New("some error")).Times(1)
+	dao.EXPECT().GetBlockByHeight(context.Background(), uint64(1)).Return(nil, errors.New("some error")).Times(1)
 	chain.EXPECT().ChainID().Return(uint32(1)).AnyTimes()
 	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
 	cs := mock_consensus.NewMockConsensus(ctrl)
@@ -189,7 +189,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(uint64(1)).Times(1)
 
 	bs, err := NewBlockSyncer(cfg, chain, dao, cs, opts...)
@@ -247,7 +247,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(chain1)
 	require.NoError(chain1.Start(ctx))
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
-	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs1.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 
 	bs1, err := NewBlockSyncer(cfg, chain1, dao, cs1, opts...)
@@ -271,7 +271,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(chain2)
 	require.NoError(chain2.Start(ctx))
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
-	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs2.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, dao2, cs2, opts...)
 	require.NoError(err)
@@ -338,7 +338,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
-	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs1.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs1, err := NewBlockSyncer(cfg, chain1, dao, cs1, opts...)
 	require.NoError(err)
@@ -361,7 +361,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
-	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs2.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
 	bs2, err := NewBlockSyncer(cfg, chain2, dao2, cs2, opts...)
 	require.NoError(err)
@@ -421,7 +421,7 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
 
 	bs, err := NewBlockSyncer(cfg, chain, dao, cs, opts...)

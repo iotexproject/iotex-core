@@ -12,8 +12,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -60,11 +60,12 @@ func TestIndexBuilder(t *testing.T) {
 	}
 
 	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
+		ctx := genesis.WithGenesisContext(
+			action.WithEVMNetworkContext(
+				context.Background(),
+				action.EVMNetworkContext{ChainID: config.Default.Chain.EVMNetworkID},
+			),
+			config.Default.Genesis,
 		)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
@@ -90,7 +91,7 @@ func TestIndexBuilder(t *testing.T) {
 		require.EqualValues(2, tipHeight)
 
 		// init() should build index for first 2 blocks
-		require.NoError(ib.init())
+		require.NoError(ib.init(ctx))
 		height, err := ib.indexer.Height()
 		require.NoError(err)
 		require.EqualValues(2, height)

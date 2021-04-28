@@ -73,7 +73,7 @@ func (s *Standalone) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (s *Standalone) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+func (s *Standalone) HandleConsensusMsg(context.Context, *iotextypes.ConsensusMessage) error {
 	log.L().Warn("Standalone scheme does not handle incoming block propose requests.")
 	return nil
 }
@@ -82,13 +82,13 @@ func (s *Standalone) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error 
 func (s *Standalone) Calibrate(uint64) {}
 
 // ValidateBlockFooter validates signatures in block footer
-func (s *Standalone) ValidateBlockFooter(*block.Block) error {
+func (s *Standalone) ValidateBlockFooter(context.Context, *block.Block) error {
 	log.L().Warn("Standalone scheme always return true for block footer validation")
 	return nil
 }
 
 // Metrics is not implemented for standalone scheme
-func (s *Standalone) Metrics() (ConsensusMetrics, error) {
+func (s *Standalone) Metrics(context.Context) (ConsensusMetrics, error) {
 	return ConsensusMetrics{}, errors.Wrapf(
 		ErrNotImplemented,
 		"standalone scheme does not supported metrics yet",

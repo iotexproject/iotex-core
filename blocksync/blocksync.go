@@ -35,7 +35,7 @@ type (
 
 // BlockDAO represents the block data access object
 type BlockDAO interface {
-	GetBlockByHeight(uint64) (*block.Block, error)
+	GetBlockByHeight(context.Context, uint64) (*block.Block, error)
 }
 
 // Config represents the config to setup blocksync
@@ -195,7 +195,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		)
 	}
 	for i := sync.Start; i <= end; i++ {
-		blk, err := bs.dao.GetBlockByHeight(i)
+		blk, err := bs.dao.GetBlockByHeight(ctx, i)
 		if err != nil {
 			return err
 		}

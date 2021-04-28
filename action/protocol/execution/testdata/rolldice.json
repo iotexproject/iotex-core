@@ -21,15 +21,15 @@
     "executions": [{
         "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
         "rawByteCode": "d0e30db0",
-        "rawAmount": "500000000",
+        "rawAmount": "800000000",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
         "expectedBalances": [{
             "account": "",
-            "rawBalance": "500000000"
+            "rawBalance": "800000000"
         }],
         "expectedLogs": [{}],
-        "comment": "transfer 500000000 to contract"
+        "comment": "transfer 800000000 to contract"
     }, {
         "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
         "rawByteCode": "797d9fbd0000000000000000000000001e14d5373e1af9cc77f0032ad2cd0fba8be5ea2e",
@@ -38,10 +38,10 @@
         "rawGasPrice": "0",
         "expectedBalances": [{
             "account": "io1rc2d2de7rtuucalsqv4d9ng0h297t63w7wvlph",
-            "rawBalance": "100000000"
+            "rawBalance": "300000000"
         }, {
             "account": "",
-            "rawBalance": "400000000"
+            "rawBalance": "500000000"
         }],
         "expectedLogs": [{}],
         "comment": "roll dice"
@@ -54,10 +54,10 @@
         "rawExpectedGasConsumed": 27495,
         "expectedBalances": [{
             "account": "",
-            "rawBalance": "300000000"
+            "rawBalance": "200000000"
         }, {
             "account": "io1zf69lmyzkkzlywwqzzggst45qupvx2cyye62fp",
-            "rawBalance": "111725050"
+            "rawBalance": "311725050"
         }],
         "expectedLogs": [{}],
         "comment": "roll dice to self"

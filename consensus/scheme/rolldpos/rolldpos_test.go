@@ -33,6 +33,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -203,29 +204,30 @@ func TestValidateBlockFooter(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
+	ctx := context.Background()
 	// all right
 	blk := makeBlock(t, 1, 4, false, 9)
-	err = r.ValidateBlockFooter(blk)
+	err = r.ValidateBlockFooter(ctx, blk)
 	require.NoError(t, err)
 
 	// Proposer is wrong
 	blk = makeBlock(t, 4, 4, false, 9)
-	err = r.ValidateBlockFooter(blk)
+	err = r.ValidateBlockFooter(ctx, blk)
 	require.Error(t, err)
 
 	// Not enough endorsements
 	blk = makeBlock(t, 1, 2, false, 9)
-	err = r.ValidateBlockFooter(blk)
+	err = r.ValidateBlockFooter(ctx, blk)
 	require.Error(t, err)
 
 	// round information is wrong
 	blk = makeBlock(t, 1, 4, false, 0)
-	err = r.ValidateBlockFooter(blk)
+	err = r.ValidateBlockFooter(ctx, blk)
 	require.Error(t, err)
 
 	// Some endorsement is invalid
 	blk = makeBlock(t, 1, 4, true, 9)
-	err = r.ValidateBlockFooter(blk)
+	err = r.ValidateBlockFooter(ctx, blk)
 	require.Error(t, err)
 }
 
@@ -283,7 +285,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), time.Now(), 2*time.Second)
 	require.NoError(t, err)
 
-	m, err := r.Metrics()
+	m, err := r.Metrics(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, uint64(3), m.LatestEpoch)
 
@@ -306,7 +308,7 @@ func (o *directOverlay) Broadcast(msg proto.Message) error {
 	// Only broadcast consensus message
 	if cMsg, ok := msg.(*iotextypes.ConsensusMessage); ok {
 		for _, r := range o.peers {
-			if err := r.HandleConsensusMsg(cMsg); err != nil {
+			if err := r.HandleConsensusMsg(context.Background(), cMsg); err != nil {
 				return errors.Wrap(err, "error when handling consensus message directly")
 			}
 		}
@@ -383,11 +385,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			registry := protocol.NewRegistry()
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 			require.NoError(t, err)
-			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
+			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-				},
+				config.Default.Genesis,
 			)))
 			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)

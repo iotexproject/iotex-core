@@ -88,7 +88,7 @@ func (r *RollDPoS) Stop(ctx context.Context) error {
 }
 
 // HandleConsensusMsg handles incoming consensus message
-func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
+func (r *RollDPoS) HandleConsensusMsg(ctx context.Context, msg *iotextypes.ConsensusMessage) error {
 	// Do not handle consensus message if the node is not active in consensus
 	if !r.ctx.Active() {
 		return nil
@@ -115,7 +115,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 		return nil
 	}
 	endorsedMessage := &EndorsedConsensusMessage{}
-	if err := endorsedMessage.LoadProto(msg); err != nil {
+	if err := endorsedMessage.LoadProto(ctx, msg); err != nil {
 		return errors.Wrapf(err, "failed to decode endorsed consensus message")
 	}
 	if !endorsement.VerifyEndorsedDocument(endorsedMessage) {
@@ -124,7 +124,7 @@ func (r *RollDPoS) HandleConsensusMsg(msg *iotextypes.ConsensusMessage) error {
 	en := endorsedMessage.Endorsement()
 	switch consensusMessage := endorsedMessage.Document().(type) {
 	case *blockProposal:
-		if err := r.ctx.CheckBlockProposer(endorsedMessage.Height(), consensusMessage, en); err != nil {
+		if err := r.ctx.CheckBlockProposer(ctx, endorsedMessage.Height(), consensusMessage, en); err != nil {
 			return errors.Wrap(err, "failed to verify block proposal")
 		}
 		r.cfsm.ProduceReceiveBlockEvent(endorsedMessage)
@@ -154,9 +154,9 @@ func (r *RollDPoS) Calibrate(height uint64) {
 }
 
 // ValidateBlockFooter validates the signatures in the block footer
-func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
+func (r *RollDPoS) ValidateBlockFooter(ctx context.Context, blk *block.Block) error {
 	height := blk.Height()
-	round, err := r.ctx.roundCalc.NewRound(height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
+	round, err := r.ctx.roundCalc.NewRound(ctx, height, r.ctx.BlockInterval(height), blk.Timestamp(), nil)
 	if err != nil {
 		return err
 	}
@@ -186,10 +186,10 @@ func (r *RollDPoS) ValidateBlockFooter(blk *block.Block) error {
 }
 
 // Metrics returns RollDPoS consensus metrics
-func (r *RollDPoS) Metrics() (scheme.ConsensusMetrics, error) {
+func (r *RollDPoS) Metrics(ctx context.Context) (scheme.ConsensusMetrics, error) {
 	var metrics scheme.ConsensusMetrics
 	height := r.ctx.chain.TipHeight()
-	round, err := r.ctx.roundCalc.NewRound(height+1, r.ctx.BlockInterval(height), time.Now(), nil)
+	round, err := r.ctx.roundCalc.NewRound(ctx, height+1, r.ctx.BlockInterval(height), time.Now(), nil)
 	if err != nil {
 		return metrics, errors.Wrap(err, "error when calculating round")
 	}

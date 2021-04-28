@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -95,13 +96,13 @@ func TestCheckVoteEndorser(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
-					},
+			ctx := block.WithTipBlockContext(
+				genesis.WithGenesisContext(
+					protocol.WithRegistry(context.Background(), re),
+					config.Default.Genesis,
+				),
+				block.TipBlockContext{
+					Height: tipHeight,
 				},
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
@@ -163,13 +164,13 @@ func TestCheckBlockProposer(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: cfg.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
-					},
+			ctx := block.WithTipBlockContext(
+				genesis.WithGenesisContext(
+					protocol.WithRegistry(context.Background(), re),
+					cfg.Genesis,
+				),
+				block.TipBlockContext{
+					Height: tipHeight,
 				},
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
@@ -201,39 +202,41 @@ func TestCheckBlockProposer(t *testing.T) {
 	block := getBlockforctx(t, 0, false)
 	en := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(10).PublicKey(), nil)
 	bp := newBlockProposal(&block, []*endorsement.Endorsement{en})
+	ctx, err := b.Context()
+	require.NoError(err)
 
 	// case 1:panic caused by blockproposal is nil
 	require.Panics(func() {
-		rctx.CheckBlockProposer(51, nil, nil)
+		rctx.CheckBlockProposer(ctx, 51, nil, nil)
 	}, "blockproposal is nil")
 
 	// case 2:height != proposal.block.Height()
-	require.Error(rctx.CheckBlockProposer(1, bp, nil))
+	require.Error(rctx.CheckBlockProposer(ctx, 1, bp, nil))
 
 	// case 3:panic caused by endorsement is nil
 	require.Panics(func() {
-		rctx.CheckBlockProposer(51, bp, nil)
+		rctx.CheckBlockProposer(ctx, 51, bp, nil)
 	}, "endorsement is nil")
 
 	// case 4:en's address is not proposer of the corresponding round
-	require.Error(rctx.CheckBlockProposer(51, bp, en))
+	require.Error(rctx.CheckBlockProposer(ctx, 51, bp, en))
 
 	// case 5:endorsor is not proposer of the corresponding round
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(22).PublicKey(), nil)
-	require.Error(rctx.CheckBlockProposer(51, bp, en))
+	require.Error(rctx.CheckBlockProposer(ctx, 51, bp, en))
 
 	// case 6:invalid block signature
 	block = getBlockforctx(t, 1, false)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
-	require.Error(rctx.CheckBlockProposer(51, bp, en))
+	require.Error(rctx.CheckBlockProposer(ctx, 51, bp, en))
 
 	// case 7:invalid endorsement for the vote when call AddVoteEndorsement
 	block = getBlockforctx(t, 1, true)
 	en = endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(1).PublicKey(), nil)
 	en2 := endorsement.NewEndorsement(time.Unix(1596329600, 0), identityset.PrivateKey(7).PublicKey(), nil)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2, en})
-	require.Error(rctx.CheckBlockProposer(51, bp, en2))
+	require.Error(rctx.CheckBlockProposer(ctx, 51, bp, en2))
 
 	// case 8:Insufficient endorsements
 	block = getBlockforctx(t, 1, true)
@@ -242,12 +245,12 @@ func TestCheckBlockProposer(t *testing.T) {
 	en2, err = endorsement.Endorse(identityset.PrivateKey(7), vote, time.Unix(1562382592, 0))
 	require.NoError(err)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en2})
-	require.Error(rctx.CheckBlockProposer(51, bp, en2))
+	require.Error(rctx.CheckBlockProposer(ctx, 51, bp, en2))
 
 	// case 9:normal
 	block = getBlockforctx(t, 1, true)
 	bp = newBlockProposal(&block, []*endorsement.Endorsement{en})
-	require.NoError(rctx.CheckBlockProposer(51, bp, en))
+	require.NoError(rctx.CheckBlockProposer(ctx, 51, bp, en))
 }
 
 func TestNotProducingMultipleBlocks(t *testing.T) {
@@ -270,13 +273,13 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
-					},
+			ctx := block.WithTipBlockContext(
+				genesis.WithGenesisContext(
+					protocol.WithRegistry(context.Background(), re),
+					config.Default.Genesis,
+				),
+				block.TipBlockContext{
+					Height: tipHeight,
 				},
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)

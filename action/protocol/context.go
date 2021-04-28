@@ -13,33 +13,15 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
 type (
-	blockchainContextKey struct{}
-
 	blockContextKey struct{}
 
 	actionContextKey struct{}
 
 	registryContextKey struct{}
-
-	// TipInfo contains the tip block information
-	TipInfo struct {
-		Height    uint64
-		Hash      hash.Hash256
-		Timestamp time.Time
-	}
-
-	// BlockchainCtx provides blockchain auxiliary information.
-	BlockchainCtx struct {
-		// Genesis is a copy of current genesis
-		Genesis genesis.Genesis
-		// Tip is the information of tip block
-		Tip TipInfo
-	}
 
 	// BlockCtx provides block auxiliary information.
 	BlockCtx struct {
@@ -86,27 +68,6 @@ func MustGetRegistry(ctx context.Context) *Registry {
 		log.S().Panic("Miss registry context")
 	}
 	return reg
-}
-
-// WithBlockchainCtx add BlockchainCtx into context.
-func WithBlockchainCtx(ctx context.Context, bc BlockchainCtx) context.Context {
-	return context.WithValue(ctx, blockchainContextKey{}, bc)
-}
-
-// GetBlockchainCtx gets BlockchainCtx
-func GetBlockchainCtx(ctx context.Context) (BlockchainCtx, bool) {
-	bc, ok := ctx.Value(blockchainContextKey{}).(BlockchainCtx)
-	return bc, ok
-}
-
-// MustGetBlockchainCtx must get BlockchainCtx.
-// If context doesn't exist, this function panic.
-func MustGetBlockchainCtx(ctx context.Context) BlockchainCtx {
-	bc, ok := ctx.Value(blockchainContextKey{}).(BlockchainCtx)
-	if !ok {
-		log.S().Panic("Miss blockchain context")
-	}
-	return bc
 }
 
 // WithBlockCtx add BlockCtx into context.

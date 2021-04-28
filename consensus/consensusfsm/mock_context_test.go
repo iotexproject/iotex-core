@@ -6,7 +6,7 @@ package consensusfsm
 
 import (
 	gomock "github.com/golang/mock/gomock"
-	fsm "github.com/iotexproject/go-fsm"
+	go_fsm "github.com/iotexproject/go-fsm"
 	zap "go.uber.org/zap"
 	reflect "reflect"
 	time "time"
@@ -132,7 +132,7 @@ func (mr *MockContextMockRecorder) Height() *gomock.Call {
 }
 
 // NewConsensusEvent mocks base method
-func (m *MockContext) NewConsensusEvent(arg0 fsm.EventType, arg1 interface{}) *ConsensusEvent {
+func (m *MockContext) NewConsensusEvent(arg0 go_fsm.EventType, arg1 interface{}) *ConsensusEvent {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewConsensusEvent", arg0, arg1)
 	ret0, _ := ret[0].(*ConsensusEvent)
@@ -146,7 +146,7 @@ func (mr *MockContextMockRecorder) NewConsensusEvent(arg0, arg1 interface{}) *go
 }
 
 // NewBackdoorEvt mocks base method
-func (m *MockContext) NewBackdoorEvt(arg0 fsm.State) *ConsensusEvent {
+func (m *MockContext) NewBackdoorEvt(arg0 go_fsm.State) *ConsensusEvent {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBackdoorEvt", arg0)
 	ret0, _ := ret[0].(*ConsensusEvent)

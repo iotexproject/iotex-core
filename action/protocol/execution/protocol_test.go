@@ -260,6 +260,10 @@ func runExecutions(
 ) ([]*action.Receipt, error) {
 	nonces := map[string]uint64{}
 	hashes := []hash.Hash256{}
+	ctx, err := bc.Context()
+	if err != nil {
+		return nil, err
+	}
 	for i, ecfg := range ecfgs {
 		log.S().Info(ecfg.Comment)
 		var nonce uint64
@@ -295,7 +299,7 @@ func runExecutions(
 		if err != nil {
 			return nil, err
 		}
-		if err := ap.Add(context.Background(), selp); err != nil {
+		if err := ap.Add(ctx, selp); err != nil {
 			return nil, err
 		}
 		hashes = append(hashes, selp.Hash())
@@ -307,9 +311,13 @@ func runExecutions(
 	if err := bc.CommitBlock(blk); err != nil {
 		return nil, err
 	}
+	ctx, err = bc.Context()
+	if err != nil {
+		return nil, err
+	}
 	receipts := []*action.Receipt{}
 	for _, hash := range hashes {
-		receipt, err := dao.GetReceiptByActionHash(hash, blk.Height())
+		receipt, err := dao.GetReceiptByActionHash(ctx, hash, blk.Height())
 		if err != nil {
 			return nil, err
 		}
@@ -518,7 +526,7 @@ func (sct *SmartContractTest) run(r *require.Assertions) {
 
 func TestProtocol_Validate(t *testing.T) {
 	require := require.New(t)
-	p := NewProtocol(func(uint64) (hash.Hash256, error) {
+	p := NewProtocol(func(context.Context, uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
 
@@ -602,15 +610,19 @@ func TestProtocol_Handle(t *testing.T) {
 			SetGasLimit(100000).Build()
 		selp, err := action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
-
-		require.NoError(ap.Add(context.Background(), selp))
+		ctx, err = bc.Context()
+		require.NoError(err)
+		require.NoError(ap.Add(ctx, selp))
 		blk, err := bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
+		ctx, err = bc.Context()
+		require.NoError(err)
 		eHash := selp.Hash()
-		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err := dao.GetReceiptByActionHash(ctx, eHash, blk.Height())
+		require.NoError(err)
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
 		contract, err := address.FromString(r.ContractAddress)
@@ -625,7 +637,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(data[31:], c)
 
-		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
+		exe, _, err := dao.GetActionByActionHash(ctx, eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, exe.Hash())
 
@@ -639,7 +651,7 @@ func TestProtocol_Handle(t *testing.T) {
 
 		actIndex, err := indexer.GetActionIndex(eHash[:])
 		require.NoError(err)
-		blkHash, err := dao.GetBlockHash(actIndex.BlockHeight())
+		blkHash, err := dao.GetBlockHash(ctx, actIndex.BlockHeight())
 		require.NoError(err)
 		require.Equal(blk.HashBlock(), blkHash)
 
@@ -657,12 +669,13 @@ func TestProtocol_Handle(t *testing.T) {
 
 		log.S().Infof("execution %+v", execution)
 
-		require.NoError(ap.Add(context.Background(), selp))
+		require.NoError(ap.Add(ctx, selp))
 		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
-
+		ctx, err = bc.Context()
+		require.NoError(err)
 		// TODO (zhi): reenable the unit test
 		/*
 			ws, err = sf.NewWorkingSet()
@@ -673,7 +686,7 @@ func TestProtocol_Handle(t *testing.T) {
 			require.Equal(byte(15), v[31])
 		*/
 		eHash = selp.Hash()
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(ctx, eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
@@ -691,14 +704,15 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 
 		log.S().Infof("execution %+v", execution)
-		require.NoError(ap.Add(context.Background(), selp))
+		require.NoError(ap.Add(ctx, selp))
 		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
-
+		ctx, err = bc.Context()
+		require.NoError(err)
 		eHash = selp.Hash()
-		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
+		r, err = dao.GetReceiptByActionHash(ctx, eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
 
@@ -713,7 +727,7 @@ func TestProtocol_Handle(t *testing.T) {
 		selp, err = action.Sign(elp, identityset.PrivateKey(27))
 		require.NoError(err)
 
-		require.NoError(ap.Add(context.Background(), selp))
+		require.NoError(ap.Add(ctx, selp))
 		blk, err = bc.MintNewBlock(testutil.TimestampNow())
 		require.NoError(err)
 		require.NoError(bc.CommitBlock(blk))

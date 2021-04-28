@@ -26,6 +26,8 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -53,14 +55,12 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	epochStartHeight := rp.GetEpochHeight(2)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: epochStartHeight - 1,
-			},
-		},
+	ctx = block.WithTipBlockContext(
+		genesis.WithGenesisContext(
+			protocol.WithRegistry(ctx, registry),
+			cfg.Genesis,
+		),
+		block.TipBlockContext{Height: epochStartHeight - 1},
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -271,7 +271,7 @@ func TestCreatePreStates(t *testing.T) {
 
 	psc, ok := p.(protocol.PreStatesCreator)
 	require.True(ok)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	tip := block.MustExtractTipBlockContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 
 	test := make(map[uint64](map[string]uint32))
@@ -299,8 +299,8 @@ func TestCreatePreStates(t *testing.T) {
 	for epochNum = 1; epochNum <= 3; epochNum++ {
 		// at first of epoch
 		epochStartHeight := rp.GetEpochHeight(epochNum)
-		bcCtx.Tip.Height = epochStartHeight - 1
-		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
+		tip.Height = epochStartHeight - 1
+		ctx = block.WithTipBlockContext(ctx, tip)
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{
@@ -330,8 +330,8 @@ func TestCreatePreStates(t *testing.T) {
 
 		// at last of epoch, set probationList into next probation key
 		epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
-		bcCtx.Tip.Height = epochLastHeight - 1
-		ctx = protocol.WithBlockchainCtx(ctx, bcCtx)
+		tip.Height = epochLastHeight - 1
+		ctx = block.WithTipBlockContext(ctx, tip)
 		ctx = protocol.WithBlockCtx(
 			ctx,
 			protocol.BlockCtx{

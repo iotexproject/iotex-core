@@ -120,6 +120,7 @@ func migrateDbFile() error {
 	newDAO := blockdao.NewBlockDAO(nil, cfg.DB)
 
 	ctx := context.Background()
+	// TODO: read config with evm network id
 	if err := oldDAO.Start(ctx); err != nil {
 		return fmt.Errorf("Failed to start the old db file")
 	}
@@ -136,13 +137,14 @@ func migrateDbFile() error {
 	intHeight, step := getProgressMod(blockHeight)
 	bar := progressbar.New(intHeight)
 
+	// TODO: read config with genesis timestamp
 	for i := uint64(1); i <= blockHeight; i++ {
 
-		hash, err := oldDAO.GetBlockHash(i)
+		hash, err := oldDAO.GetBlockHash(ctx, i)
 		if err != nil {
 			return fmt.Errorf("Failed to get block hash on height %d: %v", i, err)
 		}
-		blk, err := oldDAO.GetBlock(hash)
+		blk, err := oldDAO.GetBlock(ctx, hash)
 		if err != nil {
 			return fmt.Errorf("Failed to get block on height %d: %v", i, err)
 		}

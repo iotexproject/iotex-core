@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-election/types"
@@ -86,11 +87,11 @@ func (ns *NativeStaking) Votes(ctx context.Context, ts time.Time, correctGas boo
 	if ns.contract == "" {
 		return nil, ErrNoData
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	tip := block.MustExtractTipBlockContext(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	tipEpochNum := rp.GetEpochNum(bcCtx.Tip.Height)
+	tipEpochNum := rp.GetEpochNum(tip.Height)
 	if ns.bufferEpochNum == tipEpochNum && ns.bufferResult != nil {
-		log.L().Info("Using cache native staking data", zap.Uint64("tip height", bcCtx.Tip.Height))
+		log.L().Info("Using cache native staking data", zap.Uint64("tip height", tip.Height))
 		return ns.bufferResult, nil
 	}
 	// read voter list from staking contract

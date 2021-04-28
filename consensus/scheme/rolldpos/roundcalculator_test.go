@@ -37,7 +37,7 @@ import (
 func TestUpdateRound(t *testing.T) {
 	require := require.New(t)
 	rc := makeRoundCalculator(t)
-	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382522, 0), nil)
+	ra, err := rc.NewRound(context.Background(), 51, time.Second, time.Unix(1562382522, 0), nil)
 	require.NoError(err)
 
 	// height < round.Height()
@@ -76,7 +76,7 @@ func TestNewRound(t *testing.T) {
 	require.NoError(err)
 	require.Equal(validDelegates[2], proposer)
 
-	ra, err := rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
+	ra, err := rc.NewRound(context.Background(), 51, time.Second, time.Unix(1562382592, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(170), ra.roundNum)
 	require.Equal(uint64(51), ra.height)
@@ -84,7 +84,7 @@ func TestNewRound(t *testing.T) {
 	require.Equal(identityset.Address(7).String(), ra.proposer)
 
 	rc.timeBasedRotation = true
-	ra, err = rc.NewRound(51, time.Second, time.Unix(1562382592, 0), nil)
+	ra, err = rc.NewRound(context.Background(), 51, time.Second, time.Unix(1562382592, 0), nil)
 	require.NoError(err)
 	require.Equal(uint32(170), ra.roundNum)
 	require.Equal(uint64(51), ra.height)
@@ -230,13 +230,13 @@ func makeRoundCalculator(t *testing.T) *roundCalculator {
 				return nil, err
 			}
 			tipHeight := bc.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
-					},
+			ctx := block.WithTipBlockContext(
+				genesis.WithGenesisContext(
+					protocol.WithRegistry(context.Background(), re),
+					config.Default.Genesis,
+				),
+				block.TipBlockContext{
+					Height: tipHeight,
 				},
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)

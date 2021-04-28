@@ -7,6 +7,7 @@
 package rolldpos
 
 import (
+	"context"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -64,9 +65,9 @@ func TestPutBlockToParentChain(t *testing.T) {
 			},
 		},
 	}
-	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
+	require.NoError(t, blk.ConvertFromBlockPb(context.Background(), blkpb))
 	txRoot := blk.CalculateTxRoot()
 	blkpb.Header.Core.TxRoot = txRoot[:]
 	blk = block.Block{}
-	require.NoError(t, blk.ConvertFromBlockPb(blkpb))
+	require.NoError(t, blk.ConvertFromBlockPb(context.Background(), blkpb))
 }

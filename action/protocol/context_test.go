@@ -14,8 +14,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/stretchr/testify/require"
-
-	"github.com/iotexproject/iotex-core/config"
 )
 
 func TestRegistryCtx(t *testing.T) {
@@ -30,39 +28,6 @@ func TestRegistryCtx(t *testing.T) {
 	require.True(ok)
 	require.Equal(reg, regFromCtx)
 	require.Equal(reg, MustGetRegistry(ctx))
-}
-
-func TestWithBlockchainCtx(t *testing.T) {
-	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
-	require.NotNil(WithBlockchainCtx(context.Background(), bcCtx))
-}
-
-func TestGetBlockchainCtx(t *testing.T) {
-	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
-	ctx := WithBlockchainCtx(context.Background(), bcCtx)
-	require.NotNil(ctx)
-	_, ok := GetBlockchainCtx(ctx)
-	require.True(ok)
-}
-
-func TestMustGetBlockchainCtx(t *testing.T) {
-	require := require.New(t)
-	bcCtx := BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	}
-	ctx := WithBlockchainCtx(context.Background(), bcCtx)
-	require.NotNil(ctx)
-	// Case I: Normal
-	ret := MustGetBlockchainCtx(ctx)
-	require.NotNil(ret)
-	// Case II: Panic
-	require.Panics(func() { MustGetBlockchainCtx(context.Background()) }, "Miss blockchain context")
 }
 
 func TestWithBlockCtx(t *testing.T) {

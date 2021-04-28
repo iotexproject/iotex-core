@@ -7,43 +7,24 @@
 package block
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/version"
 )
 
-var (
-	loadGenesisHash sync.Once
-	genesisHash     hash.Hash256
-)
-
-// GenesisBlock returns the genesis block
-func GenesisBlock() *Block {
+// NewGenesisBlock returns the genesis block
+func NewGenesisBlock(ts time.Time) *Block {
 	return &Block{
 		Header: Header{
 			version:          version.ProtocolVersion,
 			height:           0,
-			timestamp:        time.Unix(genesis.Timestamp(), 0),
+			timestamp:        ts,
 			prevBlockHash:    hash.ZeroHash256,
 			txRoot:           hash.ZeroHash256,
 			deltaStateDigest: hash.ZeroHash256,
 			receiptRoot:      hash.ZeroHash256,
 		},
 	}
-}
-
-// GenesisHash returns the genesis block's hash
-func GenesisHash() hash.Hash256 {
-	return genesisHash
-}
-
-// LoadGenesisHash is done once to compute and save the genesis block's hash
-func LoadGenesisHash() {
-	loadGenesisHash.Do(func() {
-		genesisHash = GenesisBlock().HashBlock()
-	})
 }
