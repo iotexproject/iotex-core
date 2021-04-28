@@ -169,7 +169,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(hu, e.height)
+		chainConfig := getChainConfig(hu)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
@@ -196,13 +196,6 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
 		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
-
-		// support chainID starting hawaii
-		if hu.IsPost(config.Hawaii, e.height) {
-			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
-		} else {
-			require.Nil(evmChainConfig.ChainID)
-		}
 	}
 }
 
