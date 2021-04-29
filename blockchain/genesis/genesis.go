@@ -310,10 +310,12 @@ func New() (Genesis, error) {
 	return genesis, nil
 }
 
+// Block returns genesis block
 func (g *Genesis) Block() *block.Block {
 	return block.NewGenesisBlock(time.Unix(g.Timestamp, 0))
 }
 
+// IsAGenesisHash returns true if the hash is classified as a variant of genesis hash
 func (g *Genesis) IsAGenesisHash(h hash.Hash256) bool {
 	return h == g.Hash() || h == g.Block().HashBlock()
 }

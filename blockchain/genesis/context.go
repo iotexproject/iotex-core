@@ -16,15 +16,18 @@ type (
 	genesisKey struct{}
 )
 
+// WithGenesisContext attachs genesis into context
 func WithGenesisContext(ctx context.Context, g Genesis) context.Context {
 	return context.WithValue(ctx, genesisKey{}, g)
 }
 
+// ExtractGenesisContext extracts genesis from context if available
 func ExtractGenesisContext(ctx context.Context) (Genesis, bool) {
 	gc, ok := ctx.Value(genesisKey{}).(Genesis)
 	return gc, ok
 }
 
+// MustExtractGenesisContext extracts genesis from context if available, else panic
 func MustExtractGenesisContext(ctx context.Context) Genesis {
 	gc, ok := ctx.Value(genesisKey{}).(Genesis)
 	if !ok {

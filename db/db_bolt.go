@@ -47,6 +47,7 @@ func (cfg Config) SplitDBSize() uint64 {
 	return cfg.SplitDBSizeMB * 1024 * 1024
 }
 
+// Default is the default DB config
 var Default = Config{
 	NumRetries:            3,
 	MaxCacheSize:          64,
