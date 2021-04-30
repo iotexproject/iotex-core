@@ -8,7 +8,6 @@ package account
 
 import (
 	"bytes"
-	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	ecrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -165,18 +163,21 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
+	// conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	// if err != nil {
+	// 	return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	// }
+	// defer conn.Close()
+	// cli := iotexapi.NewAPIServiceClient(conn)
+	// ctx := context.Background()
 	request := iotexapi.GetAccountRequest{Address: addr}
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	// jwtMD, err := util.JwtAuth()
+	// if err == nil {
+	// 	ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	// }
+	cli, ctx, err := util.GetAPIClientAndContext()
+	if err != nil {
+		return nil, err
 	}
 	response, err := cli.GetAccount(ctx, &request)
 

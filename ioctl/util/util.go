@@ -8,6 +8,7 @@ package util
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc/metadata"
 
@@ -33,6 +35,10 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
+
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 )
 
 const (
@@ -40,6 +46,14 @@ const (
 	IotxDecimalNum = 18
 	// GasPriceDecimalNum defines the number of decimal digits for gas price
 	GasPriceDecimalNum = 12
+	// gRPCConnectionTimeOut defines the elapse time of one gRPC connection
+	gRPCConnectionTimeOut string = "5m"
+)
+
+var (
+	gPRCConnInstance *grpc.ClientConn
+	cli              iotexapi.APIServiceClient
+	ctx              context.Context
 )
 
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
@@ -62,6 +76,31 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 		return grpc.Dial(endpoint, grpc.WithInsecure())
 	}
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
+}
+
+func GetAPIClientAndContext() (iotexapi.APIServiceClient, context.Context, error) {
+	if gPRCConnInstance == nil {
+		conn, err := ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+		if err != nil {
+			return nil, nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		}
+		gPRCConnInstance = conn
+
+		//Automatically close gRPC connection after predefined time
+		timeOut, _ := time.ParseDuration(gRPCConnectionTimeOut)
+		time.AfterFunc(timeOut, func() {
+			conn.Close()
+			gPRCConnInstance = nil
+		})
+
+		cli = iotexapi.NewAPIServiceClient(gPRCConnInstance)
+		ctx = context.Background()
+		jwtMD, err := JwtAuth()
+		if err == nil {
+			ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		}
+	}
+	return cli, ctx, nil
 }
 
 // StringToRau converts different unit string into Rau big int
