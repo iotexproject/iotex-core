@@ -136,7 +136,6 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 	if err := bs.syncStageTask.Start(ctx); err != nil {
 		return err
 	}
-	bs.commitHeight = bs.buf.CommitHeight()
 	return bs.worker.Start(ctx)
 }
 
@@ -151,24 +150,20 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 
 // ProcessBlock processes an incoming latest committed block
 func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
-	var needSync bool
-	moved, re := bs.buf.Flush(blk)
+	syncedHeight, re := bs.buf.Flush(blk)
 	switch re {
 	case bCheckinLower:
 		log.L().Debug("Drop block lower than buffer's accept height.")
 	case bCheckinExisting:
 		log.L().Debug("Drop block exists in buffer.")
 	case bCheckinHigher:
-		needSync = true
+		fallthrough
 	case bCheckinValid:
-		needSync = !moved
-	case bCheckinSkipNil:
-		needSync = false
+		if syncedHeight < blk.Height() {
+			bs.worker.SetTargetHeight(blk.Height())
+		}
 	}
 
-	if needSync {
-		bs.worker.SetTargetHeight(blk.Height())
-	}
 	return nil
 }
 

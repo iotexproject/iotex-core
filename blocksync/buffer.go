@@ -38,68 +38,104 @@ type blockBuffer struct {
 	cs           consensus.Consensus
 	bufferSize   uint64
 	intervalSize uint64
-	commitHeight uint64 // last commit block height
 }
 
-// CommitHeight return the last commit block height
-func (b *blockBuffer) CommitHeight() uint64 {
-	return b.commitHeight
+func (b *blockBuffer) store(blk *block.Block) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	height := blk.Height()
+	if _, ok := b.blocks[height]; ok {
+		return false
+	}
+	b.blocks[height] = blk
+
+	return true
+}
+
+func (b *blockBuffer) load(height uint64) *block.Block {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	blk, ok := b.blocks[height]
+	if !ok {
+		return nil
+	}
+
+	return blk
+}
+
+func (b *blockBuffer) delete(height uint64) *block.Block {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	blk, ok := b.blocks[height]
+	if !ok {
+		return nil
+	}
+	delete(b.blocks, height)
+
+	return blk
+}
+
+func (b *blockBuffer) cleanup(l *zap.Logger, height uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	size := len(b.blocks)
+	if size > int(b.bufferSize)*2 {
+		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
+		for h := range b.blocks {
+			if h <= height {
+				b.delete(h)
+			}
+		}
+	}
 }
 
 // Flush tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
+func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
 	if blk == nil {
-		return false, bCheckinSkipNil
+		return 0, bCheckinSkipNil
 	}
 	confirmedHeight := b.bc.TipHeight()
-	// check
 	blkHeight := blk.Height()
 	if blkHeight <= confirmedHeight {
-		return false, bCheckinLower
-	}
-	if _, ok := b.blocks[blkHeight]; ok {
-		return false, bCheckinExisting
+		return confirmedHeight, bCheckinLower
 	}
 	if blkHeight > confirmedHeight+b.bufferSize {
-		return false, bCheckinHigher
+		return confirmedHeight, bCheckinHigher
 	}
-	b.blocks[blkHeight] = blk
+	if !b.store(blk) {
+		return confirmedHeight, bCheckinExisting
+	}
 	l := log.L().With(
 		zap.Uint64("recvHeight", blkHeight),
 		zap.Uint64("confirmedHeight", confirmedHeight),
 		zap.String("source", "blockBuffer"))
-	var heightToSync uint64
-	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.bufferSize; heightToSync++ {
-		blk, ok := b.blocks[heightToSync]
-		if !ok {
+	syncedHeight := confirmedHeight
+	for syncedHeight <= confirmedHeight+b.bufferSize {
+		blk = b.delete(syncedHeight + 1)
+		if blk == nil {
 			break
 		}
-		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
-			if errors.Cause(err) == poll.ErrProposedDelegatesLength || errors.Cause(err) == poll.ErrDelegatesNotAsExpected || errors.Cause(err) == db.ErrNotExist {
-				l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
-			} else {
-				l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", heightToSync))
-			}
-			break
+		switch err := commitBlock(b.bc, b.cs, blk); errors.Cause(err) {
+		case nil:
+			l.Info("Successfully committed block.", zap.Uint64("syncedHeight", syncedHeight+1))
+			fallthrough
+		case blockchain.ErrInvalidTipHeight:
+			syncedHeight++
+			continue
+		case poll.ErrProposedDelegatesLength, poll.ErrDelegatesNotAsExpected, db.ErrNotExist:
+			l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", syncedHeight+1))
+		default:
+			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", syncedHeight+1))
 		}
-		b.commitHeight = heightToSync
-		l.Info("Successfully committed block.", zap.Uint64("syncedHeight", heightToSync))
+		break
 	}
 
 	// clean up on memory leak
-	if len(b.blocks) > int(b.bufferSize)*2 {
-		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", len(b.blocks)))
-		for h := range b.blocks {
-			if h <= confirmedHeight {
-				delete(b.blocks, h)
-			}
-		}
-	}
+	b.cleanup(l, syncedHeight)
 
-	return heightToSync > blkHeight, bCheckinValid
+	return syncedHeight, bCheckinValid
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
@@ -109,9 +145,6 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 		startSet bool
 		bi       []syncBlocksInterval
 	)
-
-	b.mu.RLock()
-	defer b.mu.RUnlock()
 
 	confirmedHeight := b.bc.TipHeight()
 	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive
@@ -125,7 +158,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if _, ok := b.blocks[h]; !ok {
+		if b.load(h) == nil {
 			iLen++
 			if !startSet {
 				start = h
