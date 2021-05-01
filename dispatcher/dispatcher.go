@@ -28,6 +28,7 @@ import (
 
 // Subscriber is the dispatcher subscriber interface
 type Subscriber interface {
+	ReportFullness(context.Context, iotexrpc.MessageType, float32)
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
@@ -224,19 +225,31 @@ loop:
 	log.L().Info("block sync handler done.")
 }
 
+func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
+	d.subscribersMU.RLock()
+	defer d.subscribersMU.RUnlock()
+	subscriber, ok := d.subscribers[chainID]
+	if !ok {
+		return nil
+	}
+
+	return subscriber
+}
+
 // handleActionMsg handles actionMsg from all peers.
 func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 	log.L().Debug("receive actionMsg.")
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_ACTION)
 		if err := subscriber.HandleAction(m.ctx, m.action); err != nil {
 			requestMtc.WithLabelValues("AddAction", "false").Inc()
 			log.L().Debug("Handle action request error.", zap.Error(err))
 		}
+		d.actionChanLock.RLock()
+		defer d.actionChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_ACTION, float32(len(d.actionChan))/float32(cap(d.actionChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -246,14 +259,15 @@ func (d *IotxDispatcher) handleActionMsg(m *actionMsg) {
 func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 	log.L().Debug("receive blockMsg.", zap.Uint64("height", m.block.GetHeader().GetCore().GetHeight()))
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK)
 		if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
 			log.L().Error("Fail to handle the block.", zap.Error(err))
 		}
+		d.blockChanLock.RLock()
+		defer d.blockChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_BLOCK, float32(len(d.blockChan))/float32(cap(d.blockChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -266,15 +280,16 @@ func (d *IotxDispatcher) handleBlockSyncMsg(m *blockSyncMsg) {
 		zap.Uint64("start", m.sync.Start),
 		zap.Uint64("end", m.sync.End))
 
-	d.subscribersMU.RLock()
-	subscriber, ok := d.subscribers[m.ChainID()]
-	d.subscribersMU.RUnlock()
-	if ok {
+	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK_REQUEST)
 		// dispatch to block sync
 		if err := subscriber.HandleSyncRequest(m.ctx, m.peer, m.sync); err != nil {
 			log.L().Error("Failed to handle sync request.", zap.Error(err))
 		}
+		d.syncChanLock.RLock()
+		defer d.syncChanLock.RUnlock()
+
+		subscriber.ReportFullness(m.ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(len(d.syncChan))/float32(cap(d.syncChan)))
 	} else {
 		log.L().Info("No subscriber specified in the dispatcher.", zap.Uint32("chainID", m.ChainID()))
 	}
@@ -285,17 +300,26 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the action", zap.Uint32("chain id", chainID))
+		return
+	}
 	d.actionChanLock.Lock()
 	defer d.actionChanLock.Unlock()
-	if len(d.actionChan) < cap(d.actionChan) {
+	l := len(d.actionChan)
+	c := cap(d.actionChan)
+	if l < c {
 		d.actionChan <- &actionMsg{
 			ctx:     ctx,
 			chainID: chainID,
 			action:  (msg).(*iotextypes.Action),
 		}
-		return
+		l++
+	} else {
+		log.L().Warn("dispatcher action chan is full, drop an event.")
 	}
-	log.L().Warn("dispatcher action chan is full, drop an event.")
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_ACTION, float32(l)/float32(c))
 }
 
 // dispatchBlock adds the passed block message to the news handling queue.
@@ -303,17 +327,26 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, msg 
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the block", zap.Uint32("chain id", chainID))
+		return
+	}
 	d.blockChanLock.Lock()
 	defer d.blockChanLock.Unlock()
-	if len(d.blockChan) < cap(d.blockChan) {
+	l := len(d.blockChan)
+	c := cap(d.blockChan)
+	if l < c {
 		d.blockChan <- &blockMsg{
 			ctx:     ctx,
 			chainID: chainID,
 			block:   (msg).(*iotextypes.Block),
 		}
-		return
+		l++
+	} else {
+		log.L().Warn("dispatcher block chan is full, drop an event.")
 	}
-	log.L().Warn("dispatcher block chan is full, drop an event.")
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK, float32(l)/float32(c))
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
@@ -321,18 +354,27 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
+	subscriber := d.subscriber(chainID)
+	if subscriber == nil {
+		log.L().Debug("no subscriber for this chain id, drop the request", zap.Uint32("chain id", chainID))
+		return
+	}
 	d.syncChanLock.Lock()
 	defer d.syncChanLock.Unlock()
-	if len(d.syncChan) < cap(d.syncChan) {
+	l := len(d.syncChan)
+	c := cap(d.syncChan)
+	if l < c {
 		d.syncChan <- &blockSyncMsg{
 			ctx:     ctx,
 			chainID: chainID,
 			peer:    peer,
 			sync:    (msg).(*iotexrpc.BlockSync),
 		}
-		return
+		l++
+	} else {
+		log.L().Warn("dispatcher sync chan is full, drop an event.")
 	}
-	log.L().Warn("dispatcher sync chan is full, drop an event.")
+	subscriber.ReportFullness(ctx, iotexrpc.MessageType_BLOCK_REQUEST, float32(l)/float32(c))
 }
 
 // HandleBroadcast handles incoming broadcast message

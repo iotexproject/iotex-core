@@ -68,6 +68,8 @@ type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
+	Mute()
+	Unmute()
 	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error
 	ProcessBlock(ctx context.Context, blk *block.Block) error
 	SyncStatus() string
@@ -121,6 +123,18 @@ func NewBlockSyncer(
 	bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, config.DardanellesBlockInterval)
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
 	return bs, nil
+}
+
+func (bs *blockSyncer) Mute() {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
+	bs.worker.mute = true
+}
+
+func (bs *blockSyncer) Unmute() {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
+	bs.worker.mute = false
 }
 
 // TargetHeight returns the target height to sync to

@@ -27,6 +27,7 @@ type syncBlocksInterval struct {
 type syncWorker struct {
 	chainID          uint32
 	mu               sync.RWMutex
+	mute             bool
 	targetHeight     uint64
 	unicastHandler   UnicastOutbound
 	neighborsHandler Neighbors
@@ -84,6 +85,9 @@ func (w *syncWorker) SetTargetHeight(h uint64) {
 func (w *syncWorker) Sync() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+	if w.mute {
+		return
+	}
 
 	ctx := context.Background()
 	peers, err := w.neighborsHandler(ctx)

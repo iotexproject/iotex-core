@@ -491,6 +491,19 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return nil
 }
 
+// ReportFullness switch on or off block sync
+func (cs *ChainService) ReportFullness(ctx context.Context, msgType iotexrpc.MessageType, fullness float32) {
+	switch msgType {
+	case iotexrpc.MessageType_BLOCK:
+		if fullness > 0.9 {
+			cs.blocksync.Mute()
+		}
+		if fullness < 0.5 {
+			cs.blocksync.Unmute()
+		}
+	}
+}
+
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
