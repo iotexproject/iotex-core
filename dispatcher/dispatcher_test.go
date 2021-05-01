@@ -90,8 +90,6 @@ type DummySubscriber struct{}
 
 func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.Block) error { return nil }
-
 func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
 	return nil
 }

@@ -30,7 +30,6 @@ import (
 type Subscriber interface {
 	HandleAction(context.Context, *iotextypes.Action) error
 	HandleBlock(context.Context, *iotextypes.Block) error
-	HandleBlockSync(context.Context, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 }

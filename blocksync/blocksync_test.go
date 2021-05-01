@@ -306,7 +306,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	assert.Equal(t, h1, h2)
 }
 
-func TestBlockSyncerProcessBlockSync(t *testing.T) {
+func TestBlockSyncerProcessBlock(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -388,9 +388,9 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlockSync(ctx, blk3))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk2))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, blk1))
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }

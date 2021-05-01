@@ -514,15 +514,6 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	return cs.blocksync.ProcessBlock(ctx, blk)
 }
 
-// HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
-		return err
-	}
-	return cs.blocksync.ProcessBlockSync(ctx, blk)
-}
-
 // HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
 	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync)

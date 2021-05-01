@@ -66,20 +66,6 @@ func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0, arg1)
 }
 
-// HandleBlockSync mocks base method
-func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleBlockSync indicates an expected call of HandleBlockSync
-func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockSync", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockSync), arg0, arg1)
-}
-
 // HandleSyncRequest mocks base method
 func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
 	m.ctrl.T.Helper()

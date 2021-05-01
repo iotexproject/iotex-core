@@ -70,7 +70,6 @@ type BlockSync interface {
 	TargetHeight() uint64
 	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error
 	ProcessBlock(ctx context.Context, blk *block.Block) error
-	ProcessBlockSync(ctx context.Context, blk *block.Block) error
 	SyncStatus() string
 }
 
@@ -98,7 +97,7 @@ func NewBlockSyncer(
 	opts ...Option,
 ) (BlockSync, error) {
 	buf := &blockBuffer{
-		blocks:       make(map[uint64]*block.Block),
+		blocks:       map[uint64]*block.Block{},
 		bc:           chain,
 		cs:           cs,
 		bufferSize:   cfg.BlockSync.BufferSize,
@@ -169,14 +168,6 @@ func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
 
 	if needSync {
 		bs.worker.SetTargetHeight(blk.Height())
-	}
-	return nil
-}
-
-func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) error {
-	bs.buf.Flush(blk)
-	if bs.bc.TipHeight() == bs.TargetHeight() {
-		bs.worker.SetTargetHeight(bs.TargetHeight() + bs.buf.bufSize())
 	}
 	return nil
 }
