@@ -98,7 +98,11 @@ func (m actionMsg) ChainID() uint32 {
 type IotxDispatcher struct {
 	started        int32
 	shutdown       int32
-	eventChan      chan interface{}
+	actionChanLock sync.RWMutex
+	blockChanLock  sync.RWMutex
+	syncChanLock   sync.RWMutex
+	actionChan     chan *actionMsg
+	blockChan      chan *blockMsg
 	syncChan       chan *blockSyncMsg
 	eventAudit     map[iotexrpc.MessageType]int
 	eventAuditLock sync.RWMutex
@@ -111,7 +115,8 @@ type IotxDispatcher struct {
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		eventChan:   make(chan interface{}, cfg.Dispatcher.EventChanSize),
+		actionChan:  make(chan *actionMsg, cfg.Dispatcher.EventChanSize),
+		blockChan:   make(chan *blockMsg, cfg.Dispatcher.EventChanSize),
 		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.EventChanSize),
 		eventAudit:  make(map[iotexrpc.MessageType]int),
 		quit:        make(chan struct{}),
@@ -136,8 +141,9 @@ func (d *IotxDispatcher) Start(ctx context.Context) error {
 		return errors.New("Dispatcher already started")
 	}
 	log.L().Info("Starting dispatcher.")
-	d.wg.Add(2)
-	go d.newsHandler()
+	d.wg.Add(3)
+	go d.actionHandler()
+	go d.blockHandler()
 	go d.syncHandler()
 
 	return nil
@@ -159,7 +165,7 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 func (d *IotxDispatcher) EventQueueSize() int {
 	d.eventAuditLock.RLock()
 	defer d.eventAuditLock.RUnlock()
-	return len(d.eventChan) + len(d.syncChan)
+	return len(d.actionChan) + len(d.blockChan) + len(d.syncChan)
 }
 
 // EventAudit returns the event audit map
@@ -173,27 +179,31 @@ func (d *IotxDispatcher) EventAudit() map[iotexrpc.MessageType]int {
 	return snapshot
 }
 
-// newsHandler is the main handler for handling all news from peers.
-func (d *IotxDispatcher) newsHandler() {
-loop:
+func (d *IotxDispatcher) actionHandler() {
 	for {
 		select {
-		case m := <-d.eventChan:
-			switch msg := m.(type) {
-			case *actionMsg:
-				d.handleActionMsg(msg)
-			case *blockMsg:
-				d.handleBlockMsg(msg)
-			default:
-				log.L().Warn("Invalid message type in block handler.", zap.Any("msg", msg))
-			}
+		case a := <-d.actionChan:
+			d.handleActionMsg(a)
 		case <-d.quit:
-			break loop
+			d.wg.Done()
+			log.L().Info("action handler is terminated.")
+			return
 		}
 	}
+}
 
-	d.wg.Done()
-	log.L().Info("news handler done.")
+// blockHandler is the main handler for handling all news from peers.
+func (d *IotxDispatcher) blockHandler() {
+	for {
+		select {
+		case b := <-d.blockChan:
+			d.handleBlockMsg(b)
+		case <-d.quit:
+			d.wg.Done()
+			log.L().Info("block handler is terminated.")
+			return
+		}
+	}
 }
 
 // syncHandler handles incoming block sync requests
@@ -273,23 +283,35 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&actionMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		action:  (msg).(*iotextypes.Action),
-	})
+	d.actionChanLock.Lock()
+	defer d.actionChanLock.Unlock()
+	if len(d.actionChan) < cap(d.actionChan) {
+		d.actionChan <- &actionMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			action:  (msg).(*iotextypes.Action),
+		}
+		return
+	}
+	log.L().Warn("dispatcher action chan is full, drop an event.")
 }
 
-// dispatchBlockCommit adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlockCommit(ctx context.Context, chainID uint32, msg proto.Message) {
+// dispatchBlock adds the passed block message to the news handling queue.
+func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-	d.enqueueEvent(&blockMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		block:   (msg).(*iotextypes.Block),
-	})
+	d.blockChanLock.Lock()
+	defer d.blockChanLock.Unlock()
+	if len(d.blockChan) < cap(d.blockChan) {
+		d.blockChan <- &blockMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			block:   (msg).(*iotextypes.Block),
+		}
+		return
+	}
+	log.L().Warn("dispatcher block chan is full, drop an event.")
 }
 
 // dispatchBlockSyncReq adds the passed block sync request to the news handling queue.
@@ -297,17 +319,18 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
-
-	if len(d.syncChan) == cap(d.syncChan) {
-		log.L().Warn("dispatcher sync chan is full, drop an event.")
+	d.syncChanLock.Lock()
+	defer d.syncChanLock.Unlock()
+	if len(d.syncChan) < cap(d.syncChan) {
+		d.syncChan <- &blockSyncMsg{
+			ctx:     ctx,
+			chainID: chainID,
+			peer:    peer,
+			sync:    (msg).(*iotexrpc.BlockSync),
+		}
 		return
 	}
-	d.syncChan <- &blockSyncMsg{
-		ctx:     ctx,
-		chainID: chainID,
-		peer:    peer,
-		sync:    (msg).(*iotexrpc.BlockSync),
-	}
+	log.L().Warn("dispatcher sync chan is full, drop an event.")
 }
 
 // HandleBroadcast handles incoming broadcast message
@@ -332,7 +355,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	case iotexrpc.MessageType_ACTION:
 		d.dispatchAction(ctx, chainID, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlockCommit(ctx, chainID, message)
+		d.dispatchBlock(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 	}
@@ -348,18 +371,10 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlockCommit(ctx, chainID, message)
+		d.dispatchBlock(ctx, chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}
-}
-
-func (d *IotxDispatcher) enqueueEvent(event interface{}) {
-	if len(d.eventChan) == cap(d.eventChan) {
-		log.L().Warn("dispatcher event chan is full, drop an event.")
-		return
-	}
-	d.eventChan <- event
 }
 
 func (d *IotxDispatcher) updateEventAudit(t iotexrpc.MessageType) {

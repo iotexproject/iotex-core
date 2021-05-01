@@ -196,7 +196,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		syncCtx, cancel := context.WithTimeout(ctx, bs.processSyncRequestTTL)
 		defer cancel()
 		if err := bs.unicastHandler(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
-			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
+			return err
 		}
 	}
 	return nil
