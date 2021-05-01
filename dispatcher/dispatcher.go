@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -211,18 +212,17 @@ func (d *IotxDispatcher) blockHandler() {
 
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
-loop:
 	for {
 		select {
 		case m := <-d.syncChan:
 			d.handleBlockSyncMsg(m)
+			time.Sleep(10 * time.Second)
 		case <-d.quit:
-			break loop
+			d.wg.Done()
+			log.L().Info("block sync handler done.")
+			return
 		}
 	}
-
-	d.wg.Done()
-	log.L().Info("block sync handler done.")
 }
 
 func (d *IotxDispatcher) subscriber(chainID uint32) Subscriber {
