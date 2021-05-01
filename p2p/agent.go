@@ -401,7 +401,7 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	}
 
 	for i, nb := range nbs {
-		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) {
+		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) || nb.ID.Pretty() == "" {
 			continue
 		}
 		res = append(res, nbs[i])
