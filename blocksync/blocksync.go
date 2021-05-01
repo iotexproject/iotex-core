@@ -148,7 +148,7 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 	return bs.worker.Stop(ctx)
 }
 
-// ProcessBlock processes an incoming latest committed block
+// ProcessBlock processes an incoming block
 func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
 	syncedHeight, re := bs.buf.Flush(blk)
 	switch re {

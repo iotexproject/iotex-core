@@ -162,10 +162,12 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 }
 
 // EventQueueSize returns the event queue size
-func (d *IotxDispatcher) EventQueueSize() int {
-	d.eventAuditLock.RLock()
-	defer d.eventAuditLock.RUnlock()
-	return len(d.actionChan) + len(d.blockChan) + len(d.syncChan)
+func (d *IotxDispatcher) EventQueueSize() map[string]int {
+	return map[string]int{
+		"action": len(d.actionChan),
+		"block":  len(d.blockChan),
+		"sync":   len(d.syncChan),
+	}
 }
 
 // EventAudit returns the event audit map
