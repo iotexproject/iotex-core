@@ -117,25 +117,40 @@ func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
 		if blk == nil {
 			break
 		}
-		switch err := commitBlock(b.bc, b.cs, blk); errors.Cause(err) {
-		case nil:
-			l.Info("Successfully committed block.", zap.Uint64("syncedHeight", syncedHeight+1))
-			fallthrough
-		case blockchain.ErrInvalidTipHeight:
+		if b.commitBlock(blk, l) {
 			syncedHeight++
-			continue
-		case poll.ErrProposedDelegatesLength, poll.ErrDelegatesNotAsExpected, db.ErrNotExist:
-			l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", syncedHeight+1))
-		default:
-			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", syncedHeight+1))
+		} else {
+			break
 		}
-		break
 	}
 
 	// clean up on memory leak
 	b.cleanup(l, syncedHeight)
 
 	return syncedHeight, bCheckinValid
+}
+
+func (b *blockBuffer) commitBlock(blk *block.Block, l *zap.Logger) bool {
+	// TODO: move hardcoded retry times to config which will be applied before hawaii only
+	var err error
+	for i := 0; i < 4; i++ {
+		switch err = commitBlock(b.bc, b.cs, blk); errors.Cause(err) {
+		case nil:
+			l.Info("Successfully committed block.", zap.Uint64("syncedHeight", blk.Height()))
+			return true
+		case blockchain.ErrInvalidTipHeight:
+			return true
+		case block.ErrDeltaStateMismatch:
+			continue
+		case poll.ErrProposedDelegatesLength, poll.ErrDelegatesNotAsExpected, db.ErrNotExist:
+			l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", blk.Height()))
+			return false
+		default:
+			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", blk.Height()))
+			return false
+		}
+	}
+	return false
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
