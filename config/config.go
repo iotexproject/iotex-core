@@ -163,7 +163,7 @@ var (
 			},
 		},
 		BlockSync: BlockSync{
-			Interval:              10 * time.Second,
+			Interval:              30 * time.Second,
 			ProcessSyncRequestTTL: 10 * time.Second,
 			BufferSize:            200,
 			IntervalSize:          20,

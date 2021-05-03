@@ -233,8 +233,8 @@ func (p *Agent) Start(ctx context.Context) error {
 	p.host.JoinOverlay(ctx)
 	close(ready)
 
-	// check network connectivity every 2 blocks, and reconnect in case of disconnection
-	p.reconnectTask = routine.NewRecurringTask(p.reconnect, 2*config.DardanellesBlockInterval)
+	// check network connectivity every 60 blocks, and reconnect in case of disconnection
+	p.reconnectTask = routine.NewRecurringTask(p.reconnect, 60*config.DardanellesBlockInterval)
 	return p.reconnectTask.Start(ctx)
 }
 
