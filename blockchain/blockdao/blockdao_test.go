@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -389,7 +390,7 @@ func TestBlockDAO(t *testing.T) {
 
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash()
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)

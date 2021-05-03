@@ -1037,7 +1037,7 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash()
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
@@ -2012,7 +2012,7 @@ func TestServer_GetRawBlocks(t *testing.T) {
 			header := blkInfos[0].Block.Header.Core
 			require.EqualValues(version.ProtocolVersion, header.Version)
 			require.Zero(header.Height)
-			ts, err := ptypes.TimestampProto(time.Unix(config.GenesisTimestamp(), 0))
+			ts, err := ptypes.TimestampProto(time.Unix(genesis.Timestamp(), 0))
 			require.NoError(err)
 			require.Equal(ts, header.Timestamp)
 			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.PrevBlockHash))

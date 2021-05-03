@@ -15,10 +15,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 const (
@@ -112,8 +113,10 @@ func TestStrs_String(t *testing.T) {
 func TestNewDefaultConfig(t *testing.T) {
 	cfg, err := New()
 	require.NoError(t, err)
+	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
-	require.Equal(t, cfg.Genesis.Timestamp, GenesisTimestamp())
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	require.Equal(t, cfg.Genesis.Timestamp, genesis.Timestamp())
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {

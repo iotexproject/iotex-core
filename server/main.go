@@ -54,6 +54,11 @@ func main() {
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
+	// set genesis timestamp
+	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
+	if genesis.Timestamp() == 0 {
+		glog.Fatalln("Genesis timestamp is not set, call genesis.New() first")
+	}
 
 	cfg, err := config.New()
 	if err != nil {
@@ -63,12 +68,13 @@ func main() {
 		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
 	}
 
+	// populdate chain ID
+	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	if config.EVMNetworkID() == 0 {
 		glog.Fatalln("EVM Network ID is not set, call config.New() first")
 	}
-	if config.GenesisTimestamp() == 0 {
-		glog.Fatalln("Genesis timestamp is not set, call config.New() first")
-	}
+
+	// load genesis block's hash
 	block.LoadGenesisHash()
 	if block.GenesisHash() == hash.ZeroHash256 {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")

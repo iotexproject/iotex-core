@@ -8,6 +8,7 @@ package blocksync
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 
@@ -113,7 +114,8 @@ func (w *syncWorker) Sync() {
 			if err := w.unicastHandler(ctx, p, &iotexrpc.BlockSync{
 				Start: interval.Start, End: interval.End,
 			}); err != nil {
-				log.L().Debug("Failed to sync block.", zap.Error(err))
+				log.L().Error("failed to sync block.", zap.String("peer", fmt.Sprintf("%+v", p)),
+					zap.Error(err))
 			}
 		}
 	}

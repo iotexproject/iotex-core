@@ -21,7 +21,7 @@ import (
 func TestGenesisBlock(t *testing.T) {
 	r := require.New(t)
 
-	config.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	blk := GenesisBlock()
 	r.EqualValues(version.ProtocolVersion, blk.Version())
 	r.Zero(blk.Height())
