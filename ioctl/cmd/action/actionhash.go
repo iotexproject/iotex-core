@@ -7,7 +7,6 @@
 package action
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -91,17 +89,9 @@ func (m *actionMessage) String() string {
 // getActionByHash gets action of IoTeX Blockchain by hash
 func getActionByHash(args []string) error {
 	hash := args[0]
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		return err
 	}
 
 	// search action on blockchain

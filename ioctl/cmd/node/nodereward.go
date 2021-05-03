@@ -7,11 +7,9 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -97,18 +95,11 @@ func (m *rewardMessage) String() string {
 }
 
 func rewardPool() error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
 
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 	// AvailableBalance == Rewards in the pool that has not been issued to anyone
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("rewarding"),
@@ -160,17 +151,9 @@ func reward(arg string) error {
 	if err != nil {
 		return output.NewError(output.AddressError, "failed to get address", err)
 	}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		return err
 	}
 
 	request := &iotexapi.ReadStateRequest{

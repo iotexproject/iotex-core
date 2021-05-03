@@ -160,17 +160,10 @@ func gasPriceInRau() (*big.Int, error) {
 	if len(gasPrice) != 0 {
 		return util.StringToRau(gasPrice, util.GasPriceDecimalNum)
 	}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
 
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+	cli, ctx, err := util.GetAPIClientAndContext()
+	if err != nil {
+		return nil, err
 	}
 
 	request := &iotexapi.SuggestGasPriceRequest{}
@@ -186,23 +179,15 @@ func gasPriceInRau() (*big.Int, error) {
 }
 
 func fixGasLimit(caller string, execution *action.Execution) (*action.Execution, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.EstimateActionGasConsumptionRequest{
 		Action: &iotexapi.EstimateActionGasConsumptionRequest_Execution{
 			Execution: execution.Proto(),
 		},
 		CallerAddress: caller,
-	}
-
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	res, err := cli.EstimateActionGasConsumption(ctx, request)
@@ -219,17 +204,9 @@ func fixGasLimit(caller string, execution *action.Execution) (*action.Execution,
 
 // SendRaw sends raw action to blockchain
 func SendRaw(selp *iotextypes.Action) error {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
+		return err
 	}
 
 	request := &iotexapi.SendActionRequest{Action: selp}

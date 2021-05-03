@@ -52,8 +52,6 @@ const (
 
 var (
 	gPRCConnInstance *grpc.ClientConn
-	cli              iotexapi.APIServiceClient
-	ctx              context.Context
 )
 
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
@@ -92,13 +90,12 @@ func GetAPIClientAndContext() (iotexapi.APIServiceClient, context.Context, error
 			conn.Close()
 			gPRCConnInstance = nil
 		})
-
-		cli = iotexapi.NewAPIServiceClient(gPRCConnInstance)
-		ctx = context.Background()
-		jwtMD, err := JwtAuth()
-		if err == nil {
-			ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-		}
+	}
+	cli := iotexapi.NewAPIServiceClient(gPRCConnInstance)
+	ctx := context.Background()
+	jwtMD, err := JwtAuth()
+	if err == nil {
+		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 	return cli, ctx, nil
 }

@@ -7,10 +7,8 @@
 package version
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -80,19 +78,11 @@ func version() error {
 	fmt.Println(message.String())
 
 	message = versionMessage{Object: config.ReadConfig.Endpoint}
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetServerMetaRequest{}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 
 	response, err := cli.GetServerMeta(ctx, request)
 	if err != nil {

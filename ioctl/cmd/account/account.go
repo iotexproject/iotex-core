@@ -163,22 +163,11 @@ func LocalAccountToPrivateKey(signer, password string) (crypto.PrivateKey, error
 
 // GetAccountMeta gets account metadata
 func GetAccountMeta(addr string) (*iotextypes.AccountMeta, error) {
-	// conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-	// if err != nil {
-	// 	return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-	// }
-	// defer conn.Close()
-	// cli := iotexapi.NewAPIServiceClient(conn)
-	// ctx := context.Background()
-	request := iotexapi.GetAccountRequest{Address: addr}
-	// jwtMD, err := util.JwtAuth()
-	// if err == nil {
-	// 	ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	// }
 	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
 		return nil, err
 	}
+	request := iotexapi.GetAccountRequest{Address: addr}
 	response, err := cli.GetAccount(ctx, &request)
 
 	if err != nil {

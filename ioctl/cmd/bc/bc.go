@@ -7,11 +7,9 @@
 package bc
 
 import (
-	"context"
 	"strconv"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -63,19 +61,11 @@ func init() {
 
 // GetChainMeta gets block chain metadata
 func GetChainMeta() (*iotextypes.ChainMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := iotexapi.GetChainMetaRequest{}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 
 	response, err := cli.GetChainMeta(ctx, &request)
 	if err != nil {
@@ -90,19 +80,11 @@ func GetChainMeta() (*iotextypes.ChainMeta, error) {
 
 // GetEpochMeta gets blockchain epoch meta
 func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetEpochMetaRequest{EpochNumber: epochNum}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 
 	response, err := cli.GetEpochMeta(ctx, request)
 	if err != nil {
@@ -117,24 +99,15 @@ func GetEpochMeta(epochNum uint64) (*iotexapi.GetEpochMetaResponse, error) {
 
 // GetProbationList gets probation list
 func GetProbationList(epochNum uint64, epochStartHeight uint64) (*iotexapi.ReadStateResponse, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
-
 	request := &iotexapi.ReadStateRequest{
 		ProtocolID: []byte("poll"),
 		MethodName: []byte("ProbationListByEpoch"),
 		Arguments:  [][]byte{[]byte(strconv.FormatUint(epochNum, 10))},
 		Height:     strconv.FormatUint(epochStartHeight, 10),
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.ReadState(ctx, request)
@@ -155,12 +128,10 @@ func GetBucketList(
 	methodName iotexapi.ReadStakingDataMethod_Name,
 	readStakingDataRequest *iotexapi.ReadStakingDataRequest,
 ) (*iotextypes.VoteBucketList, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{Method: methodName}
 	methodData, err := proto.Marshal(method)
 	if err != nil {
@@ -175,12 +146,6 @@ func GetBucketList(
 		ProtocolID: []byte("staking"),
 		MethodName: methodData,
 		Arguments:  [][]byte{requestData},
-	}
-
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.ReadState(ctx, request)

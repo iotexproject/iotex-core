@@ -7,12 +7,10 @@
 package bc
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"strconv"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
 
@@ -191,19 +189,11 @@ func getBlock(args []string) error {
 
 // getActionInfoByBlock gets action info by block hash with start index and action count
 func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := iotexapi.GetRawBlocksRequest{StartHeight: height, Count: 1, WithReceipts: true}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
-	}
 
 	response, err := cli.GetRawBlocks(ctx, &request)
 	if err != nil {
@@ -226,12 +216,10 @@ func getActionInfoWithinBlock(height uint64) ([]blocksInfo, error) {
 
 // getBlockMetaByHeight gets block metadata by height
 func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByIndex{
 			ByIndex: &iotexapi.GetBlockMetasByIndexRequest{
@@ -239,12 +227,6 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 				Count: 1,
 			},
 		},
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.GetBlockMetas(ctx, request)
@@ -263,22 +245,14 @@ func getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, error) {
 
 // getBlockMetaByHash gets block metadata by hash
 func getBlockMetaByHash(hash string) (*iotextypes.BlockMeta, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	request := &iotexapi.GetBlockMetasRequest{
 		Lookup: &iotexapi.GetBlockMetasRequest_ByHash{
 			ByHash: &iotexapi.GetBlockMetaByHashRequest{BlkHash: hash},
 		},
-	}
-	ctx := context.Background()
-
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.GetBlockMetas(ctx, request)

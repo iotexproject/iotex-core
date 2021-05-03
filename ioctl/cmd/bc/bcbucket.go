@@ -7,7 +7,6 @@
 package bc
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/status"
@@ -161,12 +159,10 @@ func getBucket(arg string) error {
 }
 
 func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_BY_INDEXES,
 	}
@@ -190,12 +186,6 @@ func getBucketByIndex(index uint64) (*iotextypes.VoteBucket, error) {
 		ProtocolID: []byte("staking"),
 		MethodName: methodData,
 		Arguments:  [][]byte{requestData},
-	}
-
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.ReadState(ctx, request)
@@ -235,12 +225,10 @@ func getBucketsActiveCount() error {
 }
 
 func getBucketsCount() (count *iotextypes.BucketsCount, err error) {
-	conn, err := util.ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	cli, ctx, err := util.GetAPIClientAndContext()
 	if err != nil {
-		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+		return nil, err
 	}
-	defer conn.Close()
-	cli := iotexapi.NewAPIServiceClient(conn)
 	method := &iotexapi.ReadStakingDataMethod{
 		Method: iotexapi.ReadStakingDataMethod_BUCKETS_COUNT,
 	}
@@ -262,12 +250,6 @@ func getBucketsCount() (count *iotextypes.BucketsCount, err error) {
 		ProtocolID: []byte("staking"),
 		MethodName: methodData,
 		Arguments:  [][]byte{requestData},
-	}
-
-	ctx := context.Background()
-	jwtMD, err := util.JwtAuth()
-	if err == nil {
-		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
 	response, err := cli.ReadState(ctx, request)
