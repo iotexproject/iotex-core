@@ -447,6 +447,8 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 
 	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
