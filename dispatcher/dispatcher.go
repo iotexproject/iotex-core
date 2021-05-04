@@ -156,8 +156,8 @@ func (d *IotxDispatcher) Stop(ctx context.Context) error {
 	return nil
 }
 
-// EventQueueSize returns the event queue size
-func (d *IotxDispatcher) EventQueueSize() int {
+// QueueSize returns the queue size of the event and the sync request
+func (d *IotxDispatcher) QueueSize() int {
 	d.eventAuditLock.RLock()
 	defer d.eventAuditLock.RUnlock()
 	return len(d.eventChan) + len(d.syncChan)
