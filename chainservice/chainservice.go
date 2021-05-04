@@ -41,7 +41,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -89,11 +88,10 @@ func WithSubChain() Option {
 	}
 }
 
-// New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
+// New creates a ChainService from config and network.Overlay
 func New(
 	cfg config.Config,
 	p2pAgent *p2p.Agent,
-	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
 	// create indexers
