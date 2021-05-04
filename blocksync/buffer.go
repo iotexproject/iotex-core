@@ -12,9 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/consensus"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -36,64 +38,119 @@ type blockBuffer struct {
 	cs           consensus.Consensus
 	bufferSize   uint64
 	intervalSize uint64
-	commitHeight uint64 // last commit block height
 }
 
-// CommitHeight return the last commit block height
-func (b *blockBuffer) CommitHeight() uint64 {
-	return b.commitHeight
-}
-
-// Flush tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) Flush(blk *block.Block) (bool, bCheckinResult) {
+func (b *blockBuffer) store(blk *block.Block) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if blk == nil {
-		return false, bCheckinSkipNil
+
+	height := blk.Height()
+	if _, ok := b.blocks[height]; ok {
+		return false
 	}
-	confirmedHeight := b.bc.TipHeight()
-	// check
-	blkHeight := blk.Height()
-	if blkHeight <= confirmedHeight {
-		return false, bCheckinLower
-	}
-	if _, ok := b.blocks[blkHeight]; ok {
-		return false, bCheckinExisting
-	}
-	if blkHeight > confirmedHeight+b.bufferSize {
-		return false, bCheckinHigher
-	}
-	b.blocks[blkHeight] = blk
-	l := log.L().With(
-		zap.Uint64("recvHeight", blkHeight),
-		zap.Uint64("confirmedHeight", confirmedHeight))
-	var heightToSync uint64
-	for heightToSync = confirmedHeight + 1; heightToSync <= confirmedHeight+b.bufferSize; heightToSync++ {
-		blk, ok := b.blocks[heightToSync]
-		if !ok {
-			break
-		}
-		delete(b.blocks, heightToSync)
-		if err := commitBlock(b.bc, b.cs, blk); err != nil && errors.Cause(err) != blockchain.ErrInvalidTipHeight {
-			l.With(
-				zap.Uint64("syncHeight", heightToSync),
-				zap.Strings("actionHash", blk.ActionHashs())).Error("Failed to commit the block.", zap.Error(err))
-			break
-		}
-		b.commitHeight = heightToSync
+	b.blocks[height] = blk
+
+	return true
+}
+
+func (b *blockBuffer) load(height uint64) *block.Block {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	blk, ok := b.blocks[height]
+	if !ok {
+		return nil
 	}
 
-	// clean up on memory leak
-	if len(b.blocks) > int(b.bufferSize)*2 {
-		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", len(b.blocks)))
+	return blk
+}
+
+func (b *blockBuffer) delete(height uint64) *block.Block {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	blk, ok := b.blocks[height]
+	if !ok {
+		return nil
+	}
+	delete(b.blocks, height)
+
+	return blk
+}
+
+func (b *blockBuffer) cleanup(l *zap.Logger, height uint64) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	size := len(b.blocks)
+	if size > int(b.bufferSize)*2 {
+		l.Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
 		for h := range b.blocks {
-			if h <= confirmedHeight {
-				delete(b.blocks, h)
+			if h <= height {
+				b.delete(h)
 			}
 		}
 	}
+}
 
-	return heightToSync > blkHeight, bCheckinValid
+// Flush tries to put given block into buffer and flush buffer into blockchain.
+func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
+	if blk == nil {
+		return 0, bCheckinSkipNil
+	}
+	confirmedHeight := b.bc.TipHeight()
+	blkHeight := blk.Height()
+	if blkHeight <= confirmedHeight {
+		return confirmedHeight, bCheckinLower
+	}
+	if blkHeight > confirmedHeight+b.bufferSize {
+		return confirmedHeight, bCheckinHigher
+	}
+	if !b.store(blk) {
+		return confirmedHeight, bCheckinExisting
+	}
+	l := log.L().With(
+		zap.Uint64("recvHeight", blkHeight),
+		zap.Uint64("confirmedHeight", confirmedHeight),
+		zap.String("source", "blockBuffer"))
+	syncedHeight := confirmedHeight
+	for syncedHeight <= confirmedHeight+b.bufferSize {
+		blk = b.delete(syncedHeight + 1)
+		if blk == nil {
+			break
+		}
+		if b.commitBlock(blk, l) {
+			syncedHeight++
+		} else {
+			break
+		}
+	}
+
+	// clean up on memory leak
+	b.cleanup(l, syncedHeight)
+
+	return syncedHeight, bCheckinValid
+}
+
+func (b *blockBuffer) commitBlock(blk *block.Block, l *zap.Logger) bool {
+	// TODO: move hardcoded retry times to config which will be applied before hawaii only
+	var err error
+	for i := 0; i < 4; i++ {
+		switch err = commitBlock(b.bc, b.cs, blk); errors.Cause(err) {
+		case nil:
+			l.Info("Successfully committed block.", zap.Uint64("syncedHeight", blk.Height()))
+			return true
+		case blockchain.ErrInvalidTipHeight:
+			return true
+		case block.ErrDeltaStateMismatch:
+			continue
+		case poll.ErrProposedDelegatesLength, poll.ErrDelegatesNotAsExpected, db.ErrNotExist:
+			l.Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", blk.Height()))
+			return false
+		default:
+			l.Error("Failed to commit the block.", zap.Error(err), zap.Uint64("syncHeight", blk.Height()))
+			return false
+		}
+	}
+	return false
 }
 
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
@@ -103,9 +160,6 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 		startSet bool
 		bi       []syncBlocksInterval
 	)
-
-	b.mu.RLock()
-	defer b.mu.RUnlock()
 
 	confirmedHeight := b.bc.TipHeight()
 	// The sync range shouldn't go beyond tip height + buffer size to avoid being too aggressive
@@ -119,7 +173,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(targetHeight uint64) []syncBlocks
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if _, ok := b.blocks[h]; !ok {
+		if b.load(h) == nil {
 			iLen++
 			if !startSet {
 				start = h

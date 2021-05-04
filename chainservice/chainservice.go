@@ -496,6 +496,19 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return nil
 }
 
+// ReportFullness switch on or off block sync
+func (cs *ChainService) ReportFullness(ctx context.Context, msgType iotexrpc.MessageType, fullness float32) {
+	switch msgType {
+	case iotexrpc.MessageType_BLOCK:
+		if fullness > 0.9 {
+			cs.blocksync.Mute()
+		}
+		if fullness < 0.5 {
+			cs.blocksync.Unmute()
+		}
+	}
+}
+
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
@@ -517,15 +530,6 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 		return err
 	}
 	return cs.blocksync.ProcessBlock(ctx, blk)
-}
-
-// HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
-		return err
-	}
-	return cs.blocksync.ProcessBlockSync(ctx, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.

@@ -68,9 +68,10 @@ type BlockSync interface {
 	lifecycle.StartStopper
 
 	TargetHeight() uint64
+	Mute()
+	Unmute()
 	ProcessSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error
 	ProcessBlock(ctx context.Context, blk *block.Block) error
-	ProcessBlockSync(ctx context.Context, blk *block.Block) error
 	SyncStatus() string
 }
 
@@ -97,7 +98,7 @@ func NewBlockSyncer(
 	opts ...Option,
 ) (BlockSync, error) {
 	buf := &blockBuffer{
-		blocks:       make(map[uint64]*block.Block),
+		blocks:       map[uint64]*block.Block{},
 		bc:           chain,
 		cs:           cs,
 		bufferSize:   cfg.BlockSync.BufferSize,
@@ -122,6 +123,18 @@ func NewBlockSyncer(
 	return bs, nil
 }
 
+func (bs *blockSyncer) Mute() {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
+	bs.worker.mute = true
+}
+
+func (bs *blockSyncer) Unmute() {
+	bs.worker.mu.RLock()
+	defer bs.worker.mu.RUnlock()
+	bs.worker.mute = false
+}
+
 // TargetHeight returns the target height to sync to
 func (bs *blockSyncer) TargetHeight() uint64 {
 	bs.worker.mu.RLock()
@@ -135,7 +148,6 @@ func (bs *blockSyncer) Start(ctx context.Context) error {
 	if err := bs.syncStageTask.Start(ctx); err != nil {
 		return err
 	}
-	bs.commitHeight = bs.buf.CommitHeight()
 	return bs.worker.Start(ctx)
 }
 
@@ -148,34 +160,22 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 	return bs.worker.Stop(ctx)
 }
 
-// ProcessBlock processes an incoming latest committed block
+// ProcessBlock processes an incoming block
 func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
-	var needSync bool
-	moved, re := bs.buf.Flush(blk)
+	syncedHeight, re := bs.buf.Flush(blk)
 	switch re {
 	case bCheckinLower:
 		log.L().Debug("Drop block lower than buffer's accept height.")
 	case bCheckinExisting:
 		log.L().Debug("Drop block exists in buffer.")
 	case bCheckinHigher:
-		needSync = true
+		fallthrough
 	case bCheckinValid:
-		needSync = !moved
-	case bCheckinSkipNil:
-		needSync = false
+		if syncedHeight < blk.Height() {
+			bs.worker.SetTargetHeight(blk.Height())
+		}
 	}
 
-	if needSync {
-		bs.worker.SetTargetHeight(blk.Height())
-	}
-	return nil
-}
-
-func (bs *blockSyncer) ProcessBlockSync(_ context.Context, blk *block.Block) error {
-	bs.buf.Flush(blk)
-	if bs.bc.TipHeight() == bs.TargetHeight() {
-		bs.worker.SetTargetHeight(bs.TargetHeight() + bs.buf.bufSize())
-	}
 	return nil
 }
 
@@ -203,7 +203,7 @@ func (bs *blockSyncer) ProcessSyncRequest(ctx context.Context, peer peerstore.Pe
 		syncCtx, cancel := context.WithTimeout(ctx, bs.processSyncRequestTTL)
 		defer cancel()
 		if err := bs.unicastHandler(syncCtx, peer, blk.ConvertToBlockPb()); err != nil {
-			log.L().Debug("Failed to response to ProcessSyncRequest.", zap.Error(err))
+			return err
 		}
 	}
 	return nil

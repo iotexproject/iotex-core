@@ -71,14 +71,14 @@ func TestBlockBufferFlush(t *testing.T) {
 		blocks:     make(map[uint64]*block.Block),
 		bufferSize: 16,
 	}
-	moved, re := b.Flush(nil)
-	assert.Equal(false, moved)
+	syncedHeight, re := b.Flush(nil)
+	assert.Equal(uint64(0), syncedHeight)
 	assert.Equal(bCheckinSkipNil, re)
 
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	moved, re = b.Flush(blk)
-	assert.Equal(true, moved)
+	syncedHeight, re = b.Flush(blk)
+	assert.Equal(blk.Height(), syncedHeight)
 	assert.Equal(bCheckinValid, re)
 
 	blk = block.NewBlockDeprecated(
@@ -89,8 +89,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, re = b.Flush(blk)
-	assert.Equal(false, moved)
+	syncedHeight, re = b.Flush(blk)
+	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinLower, re)
 
 	blk = block.NewBlockDeprecated(
@@ -101,8 +101,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, re = b.Flush(blk)
-	assert.Equal(false, moved)
+	syncedHeight, re = b.Flush(blk)
+	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinValid, re)
 
 	blk = block.NewBlockDeprecated(
@@ -113,8 +113,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, re = b.Flush(blk)
-	assert.Equal(false, moved)
+	syncedHeight, re = b.Flush(blk)
+	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinExisting, re)
 
 	blk = block.NewBlockDeprecated(
@@ -125,8 +125,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, re = b.Flush(blk)
-	assert.Equal(false, moved)
+	syncedHeight, re = b.Flush(blk)
+	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinHigher, re)
 }
 
@@ -198,8 +198,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result := b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result := b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -209,8 +209,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -220,8 +220,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -231,8 +231,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -242,8 +242,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -253,8 +253,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -264,8 +264,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	moved, result = b.Flush(blk)
-	require.Equal(false, moved)
+	syncedHeight, result = b.Flush(blk)
+	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
 	assert.Len(b.GetBlocksIntervalsToSync(7), 3)
