@@ -7,14 +7,17 @@
 package blocksync
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/poll"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -92,10 +95,12 @@ func (b *blockBuffer) cleanup(l *zap.Logger, height uint64) {
 }
 
 // Flush tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
+func (b *blockBuffer) Flush(ctx context.Context, blk *block.Block) (uint64, bCheckinResult) {
 	if blk == nil {
 		return 0, bCheckinSkipNil
 	}
+	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	confirmedHeight := b.bc.TipHeight()
 	blkHeight := blk.Height()
 	if blkHeight <= confirmedHeight {
@@ -117,7 +122,11 @@ func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
 		if blk == nil {
 			break
 		}
-		if b.commitBlock(blk, l) {
+		retries := 1
+		if hu.IsPre(config.Hawaii, blk.Height()) {
+			retries = 4
+		}
+		if b.commitBlock(blk, l, retries) {
 			syncedHeight++
 		} else {
 			break
@@ -130,10 +139,9 @@ func (b *blockBuffer) Flush(blk *block.Block) (uint64, bCheckinResult) {
 	return syncedHeight, bCheckinValid
 }
 
-func (b *blockBuffer) commitBlock(blk *block.Block, l *zap.Logger) bool {
-	// TODO: move hardcoded retry times to config which will be applied before hawaii only
+func (b *blockBuffer) commitBlock(blk *block.Block, l *zap.Logger, retries int) bool {
 	var err error
-	for i := 0; i < 4; i++ {
+	for i := 0; i < retries; i++ {
 		switch err = commitBlock(b.bc, b.cs, blk); errors.Cause(err) {
 		case nil:
 			l.Info("Successfully committed block.", zap.Uint64("syncedHeight", blk.Height()))

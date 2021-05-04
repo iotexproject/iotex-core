@@ -529,7 +529,11 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(ctx, blk)
+	bcCtx, err := cs.chain.Context()
+	if err != nil {
+		return err
+	}
+	return cs.blocksync.ProcessBlock(bcCtx, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.

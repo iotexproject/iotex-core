@@ -117,9 +117,9 @@ type IotxDispatcher struct {
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		actionChan:  make(chan *actionMsg, cfg.Dispatcher.EventChanSize),
-		blockChan:   make(chan *blockMsg, cfg.Dispatcher.EventChanSize),
-		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.EventChanSize),
+		actionChan:  make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
+		blockChan:   make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
+		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
 		eventAudit:  make(map[iotexrpc.MessageType]int),
 		quit:        make(chan struct{}),
 		subscribers: make(map[uint32]Subscriber),

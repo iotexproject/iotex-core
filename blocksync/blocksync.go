@@ -161,8 +161,8 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 }
 
 // ProcessBlock processes an incoming block
-func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
-	syncedHeight, re := bs.buf.Flush(blk)
+func (bs *blockSyncer) ProcessBlock(ctx context.Context, blk *block.Block) error {
+	syncedHeight, re := bs.buf.Flush(ctx, blk)
 	switch re {
 	case bCheckinLower:
 		log.L().Debug("Drop block lower than buffer's accept height.")

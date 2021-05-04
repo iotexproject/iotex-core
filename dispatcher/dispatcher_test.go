@@ -24,7 +24,7 @@ import (
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 	cfg := config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{EventChanSize: 1024},
+		Dispatcher: config.Dispatcher{ActionChanSize: 1024, BlockChanSize: 1024, BlockSyncChanSize: 1024},
 	}
 	dp, err := NewDispatcher(cfg)
 	assert.NoError(t, err)

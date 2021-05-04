@@ -64,6 +64,8 @@ func TestBlockBufferFlush(t *testing.T) {
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
+	ctx, err = chain.Context()
+	require.NoError(err)
 
 	b := blockBuffer{
 		bc:         chain,
@@ -71,13 +73,13 @@ func TestBlockBufferFlush(t *testing.T) {
 		blocks:     make(map[uint64]*block.Block),
 		bufferSize: 16,
 	}
-	syncedHeight, re := b.Flush(nil)
+	syncedHeight, re := b.Flush(ctx, nil)
 	assert.Equal(uint64(0), syncedHeight)
 	assert.Equal(bCheckinSkipNil, re)
 
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	syncedHeight, re = b.Flush(blk)
+	syncedHeight, re = b.Flush(ctx, blk)
 	assert.Equal(blk.Height(), syncedHeight)
 	assert.Equal(bCheckinValid, re)
 
@@ -89,7 +91,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(blk)
+	syncedHeight, re = b.Flush(ctx, blk)
 	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinLower, re)
 
@@ -101,7 +103,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(blk)
+	syncedHeight, re = b.Flush(ctx, blk)
 	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinValid, re)
 
@@ -113,7 +115,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(blk)
+	syncedHeight, re = b.Flush(ctx, blk)
 	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinExisting, re)
 
@@ -125,7 +127,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(blk)
+	syncedHeight, re = b.Flush(ctx, blk)
 	assert.Equal(uint64(1), syncedHeight)
 	assert.Equal(bCheckinHigher, re)
 }
@@ -160,6 +162,8 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
+	ctx, err = chain.Context()
+	require.NoError(err)
 
 	b := blockBuffer{
 		bc:           chain,
@@ -198,7 +202,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result := b.Flush(blk)
+	syncedHeight, result := b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -209,7 +213,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -220,7 +224,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -231,7 +235,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -242,7 +246,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -253,7 +257,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	blk = block.NewBlockDeprecated(
@@ -264,7 +268,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(blk)
+	syncedHeight, result = b.Flush(ctx, blk)
 	require.Equal(uint64(0), syncedHeight)
 	require.Equal(bCheckinValid, result)
 	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
@@ -277,7 +281,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	b.Flush(blk)
+	b.Flush(ctx, blk)
 	// There should always have at least 1 interval range to sync
 	assert.Len(b.GetBlocksIntervalsToSync(0), 1)
 }
