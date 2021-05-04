@@ -216,7 +216,8 @@ func (d *IotxDispatcher) syncHandler() {
 		select {
 		case m := <-d.syncChan:
 			d.handleBlockSyncMsg(m)
-			time.Sleep(10 * time.Second)
+			// TODO: better strategy of pacing
+			time.Sleep(5 * time.Second)
 		case <-d.quit:
 			d.wg.Done()
 			log.L().Info("block sync handler done.")
