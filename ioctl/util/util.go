@@ -76,6 +76,7 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 }
 
+// GetAPIClientAndContext establishes a gPRC connection, and return APIServiceClient and context built on the connection
 func GetAPIClientAndContext() (iotexapi.APIServiceClient, context.Context, error) {
 	if gPRCConnInstance == nil {
 		conn, err := ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
