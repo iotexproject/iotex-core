@@ -48,7 +48,6 @@ type (
 		Stop(context.Context) error
 		PutBlock(context.Context, *block.Block) error
 		PutBlocks([]*block.Block) error
-		DeleteTipBlock(*block.Block) error
 		Height() (uint64, error)
 		GetBlockHash(height uint64) (hash.Hash256, error)
 		GetBlockHeight(hash hash.Hash256) (uint64, error)
@@ -140,43 +139,6 @@ func (x *blockIndexer) PutBlock(_ context.Context, blk *block.Block) error {
 		return err
 	}
 	return x.commit()
-}
-
-// DeleteBlock deletes a block's index
-func (x *blockIndexer) DeleteTipBlock(blk *block.Block) error {
-	x.mutex.Lock()
-	defer x.mutex.Unlock()
-
-	// the block to be deleted must be exactly current top, otherwise counting index would not work correctly
-	height := blk.Height()
-	if height != x.tbk.Size()-1 {
-		return errors.Wrapf(db.ErrInvalid, "wrong block height %d, expecting %d", height, x.tbk.Size()-1)
-	}
-	// delete hash --> height
-	hash := blk.HashBlock()
-	x.batch.Delete(blockHashToHeightNS, hash[hashOffset:], "failed to delete block at height %d", height)
-	// delete from total block index
-	if err := x.tbk.Revert(1); err != nil {
-		return err
-	}
-
-	// delete action index
-	for _, selp := range blk.Actions {
-		actHash := selp.Hash()
-		x.batch.Delete(actionToBlockHashNS, actHash[hashOffset:], "failed to delete action hash %x", actHash)
-		if err := x.indexAction(actHash, selp, false); err != nil {
-			return err
-		}
-	}
-	// delete from total action index
-	if err := x.tac.Revert(uint64(len(blk.Actions))); err != nil {
-		return err
-	}
-	if err := x.kvStore.WriteBatch(x.batch); err != nil {
-		return err
-	}
-	x.batch.Clear()
-	return nil
 }
 
 // Height return the blockchain height

@@ -56,7 +56,6 @@ type (
 		Stop(ctx context.Context) error
 		Height() (uint64, error)
 		PutBlock(context.Context, *block.Block) error
-		DeleteTipBlock(blk *block.Block) error
 	}
 
 	blockDAO struct {
@@ -339,12 +338,6 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
-func (dao *blockDAO) DeleteTipBlock() error {
-	timer := dao.timerFactory.NewTimer("del_block")
-	defer timer.End()
-	return dao.blockStore.DeleteTipBlock()
-}
-
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	tipHeight, err := dao.blockStore.Height()
 	if err != nil {
@@ -354,12 +347,6 @@ func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 		blk, err := dao.blockStore.GetBlockByHeight(tipHeight)
 		if err != nil {
 			return errors.Wrap(err, "failed to get tip block")
-		}
-		// delete block index if there's indexer
-		for _, indexer := range dao.indexers {
-			if err := indexer.DeleteTipBlock(blk); err != nil {
-				return err
-			}
 		}
 
 		if err := dao.blockStore.DeleteTipBlock(); err != nil {
