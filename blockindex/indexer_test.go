@@ -256,12 +256,4 @@ func TestIndexer(t *testing.T) {
 		testIndexer(db.NewBoltDB(cfg), t)
 	})
 
-	t.Run("In-memory KV delete", func(t *testing.T) {
-		testDelete(db.NewMemKVStore(), t)
-	})
-	t.Run("Bolt DB delete", func(t *testing.T) {
-		testutil.CleanupPath(t, testPath)
-		defer testutil.CleanupPath(t, testPath)
-		testDelete(db.NewBoltDB(cfg), t)
-	})
 }
