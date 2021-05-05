@@ -17,6 +17,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -47,11 +48,13 @@ const (
 	// GasPriceDecimalNum defines the number of decimal digits for gas price
 	GasPriceDecimalNum = 12
 	// gRPCConnectionTimeOut defines the elapse time of one gRPC connection
-	gRPCConnectionTimeOut string = "5m"
+	gRPCConnectionTimeOut = time.Duration(5) * time.Minute
 )
 
 var (
 	gPRCConnInstance *grpc.ClientConn
+	gPRCMu           sync.Mutex
+	gPRCTimer        *time.Timer
 )
 
 // ExecuteCmd executes cmd with args, and return system output, e.g., help info, and error
@@ -76,23 +79,35 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 	return grpc.Dial(endpoint, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{})))
 }
 
-// GetAPIClientAndContext establishes a gPRC connection, and return APIServiceClient and context built on the connection
-func GetAPIClientAndContext() (iotexapi.APIServiceClient, context.Context, error) {
+// GetGPRCConnection return a shared gPRC connection
+func GetGPRCConnection() (*grpc.ClientConn, error) {
+	gPRCMu.Lock()
+	defer gPRCMu.Unlock()
 	if gPRCConnInstance == nil {
 		conn, err := ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
 		if err != nil {
-			return nil, nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+			return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
 		}
 		gPRCConnInstance = conn
 
 		//Automatically close gRPC connection after predefined time
-		timeOut, _ := time.ParseDuration(gRPCConnectionTimeOut)
-		time.AfterFunc(timeOut, func() {
+		gPRCTimer = time.AfterFunc(gRPCConnectionTimeOut, func() {
 			conn.Close()
 			gPRCConnInstance = nil
 		})
+	} else {
+		gPRCTimer.Reset(gRPCConnectionTimeOut)
 	}
-	cli := iotexapi.NewAPIServiceClient(gPRCConnInstance)
+	return gPRCConnInstance, nil
+}
+
+// GetAPIClientAndContext return a new APIServiceClient and context built on the gPRC connection
+func GetAPIClientAndContext() (iotexapi.APIServiceClient, context.Context, error) {
+	conn, err := GetGPRCConnection()
+	if err != nil {
+		return nil, nil, err
+	}
+	cli := iotexapi.NewAPIServiceClient(conn)
 	ctx := context.Background()
 	jwtMD, err := JwtAuth()
 	if err == nil {
