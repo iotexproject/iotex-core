@@ -338,6 +338,12 @@ func (dao *blockDAO) PutBlock(ctx context.Context, blk *block.Block) error {
 	return nil
 }
 
+func (dao *blockDAO) DeleteTipBlock() error {
+	timer := dao.timerFactory.NewTimer("del_block")
+	defer timer.End()
+	return dao.blockStore.DeleteTipBlock()
+}
+
 func (dao *blockDAO) DeleteBlockToTarget(targetHeight uint64) error {
 	tipHeight, err := dao.blockStore.Height()
 	if err != nil {
