@@ -25,13 +25,11 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/test/mock/mock_consensus"
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBlockBufferFlush(t *testing.T) {
 	require := require.New(t)
-	assert := assert.New(t)
 	ctx := context.Background()
 	cfg, err := newTestConfig()
 	require.NoError(err)
@@ -58,9 +56,9 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NotNil(chain)
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
+	// cs := mock_consensus.NewMockConsensus(ctrl)
+	// cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	// cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
@@ -68,20 +66,13 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		bc:         chain,
-		cs:         cs,
 		blocks:     make(map[uint64]*block.Block),
 		bufferSize: 16,
 	}
-	syncedHeight, re := b.Flush(ctx, nil)
-	assert.Equal(uint64(0), syncedHeight)
-	assert.Equal(bCheckinSkipNil, re)
-
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	syncedHeight, re = b.Flush(ctx, blk)
-	assert.Equal(blk.Height(), syncedHeight)
-	assert.Equal(bCheckinValid, re)
+	b.AddBlock(chain.TipHeight(), blk)
+	require.Equal(1, len(b.blocks))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -91,9 +82,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(ctx, blk)
-	assert.Equal(uint64(1), syncedHeight)
-	assert.Equal(bCheckinLower, re)
+	b.AddBlock(chain.TipHeight(), blk)
+	require.Equal(1, len(b.blocks))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -103,9 +93,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(ctx, blk)
-	assert.Equal(uint64(1), syncedHeight)
-	assert.Equal(bCheckinValid, re)
+	b.AddBlock(chain.TipHeight(), blk)
+	require.Equal(2, len(b.blocks))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -115,9 +104,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(ctx, blk)
-	assert.Equal(uint64(1), syncedHeight)
-	assert.Equal(bCheckinExisting, re)
+	b.AddBlock(chain.TipHeight(), blk)
+	require.Equal(2, len(b.blocks))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -127,9 +115,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, re = b.Flush(ctx, blk)
-	assert.Equal(uint64(1), syncedHeight)
-	assert.Equal(bCheckinHigher, re)
+	b.AddBlock(chain.TipHeight(), blk)
+	require.Equal(2, len(b.blocks))
 }
 
 func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
@@ -156,9 +143,6 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
-	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
@@ -166,14 +150,12 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		bc:           chain,
-		cs:           cs,
 		blocks:       make(map[uint64]*block.Block),
 		bufferSize:   16,
 		intervalSize: 8,
 	}
 
-	out := b.GetBlocksIntervalsToSync(32)
+	out := b.GetBlocksIntervalsToSync(chain.TipHeight(), 32)
 	require.Equal(2, len(out))
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(8), out[0].End)
@@ -182,12 +164,12 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	b.intervalSize = 16
 
-	out = b.GetBlocksIntervalsToSync(32)
+	out = b.GetBlocksIntervalsToSync(chain.TipHeight(), 32)
 	require.Equal(1, len(out))
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(16), out[0].End)
 
-	out = b.GetBlocksIntervalsToSync(8)
+	out = b.GetBlocksIntervalsToSync(chain.TipHeight(), 8)
 	require.Equal(1, len(out))
 	require.Equal(uint64(1), out[0].Start)
 	require.Equal(uint64(16), out[0].End)
@@ -202,9 +184,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result := b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(4),
@@ -213,9 +193,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(5),
@@ -224,9 +202,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(6),
@@ -235,9 +211,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(8),
@@ -246,9 +220,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(14),
@@ -257,9 +229,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
+	b.AddBlock(chain.TipHeight(), blk)
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(16),
@@ -268,20 +238,18 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	syncedHeight, result = b.Flush(ctx, blk)
-	require.Equal(uint64(0), syncedHeight)
-	require.Equal(bCheckinValid, result)
-	assert.Len(b.GetBlocksIntervalsToSync(32), 5)
-	assert.Len(b.GetBlocksIntervalsToSync(7), 3)
+	b.AddBlock(chain.TipHeight(), blk)
+	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 32), 5)
+	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 7), 3)
 
 	b.intervalSize = 4
 
-	assert.Len(b.GetBlocksIntervalsToSync(5), 2)
-	assert.Len(b.GetBlocksIntervalsToSync(1), 2)
+	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 5), 2)
+	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 1), 2)
 
 	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	b.Flush(ctx, blk)
+	b.AddBlock(chain.TipHeight(), blk)
 	// There should always have at least 1 interval range to sync
-	assert.Len(b.GetBlocksIntervalsToSync(0), 1)
+	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 0), 1)
 }
