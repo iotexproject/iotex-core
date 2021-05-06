@@ -242,7 +242,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		initBalance = initBalance.Add(initBalance, big.NewInt(5))
+		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim negative amount of token will fail
@@ -280,7 +280,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		initBalance = initBalance.Add(initBalance, big.NewInt(5))
+		initBalance = new(big.Int).Add(initBalance, big.NewInt(5))
 		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
