@@ -1038,7 +1038,7 @@ func TestConstantinople(t *testing.T) {
 			if hu.IsPre(config.Greenland, v.height) {
 				// pre-Greenland contains a tx with status = ReceiptStatus_ErrCodeStoreOutOfGas
 				// due to a bug the transfer is not reverted
-				require.Equal(3, len(tLog.Transactions))
+				require.Equal(2, len(tLog.Transactions))
 				// 2nd log is in-contract-transfer
 				tx = tLog.Transactions[1]
 				require.Equal(tx.Sender, caller.String())
@@ -1048,10 +1048,6 @@ func TestConstantinople(t *testing.T) {
 				postBalance.Sub(postBalance, tsfAmount)
 				// post = pre - gasFee - in_contract_transfer
 				require.Equal(v.postBalance, postBalance)
-				// 3rd log is also in-contract-transfer
-				tx = tLog.Transactions[2]
-				require.Equal(tx.Recipient, caller.String())
-				require.Equal(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, tx.Type)
 			} else {
 				// post-Greenland fixed that bug, the transfer is reverted so it only contains the gas fee
 				require.Equal(1, len(tLog.Transactions))
