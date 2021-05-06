@@ -83,6 +83,7 @@ func main() {
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
+	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
 	log.S().Infof("EVM Network ID: %d", config.EVMNetworkID())
 	log.S().Infof("Genesis hash: %x", block.GenesisHash())
