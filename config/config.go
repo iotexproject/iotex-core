@@ -173,7 +173,7 @@ var (
 		Dispatcher: Dispatcher{
 			ActionChanSize:    1000,
 			BlockChanSize:     1000,
-			BlockSyncChanSize: 10,
+			BlockSyncChanSize: 400,
 		},
 		API: API{
 			UseRDS:    false,
