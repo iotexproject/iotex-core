@@ -21,6 +21,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -36,10 +38,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 	"github.com/iotexproject/iotex-core/pkg/log"
-
-	"github.com/iotexproject/iotex-proto/golang/iotexapi"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 )
 
 const (
@@ -48,7 +46,7 @@ const (
 	// GasPriceDecimalNum defines the number of decimal digits for gas price
 	GasPriceDecimalNum = 12
 	// gRPCConnectionTimeOut defines the elapse time of one gRPC connection
-	gRPCConnectionTimeOut = time.Duration(5) * time.Minute
+	gRPCConnectionTimeOut = time.Minute * 5
 )
 
 var (
@@ -83,21 +81,22 @@ func ConnectToEndpoint(secure bool) (*grpc.ClientConn, error) {
 func GetGPRCConnection() (*grpc.ClientConn, error) {
 	gPRCMu.Lock()
 	defer gPRCMu.Unlock()
-	if gPRCConnInstance == nil {
-		conn, err := ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
-		if err != nil {
-			return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
-		}
-		gPRCConnInstance = conn
 
-		//Automatically close gRPC connection after predefined time
-		gPRCTimer = time.AfterFunc(gRPCConnectionTimeOut, func() {
-			conn.Close()
-			gPRCConnInstance = nil
-		})
-	} else {
+	if gPRCConnInstance != nil {
 		gPRCTimer.Reset(gRPCConnectionTimeOut)
+		return gPRCConnInstance, nil
 	}
+
+	conn, err := ConnectToEndpoint(config.ReadConfig.SecureConnect && !config.Insecure)
+	if err != nil {
+		return nil, output.NewError(output.NetworkError, "failed to connect to endpoint", err)
+	}
+	gPRCConnInstance = conn
+	//Automatically close gRPC connection after predefined time
+	gPRCTimer = time.AfterFunc(gRPCConnectionTimeOut, func() {
+		conn.Close()
+		gPRCConnInstance = nil
+	})
 	return gPRCConnInstance, nil
 }
 
