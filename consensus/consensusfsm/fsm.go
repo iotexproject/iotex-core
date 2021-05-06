@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -90,16 +91,18 @@ type ConsensusFSM struct {
 	fsm   fsm.FSM
 	evtq  chan *ConsensusEvent
 	close chan interface{}
+	clock clock.Clock
 	ctx   Context
 	wg    sync.WaitGroup
 }
 
 // NewConsensusFSM returns a new fsm
-func NewConsensusFSM(ctx Context) (*ConsensusFSM, error) {
+func NewConsensusFSM(ctx Context, clock clock.Clock) (*ConsensusFSM, error) {
 	cm := &ConsensusFSM{
 		evtq:  make(chan *ConsensusEvent, ctx.EventChanSize()),
 		close: make(chan interface{}),
 		ctx:   ctx,
+		clock: clock,
 	}
 	b := fsm.NewBuilder().
 		AddInitialState(sPrepare).
@@ -301,7 +304,7 @@ func (m *ConsensusFSM) produce(evt *ConsensusEvent, delay time.Duration) {
 		go func() {
 			select {
 			case <-m.close:
-			case <-time.After(delay):
+			case <-m.clock.After(delay):
 				m.evtq <- evt
 			}
 			m.wg.Done()
