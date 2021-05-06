@@ -226,6 +226,11 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		claimActionCtx.Caller = identityset.Address(0)
 		claimCtx := protocol.WithActionCtx(ctx, claimActionCtx)
 
+		// Record the init balance of account
+		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		require.NoError(t, err)
+		initBalance := primAcc.Balance
+
 		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
 		require.NoError(t, err)
 
@@ -235,9 +240,10 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		unclaimedBalance, _, err := p.UnclaimedBalance(ctx, sm, claimActionCtx.Caller)
 		require.NoError(t, err)
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
-		primAcc, err := accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
+		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		initBalance = initBalance.Add(initBalance, big.NewInt(5))
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim negative amount of token will fail
 		_, err = p.Claim(claimCtx, sm, big.NewInt(-5))
@@ -255,7 +261,7 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(5), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000005), primAcc.Balance)
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim another 5 token
 		rlog, err := p.Claim(claimCtx, sm, big.NewInt(5))
@@ -274,7 +280,8 @@ func TestProtocol_ClaimReward(t *testing.T) {
 		assert.Equal(t, big.NewInt(0), unclaimedBalance)
 		primAcc, err = accountutil.LoadAccount(sm, hash.BytesToHash160(claimActionCtx.Caller.Bytes()))
 		require.NoError(t, err)
-		assert.Equal(t, big.NewInt(1000010), primAcc.Balance)
+		initBalance = initBalance.Add(initBalance, big.NewInt(5))
+		assert.Equal(t, initBalance, primAcc.Balance)
 
 		// Claim the 3-rd 5 token will fail be cause no balance for the address
 		_, err = p.Claim(claimCtx, sm, big.NewInt(5))
