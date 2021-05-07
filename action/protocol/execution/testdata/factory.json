@@ -28,7 +28,7 @@
         "rawGasPrice": "0",
         "failed": false,
         "readOnly": true,
-        "rawReturnValue": "0000000000000000000000000549a49fac70b98274dc9a561fb67b8db02409a2",
+        "rawReturnValue": "000000000000000000000000c8e5c035c33d8b7aad7ea7d506b2c87ff32cf592",
         "comment": "call greaterThan"
     }]
 }
