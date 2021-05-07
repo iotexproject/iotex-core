@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/facebookgo/clock"
 	fsm "github.com/iotexproject/go-fsm"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
@@ -84,6 +85,7 @@ type rollDPoSCtx struct {
 	encodedAddr string
 	priKey      crypto.PrivateKey
 	round       *roundCtx
+	clock       clock.Clock
 	active      bool
 	mutex       sync.RWMutex
 }
@@ -100,6 +102,7 @@ func newRollDPoSCtx(
 	delegatesByEpochFunc DelegatesByEpochFunc,
 	encodedAddr string,
 	priKey crypto.PrivateKey,
+	clock clock.Clock,
 	beringHeight uint64,
 ) (*rollDPoSCtx, error) {
 	if chain == nil {
@@ -107,6 +110,9 @@ func newRollDPoSCtx(
 	}
 	if rp == nil {
 		return nil, errors.New("roll dpos protocol cannot be nil")
+	}
+	if clock == nil {
+		return nil, errors.New("clock cannot be nil")
 	}
 	if delegatesByEpochFunc == nil {
 		return nil, errors.New("delegates by epoch function cannot be nil")
@@ -139,6 +145,7 @@ func newRollDPoSCtx(
 		priKey:            priKey,
 		chain:             chain,
 		broadcastHandler:  broadcastHandler,
+		clock:             clock,
 		roundCalc:         roundCalc,
 		eManagerDB:        eManagerDB,
 		toleratedOvertime: toleratedOvertime,
@@ -153,7 +160,7 @@ func (ctx *rollDPoSCtx) Start(c context.Context) (err error) {
 		}
 		eManager, err = newEndorsementManager(ctx.eManagerDB)
 	}
-	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), time.Now(), eManager, ctx.toleratedOvertime)
+	ctx.round, err = ctx.roundCalc.NewRoundWithToleration(0, ctx.BlockInterval(0), ctx.clock.Now(), eManager, ctx.toleratedOvertime)
 
 	return err
 }
@@ -285,14 +292,14 @@ func (ctx *rollDPoSCtx) Prepare() error {
 	ctx.mutex.Lock()
 	defer ctx.mutex.Unlock()
 	height := ctx.chain.TipHeight() + 1
-	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), time.Now(), ctx.toleratedOvertime)
+	newRound, err := ctx.roundCalc.UpdateRound(ctx.round, height, ctx.BlockInterval(height), ctx.clock.Now(), ctx.toleratedOvertime)
 	if err != nil {
 		return err
 	}
 	ctx.logger().Debug(
 		"new round",
 		zap.Uint64("height", newRound.height),
-		zap.String("ts", time.Now().String()),
+		zap.String("ts", ctx.clock.Now().String()),
 		zap.Uint64("epoch", newRound.epochNum),
 		zap.Uint64("epochStartHeight", newRound.epochStartHeight),
 		zap.Uint32("round", newRound.roundNum),
@@ -329,7 +336,7 @@ func (ctx *rollDPoSCtx) Proposal() (interface{}, error) {
 func (ctx *rollDPoSCtx) WaitUntilRoundStart() time.Duration {
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
-	now := time.Now()
+	now := ctx.clock.Now()
 	startTime := ctx.round.StartTime()
 	if now.Before(startTime) {
 		time.Sleep(startTime.Sub(now))
@@ -549,7 +556,7 @@ func (ctx *rollDPoSCtx) IsStaleUnmatchedEvent(evt *consensusfsm.ConsensusEvent) 
 	ctx.mutex.RLock()
 	defer ctx.mutex.RUnlock()
 
-	return time.Now().Sub(evt.Timestamp()) > ctx.UnmatchedEventTTL(ctx.round.height)
+	return ctx.clock.Now().Sub(evt.Timestamp()) > ctx.UnmatchedEventTTL(ctx.round.height)
 }
 
 func (ctx *rollDPoSCtx) Height() uint64 {
@@ -642,7 +649,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			data,
 			ed.Height(),
 			roundNum,
-			time.Now(),
+			ctx.clock.Now(),
 		)
 	default:
 		return consensusfsm.NewConsensusEvent(
@@ -650,7 +657,7 @@ func (ctx *rollDPoSCtx) newConsensusEvent(
 			data,
 			ctx.round.Height(),
 			ctx.round.Number(),
-			time.Now(),
+			ctx.clock.Now(),
 		)
 	}
 }
