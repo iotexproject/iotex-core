@@ -182,7 +182,7 @@ func ExecuteContract(
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	opts := []StateDBAdapterOption{}
 	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) {
-		opts = append(opts, SortCachedContractsOption())
+		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
 	}
 	stateDB := NewStateDBAdapter(
 		sm,

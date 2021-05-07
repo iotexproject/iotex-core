@@ -242,8 +242,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/influxdata/influxdb v1.7.8 h1:oXd5TjXzU1b+xyFaH/8Ij+nCoUgyuO3ZDpgCuo62yg0=
 github.com/influxdata/influxdb v1.7.8/go.mod h1:qZna6X/4elxqT3yI9iZYdZrWWdeFOOprn86kgg4+IzY=
 github.com/influxdata/influxdb1-client v0.0.0-20190809212627-fc22c7df067e/go.mod h1:qj24IKcXYK6Iy9ceXlo3Tc+vtHo9lIhSX5JddghvEPo=
-github.com/iotexproject/go-ethereum v0.3.1 h1:MVG55IHBOiLl/2rVWbpBgG2LsxuXaf0m5Cl0GGus70k=
-github.com/iotexproject/go-ethereum v0.3.1/go.mod h1:0kgLtjZ8cxwjgFgxjsTPn1zxTeJkHXeUd77lcT4OqvU=
+github.com/iotexproject/go-ethereum v1.7.4-0.20210507034014-81019842dbb1 h1:3K29pg+CaZ+/N/He9rMbJB+hR5SiZdjGfzAeNLsAKvE=
+github.com/iotexproject/go-ethereum v1.7.4-0.20210507034014-81019842dbb1/go.mod h1:0kgLtjZ8cxwjgFgxjsTPn1zxTeJkHXeUd77lcT4OqvU=
 github.com/iotexproject/go-fsm v1.0.0 h1:Zrg9JnNDUZg4Anpj6oa0Tk4+sXbHTpJzI0v5/Cj5N6A=
 github.com/iotexproject/go-fsm v1.0.0/go.mod h1:t3aYXtCCcQxyS7oduQZyuUpPnVI4ddFTwbAagHN7fT0=
 github.com/iotexproject/go-p2p v0.2.12 h1:xLn8RVDZjMDbupMxGClp5sO+fPBesvFg+uNgRsiDnfA=
