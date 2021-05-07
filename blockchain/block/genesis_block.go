@@ -41,9 +41,9 @@ func GenesisHash() hash.Hash256 {
 	return genesisHash
 }
 
-// LoadGenesisHash is done once to compute and save the genesis block's hash
-func LoadGenesisHash() {
+// LoadGenesisHash is done once to compute and save the genesis'es hash
+func LoadGenesisHash(g *genesis.Genesis) {
 	loadGenesisHash.Do(func() {
-		genesisHash = GenesisBlock().HashBlock()
+		genesisHash = g.Hash()
 	})
 }
