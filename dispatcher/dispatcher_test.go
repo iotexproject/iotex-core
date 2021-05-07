@@ -24,11 +24,11 @@ import (
 func createDispatcher(t *testing.T, chainID uint32) Dispatcher {
 	cfg := config.Config{
 		Consensus:  config.Consensus{Scheme: config.NOOPScheme},
-		Dispatcher: config.Dispatcher{EventChanSize: 1024},
+		Dispatcher: config.Dispatcher{ActionChanSize: 1024, BlockChanSize: 1024, BlockSyncChanSize: 1024},
 	}
 	dp, err := NewDispatcher(cfg)
 	assert.NoError(t, err)
-	dp.AddSubscriber(chainID, &DummySubscriber{})
+	dp.AddSubscriber(chainID, &dummySubscriber{})
 	return dp
 }
 
@@ -86,16 +86,16 @@ func TestHandleTell(t *testing.T) {
 	}
 }
 
-type DummySubscriber struct{}
+type dummySubscriber struct{}
 
-func (s *DummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
+func (ds *dummySubscriber) ReportFullness(context.Context, iotexrpc.MessageType, float32) {}
 
-func (s *DummySubscriber) HandleBlockSync(context.Context, *iotextypes.Block) error { return nil }
+func (ds *dummySubscriber) HandleBlock(context.Context, *iotextypes.Block) error { return nil }
 
-func (s *DummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
+func (ds *dummySubscriber) HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error {
 	return nil
 }
 
-func (s *DummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
+func (ds *dummySubscriber) HandleAction(context.Context, *iotextypes.Action) error { return nil }
 
-func (s *DummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }
+func (ds *dummySubscriber) HandleConsensusMsg(*iotextypes.ConsensusMessage) error { return nil }

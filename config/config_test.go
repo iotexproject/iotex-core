@@ -217,13 +217,32 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 func TestValidateDispatcher(t *testing.T) {
 	cfg := Default
-	cfg.Dispatcher.EventChanSize = 0
+	require.NoError(t, ValidateDispatcher(cfg))
+	cfg.Dispatcher.ActionChanSize = 0
 	err := ValidateDispatcher(cfg)
 	require.Error(t, err)
 	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
 	require.True(
 		t,
-		strings.Contains(err.Error(), "dispatcher event chan size should be greater than 0"),
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
+	)
+	cfg.Dispatcher.ActionChanSize = 100
+	cfg.Dispatcher.BlockChanSize = 0
+	err = ValidateDispatcher(cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
+	)
+	cfg.Dispatcher.BlockChanSize = 100
+	cfg.Dispatcher.BlockSyncChanSize = 0
+	err = ValidateDispatcher(cfg)
+	require.Error(t, err)
+	require.Equal(t, ErrInvalidCfg, errors.Cause(err))
+	require.True(
+		t,
+		strings.Contains(err.Error(), "dispatcher chan size should be greater than 0"),
 	)
 }
 

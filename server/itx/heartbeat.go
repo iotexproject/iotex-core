@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/iotexproject/go-fsm"
 	"github.com/pkg/errors"
@@ -77,6 +78,12 @@ func (h *HeartbeatHandler) Log() {
 		return
 	}
 	numDPEvts := dp.EventQueueSize()
+	totalDPEventNumber := 0
+	events := []string{}
+	for event, num := range numDPEvts {
+		totalDPEventNumber += num
+		events = append(events, event+":"+strconv.Itoa(num))
+	}
 	dpEvtsAudit, err := json.Marshal(dp.EventAudit())
 	if err != nil {
 		h.l.Error("error when serializing the dispatcher event audit map.", zap.Error(err))
@@ -92,11 +99,11 @@ func (h *HeartbeatHandler) Log() {
 	numPeers := len(peers)
 	h.l.Info("Node status.",
 		zap.Int("numPeers", numPeers),
-		zap.Int("pendingDispatcherEvents", numDPEvts),
+		zap.String("pendingDispatcherEvents", "{"+strings.Join(events, ", ")+"}"),
 		zap.String("pendingDispatcherEventsAudit", string(dpEvtsAudit)))
 
 	heartbeatMtc.WithLabelValues("numPeers", "node").Set(float64(numPeers))
-	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(numDPEvts))
+	heartbeatMtc.WithLabelValues("pendingDispatcherEvents", "node").Set(float64(totalDPEventNumber))
 	// chain service
 	for _, c := range h.s.chainservices {
 		// Consensus metrics

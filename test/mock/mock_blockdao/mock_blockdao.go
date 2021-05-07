@@ -258,12 +258,13 @@ func (mr *MockBlockDAOMockRecorder) FooterByHeight(arg0 interface{}) *gomock.Cal
 }
 
 // GetActionByActionHash mocks base method
-func (m *MockBlockDAO) GetActionByActionHash(arg0 hash.Hash256, arg1 uint64) (action.SealedEnvelope, error) {
+func (m *MockBlockDAO) GetActionByActionHash(arg0 hash.Hash256, arg1 uint64) (action.SealedEnvelope, uint32, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActionByActionHash", arg0, arg1)
 	ret0, _ := ret[0].(action.SealedEnvelope)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret1, _ := ret[1].(uint32)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // GetActionByActionHash indicates an expected call of GetActionByActionHash
