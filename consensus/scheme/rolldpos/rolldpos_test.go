@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -77,6 +78,25 @@ func TestNewRollDPoS(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, r)
 	})
+	t.Run("mock-clock", func(t *testing.T) {
+		sk := identityset.PrivateKey(0)
+		r, err := NewRollDPoSBuilder().
+			SetConfig(cfg).
+			SetAddr(identityset.Address(0).String()).
+			SetPriKey(sk).
+			SetChainManager(mock_blockchain.NewMockBlockchain(ctrl)).
+			SetBroadcast(func(_ proto.Message) error {
+				return nil
+			}).
+			SetClock(clock.NewMock()).
+			SetDelegatesByEpochFunc(delegatesByEpoch).
+			RegisterProtocol(rp).
+			Build()
+		assert.NoError(t, err)
+		assert.NotNil(t, r)
+		_, ok := r.ctx.clock.(*clock.Mock)
+		assert.True(t, ok)
+	})
 
 	t.Run("root chain API", func(t *testing.T) {
 		sk := identityset.PrivateKey(0)
@@ -88,6 +108,7 @@ func TestNewRollDPoS(t *testing.T) {
 			SetBroadcast(func(_ proto.Message) error {
 				return nil
 			}).
+			SetClock(clock.NewMock()).
 			SetDelegatesByEpochFunc(delegatesByEpoch).
 			RegisterProtocol(rp).
 			Build()
@@ -165,6 +186,7 @@ func TestValidateBlockFooter(t *testing.T) {
 	for i := 0; i < len(candidates); i++ {
 		candidates[i] = identityset.Address(i).String()
 	}
+	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -198,6 +220,7 @@ func TestValidateBlockFooter(t *testing.T) {
 				candidates[3],
 			}, nil
 		}).
+		SetClock(clock).
 		RegisterProtocol(rp).
 		Build()
 	require.NoError(t, err)
@@ -240,6 +263,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		candidates[i] = identityset.Address(i).String()
 	}
 
+	clock := clock.NewMock()
 	blockHeight := uint64(8)
 	footer := &block.Footer{}
 	blockchain := mock_blockchain.NewMockBlockchain(ctrl)
@@ -267,6 +291,7 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		SetBroadcast(func(_ proto.Message) error {
 			return nil
 		}).
+		SetClock(clock).
 		SetDelegatesByEpochFunc(func(uint64) ([]string, error) {
 			return []string{
 				candidates[0],
@@ -279,8 +304,9 @@ func TestRollDPoS_Metrics(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	require.NotNil(t, r)
+	clock.Add(r.ctx.BlockInterval(blockHeight))
 	require.NoError(t, r.ctx.Start(context.Background()))
-	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), time.Now(), 2*time.Second)
+	r.ctx.round, err = r.ctx.roundCalc.UpdateRound(r.ctx.round, blockHeight+1, r.ctx.BlockInterval(blockHeight+1), clock.Now(), 2*time.Second)
 	require.NoError(t, err)
 
 	m, err := r.Metrics()
