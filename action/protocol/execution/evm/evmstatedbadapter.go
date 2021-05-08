@@ -446,7 +446,7 @@ func (stateDB *StateDBAdapter) Snapshot() int {
 	return sn
 }
 
-// AddLog adds log
+// AddLog adds log whose amount larger than 0
 func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 	log.L().Debug("Called AddLog.", zap.Any("log", evmLog))
 	addr, err := address.FromBytes(evmLog.Address.Bytes())
@@ -465,8 +465,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 			panic("Invalid in contract transfer topics")
 		}
 		amount := new(big.Int).SetBytes(evmLog.Data)
-		//ignore invalid log
-		if amount.BitLen() != 0 {
+		if amount.Cmp(big.NewInt(0)) == 0 {
 			from, _ := address.FromBytes(topics[1][12:])
 			to, _ := address.FromBytes(topics[2][12:])
 			stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
