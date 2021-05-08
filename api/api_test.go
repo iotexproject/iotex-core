@@ -1037,8 +1037,8 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
-	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&cfg.Genesis)
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
 	defer func() {

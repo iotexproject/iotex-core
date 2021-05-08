@@ -171,7 +171,9 @@ var (
 			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
-			EventChanSize: 10000,
+			ActionChanSize:    1000,
+			BlockChanSize:     1000,
+			BlockSyncChanSize: 400,
 		},
 		API: API{
 			UseRDS:    false,
@@ -326,7 +328,9 @@ type (
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
-		EventChanSize uint `yaml:"eventChanSize"`
+		ActionChanSize    uint `yaml:"actionChanSize"`
+		BlockChanSize     uint `yaml:"blockChanSize"`
+		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
@@ -606,8 +610,8 @@ func (ap ActPool) MinGasPrice() *big.Int {
 
 // ValidateDispatcher validates the dispatcher configs
 func ValidateDispatcher(cfg Config) error {
-	if cfg.Dispatcher.EventChanSize <= 0 {
-		return errors.Wrap(ErrInvalidCfg, "dispatcher event chan size should be greater than 0")
+	if cfg.Dispatcher.ActionChanSize <= 0 || cfg.Dispatcher.BlockChanSize <= 0 || cfg.Dispatcher.BlockSyncChanSize <= 0 {
+		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
 	}
 	return nil
 }

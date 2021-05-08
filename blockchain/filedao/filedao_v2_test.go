@@ -259,7 +259,7 @@ func TestNewFdInterface(t *testing.T) {
 	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {

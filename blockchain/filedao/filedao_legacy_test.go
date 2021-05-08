@@ -76,7 +76,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
