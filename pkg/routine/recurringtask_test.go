@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/facebookgo/clock"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/iotexproject/iotex-core/pkg/routine"
@@ -31,9 +32,10 @@ func (h *MockHandler) Do() {
 func TestRecurringTask(t *testing.T) {
 	h := &MockHandler{Count: 0}
 	ctx := context.Background()
-	task := routine.NewRecurringTask(h.Do, 100*time.Millisecond)
+	ck := clock.NewMock()
+	task := routine.NewRecurringTask(h.Do, 100*time.Millisecond, routine.WithClock(ck))
 	task.Start(ctx)
-	time.Sleep(600 * time.Millisecond)
+	ck.Add(600 * time.Millisecond)
 	task.Stop(ctx)
 	h.mu.RLock()
 	assert.True(t, h.Count >= 5)

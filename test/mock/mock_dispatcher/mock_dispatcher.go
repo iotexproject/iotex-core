@@ -11,7 +11,7 @@ import (
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
 	reflect "reflect"
 )
 
@@ -36,6 +36,18 @@ func NewMockSubscriber(ctrl *gomock.Controller) *MockSubscriber {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockSubscriber) EXPECT() *MockSubscriberMockRecorder {
 	return m.recorder
+}
+
+// ReportFullness mocks base method
+func (m *MockSubscriber) ReportFullness(arg0 context.Context, arg1 iotexrpc.MessageType, arg2 float32) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReportFullness", arg0, arg1, arg2)
+}
+
+// ReportFullness indicates an expected call of ReportFullness
+func (mr *MockSubscriberMockRecorder) ReportFullness(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportFullness", reflect.TypeOf((*MockSubscriber)(nil).ReportFullness), arg0, arg1, arg2)
 }
 
 // HandleAction mocks base method
@@ -66,22 +78,8 @@ func (mr *MockSubscriberMockRecorder) HandleBlock(arg0, arg1 interface{}) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlock", reflect.TypeOf((*MockSubscriber)(nil).HandleBlock), arg0, arg1)
 }
 
-// HandleBlockSync mocks base method
-func (m *MockSubscriber) HandleBlockSync(arg0 context.Context, arg1 *iotextypes.Block) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleBlockSync", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleBlockSync indicates an expected call of HandleBlockSync
-func (mr *MockSubscriberMockRecorder) HandleBlockSync(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBlockSync", reflect.TypeOf((*MockSubscriber)(nil).HandleBlockSync), arg0, arg1)
-}
-
 // HandleSyncRequest mocks base method
-func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
+func (m *MockSubscriber) HandleSyncRequest(arg0 context.Context, arg1 go_libp2p_peerstore.PeerInfo, arg2 *iotexrpc.BlockSync) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleSyncRequest", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -184,7 +182,7 @@ func (mr *MockDispatcherMockRecorder) HandleBroadcast(arg0, arg1, arg2 interface
 }
 
 // HandleTell mocks base method
-func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 peerstore.PeerInfo, arg3 proto.Message) {
+func (m *MockDispatcher) HandleTell(arg0 context.Context, arg1 uint32, arg2 go_libp2p_peerstore.PeerInfo, arg3 proto.Message) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "HandleTell", arg0, arg1, arg2, arg3)
 }

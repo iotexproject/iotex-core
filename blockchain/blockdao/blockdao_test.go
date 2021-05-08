@@ -391,7 +391,7 @@ func TestBlockDAO(t *testing.T) {
 	cfg := config.Default.DB
 	cfg.DbPath = testPath
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
