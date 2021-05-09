@@ -58,11 +58,13 @@ func (b *blockBuffer) cleanup(height uint64) {
 	size := len(b.blocks)
 	if size > int(b.bufferSize)*2 {
 		log.L().Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
+		newBlocks := map[uint64]*block.Block{}
 		for h := range b.blocks {
-			if h <= height {
-				b.delete(h)
+			if h > height {
+				newBlocks[h] = b.blocks[h]
 			}
 		}
+		b.blocks = newBlocks
 	}
 }
 
