@@ -7,6 +7,7 @@
 package block
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -15,10 +16,14 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/iotexproject/go-pkgs/crypto"
+	"github.com/iotexproject/go-pkgs/hash"
+	"github.com/iotexproject/iotex-antenna-go/v2/iotex"
+	"github.com/iotexproject/iotex-proto/golang/iotexapi"
+	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/pkg/compress"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -26,7 +31,6 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
-	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 )
 
 func TestMerkle(t *testing.T) {
@@ -124,6 +128,57 @@ func TestConvertFromBlockPb(t *testing.T) {
 	err = newblk.Deserialize(raw)
 	require.NoError(t, err)
 	require.Equal(t, blk, newblk)
+}
+
+func TestBlock8639280(t *testing.T) {
+	require := require.New(t)
+	conn, err := iotex.NewDefaultGRPCConn("api.testnet.iotex.one:443")
+	require.NoError(err)
+	defer conn.Close()
+
+	c := iotexapi.NewAPIServiceClient(conn)
+	res, err := c.GetRawBlocks(context.Background(), &iotexapi.GetRawBlocksRequest{
+		StartHeight:  8639280,
+		Count:        1,
+		WithReceipts: true,
+	})
+	require.NoError(err)
+	require.Equal(1, len(res.Blocks))
+
+	// deserialize data, verify block hash
+	var (
+		blk   Block
+		pbBlk = res.Blocks[0].Block
+	)
+	require.NoError(blk.ConvertFromBlockPb(pbBlk))
+	h := blk.HashBlock()
+	require.Equal("52c14b50eb4a592916d387bcca752d1b472f3b5a11b7b0e30eb3d8f265a13673",
+		hex.EncodeToString(h[:]))
+
+	// verify tx root
+	h = blk.CalculateTxRoot()
+	require.Equal(pbBlk.Header.Core.TxRoot, h[:])
+
+	// verify receipt root
+	for _, receiptPb := range res.Blocks[0].Receipts {
+		receipt := &action.Receipt{}
+		receipt.ConvertFromReceiptPb(receiptPb)
+		blk.Receipts = append(blk.Receipts, receipt)
+	}
+	h = blk.ReceiptRoot()
+	require.Equal(pbBlk.Header.Core.ReceiptRoot, h[:])
+}
+
+func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
+	if len(receipts) == 0 {
+		return hash.ZeroHash256
+	}
+	h := make([]hash.Hash256, 0, len(receipts))
+	for _, receipt := range receipts {
+		h = append(h, receipt.Hash())
+	}
+	res := crypto.NewMerkleTree(h).HashTree()
+	return res
 }
 
 func TestBlockCompressionSize(t *testing.T) {
