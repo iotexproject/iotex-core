@@ -25,7 +25,7 @@ import (
 
 type (
 	// RequestBlocks send a block request to peers
-	RequestBlocks func(ctx context.Context, start uint64, end uint64) error
+	RequestBlocks func(ctx context.Context, start uint64, end uint64, repeat int)
 	// TipHeight returns the tip height of blockchain
 	TipHeight func() uint64
 	// BlockByHeight returns the block of a given height
@@ -76,7 +76,7 @@ func NewBlockSyncer(
 	requestBlocksHandler RequestBlocks,
 ) (BlockSync, error) {
 	buf := &blockBuffer{
-		blocks:       map[uint64]*block.Block{},
+		blockQueues:  map[uint64]*uniQueue{},
 		bufferSize:   cfg.BufferSize,
 		intervalSize: cfg.IntervalSize,
 	}
@@ -104,26 +104,27 @@ func (bs *blockSyncer) flush() {
 	tip := bs.tipHeightHandler()
 	newTip := bs.buf.Flush(tip, bs.commitBlockHandler)
 	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", newTip))
-}
-
-func (bs *blockSyncer) updateTipHeight() (uint64, time.Time, uint64) {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	tipHeight := bs.tipHeightHandler()
-	if tipHeight != bs.lastTip {
-		bs.lastTip = tipHeight
+	if newTip > bs.lastTip {
+		bs.lastTip = newTip
 		bs.lastTipUpdateTime = time.Now()
 	}
+}
 
-	return bs.lastTip, bs.lastTipUpdateTime, bs.targetHeight
+func (bs *blockSyncer) flushInfo() (time.Time, uint64) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+
+	return bs.lastTipUpdateTime, bs.targetHeight
 }
 
 func (bs *blockSyncer) sync() {
-	tipHeight, updateTime, targetHeight := bs.updateTipHeight()
+	updateTime, targetHeight := bs.flushInfo()
 	if updateTime.Add(bs.cfg.Interval).After(time.Now()) {
 		return
 	}
-	intervals := bs.buf.GetBlocksIntervalsToSync(tipHeight, targetHeight)
+	intervals := bs.buf.GetBlocksIntervalsToSync(bs.tipHeightHandler(), targetHeight)
 	if intervals != nil {
 		log.L().Info("block sync intervals.",
 			zap.Any("intervals", intervals),
@@ -131,15 +132,7 @@ func (bs *blockSyncer) sync() {
 	}
 
 	for i, interval := range intervals {
-		repeat := bs.cfg.MaxRepeat - i/bs.cfg.RepeatDecayStep
-		if repeat <= 0 {
-			repeat = 1
-		}
-		for j := 0; j < repeat; j++ {
-			if err := bs.requestBlocksHandler(context.Background(), interval.Start, interval.End); err != nil {
-				log.L().Debug("failed to sync block.", zap.Error(err))
-			}
-		}
+		bs.requestBlocksHandler(context.Background(), interval.Start, interval.End, bs.cfg.MaxRepeat-i/bs.cfg.RepeatDecayStep)
 	}
 }
 

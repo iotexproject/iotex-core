@@ -66,13 +66,13 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		blocks:     make(map[uint64]*block.Block),
-		bufferSize: 16,
+		blockQueues: make(map[uint64]*uniQueue),
+		bufferSize:  16,
 	}
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
 	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(1, len(b.blocks))
+	require.Equal(1, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -83,7 +83,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(1, len(b.blocks))
+	require.Equal(1, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -94,7 +94,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	require.Equal(2, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -105,7 +105,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	require.Equal(2, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -116,7 +116,7 @@ func TestBlockBufferFlush(t *testing.T) {
 		nil,
 	)
 	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	require.Equal(2, len(b.blockQueues))
 }
 
 func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
@@ -150,7 +150,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		blocks:       make(map[uint64]*block.Block),
+		blockQueues:  make(map[uint64]*uniQueue),
 		bufferSize:   16,
 		intervalSize: 8,
 	}

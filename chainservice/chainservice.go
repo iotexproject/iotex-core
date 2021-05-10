@@ -380,19 +380,31 @@ func New(
 
 			return nil
 		},
-		func(ctx context.Context, start uint64, end uint64) error {
+		func(ctx context.Context, start uint64, end uint64, repeat int) {
 			peers, err := p2pAgent.Neighbors(ctx)
 			if err != nil {
-				return err
+				log.L().Error("failed to get neighbours", zap.Error(err))
+				return
 			}
 			if len(peers) == 0 {
-				return errors.New("no peers")
+				log.L().Error("no peers")
 			}
-			return p2pAgent.UnicastOutbound(
-				p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
-				peers[rand.Intn(len(peers))],
-				&iotexrpc.BlockSync{Start: start, End: end},
-			)
+			if repeat < 2 {
+				repeat = 2
+			}
+			if repeat > len(peers) {
+				repeat = len(peers)
+			}
+			for i := 0; i < repeat; i++ {
+				peer := peers[rand.Intn(len(peers)-i)]
+				if err := p2pAgent.UnicastOutbound(
+					p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
+					peer,
+					&iotexrpc.BlockSync{Start: start, End: end},
+				); err != nil {
+					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
+				}
+			}
 		},
 	)
 	if err != nil {

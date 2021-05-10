@@ -53,8 +53,7 @@ func newBlockSyncer(cfg config.BlockSync, chain bc.Blockchain, dao blockdao.Bloc
 		}
 		cs.Calibrate(blk.Height())
 		return nil
-	}, func(ctx context.Context, start uint64, end uint64) error {
-		return nil
+	}, func(context.Context, uint64, uint64, int) {
 	})
 	if err != nil {
 		return nil, err

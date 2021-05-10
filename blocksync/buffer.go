@@ -11,6 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/go-pkgs/hash"
+
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
@@ -18,7 +20,7 @@ import (
 // blockBuffer is used to keep in-coming block in order.
 type blockBuffer struct {
 	mu           sync.RWMutex
-	blocks       map[uint64]*block.Block
+	blockQueues  map[uint64]*uniQueue
 	bufferSize   uint64
 	intervalSize uint64
 }
@@ -28,43 +30,41 @@ type syncBlocksInterval struct {
 	End   uint64
 }
 
-func (b *blockBuffer) load(height uint64) *block.Block {
+func (b *blockBuffer) contains(height uint64) bool {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	blk, ok := b.blocks[height]
-	if !ok {
-		return nil
-	}
+	_, ok := b.blockQueues[height]
 
-	return blk
+	return ok
 }
 
-func (b *blockBuffer) delete(height uint64) *block.Block {
+func (b *blockBuffer) delete(height uint64) []*block.Block {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	blk, ok := b.blocks[height]
+	queue, ok := b.blockQueues[height]
 	if !ok {
 		return nil
 	}
-	delete(b.blocks, height)
+	blks := queue.dequeAll()
+	delete(b.blockQueues, height)
 
-	return blk
+	return blks
 }
 
 func (b *blockBuffer) cleanup(height uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	size := len(b.blocks)
+	size := len(b.blockQueues)
 	if size > int(b.bufferSize)*2 {
 		log.L().Warn("blockBuffer is leaking memory.", zap.Int("bufferSize", size))
-		newBlocks := map[uint64]*block.Block{}
-		for h := range b.blocks {
+		newQueues := map[uint64]*uniQueue{}
+		for h := range b.blockQueues {
 			if h > height {
-				newBlocks[h] = b.blocks[h]
+				newQueues[h] = b.blockQueues[h]
 			}
 		}
-		b.blocks = newBlocks
+		b.blockQueues = newQueues
 	}
 }
 
@@ -74,10 +74,13 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *block.Block) {
 	if blkHeight > tipHeight && blkHeight <= tipHeight+b.bufferSize {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-
-		if _, ok := b.blocks[blkHeight]; !ok {
-			b.blocks[blkHeight] = blk
+		if _, ok := b.blockQueues[blkHeight]; !ok {
+			b.blockQueues[blkHeight] = &uniQueue{
+				blocks: []*block.Block{},
+				hashes: map[hash.Hash256]bool{},
+			}
 		}
+		b.blockQueues[blkHeight].enque(blk)
 	}
 }
 
@@ -85,14 +88,21 @@ func (b *blockBuffer) Flush(tipHeight uint64, commitBlock func(*block.Block) err
 	syncedHeight := tipHeight
 	log.L().Debug("Flush blocks", zap.Uint64("tipHeight", tipHeight), zap.String("source", "blockBuffer"))
 	for syncedHeight <= tipHeight+b.bufferSize {
-		blk := b.delete(syncedHeight + 1)
-		if blk == nil {
+		committed := false
+		blks := b.delete(syncedHeight + 1)
+		for _, blk := range blks {
+			if blk == nil {
+				continue
+			}
+			if err := commitBlock(blk); err != nil {
+				log.L().Debug("failed to commit block", zap.Error(err))
+				continue
+			}
+			syncedHeight++
+			committed = true
 			break
 		}
-		if err := commitBlock(blk); err == nil {
-			syncedHeight++
-		} else {
-			log.L().Debug("failed to commit block", zap.Error(err))
+		if committed == false {
 			break
 		}
 	}
@@ -122,7 +132,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if b.load(h) == nil {
+		if !b.contains(h) {
 			iLen++
 			if !startSet {
 				start = h
