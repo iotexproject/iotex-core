@@ -462,7 +462,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	ctx, err = api.bc.Context()
+	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1579,7 +1579,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context()
+	ctx, err := api.bc.Context(context.Background())
 	if err != nil {
 		return false, nil, err
 	}

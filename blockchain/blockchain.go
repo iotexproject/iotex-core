@@ -78,7 +78,7 @@ type (
 		// Genesis returns the genesis
 		Genesis() genesis.Genesis
 		// Context returns current context
-		Context() (context.Context, error)
+		Context(context.Context) (context.Context, error)
 
 		// For block operations
 		// MintNewBlock creates a new block with given actions
@@ -332,11 +332,11 @@ func (bc *blockchain) ValidateBlock(blk *block.Block) error {
 	return bc.blockValidator.Validate(ctx, blk)
 }
 
-func (bc *blockchain) Context() (context.Context, error) {
+func (bc *blockchain) Context(ctx context.Context) (context.Context, error) {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
 
-	return bc.context(context.Background(), true)
+	return bc.context(ctx, true)
 }
 
 func (bc *blockchain) contextWithBlock(ctx context.Context, producer address.Address, height uint64, timestamp time.Time) context.Context {
