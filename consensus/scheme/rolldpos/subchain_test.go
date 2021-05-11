@@ -14,10 +14,10 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/stretchr/testify/require"
 
+	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/test/identityset"
-	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestPutBlockToParentChain(t *testing.T) {
@@ -48,7 +48,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 						Nonce:   101,
 					},
 					SenderPubKey: pubKey.Bytes(),
-					Signature:    testutil.ValidSig,
+					Signature:    action.ValidSig,
 				},
 				{
 					Core: &iotextypes.ActionCore{
@@ -59,7 +59,7 @@ func TestPutBlockToParentChain(t *testing.T) {
 						Nonce:   102,
 					},
 					SenderPubKey: pubKey.Bytes(),
-					Signature:    testutil.ValidSig,
+					Signature:    action.ValidSig,
 				},
 			},
 		},
