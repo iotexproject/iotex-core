@@ -25,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
@@ -111,7 +112,7 @@ var (
 			ProducerPrivKey:        generateRandomKey(SigP256k1),
 			SignatureScheme:        []string{SigP256k1},
 			EmptyGenesis:           false,
-			GravityChainDB:         DB{DbPath: "/var/data/poll.db", NumRetries: 10},
+			GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -196,7 +197,7 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
-		DB: DB{
+		DB: db.Config{
 			NumRetries:            3,
 			MaxCacheSize:          64,
 			BlockStoreBatchSize:   16,
@@ -261,7 +262,7 @@ type (
 		ProducerPrivKey        string           `yaml:"producerPrivKey"`
 		SignatureScheme        []string         `yaml:"signatureScheme"`
 		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         DB               `yaml:"gravityChainDB"`
+		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
 		Committee              committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
@@ -394,29 +395,6 @@ type (
 		BlackList []string `yaml:"blackList"`
 	}
 
-	// DB is the config for database
-	DB struct {
-		DbPath string `yaml:"dbPath"`
-		// NumRetries is the number of retries
-		NumRetries uint8 `yaml:"numRetries"`
-		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
-		MaxCacheSize int `yaml:"maxCacheSize"`
-		// BlockStoreBatchSize is the number of blocks to be stored together as a unit (to get better compression)
-		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
-		// V2BlocksToSplitDB is the accumulated number of blocks to split a new file after v1.1.2
-		V2BlocksToSplitDB uint64 `yaml:"v2BlocksToSplitDB"`
-		// Compressor is the compression used on block data, used by new DB file after v1.1.2
-		Compressor string `yaml:"compressor"`
-		// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
-		CompressLegacy bool `yaml:"compressLegacy"`
-		// SplitDBSize is the config for DB's split file size
-		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
-		// SplitDBHeight is the config for DB's split start height
-		SplitDBHeight uint64 `yaml:"splitDBHeight"`
-		// HistoryStateRetention is the number of blocks account/contract state will be retained
-		HistoryStateRetention uint64 `yaml:"historyStateRetention"`
-	}
-
 	// Indexer is the config for indexer
 	Indexer struct {
 		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
@@ -439,7 +417,7 @@ type (
 		Dispatcher         Dispatcher                  `yaml:"dispatcher"`
 		API                API                         `yaml:"api"`
 		System             System                      `yaml:"system"`
-		DB                 DB                          `yaml:"db"`
+		DB                 db.Config                   `yaml:"db"`
 		Indexer            Indexer                     `yaml:"indexer"`
 		Log                log.GlobalConfig            `yaml:"log"`
 		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
@@ -449,11 +427,6 @@ type (
 	// Validate is the interface of validating the config
 	Validate func(Config) error
 )
-
-// SplitDBSize returns the configured SplitDBSizeMB
-func (db DB) SplitDBSize() uint64 {
-	return db.SplitDBSizeMB * 1024 * 1024
-}
 
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,

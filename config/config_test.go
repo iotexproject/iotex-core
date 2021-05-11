@@ -98,12 +98,6 @@ chain:
 	return sk, cfgStr, err
 }
 
-func TestDB_SplitDBSize(t *testing.T) {
-	var db = DB{SplitDBSizeMB: uint64(1)}
-	var expected = uint64(1 * 1024 * 1024)
-	require.Equal(t, expected, db.SplitDBSize())
-}
-
 func TestStrs_String(t *testing.T) {
 	ss := strs{"test"}
 	str := "TEST"

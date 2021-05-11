@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -60,7 +59,7 @@ func TestKVStorePutGet(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	for _, v := range []KVStore{
@@ -119,7 +118,7 @@ func TestBatchRollback(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("test rollback", func(t *testing.T) {
@@ -242,7 +241,7 @@ func TestDBBatch(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	for _, v := range []KVStore{
@@ -295,7 +294,7 @@ func TestCacheKV(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	for _, v := range []KVStore{
@@ -341,7 +340,7 @@ func TestDeleteBucket(t *testing.T) {
 	require.NoError(t, err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("test delete bucket", func(t *testing.T) {
@@ -443,7 +442,7 @@ func TestFilter(t *testing.T) {
 	require.NoError(err)
 	testutil.CleanupPath(t, testPath)
 	defer testutil.CleanupPath(t, testPath)
-	cfg := config.Default.DB
+	cfg := DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("test filter", func(t *testing.T) {
