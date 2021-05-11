@@ -69,7 +69,7 @@ func TestLocalActPool(t *testing.T) {
 	}()
 
 	// Create three valid actions from "from" to "to"
-	tsf1, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
+	tsf1, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(1), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
 	// Wait until server receives the 1st action
@@ -80,15 +80,15 @@ func TestLocalActPool(t *testing.T) {
 	}))
 	fmt.Println("1")
 
-	tsf2, err := testutil.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf2, err := action.SignedTransfer(identityset.Address(1).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 3, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf3, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 3, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Create contract
-	exec4, err := testutil.SignedExecution(action.EmptyAddress, identityset.PrivateKey(1), 4, big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
+	exec4, err := action.SignedExecution(action.EmptyAddress, identityset.PrivateKey(1), 4, big.NewInt(0), uint64(120000), big.NewInt(10), []byte{})
 	require.NoError(err)
 	// Create three invalid actions from "from" to "to"
-	tsf5, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
+	tsf5, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 2, big.NewInt(3), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 
 	require.NoError(cli.BroadcastOutbound(p2pCtx, tsf2.Proto()))
@@ -145,7 +145,7 @@ func TestPressureActPool(t *testing.T) {
 	}()
 
 	p2pCtx := p2p.WitContext(ctx, p2p.Context{ChainID: chainID})
-	tsf, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(int64(0)), []byte{}, uint64(100000), big.NewInt(0))
+	tsf, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), 1, big.NewInt(int64(0)), []byte{}, uint64(100000), big.NewInt(0))
 	require.NoError(err)
 	// Wait until server receives the 1st action
 	require.NoError(testutil.WaitUntil(100*time.Millisecond, 60*time.Second, func() (bool, error) {
@@ -156,7 +156,7 @@ func TestPressureActPool(t *testing.T) {
 
 	// Broadcast has rate limit at 300
 	for i := 2; i <= 250; i++ {
-		tsf, err := testutil.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
+		tsf, err := action.SignedTransfer(identityset.Address(0).String(), identityset.PrivateKey(1), uint64(i), big.NewInt(int64(i)), []byte{}, uint64(100000), big.NewInt(0))
 		require.NoError(err)
 		require.NoError(cli.BroadcastOutbound(p2pCtx, tsf.Proto()))
 	}

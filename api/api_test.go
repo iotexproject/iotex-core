@@ -61,36 +61,36 @@ import (
 const lld = "lifeLongDelegates"
 
 var (
-	testTransfer, _ = testutil.SignedTransfer(identityset.Address(28).String(),
+	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
-	testExecution, _ = testutil.SignedExecution(identityset.Address(29).String(),
+	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
-	testTransfer1, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
+	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1    = testTransfer1.Hash()
-	testTransfer2, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
+	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2 = testTransfer2.Hash()
 
-	testExecution1, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash1 = testExecution1.Hash()
 
-	testExecution2, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+	testExecution2, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2 = testExecution2.Hash()
 
-	testExecution3, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
+	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 
@@ -1223,7 +1223,7 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{
-				Signature: testutil.ValidSig,
+				Signature: action.ValidSig,
 			},
 			"empty action proto to load",
 		},
@@ -2137,7 +2137,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	addr4 := identityset.Address(31).String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf, err := action.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2166,7 +2166,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
 	for i, recipient := range recipients {
-		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		selp, err := action.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
@@ -2177,7 +2177,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
-	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	selp, err := action.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2187,7 +2187,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, selp); err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
+	execution1, err := action.SignedExecution(addr4, priKey3, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2226,7 +2226,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	// Alfa transfer--> A
 	// Charlie exec--> D
 	// Alfa exec--> D
-	tsf1, err := testutil.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := action.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2236,7 +2236,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2246,7 +2246,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
+	execution1, err = action.SignedExecution(addr4, priKey3, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2258,7 +2258,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
+	execution2, err := action.SignedExecution(addr4, priKey1, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2280,7 +2280,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 
 func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
 	data, _ := hex.DecodeString(code)
-	ex1, err := testutil.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
 	if err != nil {
 		return "", err
 	}
@@ -2309,22 +2309,22 @@ func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, co
 
 func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	// Producer transfer--> A
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> P
-	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> B
-	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer exec--> D
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
@@ -2512,16 +2512,16 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3,
+	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4,
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	require.NoError(err)
 
