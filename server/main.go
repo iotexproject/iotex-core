@@ -32,7 +32,10 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+var genesisPath string
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -50,7 +53,7 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
