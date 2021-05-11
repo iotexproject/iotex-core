@@ -30,15 +30,15 @@ type syncBlocksInterval struct {
 	End   uint64
 }
 
-func (b *blockBuffer) contains(height uint64) bool {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-	_, ok := b.blockQueues[height]
-
-	return ok
+func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
+	return &blockBuffer{
+		blockQueues:  map[uint64]*uniQueue{},
+		bufferSize:   bufferSize,
+		intervalSize: intervalSize,
+	}
 }
 
-func (b *blockBuffer) delete(height uint64) []*block.Block {
+func (b *blockBuffer) Delete(height uint64) []*block.Block {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
@@ -51,7 +51,7 @@ func (b *blockBuffer) delete(height uint64) []*block.Block {
 	return blks
 }
 
-func (b *blockBuffer) cleanup(height uint64) {
+func (b *blockBuffer) Cleanup(height uint64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -70,10 +70,10 @@ func (b *blockBuffer) cleanup(height uint64) {
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
 func (b *blockBuffer) AddBlock(tipHeight uint64, blk *block.Block) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	blkHeight := blk.Height()
 	if blkHeight > tipHeight && blkHeight <= tipHeight+b.bufferSize {
-		b.mu.Lock()
-		defer b.mu.Unlock()
 		if _, ok := b.blockQueues[blkHeight]; !ok {
 			b.blockQueues[blkHeight] = &uniQueue{
 				blocks: []*block.Block{},
@@ -84,37 +84,10 @@ func (b *blockBuffer) AddBlock(tipHeight uint64, blk *block.Block) {
 	}
 }
 
-func (b *blockBuffer) Flush(tipHeight uint64, commitBlock func(*block.Block) error) uint64 {
-	syncedHeight := tipHeight
-	log.L().Debug("Flush blocks", zap.Uint64("tipHeight", tipHeight), zap.String("source", "blockBuffer"))
-	for syncedHeight <= tipHeight+b.bufferSize {
-		committed := false
-		blks := b.delete(syncedHeight + 1)
-		for _, blk := range blks {
-			if blk == nil {
-				continue
-			}
-			if err := commitBlock(blk); err != nil {
-				log.L().Debug("failed to commit block", zap.Error(err))
-				continue
-			}
-			syncedHeight++
-			committed = true
-			break
-		}
-		if committed == false {
-			break
-		}
-	}
-
-	// clean up on memory leak
-	b.cleanup(syncedHeight)
-
-	return syncedHeight
-}
-
 // GetBlocksIntervalsToSync returns groups of syncBlocksInterval are missing upto targetHeight.
 func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHeight uint64) []syncBlocksInterval {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	var (
 		start    uint64
 		startSet bool
@@ -132,7 +105,7 @@ func (b *blockBuffer) GetBlocksIntervalsToSync(confirmedHeight uint64, targetHei
 
 	var iLen uint64
 	for h := confirmedHeight + 1; h <= targetHeight; h++ {
-		if !b.contains(h) {
+		if _, ok := b.blockQueues[h]; !ok {
 			iLen++
 			if !startSet {
 				start = h

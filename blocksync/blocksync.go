@@ -75,15 +75,10 @@ func NewBlockSyncer(
 	commitBlockHandler CommitBlock,
 	requestBlocksHandler RequestBlocks,
 ) (BlockSync, error) {
-	buf := &blockBuffer{
-		blockQueues:  map[uint64]*uniQueue{},
-		bufferSize:   cfg.BufferSize,
-		intervalSize: cfg.IntervalSize,
-	}
 	bs := &blockSyncer{
 		cfg:                  cfg,
 		lastTipUpdateTime:    time.Now(),
-		buf:                  buf,
+		buf:                  newBlockBuffer(cfg.BufferSize, cfg.IntervalSize),
 		tipHeightHandler:     tipHeightHandler,
 		blockByHeightHandler: blockByHeightHandler,
 		commitBlockHandler:   commitBlockHandler,
@@ -100,14 +95,39 @@ func NewBlockSyncer(
 	return bs, nil
 }
 
+func (bs *blockSyncer) commitBlocks(blks []*block.Block) bool {
+	if blks == nil {
+		return false
+	}
+	for _, blk := range blks {
+		if blk == nil {
+			continue
+		}
+		err := bs.commitBlockHandler(blk)
+		if err == nil {
+			return true
+		}
+		log.L().Debug("failed to commit block", zap.Error(err))
+	}
+	return false
+}
+
 func (bs *blockSyncer) flush() {
 	tip := bs.tipHeightHandler()
-	newTip := bs.buf.Flush(tip, bs.commitBlockHandler)
-	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", newTip))
+	syncedHeight := tip
+	for {
+		blks := bs.buf.Delete(syncedHeight + 1)
+		if !bs.commitBlocks(blks) {
+			break
+		}
+		syncedHeight++
+	}
+	bs.buf.Cleanup(syncedHeight)
+	log.L().Debug("flush blocks", zap.Uint64("start", tip), zap.Uint64("end", syncedHeight))
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
-	if newTip > bs.lastTip {
-		bs.lastTip = newTip
+	if syncedHeight > bs.lastTip {
+		bs.lastTip = syncedHeight
 		bs.lastTipUpdateTime = time.Now()
 	}
 }
