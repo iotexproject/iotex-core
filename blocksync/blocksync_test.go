@@ -215,7 +215,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
-	ctx, err = chain.Context()
+	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, blk))
 	bs.flush()
@@ -297,7 +297,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
-	ctx, err = chain1.Context()
+	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
@@ -392,7 +392,7 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	ctx, err = chain1.Context()
+	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
 	// commit top
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
@@ -462,7 +462,7 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
-	ctx, err = chain.Context()
+	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)

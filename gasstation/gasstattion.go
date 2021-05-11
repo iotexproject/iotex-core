@@ -118,7 +118,7 @@ func (gs *GasStation) EstimateGasForAction(actPb *iotextypes.Action) (uint64, er
 		if err != nil {
 			return 0, err
 		}
-		ctx, err := gs.bc.Context()
+		ctx, err := gs.bc.Context(context.Background())
 		if err != nil {
 			return 0, err
 		}

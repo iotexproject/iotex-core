@@ -242,7 +242,7 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	ctx, err := bc.Context()
+	ctx, err := bc.Context(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
