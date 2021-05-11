@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -24,11 +23,11 @@ const fileMode = 0600
 type BoltDB struct {
 	db     *bolt.DB
 	path   string
-	config config.DB
+	config Config
 }
 
 // NewBoltDB instantiates an BoltDB with implements KVStore
-func NewBoltDB(cfg config.DB) *BoltDB {
+func NewBoltDB(cfg Config) *BoltDB {
 	return &BoltDB{
 		db:     nil,
 		path:   cfg.DbPath,

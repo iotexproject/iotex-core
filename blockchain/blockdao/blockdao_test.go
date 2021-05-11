@@ -388,7 +388,7 @@ func TestBlockDAO(t *testing.T) {
 		{false, false, compress.Snappy},
 	}
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
 	block.LoadGenesisHash(&config.Default.Genesis)
@@ -413,7 +413,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
+func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (BlockDAO, error) {
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
@@ -438,7 +438,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		require.NoError(b, err)
 		indexPath, err := testutil.PathOfTempFile(path)
 		require.NoError(b, err)
-		cfg := config.DB{
+		cfg := db.Config{
 			NumRetries: 1,
 		}
 		defer func() {

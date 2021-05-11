@@ -17,7 +17,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -449,7 +448,7 @@ func TestBatchCommit(t *testing.T) {
 
 func TestHistoryTrie(t *testing.T) {
 	require := require.New(t)
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	AccountKVNamespace := "Account"
 	path := "test-history-trie.bolt"
 	testPath, err := testutil.PathOfTempFile(path)

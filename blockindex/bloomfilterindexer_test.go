@@ -285,7 +285,7 @@ func TestBloomfilterIndexer(t *testing.T) {
 	path := "test-indexer"
 	testPath, err := testutil.PathOfTempFile(path)
 	require.NoError(err)
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
 	t.Run("Bolt DB indexer", func(t *testing.T) {

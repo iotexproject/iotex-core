@@ -22,6 +22,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -32,7 +33,7 @@ var dummyCandidatesByHeightFunc = func(uint64) ([]string, error) { return nil, n
 func TestRollDPoSCtx(t *testing.T) {
 	require := require.New(t)
 	cfg := config.Default
-	dbConfig := config.Default.DB
+	dbConfig := db.DefaultConfig
 	dbConfig.DbPath = config.Default.Consensus.RollDPoS.ConsensusDBPath
 	b, _, _, _, _ := makeChain(t)
 
@@ -89,7 +90,7 @@ func TestCheckVoteEndorser(t *testing.T) {
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
-		config.Default.DB,
+		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
@@ -159,7 +160,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
-		config.Default.DB,
+		db.DefaultConfig,
 		true,
 		time.Second,
 		true,
@@ -268,7 +269,7 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
-		config.Default.DB,
+		db.DefaultConfig,
 		true,
 		time.Second,
 		true,

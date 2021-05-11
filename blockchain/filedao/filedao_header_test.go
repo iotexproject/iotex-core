@@ -15,7 +15,6 @@ import (
 
 	"github.com/iotexproject/go-pkgs/hash"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -93,7 +92,7 @@ func TestFileReadWrite(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	t.Run("test file header", func(t *testing.T) {
 		testHeader(db.NewBoltDB(cfg), t)
