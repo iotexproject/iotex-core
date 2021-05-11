@@ -77,15 +77,6 @@ func (ss *strs) Set(str string) error {
 
 // Dardanelles consensus config
 const (
-	DardanellesUnmatchedEventTTL            = 2 * time.Second
-	DardanellesUnmatchedEventInterval       = 100 * time.Millisecond
-	DardanellesAcceptBlockTTL               = 2 * time.Second
-	DardanellesAcceptProposalEndorsementTTL = time.Second
-	DardanellesAcceptLockEndorsementTTL     = time.Second
-	DardanellesCommitTTL                    = time.Second
-	DardanellesBlockInterval                = 5 * time.Second
-	DardanellesDelay                        = 2 * time.Second
-
 	SigP256k1  = "secp256k1"
 	SigP256sm2 = "p256sm2"
 )
@@ -103,6 +94,7 @@ var (
 			BootstrapNodes:    []string{},
 			MasterKey:         "",
 			RateLimit:         p2p.DefaultRatelimitConfig,
+			ReconnectInterval: 300 * time.Second,
 			EnableRateLimit:   true,
 			PrivateNetworkPSK: "",
 		},
@@ -161,6 +153,16 @@ var (
 				Delay:             5 * time.Second,
 				ConsensusDBPath:   "/var/data/consensus.db",
 			},
+		},
+		DardanellesUpgrade: DardanellesUpgrade{
+			UnmatchedEventTTL:            2 * time.Second,
+			UnmatchedEventInterval:       100 * time.Millisecond,
+			AcceptBlockTTL:               2 * time.Second,
+			AcceptProposalEndorsementTTL: time.Second,
+			AcceptLockEndorsementTTL:     time.Second,
+			CommitTTL:                    time.Second,
+			BlockInterval:                5 * time.Second,
+			Delay:                        2 * time.Second,
 		},
 		BlockSync: BlockSync{
 			Interval:              30 * time.Second,
@@ -239,6 +241,7 @@ type (
 		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
 		// are supported: active, nat.
 		RelayType         string              `yaml:"relayType"`
+		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
 		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
 		EnableRateLimit   bool                `yaml:"enableRateLimit"`
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
@@ -305,6 +308,18 @@ type (
 		MaxRepeat int `yaml:"maxRepeat"`
 		// RepeatDecayStep is the step for repeat number decreasing by 1
 		RepeatDecayStep int `yaml:"repeatDecayStep"`
+	}
+
+	// DardanellesUpgrade is the config for dardanelles upgrade
+	DardanellesUpgrade struct {
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
+		BlockInterval                time.Duration `yaml:"blockInterval"`
+		Delay                        time.Duration `yaml:"delay"`
 	}
 
 	// RollDPoS is the config struct for RollDPoS consensus package
@@ -414,20 +429,21 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins    map[int]interface{}         `ymal:"plugins"`
-		Network    Network                     `yaml:"network"`
-		Chain      Chain                       `yaml:"chain"`
-		ActPool    ActPool                     `yaml:"actPool"`
-		Consensus  Consensus                   `yaml:"consensus"`
-		BlockSync  BlockSync                   `yaml:"blockSync"`
-		Dispatcher Dispatcher                  `yaml:"dispatcher"`
-		API        API                         `yaml:"api"`
-		System     System                      `yaml:"system"`
-		DB         DB                          `yaml:"db"`
-		Indexer    Indexer                     `yaml:"indexer"`
-		Log        log.GlobalConfig            `yaml:"log"`
-		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
-		Genesis    genesis.Genesis             `yaml:"genesis"`
+		Plugins            map[int]interface{}         `ymal:"plugins"`
+		Network            Network                     `yaml:"network"`
+		Chain              Chain                       `yaml:"chain"`
+		ActPool            ActPool                     `yaml:"actPool"`
+		Consensus          Consensus                   `yaml:"consensus"`
+		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
+		BlockSync          BlockSync                   `yaml:"blockSync"`
+		Dispatcher         Dispatcher                  `yaml:"dispatcher"`
+		API                API                         `yaml:"api"`
+		System             System                      `yaml:"system"`
+		DB                 DB                          `yaml:"db"`
+		Indexer            Indexer                     `yaml:"indexer"`
+		Log                log.GlobalConfig            `yaml:"log"`
+		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
+		Genesis            genesis.Genesis             `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
