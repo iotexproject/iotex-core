@@ -7,7 +7,6 @@
 package genesis
 
 import (
-	"flag"
 	"math/big"
 	"sort"
 	"sync"
@@ -32,13 +31,11 @@ import (
 var Default = defaultConfig()
 
 var (
-	genesisPath   string
 	genesisTs     int64
 	loadGenesisTs sync.Once
 )
 
 func init() {
-	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	initTestDefaultConfig()
 }
 
@@ -293,7 +290,7 @@ type (
 
 // New constructs a genesis config. It loads the default values, and could be overwritten by values defined in the yaml
 // config files
-func New() (Genesis, error) {
+func New(genesisPath string) (Genesis, error) {
 	def := defaultConfig()
 
 	opts := make([]config.YAMLOption, 0)

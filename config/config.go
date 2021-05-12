@@ -36,7 +36,7 @@ import (
 func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
-	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
 
@@ -44,8 +44,8 @@ var (
 	// overwritePath is the path to the config file which overwrite default values
 	_overwritePath string
 	// secretPath is the path to the  config file store secret values
-	_secretPath   string
-	_subChainPath string
+	_secretPath string
+
 	_plugins      strs
 	_evmNetworkID uint32
 	loadChainID   sync.Once
@@ -479,7 +479,7 @@ func New(validates ...Validate) (Config, error) {
 }
 
 // NewSub create config for sub chain.
-func NewSub(validates ...Validate) (Config, error) {
+func NewSub(_subChainPath string, validates ...Validate) (Config, error) {
 	if _subChainPath == "" {
 		return Config{}, nil
 	}

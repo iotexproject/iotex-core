@@ -28,6 +28,10 @@ const (
 	subChainPath  = "_subChainPath"
 )
 
+var (
+	_subChainPath string
+)
+
 func makePathAndWriteFile(cfgStr, flagForPath string) (err error) {
 	switch flagForPath {
 	case overwritePath:
@@ -406,20 +410,18 @@ func newTestCfg(fork string) Config {
 }
 
 func TestNewSubDefaultConfig(t *testing.T) {
-	_, err := NewSub()
+	_, err := NewSub("")
 	require.NoError(t, err)
 }
 
 func TestNewSubConfigWithoutValidation(t *testing.T) {
-	cfg, err := NewSub(DoNotValidate)
+	cfg, err := NewSub("", DoNotValidate)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
-	_subChainPath = "wrong_path"
-	defer func() { _subChainPath = "" }()
-	cfg, err := NewSub()
+	cfg, err := NewSub("wrong_path")
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -434,7 +436,7 @@ func TestNewSubConfigWithSubChainPath(t *testing.T) {
 	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
 	defer resetPathValues(t, []string{"_subChainPath"})
-	cfg, err := NewSub()
+	cfg, err := NewSub(_subChainPath)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -449,7 +451,7 @@ func TestNewSubConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_subChainPath", "_secretPath"})
 
-	cfg, err := NewSub()
+	cfg, err := NewSub(_subChainPath)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -465,21 +467,20 @@ func TestNewSubConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_subChainPath")
 
-	cfg, err := NewSub()
+	cfg, err := NewSub(_subChainPath)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = NewSub()
+	cfg, err = NewSub(_subChainPath)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
 func TestNewSubConfigWithoutSubChainPath(t *testing.T) {
-	_subChainPath = ""
-	cfg, err := NewSub()
+	cfg, err := NewSub("")
 	require.Equal(t, Config{}, cfg)
 	require.Nil(t, err)
 }
@@ -487,7 +488,7 @@ func TestNewSubConfigWithoutSubChainPath(t *testing.T) {
 func TestWhitelist(t *testing.T) {
 	require := require.New(t)
 
-	cfg, err := NewSub()
+	cfg, err := NewSub("")
 	require.NoError(err)
 	require.NotNil(cfg)
 

@@ -30,7 +30,12 @@ import (
 // recoveryHeight is the blockchain height being recovered to
 var recoveryHeight int
 
+var (
+	genesisPath string
+)
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
@@ -42,7 +47,7 @@ func init() {
 }
 
 func main() {
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}

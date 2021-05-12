@@ -32,7 +32,16 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+var (
+	genesisPath string
+
+	_subChainPath string
+)
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+
+	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -50,7 +59,7 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
@@ -112,7 +121,7 @@ func main() {
 		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
-	cfgsub, err := config.NewSub()
+	cfgsub, err := config.NewSub(_subChainPath)
 	if err != nil {
 		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
 	}
