@@ -421,11 +421,10 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(_overwritePath string, _secretPath string, _plugins []string, validates ...Validate) (Config, error) {
+func New(configPaths []string, _plugins []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
-	configPaths := []string{_overwritePath, _secretPath}
 	for _, path := range configPaths {
 		if path != "" {
 			opts = append(opts, uconfig.File(path))
@@ -469,14 +468,10 @@ func New(_overwritePath string, _secretPath string, _plugins []string, validates
 }
 
 // NewSub create config for sub chain.
-func NewSub(_secretPath string, _subChainPath string, validates ...Validate) (Config, error) {
-	if _subChainPath == "" {
-		return Config{}, nil
-	}
+func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
-	configPaths := []string{_secretPath, _subChainPath}
 	for _, path := range configPaths {
 		if path != "" {
 			opts = append(opts, uconfig.File(path))

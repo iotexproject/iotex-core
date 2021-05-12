@@ -74,7 +74,7 @@ func main() {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
 
-	cfg, err := config.New(_overwritePath, _secretPath, _plugins)
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}

@@ -111,7 +111,7 @@ func TestStrs_String(t *testing.T) {
 }
 
 func TestNewDefaultConfig(t *testing.T) {
-	cfg, err := New("", "", []string{})
+	cfg, err := New([]string{}, []string{})
 	require.NoError(t, err)
 	SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 	require.Equal(t, cfg.Chain.EVMNetworkID, EVMNetworkID())
@@ -120,7 +120,7 @@ func TestNewDefaultConfig(t *testing.T) {
 }
 
 func TestNewConfigWithoutValidation(t *testing.T) {
-	cfg, err := New("", "", []string{}, DoNotValidate)
+	cfg, err := New([]string{}, []string{}, DoNotValidate)
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	exp := Default
@@ -129,7 +129,7 @@ func TestNewConfigWithoutValidation(t *testing.T) {
 }
 
 func TestNewConfigWithWrongConfigPath(t *testing.T) {
-	cfg, err := New("wrong_path", "", []string{})
+	cfg, err := New([]string{"wrong_path", ""}, []string{})
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -142,7 +142,7 @@ func TestNewConfigWithPlugins(t *testing.T) {
 	_plugins := strs{
 		"gateway",
 	}
-	cfg, err := New("", "", _plugins)
+	cfg, err := New([]string{}, _plugins)
 
 	require.Nil(t, cfg.Plugins[GatewayPlugin])
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestNewConfigWithPlugins(t *testing.T) {
 		"trick",
 	}
 
-	cfg, err = New("", "", _plugins)
+	cfg, err = New([]string{}, _plugins)
 
 	require.Equal(t, Config{}, cfg)
 	require.Error(t, err)
@@ -169,7 +169,7 @@ func TestNewConfigWithOverride(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath"})
 
-	cfg, err := New(_overwritePath, "", []string{})
+	cfg, err := New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -185,7 +185,7 @@ func TestNewConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_overwritePath", "_secretPath"})
 
-	cfg, err := New(_overwritePath, _secretPath, []string{})
+	cfg, err := New([]string{_overwritePath, _secretPath}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -200,14 +200,14 @@ func TestNewConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_overwritePath")
 
-	cfg, err := New(_overwritePath, "", []string{})
+	cfg, err := New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = New(_overwritePath, "", []string{})
+	cfg, err = New([]string{_overwritePath, ""}, []string{})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
@@ -408,19 +408,8 @@ func newTestCfg(fork string) Config {
 	return cfg
 }
 
-func TestNewSubDefaultConfig(t *testing.T) {
-	_, err := NewSub("", "")
-	require.NoError(t, err)
-}
-
-func TestNewSubConfigWithoutValidation(t *testing.T) {
-	cfg, err := NewSub("", "", DoNotValidate)
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-}
-
 func TestNewSubConfigWithWrongConfigPath(t *testing.T) {
-	cfg, err := NewSub("", "wrong_path")
+	cfg, err := NewSub([]string{"", "wrong_path"})
 	require.Error(t, err)
 	require.Equal(t, Config{}, cfg)
 	if strings.Contains(err.Error(),
@@ -435,7 +424,7 @@ func TestNewSubConfigWithSubChainPath(t *testing.T) {
 	require.NoError(t, makePathAndWriteFile(cfgStr, "_subChainPath"))
 
 	defer resetPathValues(t, []string{"_subChainPath"})
-	cfg, err := NewSub("", _subChainPath)
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -450,7 +439,7 @@ func TestNewSubConfigWithSecret(t *testing.T) {
 
 	defer resetPathValues(t, []string{"_subChainPath", "_secretPath"})
 
-	cfg, err := NewSub("", _subChainPath)
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 	require.Equal(t, sk.HexString(), cfg.Chain.ProducerPrivKey)
@@ -466,31 +455,21 @@ func TestNewSubConfigWithLookupEnv(t *testing.T) {
 
 	defer resetPathValuesWithLookupEnv(t, oldEnv, oldExist, "_subChainPath")
 
-	cfg, err := NewSub("", _subChainPath)
+	cfg, err := NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 
 	err = os.Unsetenv("IOTEX_TEST_NODE_TYPE")
 	require.NoError(t, err)
 
-	cfg, err = NewSub("", _subChainPath)
+	cfg, err = NewSub([]string{"", _subChainPath})
 	require.NoError(t, err)
 	require.NotNil(t, cfg)
 }
 
-func TestNewSubConfigWithoutSubChainPath(t *testing.T) {
-	cfg, err := NewSub("", "")
-	require.Equal(t, Config{}, cfg)
-	require.Nil(t, err)
-}
-
 func TestWhitelist(t *testing.T) {
 	require := require.New(t)
-
-	cfg, err := NewSub("", "")
-	require.NoError(err)
-	require.NotNil(cfg)
-
+	cfg := Config{}
 	sk, err := crypto.HexStringToPrivateKey("308193020100301306072a8648ce3d020106082a811ccf5501822d0479307702010104202d57ec7da578b98dad465997748ed02af0c69092ad809598073e5a2356c20492a00a06082a811ccf5501822da14403420004223356f0c6f40822ade24d47b0cd10e9285402cbc8a5028a8eec9efba44b8dfe1a7e8bc44953e557b32ec17039fb8018a58d48c8ffa54933fac8030c9a169bf6")
 	require.NoError(err)
 	require.False(cfg.whitelistSignatureScheme(sk))

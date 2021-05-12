@@ -94,7 +94,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New(_overwritePath, _secretPath, _plugins)
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
@@ -141,10 +141,16 @@ func main() {
 		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
-	cfgsub, err := config.NewSub(_secretPath, _subChainPath)
-	if err != nil {
-		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+	var cfgsub config.Config
+	if _subChainPath != "" {
+		cfgsub, err = config.NewSub([]string{_secretPath, _subChainPath})
+		if err != nil {
+			log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+		}
+	} else {
+		cfgsub = config.Config{}
 	}
+
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
 			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
