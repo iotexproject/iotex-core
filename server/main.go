@@ -18,6 +18,7 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -41,13 +42,26 @@ var (
 	_overwritePath string
 	_secretPath    string
 	_subChainPath  string
+	_plugins       strs
 )
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -80,7 +94,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New(_overwritePath, _secretPath)
+	cfg, err := config.New(_overwritePath, _secretPath, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
