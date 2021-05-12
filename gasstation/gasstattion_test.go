@@ -216,7 +216,7 @@ func getAction() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
-		Signature:    testutil.ValidSig,
+		Signature:    action.ValidSig,
 	}
 	return
 }
@@ -234,7 +234,7 @@ func getActionWithPayload() (act *iotextypes.Action) {
 			Nonce:   101,
 		},
 		SenderPubKey: pubKey1.Bytes(),
-		Signature:    testutil.ValidSig,
+		Signature:    action.ValidSig,
 	}
 	return
 }

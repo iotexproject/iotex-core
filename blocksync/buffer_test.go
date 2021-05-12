@@ -62,7 +62,7 @@ func TestBlockBufferFlush(t *testing.T) {
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
-	ctx, err = chain.Context()
+	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
 	b := blockBuffer{
@@ -146,7 +146,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	defer func() {
 		require.NoError(chain.Stop(ctx))
 	}()
-	ctx, err = chain.Context()
+	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
 	b := blockBuffer{

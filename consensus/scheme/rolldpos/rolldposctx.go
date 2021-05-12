@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/db"
@@ -92,7 +91,7 @@ type rollDPoSCtx struct {
 
 func newRollDPoSCtx(
 	cfg consensusfsm.ConsensusConfig,
-	consensusDBConfig config.DB,
+	consensusDBConfig db.Config,
 	active bool,
 	toleratedOvertime time.Duration,
 	timeBasedRotation bool,

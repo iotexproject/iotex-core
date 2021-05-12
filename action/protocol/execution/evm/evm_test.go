@@ -137,11 +137,11 @@ func TestConstantinople(t *testing.T) {
 		// after Hawaii
 		{
 			action.EmptyAddress,
-			11073241,
+			11267641,
 		},
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
-			11073241,
+			11267641,
 		},
 	}
 

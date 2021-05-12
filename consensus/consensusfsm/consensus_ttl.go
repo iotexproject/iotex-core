@@ -29,6 +29,7 @@ type (
 	// config implements ConsensusConfig
 	consensusCfg struct {
 		cfg           config.ConsensusTiming
+		dardanelles   config.DardanellesUpgrade
 		hu            config.HeightUpgrade
 		blockInterval time.Duration
 		delay         time.Duration
@@ -38,10 +39,11 @@ type (
 // NewConsensusConfig creates a ConsensusConfig out of config.
 func NewConsensusConfig(cfg config.Config) ConsensusConfig {
 	return &consensusCfg{
-		cfg.Consensus.RollDPoS.FSM,
-		config.NewHeightUpgrade(&cfg.Genesis),
-		cfg.Genesis.Blockchain.BlockInterval,
-		cfg.Consensus.RollDPoS.Delay,
+		cfg:           cfg.Consensus.RollDPoS.FSM,
+		dardanelles:   cfg.DardanellesUpgrade,
+		hu:            config.NewHeightUpgrade(&cfg.Genesis),
+		blockInterval: cfg.Genesis.Blockchain.BlockInterval,
+		delay:         cfg.Consensus.RollDPoS.Delay,
 	}
 }
 
@@ -51,56 +53,56 @@ func (c *consensusCfg) EventChanSize() uint {
 
 func (c *consensusCfg) UnmatchedEventTTL(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesUnmatchedEventTTL
+		return c.dardanelles.UnmatchedEventTTL
 	}
 	return c.cfg.UnmatchedEventTTL
 }
 
 func (c *consensusCfg) UnmatchedEventInterval(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesUnmatchedEventInterval
+		return c.dardanelles.UnmatchedEventInterval
 	}
 	return c.cfg.UnmatchedEventInterval
 }
 
 func (c *consensusCfg) AcceptBlockTTL(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesAcceptBlockTTL
+		return c.dardanelles.AcceptBlockTTL
 	}
 	return c.cfg.AcceptBlockTTL
 }
 
 func (c *consensusCfg) AcceptProposalEndorsementTTL(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesAcceptProposalEndorsementTTL
+		return c.dardanelles.AcceptProposalEndorsementTTL
 	}
 	return c.cfg.AcceptProposalEndorsementTTL
 }
 
 func (c *consensusCfg) AcceptLockEndorsementTTL(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesAcceptLockEndorsementTTL
+		return c.dardanelles.AcceptLockEndorsementTTL
 	}
 	return c.cfg.AcceptLockEndorsementTTL
 }
 
 func (c *consensusCfg) CommitTTL(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesCommitTTL
+		return c.dardanelles.CommitTTL
 	}
 	return c.cfg.CommitTTL
 }
 
 func (c *consensusCfg) BlockInterval(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesBlockInterval
+		return c.dardanelles.BlockInterval
 	}
 	return c.blockInterval
 }
 
 func (c *consensusCfg) Delay(height uint64) time.Duration {
 	if c.hu.IsPost(config.Dardanelles, height) {
-		return config.DardanellesDelay
+		return c.dardanelles.Delay
 	}
 	return c.delay
 }
