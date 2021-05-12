@@ -34,15 +34,10 @@ import (
 // the default value in Default var.
 
 func init() {
-	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
-
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
 
 var (
-	// overwritePath is the path to the config file which overwrite default values
-	_overwritePath string
-
 	_plugins      strs
 	_evmNetworkID uint32
 	loadChainID   sync.Once
@@ -428,7 +423,7 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(_secretPath string, validates ...Validate) (Config, error) {
+func New(_overwritePath string, _secretPath string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))

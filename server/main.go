@@ -32,17 +32,20 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+/**
+ * overwritePath is the path to the config file which overwrite default values
+ * secretPath is the path to the  config file store secret values
+ */
 var (
-	genesisPath string
-
-	// secretPath is the path to the  config file store secret values
-	_secretPath   string
-	_subChainPath string
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
+	_subChainPath  string
 )
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
-
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 	flag.Usage = func() {
@@ -77,7 +80,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New(_secretPath)
+	cfg, err := config.New(_overwritePath, _secretPath)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}

@@ -30,15 +30,19 @@ import (
 // recoveryHeight is the blockchain height being recovered to
 var recoveryHeight int
 
+/**
+ * overwritePath is the path to the config file which overwrite default values
+ * secretPath is the path to the  config file store secret values
+ */
 var (
-	genesisPath string
-
-	// secretPath is the path to the  config file store secret values
-	_secretPath string
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
 )
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
 	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
@@ -56,7 +60,7 @@ func main() {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
 
-	cfg, err := config.New(_secretPath)
+	cfg, err := config.New(_overwritePath, _secretPath)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
