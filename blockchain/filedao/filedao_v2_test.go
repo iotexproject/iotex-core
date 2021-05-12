@@ -91,7 +91,7 @@ func TestNewFileDAOv2(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	r.Equal(compress.Snappy, cfg.Compressor)
 	r.Equal(16, cfg.BlockStoreBatchSize)
 	cfg.DbPath = testPath
@@ -111,7 +111,7 @@ func TestNewFileDAOv2(t *testing.T) {
 }
 
 func TestNewFdInterface(t *testing.T) {
-	testFdInterface := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdInterface := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -254,12 +254,12 @@ func TestNewFdInterface(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	_, err = newFileDAOv2(0, cfg)
 	r.Equal(ErrNotSupported, err)
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 
 	for _, compress := range []string{"", compress.Snappy} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {
@@ -272,7 +272,7 @@ func TestNewFdInterface(t *testing.T) {
 }
 
 func TestNewFdStart(t *testing.T) {
-	testFdStart := func(cfg config.DB, start uint64, t *testing.T) {
+	testFdStart := func(cfg db.Config, start uint64, t *testing.T) {
 		r := require.New(t)
 
 		for _, num := range []uint64{3, blockStoreBatchSize - 1, blockStoreBatchSize, 2*blockStoreBatchSize - 1} {
@@ -337,7 +337,7 @@ func TestNewFdStart(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	for _, compress := range []string{"", compress.Gzip} {
 		for _, start := range []uint64{1, 5, blockStoreBatchSize + 1, 4 * blockStoreBatchSize} {

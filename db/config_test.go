@@ -1,23 +1,19 @@
-// Copyright (c) 2019 IoTeX Foundation
+// Copyright (c) 2021 IoTeX Foundation
 // This is an alpha (internal) release and is not suitable for production. This source code is provided 'as is' and no
 // warranties are given as to title or non-infringement, merchantability or fitness for purpose and, to the extent
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package testutil
+package db
 
 import (
-	"time"
+	"testing"
 
-	"github.com/facebookgo/clock"
+	"github.com/stretchr/testify/require"
 )
 
-// TimestampNow returns current time from new clock
-func TimestampNow() time.Time {
-	return TimestampNowFromClock(clock.New())
-}
-
-// TimestampNowFromClock get now time from specific clock
-func TimestampNowFromClock(c clock.Clock) time.Time {
-	return c.Now()
+func TestDB_SplitDBSize(t *testing.T) {
+	var db = Config{SplitDBSizeMB: uint64(1)}
+	var expected = uint64(1 * 1024 * 1024)
+	require.Equal(t, expected, db.SplitDBSize())
 }

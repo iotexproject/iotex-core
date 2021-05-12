@@ -25,6 +25,7 @@ import (
 
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
@@ -77,15 +78,6 @@ func (ss *strs) Set(str string) error {
 
 // Dardanelles consensus config
 const (
-	DardanellesUnmatchedEventTTL            = 2 * time.Second
-	DardanellesUnmatchedEventInterval       = 100 * time.Millisecond
-	DardanellesAcceptBlockTTL               = 2 * time.Second
-	DardanellesAcceptProposalEndorsementTTL = time.Second
-	DardanellesAcceptLockEndorsementTTL     = time.Second
-	DardanellesCommitTTL                    = time.Second
-	DardanellesBlockInterval                = 5 * time.Second
-	DardanellesDelay                        = 2 * time.Second
-
 	SigP256k1  = "secp256k1"
 	SigP256sm2 = "p256sm2"
 )
@@ -103,6 +95,7 @@ var (
 			BootstrapNodes:    []string{},
 			MasterKey:         "",
 			RateLimit:         p2p.DefaultRatelimitConfig,
+			ReconnectInterval: 300 * time.Second,
 			EnableRateLimit:   true,
 			PrivateNetworkPSK: "",
 		},
@@ -119,7 +112,7 @@ var (
 			ProducerPrivKey:        generateRandomKey(SigP256k1),
 			SignatureScheme:        []string{SigP256k1},
 			EmptyGenesis:           false,
-			GravityChainDB:         DB{DbPath: "/var/data/poll.db", NumRetries: 10},
+			GravityChainDB:         db.Config{DbPath: "/var/data/poll.db", NumRetries: 10},
 			Committee: committee.Config{
 				GravityChainAPIs: []string{},
 			},
@@ -162,6 +155,16 @@ var (
 				ConsensusDBPath:   "/var/data/consensus.db",
 			},
 		},
+		DardanellesUpgrade: DardanellesUpgrade{
+			UnmatchedEventTTL:            2 * time.Second,
+			UnmatchedEventInterval:       100 * time.Millisecond,
+			AcceptBlockTTL:               2 * time.Second,
+			AcceptProposalEndorsementTTL: time.Second,
+			AcceptLockEndorsementTTL:     time.Second,
+			CommitTTL:                    time.Second,
+			BlockInterval:                5 * time.Second,
+			Delay:                        2 * time.Second,
+		},
 		BlockSync: BlockSync{
 			Interval:              30 * time.Second,
 			ProcessSyncRequestTTL: 10 * time.Second,
@@ -171,7 +174,9 @@ var (
 			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
-			EventChanSize: 10000,
+			ActionChanSize:    1000,
+			BlockChanSize:     1000,
+			BlockSyncChanSize: 400,
 		},
 		API: API{
 			UseRDS:    false,
@@ -192,7 +197,7 @@ var (
 			StartSubChainInterval: 10 * time.Second,
 			SystemLogDBPath:       "/var/data/systemlog.db",
 		},
-		DB: DB{
+		DB: db.Config{
 			NumRetries:            3,
 			MaxCacheSize:          64,
 			BlockStoreBatchSize:   16,
@@ -237,6 +242,7 @@ type (
 		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
 		// are supported: active, nat.
 		RelayType         string              `yaml:"relayType"`
+		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
 		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
 		EnableRateLimit   bool                `yaml:"enableRateLimit"`
 		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
@@ -256,7 +262,7 @@ type (
 		ProducerPrivKey        string           `yaml:"producerPrivKey"`
 		SignatureScheme        []string         `yaml:"signatureScheme"`
 		EmptyGenesis           bool             `yaml:"emptyGenesis"`
-		GravityChainDB         DB               `yaml:"gravityChainDB"`
+		GravityChainDB         db.Config        `yaml:"gravityChainDB"`
 		Committee              committee.Config `yaml:"committee"`
 
 		EnableTrielessStateDB bool `yaml:"enableTrielessStateDB"`
@@ -305,6 +311,18 @@ type (
 		RepeatDecayStep int `yaml:"repeatDecayStep"`
 	}
 
+	// DardanellesUpgrade is the config for dardanelles upgrade
+	DardanellesUpgrade struct {
+		UnmatchedEventTTL            time.Duration `yaml:"unmatchedEventTTL"`
+		UnmatchedEventInterval       time.Duration `yaml:"unmatchedEventInterval"`
+		AcceptBlockTTL               time.Duration `yaml:"acceptBlockTTL"`
+		AcceptProposalEndorsementTTL time.Duration `yaml:"acceptProposalEndorsementTTL"`
+		AcceptLockEndorsementTTL     time.Duration `yaml:"acceptLockEndorsementTTL"`
+		CommitTTL                    time.Duration `yaml:"commitTTL"`
+		BlockInterval                time.Duration `yaml:"blockInterval"`
+		Delay                        time.Duration `yaml:"delay"`
+	}
+
 	// RollDPoS is the config struct for RollDPoS consensus package
 	RollDPoS struct {
 		FSM               ConsensusTiming `yaml:"fsm"`
@@ -326,7 +344,9 @@ type (
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
-		EventChanSize uint `yaml:"eventChanSize"`
+		ActionChanSize    uint `yaml:"actionChanSize"`
+		BlockChanSize     uint `yaml:"blockChanSize"`
+		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
@@ -375,29 +395,6 @@ type (
 		BlackList []string `yaml:"blackList"`
 	}
 
-	// DB is the config for database
-	DB struct {
-		DbPath string `yaml:"dbPath"`
-		// NumRetries is the number of retries
-		NumRetries uint8 `yaml:"numRetries"`
-		// MaxCacheSize is the max number of blocks that will be put into an LRU cache. 0 means disabled
-		MaxCacheSize int `yaml:"maxCacheSize"`
-		// BlockStoreBatchSize is the number of blocks to be stored together as a unit (to get better compression)
-		BlockStoreBatchSize int `yaml:"blockStoreBatchSize"`
-		// V2BlocksToSplitDB is the accumulated number of blocks to split a new file after v1.1.2
-		V2BlocksToSplitDB uint64 `yaml:"v2BlocksToSplitDB"`
-		// Compressor is the compression used on block data, used by new DB file after v1.1.2
-		Compressor string `yaml:"compressor"`
-		// CompressLegacy enables gzip compression on block data, used by legacy DB file before v1.1.2
-		CompressLegacy bool `yaml:"compressLegacy"`
-		// SplitDBSize is the config for DB's split file size
-		SplitDBSizeMB uint64 `yaml:"splitDBSizeMB"`
-		// SplitDBHeight is the config for DB's split start height
-		SplitDBHeight uint64 `yaml:"splitDBHeight"`
-		// HistoryStateRetention is the number of blocks account/contract state will be retained
-		HistoryStateRetention uint64 `yaml:"historyStateRetention"`
-	}
-
 	// Indexer is the config for indexer
 	Indexer struct {
 		// RangeBloomFilterNumElements is the number of elements each rangeBloomfilter will store in bloomfilterIndexer
@@ -410,30 +407,26 @@ type (
 
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
-		Plugins    map[int]interface{}         `ymal:"plugins"`
-		Network    Network                     `yaml:"network"`
-		Chain      Chain                       `yaml:"chain"`
-		ActPool    ActPool                     `yaml:"actPool"`
-		Consensus  Consensus                   `yaml:"consensus"`
-		BlockSync  BlockSync                   `yaml:"blockSync"`
-		Dispatcher Dispatcher                  `yaml:"dispatcher"`
-		API        API                         `yaml:"api"`
-		System     System                      `yaml:"system"`
-		DB         DB                          `yaml:"db"`
-		Indexer    Indexer                     `yaml:"indexer"`
-		Log        log.GlobalConfig            `yaml:"log"`
-		SubLogs    map[string]log.GlobalConfig `yaml:"subLogs"`
-		Genesis    genesis.Genesis             `yaml:"genesis"`
+		Plugins            map[int]interface{}         `ymal:"plugins"`
+		Network            Network                     `yaml:"network"`
+		Chain              Chain                       `yaml:"chain"`
+		ActPool            ActPool                     `yaml:"actPool"`
+		Consensus          Consensus                   `yaml:"consensus"`
+		DardanellesUpgrade DardanellesUpgrade          `yaml:"dardanellesUpgrade"`
+		BlockSync          BlockSync                   `yaml:"blockSync"`
+		Dispatcher         Dispatcher                  `yaml:"dispatcher"`
+		API                API                         `yaml:"api"`
+		System             System                      `yaml:"system"`
+		DB                 db.Config                   `yaml:"db"`
+		Indexer            Indexer                     `yaml:"indexer"`
+		Log                log.GlobalConfig            `yaml:"log"`
+		SubLogs            map[string]log.GlobalConfig `yaml:"subLogs"`
+		Genesis            genesis.Genesis             `yaml:"genesis"`
 	}
 
 	// Validate is the interface of validating the config
 	Validate func(Config) error
 )
-
-// SplitDBSize returns the configured SplitDBSizeMB
-func (db DB) SplitDBSize() uint64 {
-	return db.SplitDBSizeMB * 1024 * 1024
-}
 
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
@@ -606,8 +599,8 @@ func (ap ActPool) MinGasPrice() *big.Int {
 
 // ValidateDispatcher validates the dispatcher configs
 func ValidateDispatcher(cfg Config) error {
-	if cfg.Dispatcher.EventChanSize <= 0 {
-		return errors.Wrap(ErrInvalidCfg, "dispatcher event chan size should be greater than 0")
+	if cfg.Dispatcher.ActionChanSize <= 0 || cfg.Dispatcher.BlockChanSize <= 0 || cfg.Dispatcher.BlockSyncChanSize <= 0 {
+		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
 	}
 	return nil
 }

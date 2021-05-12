@@ -27,7 +27,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 	var (
 		normalHeaderSize, compressHeaderSize int
 	)
-	testFdInterface := func(cfg config.DB, t *testing.T) {
+	testFdInterface := func(cfg db.Config, t *testing.T) {
 		r := require.New(t)
 
 		testutil.CleanupPath(t, cfg.DbPath)
@@ -73,10 +73,10 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 	}()
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
-	block.LoadGenesisHash()
+	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, compress := range []bool{false, true} {
 		cfg.CompressLegacy = compress
 		t.Run("test fileDAOLegacy interface", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestFileDAOLegacy_PutBlock(t *testing.T) {
 func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 	cfg.CompressLegacy = true // enable compress
 
@@ -128,7 +128,7 @@ func TestFileDAOLegacy_DeleteTipBlock(t *testing.T) {
 func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r := require.New(t)
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = "./filedao_legacy.db"
 
 	fd, err := newFileDAOLegacy(cfg)

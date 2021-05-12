@@ -462,7 +462,7 @@ func (api *Server) ReadContract(ctx context.Context, in *iotexapi.ReadContractRe
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
-	ctx, err = api.bc.Context()
+	ctx, err = api.bc.Context(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1260,12 +1260,17 @@ func (api *Server) getBlockMetaByHeight(height uint64) (*iotextypes.BlockMeta, e
 // generateBlockMeta generates BlockMeta from block
 func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	header := blk.Header
-	hash := header.HashBlock()
 	height := header.Height()
 	ts, _ := ptypes.TimestampProto(header.Timestamp())
-	var producerAddress string
+	var (
+		producerAddress string
+		h               hash.Hash256
+	)
 	if blk.Height() > 0 {
 		producerAddress = header.ProducerAddress()
+		h = header.HashBlock()
+	} else {
+		h = block.GenesisHash()
 	}
 	txRoot := header.TxRoot()
 	receiptRoot := header.ReceiptRoot()
@@ -1273,7 +1278,7 @@ func generateBlockMeta(blk *block.Block) *iotextypes.BlockMeta {
 	prevHash := header.PrevHash()
 
 	blockMeta := iotextypes.BlockMeta{
-		Hash:              hex.EncodeToString(hash[:]),
+		Hash:              hex.EncodeToString(h[:]),
 		Height:            height,
 		Timestamp:         ts,
 		ProducerAddress:   producerAddress,
@@ -1574,7 +1579,7 @@ func (api *Server) isGasLimitEnough(
 		big.NewInt(0),
 		sc.Data(),
 	)
-	ctx, err := api.bc.Context()
+	ctx, err := api.bc.Context(context.Background())
 	if err != nil {
 		return false, nil, err
 	}
