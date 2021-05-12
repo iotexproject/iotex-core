@@ -4,13 +4,11 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package testutil
+package action
 
 import (
 	"math/big"
 	"testing"
-
-	"github.com/iotexproject/iotex-core/action"
 
 	"github.com/stretchr/testify/require"
 
@@ -28,7 +26,7 @@ func TestSignedTransfer(t *testing.T) {
 	selp, err := SignedTransfer(addr2, priKey1, uint64(1), big.NewInt(2), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
 
-	tsf := selp.Action().(*action.Transfer)
+	tsf := selp.Action().(*Transfer)
 	require.Equal(addr2, tsf.Recipient())
 	require.Equal(uint64(1), tsf.Nonce())
 	require.Equal(big.NewInt(2), tsf.Amount())
@@ -40,11 +38,11 @@ func TestSignedTransfer(t *testing.T) {
 
 func TestSignedExecution(t *testing.T) {
 	require := require.New(t)
-	selp, err := SignedExecution(action.EmptyAddress, priKey1, uint64(1), big.NewInt(0), uint64(100000), big.NewInt(10), []byte{})
+	selp, err := SignedExecution(EmptyAddress, priKey1, uint64(1), big.NewInt(0), uint64(100000), big.NewInt(10), []byte{})
 	require.NoError(err)
 
-	exec := selp.Action().(*action.Execution)
-	require.Equal(action.EmptyAddress, exec.Contract())
+	exec := selp.Action().(*Execution)
+	require.Equal(EmptyAddress, exec.Contract())
 	require.Equal(uint64(1), exec.Nonce())
 	require.Equal(big.NewInt(0), exec.Amount())
 	require.Equal(uint64(100000), exec.GasLimit())

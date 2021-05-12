@@ -375,7 +375,7 @@ func TestLocalTransfer(t *testing.T) {
 		_, recvAddr, err := initStateKeyAddr(tsfTest.recvAcntState, tsfTest.recvPriKey, tsfTest.recvBalance, bc, sf)
 		require.NoError(err, tsfTest.message)
 
-		tsf, err := testutil.SignedTransfer(recvAddr, senderPriKey, tsfTest.nonce, tsfTest.amount,
+		tsf, err := action.SignedTransfer(recvAddr, senderPriKey, tsfTest.nonce, tsfTest.amount,
 			tsfTest.payload, tsfTest.gasLimit, tsfTest.gasPrice)
 		require.NoError(err, tsfTest.message)
 
