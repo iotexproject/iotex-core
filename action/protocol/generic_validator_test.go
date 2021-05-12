@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/iotexproject/iotex-core/action"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -48,7 +49,6 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 	ctx = WithBlockchainCtx(
 		ctx,
 		BlockchainCtx{
-			Genesis: config.Default.Genesis,
 			Tip: TipInfo{
 				Height:    0,
 				Hash:      config.Default.Genesis.Hash(),
@@ -56,6 +56,8 @@ func TestActionProtoAndGenericValidator(t *testing.T) {
 			},
 		},
 	)
+
+	ctx = genesis.WithGenesisContext(ctx, config.Default.Genesis)
 
 	valid := NewGenericValidator(nil, func(sr StateReader, addr string) (*state.Account, error) {
 		pk := identityset.PrivateKey(27).PublicKey()

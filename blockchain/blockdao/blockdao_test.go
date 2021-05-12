@@ -14,7 +14,6 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
@@ -177,12 +176,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testBlockDao := func(dao BlockDAO, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
-		)
+		ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))
@@ -277,12 +271,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 
 	testDeleteDao := func(dao BlockDAO, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
-		)
+		ctx := genesis.WithGenesisContext(context.Background(), config.Default.Genesis)
 		require.NoError(dao.Start(ctx))
 		defer func() {
 			require.NoError(dao.Stop(ctx))

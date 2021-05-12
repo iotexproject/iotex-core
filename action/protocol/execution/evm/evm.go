@@ -27,7 +27,6 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -88,7 +87,7 @@ func newParams(
 ) (*Params, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	executorAddr := common.BytesToAddress(actionCtx.Caller.Bytes())
 	var contractAddrPointer *common.Address
 	if execution.Contract() != action.EmptyAddress {
@@ -101,14 +100,13 @@ func newParams(
 	}
 
 	gasLimit := execution.GasLimit()
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if blkCtx.BlockHeight > 0 && hu.IsPre(config.Aleutian, blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
+	if blkCtx.BlockHeight > 0 && g.IsPreAleutian(blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
 	var getHashFn vm.GetHashFunc
-	if hu.IsPre(config.Hawaii, blkCtx.BlockHeight) {
+	if g.IsPreHawaii(blkCtx.BlockHeight) {
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - n)
 			if err != nil {
@@ -178,17 +176,16 @@ func ExecuteContract(
 ) ([]byte, *action.Receipt, error) {
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
 	opts := []StateDBAdapterOption{}
-	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) {
+	if g.IsPostHawaii(blkCtx.BlockHeight) {
 		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
 	}
 	stateDB := NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
-		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
-		hu.IsPost(config.Greenland, blkCtx.BlockHeight),
+		g.IsPreAleutian(blkCtx.BlockHeight),
+		g.IsPostGreenland(blkCtx.BlockHeight),
 		actionCtx.ActionHash,
 		opts...,
 	)
@@ -196,7 +193,7 @@ func ExecuteContract(
 	if err != nil {
 		return nil, nil, err
 	}
-	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, hu, blkCtx.GasLimit, blkCtx.BlockHeight)
+	retval, depositGas, remainingGas, contractAddress, statusCode, err := executeInEVM(ps, stateDB, g, blkCtx.GasLimit, blkCtx.BlockHeight)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -209,7 +206,7 @@ func ExecuteContract(
 
 	receipt.Status = statusCode
 	var burnLog *action.TransactionLog
-	if hu.IsPost(config.Pacific, blkCtx.BlockHeight) {
+	if g.IsPostPacific(blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {
@@ -241,11 +238,11 @@ func ExecuteContract(
 	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
-		hu.IsPre(config.Greenland, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		g.IsPreGreenland(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
 
-	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
+	if g.IsPostHawaii(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
@@ -256,26 +253,26 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func getChainConfig(hu config.HeightUpgrade) *params.ChainConfig {
+func getChainConfig(g genesis.Genesis) *params.ChainConfig {
 	var chainConfig params.ChainConfig
 	// chainConfig.ChainID
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
-	chainConfig.BeringBlock = new(big.Int).SetUint64(hu.BeringBlockHeight())
+	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
 	// enable earlier Ethereum forks at Greenland
-	chainConfig.GreenlandBlock = new(big.Int).SetUint64(hu.GreenlandBlockHeight())
+	chainConfig.GreenlandBlock = new(big.Int).SetUint64(g.GreenlandBlockHeight)
 	return &chainConfig
 }
 
 //Error in executeInEVM is a consensus issue
-func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, hu config.HeightUpgrade, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
-	isBering := hu.IsPost(config.Bering, blockHeight)
+func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Genesis, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
+	isBering := g.IsPostBering(blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig(hu)
+	chainConfig := getChainConfig(g)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
@@ -381,6 +378,7 @@ func SimulateExecution(
 	getBlockHash GetBlockHash,
 ) ([]byte, *action.Receipt, error) {
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	ctx = protocol.WithActionCtx(
 		ctx,
 		protocol.ActionCtx{
@@ -395,8 +393,8 @@ func SimulateExecution(
 		ctx,
 		protocol.BlockCtx{
 			BlockHeight:    bcCtx.Tip.Height + 1,
-			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(bcCtx.Genesis.BlockInterval),
-			GasLimit:       bcCtx.Genesis.BlockGasLimit,
+			BlockTimeStamp: bcCtx.Tip.Timestamp.Add(g.BlockInterval),
+			GasLimit:       g.BlockGasLimit,
 			Producer:       zeroAddr,
 		},
 	)

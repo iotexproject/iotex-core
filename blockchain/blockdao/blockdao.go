@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/lifecycle"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -106,15 +107,16 @@ func (dao *blockDAO) Start(ctx context.Context) error {
 }
 
 func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) (context.Context, error) {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
 	if !ok {
 		return nil, errors.New("failed to find blockchain ctx")
 	}
+	bcCtx := protocol.BlockchainCtx{}
 	if height == 0 {
 		bcCtx.Tip = protocol.TipInfo{
 			Height:    0,
-			Hash:      bcCtx.Genesis.Hash(),
-			Timestamp: time.Unix(bcCtx.Genesis.Timestamp, 0),
+			Hash:      g.Hash(),
+			Timestamp: time.Unix(g.Timestamp, 0),
 		}
 	} else {
 		header, err := dao.HeaderByHeight(height)
@@ -131,7 +133,7 @@ func (dao *blockDAO) fillWithBlockInfoAsTip(ctx context.Context, height uint64) 
 }
 
 func (dao *blockDAO) checkIndexers(ctx context.Context) error {
-	bcCtx, ok := protocol.GetBlockchainCtx(ctx)
+	g, ok := genesis.ExtractGenesisContext(ctx)
 	if !ok {
 		return errors.New("failed to find blockchain ctx")
 	}
@@ -169,7 +171,7 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
 					Producer:       producer,
-					GasLimit:       bcCtx.Genesis.BlockGasLimit,
+					GasLimit:       g.BlockGasLimit,
 				},
 			), blk); err != nil {
 				return err

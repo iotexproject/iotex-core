@@ -113,12 +113,7 @@ func TestBlockReward(t *testing.T) {
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	rp := rewarding.FindProtocol(svr.ChainService(1).Registry())
 	require.NotNil(t, rp)

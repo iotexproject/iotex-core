@@ -17,7 +17,7 @@ import (
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -220,9 +220,8 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 }
 
 func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.Int, uint64, error) {
-	chainCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
-	if hu.IsPost(config.Greenland, csr.Height()) {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsPostGreenland(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
@@ -237,9 +236,8 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 }
 
 func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint64, uint64, error) {
-	chainCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&chainCtx.Genesis)
-	if hu.IsPost(config.Greenland, csr.Height()) {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.IsPostGreenland(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))

@@ -19,7 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -63,9 +63,10 @@ func (h *handleError) ReceiptStatus() uint64 {
 
 func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStake, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleCreateStake, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	staker, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -132,9 +133,10 @@ func (p *Protocol) handleCreateStake(ctx context.Context, act *action.CreateStak
 
 func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleUnstake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleUnstake, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -152,7 +154,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("unstake an already unstaked bucket again not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -200,9 +202,10 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 
 func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.WithdrawStake, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	postFbkMigration := blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight()
+	postFbkMigration := blkCtx.BlockHeight >= g.FbkMigrationBlockHeight
 	log := newReceiptLog(p.addr.String(), HandleWithdrawStake, postFbkMigration)
 
 	withdrawer, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
@@ -218,7 +221,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// check unstake time
 	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if g.IsPostGreenland(blkCtx.BlockHeight) {
 		cannotWithdraw = !bucket.isUnstaked()
 	}
 	if cannotWithdraw {
@@ -265,7 +268,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) {
+	if g.IsPostGreenland(blkCtx.BlockHeight) {
 		log.SetData(bucket.StakedAmount.Bytes())
 	}
 
@@ -281,9 +284,10 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.ChangeCandidate, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleChangeCandidate, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -306,14 +310,14 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("change candidate for an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 
-	if p.hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && address.Equal(prevCandidate.Owner, candidate.Owner) {
+	if g.IsPostHawaii(blkCtx.BlockHeight) && address.Equal(prevCandidate.Owner, candidate.Owner) {
 		// change to same candidate, do nothing
 		return log, &handleError{
 			err:           errors.New("change to same candidate"),
@@ -364,9 +368,10 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 
 func (p *Protocol) handleTransferStake(ctx context.Context, act *action.TransferStake, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleTransferStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleTransferStake, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -376,7 +381,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	newOwner := act.VoterAddress()
 	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if p.hu.IsPre(config.Greenland, blkCtx.BlockHeight) ||
+		if g.IsPreGreenland(blkCtx.BlockHeight) ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
 			return log, fetchErr
 		}
@@ -390,7 +395,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
-	if p.hu.IsPost(config.Hawaii, blkCtx.BlockHeight) && address.Equal(newOwner, bucket.Owner) {
+	if g.IsPostHawaii(blkCtx.BlockHeight) && address.Equal(newOwner, bucket.Owner) {
 		// change to same owner, do nothing
 		return log, &handleError{
 			err:           errors.New("transfer to same owner"),
@@ -448,9 +453,10 @@ func (p *Protocol) handleConsignmentTransfer(
 
 func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.DepositToStake, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleDepositToStake, g.IsPostFbkMigration(blkCtx.BlockHeight))
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -473,7 +479,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, nil, &handleError{
 			err:           errors.New("deposit to an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -546,9 +552,10 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 
 func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleRestake, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleRestake, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {
@@ -566,7 +573,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, errCandNotExist
 	}
 
-	if p.hu.IsPost(config.Greenland, blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("restake an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -623,9 +630,10 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 
 func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.CandidateRegister, csm CandidateStateManager,
 ) (*receiptLog, []*action.TransactionLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleCandidateRegister, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	registrationFee := new(big.Int).Set(p.config.RegistrationConsts.Fee)
 
@@ -732,9 +740,10 @@ func (p *Protocol) handleCandidateRegister(ctx context.Context, act *action.Cand
 
 func (p *Protocol) handleCandidateUpdate(ctx context.Context, act *action.CandidateUpdate, csm CandidateStateManager,
 ) (*receiptLog, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	actCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, blkCtx.BlockHeight >= p.hu.FbkMigrationBlockHeight())
+	log := newReceiptLog(p.addr.String(), HandleCandidateUpdate, blkCtx.BlockHeight >= g.FbkMigrationBlockHeight)
 
 	_, fetchErr := fetchCaller(ctx, csm, big.NewInt(0))
 	if fetchErr != nil {

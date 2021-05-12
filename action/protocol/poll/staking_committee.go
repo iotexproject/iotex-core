@@ -28,7 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/execution/evm"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/prometheustimer"
 	"github.com/iotexproject/iotex-core/state"
@@ -97,17 +97,17 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 			return err
 		}
 	}
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	if blkCtx.BlockHeight != 0 {
 		return errors.Errorf("Cannot create genesis state for height %d", blkCtx.BlockHeight)
 	}
-	if bcCtx.Genesis.NativeStakingContractCode == "" || bcCtx.Genesis.NativeStakingContractAddress != "" {
+	if g.NativeStakingContractCode == "" || g.NativeStakingContractAddress != "" {
 		return nil
 	}
 	blkCtx.Producer, _ = address.FromString(address.ZeroAddress)
-	blkCtx.GasLimit = bcCtx.Genesis.BlockGasLimit
-	bytes, err := hexutil.Decode(bcCtx.Genesis.NativeStakingContractCode)
+	blkCtx.GasLimit = g.BlockGasLimit
+	bytes, err := hexutil.Decode(g.NativeStakingContractCode)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 		"",
 		nativeStakingContractNonce,
 		big.NewInt(0),
-		bcCtx.Genesis.BlockGasLimit,
+		g.BlockGasLimit,
 		big.NewInt(0),
 		bytes,
 	)
@@ -161,8 +161,8 @@ func (sc *stakingCommittee) CreateGenesisStates(ctx context.Context, sm protocol
 }
 
 func (sc *stakingCommittee) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if bcCtx.Genesis.NativeStakingContractAddress == "" && bcCtx.Genesis.NativeStakingContractCode != "" {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if g.NativeStakingContractAddress == "" && g.NativeStakingContractCode != "" {
 		caller, _ := address.FromString(nativeStakingContractCreator)
 		ethAddr := crypto.CreateAddress(common.BytesToAddress(caller.Bytes()), nativeStakingContractNonce)
 		iotxAddr, _ := address.FromBytes(ethAddr.Bytes())
@@ -210,11 +210,11 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 		return nil, err
 	}
 
+	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	// convert to epoch start height
-	if hu.IsPre(config.Cook, rp.GetEpochHeight(rp.GetEpochNum(height))) {
+	if g.IsPreCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
 	// native staking using contract starts from Cook
@@ -224,7 +224,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 
 	// TODO: extract tip info inside of Votes function
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, hu.IsPost(config.Daytona, height))
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsPostDaytona(height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
@@ -319,11 +319,11 @@ func (sc *stakingCommittee) mergeCandidates(list state.CandidateList, votes *Vot
 func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *action.Receipt, err error) error {
 	// Start to write native buckets archive after cook and only when the action is executed successfully
 	blkCtx := protocol.MustGetBlockCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if hu.IsPre(config.Cook, epochHeight) {
+	if g.IsPreCook(epochHeight) {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {

@@ -1126,7 +1126,6 @@ func TestServer_GetChainMeta(t *testing.T) {
 		} else if test.pollProtocolType == "governanceChainCommittee" {
 			committee := mock_committee.NewMockCommittee(ctrl)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1631,7 +1630,6 @@ func TestServer_ReadCandidatesByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1704,7 +1702,6 @@ func TestServer_ReadBlockProducersByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1777,7 +1774,6 @@ func TestServer_ReadActiveBlockProducersByEpoch(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},
@@ -1886,7 +1882,6 @@ func TestServer_GetEpochMeta(t *testing.T) {
 			indexer, err := poll.NewCandidateIndexer(db.NewMemKVStore())
 			require.NoError(err)
 			slasher, _ := poll.NewSlasher(
-				&cfg.Genesis,
 				func(uint64, uint64) (map[string]uint64, error) {
 					return nil, nil
 				},

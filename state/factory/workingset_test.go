@@ -19,6 +19,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
@@ -44,9 +45,9 @@ func newFactoryWorkingSet(t testing.TB) *workingSet {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	r.NoError(err)
 
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	r.NoError(sf.Start(ctx))
 	// defer r.NoError(sf.Stop(ctx))
@@ -61,9 +62,9 @@ func newStateDBWorkingSet(t testing.TB) *workingSet {
 	sf, err := NewStateDB(config.Default, InMemStateDBOption())
 	r.NoError(err)
 
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	r.NoError(sf.Start(ctx))
 	// defer r.NoError(sf.Stop(ctx))
@@ -210,10 +211,7 @@ func TestWorkingSet_ValidateBlock(t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	zctx = protocol.WithBlockchainCtx(
-		zctx,
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
-	)
+	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
 	for _, f := range factories {
 		for _, test := range tests {
 			require.Equal(test.err, errors.Cause(f.Validate(zctx, test.block)))

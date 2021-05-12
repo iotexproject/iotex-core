@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -126,11 +127,11 @@ func createAccount(sm protocol.StateManager, encodedAddr string, init *big.Int) 
 // CreateGenesisStates initializes the protocol by setting the initial balances to some addresses
 func (p *Protocol) CreateGenesisStates(ctx context.Context, sm protocol.StateManager) error {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	if err := p.assertZeroBlockHeight(blkCtx.BlockHeight); err != nil {
 		return err
 	}
-	addrs, amounts := bcCtx.Genesis.InitBalances()
+	addrs, amounts := g.InitBalances()
 	if err := p.assertEqualLength(addrs, amounts); err != nil {
 		return err
 	}

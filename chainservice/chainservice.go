@@ -347,8 +347,7 @@ func New(
 				return err
 			}
 			retries := 1
-			hu := config.NewHeightUpgrade(&cfg.Genesis)
-			if hu.IsPre(config.Hawaii, blk.Height()) {
+			if cfg.Genesis.IsPreHawaii(blk.Height()) {
 				retries = 4
 			}
 			var err error

@@ -18,6 +18,7 @@ import (
 	rp "github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
@@ -110,11 +111,9 @@ func NewConsensus(
 				if err := ops.rp.Register(re); err != nil {
 					return nil, err
 				}
-				ctx := protocol.WithBlockchainCtx(
+				ctx := genesis.WithGenesisContext(
 					protocol.WithRegistry(context.Background(), re),
-					protocol.BlockchainCtx{
-						Genesis: cfg.Genesis,
-					},
+					cfg.Genesis,
 				)
 				tipHeight := bc.TipHeight()
 				tipEpochNum := ops.rp.GetEpochNum(tipHeight)
