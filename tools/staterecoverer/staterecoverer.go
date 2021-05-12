@@ -32,10 +32,14 @@ var recoveryHeight int
 
 var (
 	genesisPath string
+
+	// secretPath is the path to the  config file store secret values
+	_secretPath string
 )
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
@@ -52,7 +56,7 @@ func main() {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
 
-	cfg, err := config.New()
+	cfg, err := config.New(_secretPath)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}

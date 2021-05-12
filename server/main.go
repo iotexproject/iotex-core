@@ -35,12 +35,15 @@ import (
 var (
 	genesisPath string
 
+	// secretPath is the path to the  config file store secret values
+	_secretPath   string
 	_subChainPath string
 )
 
 func init() {
 	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
@@ -74,7 +77,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New()
+	cfg, err := config.New(_secretPath)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
@@ -121,7 +124,7 @@ func main() {
 		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
-	cfgsub, err := config.NewSub(_subChainPath)
+	cfgsub, err := config.NewSub(_secretPath, _subChainPath)
 	if err != nil {
 		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
 	}

@@ -35,7 +35,6 @@ import (
 
 func init() {
 	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
-	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
 
 	flag.Var(&_plugins, "plugin", "Plugin of the node")
 }
@@ -43,8 +42,6 @@ func init() {
 var (
 	// overwritePath is the path to the config file which overwrite default values
 	_overwritePath string
-	// secretPath is the path to the  config file store secret values
-	_secretPath string
 
 	_plugins      strs
 	_evmNetworkID uint32
@@ -431,7 +428,7 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(validates ...Validate) (Config, error) {
+func New(_secretPath string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
@@ -479,7 +476,7 @@ func New(validates ...Validate) (Config, error) {
 }
 
 // NewSub create config for sub chain.
-func NewSub(_subChainPath string, validates ...Validate) (Config, error) {
+func NewSub(_secretPath string, _subChainPath string, validates ...Validate) (Config, error) {
 	if _subChainPath == "" {
 		return Config{}, nil
 	}
