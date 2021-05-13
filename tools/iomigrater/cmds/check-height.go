@@ -47,7 +47,7 @@ var (
 )
 
 func checkDbFileHeight(filePath string) (uint64, error) {
-	cfg, err := config.New()
+	cfg, err := config.New([]string{}, []string{})
 	if err != nil {
 		return uint64(0), fmt.Errorf("Failed to new config: %v", err)
 	}
