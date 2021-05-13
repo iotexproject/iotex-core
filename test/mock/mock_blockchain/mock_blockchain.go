@@ -168,18 +168,18 @@ func (mr *MockBlockchainMockRecorder) Genesis() *gomock.Call {
 }
 
 // Context mocks base method
-func (m *MockBlockchain) Context() (context.Context, error) {
+func (m *MockBlockchain) Context(arg0 context.Context) (context.Context, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Context")
+	ret := m.ctrl.Call(m, "Context", arg0)
 	ret0, _ := ret[0].(context.Context)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Context indicates an expected call of Context
-func (mr *MockBlockchainMockRecorder) Context() *gomock.Call {
+func (mr *MockBlockchainMockRecorder) Context(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockBlockchain)(nil).Context), arg0)
 }
 
 // MintNewBlock mocks base method

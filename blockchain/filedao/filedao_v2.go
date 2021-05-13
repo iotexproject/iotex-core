@@ -19,7 +19,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
@@ -53,7 +52,7 @@ type (
 )
 
 // newFileDAOv2 creates a new v2 file
-func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
+func newFileDAOv2(bottom uint64, cfg db.Config) (*fileDAOv2, error) {
 	if bottom == 0 {
 		return nil, ErrNotSupported
 	}
@@ -77,7 +76,7 @@ func newFileDAOv2(bottom uint64, cfg config.DB) (*fileDAOv2, error) {
 }
 
 // openFileDAOv2 opens an existing v2 file
-func openFileDAOv2(cfg config.DB) *fileDAOv2 {
+func openFileDAOv2(cfg db.Config) *fileDAOv2 {
 	return &fileDAOv2{
 		filename: cfg.DbPath,
 		blkCache: cache.NewThreadSafeLruCache(16),

@@ -1049,7 +1049,7 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 	accMap[identityset.Address(28).String()] = []action.SealedEnvelope{selp1}
 
 	addr0 := identityset.Address(27).String()
-	tsf0, err := testutil.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf0, err := action.SignedTransfer(addr0, identityset.PrivateKey(0), 1, big.NewInt(90000000), nil, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
 	accMap[identityset.Address(0).String()] = []action.SealedEnvelope{tsf0}
 

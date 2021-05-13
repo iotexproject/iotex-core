@@ -42,29 +42,39 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
 )
 
-// ChainService is a blockchain service with all blockchain components.
-type ChainService struct {
-	actpool           actpool.ActPool
-	blocksync         blocksync.BlockSync
-	consensus         consensus.Consensus
-	chain             blockchain.Blockchain
-	factory           factory.Factory
-	blockdao          blockdao.BlockDAO
-	p2pAgent          *p2p.Agent
-	electionCommittee committee.Committee
-	// TODO: explorer dependency deleted at #1085, need to api related params
-	api                *api.Server
-	indexBuilder       *blockindex.IndexBuilder
-	bfIndexer          blockindex.BloomFilterIndexer
-	candidateIndexer   *poll.CandidateIndexer
-	candBucketsIndexer *staking.CandidatesBucketsIndexer
-	registry           *protocol.Registry
-}
+type (
+	// ChainService is a blockchain service with all blockchain components.
+	ChainService struct {
+		actpool           actpool.ActPool
+		blocksync         blocksync.BlockSync
+		consensus         consensus.Consensus
+		chain             blockchain.Blockchain
+		factory           factory.Factory
+		blockdao          blockdao.BlockDAO
+		p2pAgent          *p2p.Agent
+		electionCommittee committee.Committee
+		// TODO: explorer dependency deleted at #1085, need to api related params
+		api                *api.Server
+		indexBuilder       *blockindex.IndexBuilder
+		bfIndexer          blockindex.BloomFilterIndexer
+		candidateIndexer   *poll.CandidateIndexer
+		candBucketsIndexer *staking.CandidatesBucketsIndexer
+		registry           *protocol.Registry
+	}
+
+	// ChainServiceBuilder is the builder of a ChainService
+	ChainServiceBuilder struct {
+		cfg config.Config
+		cs *ChainService
+		registry protocol.Registry
+	}
+)
 
 type optionParams struct {
 	isTesting  bool
@@ -90,10 +100,52 @@ func WithSubChain() Option {
 	}
 }
 
-// New creates a ChainService from config and network.Overlay
+// NewChainServiceBuilder creates a chain service builder
+func NewChainServiceBuilder(cfg config.Config) *ChainServiceBuilder {
+	builder := &ChainServiceBuilder{
+		cfg: cfg,
+		registry: protocol.NewRegistry(),
+		cs: &ChainService{},
+	}
+
+
+}
+
+func (builder *ChainServiceBuilder) prepareFactory() (factory.Factory, error) {
+	var sf factory.Factory
+	if ops.isTesting {
+		sf, err = factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
+		}
+	} else {
+		if cfg.Chain.EnableTrielessStateDB {
+			if cfg.Chain.EnableStateDBCaching {
+				sf, err = factory.NewStateDB(cfg, factory.CachedStateDBOption(), factory.RegistryStateDBOption(registry))
+			} else {
+				sf, err = factory.NewStateDB(cfg, factory.DefaultStateDBOption(), factory.RegistryStateDBOption(registry))
+			}
+		} else {
+			sf, err = factory.NewFactory(cfg, factory.DefaultTrieOption(), factory.RegistryOption(registry))
+		}
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to create state factory")
+		}
+	}
+}
+
+func (builder *ChainServiceBuilder) Build() (*ChainService, error) {
+	return nil, nil
+}
+
+func (builder *ChainServiceBuilder) Build() (*ChainServiceBuilder, error) {
+
+
+// New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
 func New(
 	cfg config.Config,
 	p2pAgent *p2p.Agent,
+	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
 	// create indexers
@@ -378,31 +430,19 @@ func New(
 
 			return nil
 		},
-		func(ctx context.Context, start uint64, end uint64, repeat int) {
+		func(ctx context.Context, start uint64, end uint64) error {
 			peers, err := p2pAgent.Neighbors(ctx)
 			if err != nil {
-				log.L().Error("failed to get neighbours", zap.Error(err))
-				return
+				return err
 			}
 			if len(peers) == 0 {
-				log.L().Error("no peers")
+				return errors.New("no peers")
 			}
-			if repeat < 2 {
-				repeat = 2
-			}
-			if repeat > len(peers) {
-				repeat = len(peers)
-			}
-			for i := 0; i < repeat; i++ {
-				peer := peers[rand.Intn(len(peers)-i)]
-				if err := p2pAgent.UnicastOutbound(
-					p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
-					peer,
-					&iotexrpc.BlockSync{Start: start, End: end},
-				); err != nil {
-					log.L().Error("failed to request blocks", zap.Error(err), zap.String("peer", peer.ID.Pretty()), zap.Uint64("start", start), zap.Uint64("end", end))
-				}
-			}
+			return p2pAgent.UnicastOutbound(
+				p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
+				peers[rand.Intn(len(peers))],
+				&iotexrpc.BlockSync{Start: start, End: end},
+			)
 		},
 	)
 	if err != nil {
@@ -581,11 +621,11 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
-	ctx, err := cs.chain.Context(ctx)
+	bcCtx, err := cs.chain.Context()
 	if err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(ctx, blk)
+	return cs.blocksync.ProcessBlock(bcCtx, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.
@@ -644,3 +684,4 @@ func (cs *ChainService) BlockSync() blocksync.BlockSync {
 
 // Registry returns a pointer to the registry
 func (cs *ChainService) Registry() *protocol.Registry { return cs.registry }
+

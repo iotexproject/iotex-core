@@ -19,7 +19,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -75,7 +75,7 @@ type (
 		lock        sync.Mutex
 		topIndex    uint64
 		splitHeight uint64
-		cfg         config.DB
+		cfg         db.Config
 		currFd      BaseFileDAO
 		legacyFd    FileDAO
 		v2Fd        *FileV2Manager // a collection of v2 db files
@@ -83,7 +83,7 @@ type (
 )
 
 // NewFileDAO creates an instance of FileDAO
-func NewFileDAO(cfg config.DB) (FileDAO, error) {
+func NewFileDAO(cfg db.Config) (FileDAO, error) {
 	header, err := checkMasterChainDBFile(cfg.DbPath)
 	if err == ErrFileInvalid || err == ErrFileCantAccess {
 		return nil, err
@@ -365,7 +365,7 @@ func (fd *fileDAO) DeleteTipBlock() error {
 }
 
 // CreateFileDAO creates FileDAO according to master file
-func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
+func CreateFileDAO(legacy bool, cfg db.Config) (FileDAO, error) {
 	fd := fileDAO{splitHeight: 1, cfg: cfg}
 	fds := []*fileDAOv2{}
 	v2Top, v2Files := checkAuxFiles(cfg.DbPath, FileV2)
@@ -405,7 +405,7 @@ func CreateFileDAO(legacy bool, cfg config.DB) (FileDAO, error) {
 }
 
 // createNewV2File creates a new v2 chain db file
-func createNewV2File(start uint64, cfg config.DB) error {
+func createNewV2File(start uint64, cfg db.Config) error {
 	v2, err := newFileDAOv2(start, cfg)
 	if err != nil {
 		return err

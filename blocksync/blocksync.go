@@ -87,10 +87,9 @@ func NewBlockSyncer(
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
+		bs.flushTask = routine.NewRecurringTask(bs.flush, bs.cfg.Interval)
+		bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, bs.cfg.Interval)
 	}
-
-	bs.flushTask = routine.NewRecurringTask(bs.flush, config.DardanellesBlockInterval)
-	bs.syncStageTask = routine.NewRecurringTask(bs.syncStageChecker, config.DardanellesBlockInterval)
 	atomic.StoreUint64(&bs.syncBlockIncrease, 0)
 	return bs, nil
 }
@@ -166,33 +165,46 @@ func (bs *blockSyncer) TargetHeight() uint64 {
 // Start starts a block syncer
 func (bs *blockSyncer) Start(ctx context.Context) error {
 	log.L().Debug("Starting block syncer.")
-	if err := bs.flushTask.Start(ctx); err != nil {
-		return err
+	if bs.flushTask != nil {
+		if err := bs.flushTask.Start(ctx); err != nil {
+			return err
+		}
 	}
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Start(ctx); err != nil {
 			return err
 		}
 	}
-	return bs.syncStageTask.Start(ctx)
+	if bs.syncStageTask != nil {
+		return bs.syncStageTask.Start(ctx)
+	}
+	return nil
 }
 
 // Stop stops a block syncer
 func (bs *blockSyncer) Stop(ctx context.Context) error {
 	log.L().Debug("Stopping block syncer.")
-	if err := bs.syncStageTask.Stop(ctx); err != nil {
-		return err
+	if bs.syncStageTask != nil {
+		if err := bs.syncStageTask.Stop(ctx); err != nil {
+			return err
+		}
 	}
 	if bs.syncTask != nil {
 		if err := bs.syncTask.Stop(ctx); err != nil {
 			return err
 		}
 	}
-	return bs.flushTask.Stop(ctx)
+	if bs.flushTask != nil {
+		return bs.flushTask.Stop(ctx)
+	}
+	return nil
 }
 
 // ProcessBlock processes an incoming block
 func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
+	if bs.flushTask == nil {
+		return nil
+	}
 	if blk == nil {
 		return errors.New("block is nil")
 	}
@@ -245,5 +257,8 @@ func (bs *blockSyncer) SyncStatus() string {
 	if syncBlockIncrease == 1 {
 		return "synced to blockchain tip"
 	}
-	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/config.DardanellesBlockInterval.Seconds())
+	if bs.cfg.Interval == 0 {
+		return "no sync task"
+	}
+	return fmt.Sprintf("sync in progress at %.1f blocks/sec", float64(syncBlockIncrease)/bs.cfg.Interval.Seconds())
 }
