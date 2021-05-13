@@ -11,9 +11,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/go-pkgs/hash"
-
-	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/pkg/log"
 )
 
@@ -38,7 +35,7 @@ func newBlockBuffer(bufferSize, intervalSize uint64) *blockBuffer {
 	}
 }
 
-func (b *blockBuffer) Delete(height uint64) []*block.Block {
+func (b *blockBuffer) Delete(height uint64) []*peerBlock {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	queue, ok := b.blockQueues[height]
@@ -69,16 +66,13 @@ func (b *blockBuffer) Cleanup(height uint64) {
 }
 
 // AddBlock tries to put given block into buffer and flush buffer into blockchain.
-func (b *blockBuffer) AddBlock(tipHeight uint64, blk *block.Block) {
+func (b *blockBuffer) AddBlock(tipHeight uint64, blk *peerBlock) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	blkHeight := blk.Height()
+	blkHeight := blk.block.Height()
 	if blkHeight > tipHeight && blkHeight <= tipHeight+b.bufferSize {
 		if _, ok := b.blockQueues[blkHeight]; !ok {
-			b.blockQueues[blkHeight] = &uniQueue{
-				blocks: []*block.Block{},
-				hashes: map[hash.Hash256]bool{},
-			}
+			b.blockQueues[blkHeight] = newUniQueue()
 		}
 		b.blockQueues[blkHeight].enque(blk)
 	}

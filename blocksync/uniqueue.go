@@ -8,25 +8,23 @@ package blocksync
 
 import (
 	"github.com/iotexproject/go-pkgs/hash"
-
-	"github.com/iotexproject/iotex-core/blockchain/block"
 )
 
 // uniQueue is not threadsafe
 type uniQueue struct {
-	blocks []*block.Block
+	blocks []*peerBlock
 	hashes map[hash.Hash256]bool
 }
 
 func newUniQueue() *uniQueue {
 	return &uniQueue{
-		blocks: []*block.Block{},
+		blocks: []*peerBlock{},
 		hashes: map[hash.Hash256]bool{},
 	}
 }
 
-func (uq *uniQueue) enque(blk *block.Block) {
-	h := blk.HashBlock()
+func (uq *uniQueue) enque(blk *peerBlock) {
+	h := blk.block.HashBlock()
 	if _, ok := uq.hashes[h]; ok {
 		return
 	}
@@ -34,12 +32,12 @@ func (uq *uniQueue) enque(blk *block.Block) {
 	uq.blocks = append(uq.blocks, blk)
 }
 
-func (uq *uniQueue) dequeAll() []*block.Block {
+func (uq *uniQueue) dequeAll() []*peerBlock {
 	if len(uq.blocks) == 0 {
 		return nil
 	}
 	blks := uq.blocks
-	uq.blocks = []*block.Block{}
+	uq.blocks = []*peerBlock{}
 	uq.hashes = map[hash.Hash256]bool{}
 
 	return blks

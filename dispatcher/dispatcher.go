@@ -112,17 +112,19 @@ type IotxDispatcher struct {
 	quit           chan struct{}
 	subscribers    map[uint32]Subscriber
 	subscribersMU  sync.RWMutex
+	peerLastSync   map[string]time.Time
 }
 
 // NewDispatcher creates a new Dispatcher
 func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 	d := &IotxDispatcher{
-		actionChan:  make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
-		blockChan:   make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
-		syncChan:    make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
-		eventAudit:  make(map[iotexrpc.MessageType]int),
-		quit:        make(chan struct{}),
-		subscribers: make(map[uint32]Subscriber),
+		actionChan:   make(chan *actionMsg, cfg.Dispatcher.ActionChanSize),
+		blockChan:    make(chan *blockMsg, cfg.Dispatcher.BlockChanSize),
+		syncChan:     make(chan *blockSyncMsg, cfg.Dispatcher.BlockSyncChanSize),
+		eventAudit:   make(map[iotexrpc.MessageType]int),
+		quit:         make(chan struct{}),
+		subscribers:  make(map[uint32]Subscriber),
+		peerLastSync: make(map[string]time.Time),
 	}
 	return d, nil
 }
@@ -210,14 +212,27 @@ func (d *IotxDispatcher) blockHandler() {
 	}
 }
 
+func (d *IotxDispatcher) checkSyncPermission(peerID string) (bool) {
+	now := ctime.UTC()
+	last, ok := d.peerLastSync[peerID]
+	if ok && last.Add(time.Duration(1) * time.Second).after(ctime.UTC()) {
+		return false
+	}
+
+	d.peerLastSync[peerID] = now
+	return true
+}
+
 // syncHandler handles incoming block sync requests
 func (d *IotxDispatcher) syncHandler() {
 	for {
 		select {
 		case m := <-d.syncChan:
+			if (!d.checkSyncPermission(m.peer.ID.Pretty())) {
+				return
+			}
+
 			d.handleBlockSyncMsg(m)
-			// TODO: better strategy of pacing
-			time.Sleep(5 * time.Second)
 		case <-d.quit:
 			d.wg.Done()
 			log.L().Info("block sync handler done.")
@@ -416,7 +431,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(ctx, chainID, message)
+		d.dispatchBlock(context.WithValue(ctx, "peerID", peer.ID.Pretty()), chainID, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}

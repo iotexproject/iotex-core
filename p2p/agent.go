@@ -172,7 +172,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastInboundHandler(ctx, broadcast.ChainId, msg)
+
+		p.broadcastInboundHandler(context.WithValue(ctx, "peerID", peerID), broadcast.ChainId, msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")

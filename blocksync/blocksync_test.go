@@ -216,6 +216,9 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(err)
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
+
+	ctx = context.WithValue(ctx, "peerID", "peer1")
+
 	require.NoError(bs.ProcessBlock(ctx, blk))
 	bs.flush()
 	h2 := chain.TipHeight()
@@ -298,6 +301,9 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	// commit top
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
+
+	ctx = context.WithValue(ctx, "peerID", "peer1")
+
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
@@ -393,6 +399,9 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
+
+	ctx = context.WithValue(ctx, "peerID", "peer1")
+
 	// commit top
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
@@ -463,6 +472,9 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
+
+	ctx = context.WithValue(ctx, "peerID", "peer1")
+
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)

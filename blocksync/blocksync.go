@@ -65,6 +65,20 @@ type blockSyncer struct {
 	lastTipUpdateTime time.Time
 	targetHeight      uint64
 	mu                sync.RWMutex
+
+	blackPeers        map[string]bool
+}
+
+type peerBlock struct {
+	pid               string
+	block             *block.Block
+}
+
+func newPeerBlock(pid string, blk *block.Block) (*peerBlock) {
+	return &peerBlock{
+		pid: pid,
+		block: blk,
+	};
 }
 
 // NewBlockSyncer returns a new block syncer instance
@@ -84,6 +98,7 @@ func NewBlockSyncer(
 		commitBlockHandler:   commitBlockHandler,
 		requestBlocksHandler: requestBlocksHandler,
 		targetHeight:         0,
+		blackPeers:           make(map[string]bool),
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
@@ -94,7 +109,7 @@ func NewBlockSyncer(
 	return bs, nil
 }
 
-func (bs *blockSyncer) commitBlocks(blks []*block.Block) bool {
+func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 	if blks == nil {
 		return false
 	}
@@ -102,10 +117,13 @@ func (bs *blockSyncer) commitBlocks(blks []*block.Block) bool {
 		if blk == nil {
 			continue
 		}
-		err := bs.commitBlockHandler(blk)
+		err := bs.commitBlockHandler(blk.block)
 		if err == nil {
 			return true
+		} else {
+			bs.blackPeers[blk.pid] = true
 		}
+
 		log.L().Debug("failed to commit block", zap.Error(err))
 	}
 	return false
@@ -201,14 +219,26 @@ func (bs *blockSyncer) Stop(ctx context.Context) error {
 }
 
 // ProcessBlock processes an incoming block
-func (bs *blockSyncer) ProcessBlock(_ context.Context, blk *block.Block) error {
+func (bs *blockSyncer) ProcessBlock(ctx context.Context, blk *block.Block) error {
 	if bs.flushTask == nil {
 		return nil
 	}
 	if blk == nil {
 		return errors.New("block is nil")
 	}
-	bs.buf.AddBlock(bs.tipHeightHandler(), blk)
+
+	pid, ok := ctx.Value("peerID").(string)
+	if !ok {
+		return errors.New("peerID is nil")
+	}
+
+	black, ok := bs.blackPeers[pid]
+	if ok && black {
+		log.L().Info("peer in backlist.")
+		return nil
+	}
+
+	bs.buf.AddBlock(bs.tipHeightHandler(), newPeerBlock(pid, blk))
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 	if blk.Height() > bs.targetHeight {
