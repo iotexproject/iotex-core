@@ -493,7 +493,7 @@ func (stateDB *StateDBAdapter) AddLog(evmLog *types.Log) {
 		if len(topics) != 3 {
 			panic("Invalid in contract transfer topics")
 		}
-		if amount := new(big.Int).SetBytes(evmLog.Data); amount.BitLen() > 0 {
+		if amount, zero := new(big.Int).SetBytes(evmLog.Data), big.NewInt(0); amount.Cmp(zero) > 0 {
 			from, _ := address.FromBytes(topics[1][12:])
 			to, _ := address.FromBytes(topics[2][12:])
 			stateDB.transactionLogs = append(stateDB.transactionLogs, &action.TransactionLog{
