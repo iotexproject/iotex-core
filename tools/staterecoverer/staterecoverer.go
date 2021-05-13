@@ -14,6 +14,7 @@ import (
 	"fmt"
 	glog "log"
 	"os"
+	"strings"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -30,7 +31,33 @@ import (
 // recoveryHeight is the blockchain height being recovered to
 var recoveryHeight int
 
+/**
+ * overwritePath is the path to the config file which overwrite default values
+ * secretPath is the path to the  config file store secret values
+ */
+var (
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
+	_plugins       strs
+)
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.IntVar(&recoveryHeight, "recovery-height", 0, "Recovery height")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
@@ -42,12 +69,12 @@ func init() {
 }
 
 func main() {
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
 
-	cfg, err := config.New()
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
