@@ -114,7 +114,7 @@ func stake2Reclaim(args []string) error {
 func readSigFromStdin(args []string) (string, error) {
 	sig := "\n1. Use HDWallet or off-line sign this message on " + args[1] + " using the private key of bucket " + args[0] + "'s owner"
 	fmt.Printf(sig)
-	fmt.Printf("\n2. Paste the signature, and hit Enter:\n")
+	fmt.Printf("\n2. Paste the signature (with 0x), and hit Enter:\n")
 
 	reader := bufio.NewReader(os.Stdin)
 	sig, err := reader.ReadString('\n')
