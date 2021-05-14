@@ -31,7 +31,7 @@ import (
 type Subscriber interface {
 	ReportFullness(context.Context, iotexrpc.MessageType, float32)
 	HandleAction(context.Context, *iotextypes.Action) error
-	HandleBlock(context.Context, *iotextypes.Block) error
+	HandleBlock(context.Context, string, *iotextypes.Block) error
 	HandleSyncRequest(context.Context, peerstore.PeerInfo, *iotexrpc.BlockSync) error
 	HandleConsensusMsg(*iotextypes.ConsensusMessage) error
 }
@@ -44,7 +44,7 @@ type Dispatcher interface {
 	AddSubscriber(uint32, Subscriber)
 	// HandleBroadcast handles the incoming broadcast message. The transportation layer semantics is at least once.
 	// That said, the handler is likely to receive duplicate messages.
-	HandleBroadcast(context.Context, uint32, proto.Message)
+	HandleBroadcast(context.Context, uint32, string, proto.Message)
 	// HandleTell handles the incoming tell message. The transportation layer semantics is exact once. The sender is
 	// given for the sake of replying the message
 	HandleTell(context.Context, uint32, peerstore.PeerInfo, proto.Message)
@@ -67,6 +67,7 @@ type blockMsg struct {
 	ctx     context.Context
 	chainID uint32
 	block   *iotextypes.Block
+	peer    string
 }
 
 func (m blockMsg) ChainID() uint32 {
@@ -113,6 +114,7 @@ type IotxDispatcher struct {
 	subscribers    map[uint32]Subscriber
 	subscribersMU  sync.RWMutex
 	peerLastSync   map[string]time.Time
+	syncInterval   time.Duration
 }
 
 // NewDispatcher creates a new Dispatcher
@@ -125,6 +127,7 @@ func NewDispatcher(cfg config.Config) (Dispatcher, error) {
 		quit:         make(chan struct{}),
 		subscribers:  make(map[uint32]Subscriber),
 		peerLastSync: make(map[string]time.Time),
+		syncInterval: cfg.Dispatcher.ProcessSyncRequestInterval,
 	}
 	return d, nil
 }
@@ -213,9 +216,9 @@ func (d *IotxDispatcher) blockHandler() {
 }
 
 func (d *IotxDispatcher) checkSyncPermission(peerID string) (bool) {
-	now := ctime.UTC()
+	now := time.Now()
 	last, ok := d.peerLastSync[peerID]
-	if ok && last.Add(time.Duration(1) * time.Second).after(ctime.UTC()) {
+	if ok && last.Add(d.syncInterval).After(now) {
 		return false
 	}
 
@@ -277,7 +280,7 @@ func (d *IotxDispatcher) handleBlockMsg(m *blockMsg) {
 
 	if subscriber := d.subscriber(m.ChainID()); subscriber != nil {
 		d.updateEventAudit(iotexrpc.MessageType_BLOCK)
-		if err := subscriber.HandleBlock(m.ctx, m.block); err != nil {
+		if err := subscriber.HandleBlock(m.ctx, m.peer, m.block); err != nil {
 			log.L().Error("Fail to handle the block.", zap.Error(err))
 		}
 		d.blockChanLock.RLock()
@@ -339,7 +342,7 @@ func (d *IotxDispatcher) dispatchAction(ctx context.Context, chainID uint32, msg
 }
 
 // dispatchBlock adds the passed block message to the news handling queue.
-func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, msg proto.Message) {
+func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, peer string, msg proto.Message) {
 	if atomic.LoadInt32(&d.shutdown) != 0 {
 		return
 	}
@@ -357,6 +360,7 @@ func (d *IotxDispatcher) dispatchBlock(ctx context.Context, chainID uint32, msg 
 			ctx:     ctx,
 			chainID: chainID,
 			block:   (msg).(*iotextypes.Block),
+			peer:    peer,
 		}
 		l++
 	} else {
@@ -394,7 +398,7 @@ func (d *IotxDispatcher) dispatchBlockSyncReq(ctx context.Context, chainID uint3
 }
 
 // HandleBroadcast handles incoming broadcast message
-func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, message proto.Message) {
+func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, peer string, message proto.Message) {
 	msgType, err := goproto.GetTypeFromRPCMsg(message)
 	if err != nil {
 		log.L().Warn("Unexpected message handled by HandleBroadcast.", zap.Error(err))
@@ -415,7 +419,7 @@ func (d *IotxDispatcher) HandleBroadcast(ctx context.Context, chainID uint32, me
 	case iotexrpc.MessageType_ACTION:
 		d.dispatchAction(ctx, chainID, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(ctx, chainID, message)
+		d.dispatchBlock(ctx, chainID, peer, message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleBroadcast.", zap.Any("msgType", msgType))
 	}
@@ -431,7 +435,7 @@ func (d *IotxDispatcher) HandleTell(ctx context.Context, chainID uint32, peer pe
 	case iotexrpc.MessageType_BLOCK_REQUEST:
 		d.dispatchBlockSyncReq(ctx, chainID, peer, message)
 	case iotexrpc.MessageType_BLOCK:
-		d.dispatchBlock(context.WithValue(ctx, "peerID", peer.ID.Pretty()), chainID, message)
+		d.dispatchBlock(ctx, chainID, peer.ID.Pretty(), message)
 	default:
 		log.L().Warn("Unexpected msgType handled by HandleTell.", zap.Any("msgType", msgType))
 	}

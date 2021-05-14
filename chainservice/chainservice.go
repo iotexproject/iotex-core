@@ -576,7 +576,7 @@ func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Acti
 }
 
 // HandleBlock handles incoming block request.
-func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Block) error {
+func (cs *ChainService) HandleBlock(ctx context.Context, peer string, pbBlock *iotextypes.Block) error {
 	blk := &block.Block{}
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
@@ -585,7 +585,7 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	if err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(ctx, blk)
+	return cs.blocksync.ProcessBlock(ctx, peer, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.

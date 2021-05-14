@@ -217,20 +217,20 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
-	ctx = context.WithValue(ctx, "peerID", "peer1")
+	peer := "peer1"
 
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	bs.flush()
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
 	// commit top
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
@@ -302,30 +302,30 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
 
-	ctx = context.WithValue(ctx, "peerID", "peer1")
+	peer := "peer1"
 
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
 	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
 	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
 	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlock(ctx, blk3))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
 	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
@@ -400,30 +400,30 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
 
-	ctx = context.WithValue(ctx, "peerID", "peer1")
+	peer := "peer1"
 
 	// commit top
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
 	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
 	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
 	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk3))
-	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
 	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
@@ -473,17 +473,17 @@ func TestBlockSyncerSync(t *testing.T) {
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
 
-	ctx = context.WithValue(ctx, "peerID", "peer1")
+	peer := "peer1"
 
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 
 	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	time.Sleep(time.Millisecond << 7)
 }
 
