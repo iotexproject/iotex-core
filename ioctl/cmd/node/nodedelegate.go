@@ -42,8 +42,8 @@ const (
 // Multi-language support
 var (
 	delegateCmdUses = map[config.Language]string{
-		config.English: "delegate [-e epoch-num|-n] [-a]",
-		config.Chinese: "delegate [-e epoch数|-n] [-a]",
+		config.English: "delegate [-e epoch-num]",
+		config.Chinese: "delegate [-e epoch数]",
 	}
 	delegateCmdShorts = map[config.Language]string{
 		config.English: "Print consensus delegates information in certain epoch",
