@@ -18,6 +18,7 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/iotexproject/go-pkgs/hash"
@@ -32,7 +33,35 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+/**
+ * overwritePath is the path to the config file which overwrite default values
+ * secretPath is the path to the  config file store secret values
+ */
+var (
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
+	_subChainPath  string
+	_plugins       strs
+)
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
+	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -50,7 +79,7 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
@@ -65,7 +94,7 @@ func main() {
 		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
 	}
 
-	cfg, err := config.New()
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
@@ -112,10 +141,16 @@ func main() {
 		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
-	cfgsub, err := config.NewSub()
-	if err != nil {
-		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+	var cfgsub config.Config
+	if _subChainPath != "" {
+		cfgsub, err = config.NewSub([]string{_secretPath, _subChainPath})
+		if err != nil {
+			log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+		}
+	} else {
+		cfgsub = config.Config{}
 	}
+
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
 			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
