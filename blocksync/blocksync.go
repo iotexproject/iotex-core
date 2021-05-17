@@ -66,7 +66,7 @@ type blockSyncer struct {
 	targetHeight      uint64
 	mu                sync.RWMutex
 
-	peerBlockList     map[string]bool
+	peerBlockList     sync.Map
 }
 
 type peerBlock struct {
@@ -98,7 +98,6 @@ func NewBlockSyncer(
 		commitBlockHandler:   commitBlockHandler,
 		requestBlocksHandler: requestBlocksHandler,
 		targetHeight:         0,
-		peerBlockList:        make(map[string]bool),
 	}
 	if bs.cfg.Interval != 0 {
 		bs.syncTask = routine.NewRecurringTask(bs.sync, bs.cfg.Interval)
@@ -121,7 +120,7 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		if err == nil {
 			return true
 		} else {
-			bs.peerBlockList[blk.pid] = true
+			bs.peerBlockList.Store(blk.pid, true)
 		}
 
 		log.L().Debug("failed to commit block", zap.Error(err))
@@ -227,8 +226,8 @@ func (bs *blockSyncer) ProcessBlock(ctx context.Context, peer string, blk *block
 		return errors.New("block is nil")
 	}
 
-	blocked, ok := bs.peerBlockList[peer]
-	if ok && blocked {
+	_, ok := bs.peerBlockList.Load(peer)
+	if ok {
 		log.L().Info("peer in block list.")
 		return nil
 	}

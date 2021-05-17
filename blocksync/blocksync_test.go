@@ -508,3 +508,88 @@ func newTestConfig() (config.Config, error) {
 	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
 }
+
+func TestBlockSyncerPeerBlockList(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.NoError(err)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap)
+	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	chain := bc.NewBlockchain(
+		cfg,
+		dao,
+		factory.NewMinter(sf, ap),
+		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
+	)
+	require.NotNil(chain)
+	require.NoError(chain.Start(ctx))
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
+
+	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
+	require.NoError(err)
+
+	defer func() {
+		require.NoError(chain.Stop(ctx))
+		ctrl.Finish()
+	}()
+
+	ctx, err = chain.Context(ctx)
+	require.NoError(err)
+
+	h := chain.TipHeight()
+	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk1)
+	require.NoError(err)
+
+	blk2 := block.NewBlockDeprecated(
+		uint32(123),
+		blk1.Height(),
+		hash.Hash256{},
+		testutil.TimestampNow(),
+		identityset.PrivateKey(27).PublicKey(),
+		nil,
+	)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk2))
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk1))
+
+	bs.flush()
+
+	h2 := chain.TipHeight()
+	assert.Equal(t, h+1, h2)
+
+	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk3)
+	require.NoError(err)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
+	bs.flush()
+
+	h3 := chain.TipHeight()
+	assert.Equal(t, h2, h3)
+
+	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk4)
+	require.NoError(err)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
+	bs.flush()
+
+	h4 := chain.TipHeight()
+	assert.Equal(t, h2+1, h4)
+}
