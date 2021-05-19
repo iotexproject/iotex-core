@@ -426,9 +426,9 @@ func (p *Agent) BroadcastRecvTotal() uint64 {
 	return p.qosMetrics.broadcastRecvTotal()
 }
 
-// UnicastSendCount returns total amount of unicast send to peer
-func (p *Agent) UnicastSendCount(name string) (uint64, bool) {
-	return p.qosMetrics.unicastSendCount(name)
+// UnicastSendTotal returns total amount of unicast send to peer
+func (p *Agent) UnicastSendTotal(name string) (uint64, bool) {
+	return p.qosMetrics.unicastSendTotal(name)
 }
 
 // UnicastSendSuccessRate return the unicast send success rate
@@ -436,9 +436,9 @@ func (p *Agent) UnicastSendSuccessRate(name string) (float64, bool) {
 	return p.qosMetrics.unicastSendSuccessRate(name)
 }
 
-// UnicastRecvCount returns total amount of unicast recv from peer
-func (p *Agent) UnicastRecvCount(name string) (uint64, bool) {
-	return p.qosMetrics.unicastRecvCount(name)
+// UnicastRecvTotal returns total amount of unicast recv from peer
+func (p *Agent) UnicastRecvTotal(name string) (uint64, bool) {
+	return p.qosMetrics.unicastRecvTotal(name)
 }
 
 // connect connects to bootstrap nodes

@@ -7,12 +7,14 @@
 package p2p
 
 import (
+	"sync"
 	"sync/atomic"
 	"time"
 )
 
 type (
 	qos struct {
+		lock                  sync.RWMutex
 		broadcastSendCount    uint64
 		broadcastSendSuccess  uint64
 		broadcastRecvCount    uint64
@@ -65,11 +67,13 @@ func (q *qos) updateRecvBroadcast(t time.Time) {
 }
 
 func (q *qos) updateSendUnicast(peername string, t time.Time, success bool) {
+	q.lock.Lock()
 	peer, exist := q.metrics[peername]
 	if !exist {
 		peer = new(transmitMetric)
 		q.metrics[peername] = peer
 	}
+	q.lock.Unlock()
 	atomic.AddUint64(&peer.unicastSendCount, 1)
 	if success {
 		atomic.AddUint64(&peer.unicastSendSuccess, 1)
@@ -78,11 +82,13 @@ func (q *qos) updateSendUnicast(peername string, t time.Time, success bool) {
 }
 
 func (q *qos) updateRecvUnicast(peername string, t time.Time) {
+	q.lock.Lock()
 	peer, exist := q.metrics[peername]
 	if !exist {
 		peer = new(transmitMetric)
 		q.metrics[peername] = peer
 	}
+	q.lock.Unlock()
 	atomic.AddUint64(&peer.unicastRecvCount, 1)
 	atomic.StoreInt64(&q.lastActiveUnicastTs, t.UnixNano())
 }
@@ -101,28 +107,37 @@ func (q *qos) broadcastRecvTotal() uint64 {
 	return atomic.LoadUint64(&q.broadcastRecvCount)
 }
 
-func (q *qos) unicastSendCount(peername string) (uint64, bool) {
+func (q *qos) unicastSendTotal(peername string) (uint64, bool) {
+	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {
+		q.lock.RUnlock()
 		return 0, false
 	}
+	q.lock.RUnlock()
 	return atomic.LoadUint64(&peer.unicastSendCount), true
 }
 
 func (q *qos) unicastSendSuccessRate(peername string) (float64, bool) {
+	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {
+		q.lock.RUnlock()
 		return 0, false
 	}
+	q.lock.RUnlock()
 	success := atomic.LoadUint64(&peer.unicastSendSuccess)
 	total := atomic.LoadUint64(&peer.unicastSendCount)
 	return float64(success) / float64(total), true
 }
 
-func (q *qos) unicastRecvCount(peername string) (uint64, bool) {
+func (q *qos) unicastRecvTotal(peername string) (uint64, bool) {
+	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {
+		q.lock.RUnlock()
 		return 0, false
 	}
+	q.lock.RUnlock()
 	return atomic.LoadUint64(&peer.unicastRecvCount), true
 }
