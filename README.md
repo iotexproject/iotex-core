@@ -12,9 +12,7 @@
 ![IoTeX Logo](logo/IoTeX.png)
 ----
 
-Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized 
-network for IoT powered by scalability- and privacy-centric blockchains. Please refer to IoTeX
-[whitepaper](https://iotex.io/research/) for details.
+Welcome to the official Go implementation of IoTeX protocol! IoTeX is building the next generation of the decentralized blockchain protocol for powering real-world information marketplace in a decentralized-yet-scalable way. Refer to IoTeX [whitepaper](https://iotex.io/research/) for details.
 
 ## Get started
 
