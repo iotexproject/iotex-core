@@ -27,6 +27,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 )
@@ -253,13 +254,17 @@ func ExecuteContract(
 	return retval, receipt, nil
 }
 
-func getChainConfig(g genesis.Genesis) *params.ChainConfig {
+func getChainConfig(g genesis.Genesis, height uint64) *params.ChainConfig {
 	var chainConfig params.ChainConfig
-	// chainConfig.ChainID
 	chainConfig.ConstantinopleBlock = new(big.Int).SetUint64(0) // Constantinople switch block (nil = no fork, 0 = already activated)
 	chainConfig.BeringBlock = new(big.Int).SetUint64(g.BeringBlockHeight)
 	// enable earlier Ethereum forks at Greenland
 	chainConfig.GreenlandBlock = new(big.Int).SetUint64(g.GreenlandBlockHeight)
+	// support chainid at Iceland
+	chainConfig.IcelandBlock = new(big.Int).SetUint64(g.IcelandBlockHeight)
+	if g.IsIceland(height) {
+		chainConfig.ChainID = new(big.Int).SetUint64(uint64(config.EVMNetworkID()))
+	}
 	return &chainConfig
 }
 
@@ -272,7 +277,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Genesis,
 		return nil, 0, 0, action.EmptyAddress, uint64(iotextypes.ReceiptStatus_Failure), err
 	}
 	var config vm.Config
-	chainConfig := getChainConfig(g)
+	chainConfig := getChainConfig(g, blockHeight)
 	evm := vm.NewEVM(evmParams.context, stateDB, chainConfig, config)
 	intriGas, err := intrinsicGas(evmParams.data)
 	if err != nil {
@@ -337,17 +342,17 @@ func evmErrToErrStatusCode(evmErr error, isBering bool) (errStatusCode uint64) {
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrDepth)
 		case vm.ErrContractAddressCollision:
 			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrContractAddressCollision)
-		case vm.ErrNoCompatibleInterpreter:
-			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
+		case vm.ErrExecutionReverted:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
+		case vm.ErrMaxCodeSizeExceeded:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
+		case vm.ErrWriteProtection:
+			errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
 		default:
 			//This errors from go-ethereum, are not-accessible variable.
 			switch evmErr.Error() {
-			case "evm: execution reverted":
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrExecutionReverted)
-			case "evm: max code size exceeded":
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrMaxCodeSizeExceeded)
-			case "evm: write protection":
-				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrWriteProtection)
+			case "no compatible interpreter":
+				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrNoCompatibleInterpreter)
 			default:
 				errStatusCode = uint64(iotextypes.ReceiptStatus_ErrUnknown)
 			}

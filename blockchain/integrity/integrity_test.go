@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -665,8 +664,9 @@ func addTestingGetBlockHash(t *testing.T, hawaiiHeight uint64, bc blockchain.Blo
 
 	getBlockHash := func(x int64) []byte {
 		funcSig := hash.Hash256b([]byte("getBlockHash(uint256)"))
-		blockNumber := abi.U256(big.NewInt(x))
-		return append(funcSig[:4], blockNumber...)
+		// convert block number to uint256 (32-bytes)
+		blockNumber := hash.BytesToHash256(big.NewInt(x).Bytes())
+		return append(funcSig[:4], blockNumber[:]...)
 	}
 
 	var (

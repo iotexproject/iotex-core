@@ -30,6 +30,8 @@ var (
 	ErrNoData = errors.New("no data")
 	// ErrEndOfData is an error that reaching end of data in the contract
 	ErrEndOfData = errors.New("end of data")
+	// ErrWrongData is an error that data is wrong
+	ErrWrongData = errors.New("wrong data")
 )
 
 type (
@@ -137,12 +139,16 @@ func (ns *NativeStaking) readBuckets(ctx context.Context, prevIndx, limit *big.I
 	}
 
 	// decode the contract read result
-	pygg := &pygg{}
-	if err = ns.abi.Unpack(pygg, "getActivePyggs", data); err != nil {
-		if err.Error() == "abi: unmarshalling empty output" {
+	res, err := ns.abi.Unpack("getActivePyggs", data)
+	if err != nil {
+		if err.Error() == "abi: attempting to unmarshall an empty string while arguments are expected" {
 			// no data in contract (one possible reason is that contract does not exist yet)
 			return nil, nil, ErrNoData
 		}
+		return nil, nil, err
+	}
+	pygg, err := toPgyy(res)
+	if err != nil {
 		return nil, nil, err
 	}
 	if len(pygg.CanNames) == 0 {
@@ -207,4 +213,54 @@ func to12Bytes(b []byte) [12]byte {
 	}
 	copy(h[:], b)
 	return h
+}
+
+func toPgyy(v []interface{}) (*pygg, error) {
+	// struct pygg has 8 fields
+	if len(v) != 8 {
+		return nil, ErrWrongData
+	}
+
+	c, ok := v[0].(*big.Int)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	index, ok := v[1].([]*big.Int)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	start, ok := v[2].([]*big.Int)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	duration, ok := v[3].([]*big.Int)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	decay, ok := v[4].([]bool)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	amount, ok := v[5].([]*big.Int)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	name, ok := v[6].([][12]byte)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	owner, ok := v[7].([]common.Address)
+	if !ok {
+		return nil, ErrWrongData
+	}
+	return &pygg{
+		Count:           c,
+		Indexes:         index,
+		StakeStartTimes: start,
+		StakeDurations:  duration,
+		Decays:          decay,
+		StakedAmounts:   amount,
+		CanNames:        name,
+		Owners:          owner,
+	}, nil
 }

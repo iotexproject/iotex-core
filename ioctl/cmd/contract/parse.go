@@ -52,43 +52,26 @@ func parseOutput(targetAbi *abi.ABI, targetMethod string, result string) (string
 		return "", output.NewError(output.ConvertError, "failed to decode result", err)
 	}
 
-	var resultStr string
+	var (
+		outputArgs = targetAbi.Methods[targetMethod].Outputs
+		tupleStr   = make([]string, 0, len(outputArgs))
+	)
 
-	outputArgs := targetAbi.Methods[targetMethod].Outputs
-	if len(outputArgs) == 1 {
-		var v interface{}
-		if err := targetAbi.Unpack(&v, targetMethod, resultBytes); err != nil {
-			return "", output.NewError(output.SerializationError, "failed to parse output", err)
-		}
-
-		resultStr, _ = parseOutputArgument(v, &outputArgs[0].Type)
-	} else {
-		fields := make([]reflect.StructField, 0, len(outputArgs))
-		for _, arg := range outputArgs {
-			if abi.ToCamelCase(arg.Name) == "" {
-				return "", output.NewError(output.ConvertError, "invalid name for public struct field", nil)
-			}
-			fields = append(fields, reflect.StructField{
-				Name: abi.ToCamelCase(arg.Name),
-				Type: arg.Type.Type,
-				Tag:  reflect.StructTag("json:\"" + arg.Name + "\""),
-			})
-		}
-
-		v := reflect.New(reflect.StructOf(fields)).Interface()
-		if err := targetAbi.Unpack(v, targetMethod, resultBytes); err != nil {
-			return "", output.NewError(output.SerializationError, "failed to parse output", err)
-		}
-
-		tupleStr := make([]string, 0, len(outputArgs))
-		for i, elem := range outputArgs {
-			elemStr, _ := parseOutputArgument(reflect.ValueOf(v).Elem().Field(i).Interface(), &elem.Type)
-			tupleStr = append(tupleStr, elem.Name+":"+elemStr)
-		}
-		resultStr = "{" + strings.Join(tupleStr, " ") + "}"
+	v, err := targetAbi.Unpack(targetMethod, resultBytes)
+	if err != nil {
+		return "", output.NewError(output.SerializationError, "failed to parse output", err)
 	}
 
-	return resultStr, nil
+	if len(outputArgs) == 1 {
+		elemStr, _ := parseOutputArgument(v[0], &outputArgs[0].Type)
+		return elemStr, nil
+	}
+
+	for i, field := range v {
+		elemStr, _ := parseOutputArgument(field, &outputArgs[i].Type)
+		tupleStr = append(tupleStr, outputArgs[i].Name+":"+elemStr)
+	}
+	return "{" + strings.Join(tupleStr, " ") + "}", nil
 }
 
 // parseInputArgument parses input's argument as golang variable
@@ -112,7 +95,7 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 			return nil, ErrInvalidArg
 		}
 
-		slice := reflect.MakeSlice(t.Type, 0, t.Size)
+		slice := reflect.MakeSlice(t.GetType(), 0, t.Size)
 
 		s := reflect.ValueOf(arg)
 		for i := 0; i < s.Len(); i++ {
@@ -130,7 +113,7 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 			return nil, ErrInvalidArg
 		}
 
-		arrayType := reflect.ArrayOf(t.Size, t.Elem.Type)
+		arrayType := reflect.ArrayOf(t.Size, t.Elem.GetType())
 		array := reflect.New(arrayType).Elem()
 
 		s := reflect.ValueOf(arg)
@@ -283,7 +266,7 @@ func parseInputArgument(t *abi.Type, arg interface{}) (interface{}, error) {
 			return nil, err
 		}
 
-		bytes := reflect.MakeSlice(t.Type, 0, len(bytecode))
+		bytes := reflect.MakeSlice(t.GetType(), 0, len(bytecode))
 
 		for _, oneByte := range bytecode {
 			bytes = reflect.Append(bytes, reflect.ValueOf(oneByte))

@@ -129,7 +129,7 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			6544441,
 		},
-		// after Hawaii
+		// Hawaii -- Iceland
 		{
 			action.EmptyAddress,
 			11267641,
@@ -137,6 +137,15 @@ func TestConstantinople(t *testing.T) {
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			11267641,
+		},
+		// after Iceland
+		{
+			action.EmptyAddress,
+			21267641,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			21267641,
 		},
 	}
 
@@ -163,18 +172,18 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(g)
+		chainConfig := getChainConfig(g, e.height)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
-		require.Equal(false, evmChainConfig.IsDAOFork(evm.BlockNumber))
+		require.False(evmChainConfig.IsDAOFork(evm.BlockNumber))
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
 		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
-		require.Equal(true, evmChainConfig.IsConstantinople(evm.BlockNumber))
-		require.Equal(true, evmChainConfig.IsPetersburg(evm.BlockNumber))
+		require.True(evmChainConfig.IsConstantinople(evm.BlockNumber))
+		require.True(evmChainConfig.IsPetersburg(evm.BlockNumber))
 
 		// verify chainRules
 		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
@@ -183,13 +192,26 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP155)
 		require.Equal(g.IsGreenland(e.height), chainRules.IsByzantium)
-		require.Equal(true, chainRules.IsConstantinople)
-		require.Equal(true, chainRules.IsPetersburg)
+		require.True(chainRules.IsConstantinople)
+		require.True(chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
 		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
+
+		// iceland = support chainID + enable Istanbul and Muir Glacier
+		if g.IsIceland(e.height) {
+			require.EqualValues(config.EVMNetworkID(), evmChainConfig.ChainID.Uint64())
+			require.True(evmChainConfig.IsIstanbul(evm.BlockNumber))
+			require.True(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
+			require.True(chainRules.IsIstanbul)
+		} else {
+			require.Nil(evmChainConfig.ChainID)
+			require.False(evmChainConfig.IsIstanbul(evm.BlockNumber))
+			require.False(evmChainConfig.IsMuirGlacier(evm.BlockNumber))
+			require.False(chainRules.IsIstanbul)
+		}
 	}
 }
 
