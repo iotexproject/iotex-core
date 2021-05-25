@@ -119,9 +119,8 @@ func (bs *blockSyncer) commitBlocks(blks []*peerBlock) bool {
 		err := bs.commitBlockHandler(blk.block)
 		if err == nil {
 			return true
-		} else {
-			bs.peerBlockList.Store(blk.pid, true)
 		}
+		bs.peerBlockList.Store(blk.pid, true)
 
 		log.L().Debug("failed to commit block", zap.Error(err))
 	}
