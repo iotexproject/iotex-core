@@ -53,8 +53,7 @@ func newBlockSyncer(cfg config.BlockSync, chain bc.Blockchain, dao blockdao.Bloc
 		}
 		cs.Calibrate(blk.Height())
 		return nil
-	}, func(ctx context.Context, start uint64, end uint64) error {
-		return nil
+	}, func(context.Context, uint64, uint64, int) {
 	})
 	if err != nil {
 		return nil, err
@@ -217,18 +216,21 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(err)
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+
+	peer := "peer1"
+
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	bs.flush()
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
 	// commit top
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	h3 := chain.TipHeight()
 	assert.Equal(t, h+1, h3)
 
 	// commit same block again
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	h4 := chain.TipHeight()
 	assert.Equal(t, h3, h4)
 }
@@ -299,28 +301,31 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	// commit top
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
+
+	peer := "peer1"
+
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
 	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
 	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
 	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlock(ctx, blk3))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
 	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
@@ -394,28 +399,31 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 
 	ctx, err = chain1.Context(ctx)
 	require.NoError(err)
+
+	peer := "peer1"
+
 	// commit top
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
 	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
 	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
-	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
 	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlock(ctx, blk2))
-	require.NoError(bs2.ProcessBlock(ctx, blk3))
-	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
 	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
@@ -464,15 +472,18 @@ func TestBlockSyncerSync(t *testing.T) {
 
 	ctx, err = chain.Context(ctx)
 	require.NoError(err)
+
+	peer := "peer1"
+
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 
 	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
-	require.NoError(bs.ProcessBlock(ctx, blk))
+	require.NoError(bs.ProcessBlock(ctx, peer, blk))
 	time.Sleep(time.Millisecond << 7)
 }
 
@@ -496,4 +507,89 @@ func newTestConfig() (config.Config, error) {
 	cfg.Network.BootstrapNodes = []string{"127.0.0.1:10000", "127.0.0.1:4689"}
 	cfg.Genesis.EnableGravityChainVoting = false
 	return cfg, nil
+}
+
+func TestBlockSyncerPeerBlockList(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+
+	ctx := context.Background()
+	cfg, err := newTestConfig()
+	require.NoError(err)
+	registry := protocol.NewRegistry()
+	acc := account.NewProtocol(rewarding.DepositGas)
+	require.NoError(acc.Register(registry))
+	rp := rolldpos.NewProtocol(cfg.Genesis.NumCandidateDelegates, cfg.Genesis.NumDelegates, cfg.Genesis.NumSubEpochs)
+	require.NoError(rp.Register(registry))
+	sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
+	require.NoError(err)
+	ap, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
+	require.NotNil(ap)
+	require.NoError(err)
+	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
+	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
+	chain := bc.NewBlockchain(
+		cfg,
+		dao,
+		factory.NewMinter(sf, ap),
+		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
+	)
+	require.NotNil(chain)
+	require.NoError(chain.Start(ctx))
+	cs := mock_consensus.NewMockConsensus(ctrl)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
+
+	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
+	require.NoError(err)
+
+	defer func() {
+		require.NoError(chain.Stop(ctx))
+		ctrl.Finish()
+	}()
+
+	ctx, err = chain.Context(ctx)
+	require.NoError(err)
+
+	h := chain.TipHeight()
+	blk1, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk1)
+	require.NoError(err)
+
+	blk2 := block.NewBlockDeprecated(
+		uint32(123),
+		blk1.Height(),
+		hash.Hash256{},
+		testutil.TimestampNow(),
+		identityset.PrivateKey(27).PublicKey(),
+		nil,
+	)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk2))
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk1))
+
+	bs.flush()
+
+	h2 := chain.TipHeight()
+	assert.Equal(t, h+1, h2)
+
+	blk3, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk3)
+	require.NoError(err)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
+	bs.flush()
+
+	h3 := chain.TipHeight()
+	assert.Equal(t, h2, h3)
+
+	blk4, err := chain.MintNewBlock(testutil.TimestampNow())
+	require.NotNil(blk4)
+	require.NoError(err)
+
+	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
+	bs.flush()
+
+	h4 := chain.TipHeight()
+	assert.Equal(t, h2+1, h4)
 }
