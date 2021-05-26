@@ -52,7 +52,7 @@ func TestLocalActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
 		cfg,
-		func(_ context.Context, _ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
 		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
@@ -129,7 +129,7 @@ func TestPressureActPool(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
 		cfg,
-		func(_ context.Context, _ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
 		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
