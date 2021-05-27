@@ -4,49 +4,54 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-package testutil
+package action
 
 import (
+	"encoding/hex"
 	"math/big"
 
 	"github.com/iotexproject/go-pkgs/crypto"
-	"github.com/pkg/errors"
 
-	"github.com/iotexproject/iotex-core/action"
+	"github.com/pkg/errors"
+)
+
+// vars
+var (
+	ValidSig, _ = hex.DecodeString("15e73ad521ec9e06600c59e49b127c9dee114ad64fb2fcbe5e0d9f4c8d2b766e73d708cca1dc050dd27b20f2ee607f30428bf035f45d4da8ec2fb04a90c2c30901")
 )
 
 // SignedTransfer return a signed transfer
-func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (action.SealedEnvelope, error) {
-	transfer, err := action.NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
+func SignedTransfer(recipientAddr string, senderPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, payload []byte, gasLimit uint64, gasPrice *big.Int) (SealedEnvelope, error) {
+	transfer, err := NewTransfer(nonce, amount, recipientAddr, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(transfer).Build()
-	selp, err := action.Sign(elp, senderPriKey)
+	selp, err := Sign(elp, senderPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer %v", elp)
 	}
 	return selp, nil
 }
 
 // SignedExecution return a signed execution
-func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (action.SealedEnvelope, error) {
-	execution, err := action.NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
+func SignedExecution(contractAddr string, executorPriKey crypto.PrivateKey, nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) (SealedEnvelope, error) {
+	execution, err := NewExecution(contractAddr, nonce, amount, gasLimit, gasPrice, data)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(execution).Build()
-	selp, err := action.Sign(elp, executorPriKey)
+	selp, err := Sign(elp, executorPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign execution %v", elp)
 	}
 	return selp, nil
 }
@@ -61,20 +66,20 @@ func SignedCandidateRegister(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	registererPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	cr, err := action.NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
+) (SealedEnvelope, error) {
+	cr, err := NewCandidateRegister(nonce, name, operatorAddrStr, rewardAddrStr, ownerAddrStr, amountStr,
 		duration, autoStake, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cr).Build()
-	selp, err := action.Sign(elp, registererPriKey)
+	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate register %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate register %v", elp)
 	}
 	return selp, nil
 }
@@ -86,19 +91,19 @@ func SignedCandidateUpdate(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	registererPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	cu, err := action.NewCandidateUpdate(nonce, name, operatorAddrStr, rewardAddrStr, gasLimit, gasPrice)
+) (SealedEnvelope, error) {
+	cu, err := NewCandidateUpdate(nonce, name, operatorAddrStr, rewardAddrStr, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cu).Build()
-	selp, err := action.Sign(elp, registererPriKey)
+	selp, err := Sign(elp, registererPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate update %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign candidate update %v", elp)
 	}
 	return selp, nil
 }
@@ -112,20 +117,20 @@ func SignedCreateStake(nonce uint64,
 	gasLimit uint64,
 	gasPrice *big.Int,
 	stakerPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	cs, err := action.NewCreateStake(nonce, candidateName, amount, duration, autoStake,
+) (SealedEnvelope, error) {
+	cs, err := NewCreateStake(nonce, candidateName, amount, duration, autoStake,
 		payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cs).Build()
-	selp, err := action.Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign create stake %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign create stake %v", elp)
 	}
 	return selp, nil
 }
@@ -139,29 +144,29 @@ func SignedReclaimStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	reclaimerPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	bd := &action.EnvelopeBuilder{}
+) (SealedEnvelope, error) {
+	bd := &EnvelopeBuilder{}
 	eb := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit)
-	var elp action.Envelope
+	var elp Envelope
 	// unstake
 	if !withdraw {
-		us, err := action.NewUnstake(nonce, bucketIndex, payload, gasLimit, gasPrice)
+		us, err := NewUnstake(nonce, bucketIndex, payload, gasLimit, gasPrice)
 		if err != nil {
-			return action.SealedEnvelope{}, err
+			return SealedEnvelope{}, err
 		}
 		elp = eb.SetAction(us).Build()
 	} else {
-		w, err := action.NewWithdrawStake(nonce, bucketIndex, payload, gasLimit, gasPrice)
+		w, err := NewWithdrawStake(nonce, bucketIndex, payload, gasLimit, gasPrice)
 		if err != nil {
-			return action.SealedEnvelope{}, err
+			return SealedEnvelope{}, err
 		}
 		elp = eb.SetAction(w).Build()
 	}
-	selp, err := action.Sign(elp, reclaimerPriKey)
+	selp, err := Sign(elp, reclaimerPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign reclaim stake %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign reclaim stake %v", elp)
 	}
 	return selp, nil
 }
@@ -175,19 +180,19 @@ func SignedChangeCandidate(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	stakerPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	cc, err := action.NewChangeCandidate(nonce, candName, bucketIndex, payload, gasLimit, gasPrice)
+) (SealedEnvelope, error) {
+	cc, err := NewChangeCandidate(nonce, candName, bucketIndex, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(cc).Build()
-	selp, err := action.Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign change candidate %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign change candidate %v", elp)
 	}
 	return selp, nil
 }
@@ -201,19 +206,19 @@ func SignedTransferStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	stakerPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	ts, err := action.NewTransferStake(nonce, voterAddress, bucketIndex, payload, gasLimit, gasPrice)
+) (SealedEnvelope, error) {
+	ts, err := NewTransferStake(nonce, voterAddress, bucketIndex, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(ts).Build()
-	selp, err := action.Sign(elp, stakerPriKey)
+	selp, err := Sign(elp, stakerPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign transfer stake %v", elp)
 	}
 	return selp, nil
 }
@@ -227,19 +232,19 @@ func SignedDepositToStake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	depositorPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	ds, err := action.NewDepositToStake(nonce, index, amount, payload, gasLimit, gasPrice)
+) (SealedEnvelope, error) {
+	ds, err := NewDepositToStake(nonce, index, amount, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(ds).Build()
-	selp, err := action.Sign(elp, depositorPriKey)
+	selp, err := Sign(elp, depositorPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign deposit to stake %v", elp)
 	}
 	return selp, nil
 }
@@ -254,19 +259,19 @@ func SignedRestake(
 	gasLimit uint64,
 	gasPrice *big.Int,
 	restakerPriKey crypto.PrivateKey,
-) (action.SealedEnvelope, error) {
-	rs, err := action.NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
+) (SealedEnvelope, error) {
+	rs, err := NewRestake(nonce, index, duration, autoStake, payload, gasLimit, gasPrice)
 	if err != nil {
-		return action.SealedEnvelope{}, err
+		return SealedEnvelope{}, err
 	}
-	bd := &action.EnvelopeBuilder{}
+	bd := &EnvelopeBuilder{}
 	elp := bd.SetNonce(nonce).
 		SetGasPrice(gasPrice).
 		SetGasLimit(gasLimit).
 		SetAction(rs).Build()
-	selp, err := action.Sign(elp, restakerPriKey)
+	selp, err := Sign(elp, restakerPriKey)
 	if err != nil {
-		return action.SealedEnvelope{}, errors.Wrapf(err, "failed to sign restake %v", elp)
+		return SealedEnvelope{}, errors.Wrapf(err, "failed to sign restake %v", elp)
 	}
 	return selp, nil
 }

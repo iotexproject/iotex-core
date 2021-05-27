@@ -162,7 +162,7 @@ func TestIndexBuilder(t *testing.T) {
 		testutil.CleanupPath(t, testPath)
 		testutil.CleanupPath(t, indexPath)
 	}()
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
 
 	for _, v := range []struct {

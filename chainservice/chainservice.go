@@ -9,6 +9,7 @@ package chainservice
 import (
 	"context"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -41,7 +42,6 @@ import (
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/db"
-	"github.com/iotexproject/iotex-core/dispatcher"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state/factory"
@@ -55,6 +55,7 @@ type ChainService struct {
 	chain             blockchain.Blockchain
 	factory           factory.Factory
 	blockdao          blockdao.BlockDAO
+	p2pAgent          *p2p.Agent
 	electionCommittee committee.Committee
 	// TODO: explorer dependency deleted at #1085, need to api related params
 	api                *api.Server
@@ -89,11 +90,10 @@ func WithSubChain() Option {
 	}
 }
 
-// New creates a ChainService from config and network.Overlay and dispatcher.Dispatcher.
+// New creates a ChainService from config and network.Overlay
 func New(
 	cfg config.Config,
 	p2pAgent *p2p.Agent,
-	dispatcher dispatcher.Dispatcher,
 	opts ...Option,
 ) (*ChainService, error) {
 	// create indexers
@@ -254,7 +254,13 @@ func New(
 	)
 	// staking protocol need to be put in registry before poll protocol when enabling
 	if cfg.Chain.EnableStakingProtocol {
-		stakingProtocol, err = staking.NewProtocol(rewarding.DepositGas, cfg.Genesis.Staking, candBucketsIndexer, cfg.Genesis.GreenlandBlockHeight)
+		stakingProtocol, err = staking.NewProtocol(
+			rewarding.DepositGas,
+			cfg.Genesis.Staking,
+			candBucketsIndexer,
+			cfg.Genesis.GreenlandBlockHeight,
+			cfg.Genesis.HawaiiBlockHeight,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -330,15 +336,62 @@ func New(
 		return nil, errors.Wrap(err, "failed to create consensus")
 	}
 	bs, err := blocksync.NewBlockSyncer(
-		cfg,
-		chain,
-		dao,
-		consensus,
-		blocksync.WithUnicastOutBound(func(ctx context.Context, peer peerstore.PeerInfo, msg proto.Message) error {
-			ctx = p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()})
-			return p2pAgent.UnicastOutbound(ctx, peer, msg)
-		}),
-		blocksync.WithNeighbors(p2pAgent.Neighbors),
+		cfg.BlockSync,
+		chain.TipHeight,
+		func(height uint64) (*block.Block, error) {
+			return dao.GetBlockByHeight(height)
+		},
+		func(blk *block.Block) error {
+			if err := consensus.ValidateBlockFooter(blk); err != nil {
+				log.L().Debug("Failed to validate block footer.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+			retries := 1
+			hu := config.NewHeightUpgrade(&cfg.Genesis)
+			if hu.IsPre(config.Hawaii, blk.Height()) {
+				retries = 4
+			}
+			var err error
+			for i := 0; i < retries; i++ {
+				if err = chain.ValidateBlock(blk); err == nil {
+					if err = chain.CommitBlock(blk); err == nil {
+						break
+					}
+				}
+				switch errors.Cause(err) {
+				case blockchain.ErrInvalidTipHeight:
+					log.L().Debug("Skip block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					return nil
+				case block.ErrDeltaStateMismatch:
+					log.L().Debug("Delta state mismatched.", zap.Uint64("height", blk.Height()))
+				default:
+					log.L().Debug("Failed to commit the block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+					return err
+				}
+			}
+			if err != nil {
+				log.L().Debug("Failed to commit block.", zap.Error(err), zap.Uint64("height", blk.Height()))
+				return err
+			}
+			log.L().Info("Successfully committed block.", zap.Uint64("height", blk.Height()))
+			consensus.Calibrate(blk.Height())
+
+			return nil
+		},
+		func(ctx context.Context, start uint64, end uint64) error {
+			peers, err := p2pAgent.Neighbors(ctx)
+			if err != nil {
+				return err
+			}
+			if len(peers) == 0 {
+				return errors.New("no peers")
+			}
+			return p2pAgent.UnicastOutbound(
+				p2p.WitContext(ctx, p2p.Context{ChainID: chain.ChainID()}),
+				peers[rand.Intn(len(peers))],
+				&iotexrpc.BlockSync{Start: start, End: end},
+			)
+		},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create blockSyncer")
@@ -398,6 +451,7 @@ func New(
 		factory:            sf,
 		blockdao:           dao,
 		blocksync:          bs,
+		p2pAgent:           p2pAgent,
 		consensus:          consensus,
 		electionCommittee:  electionCommittee,
 		indexBuilder:       indexBuilder,
@@ -491,6 +545,10 @@ func (cs *ChainService) Stop(ctx context.Context) error {
 	return nil
 }
 
+// ReportFullness switch on or off block sync
+func (cs *ChainService) ReportFullness(_ context.Context, _ iotexrpc.MessageType, fullness float32) {
+}
+
 // HandleAction handles incoming action request.
 func (cs *ChainService) HandleAction(ctx context.Context, actPb *iotextypes.Action) error {
 	var act action.SealedEnvelope
@@ -511,21 +569,22 @@ func (cs *ChainService) HandleBlock(ctx context.Context, pbBlock *iotextypes.Blo
 	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlock(ctx, blk)
-}
-
-// HandleBlockSync handles incoming block sync request.
-func (cs *ChainService) HandleBlockSync(ctx context.Context, pbBlock *iotextypes.Block) error {
-	blk := &block.Block{}
-	if err := blk.ConvertFromBlockPb(pbBlock); err != nil {
+	ctx, err := cs.chain.Context(ctx)
+	if err != nil {
 		return err
 	}
-	return cs.blocksync.ProcessBlockSync(ctx, blk)
+	return cs.blocksync.ProcessBlock(ctx, blk)
 }
 
 // HandleSyncRequest handles incoming sync request.
 func (cs *ChainService) HandleSyncRequest(ctx context.Context, peer peerstore.PeerInfo, sync *iotexrpc.BlockSync) error {
-	return cs.blocksync.ProcessSyncRequest(ctx, peer, sync)
+	return cs.blocksync.ProcessSyncRequest(ctx, sync.Start, sync.End, func(ctx context.Context, blk *block.Block) error {
+		return cs.p2pAgent.UnicastOutbound(
+			p2p.WitContext(ctx, p2p.Context{ChainID: cs.chain.ChainID()}),
+			peer,
+			blk.ConvertToBlockPb(),
+		)
+	})
 }
 
 // HandleConsensusMsg handles incoming consensus message.

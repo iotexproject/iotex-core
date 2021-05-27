@@ -22,20 +22,24 @@ func TestTransferSignVerify(t *testing.T) {
 	recipientAddr := identityset.Address(28)
 	senderKey := identityset.PrivateKey(27)
 
-	tsf, err := NewTransfer(0, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
+	tsf, err := NewTransfer(1, big.NewInt(10), recipientAddr.String(), []byte{}, uint64(100000), big.NewInt(10))
 	require.NoError(err)
-
-	tsf.Proto()
+	require.Nil(tsf.srcPubkey)
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
-		SetGasPrice(big.NewInt(10)).
+	eb := bd.SetNonce(tsf.nonce).
+		SetGasLimit(tsf.gasLimit).
+		SetGasPrice(tsf.gasPrice).
 		SetAction(tsf).Build()
-
-	elp.Serialize()
+	elp, ok := eb.(*envelope)
+	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
+	tsf2, ok := w.Envelope.Action().(*Transfer)
+	require.True(ok)
+	require.Equal(tsf, tsf2)
+	require.NotNil(tsf.srcPubkey)
 
 	// sign the transfer
 	selp, err := Sign(elp, senderKey)
@@ -57,11 +61,11 @@ func TestTransfer(t *testing.T) {
 	tsf.Proto()
 
 	bd := &EnvelopeBuilder{}
-	elp := bd.SetGasLimit(uint64(100000)).
+	eb := bd.SetGasLimit(uint64(100000)).
 		SetGasPrice(big.NewInt(10)).
 		SetAction(tsf).Build()
-
-	elp.Serialize()
+	elp, ok := eb.(*envelope)
+	require.True(ok)
 
 	w := AssembleSealedEnvelope(elp, senderKey.PublicKey(), []byte("lol"))
 	require.Error(Verify(w))
@@ -72,7 +76,7 @@ func TestTransfer(t *testing.T) {
 	require.Equal(uint64(100000), tsf.GasLimit())
 	require.Equal("10", tsf.GasPrice().Text(10))
 	require.Equal(uint64(0), tsf.Nonce())
-	require.Equal(senderKey.PublicKey().HexString(), tsf.SenderPublicKey().HexString())
+	require.Equal(senderKey.PublicKey().HexString(), w.SrcPubkey().HexString())
 	require.Equal(recipientAddr.String(), tsf.Recipient())
 	require.Equal(recipientAddr.String(), tsf.Destination())
 	require.Equal(uint32(87), tsf.TotalSize())

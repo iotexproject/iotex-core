@@ -4,12 +4,6 @@
 // permitted by law, all liability for your use of the code is disclaimed. This source code is governed by Apache
 // License 2.0 that can be found in the LICENSE file.
 
-// A warrper for Zerolog (https://github.com/rs/zerolog)
-//
-// Package log provides a global logger for zerolog.
-// derived from https://github.com/rs/zerolog/blob/master/log/log.go
-// putting here to get a better integration
-
 package log
 
 import (
@@ -18,6 +12,7 @@ import (
 	"os"
 	"sync"
 
+	"go.elastic.co/ecszap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -29,6 +24,7 @@ type GlobalConfig struct {
 	Zap                *zap.Config `json:"zap" yaml:"zap"`
 	StderrRedirectFile *string     `json:"stderrRedirectFile" yaml:"stderrRedirectFile"`
 	RedirectStdLog     bool        `json:"stdLogRedirect" yaml:"stdLogRedirect"`
+	EcsIntegration     bool        `json:"ecsIntegration" yaml:"ecsIntegration"`
 }
 
 var (
@@ -85,6 +81,9 @@ func InitLoggers(globalCfg GlobalConfig, subCfgs map[string]GlobalConfig, opts .
 			cfg.Zap = &zapCfg
 		} else {
 			cfg.Zap.EncoderConfig = zap.NewProductionEncoderConfig()
+		}
+		if globalCfg.EcsIntegration {
+			cfg.Zap.EncoderConfig = ecszap.ECSCompatibleEncoderConfig(cfg.Zap.EncoderConfig)
 		}
 		logger, err := cfg.Zap.Build(opts...)
 		if err != nil {

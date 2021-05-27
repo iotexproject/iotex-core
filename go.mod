@@ -6,6 +6,7 @@ require (
 	github.com/btcsuite/btcd v0.20.1-beta // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible
 	github.com/ethereum/go-ethereum v1.9.5
+	github.com/facebookgo/clock v0.0.0-20150410010913-600d898af40a
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.3.1 // indirect
@@ -21,7 +22,7 @@ require (
 	github.com/iotexproject/iotex-address v0.2.4
 	github.com/iotexproject/iotex-antenna-go/v2 v2.4.2-0.20201211202736-96d536a425fe
 	github.com/iotexproject/iotex-election v0.3.5-0.20201031050050-c3ab4f339a54
-	github.com/iotexproject/iotex-proto v0.4.7
+	github.com/iotexproject/iotex-proto v0.5.0
 	github.com/libp2p/go-libp2p v0.0.21 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.0.5
 	github.com/mattn/go-sqlite3 v1.11.0
@@ -37,10 +38,11 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tyler-smith/go-bip39 v1.0.2
+	go.elastic.co/ecszap v1.0.0
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/automaxprocs v1.2.0
 	go.uber.org/config v1.3.1
-	go.uber.org/zap v1.10.0
+	go.uber.org/zap v1.14.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
@@ -50,6 +52,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 )
 
-replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v0.3.1
+replace github.com/ethereum/go-ethereum => github.com/iotexproject/go-ethereum v1.7.4-0.20210507034014-81019842dbb1
 
 replace golang.org/x/xerrors => golang.org/x/xerrors v0.0.0-20190212162355-a5947ffaace3

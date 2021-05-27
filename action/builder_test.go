@@ -28,7 +28,6 @@ func TestActionBuilder(t *testing.T) {
 
 	assert.Equal(t, uint32(version.ProtocolVersion), act.Version())
 	assert.Equal(t, uint64(2), act.Nonce())
-	assert.Equal(t, srcPubKey, act.SrcPubkey())
 	assert.Equal(t, uint64(10003), act.GasLimit())
 	assert.Equal(t, big.NewInt(10004), act.GasPrice())
 }

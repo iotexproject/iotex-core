@@ -20,7 +20,7 @@ import (
 	"github.com/iotexproject/go-p2p"
 	goproto "github.com/iotexproject/iotex-proto/golang"
 	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,7 +28,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
-	"github.com/iotexproject/iotex-core/pkg/routine"
 )
 
 const (
@@ -85,12 +84,12 @@ type Agent struct {
 	unicastInboundAsyncHandler HandleUnicastInboundAsync
 	host                       *p2p.Host
 	unicastBlocklist           *BlockList
-	reconnectTask              *routine.RecurringTask
 }
 
 // NewAgent instantiates a local P2P agent instance
 func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
 	gh := cfg.Genesis.Hash()
+	log.L().Info("p2p agent", log.Hex("topicSuffix", gh[22:]))
 	return &Agent{
 		cfg: cfg.Network,
 		// Make sure the honest node only care the messages related the chain from the same genesis
@@ -231,19 +230,13 @@ func (p *Agent) Start(ctx context.Context) error {
 	}
 	p.host.JoinOverlay(ctx)
 	close(ready)
-
-	// check network connectivity every 2 blocks, and reconnect in case of disconnection
-	p.reconnectTask = routine.NewRecurringTask(p.reconnect, 2*config.DardanellesBlockInterval)
-	return p.reconnectTask.Start(ctx)
+	return nil
 }
 
 // Stop disconnects from P2P network
 func (p *Agent) Stop(ctx context.Context) error {
 	if p.host == nil {
 		return nil
-	}
-	if err := p.reconnectTask.Stop(ctx); err != nil {
-		return err
 	}
 	if err := p.host.Close(); err != nil {
 		return errors.Wrap(err, "error when closing Agent host")
@@ -388,7 +381,7 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	}
 
 	for i, nb := range nbs {
-		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) {
+		if p.unicastBlocklist.Blocked(nb.ID.Pretty(), time.Now()) || nb.ID.Pretty() == "" {
 			continue
 		}
 		res = append(res, nbs[i])
@@ -448,15 +441,6 @@ func (p *Agent) connect(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func (p *Agent) reconnect() {
-	ctx := context.Background()
-	peers, err := p.Neighbors(ctx)
-	if err != nil || len(peers) == 0 {
-		log.L().Info("Network lost, try re-connecting.", zap.Error(err))
-		p.connect(ctx)
-	}
 }
 
 func convertAppMsg(msg proto.Message) (iotexrpc.MessageType, []byte, error) {

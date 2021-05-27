@@ -66,7 +66,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 			chainservice.WithTesting(),
 		}
 	}
-	cs, err = chainservice.New(cfg, p2pAgent, dispatcher, opts...)
+	cs, err = chainservice.New(cfg, p2pAgent, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create chain service")
 	}
@@ -132,7 +132,7 @@ func (s *Server) NewSubChainService(cfg config.Config, opts ...chainservice.Opti
 func (s *Server) newSubChainService(cfg config.Config, opts ...chainservice.Option) error {
 	// TODO: explorer dependency deleted here at #1085, need to revive by migrating to api
 	opts = append(opts, chainservice.WithSubChain())
-	cs, err := chainservice.New(cfg, s.p2pAgent, s.dispatcher, opts...)
+	cs, err := chainservice.New(cfg, s.p2pAgent, opts...)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func StartServer(ctx context.Context, svr *Server, probeSvr *probe.Server, cfg c
 	probeSvr.Ready()
 
 	if cfg.System.HeartbeatInterval > 0 {
-		task := routine.NewRecurringTask(NewHeartbeatHandler(svr).Log, cfg.System.HeartbeatInterval)
+		task := routine.NewRecurringTask(NewHeartbeatHandler(svr, cfg.Network).Log, cfg.System.HeartbeatInterval)
 		if err := task.Start(ctx); err != nil {
 			log.L().Panic("Failed to start heartbeat routine.", zap.Error(err))
 		}

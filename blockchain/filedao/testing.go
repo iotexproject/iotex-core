@@ -21,6 +21,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -69,6 +70,34 @@ func newFileDAOv2InMem(bottom uint64) (*fileDAOv2, error) {
 		batch:    batch.NewBatch(),
 	}
 	return &fd, nil
+}
+
+func (fd *testInMemFd) GetBlockHash(height uint64) (hash.Hash256, error) {
+	if height == 0 {
+		return block.GenesisHash(), nil
+	}
+	return fd.fileDAOv2.GetBlockHash(height)
+}
+
+func (fd *testInMemFd) GetBlockHeight(h hash.Hash256) (uint64, error) {
+	if h == block.GenesisHash() {
+		return 0, nil
+	}
+	return fd.fileDAOv2.GetBlockHeight(h)
+}
+
+func (fd *testInMemFd) GetBlock(h hash.Hash256) (*block.Block, error) {
+	if h == block.GenesisHash() {
+		return block.GenesisBlock(), nil
+	}
+	return fd.fileDAOv2.GetBlock(h)
+}
+
+func (fd *testInMemFd) GetBlockByHeight(height uint64) (*block.Block, error) {
+	if height == 0 {
+		return block.GenesisBlock(), nil
+	}
+	return fd.fileDAOv2.GetBlockByHeight(height)
 }
 
 func (fd *testInMemFd) Header(h hash.Hash256) (*block.Header, error) {
@@ -193,6 +222,7 @@ func testVerifyChainDB(t *testing.T, fd FileDAO, start, end uint64) {
 }
 
 func createTestingBlock(builder *block.TestingBuilder, height uint64, h hash.Hash256) *block.Block {
+	block.LoadGenesisHash(&config.Default.Genesis)
 	r := &action.Receipt{
 		Status:      1,
 		BlockHeight: height,

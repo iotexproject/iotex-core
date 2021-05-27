@@ -21,7 +21,6 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -51,7 +50,7 @@ type (
 	fileDAOLegacy struct {
 		compressBlock bool
 		lifecycle     lifecycle.Lifecycle
-		cfg           config.DB
+		cfg           db.Config
 		mutex         sync.RWMutex // for create new db file
 		topIndex      atomic.Value
 		htf           db.RangeIndex
@@ -61,7 +60,7 @@ type (
 )
 
 // newFileDAOLegacy creates a new legacy file
-func newFileDAOLegacy(cfg config.DB) (FileDAO, error) {
+func newFileDAOLegacy(cfg db.Config) (FileDAO, error) {
 	return &fileDAOLegacy{
 		compressBlock: cfg.CompressLegacy,
 		cfg:           cfg,
@@ -126,10 +125,10 @@ func (fd *fileDAOLegacy) Height() (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
-	h := hash.ZeroHash256
 	if height == 0 {
-		return h, nil
+		return block.GenesisHash(), nil
 	}
+	h := hash.ZeroHash256
 	value, err := fd.kvStore.Get(blockHashHeightMappingNS, heightKey(height))
 	if err != nil {
 		return h, errors.Wrap(err, "failed to get block hash")
@@ -142,6 +141,9 @@ func (fd *fileDAOLegacy) GetBlockHash(height uint64) (hash.Hash256, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
+	if h == block.GenesisHash() {
+		return 0, nil
+	}
 	value, err := getValueMustBe8Bytes(fd.kvStore, blockHashHeightMappingNS, hashKey(h))
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to get block height")
@@ -150,6 +152,9 @@ func (fd *fileDAOLegacy) GetBlockHeight(h hash.Hash256) (uint64, error) {
 }
 
 func (fd *fileDAOLegacy) GetBlock(h hash.Hash256) (*block.Block, error) {
+	if h == block.GenesisHash() {
+		return block.GenesisBlock(), nil
+	}
 	header, err := fd.Header(h)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to get block header %x", h)

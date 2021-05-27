@@ -17,6 +17,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/filedao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/pkg/compress"
@@ -27,30 +28,30 @@ import (
 
 func getTestBlocks(t *testing.T) []*block.Block {
 	amount := uint64(50 << 22)
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 1, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(28), 1, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
-	tsf2, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf2, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(29), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
-	tsf3, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 3, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf3, err := action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 3, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
-	tsf4, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(28), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf4, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(28), 2, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
-	tsf5, err := testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(29), 3, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf5, err := action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(29), 3, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
-	tsf6, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), 4, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
+	tsf6, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(30), 4, big.NewInt(int64(amount)), nil, testutil.TestGasLimit, big.NewInt(0))
 	require.NoError(t, err)
 
 	// create testing executions
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 1, big.NewInt(1), 0, big.NewInt(0), nil)
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 1, big.NewInt(1), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
-	execution2, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
+	execution2, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(29), 2, big.NewInt(0), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
-	execution3, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 3, big.NewInt(2), 0, big.NewInt(0), nil)
+	execution3, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 3, big.NewInt(2), 0, big.NewInt(0), nil)
 	require.NoError(t, err)
 
 	hash1 := hash.Hash256{}
@@ -268,8 +269,9 @@ func TestBlockDAO(t *testing.T) {
 			b2, err := receipts[i/3][i%3].Serialize()
 			require.NoError(err)
 			require.Equal(b1, b2)
-			action, err := dao.GetActionByActionHash(h, blk.Height())
+			action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 			require.NoError(err)
+			require.Equal(int(actIndex), i%3)
 			require.Equal(blk.Actions[i%3], action)
 		}
 	}
@@ -315,7 +317,7 @@ func TestBlockDAO(t *testing.T) {
 			if tipHeight == 0 {
 				h, err := dao.GetBlockHash(0)
 				require.NoError(err)
-				require.Equal(hash.ZeroHash256, h)
+				require.Equal(block.GenesisHash(), h)
 				continue
 			}
 			tipBlk := blks[tipHeight-1]
@@ -359,8 +361,9 @@ func TestBlockDAO(t *testing.T) {
 				b2, err := receipts[i/3][i%3].Serialize()
 				require.NoError(err)
 				require.Equal(b1, b2)
-				action, err := dao.GetActionByActionHash(h, blk.Height())
+				action, actIndex, err := dao.GetActionByActionHash(h, blk.Height())
 				require.NoError(err)
+				require.Equal(int(actIndex), i%3)
 				require.Equal(blk.Actions[i%3], action)
 			}
 		}
@@ -385,8 +388,10 @@ func TestBlockDAO(t *testing.T) {
 		{false, false, compress.Snappy},
 	}
 
-	cfg := config.Default.DB
+	cfg := db.DefaultConfig
 	cfg.DbPath = testPath
+	genesis.SetGenesisTimestamp(config.Default.Genesis.Timestamp)
+	block.LoadGenesisHash(&config.Default.Genesis)
 	for _, v := range daoList {
 		testutil.CleanupPath(t, testPath)
 		dao, err := createTestBlockDAO(v.inMemory, v.legacy, v.compressBlock, cfg)
@@ -408,7 +413,7 @@ func TestBlockDAO(t *testing.T) {
 	}
 }
 
-func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg config.DB) (BlockDAO, error) {
+func createTestBlockDAO(inMemory, legacy bool, compressBlock string, cfg db.Config) (BlockDAO, error) {
 	if inMemory {
 		return NewBlockDAOInMemForTest(nil), nil
 	}
@@ -433,7 +438,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		require.NoError(b, err)
 		indexPath, err := testutil.PathOfTempFile(path)
 		require.NoError(b, err)
-		cfg := config.DB{
+		cfg := db.Config{
 			NumRetries: 1,
 		}
 		defer func() {
@@ -453,7 +458,7 @@ func BenchmarkBlockCache(b *testing.B) {
 		for i := 1; i <= numBlks; i++ {
 			actions := make([]action.SealedEnvelope, 10)
 			for j := 0; j < 10; j++ {
-				actions[j], err = testutil.SignedTransfer(
+				actions[j], err = action.SignedTransfer(
 					identityset.Address(j).String(),
 					identityset.PrivateKey(j+1),
 					1,

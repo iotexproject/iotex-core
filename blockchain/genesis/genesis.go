@@ -7,9 +7,10 @@
 package genesis
 
 import (
-	"flag"
 	"math/big"
 	"sort"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -29,10 +30,12 @@ import (
 // Default contains the default genesis config
 var Default = defaultConfig()
 
-var genesisPath string
+var (
+	genesisTs     int64
+	loadGenesisTs sync.Once
+)
 
 func init() {
-	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
 	initTestDefaultConfig()
 }
 
@@ -58,7 +61,7 @@ func defaultConfig() Genesis {
 			FbkMigrationBlockHeight: 5157001,
 			FairbankBlockHeight:     5165641,
 			GreenlandBlockHeight:    6544441,
-			HawaiiBlockHeight:       11073241,
+			HawaiiBlockHeight:       11267641,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
@@ -287,7 +290,7 @@ type (
 
 // New constructs a genesis config. It loads the default values, and could be overwritten by values defined in the yaml
 // config files
-func New() (Genesis, error) {
+func New(genesisPath string) (Genesis, error) {
 	def := defaultConfig()
 
 	opts := make([]config.YAMLOption, 0)
@@ -305,6 +308,18 @@ func New() (Genesis, error) {
 		return Genesis{}, errors.Wrap(err, "failed to unmarshal yaml genesis to struct")
 	}
 	return genesis, nil
+}
+
+// SetGenesisTimestamp sets the genesis timestamp
+func SetGenesisTimestamp(ts int64) {
+	loadGenesisTs.Do(func() {
+		genesisTs = ts
+	})
+}
+
+// Timestamp returns the genesis timestamp
+func Timestamp() int64 {
+	return atomic.LoadInt64(&genesisTs)
 }
 
 // Hash is the hash of genesis config

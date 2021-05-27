@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 
@@ -73,9 +72,6 @@ func (r *PutPollResult) Height() uint64 { return r.height }
 
 // Candidates returns the list of candidates.
 func (r *PutPollResult) Candidates() state.CandidateList { return r.candidates }
-
-// ProducerPublicKey return producer public key.
-func (r *PutPollResult) ProducerPublicKey() crypto.PublicKey { return r.SrcPubkey() }
 
 // Serialize returns the byte representation of put poll result action.
 func (r *PutPollResult) Serialize() []byte {

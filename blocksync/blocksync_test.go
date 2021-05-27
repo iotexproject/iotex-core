@@ -12,10 +12,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
-	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,6 +28,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/test/mock/mock_blockchain"
@@ -40,11 +38,28 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-var opts = []Option{
-	WithUnicastOutBound(func(_ context.Context, _ peerstore.PeerInfo, msg proto.Message) error {
+func newBlockSyncer(cfg config.BlockSync, chain bc.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
+	bs, err := NewBlockSyncer(cfg, chain.TipHeight, func(h uint64) (*block.Block, error) {
+		return dao.GetBlockByHeight(h)
+	}, func(blk *block.Block) error {
+		if err := cs.ValidateBlockFooter(blk); err != nil {
+			return err
+		}
+		if err := chain.ValidateBlock(blk); err != nil {
+			return err
+		}
+		if err := chain.CommitBlock(blk); err != nil {
+			return err
+		}
+		cs.Calibrate(blk.Height())
 		return nil
-	}),
-	WithNeighbors(func(_ context.Context) ([]peerstore.PeerInfo, error) { return nil, nil }),
+	}, func(ctx context.Context, start uint64, end uint64) error {
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return bs.(*blockSyncer), nil
 }
 
 func TestNewBlockSyncer(t *testing.T) {
@@ -74,7 +89,7 @@ func TestNewBlockSyncer(t *testing.T) {
 
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := NewBlockSyncer(cfg, mBc, dao, cs, opts...)
+	bs, err := newBlockSyncer(cfg.BlockSync, mBc, dao, cs)
 	assert.Nil(err)
 	assert.NotNil(bs)
 }
@@ -127,14 +142,11 @@ func TestBlockSyncerProcessSyncRequest(t *testing.T) {
 	require.NoError(err)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := NewBlockSyncer(cfg, mBc, dao, cs, opts...)
+	bs, err := newBlockSyncer(cfg.BlockSync, mBc, dao, cs)
 	assert.NoError(err)
-
-	pbBs := &iotexrpc.BlockSync{
-		Start: 1,
-		End:   1,
-	}
-	assert.NoError(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
+	assert.NoError(bs.ProcessSyncRequest(context.Background(), 1, 1, func(context.Context, *block.Block) error {
+		return nil
+	}))
 }
 
 func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
@@ -152,13 +164,12 @@ func TestBlockSyncerProcessSyncRequestError(t *testing.T) {
 	chain.EXPECT().TipHeight().Return(uint64(10)).Times(1)
 	cs := mock_consensus.NewMockConsensus(ctrl)
 
-	bs, err := NewBlockSyncer(cfg, chain, dao, cs, opts...)
+	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
-	pbBs := &iotexrpc.BlockSync{
-		Start: 1,
-		End:   5,
-	}
-	require.Error(bs.ProcessSyncRequest(context.Background(), peerstore.PeerInfo{}, pbBs))
+
+	require.Error(bs.ProcessSyncRequest(context.Background(), 1, 5, func(context.Context, *block.Block) error {
+		return nil
+	}))
 }
 
 func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
@@ -192,7 +203,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
 	cs.EXPECT().Calibrate(uint64(1)).Times(1)
 
-	bs, err := NewBlockSyncer(cfg, chain, dao, cs, opts...)
+	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
 
 	defer func() {
@@ -204,7 +215,10 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)
+	ctx, err = chain.Context(ctx)
+	require.NoError(err)
 	require.NoError(bs.ProcessBlock(ctx, blk))
+	bs.flush()
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
@@ -250,7 +264,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
 
-	bs1, err := NewBlockSyncer(cfg, chain1, dao, cs1, opts...)
+	bs1, err := newBlockSyncer(cfg.BlockSync, chain1, dao, cs1)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
@@ -273,7 +287,7 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := NewBlockSyncer(cfg, chain2, dao2, cs2, opts...)
+	bs2, err := newBlockSyncer(cfg.BlockSync, chain2, dao2, cs2)
 	require.NoError(err)
 
 	defer func() {
@@ -283,18 +297,23 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	}()
 
 	// commit top
+	ctx, err = chain1.Context(ctx)
+	require.NoError(err)
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
@@ -302,11 +321,12 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(bs2.ProcessBlock(ctx, blk2))
 	require.NoError(bs2.ProcessBlock(ctx, blk2))
 	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
 
-func TestBlockSyncerProcessBlockSync(t *testing.T) {
+func TestBlockSyncerProcessBlock(t *testing.T) {
 	require := require.New(t)
 	ctrl := gomock.NewController(t)
 
@@ -340,7 +360,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs1 := mock_consensus.NewMockConsensus(ctrl)
 	cs1.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs1.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs1, err := NewBlockSyncer(cfg, chain1, dao, cs1, opts...)
+	bs1, err := newBlockSyncer(cfg.BlockSync, chain1, dao, cs1)
 	require.NoError(err)
 	registry2 := protocol.NewRegistry()
 	require.NoError(acc.Register(registry2))
@@ -363,7 +383,7 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 	cs2 := mock_consensus.NewMockConsensus(ctrl)
 	cs2.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(3)
 	cs2.EXPECT().Calibrate(gomock.Any()).Times(3)
-	bs2, err := NewBlockSyncer(cfg, chain2, dao2, cs2, opts...)
+	bs2, err := newBlockSyncer(cfg.BlockSync, chain2, dao2, cs2)
 	require.NoError(err)
 
 	defer func() {
@@ -372,25 +392,31 @@ func TestBlockSyncerProcessBlockSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	ctx, err = chain1.Context(ctx)
+	require.NoError(err)
 	// commit top
 	blk1, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk1))
+	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk2))
+	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, blk3))
+	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
-	require.NoError(bs2.ProcessBlockSync(ctx, blk3))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk2))
-	require.NoError(bs2.ProcessBlockSync(ctx, blk1))
+	require.NoError(bs2.ProcessBlock(ctx, blk2))
+	require.NoError(bs2.ProcessBlock(ctx, blk3))
+	require.NoError(bs2.ProcessBlock(ctx, blk1))
+	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -421,12 +447,12 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
 
-	bs, err := NewBlockSyncer(cfg, chain, dao, cs, opts...)
-	require.NotNil(bs)
+	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
+	require.NotNil(bs)
 	require.NoError(bs.Start(ctx))
 	time.Sleep(time.Millisecond << 7)
 
@@ -436,6 +462,8 @@ func TestBlockSyncerSync(t *testing.T) {
 		ctrl.Finish()
 	}()
 
+	ctx, err = chain.Context(ctx)
+	require.NoError(err)
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk)
 	require.NoError(err)

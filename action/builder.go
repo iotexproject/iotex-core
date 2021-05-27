@@ -76,7 +76,7 @@ func (b *Builder) Build() AbstractAction {
 
 // EnvelopeBuilder is the builder to build Envelope.
 type EnvelopeBuilder struct {
-	elp Envelope
+	elp envelope
 }
 
 // SetVersion sets action's version.
@@ -131,5 +131,5 @@ func (b *EnvelopeBuilder) Build() Envelope {
 	if b.elp.version == 0 {
 		b.elp.version = version.ProtocolVersion
 	}
-	return b.elp
+	return &b.elp
 }

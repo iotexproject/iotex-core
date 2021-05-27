@@ -16,6 +16,8 @@ import (
 	"github.com/iotexproject/iotex-core/endorsement"
 )
 
+var errInvalidCurrentTime = errors.New("invalid current time")
+
 type roundCalculator struct {
 	chain                ChainManager
 	timeBasedRotation    bool
@@ -146,11 +148,11 @@ func (c *roundCalculator) roundInfo(
 		}
 	}
 	if !lastBlockTime.Before(now) {
-		// TODO: if this is the case, the system time is far behind the time of other nodes.
-		// the code below is just to mute the warning, but "panic" may be a better choice.
-		time.Sleep(lastBlockTime.Sub(now))
-		err = errors.Errorf(
-			"last block time %s is a future time, vs now %s. it seems that your system time is far behind.\nplease calibrate your system time and restart the chain.",
+		// TODO: if this is the case, it is possible that the system time is far behind the time of other nodes.
+		// better error handling may be needed on the caller side
+		err = errors.Wrapf(
+			errInvalidCurrentTime,
+			"last block time %s is after than current time %s",
 			lastBlockTime,
 			now,
 		)

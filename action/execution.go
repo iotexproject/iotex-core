@@ -10,7 +10,6 @@ import (
 	"math/big"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
@@ -61,22 +60,23 @@ func NewExecution(
 	}, nil
 }
 
-// ExecutorPublicKey returns the executor's public key
-func (ex *Execution) ExecutorPublicKey() crypto.PublicKey {
-	return ex.SrcPubkey()
-}
-
 // Contract returns a contract address
 func (ex *Execution) Contract() string { return ex.contract }
 
 // Destination returns a contract address
-func (ex *Execution) Destination() string { return ex.Contract() }
+func (ex *Execution) Destination() string { return ex.contract }
+
+// Recipient is same as Contract()
+func (ex *Execution) Recipient() string { return ex.contract }
 
 // Amount returns the amount
 func (ex *Execution) Amount() *big.Int { return ex.amount }
 
 // Data returns the data bytes
 func (ex *Execution) Data() []byte { return ex.data }
+
+// Payload is same as Data()
+func (ex *Execution) Payload() []byte { return ex.data }
 
 // TotalSize returns the total size of this Execution
 func (ex *Execution) TotalSize() uint32 {

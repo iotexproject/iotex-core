@@ -12,18 +12,13 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
+	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
 func TestVoteReviser(t *testing.T) {
 	r := require.New(t)
-
-	// make sure the prefix stays constant, they affect the key to store objects to DB
-	r.Equal(byte(0), _const)
-	r.Equal(byte(1), _bucket)
-	r.Equal(byte(2), _voterIndex)
-	r.Equal(byte(3), _candIndex)
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -43,37 +38,85 @@ func TestVoteReviser(t *testing.T) {
 		index    uint64
 	}{
 		{
+			identityset.Address(6),
+			identityset.Address(6),
+			unit.ConvertIotxToRau(1100000),
+			21,
+			0,
+		},
+		{
+			identityset.Address(1),
+			identityset.Address(1),
+			unit.ConvertIotxToRau(1200000),
+			21,
+			1,
+		},
+		{
+			identityset.Address(2),
+			identityset.Address(2),
+			unit.ConvertIotxToRau(1200000),
+			14,
+			2,
+		},
+		{
+			identityset.Address(3),
+			identityset.Address(3),
+			unit.ConvertIotxToRau(1200000),
+			25,
+			3,
+		},
+		{
+			identityset.Address(4),
+			identityset.Address(4),
+			unit.ConvertIotxToRau(1200000),
+			31,
+			4,
+		},
+		{
+			identityset.Address(5),
+			identityset.Address(5),
+			unit.ConvertIotxToRau(1199999),
+			31,
+			5,
+		},
+		{
 			identityset.Address(1),
 			identityset.Address(2),
 			big.NewInt(2100000000),
 			21,
-			0,
+			6,
 		},
 		{
 			identityset.Address(2),
 			identityset.Address(3),
 			big.NewInt(1400000000),
 			14,
-			1,
+			7,
 		},
 		{
 			identityset.Address(3),
 			identityset.Address(4),
 			big.NewInt(2500000000),
 			25,
-			2,
+			8,
 		},
 		{
 			identityset.Address(4),
 			identityset.Address(1),
 			big.NewInt(3100000000),
 			31,
-			3,
+			9,
 		},
 	}
 
 	// test loading with no candidate in stateDB
-	stk, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
+	stk, err := NewProtocol(
+		nil,
+		genesis.Default.Staking,
+		nil,
+		genesis.Default.GreenlandBlockHeight,
+		genesis.Default.HawaiiBlockHeight,
+	)
 	r.NotNil(stk)
 	r.NoError(err)
 
@@ -103,33 +146,37 @@ func TestVoteReviser(t *testing.T) {
 	}
 	r.NoError(csm.Commit())
 
-	cands, _, err := getAllCandidates(sm)
-	r.NoError(err)
-	candm := make(map[string]*Candidate)
-	for _, cand := range cands {
-		candm[cand.Owner.String()] = cand.Clone()
-		candm[cand.Owner.String()].Votes = new(big.Int)
-		candm[cand.Owner.String()].SelfStake = new(big.Int)
-	}
+	// test revise
+	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
+	r.False(stk.voteReviser.isCacheExist(genesis.Default.HawaiiBlockHeight))
+	r.NoError(stk.voteReviser.Revise(csm, genesis.Default.HawaiiBlockHeight))
+	r.NoError(csm.Commit())
+	r.False(stk.voteReviser.isCacheExist(genesis.Default.GreenlandBlockHeight))
 
-	buckets, _, err := getAllBuckets(sm)
-	r.NoError(err)
-
+	// verify self-stake and total votes match
+	result, ok := stk.voteReviser.result(genesis.Default.HawaiiBlockHeight)
+	r.True(ok)
+	r.Equal(len(testCandidates), len(result))
 	cv := genesis.Default.Staking.VoteWeightCalConsts
-
-	t.Logf("bucketsLen: %d, cv: %+v", len(buckets), cv)
-	for _, bucket := range buckets {
-		r.Equal(bucket.isUnstaked(), false)
-
-		cand, ok := candm[bucket.Candidate.String()]
-		r.Equal(ok, true)
-
-		if cand.SelfStakeBucketIdx == bucket.Index {
-			r.NoError(cand.AddVote(calculateVoteWeight(cv, bucket, true)))
-			cand.SelfStake = bucket.StakedAmount
-		} else {
-			r.NoError(cand.AddVote(calculateVoteWeight(cv, bucket, false)))
+	for _, c := range result {
+		cand := csm.GetByOwner(c.Owner)
+		r.True(c.Equal(cand))
+		for _, cand := range testCandidates {
+			if address.Equal(cand.d.Owner, c.Owner) {
+				r.Equal(0, cand.d.SelfStake.Cmp(c.SelfStake))
+			}
+		}
+		for _, v := range tests {
+			if address.Equal(v.cand, c.Owner) && v.index != c.SelfStakeBucketIdx {
+				bucket, err := getBucket(csm, v.index)
+				r.NoError(err)
+				total := calculateVoteWeight(cv, bucket, false)
+				bucket, err = getBucket(csm, c.SelfStakeBucketIdx)
+				r.NoError(err)
+				total.Add(total, calculateVoteWeight(cv, bucket, true))
+				r.Equal(0, total.Cmp(c.Votes))
+				break
+			}
 		}
 	}
-
 }

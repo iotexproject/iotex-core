@@ -15,13 +15,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 )
 
-var (
-	// ErrAction indicates error for an action
-	ErrAction = errors.New("action error")
-	// ErrAddress indicates error of address
-	ErrAddress = errors.New("address error")
-)
-
 // Action is the action can be Executed in protocols. The method is added to avoid mistakenly used empty interface as action.
 type Action interface {
 	SetEnvelopeContext(SealedEnvelope)
@@ -29,7 +22,6 @@ type Action interface {
 }
 
 type actionPayload interface {
-	Serialize() []byte
 	Cost() (*big.Int, error)
 	IntrinsicGas() (uint64, error)
 	SetEnvelopeContext(SealedEnvelope)
@@ -42,17 +34,21 @@ type hasDestination interface {
 
 // Sign signs the action using sender's private key
 func Sign(act Envelope, sk crypto.PrivateKey) (SealedEnvelope, error) {
-	sealed := SealedEnvelope{Envelope: act}
+	sealed := SealedEnvelope{
+		Envelope:  act,
+		srcPubkey: sk.PublicKey(),
+	}
 
-	sealed.srcPubkey = sk.PublicKey()
-
-	hash := act.Hash()
-	sig, err := sk.Sign(hash[:])
+	h, err := sealed.envelopeHash()
 	if err != nil {
-		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", hash)
+		return sealed, errors.Wrap(err, "failed to generate envelope hash")
+	}
+	sig, err := sk.Sign(h[:])
+	if err != nil {
+		return sealed, errors.Wrapf(ErrAction, "failed to sign action hash = %x", h)
 	}
 	sealed.signature = sig
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed, nil
 }
 
@@ -63,7 +59,7 @@ func FakeSeal(act Envelope, pubk crypto.PublicKey) SealedEnvelope {
 		Envelope:  act,
 		srcPubkey: pubk,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -75,7 +71,7 @@ func AssembleSealedEnvelope(act Envelope, pk crypto.PublicKey, sig []byte) Seale
 		srcPubkey: pk,
 		signature: sig,
 	}
-	sealed.payload.SetEnvelopeContext(sealed)
+	act.Action().SetEnvelopeContext(sealed)
 	return sealed
 }
 
@@ -90,14 +86,17 @@ func Verify(sealed SealedEnvelope) error {
 		return errors.Wrap(ErrInsufficientBalanceForGas, "insufficient gas")
 	}
 
-	hash := sealed.Envelope.Hash()
-	if sealed.SrcPubkey().Verify(hash[:], sealed.Signature()) {
+	h, err := sealed.envelopeHash()
+	if err != nil {
+		return errors.Wrap(err, "failed to generate envelope hash")
+	}
+	if sealed.SrcPubkey().Verify(h[:], sealed.Signature()) {
 		return nil
 	}
 	return errors.Wrapf(
 		ErrAction,
 		"failed to verify action hash = %x and signature = %x",
-		hash,
+		h,
 		sealed.Signature(),
 	)
 }

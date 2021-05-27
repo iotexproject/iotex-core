@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/db/trie"
@@ -39,7 +38,7 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 	if withDB {
 		testPath, err := testutil.PathOfTempFile(fmt.Sprintf("test-kv-store-%t.bolt", async))
 		require.NoError(err)
-		cfg := config.Default.DB
+		cfg := db.DefaultConfig
 		cfg.DbPath = testPath
 		dao := db.NewBoltDB(cfg)
 		flusher, err := db.NewKVStoreFlusher(dao, batch.NewCachedBatch())

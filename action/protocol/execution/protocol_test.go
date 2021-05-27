@@ -242,7 +242,7 @@ func readExecution(
 	if err != nil {
 		return nil, nil, err
 	}
-	ctx, err := bc.Context()
+	ctx, err := bc.Context(context.Background())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -298,7 +298,7 @@ func runExecutions(
 		if err := ap.Add(context.Background(), selp); err != nil {
 			return nil, err
 		}
-		hashes = append(hashes, exec.Hash())
+		hashes = append(hashes, selp.Hash())
 	}
 	blk, err := bc.MintNewBlock(testutil.TimestampNow())
 	if err != nil {
@@ -609,7 +609,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash := execution.Hash()
+		eHash := selp.Hash()
 		r, _ := dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NotNil(r)
 		require.Equal(eHash, r.ActionHash)
@@ -625,7 +625,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(err)
 		require.Equal(data[31:], c)
 
-		exe, err := dao.GetActionByActionHash(eHash, blk.Height())
+		exe, _, err := dao.GetActionByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, exe.Hash())
 
@@ -672,7 +672,7 @@ func TestProtocol_Handle(t *testing.T) {
 			v := stateDB.GetState(evmContractAddrHash, emptyEVMHash)
 			require.Equal(byte(15), v[31])
 		*/
-		eHash = execution.Hash()
+		eHash = selp.Hash()
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)
@@ -697,7 +697,7 @@ func TestProtocol_Handle(t *testing.T) {
 		require.NoError(bc.CommitBlock(blk))
 		require.Equal(1, len(blk.Receipts))
 
-		eHash = execution.Hash()
+		eHash = selp.Hash()
 		r, err = dao.GetReceiptByActionHash(eHash, blk.Height())
 		require.NoError(err)
 		require.Equal(eHash, r.ActionHash)

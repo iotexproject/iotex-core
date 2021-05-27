@@ -16,7 +16,7 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	// construct a config without overriding
-	cfg, err := New()
+	cfg, err := New("")
 	require.NoError(t, err)
 	// Validate blockchain
 	assert.Equal(t, Default.BlockGasLimit, cfg.BlockGasLimit)
@@ -30,7 +30,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 func TestHash(t *testing.T) {
 	require := require.New(t)
-	cfg, err := New()
+	cfg, err := New("")
 	require.NoError(err)
 	hash := cfg.Hash()
 	require.Equal("3dfcdee76186b59a9f9abd0ded8e6c093c35bddea23834044550fb68626adb62", hex.EncodeToString(hash[:]))

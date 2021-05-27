@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"sort"
 
 	"github.com/pkg/errors"
 
@@ -124,9 +125,20 @@ func (tlt *twoLayerTrie) stop(ctx context.Context, hkey string, lt *layerTwo) (e
 	return lt.tr.Stop(ctx)
 }
 
+func (tlt *twoLayerTrie) layerTwoKeys() []string {
+	keys := make([]string, 0)
+	for k := range tlt.layerTwoMap {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	return keys
+}
+
 func (tlt *twoLayerTrie) flush(ctx context.Context) error {
-	for hkey, lt := range tlt.layerTwoMap {
-		if err := tlt.stop(ctx, hkey, lt); err != nil {
+	keys := tlt.layerTwoKeys()
+	for _, hkey := range keys {
+		if err := tlt.stop(ctx, hkey, tlt.layerTwoMap[hkey]); err != nil {
 			return err
 		}
 	}
@@ -146,8 +158,9 @@ func (tlt *twoLayerTrie) SetRootHash(rh []byte) error {
 	if err := tlt.layerOne.SetRootHash(rh); err != nil {
 		return err
 	}
-	for _, lt := range tlt.layerTwoMap {
-		if err := lt.tr.Stop(context.Background()); err != nil {
+	keys := tlt.layerTwoKeys()
+	for _, k := range keys {
+		if err := tlt.layerTwoMap[k].tr.Stop(context.Background()); err != nil {
 			return err
 		}
 	}

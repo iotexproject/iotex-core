@@ -22,7 +22,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/ioctl/output"
 	"github.com/iotexproject/iotex-core/ioctl/util"
-	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
 var (
@@ -129,15 +128,16 @@ func (m *blockMessage) String() string {
 
 // getBlock get block from block chain
 func getBlock(args []string) error {
-	var height uint64
-	var err error
+	var (
+		height      uint64
+		err         error
+		blockMeta   *iotextypes.BlockMeta
+		blocksInfos []blocksInfo
+	)
 	isHeight := true
 	if len(args) != 0 {
-		height, err = strconv.ParseUint(args[0], 10, 64)
-		if err != nil {
+		if height, err = strconv.ParseUint(args[0], 10, 64); err != nil {
 			isHeight = false
-		} else if err = validator.ValidatePositiveNumber(int64(height)); err != nil {
-			return output.NewError(output.ValidationError, "invalid height", err)
 		}
 	} else {
 		chainMeta, err := GetChainMeta()
@@ -146,8 +146,7 @@ func getBlock(args []string) error {
 		}
 		height = chainMeta.Height
 	}
-	var blockMeta *iotextypes.BlockMeta
-	var blocksInfos []blocksInfo
+
 	if isHeight {
 		blockMeta, err = getBlockMetaByHeight(height)
 	} else {

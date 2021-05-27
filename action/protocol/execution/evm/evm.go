@@ -180,12 +180,17 @@ func ExecuteContract(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
+	opts := []StateDBAdapterOption{}
+	if hu.IsPost(config.Hawaii, blkCtx.BlockHeight) {
+		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
+	}
 	stateDB := NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
 		hu.IsPre(config.Aleutian, blkCtx.BlockHeight),
 		hu.IsPost(config.Greenland, blkCtx.BlockHeight),
-		execution.Hash(),
+		actionCtx.ActionHash,
+		opts...,
 	)
 	ps, err := newParams(ctx, execution, stateDB, getBlockHash)
 	if err != nil {
@@ -198,7 +203,7 @@ func ExecuteContract(
 	receipt := &action.Receipt{
 		GasConsumed:     ps.gas - remainingGas,
 		BlockHeight:     blkCtx.BlockHeight,
-		ActionHash:      execution.Hash(),
+		ActionHash:      actionCtx.ActionHash,
 		ContractAddress: contractAddress,
 	}
 

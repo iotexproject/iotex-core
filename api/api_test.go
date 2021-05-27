@@ -7,6 +7,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"math"
@@ -17,11 +18,13 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-election/test/mock/mock_committee"
@@ -46,6 +49,7 @@ import (
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/gasstation"
 	"github.com/iotexproject/iotex-core/pkg/unit"
+	"github.com/iotexproject/iotex-core/pkg/version"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/test/identityset"
@@ -57,36 +61,36 @@ import (
 const lld = "lifeLongDelegates"
 
 var (
-	testTransfer, _ = testutil.SignedTransfer(identityset.Address(28).String(),
+	testTransfer, _ = action.SignedTransfer(identityset.Address(28).String(),
 		identityset.PrivateKey(28), 3, big.NewInt(10), []byte{}, testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64))
 
 	testTransferHash = testTransfer.Hash()
 	testTransferPb   = testTransfer.Proto()
 
-	testExecution, _ = testutil.SignedExecution(identityset.Address(29).String(),
+	testExecution, _ = action.SignedExecution(identityset.Address(29).String(),
 		identityset.PrivateKey(29), 1, big.NewInt(0), testutil.TestGasLimit,
 		big.NewInt(testutil.TestGasPriceInt64), []byte{})
 
 	testExecutionHash = testExecution.Hash()
 	testExecutionPb   = testExecution.Proto()
 
-	testTransfer1, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
+	testTransfer1, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(27), 1,
 		big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash1    = testTransfer1.Hash()
-	testTransfer2, _ = testutil.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
+	testTransfer2, _ = action.SignedTransfer(identityset.Address(30).String(), identityset.PrivateKey(30), 5,
 		big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	transferHash2 = testTransfer2.Hash()
 
-	testExecution1, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+	testExecution1, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash1 = testExecution1.Hash()
 
-	testExecution2, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
+	testExecution2, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(30), 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash2 = testExecution2.Hash()
 
-	testExecution3, _ = testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
+	testExecution3, _ = action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(28), 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	executionHash3 = testExecution3.Hash()
 
@@ -130,10 +134,10 @@ var (
 		{
 			identityset.Address(27).String(),
 			"io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
-			"9999999999999999999999999991",
-			1,
+			"9999999999999999999999898950",
+			5,
 			6,
-			2,
+			6,
 		},
 	}
 
@@ -270,21 +274,35 @@ var (
 	}
 
 	getBlockMetasTests = []struct {
-		start   uint64
-		count   uint64
-		numBlks int
+		start, count      uint64
+		numBlks           int
+		gasLimit, gasUsed uint64
 	}{
 		{
 			1,
 			4,
 			4,
+			20000,
+			10000,
 		},
 		{
 			2,
 			5,
 			3,
+			120000,
+			60100,
 		},
 		{
+			1,
+			0,
+			0,
+			20000,
+			10000,
+		},
+		// genesis block
+		{
+			0,
+			1,
 			1,
 			0,
 			0,
@@ -696,6 +714,15 @@ var (
 			9,
 			9,
 		},
+		// genesis block
+		{
+			0,
+			1,
+			true,
+			1,
+			0,
+			0,
+		},
 	}
 
 	getLogsTest = []struct {
@@ -773,6 +800,26 @@ func TestServer_GetAccount(t *testing.T) {
 		testutil.CleanupPath(t, bfIndexFile)
 	}()
 
+	// deploy a contract
+	contractCode := "6080604052348015600f57600080fd5b5060de8061001e6000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c8063ee82ac5e14602d575b600080fd5b605660048036036020811015604157600080fd5b8101908080359060200190929190505050606c565b6040518082815260200191505060405180910390f35b60008082409050807f2d93f7749862d33969fb261757410b48065a1bc86a56da5c47820bd063e2338260405160405180910390a28091505091905056fea265627a7a723158200a258cd08ea99ee11aa68c78b6d2bf7ea912615a1e64a81b90a2abca2dd59cfa64736f6c634300050c0032"
+	contract, err := deployContract(svr, identityset.PrivateKey(13), 1, svr.bc.TipHeight(), contractCode)
+	require.NoError(err)
+	require.True(len(contract) > 0)
+
+	// read contract address
+	request := &iotexapi.GetAccountRequest{Address: contract}
+	res, err := svr.GetAccount(context.Background(), request)
+	require.NoError(err)
+	accountMeta := res.AccountMeta
+	require.Equal(contract, accountMeta.Address)
+	require.Equal("0", accountMeta.Balance)
+	require.EqualValues(0, accountMeta.Nonce)
+	require.EqualValues(1, accountMeta.PendingNonce)
+	require.EqualValues(0, accountMeta.NumActions)
+	require.True(accountMeta.IsContract)
+	require.True(len(accountMeta.ContractByteCode) > 0)
+	require.Contains(contractCode, hex.EncodeToString(accountMeta.ContractByteCode))
+
 	// success
 	for _, test := range getAccountTests {
 		request := &iotexapi.GetAccountRequest{Address: test.in}
@@ -790,10 +837,10 @@ func TestServer_GetAccount(t *testing.T) {
 	require.Error(err)
 
 	// success: reward pool
-	res, err := svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
+	res, err = svr.getProtocolAccount(context.Background(), address.RewardingPoolAddr)
 	require.NoError(err)
 	require.Equal(address.RewardingPoolAddr, res.AccountMeta.Address)
-	require.Equal("200000000000000000000000000", res.AccountMeta.Balance)
+	require.Equal("200000000000000000000101000", res.AccountMeta.Balance)
 
 	//failure: protocol staking isn't registered
 	_, err = svr.getProtocolAccount(context.Background(), address.StakingBucketPoolAddr)
@@ -990,6 +1037,8 @@ func TestServer_GetBlockMetas(t *testing.T) {
 	require := require.New(t)
 	cfg := newConfig(t)
 
+	genesis.SetGenesisTimestamp(cfg.Genesis.Timestamp)
+	block.LoadGenesisHash(&cfg.Genesis)
 	svr, bfIndexFile, err := createServer(cfg, false)
 	require.NoError(err)
 	defer func() {
@@ -1012,6 +1061,14 @@ func TestServer_GetBlockMetas(t *testing.T) {
 		}
 		require.NoError(err)
 		require.Equal(test.numBlks, len(res.BlkMetas))
+		meta := res.BlkMetas[0]
+		require.Equal(test.gasLimit, meta.GasLimit)
+		require.Equal(test.gasUsed, meta.GasUsed)
+		if test.start == 0 {
+			// genesis block
+			h := block.GenesisHash()
+			require.Equal(meta.Hash, hex.EncodeToString(h[:]))
+		}
 		var prevBlkPb *iotextypes.BlockMeta
 		for _, blkPb := range res.BlkMetas {
 			if prevBlkPb != nil {
@@ -1145,7 +1202,7 @@ func TestServer_SendAction(t *testing.T) {
 		require.Equal(test.actionHash, res.ActionHash)
 	}
 
-	// 2 failure cases
+	// 3 failure cases
 	ctx := context.Background()
 	tests := []struct {
 		server func() (*Server, string, error)
@@ -1158,7 +1215,17 @@ func TestServer_SendAction(t *testing.T) {
 				return createServer(cfg, true)
 			},
 			&iotextypes.Action{},
-			"invalid public key",
+			"invalid signature length =",
+		},
+		{
+			func() (*Server, string, error) {
+				cfg := newConfig(t)
+				return createServer(cfg, true)
+			},
+			&iotextypes.Action{
+				Signature: action.ValidSig,
+			},
+			"empty action proto to load",
 		},
 		{
 			func() (*Server, string, error) {
@@ -1234,7 +1301,7 @@ func TestServer_ReadContract(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		exec, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		exec, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.ReadContractRequest{
 			Execution:     exec.Proto().GetCore().GetExecution(),
@@ -1279,7 +1346,7 @@ func TestServer_EstimateGasForAction(t *testing.T) {
 		require.NoError(err)
 		ai, err := svr.indexer.GetActionIndex(hash[:])
 		require.NoError(err)
-		act, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
+		act, _, err := svr.dao.GetActionByActionHash(hash, ai.BlockHeight())
 		require.NoError(err)
 		request := &iotexapi.EstimateGasForActionRequest{Action: act.Proto()}
 
@@ -1940,8 +2007,20 @@ func TestServer_GetRawBlocks(t *testing.T) {
 		require.NoError(err)
 		blkInfos := res.Blocks
 		require.Equal(test.numBlks, len(blkInfos))
-		var numActions int
-		var numReceipts int
+		if test.startHeight == 0 {
+			// verify genesis block
+			header := blkInfos[0].Block.Header.Core
+			require.EqualValues(version.ProtocolVersion, header.Version)
+			require.Zero(header.Height)
+			ts, err := ptypes.TimestampProto(time.Unix(genesis.Timestamp(), 0))
+			require.NoError(err)
+			require.Equal(ts, header.Timestamp)
+			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.PrevBlockHash))
+			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.TxRoot))
+			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.DeltaStateDigest))
+			require.Equal(0, bytes.Compare(hash.ZeroHash256[:], header.ReceiptRoot))
+		}
+		var numActions, numReceipts int
 		for _, blkInfo := range blkInfos {
 			numActions += len(blkInfo.Block.Body.Actions)
 			numReceipts += len(blkInfo.Receipts)
@@ -2047,6 +2126,7 @@ func TestServer_GetEvmTransfersByBlockHeight(t *testing.T) {
 }
 
 func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
+	ctx := context.Background()
 	addr0 := identityset.Address(27).String()
 	priKey0 := identityset.PrivateKey(27)
 	addr1 := identityset.Address(28).String()
@@ -2057,7 +2137,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	addr4 := identityset.Address(31).String()
 	// Add block 1
 	// Producer transfer--> C
-	tsf, err := testutil.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf, err := action.SignedTransfer(addr3, priKey0, 1, big.NewInt(10), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
@@ -2066,7 +2146,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	)
 
 	blk1Time := testutil.TimestampNow()
-	if err := ap.Add(context.Background(), tsf); err != nil {
+	if err := ap.Add(ctx, tsf); err != nil {
 		return err
 	}
 	blk, err := bc.MintNewBlock(blk1Time)
@@ -2086,28 +2166,28 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	// Charlie exec--> D
 	recipients := []string{addr1, addr2, addr4, addr0}
 	for i, recipient := range recipients {
-		selp, err := testutil.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+		selp, err := action.SignedTransfer(recipient, priKey3, uint64(i+1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 		if err != nil {
 			return err
 		}
-		if err := ap.Add(context.Background(), selp); err != nil {
+		if err := ap.Add(ctx, selp); err != nil {
 			return err
 		}
 		implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
 			[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, recipient)},
 		)
 	}
-	selp, err := testutil.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	selp, err := action.SignedTransfer(addr3, priKey3, uint64(5), big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	implicitLogs[selp.Hash()] = block.NewTransactionLog(selp.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "2", addr3, addr3)},
 	)
-	if err := ap.Add(context.Background(), selp); err != nil {
+	if err := ap.Add(ctx, selp); err != nil {
 		return err
 	}
-	execution1, err := testutil.SignedExecution(addr4, priKey3, 6,
+	execution1, err := action.SignedExecution(addr4, priKey3, 6,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2116,7 +2196,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr3, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution1); err != nil {
+	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second)); err != nil {
@@ -2146,27 +2226,27 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	// Alfa transfer--> A
 	// Charlie exec--> D
 	// Alfa exec--> D
-	tsf1, err := testutil.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := action.SignedTransfer(addr3, priKey3, uint64(7), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	implicitLogs[tsf1.Hash()] = block.NewTransactionLog(tsf1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr3, addr3)},
 	)
-	if err := ap.Add(context.Background(), tsf1); err != nil {
+	if err := ap.Add(ctx, tsf1); err != nil {
 		return err
 	}
-	tsf2, err := testutil.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(addr1, priKey1, uint64(1), big.NewInt(1), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	implicitLogs[tsf2.Hash()] = block.NewTransactionLog(tsf2.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_NATIVE_TRANSFER, "1", addr1, addr1)},
 	)
-	if err := ap.Add(context.Background(), tsf2); err != nil {
+	if err := ap.Add(ctx, tsf2); err != nil {
 		return err
 	}
-	execution1, err = testutil.SignedExecution(addr4, priKey3, 8,
+	execution1, err = action.SignedExecution(addr4, priKey3, 8,
 		big.NewInt(2), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2175,10 +2255,10 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution1.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "2", addr3, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution1); err != nil {
+	if err := ap.Add(ctx, execution1); err != nil {
 		return err
 	}
-	execution2, err := testutil.SignedExecution(addr4, priKey1, 2,
+	execution2, err := action.SignedExecution(addr4, priKey1, 2,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64), []byte{1})
 	if err != nil {
 		return err
@@ -2187,7 +2267,7 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 		execution2.Hash(),
 		[]*block.TokenTxRecord{block.NewTokenTxRecord(iotextypes.TransactionLogType_IN_CONTRACT_TRANSFER, "1", addr1, addr4)},
 	)
-	if err := ap.Add(context.Background(), execution2); err != nil {
+	if err := ap.Add(ctx, execution2); err != nil {
 		return err
 	}
 	if blk, err = bc.MintNewBlock(blk1Time.Add(time.Second * 3)); err != nil {
@@ -2198,24 +2278,53 @@ func addTestingBlocks(bc blockchain.Blockchain, ap actpool.ActPool) error {
 	return bc.CommitBlock(blk)
 }
 
+func deployContract(svr *Server, key crypto.PrivateKey, nonce, height uint64, code string) (string, error) {
+	data, _ := hex.DecodeString(code)
+	ex1, err := action.SignedExecution(action.EmptyAddress, key, nonce, big.NewInt(0), 500000, big.NewInt(testutil.TestGasPriceInt64), data)
+	if err != nil {
+		return "", err
+	}
+	if err := svr.ap.Add(context.Background(), ex1); err != nil {
+		return "", err
+	}
+	blk, err := svr.bc.MintNewBlock(testutil.TimestampNow())
+	if err != nil {
+		return "", err
+	}
+	if err := svr.bc.CommitBlock(blk); err != nil {
+		return "", err
+	}
+	svr.ap.Reset()
+	// get deployed contract address
+	var contract string
+	if svr.dao != nil {
+		r, err := svr.dao.GetReceiptByActionHash(ex1.Hash(), height+1)
+		if err != nil {
+			return "", err
+		}
+		contract = r.ContractAddress
+	}
+	return contract, nil
+}
+
 func addActsToActPool(ctx context.Context, ap actpool.ActPool) error {
 	// Producer transfer--> A
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> P
-	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer transfer--> B
-	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4, big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	if err != nil {
 		return err
 	}
 	// Producer exec--> D
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	if err != nil {
 		return err
@@ -2403,16 +2512,16 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.NoError(err)
 	require.Equal(len(svr.ap.PendingActionMap()[identityset.Address(27).String()]), len(res.Actions))
 
-	tsf1, err := testutil.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
+	tsf1, err := action.SignedTransfer(identityset.Address(28).String(), identityset.PrivateKey(27), 2,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	tsf2, err := testutil.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3,
+	tsf2, err := action.SignedTransfer(identityset.Address(27).String(), identityset.PrivateKey(27), 3,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	tsf3, err := testutil.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4,
+	tsf3, err := action.SignedTransfer(identityset.Address(29).String(), identityset.PrivateKey(27), 4,
 		big.NewInt(20), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
 	require.NoError(err)
-	execution1, err := testutil.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
+	execution1, err := action.SignedExecution(identityset.Address(31).String(), identityset.PrivateKey(27), 5,
 		big.NewInt(1), testutil.TestGasLimit, big.NewInt(10), []byte{1})
 	require.NoError(err)
 

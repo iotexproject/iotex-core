@@ -18,11 +18,14 @@ import (
 	glog "log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
+	"github.com/iotexproject/go-pkgs/hash"
 	_ "go.uber.org/automaxprocs"
 	"go.uber.org/zap"
 
+	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
@@ -30,7 +33,35 @@ import (
 	"github.com/iotexproject/iotex-core/server/itx"
 )
 
+/**
+ * overwritePath is the path to the config file which overwrite default values
+ * secretPath is the path to the  config file store secret values
+ */
+var (
+	genesisPath    string
+	_overwritePath string
+	_secretPath    string
+	_subChainPath  string
+	_plugins       strs
+)
+
+type strs []string
+
+func (ss *strs) String() string {
+	return strings.Join(*ss, ",")
+}
+
+func (ss *strs) Set(str string) error {
+	*ss = append(*ss, str)
+	return nil
+}
+
 func init() {
+	flag.StringVar(&genesisPath, "genesis-path", "", "Genesis path")
+	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
+	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
+	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
+	flag.Var(&_plugins, "plugin", "Plugin of the node")
 	flag.Usage = func() {
 		_, _ = fmt.Fprintf(os.Stderr,
 			"usage: server -config-path=[string]\n")
@@ -48,21 +79,43 @@ func main() {
 	stopped := make(chan struct{})
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 
-	genesisCfg, err := genesis.New()
+	genesisCfg, err := genesis.New(genesisPath)
 	if err != nil {
 		glog.Fatalln("Failed to new genesis config.", zap.Error(err))
 	}
+	// set genesis timestamp
+	genesis.SetGenesisTimestamp(genesisCfg.Timestamp)
+	if genesis.Timestamp() == 0 {
+		glog.Fatalln("Genesis timestamp is not set, call genesis.New() first")
+	}
+	// load genesis block's hash
+	block.LoadGenesisHash(&genesisCfg)
+	if block.GenesisHash() == hash.ZeroHash256 {
+		glog.Fatalln("Genesis hash is not set, call block.LoadGenesisHash() first")
+	}
 
-	cfg, err := config.New()
+	cfg, err := config.New([]string{_overwritePath, _secretPath}, _plugins)
 	if err != nil {
 		glog.Fatalln("Failed to new config.", zap.Error(err))
 	}
-	initLogger(cfg)
+	if err = initLogger(cfg); err != nil {
+		glog.Fatalln("Cannot config global logger, use default one: ", zap.Error(err))
+	}
+
+	// populdate chain ID
+	config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
+	if config.EVMNetworkID() == 0 {
+		glog.Fatalln("EVM Network ID is not set, call config.New() first")
+	}
 
 	cfg.Genesis = genesisCfg
 	cfgToLog := cfg
 	cfgToLog.Chain.ProducerPrivKey = ""
+	cfgToLog.Network.MasterKey = ""
 	log.S().Infof("Config in use: %+v", cfgToLog)
+	log.S().Infof("EVM Network ID: %d", config.EVMNetworkID())
+	log.S().Infof("Genesis timestamp: %d", genesisCfg.Timestamp)
+	log.S().Infof("Genesis hash: %x", block.GenesisHash())
 
 	// liveness start
 	probeSvr := probe.New(cfg.System.HTTPStatsPort)
@@ -88,10 +141,16 @@ func main() {
 		log.L().Fatal("Failed to create server.", zap.Error(err))
 	}
 
-	cfgsub, err := config.NewSub()
-	if err != nil {
-		log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+	var cfgsub config.Config
+	if _subChainPath != "" {
+		cfgsub, err = config.NewSub([]string{_secretPath, _subChainPath})
+		if err != nil {
+			log.L().Fatal("Failed to new sub chain config.", zap.Error(err))
+		}
+	} else {
+		cfgsub = config.Config{}
 	}
+
 	if cfgsub.Chain.ID != 0 {
 		if err := svr.NewSubChainService(cfgsub); err != nil {
 			log.L().Fatal("Failed to new sub chain.", zap.Error(err))
@@ -103,12 +162,9 @@ func main() {
 	<-livenessCtx.Done()
 }
 
-func initLogger(cfg config.Config) {
+func initLogger(cfg config.Config) error {
 	addr := cfg.ProducerAddress()
-	if err := log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
+	return log.InitLoggers(cfg.Log, cfg.SubLogs, zap.Fields(
 		zap.String("ioAddr", addr.String()),
-		zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Network.Host, cfg.Network.Port)),
-	)); err != nil {
-		glog.Println("Cannot config global logger, use default one: ", err)
-	}
+	))
 }

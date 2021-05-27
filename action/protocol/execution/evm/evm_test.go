@@ -125,7 +125,7 @@ func TestConstantinople(t *testing.T) {
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			5550000,
 		},
-		// after Greenland
+		// Greenland -- Hawaii
 		{
 			action.EmptyAddress,
 			6544441,
@@ -133,6 +133,15 @@ func TestConstantinople(t *testing.T) {
 		{
 			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
 			6544441,
+		},
+		// after Hawaii
+		{
+			action.EmptyAddress,
+			11267641,
+		},
+		{
+			"io1pcg2ja9krrhujpazswgz77ss46xgt88afqlk6y",
+			11267641,
 		},
 	}
 
@@ -148,7 +157,7 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hu.IsPost(config.Greenland, e.height), ex.Hash())
+		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hu.IsPost(config.Greenland, e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
@@ -163,17 +172,18 @@ func TestConstantinople(t *testing.T) {
 		chainConfig := getChainConfig(hu)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsHomestead(evm.BlockNumber))
-		require.Equal(false, evm.ChainConfig().IsDAOFork(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP150(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP158(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsEIP155(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evm.ChainConfig().IsByzantium(evm.BlockNumber))
-		require.Equal(true, evm.ChainConfig().IsConstantinople(evm.BlockNumber))
-		require.Equal(true, evm.ChainConfig().IsPetersburg(evm.BlockNumber))
+		evmChainConfig := evm.ChainConfig()
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
+		require.Equal(false, evmChainConfig.IsDAOFork(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
+		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
+		require.Equal(true, evmChainConfig.IsConstantinople(evm.BlockNumber))
+		require.Equal(true, evmChainConfig.IsPetersburg(evm.BlockNumber))
 
 		// verify chainRules
-		chainRules := chainConfig.Rules(ps.context.BlockNumber)
+		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsHomestead)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP150)
 		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP158)
@@ -183,8 +193,52 @@ func TestConstantinople(t *testing.T) {
 		require.Equal(true, chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
-		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evm.ChainConfig().BeringBlock)
-		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evm.ChainConfig().GreenlandBlock)
+		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
+		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
 		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
 	}
+}
+
+func TestGasEstimate(t *testing.T) {
+	require := require.New(t)
+
+	for _, v := range []struct {
+		gas, consume, refund uint64
+		data                 []byte
+	}{
+		{config.Default.Genesis.BlockGasLimit, 8200300, 1000000, make([]byte, 20000)},
+		{1000000, 245600, 100000, make([]byte, 5600)},
+		{500000, 21000, 10000, make([]byte, 36)},
+	} {
+		evmLeftOver, remainingGas, err := gasExecuteInEVM(v.gas, v.consume, v.refund, v.data)
+		require.NoError(err)
+		gasConsumed := v.gas - remainingGas
+		require.Equal(v.gas-evmLeftOver, gasConsumed+v.refund)
+
+		// if we use gasConsumed + refund, EVM will consume the exact amount of gas
+		evmLeftOver, remainingGas, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
+		require.NoError(err)
+		require.Zero(evmLeftOver)
+	}
+}
+
+// gasExecuteInEVM performs gas calculation during EVM execution
+func gasExecuteInEVM(gas, consume, refund uint64, data []byte) (uint64, uint64, error) {
+	remainingGas := gas
+
+	intriGas, err := intrinsicGas(data)
+	if err != nil {
+		return 0, 0, err
+	}
+	if remainingGas < intriGas {
+		return 0, 0, ErrInconsistentNonce
+	}
+	remainingGas -= intriGas
+
+	// simulate EVM consumes 'consume' amount of gas
+	if remainingGas < consume {
+		return 0, 0, ErrInconsistentNonce
+	}
+	remainingGas -= consume
+	return remainingGas, remainingGas + refund, nil
 }
