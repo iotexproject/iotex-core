@@ -61,18 +61,20 @@ var accountDeleteCmd = &cobra.Command{
 }
 
 func getCryptoFile(account address.Address, isSm2Crypto bool)string{
+	var path string
 	if isSm2Crypto {
-		 return filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
+		  path = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
 	} else {
 		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 			keystore.StandardScryptN, keystore.StandardScryptP)
 		for _, v := range ks.Accounts() {
 			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-				return v.URL.Path
+				path = v.URL.Path
+				break
 			}
 		}
 	}
-	return ""
+	return path
 }
 
 func accountDelete(arg string) error {
