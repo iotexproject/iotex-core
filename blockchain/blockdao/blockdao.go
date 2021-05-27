@@ -150,15 +150,25 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 				bcCtx.Tip.Hash = g.Hash()
 				bcCtx.Tip.Timestamp = time.Unix(g.Timestamp, 0)
 			}
-			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				protocol.WithBlockchainCtx(ctx, bcCtx),
-				protocol.BlockCtx{
-					BlockHeight:    i,
-					BlockTimeStamp: blk.Timestamp(),
-					Producer:       producer,
-					GasLimit:       g.BlockGasLimit,
-				},
-			), blk); err != nil {
+			repeat := 1
+			if i < g.HawaiiBlockHeight {
+				// before Hawaii, attempt multiple time for the sorted map bug
+				repeat = 16
+			}
+			for k := 0; k < repeat; k++ {
+				if err = indexer.PutBlock(protocol.WithBlockCtx(
+					protocol.WithBlockchainCtx(ctx, bcCtx),
+					protocol.BlockCtx{
+						BlockHeight:    i,
+						BlockTimeStamp: blk.Timestamp(),
+						Producer:       producer,
+						GasLimit:       g.BlockGasLimit,
+					},
+				), blk); err == nil {
+					break
+				}
+			}
+			if err != nil {
 				return err
 			}
 			if i%5000 == 0 {
