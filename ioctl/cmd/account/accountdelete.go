@@ -36,6 +36,12 @@ var (
 		config.English: "delete [ALIAS|ADDRESS]",
 		config.Chinese: "delete [别名|地址]",
 	}
+	//for testing mock replace
+	readInputFromStdin = func()string{
+		var confirm string
+		fmt.Scanf("%s", &confirm)
+		return confirm
+	}
 )
 
 // accountDeleteCmd represents the account delete command
@@ -54,6 +60,21 @@ var accountDeleteCmd = &cobra.Command{
 	},
 }
 
+func getCryptoFile(account address.Address, isSm2Crypto bool)string{
+	if isSm2Crypto {
+		 return filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
+	} else {
+		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
+			keystore.StandardScryptN, keystore.StandardScryptP)
+		for _, v := range ks.Accounts() {
+			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
+				return v.URL.Path
+			}
+		}
+	}
+	return ""
+}
+
 func accountDelete(arg string) error {
 	addr, err := util.GetAddress(arg)
 	if err != nil {
@@ -65,34 +86,19 @@ func accountDelete(arg string) error {
 			nil)
 	}
 
-	var filePath string
-	if CryptoSm2 {
-		if filePath == "" {
-			filePath = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
-		}
-	} else {
-		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
-			keystore.StandardScryptN, keystore.StandardScryptP)
-		for _, v := range ks.Accounts() {
-			if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
-				filePath = v.URL.Path
-			}
-		}
-	}
-
+	filePath := getCryptoFile(account, CryptoSm2)
 	// check whether crypto file exists
 	_, err = os.Stat(filePath)
 	if err != nil {
 		return output.NewError(output.CryptoError, fmt.Sprintf("crypto file of account #%s not found", addr), err)
 	}
 
-	var confirm string
 	info := fmt.Sprintf("** This is an irreversible action!\n" +
 		"Once an account is deleted, all the assets under this account may be lost!\n" +
 		"Type 'YES' to continue, quit for anything else.")
 	message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
 	fmt.Println(message.String())
-	fmt.Scanf("%s", &confirm)
+	confirm := readInputFromStdin()
 	if !strings.EqualFold(confirm, "yes") {
 		output.PrintResult("quit")
 		return nil

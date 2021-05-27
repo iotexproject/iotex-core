@@ -20,7 +20,6 @@ import (
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
-
 	"github.com/iotexproject/iotex-core/ioctl/config"
 	"github.com/iotexproject/iotex-core/testutil"
 )
@@ -29,14 +28,18 @@ const (
 	testPath = "ksTest"
 )
 
+func setupKeyStore(path string)(*keystore.KeyStore, string){
+	testWallet := filepath.Join(os.TempDir(), testPath)
+	config.ReadConfig.Wallet = testWallet
+	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
+	return ks, testWallet
+}
+
 func TestAccount(t *testing.T) {
 	r := require.New(t)
 
-	testWallet := filepath.Join(os.TempDir(), testPath)
+	ks, testWallet := setupKeyStore(testPath)
 	defer testutil.CleanupPath(t, testWallet)
-	config.ReadConfig.Wallet = testWallet
-
-	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	r.NotNil(ks)
 
 	// create accounts
@@ -95,4 +98,54 @@ func TestAccount(t *testing.T) {
 	account, err = ks.ImportECDSA(p256k1, passwd)
 	r.NoError(err)
 	r.Equal(sk.PublicKey().Hash(), account.Address.Bytes())
+}
+
+func TestAccountDelete(t *testing.T) {
+	r := require.New(t)
+
+	ks, testWallet := setupKeyStore(testPath)
+	input := readInputFromStdin
+	readInputFromStdin = func() string {
+		return "yes"
+	}
+	defer func(){
+		testutil.CleanupPath(t, testWallet)
+		readInputFromStdin = input
+	}()
+	r.NotNil(ks)
+
+	// create accounts
+	nonce := strconv.FormatInt(rand.Int63(), 10)
+	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
+
+	account, err := ks.NewAccount(passwd)
+	r.NoError(err)
+	addr, err := address.FromBytes(account.Address.Bytes())
+	r.NoError(err)
+	r.True(IsSignerExist(addr.String()))
+
+	privateKey, err := LocalAccountToPrivateKey(addr.String(), passwd)
+	r.NoError(err)
+
+	_, err = storeKey(privateKey.HexString(), config.ReadConfig.Wallet, passwd)
+	r.Error(err, "check to store a key that existed.")
+
+	err = accountDelete(addr.String())
+	r.NoError(err, "check delete works fine")
+
+	err = accountDelete(addr.String())
+	r.Error(err, "check double delete")
+
+	err = accountDelete("NotExistedAccount")
+	r.Error(err)
+
+	filepath := getCryptoFile(account.Address, CryptoSm2)
+	_, err = os.Stat(filepath)
+	r.Equal(true, os.IsNotExist(err), "Check the crypto file has been deleted")
+
+	_, ok := config.ReadConfig.Aliases[addr.String()]
+	r.Equal(ok, false, "alias does not remove yet.");
+
+	_, err = storeKey(privateKey.HexString(), config.ReadConfig.Wallet, passwd)
+	r.NoError(err, "account does not remove yet.")
 }
