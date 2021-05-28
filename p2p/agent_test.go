@@ -35,7 +35,7 @@ func TestBroadcast(t *testing.T) {
 	}()
 	counts := make(map[uint8]int)
 	var mutex sync.RWMutex
-	b := func(_ context.Context, _ uint32, msg proto.Message) {
+	b := func(_ context.Context, _ uint32, _ string, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		testMsg, ok := msg.(*testingpb.TestPayload)
@@ -115,7 +115,7 @@ func TestUnicast(t *testing.T) {
 	counts := make(map[uint8]int)
 	var src string
 	var mutex sync.RWMutex
-	b := func(_ context.Context, _ uint32, _ proto.Message) {}
+	b := func(_ context.Context, _ uint32, _ string, _ proto.Message) {}
 	u := func(_ context.Context, _ uint32, peer peerstore.PeerInfo, msg proto.Message) {
 		mutex.Lock()
 		defer mutex.Unlock()

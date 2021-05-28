@@ -70,7 +70,7 @@ const (
 
 type (
 	// HandleBroadcastInbound handles broadcast message when agent listens it from the network
-	HandleBroadcastInbound func(context.Context, uint32, proto.Message)
+	HandleBroadcastInbound func(context.Context, uint32, string, proto.Message)
 
 	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
 	HandleUnicastInboundAsync func(context.Context, uint32, peerstore.PeerInfo, proto.Message)
@@ -172,7 +172,8 @@ func (p *Agent) Start(ctx context.Context) error {
 			err = errors.Wrap(err, "error when typifying broadcast message")
 			return
 		}
-		p.broadcastInboundHandler(ctx, broadcast.ChainId, msg)
+
+		p.broadcastInboundHandler(ctx, broadcast.ChainId, peerID, msg)
 		return
 	}); err != nil {
 		return errors.Wrap(err, "error when adding broadcast pubsub")
