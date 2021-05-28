@@ -164,9 +164,10 @@ var (
 			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
-			ActionChanSize:    1000,
-			BlockChanSize:     1000,
-			BlockSyncChanSize: 400,
+			ActionChanSize:             1000,
+			BlockChanSize:              1000,
+			BlockSyncChanSize:          400,
+			ProcessSyncRequestInterval: 0 * time.Second,
 		},
 		API: API{
 			UseRDS:    false,
@@ -334,9 +335,10 @@ type (
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
-		ActionChanSize    uint `yaml:"actionChanSize"`
-		BlockChanSize     uint `yaml:"blockChanSize"`
-		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
+		ActionChanSize             uint          `yaml:"actionChanSize"`
+		BlockChanSize              uint          `yaml:"blockChanSize"`
+		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
@@ -588,6 +590,10 @@ func (ap ActPool) MinGasPrice() *big.Int {
 func ValidateDispatcher(cfg Config) error {
 	if cfg.Dispatcher.ActionChanSize <= 0 || cfg.Dispatcher.BlockChanSize <= 0 || cfg.Dispatcher.BlockSyncChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
+	}
+
+	if (cfg.Dispatcher.ProcessSyncRequestInterval < 0) {
+		return errors.Wrap(ErrInvalidCfg, "dispatcher processSyncRequestInterval should not be less than 0")
 	}
 	return nil
 }
