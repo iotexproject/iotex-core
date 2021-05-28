@@ -167,7 +167,7 @@ func TestAccountDelete(t *testing.T) {
 	err = accountDelete(sm2Addr.String())
 	r.Error(err, "check double delete")
 
-	sm2CryptoPath := sm2KeyPath(sm2Addr)
+	sm2CryptoPath := getCryptoFile(sm2Addr, CryptoSm2)
 	_, err = os.Stat(sm2CryptoPath)
 	r.Equal(true, os.IsNotExist(err), "Check the crypto file has been deleted")
 
