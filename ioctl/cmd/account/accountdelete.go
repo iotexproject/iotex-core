@@ -62,7 +62,7 @@ var accountDeleteCmd = &cobra.Command{
 func getCryptoFile(account address.Address, isSm2Crypto bool) string {
 	var path string
 	if isSm2Crypto {
-		return sm2KeyPath(account)
+		path = sm2KeyPath(account)
 	} else {
 		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 			keystore.StandardScryptN, keystore.StandardScryptP)
