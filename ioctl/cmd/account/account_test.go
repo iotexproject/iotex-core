@@ -28,8 +28,8 @@ const (
 	testPath = "ksTest"
 )
 
-func setupKeyStore(path string)(*keystore.KeyStore, string){
-	testWallet := filepath.Join(os.TempDir(), testPath)
+func setupKeyStore(path string) (*keystore.KeyStore, string) {
+	testWallet := filepath.Join(os.TempDir(), path)
 	config.ReadConfig.Wallet = testWallet
 	ks := keystore.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 	return ks, testWallet
@@ -52,6 +52,7 @@ func TestAccount(t *testing.T) {
 	r.NoError(err)
 	r.True(IsSignerExist(addr.String()))
 
+	t.Log(CryptoSm2)
 	CryptoSm2 = true
 	account2, err := crypto.GenerateKeySm2()
 	r.NoError(err)
@@ -104,16 +105,16 @@ func TestAccountDelete(t *testing.T) {
 	r := require.New(t)
 
 	ks, testWallet := setupKeyStore(testPath)
+	r.NotNil(ks)
 	input := readInputFromStdin
 	readInputFromStdin = func() string {
 		return "yes"
 	}
-	defer func(){
+	defer func() {
 		testutil.CleanupPath(t, testWallet)
 		readInputFromStdin = input
 	}()
-	r.NotNil(ks)
-
+	CryptoSm2 = false
 	// create accounts
 	nonce := strconv.FormatInt(rand.Int63(), 10)
 	passwd := "3dj,<>@@SF{}rj0ZF#" + nonce
@@ -144,8 +145,35 @@ func TestAccountDelete(t *testing.T) {
 	r.Equal(true, os.IsNotExist(err), "Check the crypto file has been deleted")
 
 	_, ok := config.ReadConfig.Aliases[addr.String()]
-	r.Equal(ok, false, "alias does not remove yet.");
+	r.Equal(ok, false, "alias does not remove yet.")
 
 	_, err = storeKey(privateKey.HexString(), config.ReadConfig.Wallet, passwd)
+	r.NoError(err, "account does not remove yet.")
+
+	////////////////////test sm2
+	CryptoSm2 = true
+	sm2PrivateKey, err := crypto.GenerateKeySm2()
+	r.NoError(err)
+	r.NotNil(sm2PrivateKey)
+	sm2Addr, err := address.FromBytes(sm2PrivateKey.PublicKey().Hash())
+	r.False(IsSignerExist(sm2Addr.String()))
+
+	_, err = storeKey(sm2PrivateKey.HexString(), config.ReadConfig.Wallet, passwd)
+	r.NoError(err, "storing a sm2 private key")
+
+	err = accountDelete(sm2Addr.String())
+	r.NoError(err, "delete the sm2 key")
+
+	err = accountDelete(sm2Addr.String())
+	r.Error(err, "check double delete")
+
+	sm2CryptoPath := sm2KeyPath(sm2Addr)
+	_, err = os.Stat(sm2CryptoPath)
+	r.Equal(true, os.IsNotExist(err), "Check the crypto file has been deleted")
+
+	_, ok = config.ReadConfig.Aliases[sm2PrivateKey.HexString()]
+	r.Equal(ok, false, "alias does not remove yet.")
+
+	_, err = storeKey(sm2PrivateKey.HexString(), config.ReadConfig.Wallet, passwd)
 	r.NoError(err, "account does not remove yet.")
 }

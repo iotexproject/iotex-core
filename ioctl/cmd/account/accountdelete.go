@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -37,7 +36,7 @@ var (
 		config.Chinese: "delete [别名|地址]",
 	}
 	//for testing mock replace
-	readInputFromStdin = func()string{
+	readInputFromStdin = func() string {
 		var confirm string
 		fmt.Scanf("%s", &confirm)
 		return confirm
@@ -60,10 +59,10 @@ var accountDeleteCmd = &cobra.Command{
 	},
 }
 
-func getCryptoFile(account address.Address, isSm2Crypto bool)string{
+func getCryptoFile(account address.Address, isSm2Crypto bool) string {
 	var path string
 	if isSm2Crypto {
-		  path = filepath.Join(config.ReadConfig.Wallet, "sm2sk-"+account.String()+".pem")
+		return sm2KeyPath(account)
 	} else {
 		ks := keystore.NewKeyStore(config.ReadConfig.Wallet,
 			keystore.StandardScryptN, keystore.StandardScryptP)
