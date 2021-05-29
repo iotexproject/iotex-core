@@ -292,7 +292,7 @@ func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, hu config.HeightUp
 	if evmParams.contract == nil {
 		// create contract
 		var evmContractAddress common.Address
-		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, remainingGas, evmParams.amount)
+		_, evmContractAddress, remainingGas, evmErr = evm.Create(executor, evmParams.data, evmParams.gas, evmParams.amount)
 		log.L().Debug("evm Create.", log.Hex("addrHash", evmContractAddress[:]))
 		if evmErr == nil {
 			if contractAddress, err := address.FromBytes(evmContractAddress.Bytes()); err == nil {
