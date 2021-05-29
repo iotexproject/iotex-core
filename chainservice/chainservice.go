@@ -347,7 +347,7 @@ func New(
 				return err
 			}
 			retries := 1
-			if cfg.Genesis.IsPreHawaii(blk.Height()) {
+			if !cfg.Genesis.IsHawaii(blk.Height()) {
 				retries = 4
 			}
 			var err error

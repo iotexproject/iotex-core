@@ -101,12 +101,12 @@ func newParams(
 
 	gasLimit := execution.GasLimit()
 	// Reset gas limit to the system wide action gas limit cap if it's greater than it
-	if blkCtx.BlockHeight > 0 && g.IsPreAleutian(blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
+	if blkCtx.BlockHeight > 0 && !g.IsAleutian(blkCtx.BlockHeight) && gasLimit > preAleutianActionGasLimit {
 		gasLimit = preAleutianActionGasLimit
 	}
 
 	var getHashFn vm.GetHashFunc
-	if g.IsPreHawaii(blkCtx.BlockHeight) {
+	if !g.IsHawaii(blkCtx.BlockHeight) {
 		getHashFn = func(n uint64) common.Hash {
 			hash, err := getBlockHash(stateDB.blockHeight - n)
 			if err != nil {
@@ -178,14 +178,14 @@ func ExecuteContract(
 	blkCtx := protocol.MustGetBlockCtx(ctx)
 	g := genesis.MustExtractGenesisContext(ctx)
 	opts := []StateDBAdapterOption{}
-	if g.IsPostHawaii(blkCtx.BlockHeight) {
+	if g.IsHawaii(blkCtx.BlockHeight) {
 		opts = append(opts, SortCachedContractsOption(), UsePendingNonceOption())
 	}
 	stateDB := NewStateDBAdapter(
 		sm,
 		blkCtx.BlockHeight,
-		g.IsPreAleutian(blkCtx.BlockHeight),
-		g.IsPostGreenland(blkCtx.BlockHeight),
+		!g.IsAleutian(blkCtx.BlockHeight),
+		g.IsGreenland(blkCtx.BlockHeight),
 		actionCtx.ActionHash,
 		opts...,
 	)
@@ -206,7 +206,7 @@ func ExecuteContract(
 
 	receipt.Status = statusCode
 	var burnLog *action.TransactionLog
-	if g.IsPostPacific(blkCtx.BlockHeight) {
+	if g.IsPacific(blkCtx.BlockHeight) {
 		// Refund all deposit and, actual gas fee will be subtracted when depositing gas fee to the rewarding protocol
 		stateDB.AddBalance(ps.context.Origin, big.NewInt(0).Mul(big.NewInt(0).SetUint64(depositGas), ps.context.GasPrice))
 	} else {
@@ -238,11 +238,11 @@ func ExecuteContract(
 	stateDB.clear()
 	receipt.AddLogs(stateDB.Logs()...).AddTransactionLogs(depositLog, burnLog)
 	if receipt.Status == uint64(iotextypes.ReceiptStatus_Success) ||
-		g.IsPreGreenland(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
+		!g.IsGreenland(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrCodeStoreOutOfGas) {
 		receipt.AddTransactionLogs(stateDB.TransactionLogs()...)
 	}
 
-	if g.IsPostHawaii(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
+	if g.IsHawaii(blkCtx.BlockHeight) && receipt.Status == uint64(iotextypes.ReceiptStatus_ErrExecutionReverted) && retval != nil && bytes.Equal(retval[:4], revertSelector) {
 		// in case of the execution revert error, parse the retVal and add to receipt
 		data := retval[4:]
 		msgLength := byteutil.BytesToUint64BigEndian(data[56:64])
@@ -265,7 +265,7 @@ func getChainConfig(g genesis.Genesis) *params.ChainConfig {
 
 //Error in executeInEVM is a consensus issue
 func executeInEVM(evmParams *Params, stateDB *StateDBAdapter, g genesis.Genesis, gasLimit uint64, blockHeight uint64) ([]byte, uint64, uint64, string, uint64, error) {
-	isBering := g.IsPostBering(blockHeight)
+	isBering := g.IsBering(blockHeight)
 	remainingGas := evmParams.gas
 	if err := securityDeposit(evmParams, stateDB, gasLimit); err != nil {
 		log.L().Warn("unexpected error: not enough security deposit", zap.Error(err))

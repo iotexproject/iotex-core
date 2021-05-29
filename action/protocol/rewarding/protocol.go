@@ -255,7 +255,7 @@ func (p *Protocol) Name() string {
 func useV2Storage(ctx context.Context) bool {
 	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	return g.IsPostGreenland(blkCtx.BlockHeight)
+	return g.IsGreenland(blkCtx.BlockHeight)
 }
 
 func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {

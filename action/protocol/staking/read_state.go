@@ -221,7 +221,7 @@ func getPageOfCandidates(candidates CandidateList, offset, limit int) CandidateL
 
 func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.Int, uint64, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsPostGreenland(csr.Height()) {
+	if g.IsGreenland(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))
@@ -237,7 +237,7 @@ func getTotalStakedAmount(ctx context.Context, csr CandidateStateReader) (*big.I
 
 func getActiveBucketsCount(ctx context.Context, csr CandidateStateReader) (uint64, uint64, error) {
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsPostGreenland(csr.Height()) {
+	if g.IsGreenland(csr.Height()) {
 		// after Greenland, read state from db
 		var total totalAmount
 		h, err := csr.SR().State(&total, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))

@@ -1034,7 +1034,7 @@ func TestConstantinople(t *testing.T) {
 			require.True(ok)
 			postBalance := new(big.Int).Sub(v.preBalance, gasFee)
 
-			if cfg.Genesis.IsPreGreenland(v.height) {
+			if !cfg.Genesis.IsGreenland(v.height) {
 				// pre-Greenland contains a tx with status = ReceiptStatus_ErrCodeStoreOutOfGas
 				// due to a bug the transfer is not reverted
 				require.Equal(2, len(tLog.Transactions))

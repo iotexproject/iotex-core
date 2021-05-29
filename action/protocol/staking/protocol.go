@@ -139,7 +139,7 @@ func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interfac
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, g.IsPostGreenland(height))
+	c, _, err := CreateBaseView(sr, g.IsGreenland(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -222,7 +222,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, g.IsPostGreenland(blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm, g.IsGreenland(blkCtx.BlockHeight))
 		if err != nil {
 			return err
 		}
@@ -239,7 +239,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return nil
 	}
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || g.IsPreFairbank(epochStartHeight) {
+	if epochStartHeight != blkCtx.BlockHeight || !g.IsFairbank(epochStartHeight) {
 		return nil
 	}
 
@@ -274,7 +274,7 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, g.IsPostGreenland(height))
+	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
 	if err != nil {
 		return err
 	}
@@ -290,7 +290,7 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, g.IsPostGreenland(height))
+	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
 	if err != nil {
 		return nil, err
 	}

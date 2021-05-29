@@ -183,7 +183,7 @@ func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bo
 
 func (sc *stakingCommand) useV2ByHeight(ctx context.Context, height uint64) bool {
 	g := genesis.MustExtractGenesisContext(ctx)
-	if sc.stakingV1 == nil || g.IsPostFairbank(height) {
+	if sc.stakingV1 == nil || g.IsFairbank(height) {
 		return true
 	}
 	return false

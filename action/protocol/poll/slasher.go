@@ -69,7 +69,7 @@ func NewSlasher(
 // CreateGenesisStates creates genesis state for slasher
 func (sh *Slasher) CreateGenesisStates(ctx context.Context, sm protocol.StateManager, indexer *CandidateIndexer) error {
 	g := genesis.MustExtractGenesisContext(ctx)
-	if g.IsPostEaster(uint64(1)) {
+	if g.IsEaster(uint64(1)) {
 		if err := setNextEpochProbationList(sm,
 			indexer,
 			uint64(1),
@@ -89,12 +89,12 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	epochStartHeight := rp.GetEpochHeight(epochNum)
 	epochLastHeight := rp.GetEpochLastBlockHeight(epochNum)
 	nextEpochStartHeight := rp.GetEpochHeight(epochNum + 1)
-	if g.IsPostGreenland(blkCtx.BlockHeight) {
+	if g.IsGreenland(blkCtx.BlockHeight) {
 		if err := sh.updateCurrentBlockMeta(ctx, sm); err != nil {
 			return errors.Wrap(err, "faild to update current epoch meta")
 		}
 	}
-	if blkCtx.BlockHeight == epochLastHeight && g.IsPostEaster(nextEpochStartHeight) {
+	if blkCtx.BlockHeight == epochLastHeight && g.IsEaster(nextEpochStartHeight) {
 		// if the block height is the end of epoch and next epoch is after the Easter height, calculate probation list for probation and write into state DB
 		unqualifiedList, err := sh.CalculateProbationList(ctx, sm, epochNum+1)
 		if err != nil {
@@ -102,7 +102,7 @@ func (sh *Slasher) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		}
 		return setNextEpochProbationList(sm, indexer, nextEpochStartHeight, unqualifiedList)
 	}
-	if blkCtx.BlockHeight == epochStartHeight && g.IsPostEaster(epochStartHeight) {
+	if blkCtx.BlockHeight == epochStartHeight && g.IsEaster(epochStartHeight) {
 		prevHeight, err := shiftCandidates(sm)
 		if err != nil {
 			return err
@@ -258,7 +258,7 @@ func (sh *Slasher) GetCandidates(ctx context.Context, sr protocol.StateReader, r
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	beforeEaster := g.IsPreEaster(targetEpochStartHeight)
+	beforeEaster := !g.IsEaster(targetEpochStartHeight)
 	candidates, stateHeight, err := sh.getCandidates(sr, targetEpochStartHeight, beforeEaster, readFromNext)
 	if err != nil {
 		return nil, uint64(0), errors.Wrapf(err, "failed to get candidates at height %d", targetEpochStartHeight)
@@ -327,7 +327,7 @@ func (sh *Slasher) GetCandidatesFromIndexer(ctx context.Context, epochStartHeigh
 	if err != nil {
 		return nil, err
 	}
-	if g.IsPreEaster(epochStartHeight) {
+	if !g.IsEaster(epochStartHeight) {
 		return candidates, nil
 	}
 	// After Easter height, probation unqualified delegates based on productivity
@@ -371,7 +371,7 @@ func (sh *Slasher) GetProbationList(ctx context.Context, sr protocol.StateReader
 		targetEpochNum := rp.GetEpochNum(targetEpochStartHeight) + 1
 		targetEpochStartHeight = rp.GetEpochHeight(targetEpochNum) // next epoch start height
 	}
-	if g.IsPreEaster(targetEpochStartHeight) {
+	if !g.IsEaster(targetEpochStartHeight) {
 		return nil, uint64(0), errors.New("Before Easter, there is no probation list in stateDB")
 	}
 	unqualifiedList, stateHeight, err := sh.getProbationList(sr, readFromNext)
@@ -501,7 +501,7 @@ func (sh *Slasher) calculateUnproductiveDelegates(ctx context.Context, sr protoc
 		return nil, err
 	}
 	productivityFunc := sh.productivity
-	if g.IsPostGreenland(blkCtx.BlockHeight) {
+	if g.IsGreenland(blkCtx.BlockHeight) {
 		productivityFunc = func(start, end uint64) (map[string]uint64, error) {
 			return currentEpochProductivity(sr, start, end, sh.numOfBlocksByEpoch)
 		}

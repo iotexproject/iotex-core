@@ -390,7 +390,7 @@ func (sf *factory) newWorkingSet(ctx context.Context, height uint64) (*workingSe
 
 func (sf *factory) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
 	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := g.IsPreEaster(height)
+	preEaster := !g.IsEaster(height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeFilterOption(func(wi *batch.WriteInfo) bool {
 			if wi.Namespace() == ArchiveTrieNamespace {

@@ -169,7 +169,7 @@ func (p *Protocol) GrantEpochReward(
 	var err error
 	uqdMap := make(map[string]bool)
 	epochStartHeight := rp.GetEpochHeight(epochNum)
-	if g.IsPreEaster(epochStartHeight) {
+	if !g.IsEaster(epochStartHeight) {
 		// Get unqualified delegate list
 		uqd, err := pp.CalculateUnproductiveDelegates(ctx, sm)
 		if err != nil {

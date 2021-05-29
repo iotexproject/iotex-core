@@ -90,7 +90,7 @@ func TestNativeStaking(t *testing.T) {
 		dao := svr.ChainService(chainID).BlockDAO()
 		require.NotNil(bc)
 
-		require.True(cfg.Genesis.IsPostFbkMigration(1))
+		require.True(cfg.Genesis.IsFbkMigration(1))
 
 		// Create two candidates
 		cand1Addr := identityset.Address(0)

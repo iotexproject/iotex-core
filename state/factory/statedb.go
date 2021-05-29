@@ -472,7 +472,7 @@ func (sdb *stateDB) ReadView(name string) (interface{}, error) {
 
 func (sdb *stateDB) flusherOptions(ctx context.Context, height uint64) []db.KVStoreFlusherOption {
 	g := genesis.MustExtractGenesisContext(ctx)
-	preEaster := g.IsPreEaster(height)
+	preEaster := !g.IsEaster(height)
 	opts := []db.KVStoreFlusherOption{
 		db.SerializeOption(func(wi *batch.WriteInfo) []byte {
 			if preEaster {

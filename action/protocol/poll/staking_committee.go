@@ -214,7 +214,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	// convert to epoch start height
-	if g.IsPreCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
+	if !g.IsCook(rp.GetEpochHeight(rp.GetEpochNum(height))) {
 		return sc.filterCandidates(cand), nil
 	}
 	// native staking using contract starts from Cook
@@ -224,7 +224,7 @@ func (sc *stakingCommittee) CalculateCandidatesByHeight(ctx context.Context, sr 
 
 	// TODO: extract tip info inside of Votes function
 	timer = sc.timerFactory.NewTimer("Native")
-	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsPostDaytona(height))
+	nativeVotes, err := sc.nativeStaking.Votes(ctx, bcCtx.Tip.Timestamp, g.IsDaytona(height))
 	timer.End()
 	if err == ErrNoData {
 		// no native staking data
@@ -323,7 +323,7 @@ func (sc *stakingCommittee) persistNativeBuckets(ctx context.Context, receipt *a
 	bcCtx := protocol.MustGetBlockchainCtx(ctx)
 	rp := rolldpos.MustGetProtocol(protocol.MustGetRegistry(ctx))
 	epochHeight := rp.GetEpochHeight(rp.GetEpochNum(blkCtx.BlockHeight))
-	if g.IsPreCook(epochHeight) {
+	if !g.IsCook(epochHeight) {
 		return nil
 	}
 	if receipt == nil || receipt.Status != uint64(iotextypes.ReceiptStatus_Success) {

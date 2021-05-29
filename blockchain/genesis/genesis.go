@@ -397,114 +397,59 @@ func (g *Genesis) isPost(targetHeight, height uint64) bool {
 	return height >= targetHeight
 }
 
-// IsPostPacific checks whether height is equal to or larger than pacific height
-func (g *Genesis) IsPostPacific(height uint64) bool {
+// IsPacific checks whether height is equal to or larger than pacific height
+func (g *Genesis) IsPacific(height uint64) bool {
 	return g.isPost(g.PacificBlockHeight, height)
 }
 
-// IsPrePacific checks whether height is before pacific height
-func (g *Genesis) IsPrePacific(height uint64) bool {
-	return !g.IsPostPacific(height)
-}
-
-// IsPostAleutian checks whether height is equal to or larger than aleutian height
-func (g *Genesis) IsPostAleutian(height uint64) bool {
+// IsAleutian checks whether height is equal to or larger than aleutian height
+func (g *Genesis) IsAleutian(height uint64) bool {
 	return g.isPost(g.AleutianBlockHeight, height)
 }
 
-// IsPreAleutian checks whether height is before aleutian height
-func (g *Genesis) IsPreAleutian(height uint64) bool {
-	return !g.IsPostAleutian(height)
-}
-
-// IsPostBering checks whether height is equal to or larger than bering height
-func (g *Genesis) IsPostBering(height uint64) bool {
+// IsBering checks whether height is equal to or larger than bering height
+func (g *Genesis) IsBering(height uint64) bool {
 	return g.isPost(g.BeringBlockHeight, height)
 }
 
-// IsPreBering checks whether height is before bering height
-func (g *Genesis) IsPreBering(height uint64) bool {
-	return !g.IsPostBering(height)
-}
-
-// IsPostCook checks whether height is equal to or larger than cook height
-func (g *Genesis) IsPostCook(height uint64) bool {
+// IsCook checks whether height is equal to or larger than cook height
+func (g *Genesis) IsCook(height uint64) bool {
 	return g.isPost(g.CookBlockHeight, height)
 }
 
-// IsPreCook checks whether height is before cook height
-func (g *Genesis) IsPreCook(height uint64) bool {
-	return !g.IsPostCook(height)
-}
-
-// IsPostDardanelles checks whether height is equal to or larger than dardanelles height
-func (g *Genesis) IsPostDardanelles(height uint64) bool {
+// IsDardanelles checks whether height is equal to or larger than dardanelles height
+func (g *Genesis) IsDardanelles(height uint64) bool {
 	return g.isPost(g.DardanellesBlockHeight, height)
 }
 
-// IsPreDardanelles checks whether height is before dardanelles height
-func (g *Genesis) IsPreDardanelles(height uint64) bool {
-	return !g.IsPostDardanelles(height)
-}
-
-// IsPostDaytona checks whether height is equal to or larger than daytona height
-func (g *Genesis) IsPostDaytona(height uint64) bool {
+// IsDaytona checks whether height is equal to or larger than daytona height
+func (g *Genesis) IsDaytona(height uint64) bool {
 	return g.isPost(g.DaytonaBlockHeight, height)
 }
 
-// IsPreDaytona checks whether height is before daytona height
-func (g *Genesis) IsPreDaytona(height uint64) bool {
-	return !g.IsPostDaytona(height)
-}
-
-// IsPostEaster checks whether height is equal to or larger than easter height
-func (g *Genesis) IsPostEaster(height uint64) bool {
+// IsEaster checks whether height is equal to or larger than easter height
+func (g *Genesis) IsEaster(height uint64) bool {
 	return g.isPost(g.EasterBlockHeight, height)
 }
 
-// IsPreEaster checks whether height is before easter height
-func (g *Genesis) IsPreEaster(height uint64) bool {
-	return !g.IsPostEaster(height)
-}
-
-// IsPostFairbank checks whether height is equal to or larger than fairbank height
-func (g *Genesis) IsPostFairbank(height uint64) bool {
+// IsFairbank checks whether height is equal to or larger than fairbank height
+func (g *Genesis) IsFairbank(height uint64) bool {
 	return g.isPost(g.FairbankBlockHeight, height)
 }
 
-// IsPreFairbank checks whether height is before fairbank height
-func (g *Genesis) IsPreFairbank(height uint64) bool {
-	return !g.IsPostFairbank(height)
-}
-
-// IsPostFbkMigration checks whether height is equal to or larger than fbk migration height
-func (g *Genesis) IsPostFbkMigration(height uint64) bool {
+// IsFbkMigration checks whether height is equal to or larger than fbk migration height
+func (g *Genesis) IsFbkMigration(height uint64) bool {
 	return g.isPost(g.FbkMigrationBlockHeight, height)
 }
 
-// IsPreFbkMigration checks whether height is before fbk migration height
-func (g *Genesis) IsPreFbkMigration(height uint64) bool {
-	return !g.IsPostFbkMigration(height)
-}
-
-// IsPostGreenland checks whether height is equal to or larger than greenland height
-func (g *Genesis) IsPostGreenland(height uint64) bool {
+// IsGreenland checks whether height is equal to or larger than greenland height
+func (g *Genesis) IsGreenland(height uint64) bool {
 	return g.isPost(g.GreenlandBlockHeight, height)
 }
 
-// IsPreGreenland checks whether height is before greenland height
-func (g *Genesis) IsPreGreenland(height uint64) bool {
-	return !g.IsPostGreenland(height)
-}
-
-// IsPostHawaii checks whether height is equal to or larger than hawaii height
-func (g *Genesis) IsPostHawaii(height uint64) bool {
+// IsHawaii checks whether height is equal to or larger than hawaii height
+func (g *Genesis) IsHawaii(height uint64) bool {
 	return g.isPost(g.HawaiiBlockHeight, height)
-}
-
-// IsPreHawaii checks whether height is before hawaii height
-func (g *Genesis) IsPreHawaii(height uint64) bool {
-	return !g.IsPostHawaii(height)
 }
 
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the

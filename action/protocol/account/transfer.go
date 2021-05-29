@@ -52,7 +52,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 	}
 
 	var depositLog *action.TransactionLog
-	if g.IsPrePacific(blkCtx.BlockHeight) {
+	if !g.IsPacific(blkCtx.BlockHeight) {
 		// charge sender gas
 		if err := sender.SubBalance(gasFee); err != nil {
 			return nil, errors.Wrapf(err, "failed to charge the gas for sender %s", actionCtx.Caller.String())
@@ -77,7 +77,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		if err := accountutil.StoreAccount(sm, actionCtx.Caller, sender); err != nil {
 			return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 		}
-		if g.IsPostPacific(blkCtx.BlockHeight) {
+		if g.IsPacific(blkCtx.BlockHeight) {
 			if p.depositGas != nil {
 				depositLog, err = p.depositGas(ctx, sm, gasFee)
 				if err != nil {
@@ -119,7 +119,7 @@ func (p *Protocol) handleTransfer(ctx context.Context, act action.Action, sm pro
 		return nil, errors.Wrap(err, "failed to update pending account changes to trie")
 	}
 
-	if g.IsPostPacific(blkCtx.BlockHeight) {
+	if g.IsPacific(blkCtx.BlockHeight) {
 		if p.depositGas != nil {
 			depositLog, err = p.depositGas(ctx, sm, gasFee)
 			if err != nil {

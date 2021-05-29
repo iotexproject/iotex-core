@@ -154,7 +154,7 @@ func (p *Protocol) handleUnstake(ctx context.Context, act *action.Unstake, csm C
 		return log, errCandNotExist
 	}
 
-	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("unstake an already unstaked bucket again not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -221,7 +221,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 
 	// check unstake time
 	cannotWithdraw := bucket.UnstakeStartTime.Unix() == 0
-	if g.IsPostGreenland(blkCtx.BlockHeight) {
+	if g.IsGreenland(blkCtx.BlockHeight) {
 		cannotWithdraw = !bucket.isUnstaked()
 	}
 	if cannotWithdraw {
@@ -268,7 +268,7 @@ func (p *Protocol) handleWithdrawStake(ctx context.Context, act *action.Withdraw
 	}
 
 	log.AddAddress(actionCtx.Caller)
-	if g.IsPostGreenland(blkCtx.BlockHeight) {
+	if g.IsGreenland(blkCtx.BlockHeight) {
 		log.SetData(bucket.StakedAmount.Bytes())
 	}
 
@@ -310,14 +310,14 @@ func (p *Protocol) handleChangeCandidate(ctx context.Context, act *action.Change
 		return log, errCandNotExist
 	}
 
-	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("change candidate for an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
 		}
 	}
 
-	if g.IsPostHawaii(blkCtx.BlockHeight) && address.Equal(prevCandidate.Owner, candidate.Owner) {
+	if g.IsHawaii(blkCtx.BlockHeight) && address.Equal(prevCandidate.Owner, candidate.Owner) {
 		// change to same candidate, do nothing
 		return log, &handleError{
 			err:           errors.New("change to same candidate"),
@@ -381,7 +381,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	newOwner := act.VoterAddress()
 	bucket, fetchErr := p.fetchBucket(csm, actionCtx.Caller, act.BucketIndex(), true, false)
 	if fetchErr != nil {
-		if g.IsPreGreenland(blkCtx.BlockHeight) ||
+		if !g.IsGreenland(blkCtx.BlockHeight) ||
 			fetchErr.ReceiptStatus() != uint64(iotextypes.ReceiptStatus_ErrUnauthorizedOperator) {
 			return log, fetchErr
 		}
@@ -395,7 +395,7 @@ func (p *Protocol) handleTransferStake(ctx context.Context, act *action.Transfer
 	}
 	log.AddTopics(byteutil.Uint64ToBytesBigEndian(bucket.Index), act.VoterAddress().Bytes(), bucket.Candidate.Bytes())
 
-	if g.IsPostHawaii(blkCtx.BlockHeight) && address.Equal(newOwner, bucket.Owner) {
+	if g.IsHawaii(blkCtx.BlockHeight) && address.Equal(newOwner, bucket.Owner) {
 		// change to same owner, do nothing
 		return log, &handleError{
 			err:           errors.New("transfer to same owner"),
@@ -456,7 +456,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 	g := genesis.MustExtractGenesisContext(ctx)
 	actionCtx := protocol.MustGetActionCtx(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	log := newReceiptLog(p.addr.String(), HandleDepositToStake, g.IsPostFbkMigration(blkCtx.BlockHeight))
+	log := newReceiptLog(p.addr.String(), HandleDepositToStake, g.IsFbkMigration(blkCtx.BlockHeight))
 
 	depositor, fetchErr := fetchCaller(ctx, csm, act.Amount())
 	if fetchErr != nil {
@@ -479,7 +479,7 @@ func (p *Protocol) handleDepositToStake(ctx context.Context, act *action.Deposit
 		return log, nil, errCandNotExist
 	}
 
-	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, nil, &handleError{
 			err:           errors.New("deposit to an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
@@ -573,7 +573,7 @@ func (p *Protocol) handleRestake(ctx context.Context, act *action.Restake, csm C
 		return log, errCandNotExist
 	}
 
-	if g.IsPostGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
+	if g.IsGreenland(blkCtx.BlockHeight) && bucket.isUnstaked() {
 		return log, &handleError{
 			err:           errors.New("restake an unstaked bucket not allowed"),
 			failureStatus: iotextypes.ReceiptStatus_ErrInvalidBucketType,
