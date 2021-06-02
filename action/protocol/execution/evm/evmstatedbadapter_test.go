@@ -462,3 +462,28 @@ func TestPreimage(t *testing.T) {
 	require.NoError(err)
 	require.Equal([]byte("hen"), []byte(k))
 }
+
+// author: phantom
+// TestCreateAccountAndSuicide
+func TestCreateAccountAndSuicide(t *testing.T) {
+	require := require.New(t)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	sm, err := initMockStateManager(ctrl)
+	require.NoError(err)
+	stateDB := NewStateDBAdapter(sm, 1, true, false, hash.ZeroHash256)
+
+	addr := common.HexToAddress("02ae2a956d21e8d481c3a69e146633470cf625ec")
+	require.False(stateDB.Exist(addr))
+	stateDB.CreateAccount(addr)
+	require.True(stateDB.Exist(addr))
+
+	addAmount := big.NewInt(40000)
+	stateDB.AddBalance(addr, addAmount)
+	require.Equal(addAmount, stateDB.GetBalance(addr))
+
+	require.True(stateDB.Suicide(addr))
+	require.True(stateDB.HasSuicided(addr))
+	require.Equal(big.NewInt(0), stateDB.GetBalance(addr))
+}
