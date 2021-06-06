@@ -14,29 +14,23 @@ import (
 )
 
 func checkPortIsOpen(port int) bool {
-	timeout := time.Millisecond * 10
+	timeout := time.Second
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
 	if err != nil {
-		// port not opened
 		return false
 	}
-	// port has opened
-	if conn != nil {
-		conn.Close()
-	}
+	defer conn.Close()
 	return true
 }
 
 // RandomPort returns a random port number between 30000 and 50000
 func RandomPort() int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	port := r.Intn(2000) + 30000
-	for i := 0; i < 18000; i++ {
-		if checkPortIsOpen(port) == false {
-			break
+	portStart, portEnd := r.Intn(2000)+30000, 50000
+	for port := portStart; port < portEnd; port++ {
+		if checkPortIsOpen(port) {
+			return port
 		}
-		port++
-		// retry next port
 	}
-	return port
+	return -1
 }

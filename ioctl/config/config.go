@@ -30,9 +30,9 @@ var (
 // Error strings
 var (
 	// ErrConfigNotMatch indicates error for no config matches
-	ErrConfigNotMatch = fmt.Errorf("No matching config")
+	ErrConfigNotMatch = fmt.Errorf("no matching config")
 	// ErrEmptyEndpoint indicates error for empty endpoint
-	ErrEmptyEndpoint = fmt.Errorf("No endpoint has been set")
+	ErrEmptyEndpoint = fmt.Errorf("no endpoint has been set")
 )
 
 // Language type used to enumerate supported language of ioctl

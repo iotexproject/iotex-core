@@ -58,8 +58,7 @@ func accountEthaddr(arg string) error {
 		ethAddress = common.HexToAddress(arg)
 		ioAddress, err := address.FromBytes(ethAddress.Bytes())
 		if err != nil {
-			return output.NewError(output.AddressError,
-				fmt.Sprintf("failed to form IoTeX address from ETH address"), nil)
+			return output.NewError(output.AddressError, "failed to form IoTeX address from ETH address", nil)
 		}
 		ioAddr = ioAddress.String()
 	} else {

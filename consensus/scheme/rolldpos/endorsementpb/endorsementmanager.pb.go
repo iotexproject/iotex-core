@@ -16,8 +16,8 @@
 package endorsementpb
 
 import (
-	proto "github.com/golang/protobuf/proto"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
+	proto "google.golang.org/protobuf/proto"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"

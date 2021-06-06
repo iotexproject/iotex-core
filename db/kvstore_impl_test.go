@@ -40,6 +40,7 @@ func TestKVStoreImpl(t *testing.T) {
 
 	// 2. read nonexistent key
 	err = s.Put(namespace, k1, v1)
+	require.NoError(err)
 	v, err = s.Get(namespace, k2)
 	require.Error(err)
 	require.Nil(v)
@@ -51,11 +52,13 @@ func TestKVStoreImpl(t *testing.T) {
 
 	// 4. write the same key many times
 	err = s.Put(namespace, k1, v2)
+	require.NoError(err)
 	v, err = s.Get(namespace, k1)
 	require.NoError(err)
 	require.Equal(v, v2)
 
 	err = s.Put(namespace, k1, v3)
+	require.NoError(err)
 	v, err = s.Get(namespace, k1)
 	require.NoError(err)
 	require.Equal(v, v3)
@@ -75,6 +78,7 @@ func TestKVStoreImpl(t *testing.T) {
 
 	// 8. write the same key again after deleted
 	err = s.Put(namespace, k1, v1)
+	require.NoError(err)
 	v, err = s.Get(namespace, k1)
 	require.NoError(err)
 	require.Equal(v, v1)

@@ -9,8 +9,8 @@ package vote
 import (
 	"sort"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	updpb "github.com/iotexproject/iotex-core/action/protocol/vote/unproductivedelegatepb"
 )

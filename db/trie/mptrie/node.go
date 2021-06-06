@@ -7,8 +7,8 @@
 package mptrie
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 // ErrNoData is an error when a hash node has no corresponding data
