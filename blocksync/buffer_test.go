@@ -66,13 +66,15 @@ func TestBlockBufferFlush(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		blocks:     make(map[uint64]*block.Block),
-		bufferSize: 16,
+		blockQueues: make(map[uint64]*uniQueue),
+		bufferSize:  16,
 	}
 	blk, err := chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(1, len(b.blocks))
+
+	pid := "peer1"
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
+	require.Equal(1, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -82,8 +84,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(1, len(b.blocks))
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
+	require.Equal(1, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -93,8 +95,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
+	require.Equal(2, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -104,8 +106,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
+	require.Equal(2, len(b.blockQueues))
 
 	blk = block.NewBlockDeprecated(
 		uint32(123),
@@ -115,8 +117,8 @@ func TestBlockBufferFlush(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
-	require.Equal(2, len(b.blocks))
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
+	require.Equal(2, len(b.blockQueues))
 }
 
 func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
@@ -150,7 +152,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 	require.NoError(err)
 
 	b := blockBuffer{
-		blocks:       make(map[uint64]*block.Block),
+		blockQueues:  make(map[uint64]*uniQueue),
 		bufferSize:   16,
 		intervalSize: 8,
 	}
@@ -184,7 +186,9 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+
+	pid := "peer1"
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(4),
@@ -193,7 +197,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(5),
@@ -202,7 +206,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(6),
@@ -211,7 +215,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(8),
@@ -220,7 +224,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(14),
@@ -229,7 +233,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	blk = block.NewBlockDeprecated(
 		uint32(123),
 		uint64(16),
@@ -238,7 +242,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 		identityset.PrivateKey(27).PublicKey(),
 		nil,
 	)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 32), 5)
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 7), 3)
 
@@ -249,7 +253,7 @@ func TestBlockBufferGetBlocksIntervalsToSync(t *testing.T) {
 
 	blk, err = chain.MintNewBlock(testutil.TimestampNow())
 	require.NoError(err)
-	b.AddBlock(chain.TipHeight(), blk)
+	b.AddBlock(chain.TipHeight(), newPeerBlock(pid, blk))
 	// There should always have at least 1 interval range to sync
 	assert.Len(b.GetBlocksIntervalsToSync(chain.TipHeight(), 0), 1)
 }

@@ -89,7 +89,7 @@ func TestLocalCommit(t *testing.T) {
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	p := p2p.NewAgent(
 		cfg,
-		func(_ context.Context, _ uint32, _ proto.Message) {
+		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
 		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {
 		},

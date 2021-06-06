@@ -8,7 +8,6 @@ package config
 
 import (
 	"crypto/ecdsa"
-	"flag"
 	"math/big"
 	"os"
 	"strings"
@@ -34,19 +33,10 @@ import (
 // the default value in Default var.
 
 func init() {
-	flag.StringVar(&_overwritePath, "config-path", "", "Config path")
-	flag.StringVar(&_secretPath, "secret-path", "", "Secret path")
-	flag.StringVar(&_subChainPath, "sub-config-path", "", "Sub chain Config path")
-	flag.Var(&_plugins, "plugin", "Plugin of the node")
+
 }
 
 var (
-	// overwritePath is the path to the config file which overwrite default values
-	_overwritePath string
-	// secretPath is the path to the  config file store secret values
-	_secretPath   string
-	_subChainPath string
-	_plugins      strs
 	_evmNetworkID uint32
 	loadChainID   sync.Once
 )
@@ -174,9 +164,10 @@ var (
 			RepeatDecayStep:       1,
 		},
 		Dispatcher: Dispatcher{
-			ActionChanSize:    1000,
-			BlockChanSize:     1000,
-			BlockSyncChanSize: 400,
+			ActionChanSize:             1000,
+			BlockChanSize:              1000,
+			BlockSyncChanSize:          400,
+			ProcessSyncRequestInterval: 0 * time.Second,
 		},
 		API: API{
 			UseRDS:    false,
@@ -344,9 +335,10 @@ type (
 
 	// Dispatcher is the dispatcher config
 	Dispatcher struct {
-		ActionChanSize    uint `yaml:"actionChanSize"`
-		BlockChanSize     uint `yaml:"blockChanSize"`
-		BlockSyncChanSize uint `yaml:"blockSyncChanSize"`
+		ActionChanSize             uint          `yaml:"actionChanSize"`
+		BlockChanSize              uint          `yaml:"blockChanSize"`
+		BlockSyncChanSize          uint          `yaml:"blockSyncChanSize"`
+		ProcessSyncRequestInterval time.Duration `yaml:"processSyncRequestInterval"`
 		// TODO: explorer dependency deleted at #1085, need to revive by migrating to api
 	}
 
@@ -431,15 +423,14 @@ type (
 // New creates a config instance. It first loads the default configs. If the config path is not empty, it will read from
 // the file and override the default configs. By default, it will apply all validation functions. To bypass validation,
 // use DoNotValidate instead.
-func New(validates ...Validate) (Config, error) {
+func New(configPaths []string, _plugins []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
-	if _overwritePath != "" {
-		opts = append(opts, uconfig.File(_overwritePath))
-	}
-	if _secretPath != "" {
-		opts = append(opts, uconfig.File(_secretPath))
+	for _, path := range configPaths {
+		if path != "" {
+			opts = append(opts, uconfig.File(path))
+		}
 	}
 	yaml, err := uconfig.NewYAML(opts...)
 	if err != nil {
@@ -479,16 +470,14 @@ func New(validates ...Validate) (Config, error) {
 }
 
 // NewSub create config for sub chain.
-func NewSub(validates ...Validate) (Config, error) {
-	if _subChainPath == "" {
-		return Config{}, nil
-	}
+func NewSub(configPaths []string, validates ...Validate) (Config, error) {
 	opts := make([]uconfig.YAMLOption, 0)
 	opts = append(opts, uconfig.Static(Default))
 	opts = append(opts, uconfig.Expand(os.LookupEnv))
-	opts = append(opts, uconfig.File(_subChainPath))
-	if _secretPath != "" {
-		opts = append(opts, uconfig.File(_secretPath))
+	for _, path := range configPaths {
+		if path != "" {
+			opts = append(opts, uconfig.File(path))
+		}
 	}
 	yaml, err := uconfig.NewYAML(opts...)
 	if err != nil {
@@ -601,6 +590,10 @@ func (ap ActPool) MinGasPrice() *big.Int {
 func ValidateDispatcher(cfg Config) error {
 	if cfg.Dispatcher.ActionChanSize <= 0 || cfg.Dispatcher.BlockChanSize <= 0 || cfg.Dispatcher.BlockSyncChanSize <= 0 {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
+	}
+
+	if (cfg.Dispatcher.ProcessSyncRequestInterval < 0) {
+		return errors.Wrap(ErrInvalidCfg, "dispatcher processSyncRequestInterval should not be less than 0")
 	}
 	return nil
 }
