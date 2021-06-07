@@ -30,6 +30,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/unit"
@@ -555,10 +556,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(3))
 	require.NoError(dao.Stop(ctx))
 
@@ -579,10 +577,7 @@ func TestStartExistingBlockchain(t *testing.T) {
 	cfg.DB.DbPath = cfg.Chain.ChainDBPath
 	cfg.DB.CompressLegacy = cfg.Chain.CompressBlock
 	dao = blockdao.NewBlockDAO(nil, cfg.DB)
-	require.NoError(dao.Start(protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})))
+	require.NoError(dao.Start(genesis.WithGenesisContext(ctx, cfg.Genesis)))
 	require.NoError(dao.DeleteBlockToTarget(2))
 	require.NoError(dao.Stop(ctx))
 	testutil.CleanupPath(t, testTriePath)

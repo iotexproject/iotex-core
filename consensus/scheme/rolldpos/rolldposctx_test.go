@@ -20,6 +20,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus/consensusfsm"
 	"github.com/iotexproject/iotex-core/db"
@@ -103,14 +104,16 @@ func TestCheckVoteEndorser(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
+			ctx := genesis.WithGenesisContext(
+				protocol.WithBlockchainCtx(
+					protocol.WithRegistry(context.Background(), re),
+					protocol.BlockchainCtx{
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
-				},
+				),
+				cfg.Genesis,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
@@ -160,7 +163,7 @@ func TestCheckBlockProposer(t *testing.T) {
 	cfg.Genesis.BlockInterval = time.Second * 20
 	rctx, err := newRollDPoSCtx(
 		consensusfsm.NewConsensusConfig(cfg),
-		db.DefaultConfig,
+		cfg.DB,
 		true,
 		time.Second,
 		true,
@@ -173,14 +176,16 @@ func TestCheckBlockProposer(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: cfg.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
+			ctx := genesis.WithGenesisContext(
+				protocol.WithBlockchainCtx(
+					protocol.WithRegistry(context.Background(), re),
+					protocol.BlockchainCtx{
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
-				},
+				),
+				cfg.Genesis,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList
@@ -282,14 +287,16 @@ func TestNotProducingMultipleBlocks(t *testing.T) {
 				return nil, err
 			}
 			tipHeight := b.TipHeight()
-			ctx := protocol.WithBlockchainCtx(
-				protocol.WithRegistry(context.Background(), re),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-					Tip: protocol.TipInfo{
-						Height: tipHeight,
+			ctx := genesis.WithGenesisContext(
+				protocol.WithBlockchainCtx(
+					protocol.WithRegistry(context.Background(), re),
+					protocol.BlockchainCtx{
+						Tip: protocol.TipInfo{
+							Height: tipHeight,
+						},
 					},
-				},
+				),
+				cfg.Genesis,
 			)
 			tipEpochNum := rp.GetEpochNum(tipHeight)
 			var candidatesList state.CandidateList

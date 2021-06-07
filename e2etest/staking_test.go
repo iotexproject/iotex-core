@@ -132,16 +132,18 @@ func TestStakingContract(t *testing.T) {
 		require.NoError(err)
 		blk, err = dao.GetBlockByHeight(height)
 		require.NoError(err)
-		ctx = protocol.WithBlockchainCtx(
-			protocol.WithRegistry(ctx, registry),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-				Tip: protocol.TipInfo{
-					Height:    height,
-					Hash:      blk.HashHeader(),
-					Timestamp: blk.Timestamp(),
-				},
-			})
+		ctx = genesis.WithGenesisContext(
+			protocol.WithBlockchainCtx(
+				protocol.WithRegistry(ctx, registry),
+				protocol.BlockchainCtx{
+					Tip: protocol.TipInfo{
+						Height:    height,
+						Hash:      blk.HashHeader(),
+						Timestamp: blk.Timestamp(),
+					},
+				}),
+			cfg.Genesis,
+		)
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
 		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)

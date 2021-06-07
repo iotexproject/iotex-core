@@ -12,9 +12,8 @@ import (
 	"github.com/iotexproject/go-pkgs/hash"
 
 	"github.com/iotexproject/iotex-core/action"
-	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/test/identityset"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -60,12 +59,7 @@ func TestIndexBuilder(t *testing.T) {
 	}
 
 	testIndexer := func(dao blockdao.BlockDAO, indexer Indexer, t *testing.T) {
-		ctx := protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: config.Default.Genesis,
-			},
-		)
+		ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 		require.NoError(dao.Start(ctx))
 		require.NoError(indexer.Start(ctx))
 		defer func() {

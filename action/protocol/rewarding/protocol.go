@@ -21,7 +21,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol"
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -87,15 +87,14 @@ func FindProtocol(registry *protocol.Registry) *Protocol {
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
 	switch blkCtx.BlockHeight {
-	case hu.AleutianBlockHeight():
-		return p.SetReward(ctx, sm, bcCtx.Genesis.AleutianEpochReward(), false)
-	case hu.DardanellesBlockHeight():
-		return p.SetReward(ctx, sm, bcCtx.Genesis.DardanellesBlockReward(), true)
-	case hu.GreenlandBlockHeight():
+	case g.AleutianBlockHeight:
+		return p.SetReward(ctx, sm, g.AleutianEpochReward(), false)
+	case g.DardanellesBlockHeight:
+		return p.SetReward(ctx, sm, g.DardanellesBlockReward(), true)
+	case g.GreenlandBlockHeight:
 		return p.migrateValueGreenland(ctx, sm)
 	}
 	return nil
@@ -254,10 +253,9 @@ func (p *Protocol) Name() string {
 
 // useV2Storage return true after greenland when we start using v2 storage.
 func useV2Storage(ctx context.Context) bool {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	return hu.IsPost(config.Greenland, blkCtx.BlockHeight)
+	return g.IsGreenland(blkCtx.BlockHeight)
 }
 
 func (p *Protocol) state(ctx context.Context, sm protocol.StateReader, key []byte, value interface{}) (uint64, error) {
