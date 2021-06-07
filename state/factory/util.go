@@ -16,6 +16,7 @@ import (
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 )
 
 func processOptions(opts ...protocol.StateOption) (*protocol.StateConfig, error) {
@@ -53,8 +54,8 @@ func calculateReceiptRoot(receipts []*action.Receipt) hash.Hash256 {
 
 func calculateLogsBloom(ctx context.Context, receipts []*action.Receipt) bloom.BloomFilter {
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	if blkCtx.BlockHeight < bcCtx.Genesis.AleutianBlockHeight {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if blkCtx.BlockHeight < g.AleutianBlockHeight {
 		return nil
 	}
 	// block-level bloom filter used legacy implementation

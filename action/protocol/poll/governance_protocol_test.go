@@ -26,6 +26,7 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/action/protocol/vote"
 	"github.com/iotexproject/iotex-core/action/protocol/vote/candidatesutil"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db"
 	"github.com/iotexproject/iotex-core/db/batch"
@@ -53,14 +54,16 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	epochStartHeight := rp.GetEpochHeight(2)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-			Tip: protocol.TipInfo{
-				Height: epochStartHeight - 1,
+	ctx = genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			protocol.WithRegistry(ctx, registry),
+			protocol.BlockchainCtx{
+				Tip: protocol.TipInfo{
+					Height: epochStartHeight - 1,
+				},
 			},
-		},
+		),
+		cfg.Genesis,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
@@ -146,7 +149,6 @@ func initConstruct(ctrl *gomock.Controller) (Protocol, context.Context, protocol
 		return nil, nil, nil, nil, err
 	}
 	slasher, err := NewSlasher(
-		&cfg.Genesis,
 		func(start, end uint64) (map[string]uint64, error) {
 			switch start {
 			case 1:

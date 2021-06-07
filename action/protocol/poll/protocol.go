@@ -149,7 +149,6 @@ func NewProtocol(
 			ok  bool
 		)
 		slasher, err = NewSlasher(
-			&genesisConfig,
 			productivity,
 			getCandidates,
 			getprobationList,

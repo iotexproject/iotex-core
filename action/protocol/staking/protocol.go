@@ -26,7 +26,6 @@ import (
 	accountutil "github.com/iotexproject/iotex-core/action/protocol/account/util"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/state"
 )
@@ -70,7 +69,6 @@ type (
 		addr               address.Address
 		depositGas         DepositGas
 		config             Configuration
-		hu                 config.HeightUpgrade
 		candBucketsIndexer *CandidatesBucketsIndexer
 		voteReviser        *VoteReviser
 	}
@@ -134,15 +132,14 @@ func NewProtocol(depositGas DepositGas, cfg genesis.Staking, candBucketsIndexer 
 
 // Start starts the protocol
 func (p *Protocol) Start(ctx context.Context, sr protocol.StateReader) (interface{}, error) {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	p.hu = config.NewHeightUpgrade(&bcCtx.Genesis)
+	g := genesis.MustExtractGenesisContext(ctx)
 	height, err := sr.Height()
 	if err != nil {
 		return nil, err
 	}
 
 	// load view from SR
-	c, _, err := CreateBaseView(sr, p.hu.IsPost(config.Greenland, height))
+	c, _, err := CreateBaseView(sr, g.IsGreenland(height))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start staking protocol")
 	}
@@ -212,10 +209,9 @@ func (p *Protocol) CreateGenesisStates(
 
 // CreatePreStates updates state manager
 func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager) error {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.MustExtractGenesisContext(ctx)
 	blkCtx := protocol.MustGetBlockCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if blkCtx.BlockHeight == hu.GreenlandBlockHeight() {
+	if blkCtx.BlockHeight == g.GreenlandBlockHeight {
 		csr, err := ConstructBaseView(sm)
 		if err != nil {
 			return err
@@ -226,7 +222,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 	}
 
 	if p.voteReviser.NeedRevise(blkCtx.BlockHeight) {
-		csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, blkCtx.BlockHeight))
+		csm, err := NewCandidateStateManager(sm, g.IsGreenland(blkCtx.BlockHeight))
 		if err != nil {
 			return err
 		}
@@ -243,7 +239,7 @@ func (p *Protocol) CreatePreStates(ctx context.Context, sm protocol.StateManager
 		return nil
 	}
 	epochStartHeight := rp.GetEpochHeight(currentEpochNum)
-	if epochStartHeight != blkCtx.BlockHeight || hu.IsPre(config.Fairbank, epochStartHeight) {
+	if epochStartHeight != blkCtx.BlockHeight || !g.IsFairbank(epochStartHeight) {
 		return nil
 	}
 
@@ -273,11 +269,12 @@ func (p *Protocol) handleStakingIndexer(epochStartHeight uint64, sm protocol.Sta
 
 // Commit commits the last change
 func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
+	g := genesis.MustExtractGenesisContext(ctx)
 	height, err := sm.Height()
 	if err != nil {
 		return err
 	}
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
+	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
 	if err != nil {
 		return err
 	}
@@ -288,11 +285,12 @@ func (p *Protocol) Commit(ctx context.Context, sm protocol.StateManager) error {
 
 // Handle handles a staking message
 func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.StateManager) (*action.Receipt, error) {
+	g := genesis.MustExtractGenesisContext(ctx)
 	height, err := sm.Height()
 	if err != nil {
 		return nil, err
 	}
-	csm, err := NewCandidateStateManager(sm, p.hu.IsPost(config.Greenland, height))
+	csm, err := NewCandidateStateManager(sm, g.IsGreenland(height))
 	if err != nil {
 		return nil, err
 	}

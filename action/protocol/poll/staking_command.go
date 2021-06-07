@@ -15,7 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/action/protocol"
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/state"
 )
 
@@ -182,9 +182,8 @@ func (sc *stakingCommand) useV2(ctx context.Context, sr protocol.StateReader) bo
 }
 
 func (sc *stakingCommand) useV2ByHeight(ctx context.Context, height uint64) bool {
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
-	hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-	if sc.stakingV1 == nil || hu.IsPost(config.Fairbank, height) {
+	g := genesis.MustExtractGenesisContext(ctx)
+	if sc.stakingV1 == nil || g.IsFairbank(height) {
 		return true
 	}
 	return false
