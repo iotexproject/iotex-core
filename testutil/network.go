@@ -14,7 +14,7 @@ import (
 )
 
 func checkPortIsOpen(port int) bool {
-	timeout := time.Second
+	timeout := time.Millisecond * 10
 	conn, err := net.DialTimeout("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(port)), timeout)
 	if err != nil {
 		return false

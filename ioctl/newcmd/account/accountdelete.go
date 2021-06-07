@@ -103,8 +103,7 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 					var confirm string
-					info := infoWarn
-					message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+					message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
 					fmt.Println(message.String())
 					fmt.Scanf("%s", &confirm)
 					if !strings.EqualFold(confirm, "yes") {
