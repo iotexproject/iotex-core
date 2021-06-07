@@ -66,19 +66,19 @@ type blockSyncer struct {
 	targetHeight      uint64
 	mu                sync.RWMutex
 
-	peerBlockList     sync.Map
+	peerBlockList sync.Map
 }
 
 type peerBlock struct {
-	pid               string
-	block             *block.Block
+	pid   string
+	block *block.Block
 }
 
-func newPeerBlock(pid string, blk *block.Block) (*peerBlock) {
+func newPeerBlock(pid string, blk *block.Block) *peerBlock {
 	return &peerBlock{
-		pid: pid,
+		pid:   pid,
 		block: blk,
-	};
+	}
 }
 
 // NewBlockSyncer returns a new block syncer instance
