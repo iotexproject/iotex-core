@@ -25,6 +25,7 @@ import (
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/state/factory"
 	"github.com/iotexproject/iotex-core/testutil"
@@ -100,9 +101,7 @@ func prepareBlockchain(ctx context.Context, executor string, r *require.Assertio
 	ep := execution.NewProtocol(dao.GetBlockHash, rewarding.DepositGas)
 	r.NoError(ep.Register(registry))
 	r.NoError(bc.Start(ctx))
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: cfg.Genesis,
-	})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 	r.NoError(sf.Start(ctx))
 	return bc, sf, ap
 }

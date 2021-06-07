@@ -180,12 +180,7 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			BlockHeight: 0,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: ge,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -204,14 +199,16 @@ func testProtocol(t *testing.T, test func(*testing.T, context.Context, protocol.
 			Caller: identityset.Address(28),
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: ge,
-			Tip: protocol.TipInfo{
-				Height: 20,
+	ctx = genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			protocol.WithRegistry(ctx, registry),
+			protocol.BlockchainCtx{
+				Tip: protocol.TipInfo{
+					Height: 20,
+				},
 			},
-		},
+		),
+		ge,
 	)
 	blockReward, err := p.BlockReward(ctx, sm)
 	require.NoError(t, err)
@@ -318,12 +315,7 @@ func TestProtocol_Handle(t *testing.T) {
 		},
 	)
 
-	ctx = protocol.WithBlockchainCtx(
-		protocol.WithRegistry(ctx, registry),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(protocol.WithRegistry(ctx, registry), cfg.Genesis)
 	ap := account.NewProtocol(DepositGas)
 	require.NoError(t, ap.Register(registry))
 	require.NoError(t, ap.CreateGenesisStates(ctx, sm))
@@ -483,11 +475,12 @@ func TestStateCheckLegacy(t *testing.T) {
 		genesis.Default.FoundationBonusP2StartEpoch,
 		genesis.Default.FoundationBonusP2EndEpoch,
 	)
-	chainCtx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Genesis{
+	chainCtx := genesis.WithGenesisContext(
+		context.Background(),
+		genesis.Genesis{
 			Blockchain: genesis.Blockchain{GreenlandBlockHeight: 3},
 		},
-	})
+	)
 	ctx := protocol.WithBlockCtx(chainCtx, protocol.BlockCtx{
 		BlockHeight: 2,
 	})

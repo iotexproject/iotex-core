@@ -77,12 +77,7 @@ func TestSnapshot(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sf.Start(ctx))
@@ -110,12 +105,7 @@ func TestSDBSnapshot(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sdb.Start(ctx))
@@ -268,7 +258,6 @@ func testCandidates(sf Factory, t *testing.T) {
 	require.NoError(t, sf.Register(rolldpos.NewProtocol(36, 36, 20)))
 	cfg := config.Default
 	slasher, err := poll.NewSlasher(
-		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
 			return nil, nil
 		},
@@ -297,13 +286,14 @@ func testCandidates(sf Factory, t *testing.T) {
 	gasLimit := testutil.TestGasLimit
 
 	// TODO: investigate why registry cannot be added in the Blockchain Ctx
-	ctx := protocol.WithBlockCtx(protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: cfg.Genesis,
-	}), protocol.BlockCtx{
-		BlockHeight: 0,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	})
+	ctx := protocol.WithBlockCtx(
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+		protocol.BlockCtx{
+			BlockHeight: 0,
+			Producer:    identityset.Address(27),
+			GasLimit:    gasLimit,
+		},
+	)
 	require.NoError(t, sf.Start(ctx))
 	defer require.NoError(t, sf.Stop(ctx))
 
@@ -314,16 +304,17 @@ func testCandidates(sf Factory, t *testing.T) {
 		AddActions([]action.SealedEnvelope{selp}...).
 		SignAndBuild(identityset.PrivateKey(27))
 	require.NoError(t, err)
-	require.NoError(t, sf.PutBlock(protocol.WithBlockCtx(protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		},
-	), protocol.BlockCtx{
-		BlockHeight: 1,
-		Producer:    identityset.Address(27),
-		GasLimit:    gasLimit,
-	}), &blk))
+	require.NoError(t, sf.PutBlock(
+		protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+			protocol.BlockCtx{
+				BlockHeight: 1,
+				Producer:    identityset.Address(27),
+				GasLimit:    gasLimit,
+			},
+		),
+		&blk,
+	))
 
 	candidates, _, err := candidatesutil.CandidatesFromDB(sf, 1, true, false)
 	require.NoError(t, err)
@@ -427,12 +418,7 @@ func testState(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
 
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
@@ -491,12 +477,8 @@ func testHistoryState(sf Factory, t *testing.T, statetx, archive bool) {
 			GasLimit:    gasLimit,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
+
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
@@ -582,12 +564,8 @@ func testFactoryStates(sf Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		},
 	)
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: ge,
-		},
-	)
+	ctx = genesis.WithGenesisContext(ctx, ge)
+
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
 		require.NoError(t, sf.Stop(ctx))
@@ -713,11 +691,7 @@ func testNonce(sf Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, ge)
 
 	require.NoError(t, sf.Start(ctx))
 	defer func() {
@@ -826,12 +800,7 @@ func TestSDBLoadStoreHeightInMem(t *testing.T) {
 
 func testLoadStoreHeight(sf Factory, t *testing.T) {
 	require := require.New(t)
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
-	)
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	require.NoError(sf.Start(ctx))
 	defer func() {
 		require.NoError(sf.Stop(ctx))
@@ -877,12 +846,7 @@ func TestRunActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sf.Start(ctx))
@@ -908,12 +872,7 @@ func TestSTXRunActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: cfg.Genesis,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sdb.Start(ctx))
@@ -953,15 +912,17 @@ func testCommit(factory Factory, t *testing.T) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-			Tip: protocol.TipInfo{
-				Height: 0,
-				Hash:   blkHash,
-			},
-		})
+	ctx = genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Tip: protocol.TipInfo{
+					Height: 0,
+					Hash:   blkHash,
+				},
+			}),
+		genesis.Default,
+	)
 
 	blk, err := block.NewTestingBuilder().
 		SetHeight(1).
@@ -990,10 +951,7 @@ func TestPickAndRunActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{Genesis: cfg.Genesis},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sf.Start(ctx))
@@ -1019,10 +977,7 @@ func TestSTXPickAndRunActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{Genesis: cfg.Genesis},
-		),
+		genesis.WithGenesisContext(context.Background(), cfg.Genesis),
 		protocol.BlockCtx{},
 	)
 	require.NoError(sdb.Start(ctx))
@@ -1072,10 +1027,9 @@ func testNewBlockBuilder(factory Factory, t *testing.T) {
 			GasLimit:    gasLimit,
 		})
 	ctx = protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.WithGenesisContext(ctx, genesis.Default),
+		protocol.BlockchainCtx{},
 	)
-
 	blkBuilder, err := factory.NewBlockBuilder(ctx, ap, nil)
 	require.NoError(err)
 	require.NotNil(blkBuilder)
@@ -1099,12 +1053,12 @@ func TestSimulateExecution(t *testing.T) {
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{Genesis: cfg.Genesis},
+	ctx := protocol.WithBlockchainCtx(
+		protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+			protocol.BlockCtx{},
 		),
-		protocol.BlockCtx{},
+		protocol.BlockchainCtx{},
 	)
 	require.NoError(sf.Start(ctx))
 	defer func() {
@@ -1128,12 +1082,12 @@ func TestSTXSimulateExecution(t *testing.T) {
 
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
-	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{Genesis: cfg.Genesis},
+	ctx := protocol.WithBlockchainCtx(
+		protocol.WithBlockCtx(
+			genesis.WithGenesisContext(context.Background(), cfg.Genesis),
+			protocol.BlockCtx{},
 		),
-		protocol.BlockCtx{},
+		protocol.BlockchainCtx{},
 	)
 	require.NoError(sdb.Start(ctx))
 	defer func() {
@@ -1160,9 +1114,9 @@ func testSimulateExecution(ctx context.Context, sf Factory, t *testing.T) {
 func TestCachedBatch(t *testing.T) {
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(t, err)
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	require.NoError(t, sf.Start(ctx))
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
@@ -1173,9 +1127,9 @@ func TestCachedBatch(t *testing.T) {
 func TestSTXCachedBatch(t *testing.T) {
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(t, err)
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	require.NoError(t, sdb.Start(ctx))
 	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
@@ -1212,9 +1166,9 @@ func TestGetDB(t *testing.T) {
 	require := require.New(t)
 	sf, err := NewFactory(config.Default, InMemTrieOption())
 	require.NoError(err)
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	ws, err := sf.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -1229,9 +1183,9 @@ func TestSTXGetDB(t *testing.T) {
 	require := require.New(t)
 	sdb, err := NewStateDB(config.Default, InMemStateDBOption())
 	require.NoError(err)
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 1)
 	require.NoError(err)
@@ -1257,9 +1211,9 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 		_, err = ws.State(&acc, protocol.LegacyKeyOption(hash.Hash160b([]byte("other"))))
 		require.Equal(t, state.ErrStateNotExist, errors.Cause(err))
 	}
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), protocol.NewRegistry()),
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
+		genesis.Default,
 	)
 	t.Run("workingSet", func(t *testing.T) {
 		sf, err := NewFactory(config.Default, InMemTrieOption())
@@ -1375,10 +1329,8 @@ func benchRunAction(sf Factory, b *testing.B) {
 	if err := sf.Register(acc); err != nil {
 		b.Fatal(err)
 	}
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{Genesis: ge},
-	)
+	ctx := genesis.WithGenesisContext(context.Background(), ge)
+
 	if err := sf.Start(ctx); err != nil {
 		b.Fatal(err)
 	}
@@ -1423,10 +1375,7 @@ func benchRunAction(sf Factory, b *testing.B) {
 				Producer:    identityset.Address(27),
 				GasLimit:    gasLimit,
 			})
-		zctx = protocol.WithBlockchainCtx(
-			zctx,
-			protocol.BlockchainCtx{Genesis: config.Default.Genesis},
-		)
+		zctx = genesis.WithGenesisContext(zctx, genesis.Default)
 
 		blk, err := block.NewTestingBuilder().
 			SetHeight(uint64(n)).
@@ -1508,10 +1457,8 @@ func benchState(sf Factory, b *testing.B) {
 	if err := sf.Register(acc); err != nil {
 		b.Fatal(err)
 	}
-	ctx := protocol.WithBlockchainCtx(
-		context.Background(),
-		protocol.BlockchainCtx{Genesis: ge},
-	)
+	ctx := genesis.WithGenesisContext(context.Background(), ge)
+
 	if err := sf.Start(ctx); err != nil {
 		b.Fatal(err)
 	}
@@ -1552,10 +1499,8 @@ func benchState(sf Factory, b *testing.B) {
 			Producer:    identityset.Address(27),
 			GasLimit:    gasLimit,
 		})
-	zctx = protocol.WithBlockchainCtx(
-		zctx,
-		protocol.BlockchainCtx{Genesis: config.Default.Genesis},
-	)
+	zctx = genesis.WithGenesisContext(zctx, genesis.Default)
+
 	blk, err := block.NewTestingBuilder().
 		SetHeight(uint64(1)).
 		SetPrevBlockHash(prevHash).

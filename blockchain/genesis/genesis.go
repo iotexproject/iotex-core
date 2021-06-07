@@ -393,6 +393,65 @@ func (g *Genesis) Hash() hash.Hash256 {
 	return hash.Hash256b(b)
 }
 
+func (g *Genesis) isPost(targetHeight, height uint64) bool {
+	return height >= targetHeight
+}
+
+// IsPacific checks whether height is equal to or larger than pacific height
+func (g *Genesis) IsPacific(height uint64) bool {
+	return g.isPost(g.PacificBlockHeight, height)
+}
+
+// IsAleutian checks whether height is equal to or larger than aleutian height
+func (g *Genesis) IsAleutian(height uint64) bool {
+	return g.isPost(g.AleutianBlockHeight, height)
+}
+
+// IsBering checks whether height is equal to or larger than bering height
+func (g *Genesis) IsBering(height uint64) bool {
+	return g.isPost(g.BeringBlockHeight, height)
+}
+
+// IsCook checks whether height is equal to or larger than cook height
+func (g *Genesis) IsCook(height uint64) bool {
+	return g.isPost(g.CookBlockHeight, height)
+}
+
+// IsDardanelles checks whether height is equal to or larger than dardanelles height
+func (g *Genesis) IsDardanelles(height uint64) bool {
+	return g.isPost(g.DardanellesBlockHeight, height)
+}
+
+// IsDaytona checks whether height is equal to or larger than daytona height
+func (g *Genesis) IsDaytona(height uint64) bool {
+	return g.isPost(g.DaytonaBlockHeight, height)
+}
+
+// IsEaster checks whether height is equal to or larger than easter height
+func (g *Genesis) IsEaster(height uint64) bool {
+	return g.isPost(g.EasterBlockHeight, height)
+}
+
+// IsFairbank checks whether height is equal to or larger than fairbank height
+func (g *Genesis) IsFairbank(height uint64) bool {
+	return g.isPost(g.FairbankBlockHeight, height)
+}
+
+// IsFbkMigration checks whether height is equal to or larger than fbk migration height
+func (g *Genesis) IsFbkMigration(height uint64) bool {
+	return g.isPost(g.FbkMigrationBlockHeight, height)
+}
+
+// IsGreenland checks whether height is equal to or larger than greenland height
+func (g *Genesis) IsGreenland(height uint64) bool {
+	return g.isPost(g.GreenlandBlockHeight, height)
+}
+
+// IsHawaii checks whether height is equal to or larger than hawaii height
+func (g *Genesis) IsHawaii(height uint64) bool {
+	return g.isPost(g.HawaiiBlockHeight, height)
+}
+
 // InitBalances returns the address that have initial balances and the corresponding amounts. The i-th amount is the
 // i-th address' balance.
 func (a *Account) InitBalances() ([]address.Address, []*big.Int) {

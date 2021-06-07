@@ -352,7 +352,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	cfg := config.Default
 	committee := mock_committee.NewMockCommittee(ctrl)
 	slasher, err := poll.NewSlasher(
-		&cfg.Genesis,
 		func(uint64, uint64) (map[string]uint64, error) {
 			return map[string]uint64{
 				identityset.Address(0).String(): 9,
@@ -402,11 +401,9 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 
 	// Initialize the protocol
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
+		genesis.WithGenesisContext(
 			protocol.WithRegistry(context.Background(), registry),
-			protocol.BlockchainCtx{
-				Genesis: ge,
-			},
+			ge,
 		),
 		protocol.BlockCtx{
 			BlockHeight: 0,
@@ -418,7 +415,6 @@ func TestProtocol_NoRewardAddr(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		protocol.WithRegistry(ctx, registry),
 		protocol.BlockchainCtx{
-			Genesis: ge,
 			Tip: protocol.TipInfo{
 				Height: 1,
 			},

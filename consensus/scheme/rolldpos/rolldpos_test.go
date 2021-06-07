@@ -34,6 +34,7 @@ import (
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	cp "github.com/iotexproject/iotex-core/crypto"
 	"github.com/iotexproject/iotex-core/endorsement"
@@ -409,11 +410,9 @@ func TestRollDPoSConsensus(t *testing.T) {
 			registry := protocol.NewRegistry()
 			sf, err := factory.NewFactory(cfg, factory.InMemTrieOption(), factory.RegistryOption(registry))
 			require.NoError(t, err)
-			require.NoError(t, sf.Start(protocol.WithBlockchainCtx(
+			require.NoError(t, sf.Start(genesis.WithGenesisContext(
 				protocol.WithRegistry(ctx, registry),
-				protocol.BlockchainCtx{
-					Genesis: config.Default.Genesis,
-				},
+				cfg.Genesis,
 			)))
 			actPool, err := actpool.NewActPool(sf, cfg.ActPool, actpool.EnableExperimentalActions())
 			require.NoError(t, err)

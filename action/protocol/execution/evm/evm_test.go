@@ -52,9 +52,7 @@ func TestExecuteContractFailure(t *testing.T) {
 		Producer: identityset.Address(27),
 		GasLimit: testutil.TestGasLimit,
 	})
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	})
+	ctx = genesis.WithGenesisContext(ctx, genesis.Default)
 
 	retval, receipt, err := ExecuteContract(ctx, sm, e,
 		func(uint64) (hash.Hash256, error) {
@@ -79,11 +77,8 @@ func TestConstantinople(t *testing.T) {
 		Caller: identityset.Address(27),
 	})
 
-	ctx = protocol.WithBlockchainCtx(ctx, protocol.BlockchainCtx{
-		Genesis: config.Default.Genesis,
-	})
-
-	bcCtx := protocol.MustGetBlockchainCtx(ctx)
+	g := genesis.Default
+	ctx = genesis.WithGenesisContext(ctx, g)
 
 	execHeights := []struct {
 		contract string
@@ -156,8 +151,7 @@ func TestConstantinople(t *testing.T) {
 		)
 		require.NoError(err)
 
-		hu := config.NewHeightUpgrade(&bcCtx.Genesis)
-		stateDB := NewStateDBAdapter(sm, e.height, hu.IsPre(config.Aleutian, e.height), hu.IsPost(config.Greenland, e.height), hash.ZeroHash256)
+		stateDB := NewStateDBAdapter(sm, e.height, !g.IsAleutian(e.height), g.IsGreenland(e.height), hash.ZeroHash256)
 		ctx = protocol.WithBlockCtx(ctx, protocol.BlockCtx{
 			Producer:    identityset.Address(27),
 			GasLimit:    testutil.TestGasLimit,
@@ -169,33 +163,33 @@ func TestConstantinople(t *testing.T) {
 		require.NoError(err)
 
 		var evmConfig vm.Config
-		chainConfig := getChainConfig(hu)
+		chainConfig := getChainConfig(g)
 		evm := vm.NewEVM(ps.context, stateDB, chainConfig, evmConfig)
 
 		evmChainConfig := evm.ChainConfig()
-		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsHomestead(evm.BlockNumber))
 		require.Equal(false, evmChainConfig.IsDAOFork(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
-		require.Equal(hu.IsPost(config.Greenland, e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP150(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP158(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsEIP155(evm.BlockNumber))
+		require.Equal(g.IsGreenland(e.height), evmChainConfig.IsByzantium(evm.BlockNumber))
 		require.Equal(true, evmChainConfig.IsConstantinople(evm.BlockNumber))
 		require.Equal(true, evmChainConfig.IsPetersburg(evm.BlockNumber))
 
 		// verify chainRules
 		chainRules := evmChainConfig.Rules(ps.context.BlockNumber)
-		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsHomestead)
-		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP150)
-		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP158)
-		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsEIP155)
-		require.Equal(hu.IsPost(config.Greenland, e.height), chainRules.IsByzantium)
+		require.Equal(g.IsGreenland(e.height), chainRules.IsHomestead)
+		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP150)
+		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP158)
+		require.Equal(g.IsGreenland(e.height), chainRules.IsEIP155)
+		require.Equal(g.IsGreenland(e.height), chainRules.IsByzantium)
 		require.Equal(true, chainRules.IsConstantinople)
 		require.Equal(true, chainRules.IsPetersburg)
 
 		// verify iotex configs in chain config block
 		require.Equal(big.NewInt(int64(genesis.Default.BeringBlockHeight)), evmChainConfig.BeringBlock)
 		require.Equal(big.NewInt(int64(genesis.Default.GreenlandBlockHeight)), evmChainConfig.GreenlandBlock)
-		require.Equal(hu.IsPre(config.Bering, e.height), evm.IsPreBering())
+		require.Equal(!g.IsBering(e.height), evm.IsPreBering())
 	}
 }
 

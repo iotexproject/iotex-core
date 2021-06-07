@@ -360,12 +360,14 @@ func (bc *blockchain) context(ctx context.Context, tipInfoFlag bool) (context.Co
 		}
 	}
 
-	return protocol.WithBlockchainCtx(
-		ctx,
-		protocol.BlockchainCtx{
-			Genesis: bc.config.Genesis,
-			Tip:     tip,
-		},
+	return genesis.WithGenesisContext(
+		protocol.WithBlockchainCtx(
+			ctx,
+			protocol.BlockchainCtx{
+				Tip: tip,
+			},
+		),
+		bc.config.Genesis,
 	), nil
 }
 

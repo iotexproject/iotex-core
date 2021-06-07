@@ -406,6 +406,10 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 		ctx = metautils.NiceMD(jwtMD).ToOutgoing(ctx)
 	}
 
+	callerAddr, _ := Signer()
+	if callerAddr == "" {
+		callerAddr = address.ZeroAddress
+	}
 	res, err := iotexapi.NewAPIServiceClient(conn).ReadContract(
 		ctx,
 		&iotexapi.ReadContractRequest{
@@ -414,7 +418,7 @@ func Read(contract address.Address, amount string, bytecode []byte) (string, err
 				Contract: contract.String(),
 				Data:     bytecode,
 			},
-			CallerAddress: address.ZeroAddress,
+			CallerAddress: callerAddr,
 		},
 	)
 	if err == nil {

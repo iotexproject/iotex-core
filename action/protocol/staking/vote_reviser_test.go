@@ -129,9 +129,7 @@ func TestVoteReviser(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)

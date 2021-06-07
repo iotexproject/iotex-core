@@ -649,25 +649,25 @@ func ValidateActPool(cfg Config) error {
 
 // ValidateForkHeights validates the forked heights
 func ValidateForkHeights(cfg Config) error {
-	hu := NewHeightUpgrade(&cfg.Genesis)
+	hu := cfg.Genesis
 	switch {
-	case hu.PacificBlockHeight() > hu.AleutianBlockHeight():
+	case hu.PacificBlockHeight > hu.AleutianBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Pacific is heigher than Aleutian")
-	case hu.AleutianBlockHeight() > hu.BeringBlockHeight():
+	case hu.AleutianBlockHeight > hu.BeringBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Aleutian is heigher than Bering")
-	case hu.BeringBlockHeight() > hu.CookBlockHeight():
+	case hu.BeringBlockHeight > hu.CookBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Bering is heigher than Cook")
-	case hu.CookBlockHeight() > hu.DardanellesBlockHeight():
+	case hu.CookBlockHeight > hu.DardanellesBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Cook is heigher than Dardanelles")
-	case hu.DardanellesBlockHeight() > hu.DaytonaBlockHeight():
+	case hu.DardanellesBlockHeight > hu.DaytonaBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Dardanelles is heigher than Daytona")
-	case hu.DaytonaBlockHeight() > hu.EasterBlockHeight():
+	case hu.DaytonaBlockHeight > hu.EasterBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Daytona is heigher than Easter")
-	case hu.EasterBlockHeight() > hu.FbkMigrationBlockHeight():
+	case hu.EasterBlockHeight > hu.FbkMigrationBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Easter is heigher than FairbankMigration")
-	case hu.FbkMigrationBlockHeight() > hu.FairbankBlockHeight():
+	case hu.FbkMigrationBlockHeight > hu.FairbankBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "FairbankMigration is heigher than Fairbank")
-	case hu.FairbankBlockHeight() > hu.GreenlandBlockHeight():
+	case hu.FairbankBlockHeight > hu.GreenlandBlockHeight:
 		return errors.Wrap(ErrInvalidCfg, "Fairbank is heigher than Greenland")
 	}
 	return nil

@@ -106,9 +106,7 @@ func TestProtocol(t *testing.T) {
 	}
 
 	// load candidates from stateDB and verify
-	ctx := protocol.WithBlockchainCtx(context.Background(), protocol.BlockchainCtx{
-		Genesis: genesis.Default,
-	})
+	ctx := genesis.WithGenesisContext(context.Background(), genesis.Default)
 	v, err := stk.Start(ctx, sm)
 	sm.WriteView(protocolID, v)
 	r.NoError(err)
@@ -192,12 +190,7 @@ func TestCreatePreStates(t *testing.T) {
 	p, err := NewProtocol(nil, genesis.Default.Staking, nil, genesis.Default.GreenlandBlockHeight)
 	require.NoError(err)
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},
@@ -255,12 +248,7 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 
 	ctx = protocol.WithRegistry(ctx, reg)
 	ctx = protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			ctx,
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(ctx, genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight,
 		},
@@ -356,12 +344,7 @@ func Test_CreateGenesisStates(t *testing.T) {
 		},
 	}
 	ctx := protocol.WithBlockCtx(
-		protocol.WithBlockchainCtx(
-			context.Background(),
-			protocol.BlockchainCtx{
-				Genesis: genesis.Default,
-			},
-		),
+		genesis.WithGenesisContext(context.Background(), genesis.Default),
 		protocol.BlockCtx{
 			BlockHeight: genesis.Default.GreenlandBlockHeight - 1,
 		},

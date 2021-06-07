@@ -1034,8 +1034,7 @@ func TestConstantinople(t *testing.T) {
 			require.True(ok)
 			postBalance := new(big.Int).Sub(v.preBalance, gasFee)
 
-			hu := config.NewHeightUpgrade(&cfg.Genesis)
-			if hu.IsPre(config.Greenland, v.height) {
+			if !cfg.Genesis.IsGreenland(v.height) {
 				// pre-Greenland contains a tx with status = ReceiptStatus_ErrCodeStoreOutOfGas
 				// due to a bug the transfer is not reverted
 				require.Equal(2, len(tLog.Transactions))
@@ -1482,10 +1481,7 @@ func TestBlocks(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 10; i++ {
 		actionMap := make(map[string][]action.SealedEnvelope)
@@ -1510,9 +1506,9 @@ func TestActions(t *testing.T) {
 	acc := account.NewProtocol(rewarding.DepositGas)
 	require.NoError(acc.Register(registry))
 
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		protocol.BlockchainCtx{Genesis: cfg.Genesis},
+		cfg.Genesis,
 	)
 
 	testTriePath, err := testutil.PathOfTempFile("trie")
@@ -1559,10 +1555,7 @@ func TestActions(t *testing.T) {
 			Producer: identityset.Address(27),
 			GasLimit: gasLimit,
 		})
-	ctx = protocol.WithBlockchainCtx(ctx,
-		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
-		})
+	ctx = genesis.WithGenesisContext(ctx, cfg.Genesis)
 
 	for i := 0; i < 5000; i++ {
 		tsf, err := action.SignedTransfer(c, priKeyA, 1, big.NewInt(2), []byte{}, testutil.TestGasLimit, big.NewInt(testutil.TestGasPriceInt64))
@@ -1577,7 +1570,6 @@ func TestActions(t *testing.T) {
 	ctx = protocol.WithBlockchainCtx(
 		ctx,
 		protocol.BlockchainCtx{
-			Genesis: cfg.Genesis,
 			Tip: protocol.TipInfo{
 				Height: 0,
 				Hash:   blk.PrevHash(),

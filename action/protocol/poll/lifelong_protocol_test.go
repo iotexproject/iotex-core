@@ -15,6 +15,7 @@ import (
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
+	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/db/batch"
 	"github.com/iotexproject/iotex-core/state"
@@ -30,11 +31,9 @@ func initLifeLongDelegateProtocol(ctrl *gomock.Controller) (Protocol, context.Co
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	ctx := protocol.WithBlockchainCtx(
+	ctx := genesis.WithGenesisContext(
 		protocol.WithRegistry(context.Background(), registry),
-		protocol.BlockchainCtx{
-			Genesis: config.Default.Genesis,
-		},
+		config.Default.Genesis,
 	)
 	ctx = protocol.WithActionCtx(
 		ctx,
