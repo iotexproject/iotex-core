@@ -215,7 +215,7 @@ func (d *IotxDispatcher) blockHandler() {
 	}
 }
 
-func (d *IotxDispatcher) checkSyncPermission(peerID string) (bool) {
+func (d *IotxDispatcher) checkSyncPermission(peerID string) bool {
 	now := time.Now()
 	last, ok := d.peerLastSync[peerID]
 	if ok && last.Add(d.syncInterval).After(now) {
@@ -231,7 +231,7 @@ func (d *IotxDispatcher) syncHandler() {
 	for {
 		select {
 		case m := <-d.syncChan:
-			if (d.checkSyncPermission(m.peer.ID.Pretty())) {
+			if d.checkSyncPermission(m.peer.ID.Pretty()) {
 				d.handleBlockSyncMsg(m)
 			}
 		case <-d.quit:

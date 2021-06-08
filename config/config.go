@@ -592,7 +592,7 @@ func ValidateDispatcher(cfg Config) error {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher chan size should be greater than 0")
 	}
 
-	if (cfg.Dispatcher.ProcessSyncRequestInterval < 0) {
+	if cfg.Dispatcher.ProcessSyncRequestInterval < 0 {
 		return errors.Wrap(ErrInvalidCfg, "dispatcher processSyncRequestInterval should not be less than 0")
 	}
 	return nil
