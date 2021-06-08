@@ -14,6 +14,7 @@ GOINSTALL=$(GOCMD) install
 GOCLEAN=$(GOCMD) clean
 GOTEST=$(GOCMD) test
 GOGET=$(GOCMD) get
+GOPATH=$(shell go env GOPATH)
 BUILD_TARGET_SERVER=server
 BUILD_TARGET_ACTINJV2=actioninjectorv2
 BUILD_TARGET_ADDRGEN=addrgen
@@ -22,6 +23,8 @@ BUILD_TARGET_XCTL=xctl
 BUILD_TARGET_MINICLUSTER=minicluster
 BUILD_TARGET_RECOVER=recover
 BUILD_TARGET_IOMIGRATER=iomigrater
+BUILD_TARGET_OS=$(shell go env GOOS)
+BUILD_TARGET_ARCH=$(shell go env GOARCH)
 
 # Pkgs
 ALL_PKGS := $(shell go list ./... )
@@ -214,7 +217,13 @@ recover:
 
 .PHONY: ioctl
 ioctl:
-	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+	$(DOCKERCMD) pull techknowlogick/xgo:latest
+	$(GOCMD) get src.techknowlogick.com/xgo
+	mkdir -p $(GOPATH)/src
+	sudo cp ./tools/ioctl/ioctl.go $(GOPATH)/src
+	cd $(GOPATH)/src && sudo rm -f go.mod && $(GOCMD) mod init main && $(GOCMD) mod tidy
+	cd $(GOPATH)/src && $(GOPATH)/bin/xgo --targets=$(BUILD_TARGET_OS)/$(BUILD_TARGET_ARCH) .
+	mkdir -p ./bin/$(BUILD_TARGET_IOCTL) && sudo mv $(GOPATH)/src/main-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH) ./bin/$(BUILD_TARGET_IOCTL)/ioctl-$(BUILD_TARGET_OS)-$(BUILD_TARGET_ARCH)
 
 .PHONY: xctl
 xctl:
