@@ -217,6 +217,10 @@ recover:
 
 .PHONY: ioctl
 ioctl:
+	$(GOBUILD) -ldflags "$(PackageFlags)" -o ./bin/$(BUILD_TARGET_IOCTL) -v ./tools/ioctl
+	
+.PHONY: ioctl-cross
+ioctl-cross:
 	$(DOCKERCMD) pull techknowlogick/xgo:latest
 	$(GOCMD) get src.techknowlogick.com/xgo
 	mkdir -p $(GOPATH)/src
