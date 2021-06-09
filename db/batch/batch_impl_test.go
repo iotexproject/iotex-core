@@ -43,7 +43,7 @@ func TestBaseKVStoreBatch(t *testing.T) {
 	b.AddFillPercent("test", 0.5)
 	p, ok := b.CheckFillPercent("ns")
 	require.False(ok)
-	require.Equal(0, p)
+	require.Equal(1.0*0, p)
 	p, ok = b.CheckFillPercent("test")
 	require.True(ok)
 	require.Equal(0.5, p)
