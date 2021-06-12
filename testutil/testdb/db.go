@@ -69,7 +69,7 @@ func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 			if !ok {
 				return db.ErrBucketNotExist
 			}
-			vns, _ := vmap[ns]
+			vns := vmap[ns]
 			h := hash.Hash160b(k)
 			delete(kns, h)
 			delete(vns, h)
@@ -87,7 +87,7 @@ func NewMockKVStore(ctrl *gomock.Controller) db.KVStore {
 			if !ok {
 				return nil, nil, db.ErrBucketNotExist
 			}
-			vns, _ := vmap[ns]
+			vns := vmap[ns]
 			checkMin := len(minKey) > 0
 			checkMax := len(maxKey) > 0
 			for h, k := range kns {

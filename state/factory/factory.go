@@ -729,5 +729,4 @@ func (sf *factory) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.workingsets.Add(key, ws)
-	return
 }
