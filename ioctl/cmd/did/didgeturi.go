@@ -69,10 +69,13 @@ func getURI(args []string) (err error) {
 	if err != nil {
 		return
 	}
-	var out []byte
-	err = abi.Unpack(&out, getURIName, dec)
+	res, err := abi.Unpack(getURIName, dec)
 	if err != nil {
 		return errors.New("DID does not exist")
+	}
+	out, err := util.ToByteSlice(res[0])
+	if err != nil {
+		return
 	}
 	output.PrintResult(string(out))
 	return

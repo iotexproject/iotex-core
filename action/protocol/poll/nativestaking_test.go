@@ -51,8 +51,11 @@ func TestStaking(t *testing.T) {
 	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
 	require.NoError(err)
 
-	pygg := &pygg{}
-	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", data))
+	res, err := ns.abi.Unpack("getActivePyggs", data)
+	require.NoError(err)
+	require.Equal(8, len(res))
+	pygg, err := toPgyy(res)
+	require.NoError(err)
 	require.EqualValues(9, pygg.Count.Int64())
 	amount := big.NewInt(unit.Iotx)
 	require.EqualValues(7, pygg.StakeDurations[0].Int64())
@@ -128,11 +131,14 @@ func TestStaking(t *testing.T) {
 	}
 
 	// test empty data from contract
-	require.NoError(ns.abi.Unpack(pygg, "getActivePyggs", empty))
+	res, err = ns.abi.Unpack("getActivePyggs", empty)
+	require.NoError(err)
+	pygg, err = toPgyy(res)
+	require.NoError(err)
 	require.EqualValues(0, pygg.Count.Int64())
 	require.Equal(0, len(pygg.CanNames))
 
 	// test no data from contract
-	err = ns.abi.Unpack(pygg, "getActivePyggs", []byte{})
-	require.Equal(err.Error(), "abi: unmarshalling empty output")
+	res, err = ns.abi.Unpack("getActivePyggs", []byte{})
+	require.Equal(err.Error(), "abi: attempting to unmarshall an empty string while arguments are expected")
 }

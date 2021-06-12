@@ -241,8 +241,12 @@ func (cc *consortiumCommittee) readDelegatesWithContractReader(ctx context.Conte
 	if err != nil {
 		return nil, err
 	}
-	var res []common.Address
-	if err = cc.abi.Unpack(&res, "delegates", data); err != nil {
+	ret, err := cc.abi.Unpack("delegates", data)
+	if err != nil {
+		return nil, err
+	}
+	res, err := toEtherAddressSlice(ret[0])
+	if err != nil {
 		return nil, err
 	}
 
@@ -289,4 +293,11 @@ func getContractReaderForGenesisStates(ctx context.Context, sm protocol.StateMan
 
 		return res, err
 	}
+}
+
+func toEtherAddressSlice(v interface{}) ([]common.Address, error) {
+	if addr, ok := v.([]common.Address); ok {
+		return addr, nil
+	}
+	return nil, ErrWrongData
 }

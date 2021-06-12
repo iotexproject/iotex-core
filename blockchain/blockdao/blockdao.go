@@ -161,12 +161,12 @@ func (dao *blockDAO) checkIndexers(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			ctx, err = dao.fillWithBlockInfoAsTip(ctx, i-1)
+			ctxWithTip, err := dao.fillWithBlockInfoAsTip(ctx, i-1)
 			if err != nil {
 				return err
 			}
 			if err := indexer.PutBlock(protocol.WithBlockCtx(
-				ctx,
+				ctxWithTip,
 				protocol.BlockCtx{
 					BlockHeight:    i,
 					BlockTimeStamp: blk.Timestamp(),
