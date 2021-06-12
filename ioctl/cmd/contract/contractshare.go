@@ -32,10 +32,7 @@ var (
 
 	upgrade = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			if iotexIDE == r.Header["Origin"][0] {
-				return true
-			}
-			return false
+			return iotexIDE == r.Header["Origin"][0]
 		},
 	}
 )

@@ -257,7 +257,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 func printLogs(logs []*iotextypes.Log) string {
 	result := "logs:<\n"
 	for _, l := range logs {
-		result += fmt.Sprintf("  <\n") +
+		result += "  <\n" +
 			fmt.Sprintf("    contractAddress: %s\n", l.ContractAddress) +
 			"    topics:<\n"
 		for _, topic := range l.Topics {
