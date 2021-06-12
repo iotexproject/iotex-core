@@ -148,8 +148,6 @@ func ReadSecretFromStdin() (string, error) {
 				os.Exit(130)
 			case <-routineTerminate:
 				return
-			default:
-				return
 			}
 		}
 	}()
