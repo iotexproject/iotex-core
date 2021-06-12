@@ -30,13 +30,11 @@ func checkPortIsOpen(port int) bool {
 // RandomPort returns a random port number between 30000 and 50000
 func RandomPort() int {
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	port := r.Intn(2000) + 30000
-	for i := 0; i < 18000; i++ {
-		if checkPortIsOpen(port) == false {
+	var port int
+	for port = r.Intn(2000) + 30000; port < 50000; port++ {
+		if checkPortIsOpen(port) {
 			break
 		}
-		port++
-		// retry next port
 	}
 	return port
 }
