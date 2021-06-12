@@ -149,7 +149,6 @@ func ReadSecretFromStdin() (string, error) {
 			case <-routineTerminate:
 				return
 			default:
-				return
 			}
 		}
 	}()
@@ -238,5 +237,8 @@ func ParseHdwPath(addressOrAlias string) (uint32, uint32, uint32, error) {
 
 // AliasIsHdwalletKey check whether to use hdwallet key
 func AliasIsHdwalletKey(addressOrAlias string) bool {
-	return strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::")
+	if strings.HasPrefix(strings.ToLower(addressOrAlias), "hdw::") {
+		return true
+	}
+	return false
 }

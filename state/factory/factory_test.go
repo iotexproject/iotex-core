@@ -632,7 +632,10 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
 	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 	cond := func(k, v []byte) bool {
-		return bytes.Equal(k, addrHash[:])
+		if bytes.Equal(k, addrHash[:]) {
+			return true
+		}
+		return false
 	}
 	condOpt := protocol.FilterOption(cond, nil, nil)
 	height, iter, err = sf.States(condOpt, namespaceOpt)
@@ -1221,7 +1224,6 @@ func TestDeleteAndPutSameKey(t *testing.T) {
 	})
 	t.Run("stateTx", func(t *testing.T) {
 		sdb, err := NewStateDB(config.Default, InMemStateDBOption())
-		require.NoError(t, err)
 		ws, err := sdb.(workingSetCreator).newWorkingSet(ctx, 0)
 		require.NoError(t, err)
 		testDeleteAndPutSameKey(t, ws)
