@@ -43,9 +43,9 @@ var (
 func TestStaking(t *testing.T) {
 	require := require.New(t)
 
-	ns, err := NewNativeStaking(nil)
+	_, err := NewNativeStaking(nil)
 	require.Error(err)
-	ns, err = NewNativeStaking(func(context.Context, string, []byte, bool) ([]byte, error) {
+	ns, err := NewNativeStaking(func(context.Context, string, []byte, bool) ([]byte, error) {
 		return nil, nil
 	})
 	ns.SetContract("io1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqd39ym7")
@@ -65,7 +65,7 @@ func TestStaking(t *testing.T) {
 
 	buckets := make([]*types.Bucket, len(pygg.CanNames))
 	for i := range pygg.CanNames {
-		buckets[i], err = types.NewBucket(
+		buckets[i], _ = types.NewBucket(
 			time.Unix(pygg.StakeStartTimes[i].Int64(), 0),
 			time.Duration(pygg.StakeDurations[i].Uint64()*24)*time.Hour,
 			pygg.StakedAmounts[i],
@@ -83,7 +83,7 @@ func TestStaking(t *testing.T) {
 	require.Equal(6, len(tallies.Candidates))
 	for _, v := range tallies.Candidates {
 		for i := range votes {
-			if bytes.Compare(votes[i].name, v.CanName) == 0 {
+			if bytes.Equal(votes[i].name, v.CanName) {
 				amount := big.NewInt(unit.Iotx)
 				require.Equal(1, v.Votes.Cmp(amount.Mul(amount, votes[i].amount)))
 				break
@@ -139,6 +139,6 @@ func TestStaking(t *testing.T) {
 	require.Equal(0, len(pygg.CanNames))
 
 	// test no data from contract
-	res, err = ns.abi.Unpack("getActivePyggs", []byte{})
+	_, err = ns.abi.Unpack("getActivePyggs", []byte{})
 	require.Equal(err.Error(), "abi: attempting to unmarshall an empty string while arguments are expected")
 }

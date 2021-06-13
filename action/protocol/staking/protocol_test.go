@@ -201,7 +201,7 @@ func TestCreatePreStates(t *testing.T) {
 	csm, err := NewCandidateStateManager(sm, false)
 	require.NoError(err)
 	require.NotNil(csm)
-	csm, err = NewCandidateStateManager(sm, true)
+	_, err = NewCandidateStateManager(sm, true)
 	require.Error(err)
 	require.NoError(p.CreatePreStates(ctx, sm))
 	_, err = sm.State(nil, protocol.NamespaceOption(StakingNameSpace), protocol.KeyOption(bucketPoolAddrKey))

@@ -1528,7 +1528,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		Action:        nil,
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	_, err = svr.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
 }
 
@@ -2546,6 +2546,6 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.Equal(2, len(res.Actions))
 
 	h3 := tsf3.Hash()
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }

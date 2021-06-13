@@ -419,9 +419,9 @@ func TestHandle(t *testing.T) {
 
 		_, err = shiftCandidates(sm2)
 		require.NoError(err)
-		candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, true)
+		_, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, true)
 		require.Error(err) // should return stateNotExist error
-		candidates, _, err = candidatesutil.CandidatesFromDB(sm2, 1, false, false)
+		candidates, _, err := candidatesutil.CandidatesFromDB(sm2, 1, false, false)
 		require.NoError(err)
 		require.Equal(2, len(candidates))
 		require.Equal(candidates[0].Address, sc2[0].Address)
