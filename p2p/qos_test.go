@@ -17,7 +17,7 @@ func TestQos(t *testing.T) {
 	r := require.New(t)
 
 	now := time.Now()
-	q := newQoS(now, time.Second)
+	q := NewQoS(now, time.Second)
 
 	for _, test := range []struct {
 		send, broadcast, success bool
@@ -47,24 +47,24 @@ func TestQos(t *testing.T) {
 		}
 	}
 
-	r.EqualValues(2, q.broadcastSendTotal())
+	r.EqualValues(2, q.BroadcastSendTotal())
 	r.EqualValues(1, q.broadcastSendSuccess)
-	r.EqualValues(2, q.broadcastRecvTotal())
-	c, ok := q.unicastSendTotal("test")
+	r.EqualValues(2, q.BroadcastRecvTotal())
+	c, ok := q.UnicastSendTotal("test")
 	r.True(ok)
 	r.EqualValues(2, c)
-	c, ok = q.unicastRecvTotal("test")
+	c, ok = q.UnicastRecvTotal("test")
 	r.True(ok)
 	r.EqualValues(2, c)
-	rate, ok := q.unicastSendSuccessRate("test")
+	rate, ok := q.UnicastSendSuccessRate("test")
 	r.True(ok)
 	r.EqualValues(0.5, rate)
-	r.EqualValues(0.5, q.broadcastSendSuccessRate())
-	_, ok = q.unicastSendTotal("noname")
+	r.EqualValues(0.5, q.BroadcastSendSuccessRate())
+	_, ok = q.UnicastSendTotal("noname")
 	r.False(ok)
-	_, ok = q.unicastRecvTotal("noname")
+	_, ok = q.UnicastRecvTotal("noname")
 	r.False(ok)
-	_, ok = q.unicastSendSuccessRate("noname")
+	_, ok = q.UnicastSendSuccessRate("noname")
 	r.False(ok)
 	r.True(q.lastBroadcastTime().After(now))
 	r.True(q.lastUnicastTime().After(now))

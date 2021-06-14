@@ -13,7 +13,8 @@ import (
 )
 
 type (
-	qos struct {
+	// Qos metrics
+	Qos struct {
 		lock                  sync.RWMutex
 		broadcastSendCount    uint64
 		broadcastSendSuccess  uint64
@@ -31,8 +32,9 @@ type (
 	}
 )
 
-func newQoS(now time.Time, timeout time.Duration) *qos {
-	return &qos{
+// NewQoS returns the Qos metrics
+func NewQoS(now time.Time, timeout time.Duration) *Qos {
+	return &Qos{
 		lastActiveBroadcastTs: now.UnixNano(),
 		lastActiveUnicastTs:   now.UnixNano(),
 		timeout:               timeout,
@@ -40,20 +42,20 @@ func newQoS(now time.Time, timeout time.Duration) *qos {
 	}
 }
 
-func (q *qos) lostConnection() bool {
+func (q *Qos) lostConnection() bool {
 	t := time.Now()
 	return q.lastBroadcastTime().Add(q.timeout).Before(t) && q.lastUnicastTime().Add(q.timeout).Before(t)
 }
 
-func (q *qos) lastBroadcastTime() time.Time {
+func (q *Qos) lastBroadcastTime() time.Time {
 	return time.Unix(0, atomic.LoadInt64(&q.lastActiveBroadcastTs))
 }
 
-func (q *qos) lastUnicastTime() time.Time {
+func (q *Qos) lastUnicastTime() time.Time {
 	return time.Unix(0, atomic.LoadInt64(&q.lastActiveUnicastTs))
 }
 
-func (q *qos) updateSendBroadcast(t time.Time, success bool) {
+func (q *Qos) updateSendBroadcast(t time.Time, success bool) {
 	atomic.AddUint64(&q.broadcastSendCount, 1)
 	if success {
 		atomic.AddUint64(&q.broadcastSendSuccess, 1)
@@ -61,53 +63,57 @@ func (q *qos) updateSendBroadcast(t time.Time, success bool) {
 	}
 }
 
-func (q *qos) updateRecvBroadcast(t time.Time) {
+func (q *Qos) updateRecvBroadcast(t time.Time) {
 	atomic.AddUint64(&q.broadcastRecvCount, 1)
 	atomic.StoreInt64(&q.lastActiveBroadcastTs, t.UnixNano())
 }
 
-func (q *qos) updateSendUnicast(peername string, t time.Time, success bool) {
+func (q *Qos) updateSendUnicast(peername string, t time.Time, success bool) {
 	q.lock.Lock()
+	defer q.lock.Unlock()
 	peer, exist := q.metrics[peername]
 	if !exist {
 		peer = new(transmitMetric)
 		q.metrics[peername] = peer
 	}
-	q.lock.Unlock()
-	atomic.AddUint64(&peer.unicastSendCount, 1)
+	peer.unicastSendCount++
 	if success {
-		atomic.AddUint64(&peer.unicastSendSuccess, 1)
-		atomic.StoreInt64(&q.lastActiveUnicastTs, t.UnixNano())
+		peer.unicastSendSuccess++
+		q.lastActiveUnicastTs = t.UnixNano()
 	}
 }
 
-func (q *qos) updateRecvUnicast(peername string, t time.Time) {
+func (q *Qos) updateRecvUnicast(peername string, t time.Time) {
 	q.lock.Lock()
+	defer q.lock.Unlock()
 	peer, exist := q.metrics[peername]
 	if !exist {
 		peer = new(transmitMetric)
 		q.metrics[peername] = peer
 	}
-	q.lock.Unlock()
-	atomic.AddUint64(&peer.unicastRecvCount, 1)
-	atomic.StoreInt64(&q.lastActiveUnicastTs, t.UnixNano())
+	peer.unicastRecvCount++
+	q.lastActiveUnicastTs = t.UnixNano()
 }
 
-func (q *qos) broadcastSendTotal() uint64 {
+// BroadcastSendTotal returns the total amount of broadcast sent
+func (q *Qos) BroadcastSendTotal() uint64 {
 	return atomic.LoadUint64(&q.broadcastSendCount)
 }
 
-func (q *qos) broadcastSendSuccessRate() float64 {
+// BroadcastSendSuccessRate returns the broadcast send success rate
+func (q *Qos) BroadcastSendSuccessRate() float64 {
 	success := atomic.LoadUint64(&q.broadcastSendSuccess)
 	total := atomic.LoadUint64(&q.broadcastSendCount)
 	return float64(success) / float64(total)
 }
 
-func (q *qos) broadcastRecvTotal() uint64 {
+// BroadcastRecvTotal returns the total amount of broadcast received
+func (q *Qos) BroadcastRecvTotal() uint64 {
 	return atomic.LoadUint64(&q.broadcastRecvCount)
 }
 
-func (q *qos) unicastSendTotal(peername string) (uint64, bool) {
+// UnicastSendTotal returns the total amount of unicast sent to peer
+func (q *Qos) UnicastSendTotal(peername string) (uint64, bool) {
 	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {
@@ -118,7 +124,8 @@ func (q *qos) unicastSendTotal(peername string) (uint64, bool) {
 	return atomic.LoadUint64(&peer.unicastSendCount), true
 }
 
-func (q *qos) unicastSendSuccessRate(peername string) (float64, bool) {
+// UnicastSendSuccessRate returns the unicast send success rate
+func (q *Qos) UnicastSendSuccessRate(peername string) (float64, bool) {
 	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {
@@ -131,7 +138,8 @@ func (q *qos) unicastSendSuccessRate(peername string) (float64, bool) {
 	return float64(success) / float64(total), true
 }
 
-func (q *qos) unicastRecvTotal(peername string) (uint64, bool) {
+// UnicastRecvTotal returns the total amount of unicast received from peer
+func (q *Qos) UnicastRecvTotal(peername string) (uint64, bool) {
 	q.lock.RLock()
 	peer, exist := q.metrics[peername]
 	if !exist {

@@ -87,7 +87,7 @@ type Agent struct {
 	unicastBlocklist           *BlockList
 	reconnectTimeout           time.Duration
 	reconnectTask              *routine.RecurringTask
-	qosMetrics                 *qos
+	qosMetrics                 *Qos
 }
 
 // NewAgent instantiates a local P2P agent instance
@@ -102,7 +102,7 @@ func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicas
 		unicastInboundAsyncHandler: unicastHandler,
 		unicastBlocklist:           NewBlockList(blockListLen),
 		reconnectTimeout:           30 * cfg.DardanellesUpgrade.BlockInterval,
-		qosMetrics:                 newQoS(time.Now(), 60*cfg.DardanellesUpgrade.BlockInterval),
+		qosMetrics:                 NewQoS(time.Now(), 60*cfg.DardanellesUpgrade.BlockInterval),
 	}
 }
 
@@ -411,34 +411,9 @@ func (p *Agent) Neighbors(ctx context.Context) ([]peerstore.PeerInfo, error) {
 	return res, nil
 }
 
-// BroadcastSendTotal returns total amount of broadcast send
-func (p *Agent) BroadcastSendTotal() uint64 {
-	return p.qosMetrics.broadcastSendTotal()
-}
-
-// BroadcastSendSuccessRate return the broadcast send success rate
-func (p *Agent) BroadcastSendSuccessRate() float64 {
-	return p.qosMetrics.broadcastSendSuccessRate()
-}
-
-// BroadcastRecvTotal returns total amount of broadcast recv
-func (p *Agent) BroadcastRecvTotal() uint64 {
-	return p.qosMetrics.broadcastRecvTotal()
-}
-
-// UnicastSendTotal returns total amount of unicast send to peer
-func (p *Agent) UnicastSendTotal(name string) (uint64, bool) {
-	return p.qosMetrics.unicastSendTotal(name)
-}
-
-// UnicastSendSuccessRate return the unicast send success rate
-func (p *Agent) UnicastSendSuccessRate(name string) (float64, bool) {
-	return p.qosMetrics.unicastSendSuccessRate(name)
-}
-
-// UnicastRecvTotal returns total amount of unicast recv from peer
-func (p *Agent) UnicastRecvTotal(name string) (uint64, bool) {
-	return p.qosMetrics.unicastRecvTotal(name)
+// QosMetrics returns the Qos metrics
+func (p *Agent) QosMetrics() *Qos {
+	return p.qosMetrics
 }
 
 // connect connects to bootstrap nodes
