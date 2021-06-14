@@ -521,14 +521,11 @@ func TestProtocol_Validate(t *testing.T) {
 	p := NewProtocol(func(uint64) (hash.Hash256, error) {
 		return hash.ZeroHash256, nil
 	}, rewarding.DepositGas)
+	data := make([]byte, 32769)
 
-	t.Run("Oversized data", func(t *testing.T) {
-		tmpPayload := [32769]byte{}
-		data := tmpPayload[:]
-		ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
-		require.NoError(err)
-		require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
-	})
+	ex, err := action.NewExecution("2", uint64(1), big.NewInt(0), uint64(0), big.NewInt(0), data)
+	require.NoError(err)
+	require.Equal(action.ErrActPool, errors.Cause(p.Validate(context.Background(), ex, nil)))
 }
 
 func TestProtocol_Handle(t *testing.T) {
