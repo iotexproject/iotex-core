@@ -277,7 +277,6 @@ func (m *endorsementManager) PutEndorsementManagerToDB() error {
 
 func (m *endorsementManager) SetIsMarjorityFunc(isMajorityFunc EndorsedByMajorityFunc) {
 	m.isMajorityFunc = isMajorityFunc
-	return
 }
 
 func (m *endorsementManager) fromProto(managerPro *endorsementpb.EndorsementManager) error {

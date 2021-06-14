@@ -113,7 +113,7 @@ func (tlt *twoLayerTrie) stop(ctx context.Context, hkey string, lt *layerTwo) (e
 		if err != nil {
 			return err
 		}
-		if bytes.Compare(rh, lt.originHash) != 0 {
+		if !bytes.Equal(rh, lt.originHash) {
 			if lt.tr.IsEmpty() {
 				return tlt.layerOne.Delete(key)
 			}
