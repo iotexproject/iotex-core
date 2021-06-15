@@ -9,8 +9,8 @@ package staking
 import (
 	"context"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 

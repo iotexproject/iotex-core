@@ -7,12 +7,12 @@
 package rolldpos
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/endorsement"
 	"github.com/iotexproject/iotex-core/pkg/util/byteutil"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
+	"google.golang.org/protobuf/proto"
 )
 
 type blockProposal struct {

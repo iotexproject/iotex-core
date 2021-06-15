@@ -287,7 +287,6 @@ func (bfx *bloomfilterIndexer) addLogsToRangeBloomFilter(ctx context.Context, bl
 			}
 		}
 	}
-	return
 }
 
 func (bfx *bloomfilterIndexer) getRangeFilters(start, end uint64) ([]*bloomRange, error) {

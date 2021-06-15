@@ -97,15 +97,13 @@ func NewAccountDelete(c ioctl.Client) *cobra.Command {
 			}
 			account, err := address.FromString(addr)
 			if err != nil {
-				return output.NewError(output.ConvertError, fmt.Sprintf(failToConvertStringIntoAddress),
-					nil)
+				return output.NewError(output.ConvertError, failToConvertStringIntoAddress, nil)
 			}
 			ks := c.NewKeyStore(config.ReadConfig.Wallet, keystore.StandardScryptN, keystore.StandardScryptP)
 			for _, v := range ks.Accounts() {
 				if bytes.Equal(account.Bytes(), v.Address.Bytes()) {
 					var confirm string
-					info := fmt.Sprintf(infoWarn)
-					message := output.ConfirmationMessage{Info: info, Options: []string{"yes"}}
+					message := output.ConfirmationMessage{Info: infoWarn, Options: []string{"yes"}}
 					fmt.Println(message.String())
 					fmt.Scanf("%s", &confirm)
 					if !strings.EqualFold(confirm, "yes") {

@@ -166,10 +166,9 @@ func (p *Protocol) assertEqualLength(addrs []address.Address, amounts []*big.Int
 
 func (p *Protocol) assertAmounts(amounts []*big.Int) error {
 	for _, amount := range amounts {
-		if amount.Cmp(big.NewInt(0)) >= 0 {
-			return nil
+		if amount.Cmp(big.NewInt(0)) < 0 {
+			return errors.Errorf("account amount %s shouldn't be negative", amount.String())
 		}
-		return errors.Errorf("account amount %s shouldn't be negative", amount.String())
 	}
 	return nil
 }

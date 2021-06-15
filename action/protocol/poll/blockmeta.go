@@ -9,9 +9,9 @@ package poll
 import (
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol/poll/blockmetapb"
 )

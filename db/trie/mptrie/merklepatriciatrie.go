@@ -11,10 +11,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"

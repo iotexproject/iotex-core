@@ -538,5 +538,4 @@ func (sdb *stateDB) putIntoWorkingSets(key hash.Hash256, ws *workingSet) {
 	sdb.mutex.Lock()
 	defer sdb.mutex.Unlock()
 	sdb.workingsets.Add(key, ws)
-	return
 }

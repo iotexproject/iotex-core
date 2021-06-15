@@ -341,6 +341,7 @@ func TestNativeStaking(t *testing.T) {
 
 		// withdraw	with correct timestamp
 		ws, err = action.SignedReclaimStake(true, 4, selfstakeIndex1, nil, gasLimit, gasPrice, cand1PriKey)
+		require.NoError(err)
 		require.NoError(ap.Add(context.Background(), ws))
 		require.NoError(createAndCommitBlock(bc, ap, unstakeTime.Add(cfg.Genesis.WithdrawWaitingPeriod)))
 

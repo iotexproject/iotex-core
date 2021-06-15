@@ -42,6 +42,7 @@ func benchTrieGet(b *testing.B, async, withDB bool) {
 		cfg.DbPath = testPath
 		dao := db.NewBoltDB(cfg)
 		flusher, err := db.NewKVStoreFlusher(dao, batch.NewCachedBatch())
+		require.NoError(err)
 		flusherKV := flusher.KVStoreWithBuffer()
 		flush = flusher.Flush
 		kvStore, err := trie.NewKVStore("test", flusherKV)

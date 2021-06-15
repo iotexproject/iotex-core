@@ -635,11 +635,7 @@ func currentEpochProductivity(sr protocol.StateReader, start uint64, end uint64,
 		if blockmeta.Height < start || blockmeta.Height > end {
 			continue
 		}
-		if _, ok := stats[blockmeta.Producer]; ok {
-			stats[blockmeta.Producer]++
-		} else {
-			stats[blockmeta.Producer] = 1
-		}
+		stats[blockmeta.Producer]++
 		count++
 	}
 	if expectedCount != count {

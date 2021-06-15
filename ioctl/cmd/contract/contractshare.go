@@ -32,10 +32,7 @@ var (
 
 	upgrade = websocket.Upgrader{
 		CheckOrigin: func(r *http.Request) bool {
-			if iotexIDE == r.Header["Origin"][0] {
-				return true
-			}
-			return false
+			return iotexIDE == r.Header["Origin"][0]
 		},
 	}
 )
@@ -186,7 +183,6 @@ func share(args []string) error {
 				response.Payload = nil
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send handshake response", err)
-					break
 				}
 			case "list":
 				payload := make(map[string]bool)
@@ -196,7 +192,6 @@ func share(args []string) error {
 				response.Payload = payload
 				if err := conn.WriteJSON(&response); err != nil {
 					log.Println("send list response", err)
-					break
 				}
 			case "get":
 				payload := map[string]interface{}{}
