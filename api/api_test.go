@@ -17,12 +17,12 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/go-pkgs/hash"
@@ -1528,7 +1528,7 @@ func TestServer_EstimateActionGasConsumption(t *testing.T) {
 		Action:        nil,
 		CallerAddress: identityset.Address(0).String(),
 	}
-	res, err = svr.EstimateActionGasConsumption(context.Background(), request)
+	_, err = svr.EstimateActionGasConsumption(context.Background(), request)
 	require.Error(err)
 }
 
@@ -2546,6 +2546,6 @@ func TestServer_GetActPoolActions(t *testing.T) {
 	require.Equal(2, len(res.Actions))
 
 	h3 := tsf3.Hash()
-	res, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
+	_, err = svr.GetActPoolActions(context.Background(), &iotexapi.GetActPoolActionsRequest{ActionHashes: []string{hex.EncodeToString(h3[:])}})
 	require.Error(err)
 }

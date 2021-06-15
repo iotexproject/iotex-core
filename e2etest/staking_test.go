@@ -145,9 +145,9 @@ func TestStakingContract(t *testing.T) {
 			cfg.Genesis,
 		)
 		bcCtx := protocol.MustGetBlockchainCtx(ctx)
-		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
+		_, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, false)
 		require.Equal(poll.ErrNoData, err)
-		tally, err = ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
+		tally, err := ns.Votes(ctx, bcCtx.Tip.Timestamp, true)
 		require.NoError(err)
 		require.Equal(numVoter*int(numBucket), len(tally.Candidates))
 		require.Equal(numVoter*int(numBucket), len(tally.Buckets))

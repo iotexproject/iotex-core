@@ -371,7 +371,7 @@ func TestSnapshotRevertAndCommit(t *testing.T) {
 			}
 			// test preimage
 			for _, e := range test.preimage {
-				v, _ := stateDB.preimages[e.hash]
+				v := stateDB.preimages[e.hash]
 				require.Equal(e.v, []byte(v))
 			}
 		}

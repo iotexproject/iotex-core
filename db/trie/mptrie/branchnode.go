@@ -7,8 +7,8 @@
 package mptrie
 
 import (
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/db/trie"
 	"github.com/iotexproject/iotex-core/db/trie/triepb"
@@ -26,7 +26,7 @@ func newBranchNode(
 	mpt *merklePatriciaTrie,
 	children map[byte]node,
 ) (node, error) {
-	if children == nil || len(children) == 0 {
+	if len(children) == 0 {
 		return nil, errors.New("branch node children cannot be empty")
 	}
 	bnode := &branchNode{

@@ -348,7 +348,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se1, err := action.Sign(e1, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err := p.Handle(ctx, se1.Action(), sm)
+	_, err = p.Handle(ctx, se1.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err := p.TotalBalance(ctx, sm)
 	require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se2, err := action.Sign(e2, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se2.Action(), sm)
+	receipt, err := p.Handle(ctx, se2.Action(), sm)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(iotextypes.ReceiptStatus_Success), receipt.Status)
 	assert.Equal(t, 1, len(receipt.Logs()))
@@ -381,7 +381,7 @@ func TestProtocol_Handle(t *testing.T) {
 	se3, err := action.Sign(e3, identityset.PrivateKey(0))
 	require.NoError(t, err)
 
-	receipt, err = p.Handle(ctx, se3.Action(), sm)
+	_, err = p.Handle(ctx, se3.Action(), sm)
 	require.NoError(t, err)
 	balance, _, err = p.TotalBalance(ctx, sm)
 	require.NoError(t, err)

@@ -77,7 +77,6 @@ func (ps *pubSub) SendBlockToSubscribers(blk *block.Block) {
 	for _, elem := range ps.blocklisteners {
 		elem.pendingBlksBuffer <- blk
 	}
-	return
 }
 
 func (ps *pubSub) handler(cancelChan <-chan interface{}, pendingBlks <-chan *block.Block, s BlockCreationSubscriber) {

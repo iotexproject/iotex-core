@@ -227,7 +227,7 @@ func TestNewFdInterface(t *testing.T) {
 			r.Equal(db.ErrNotExist, errors.Cause(err))
 			_, err = fd.GetReceipts(i)
 			r.Equal(db.ErrNotExist, errors.Cause(err))
-			log, err = fd.TransactionLogs(i)
+			_, err = fd.TransactionLogs(i)
 			r.Equal(ErrNotSupported, err)
 		}
 
