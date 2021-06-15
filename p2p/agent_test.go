@@ -51,6 +51,9 @@ func TestBroadcast(t *testing.T) {
 	bootnodePort := testutil.RandomPort()
 	cfg := config.Config{
 		Network: config.Network{Host: "127.0.0.1", Port: bootnodePort},
+		DardanellesUpgrade: config.DardanellesUpgrade{
+			BlockInterval: 5 * time.Second,
+		},
 	}
 	bootnode := NewAgent(cfg, b, u)
 	require.NoError(t, bootnode.Start(ctx))
@@ -67,13 +70,8 @@ func TestBroadcast(t *testing.T) {
 	require.NoError(t, err)
 	for i := 0; i < n; i++ {
 		port := bootnodePort + i + 1
-		cfg := config.Config{
-			Network: config.Network{
-				Host:           "127.0.0.1",
-				Port:           port,
-				BootstrapNodes: []string{addrs[0].String()},
-			},
-		}
+		cfg.Network.Port = port
+		cfg.Network.BootstrapNodes = []string{addrs[0].String()}
 		agent := NewAgent(cfg, b, u)
 		require.NoError(t, agent.Start(ctx))
 		require.NoError(t, testutil.WaitUntil(100*time.Millisecond, 10*time.Second, func() (b bool, e error) {
@@ -130,21 +128,20 @@ func TestUnicast(t *testing.T) {
 		src = peer.ID.Pretty()
 	}
 
-	bootnode := NewAgent(config.Config{
+	cfg := config.Config{
 		Network: config.Network{Host: "127.0.0.1", Port: testutil.RandomPort()},
-	}, b, u)
+		DardanellesUpgrade: config.DardanellesUpgrade{
+			BlockInterval: 5 * time.Second,
+		},
+	}
+	bootnode := NewAgent(cfg, b, u)
 	require.NoError(t, bootnode.Start(ctx))
 
 	addrs, err := bootnode.Self()
 	require.NoError(t, err)
 	for i := 0; i < n; i++ {
-		cfg := config.Config{
-			Network: config.Network{
-				Host:           "127.0.0.1",
-				Port:           testutil.RandomPort(),
-				BootstrapNodes: []string{addrs[0].String()},
-			},
-		}
+		cfg.Network.Port = testutil.RandomPort()
+		cfg.Network.BootstrapNodes = []string{addrs[0].String()}
 		agent := NewAgent(cfg, b, u)
 		require.NoError(t, agent.Start(ctx))
 		agents = append(agents, agent)
