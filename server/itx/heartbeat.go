@@ -18,11 +18,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/iotexproject/iotex-core/config"
 	"github.com/iotexproject/iotex-core/consensus"
 	"github.com/iotexproject/iotex-core/consensus/scheme"
 	"github.com/iotexproject/iotex-core/consensus/scheme/rolldpos"
 	"github.com/iotexproject/iotex-core/dispatcher"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/version"
 	statedb "github.com/iotexproject/iotex-core/state"
@@ -59,7 +59,7 @@ type HeartbeatHandler struct {
 }
 
 // NewHeartbeatHandler instantiates a HeartbeatHandler instance
-func NewHeartbeatHandler(s *Server, cfg config.Network) *HeartbeatHandler {
+func NewHeartbeatHandler(s *Server, cfg p2p.Network) *HeartbeatHandler {
 	return &HeartbeatHandler{
 		s: s,
 		l: log.L().With(zap.String("networkAddr", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port))),

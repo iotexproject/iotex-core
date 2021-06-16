@@ -57,7 +57,7 @@ func newServer(cfg config.Config, testing bool) (*Server, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "fail to create dispatcher")
 	}
-	p2pAgent := p2p.NewAgent(cfg, dispatcher.HandleBroadcast, dispatcher.HandleTell)
+	p2pAgent := p2p.NewAgent(cfg.Network, cfg.Genesis.Hash(), dispatcher.HandleBroadcast, dispatcher.HandleTell)
 	chains := make(map[uint32]*chainservice.ChainService)
 	var cs *chainservice.ChainService
 	var opts []chainservice.Option
