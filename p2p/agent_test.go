@@ -18,8 +18,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
-	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-proto/golang/testingpb"
+
+	"github.com/iotexproject/iotex-core/testutil"
 )
 
 func TestBroadcast(t *testing.T) {
