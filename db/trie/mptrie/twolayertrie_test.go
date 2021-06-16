@@ -30,6 +30,6 @@ func TestTwoLayerTrie(t *testing.T) {
 	require.Equal(t, []byte("value"), value)
 	require.Error(t, tlt.Delete([]byte("layerOneKey111111111"), []byte("layerTwoKey2")))
 	require.NoError(t, tlt.Delete([]byte("layerOneKey111111111"), []byte("layerTwoKey1")))
-	value, err = tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))
+	_, err = tlt.Get([]byte("layerOneKey111111111"), []byte("layerTwoKey1"))
 	require.Error(t, err)
 }

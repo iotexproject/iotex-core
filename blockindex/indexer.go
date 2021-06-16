@@ -413,7 +413,7 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	}
 	dstAddrBytes := dstAddr.Bytes()
 
-	if bytes.Compare(dstAddrBytes, callerAddrBytes) == 0 {
+	if bytes.Equal(dstAddrBytes, callerAddrBytes) {
 		// recipient is same as sender
 		return nil
 	}

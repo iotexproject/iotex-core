@@ -11,9 +11,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 

@@ -17,7 +17,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/pkg/errors"
@@ -27,6 +26,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-address/address"
@@ -705,6 +705,9 @@ func (api *Server) GetLogs(
 			return nil, status.Error(codes.InvalidArgument, "invalid block hash")
 		}
 		logs, err = api.getLogsInBlock(logfilter.NewLogFilter(in.GetFilter(), nil, nil), startBlock)
+		if err != nil {
+			return nil, err
+		}
 	case in.GetByRange() != nil:
 		req := in.GetByRange()
 		startBlock := req.GetFromBlock()
@@ -863,7 +866,7 @@ func (api *Server) GetTransactionLogByActionHash(
 	}
 
 	for _, log := range sysLog.Logs {
-		if bytes.Compare(h, log.ActionHash) == 0 {
+		if bytes.Equal(h, log.ActionHash) {
 			return &iotexapi.GetTransactionLogByActionHashResponse{
 				TransactionLog: log,
 			}, nil

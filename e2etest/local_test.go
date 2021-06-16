@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	multiaddr "github.com/multiformats/go-multiaddr"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
@@ -89,7 +89,8 @@ func TestLocalCommit(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	p := p2p.NewAgent(
-		cfg,
+		cfg.Network,
+		cfg.Genesis.Hash(),
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 		},
 		func(_ context.Context, _ uint32, _ peerstore.PeerInfo, _ proto.Message) {

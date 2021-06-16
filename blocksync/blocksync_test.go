@@ -24,7 +24,6 @@ import (
 	"github.com/iotexproject/iotex-core/action/protocol/rolldpos"
 	"github.com/iotexproject/iotex-core/actpool"
 	"github.com/iotexproject/iotex-core/blockchain"
-	bc "github.com/iotexproject/iotex-core/blockchain"
 	"github.com/iotexproject/iotex-core/blockchain/block"
 	"github.com/iotexproject/iotex-core/blockchain/blockdao"
 	"github.com/iotexproject/iotex-core/config"
@@ -38,7 +37,7 @@ import (
 	"github.com/iotexproject/iotex-core/testutil"
 )
 
-func newBlockSyncer(cfg config.BlockSync, chain bc.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
+func newBlockSyncer(cfg config.BlockSync, chain blockchain.Blockchain, dao blockdao.BlockDAO, cs consensus.Consensus) (*blockSyncer, error) {
 	bs, err := NewBlockSyncer(cfg, chain.TipHeight, func(h uint64) (*block.Block, error) {
 		return dao.GetBlockByHeight(h)
 	}, func(blk *block.Block) error {
@@ -190,7 +189,7 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain := bc.NewBlockchain(
+	chain := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		factory.NewMinter(sf, ap),
@@ -254,11 +253,11 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain1 := bc.NewBlockchain(
+	chain1 := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		factory.NewMinter(sf, ap1),
-		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NotNil(chain1)
 	require.NoError(chain1.Start(ctx))
@@ -278,11 +277,11 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
-	chain2 := bc.NewBlockchain(
+	chain2 := blockchain.NewBlockchain(
 		cfg,
 		dao2,
 		factory.NewMinter(sf2, ap2),
-		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NotNil(chain2)
 	require.NoError(chain2.Start(ctx))
@@ -354,11 +353,11 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	require.NoError(err)
 	ap1.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain1 := bc.NewBlockchain(
+	chain1 := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		factory.NewMinter(sf, ap1),
-		bc.BlockValidatorOption(block.NewValidator(sf, ap1)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap1)),
 	)
 	require.NoError(chain1.Start(ctx))
 	require.NotNil(chain1)
@@ -377,11 +376,11 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	require.NoError(err)
 	ap2.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf2, accountutil.AccountState))
 	dao2 := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf2})
-	chain2 := bc.NewBlockchain(
+	chain2 := blockchain.NewBlockchain(
 		cfg,
 		dao2,
 		factory.NewMinter(sf2, ap2),
-		bc.BlockValidatorOption(block.NewValidator(sf2, ap2)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf2, ap2)),
 	)
 	require.NoError(chain2.Start(ctx))
 	require.NotNil(chain2)
@@ -446,11 +445,11 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain := bc.NewBlockchain(
+	chain := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		factory.NewMinter(sf, ap),
-		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
@@ -528,11 +527,11 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(err)
 	ap.AddActionEnvelopeValidators(protocol.NewGenericValidator(sf, accountutil.AccountState))
 	dao := blockdao.NewBlockDAOInMemForTest([]blockdao.BlockIndexer{sf})
-	chain := bc.NewBlockchain(
+	chain := blockchain.NewBlockchain(
 		cfg,
 		dao,
 		factory.NewMinter(sf, ap),
-		bc.BlockValidatorOption(block.NewValidator(sf, ap)),
+		blockchain.BlockValidatorOption(block.NewValidator(sf, ap)),
 	)
 	require.NotNil(chain)
 	require.NoError(chain.Start(ctx))

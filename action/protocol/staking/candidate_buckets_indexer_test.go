@@ -38,7 +38,7 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 		SelfStakeBucketIdx: 123,
 	})
 
-	require.EqualError(cbi.PutCandidates(0, nil), "proto: Marshal called with nil")
+	require.NoError(cbi.PutCandidates(0, nil))
 
 	tests := []struct {
 		height     uint64
@@ -98,7 +98,7 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 		AutoStake: true,
 	})
 
-	require.EqualError(cbi.PutBuckets(0, nil), "proto: Marshal called with nil")
+	require.NoError(cbi.PutBuckets(0, nil))
 
 	tests := []struct {
 		height  uint64

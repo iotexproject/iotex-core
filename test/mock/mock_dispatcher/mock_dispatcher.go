@@ -7,11 +7,11 @@ package mock_dispatcher
 import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
-	proto "github.com/golang/protobuf/proto"
 	dispatcher "github.com/iotexproject/iotex-core/dispatcher"
 	iotexrpc "github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	iotextypes "github.com/iotexproject/iotex-proto/golang/iotextypes"
 	go_libp2p_peerstore "github.com/libp2p/go-libp2p-peerstore"
+	proto "google.golang.org/protobuf/proto"
 	reflect "reflect"
 )
 

@@ -9,9 +9,9 @@ package staking
 import (
 	"math/big"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action/protocol"
 	"github.com/iotexproject/iotex-core/action/protocol/staking/stakingpb"

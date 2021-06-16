@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
@@ -80,6 +80,7 @@ func TestClient(t *testing.T) {
 	indexer, err := blockindex.NewIndexer(db.NewMemKVStore(), hash.ZeroHash256)
 	require.NoError(err)
 	bfIndexer, err := blockindex.NewBloomfilterIndexer(db.NewMemKVStore(), cfg.Indexer)
+	require.NoError(err)
 	apiServer, err := api.NewServer(cfg, bc, nil, sf, nil, indexer, bfIndexer, ap, nil, newOption)
 	require.NoError(err)
 	require.NoError(apiServer.Start())

@@ -14,12 +14,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"

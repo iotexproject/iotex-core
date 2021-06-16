@@ -632,10 +632,7 @@ func testFactoryStates(sf Factory, t *testing.T) {
 	namespaceOpt = protocol.NamespaceOption(AccountKVNamespace)
 	addrHash := hash.BytesToHash160(identityset.Address(28).Bytes())
 	cond := func(k, v []byte) bool {
-		if bytes.Equal(k, addrHash[:]) {
-			return true
-		}
-		return false
+		return bytes.Equal(k, addrHash[:])
 	}
 	condOpt := protocol.FilterOption(cond, nil, nil)
 	height, iter, err = sf.States(condOpt, namespaceOpt)

@@ -154,7 +154,7 @@ func TestFileDAOLegacy_getBlockValue(t *testing.T) {
 	r.Equal(value, header)
 
 	// getBlockValue when NS is not exist
-	value, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
+	_, err = legacy.getBlockValue(blockHeaderNS+"_error_case", blk.HashBlock())
 	r.Error(db.ErrNotExist, errors.Cause(err))
 
 	r.NoError(legacy.Stop(ctx))

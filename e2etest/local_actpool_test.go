@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/go-pkgs/crypto"
 
@@ -51,7 +51,8 @@ func TestLocalActPool(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
-		cfg,
+		cfg.Network,
+		cfg.Genesis.Hash(),
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},
@@ -128,7 +129,8 @@ func TestPressureActPool(t *testing.T) {
 	require.NoError(err)
 	cfg.Network.BootstrapNodes = []string{validNetworkAddr(addrs)}
 	cli := p2p.NewAgent(
-		cfg,
+		cfg.Network,
+		cfg.Genesis.Hash(),
 		func(_ context.Context, _ uint32, _ string, _ proto.Message) {
 
 		},

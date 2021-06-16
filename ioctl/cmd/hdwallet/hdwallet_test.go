@@ -64,7 +64,7 @@ func Test_Hdwallet(t *testing.T) {
 	enctxt = append([]byte(mnemonic), util.HashSHA256([]byte(mnemonic))...)
 	enckey = util.HashSHA256([]byte(password))
 
-	out, err = util.Encrypt(enctxt, enckey)
+	_, err = util.Encrypt(enctxt, enckey)
 	require.NoError(err)
 
 	// compare import and create

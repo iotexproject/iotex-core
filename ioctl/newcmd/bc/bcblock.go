@@ -26,10 +26,6 @@ import (
 	"github.com/iotexproject/iotex-core/ioctl/validator"
 )
 
-var (
-	verbose bool
-)
-
 // Multi-language support
 var (
 	bcBlockCmdShorts = map[config.Language]string{
