@@ -390,21 +390,13 @@ func (x *blockIndexer) getIndexerForAddr(addr []byte, batch bool) (db.CountingIn
 func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelope, insert bool) error {
 	// add to sender's index
 	callerAddrBytes := elp.SrcPubkey().Hash()
-	sender, err := x.getIndexerForAddr(callerAddrBytes, insert)
-	if err != nil {
-		return err
-	}
-	if insert {
-		err = sender.Add(actHash[:], insert)
-	} else {
-		err = sender.Revert(1)
-	}
-	if err != nil {
+	if err := x.updateIndexer(actHash, callerAddrBytes, insert); err != nil {
 		return err
 	}
 
+	// add to recipient's index
 	dst, ok := elp.Destination()
-	if !ok || dst == "" {
+	if !ok {
 		return nil
 	}
 	dstAddr, err := address.FromString(dst)
@@ -414,19 +406,27 @@ func (x *blockIndexer) indexAction(actHash hash.Hash256, elp action.SealedEnvelo
 	dstAddrBytes := dstAddr.Bytes()
 
 	if bytes.Equal(dstAddrBytes, callerAddrBytes) {
-		// recipient is same as sender
 		return nil
 	}
+	if err := x.updateIndexer(actHash, dstAddrBytes, insert); err != nil {
+		return err
+	}
+	return nil
 
-	// add to recipient's index
-	recipient, err := x.getIndexerForAddr(dstAddrBytes, insert)
+	//add to the index of destination in contract
+
+}
+
+// TODO:
+func (x *blockIndexer) updateIndexer(actHash hash.Hash256, addrBytes []byte, isInsert bool) error {
+	indexer, err := x.getIndexerForAddr(addrBytes, isInsert)
 	if err != nil {
 		return err
 	}
-	if insert {
-		err = recipient.Add(actHash[:], insert)
+	if isInsert {
+		err = indexer.Add(actHash[:], true)
 	} else {
-		err = recipient.Revert(1)
+		err = indexer.Revert(1)
 	}
 	return err
 }

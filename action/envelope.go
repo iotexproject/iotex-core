@@ -43,10 +43,9 @@ func (elp *envelope) Nonce() uint64 { return elp.nonce }
 // Destination returns the destination address
 func (elp *envelope) Destination() (string, bool) {
 	r, ok := elp.payload.(hasDestination)
-	if !ok {
+	if !ok || r.Destination() == "" {
 		return "", false
 	}
-
 	return r.Destination(), true
 }
 
