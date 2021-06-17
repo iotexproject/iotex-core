@@ -49,8 +49,8 @@ type (
 		KVStore
 		// Insert inserts a value into the index
 		Insert([]byte, uint64, []byte) error
-		// Seek returns value by the key
-		Seek([]byte, uint64) ([]byte, error)
+		// SeekNext returns value by the key (if key not exist, use next key)
+		SeekNext([]byte, uint64) ([]byte, error)
 		// Remove removes an existing key
 		Remove([]byte, uint64) error
 		// Purge deletes an existing key and all keys before it
@@ -59,5 +59,7 @@ type (
 		GetBucketByPrefix([]byte) ([][]byte, error)
 		// GetKeyByPrefix retrieves all keys those with const prefix
 		GetKeyByPrefix(namespace, prefix []byte) ([][]byte, error)
+		// SeekPrev returns value by the key (if key not exist, use previous key)
+		SeekPrev([]byte, uint64) ([]byte, error)
 	}
 )
