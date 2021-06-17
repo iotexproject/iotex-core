@@ -75,12 +75,15 @@ func (p *Protocol) Handle(ctx context.Context, act action.Action, sm protocol.St
 	return receipt, nil
 }
 
-// Validate validates the size of an execution
+// Validate validates an execution
 func (p *Protocol) Validate(_ context.Context, act action.Action, _ protocol.StateReader) error {
-	if exec, ok := act.(*action.Execution); ok {
-		if exec.TotalSize() > ExecutionSizeLimit {
-			return errors.Wrap(action.ErrActPool, "oversized data")
-		}
+	exec, ok := act.(*action.Execution)
+	if !ok {
+		return nil
+	}
+	// Reject oversize execution
+	if exec.TotalSize() > ExecutionSizeLimit {
+		return errors.Wrap(action.ErrActPool, "oversized data")
 	}
 	return nil
 }
