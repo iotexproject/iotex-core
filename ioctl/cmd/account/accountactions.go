@@ -91,6 +91,9 @@ func accountActions(args []string) error {
 		Address: addr,
 	}
 	accountResponse, err := cli.GetAccount(ctx, &requestGetAccount)
+	if err != nil {
+		return output.NewError(output.APIError, "failed to get account", err)
+	}
 	numActions := accountResponse.AccountMeta.GetNumActions()
 	fmt.Println("Total:", numActions)
 	requestGetAction := iotexapi.GetActionsRequest{

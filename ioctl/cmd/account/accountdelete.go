@@ -61,8 +61,7 @@ func accountDelete(arg string) error {
 	}
 	account, err := address.FromString(addr)
 	if err != nil {
-		return output.NewError(output.ConvertError, fmt.Sprintf("failed to convert string into address"),
-			nil)
+		return output.NewError(output.ConvertError, "failed to convert string into address", nil)
 	}
 
 	var filePath string

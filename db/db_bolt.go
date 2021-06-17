@@ -344,7 +344,7 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 		}
 	}
 	if err != nil {
-		err = errors.Wrap(ErrIO, err.Error())
+		return errors.Wrap(ErrIO, err.Error())
 	}
 	return nil
 }

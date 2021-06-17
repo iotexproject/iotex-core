@@ -63,9 +63,9 @@ func TestReadFileHeader(t *testing.T) {
 	cfg.DbPath = "./filedao_v2.db"
 
 	// test non-existing file
-	h, err := readFileHeader(cfg.DbPath, FileLegacyMaster)
+	_, err := readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileNotExist, err)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileNotExist, err)
 
 	// empty legacy file is invalid
@@ -74,9 +74,9 @@ func TestReadFileHeader(t *testing.T) {
 	ctx := context.Background()
 	r.NoError(legacy.Start(ctx))
 	r.NoError(legacy.Stop(ctx))
-	h, err = readFileHeader(cfg.DbPath, FileLegacyMaster)
+	_, err = readFileHeader(cfg.DbPath, FileLegacyMaster)
 	r.Equal(ErrFileInvalid, err)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	_, err = readFileHeader(cfg.DbPath, FileAll)
 	r.Equal(ErrFileInvalid, err)
 
 	// commit 1 block to make it a valid legacy file
@@ -102,7 +102,7 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileLegacyMaster, nil},
 	}
 	for _, v := range test1 {
-		h, err = readFileHeader(cfg.DbPath, v.checkType)
+		h, err := readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
@@ -121,7 +121,7 @@ func TestReadFileHeader(t *testing.T) {
 		{FileAll, FileV2, nil},
 	}
 	for _, v := range test2 {
-		h, err = readFileHeader(cfg.DbPath, v.checkType)
+		h, err := readFileHeader(cfg.DbPath, v.checkType)
 		r.Equal(v.err, err)
 		if err == nil {
 			r.Equal(v.version, h.Version)
@@ -140,14 +140,14 @@ func TestNewFileDAOSplitV2(t *testing.T) {
 	defer os.RemoveAll(cfg.DbPath)
 
 	// test non-existing file
-	h, err := checkMasterChainDBFile(cfg.DbPath)
+	_, err := checkMasterChainDBFile(cfg.DbPath)
 	r.Equal(ErrFileNotExist, err)
 
 	// test empty db file, this will create new v2 file
 	fd, err := NewFileDAO(cfg)
 	r.NoError(err)
 	r.NotNil(fd)
-	h, err = readFileHeader(cfg.DbPath, FileAll)
+	h, err := readFileHeader(cfg.DbPath, FileAll)
 	r.NoError(err)
 	r.Equal(FileV2, h.Version)
 	ctx := context.Background()

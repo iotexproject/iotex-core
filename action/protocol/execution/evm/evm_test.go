@@ -232,7 +232,7 @@ func TestGasEstimate(t *testing.T) {
 		require.Equal(v.gas-evmLeftOver, gasConsumed+v.refund)
 
 		// if we use gasConsumed + refund, EVM will consume the exact amount of gas
-		evmLeftOver, remainingGas, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
+		evmLeftOver, _, err = gasExecuteInEVM(gasConsumed+v.refund, v.consume, v.refund, v.data)
 		require.NoError(err)
 		require.Zero(evmLeftOver)
 	}

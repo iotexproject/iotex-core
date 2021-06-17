@@ -9,8 +9,8 @@ package vote
 import (
 	"sort"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	updpb "github.com/iotexproject/iotex-core/action/protocol/vote/unproductivedelegatepb"
 )
@@ -88,9 +88,7 @@ func (upd *UnproductiveDelegate) LoadProto(updPb *updpb.UnproductiveDelegate) er
 	var delegates [][]string
 	for _, delegatelistpb := range updPb.DelegateList {
 		var delegateElem []string
-		for _, str := range delegatelistpb.Delegates {
-			delegateElem = append(delegateElem, str)
-		}
+		delegateElem = append(delegateElem, delegatelistpb.Delegates...)
 		delegates = append(delegates, delegateElem)
 	}
 	upd.delegatelist = delegates

@@ -12,12 +12,12 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/iotexproject/go-pkgs/cache"
 	"github.com/iotexproject/go-pkgs/hash"
 	"github.com/iotexproject/iotex-proto/golang/iotextypes"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/iotexproject/iotex-core/action"
 	"github.com/iotexproject/iotex-core/blockchain/block"
@@ -41,8 +41,8 @@ const (
 var (
 	heightPrefix       = []byte("he.")
 	heightToFileBucket = []byte("h2f")
-	patternLen         = len("00000000.db")
-	suffixLen          = len(".db")
+	// patternLen         = len("00000000.db")
+	// suffixLen          = len(".db")
 )
 
 type (
@@ -499,10 +499,10 @@ func (fd *fileDAOLegacy) getTopDB(blkHeight uint64) (kvStore db.KVStore, index u
 	}
 	// file exists,but need create new db
 	if uint64(dat.Size()) > fd.cfg.SplitDBSize() {
-		kvStore, index, err = fd.openDB(topIndex + 1)
+		kvStore, index, _ = fd.openDB(topIndex + 1)
 		fd.topIndex.Store(index)
 		// index the height --> file index mapping
-		err = fd.indexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(index))
+		_ = fd.indexFile(blkHeight, byteutil.Uint64ToBytesBigEndian(index))
 		return
 	}
 	// db exist,need load from kvStores

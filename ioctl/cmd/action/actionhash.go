@@ -14,7 +14,7 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/golang/protobuf/proto"
+	protoV1 "github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/spf13/cobra"
@@ -182,7 +182,7 @@ func printActionProto(action *iotextypes.Action) (string, error) {
 			Match(senderAddress.String(), "address"))
 	switch {
 	default:
-		result += proto.MarshalTextString(action.Core)
+		result += protoV1.MarshalTextString(action.Core)
 	case action.Core.GetTransfer() != nil:
 		transfer := action.Core.GetTransfer()
 		amount, err := util.StringToIOTX(transfer.Amount)
@@ -257,7 +257,7 @@ func printReceiptProto(receipt *iotextypes.Receipt) string {
 func printLogs(logs []*iotextypes.Log) string {
 	result := "logs:<\n"
 	for _, l := range logs {
-		result += fmt.Sprintf("  <\n") +
+		result += "  <\n" +
 			fmt.Sprintf("    contractAddress: %s\n", l.ContractAddress) +
 			"    topics:<\n"
 		for _, topic := range l.Topics {

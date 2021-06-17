@@ -1280,8 +1280,8 @@ func TestProtocol_HandleWithdrawStake(t *testing.T) {
 			act, err := action.NewUnstake(1, 0, nil, gasLimit, big.NewInt(unit.Qev))
 			require.NoError(err)
 			intrinsic, err := act.IntrinsicGas()
-			actCost, err = act.Cost()
 			require.NoError(err)
+			actCost, err = act.Cost()
 			require.NoError(err)
 			ctx = protocol.WithActionCtx(ctx, protocol.ActionCtx{
 				Caller:       caller,

@@ -20,10 +20,6 @@ import (
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
-const (
-	stateDBPath1 = "stateDB1.test"
-)
-
 func TestBucketIndices(t *testing.T) {
 	require := require.New(t)
 
