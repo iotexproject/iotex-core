@@ -349,8 +349,8 @@ func (b *BoltDB) Insert(name []byte, key uint64, value []byte) error {
 	return nil
 }
 
-// Seek returns value by the key
-func (b *BoltDB) Seek(name []byte, key uint64) ([]byte, error) {
+// SeekNext returns value by the key (if key not exist, use next key)
+func (b *BoltDB) SeekNext(name []byte, key uint64) ([]byte, error) {
 	var value []byte
 	err := b.db.View(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(name)
@@ -365,6 +365,27 @@ func (b *BoltDB) Seek(name []byte, key uint64) ([]byte, error) {
 		return nil
 	})
 	if err != nil {
+		return nil, err
+	}
+	return value, nil
+}
+
+// SeekPrev returns value by the key (if key not exist, use previous key)
+func (b *BoltDB) SeekPrev(name []byte, key uint64) ([]byte, error) {
+	var value []byte
+	if err := b.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(name)
+		if bucket == nil {
+			return errors.Wrapf(ErrBucketNotExist, "bucket = %x doesn't exist", name)
+		}
+		// seek to start
+		cur := bucket.Cursor()
+		cur.Seek(byteutil.Uint64ToBytesBigEndian(key))
+		_, v := cur.Prev()
+		value = make([]byte, len(v))
+		copy(value, v)
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return value, nil
