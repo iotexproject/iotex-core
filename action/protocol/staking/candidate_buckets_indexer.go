@@ -25,10 +25,13 @@ const (
 	StakingCandidatesNamespace = "stakingCandidates"
 	// StakingBucketsNamespace is a namespace to store vote buckets with epoch start height
 	StakingBucketsNamespace = "stakingBuckets"
+	// StakingMetaNamespace is a namespace to store metadata
+	StakingMetaNamespace = "stakingMeta"
 )
 
 var (
-	indexerHeightKey     = []byte("latestHeight")
+	candHeightKey        = []byte("cht")
+	bucketHeightKey      = []byte("bht")
 	latestCandidatesHash = []byte("lch")
 	latestBucketsHash    = []byte("lbh")
 )
@@ -57,7 +60,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 	if err := cbi.kvStore.Start(ctx); err != nil {
 		return err
 	}
-	ret, err := cbi.kvStore.Get(StakingCandidatesNamespace, indexerHeightKey)
+	ret, err := cbi.kvStore.Get(StakingMetaNamespace, candHeightKey)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestCandidatesHeight = byteutil.BytesToUint64BigEndian(ret)
@@ -67,7 +70,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingCandidatesNamespace, latestCandidatesHash)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, latestCandidatesHash)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestCandidatesHash = hash.BytesToHash160(ret)
@@ -77,7 +80,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingBucketsNamespace, indexerHeightKey)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, bucketHeightKey)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestBucketsHeight = byteutil.BytesToUint64BigEndian(ret)
@@ -87,7 +90,7 @@ func (cbi *CandidatesBucketsIndexer) Start(ctx context.Context) error {
 		return err
 	}
 
-	ret, err = cbi.kvStore.Get(StakingBucketsNamespace, latestBucketsHash)
+	ret, err = cbi.kvStore.Get(StakingMetaNamespace, latestBucketsHash)
 	switch errors.Cause(err) {
 	case nil:
 		cbi.latestBucketsHash = hash.BytesToHash160(ret)
@@ -125,7 +128,8 @@ func (cbi *CandidatesBucketsIndexer) GetCandidates(height uint64, offset, limit 
 	}
 	candidateList := &iotextypes.CandidateListV2{}
 	ret, err := getFromIndexer(cbi.kvStore, StakingCandidatesNamespace, height)
-	if errors.Cause(err) == db.ErrNotExist {
+	cause := errors.Cause(err)
+	if cause == db.ErrNotExist || cause == db.ErrBucketNotExist {
 		d, err := proto.Marshal(candidateList)
 		return d, height, err
 	}
@@ -170,7 +174,8 @@ func (cbi *CandidatesBucketsIndexer) GetBuckets(height uint64, offset, limit uin
 	}
 	buckets := &iotextypes.VoteBucketList{}
 	ret, err := getFromIndexer(cbi.kvStore, StakingBucketsNamespace, height)
-	if errors.Cause(err) == db.ErrNotExist {
+	cause := errors.Cause(err)
+	if cause == db.ErrNotExist || cause == db.ErrBucketNotExist {
 		d, err := proto.Marshal(buckets)
 		return d, height, err
 	}
@@ -198,14 +203,17 @@ func (cbi *CandidatesBucketsIndexer) putToIndexer(ns string, height uint64, data
 	var (
 		h          = hash.Hash160b(data)
 		dataExist  bool
+		heightKey  []byte
 		latestHash []byte
 	)
 	switch ns {
 	case StakingCandidatesNamespace:
 		dataExist = (h == cbi.latestCandidatesHash)
+		heightKey = candHeightKey
 		latestHash = latestCandidatesHash
 	case StakingBucketsNamespace:
 		dataExist = (h == cbi.latestBucketsHash)
+		heightKey = bucketHeightKey
 		latestHash = latestBucketsHash
 	default:
 		return ErrTypeAssertion
@@ -214,14 +222,14 @@ func (cbi *CandidatesBucketsIndexer) putToIndexer(ns string, height uint64, data
 	heightBytes := byteutil.Uint64ToBytesBigEndian(height)
 	if dataExist {
 		// same bytes already exist, do nothing
-		return cbi.kvStore.Put(ns, indexerHeightKey, heightBytes)
+		return cbi.kvStore.Put(StakingMetaNamespace, heightKey, heightBytes)
 	}
 
 	// update latest height
 	b := batch.NewBatch()
 	b.Put(ns, heightBytes, data, "failed to write data bytes")
-	b.Put(ns, indexerHeightKey, heightBytes, "failed to update indexer height")
-	b.Put(ns, latestHash, h[:], "failed to update latest hash")
+	b.Put(StakingMetaNamespace, heightKey, heightBytes, "failed to update indexer height")
+	b.Put(StakingMetaNamespace, latestHash, h[:], "failed to update latest hash")
 	if err := cbi.kvStore.WriteBatch(b); err != nil {
 		return err
 	}

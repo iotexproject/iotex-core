@@ -32,6 +32,14 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 		require.NoError(cbi.Stop(ctx))
 	}()
 
+	// nothing in db, return empty list
+	a, height, err := cbi.GetCandidates(1, 0, 1)
+	require.NoError(err)
+	require.EqualValues(0, height)
+	var r iotextypes.CandidateListV2
+	require.NoError(proto.Unmarshal(a, &r))
+	require.Zero(len(r.Candidates))
+
 	cand := []*iotextypes.CandidateV2{
 		{
 			OwnerAddress:       "owner1",
@@ -71,7 +79,6 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 		{1234, 5},
 	}
 
-	var r iotextypes.CandidateListV2
 	for _, v := range tests {
 		require.NoError(cbi.PutCandidates(v.height, v.candidates))
 
@@ -105,9 +112,9 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 
 	// test height > latest height
 	require.EqualValues(6, cbi.latestCandidatesHeight)
-	a, b, err := cbi.GetCandidates(7, 0, 1)
+	a, height, err = cbi.GetCandidates(7, 0, 1)
 	require.NoError(err)
-	require.EqualValues(6, b)
+	require.EqualValues(6, height)
 	require.NoError(proto.Unmarshal(a, &r))
 	require.Equal(1, len(r.Candidates))
 	expect := tests[6].candidates.Candidates[0]
@@ -117,7 +124,7 @@ func TestCandidatesBucketsIndexer_PutGetCandidates(t *testing.T) {
 	require.Equal(expect.SelfStakeBucketIdx, actual.SelfStakeBucketIdx)
 
 	// test with a key larger than any existing key
-	height := uint64(8810200527999860736)
+	height = 8810200527999860736
 	candMax := &iotextypes.CandidateListV2{
 		Candidates: append(cand, &iotextypes.CandidateV2{
 			OwnerAddress:       "ownermax",
@@ -160,6 +167,14 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 		require.NoError(cbi.Stop(ctx))
 	}()
 
+	// nothing in db, return empty list
+	a, height, err := cbi.GetBuckets(1, 0, 1)
+	require.NoError(err)
+	require.EqualValues(0, height)
+	var r iotextypes.VoteBucketList
+	require.NoError(proto.Unmarshal(a, &r))
+	require.Zero(len(r.Buckets))
+
 	bucket := []*iotextypes.VoteBucket{
 		{
 			Index:     uint64(1234),
@@ -199,7 +214,6 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 		{1234, 5},
 	}
 
-	var r iotextypes.VoteBucketList
 	for _, v := range tests {
 		require.NoError(cbi.PutBuckets(v.height, v.buckets))
 
@@ -245,7 +259,7 @@ func TestCandidatesBucketsIndexer_PutGetBuckets(t *testing.T) {
 	require.Equal(expect.Owner, actual.Owner)
 
 	// test with a key larger than any existing key
-	height := uint64(8810200527999860736)
+	height = 8810200527999860736
 	voteMax := &iotextypes.VoteBucketList{
 		Buckets: append(bucket, &iotextypes.VoteBucket{
 			Index:     uint64(1357),
