@@ -1,0 +1,60 @@
+{
+  "initGenesis": {
+    "isBering" : true,
+    "isIceland" : true
+  },
+  "initBalances": [{
+    "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+    "rawBalance": "1000000000000000000000000000"
+  }],
+  "deployments": [{
+    "rawByteCode": "60806040526000805534801561001457600080fd5b50610197806100246000396000f3fe608060405234801561001057600080fd5b50600436106100415760003560e01c8063048a5fed14610046578063564b81ef14610064578063d09de08a14610082575b600080fd5b61004e61008c565b60405161005b91906100c4565b60405180910390f35b61006c610094565b60405161007991906100c4565b60405180910390f35b61008a61009c565b005b600047905090565b600046905090565b6000808154809291906100ae906100e9565b9190505550565b6100be816100df565b82525050565b60006020820190506100d960008301846100b5565b92915050565b6000819050919050565b60006100f4826100df565b91507fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82141561012757610126610132565b5b600182019050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fdfea2646970667358221220f8b638e0c2347a64ecd37e97015c540b32728e5bfb3bee0e9636285a60f3775364736f6c63430008040033",
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawAmount": "0",
+    "rawGasLimit": 5000000,
+    "rawGasPrice": "1",
+    "rawExpectedGasConsumed": 136635,
+    "expectedStatus": 1,
+    "expectedBalances": [{
+      "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+      "rawBalance": "999999999999999999999863365"
+    }],
+    "comment": "deploy chainid contract"
+  }],
+  "executions": [{
+    "readOnly": true,
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "564b81ef",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "0",
+    "expectedStatus": 1,
+    "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000001251",
+    "comment": "call getChainID"
+  },
+  {
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "d09de08a",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "1",
+    "rawExpectedGasConsumed": 31526,
+    "expectedStatus": 1,
+    "expectedBalances": [{
+      "account": "io1mflp9m6hcgm2qcghchsdqj3z3eccrnekx9p0ms",
+      "rawBalance": "999999999999999999999831839"
+    }],
+    "comment": "call increment"
+  },
+  {
+    "readOnly": true,
+    "rawPrivateKey": "cfa6ef757dee2e50351620dca002d32b9c090cfda55fb81f37f1d26b273743f1",
+    "rawByteCode": "048a5fed",
+    "rawAmount": "0",
+    "rawGasLimit": 1000000,
+    "rawGasPrice": "0",
+    "expectedStatus": 1,
+    "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000000",
+    "comment": "call getSelfBalance"
+  }]
+}
