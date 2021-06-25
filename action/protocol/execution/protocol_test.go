@@ -55,7 +55,8 @@ type ExpectedBalance struct {
 
 // GenesisBlockHeight defines an genesis blockHeight
 type GenesisBlockHeight struct {
-	IsBering bool `json:"isBering"`
+	IsBering  bool `json:"isBering"`
+	IsIceland bool `json:"isIceland"`
 }
 
 func (eb *ExpectedBalance) Balance() *big.Int {
@@ -339,6 +340,9 @@ func (sct *SmartContractTest) prepareBlockchain(
 		cfg.Genesis.Blockchain.BeringBlockHeight = 0
 	}
 	cfg.Genesis.HawaiiBlockHeight = 0
+	if sct.InitGenesis.IsIceland {
+		cfg.Genesis.Blockchain.IcelandBlockHeight = 0
+	}
 	for _, expectedBalance := range sct.InitBalances {
 		cfg.Genesis.InitBalanceMap[expectedBalance.Account] = expectedBalance.Balance().String()
 	}
@@ -554,6 +558,7 @@ func TestProtocol_Handle(t *testing.T) {
 		cfg.Genesis.EnableGravityChainVoting = false
 		cfg.ActPool.MinGasPriceStr = "0"
 		cfg.Genesis.InitBalanceMap[identityset.Address(27).String()] = unit.ConvertIotxToRau(1000000000).String()
+		config.SetEVMNetworkID(cfg.Chain.EVMNetworkID)
 		registry := protocol.NewRegistry()
 		acc := account.NewProtocol(rewarding.DepositGas)
 		require.NoError(acc.Register(registry))
@@ -842,6 +847,10 @@ func TestProtocol_Handle(t *testing.T) {
 	// infiniteloop-bering
 	t.Run("infiniteloop-bering", func(t *testing.T) {
 		NewSmartContractTest(t, "testdata/infiniteloop-bering.json")
+	})
+	// 2 new opcodes in istanbul
+	t.Run("chainid-selfbalance", func(t *testing.T) {
+		NewSmartContractTest(t, "testdata/chainid-selfbalance.json")
 	})
 }
 
