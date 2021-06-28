@@ -17,8 +17,6 @@ assignees: ''
 
 - [ ] Rollout v1.x.y-rc0 to canary API nodes on mainnet - ETA: 07/12/2021
 
-- [ ] Rollout v1.x.y-rc0 to canary delegate nodes on mainnet - ETA: 07/14/2021
-
 - [ ] Hit critical problems (close this task and file another one to track v1.x.y-rc1)
 
 - [ ] Promote release candidate v1.x.y-rc0 to be v1.x.y - ETA: 07/19/2021
