@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 94305,
         "expectedBalances": [],
         "comment": "deploy A contract"
     },{
@@ -17,6 +18,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 94305,
         "expectedBalances": [],
         "comment": "deploy B contract"
     }],
@@ -27,6 +29,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10513,
         "failed": true,
         "comment": "call test()"
     }]

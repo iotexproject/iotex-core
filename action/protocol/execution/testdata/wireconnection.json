@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 107511,
         "expectedBalances": [],
         "comment": "deploy proposal contract"
     }],
@@ -18,7 +19,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10596,
         "hasReturnValue": true,
         "rawReturnValue": "miaow",
         "comment": "call utterance()"
@@ -28,7 +29,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10675,
         "hasReturnValue": true,
         "rawReturnValue": "miaow",
         "comment": "call Utterance()"

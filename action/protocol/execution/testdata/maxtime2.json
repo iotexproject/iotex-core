@@ -9,6 +9,7 @@
     "rawAmount": "0",
     "rawGasLimit": 5000000,
     "rawGasPrice": "1",
+    "rawExpectedGasConsumed": 291826,
     "comment": "deploy the contract"
   }] ,
   "executions": [{

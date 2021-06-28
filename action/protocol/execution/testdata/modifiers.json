@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 160408,
         "expectedBalances": [],
         "comment": "deploy modifiers contract"
     }],
@@ -18,6 +19,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 13870,
         "failed": true,
         "comment": "call validAddress"
     },{
@@ -26,6 +28,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 13842,
         "failed": true,
         "comment": "call greaterThan"
     },{
@@ -34,7 +37,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": true,
+        "rawExpectedGasConsumed": 10789,
         "comment": "call refund"
     }]
 }

@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 687840,
         "expectedBalances": [],
         "comment": "deploy cashier contract"
     }],
@@ -18,6 +19,7 @@
         "rawAmount": "110000",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 127497,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "100000"
@@ -33,6 +35,7 @@
         "rawAmount": "120000",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 71747,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "210000"
@@ -48,6 +51,7 @@
         "rawAmount": "90000",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 11473,
         "failed": true,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
@@ -64,6 +68,7 @@
         "rawAmount": "1020000",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 11918,
         "failed": true,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
@@ -80,6 +85,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 21995,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
             "rawBalance": "210000"
@@ -95,6 +101,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 14498,
         "failed": true,
         "expectedBalances": [{
             "account": "io1emxf8zzqckhgjde6dqd97ts0y3q496gm3fdrl6",
