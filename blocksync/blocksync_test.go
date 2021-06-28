@@ -219,7 +219,6 @@ func TestBlockSyncerProcessBlockTipHeight(t *testing.T) {
 	peer := "peer1"
 
 	require.NoError(bs.ProcessBlock(ctx, peer, blk))
-	bs.flush()
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
@@ -307,17 +306,14 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
-	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
-	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
-	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
@@ -325,7 +321,6 @@ func TestBlockSyncerProcessBlockOutOfOrder(t *testing.T) {
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
-	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -406,24 +401,20 @@ func TestBlockSyncerProcessBlock(t *testing.T) {
 	require.NotNil(blk1)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk1))
-	bs1.flush()
 	blk2, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk2)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk2))
-	bs1.flush()
 	blk3, err := chain1.MintNewBlock(testutil.TimestampNow())
 	require.NotNil(blk3)
 	require.NoError(err)
 	require.NoError(bs1.ProcessBlock(ctx, peer, blk3))
-	bs1.flush()
 	h1 := chain1.TipHeight()
 	assert.Equal(t, uint64(3), h1)
 
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk2))
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk3))
 	require.NoError(bs2.ProcessBlock(ctx, peer, blk1))
-	bs2.flush()
 	h2 := chain2.TipHeight()
 	assert.Equal(t, h1, h2)
 }
@@ -454,8 +445,8 @@ func TestBlockSyncerSync(t *testing.T) {
 	require.NoError(chain.Start(ctx))
 	require.NotNil(chain)
 	cs := mock_consensus.NewMockConsensus(ctrl)
-	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(1)
-	cs.EXPECT().Calibrate(gomock.Any()).Times(1)
+	cs.EXPECT().ValidateBlockFooter(gomock.Any()).Return(nil).Times(2)
+	cs.EXPECT().Calibrate(gomock.Any()).Times(2)
 
 	bs, err := newBlockSyncer(cfg.BlockSync, chain, dao, cs)
 	require.NoError(err)
@@ -567,8 +558,6 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(bs.ProcessBlock(ctx, "peer1", blk2))
 	require.NoError(bs.ProcessBlock(ctx, "peer2", blk1))
 
-	bs.flush()
-
 	h2 := chain.TipHeight()
 	assert.Equal(t, h+1, h2)
 
@@ -577,7 +566,6 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(bs.ProcessBlock(ctx, "peer1", blk3))
-	bs.flush()
 
 	h3 := chain.TipHeight()
 	assert.Equal(t, h2, h3)
@@ -587,7 +575,6 @@ func TestBlockSyncerPeerBlockList(t *testing.T) {
 	require.NoError(err)
 
 	require.NoError(bs.ProcessBlock(ctx, "peer2", blk4))
-	bs.flush()
 
 	h4 := chain.TipHeight()
 	assert.Equal(t, h2+1, h4)
