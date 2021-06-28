@@ -7,7 +7,13 @@ assignees: ''
 
 ---
 
-<!-- Please answer these questions when reporting a bug. Thanks! -->
+**If you hit a critical issue which needs a new release candidate** while completing steps below: 
+1. file another issue for the critical issue
+2. close the current task with the critical issue just filed
+3. fix the critical issue
+4. and file another rollout request to track v1.x.y-rc1
+
+**Rollout Steps**
 
 - [ ] Cut release v1.x.y-rc0 - ETA: 06/28/2021
 
@@ -15,9 +21,9 @@ assignees: ''
 
 - [ ] Stress test v1.x.y-rc0 on testnet - ETA: 07/05/2021
 
-- [ ] Rollout v1.x.y-rc0 to canary API nodes on mainnet - ETA: 07/12/2021
-
 - [ ] Hit critical problems (close this task and file another one to track v1.x.y-rc1)
+
+- [ ] Rollout v1.x.y-rc0 to canary API nodes on mainnet - ETA: 07/12/2021
 
 - [ ] Promote release candidate v1.x.y-rc0 to be v1.x.y - ETA: 07/19/2021
 
