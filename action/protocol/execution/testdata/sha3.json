@@ -9,6 +9,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 846587,
         "expectedBalances": [],
         "comment": "deploy sha3 contract"
     }],
@@ -18,7 +19,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 11754,
         "hasReturnValue": true,
         "rawReturnValue": "374c0504f79c1d5e6e4ded17d488802b5656bd1d96b16a568d6c324e1c04c37b",
         "comment": "call hashArray"
@@ -28,7 +29,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10936,
         "hasReturnValue": true,
         "rawReturnValue": "e79a6745d2205095147fd735f329de58377b2f0b9f4b81ae23e010062127f2bc",
         "comment": "call hashPackedArray"
@@ -38,7 +39,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10876,
         "hasReturnValue": true,
         "rawReturnValue": "229327de236bd04ccac2efc445f1a2b63afddf438b35874b9f6fd1e6c38b0198",
         "comment": "call hashAddress"
@@ -48,7 +49,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 11051,
         "hasReturnValue": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000001",
         "comment": "call testPackedArgs"
@@ -58,7 +59,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10873,
         "hasReturnValue": true,
         "rawReturnValue": "0ef9d8f8804d174666011a394cab7901679a8944d24249fd148a6a36071151f8",
         "comment": "call hashHex"
@@ -68,7 +69,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10881,
         "hasReturnValue": true,
         "rawReturnValue": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
         "comment": "call hashInt"
@@ -78,7 +79,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10727,
         "hasReturnValue": true,
         "rawReturnValue": "a9c584056064687e149968cbab758a3376d22aedc6a55823d1b3ecbee81b8fb9",
         "comment": "call hashNegative"
@@ -88,7 +89,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10785,
         "hasReturnValue": true,
         "rawReturnValue": "5fe7f977e71dba2ea1a68e21057beebb9be2ac30c6410aa38d4f3fbe41dcffd2",
         "comment": "call hash8"
@@ -98,7 +99,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 11011,
         "hasReturnValue": true,
         "rawReturnValue": "51f81bcdfc324a0dff2b5bec9d92e21cbebc4d5e29d3a3d30de3e03fbeab8d7f",
         "comment": "call hash32"
@@ -108,7 +109,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10903,
         "hasReturnValue": true,
         "rawReturnValue": "b10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6",
         "comment": "call hash256"
@@ -118,7 +119,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10969,
         "hasReturnValue": true,
         "rawReturnValue": "c7cc234d21c9cfbd4632749fd77669e7ae72f5241ce5895e410c45185a469273",
         "comment": "call hashEth"
@@ -128,7 +129,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10947,
         "hasReturnValue": true,
         "rawReturnValue": "26700e13983fefbd9cf16da2ed70fa5c6798ac55062a4803121a869731e308d2",
         "comment": "call hashWei"
@@ -138,7 +139,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10844,
         "hasReturnValue": true,
         "rawReturnValue": "b5cafab5b83d18303877bb912b2d66ca18ab7390cfd9be8a2e66cc5096e0ea02",
         "comment": "call hashMultipleArgs"
@@ -148,7 +149,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
-        "failed": false,
+        "rawExpectedGasConsumed": 10705,
         "hasReturnValue": true,
         "rawReturnValue": "3ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1cb",
         "comment": "call hashString"

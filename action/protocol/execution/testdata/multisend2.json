@@ -18,8 +18,8 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 1105320,
         "expectedBalances": [],
-        "failed": false,
         "comment": "deploy multisend contract with min tips as 1234, limit as 100"
     }],
     "executions": [{
@@ -28,6 +28,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10948,
         "readOnly": true,
         "rawReturnValue": "00000000000000000000000000000000000000000000000000000000000004d2",
         "comment": "min tips"
@@ -37,6 +38,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10904,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000064",
         "comment": "limit"
@@ -46,6 +48,7 @@
         "rawAmount": "7234",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 111181,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
             "rawBalance": "999999999999999999999992766"
@@ -67,6 +70,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 14083,
         "expectedBalances": [],
         "expectedLogs": [],
         "failed": true,
@@ -77,6 +81,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 19103,
         "expectedBalances": [],
         "expectedLogs": [],
         "comment": "set limit"
@@ -86,6 +91,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10904,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000000002",
         "comment": "read new limit"
@@ -95,6 +101,7 @@
         "rawAmount": "7234",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 52998,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -117,6 +124,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 14149,
         "expectedBalances": [],
         "expectedLogs": [],
         "failed": true,
@@ -127,6 +135,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 19169,
         "expectedBalances": [],
         "expectedLogs": [],
         "comment": "set min tips"
@@ -136,6 +145,7 @@
         "rawAmount": "0",
         "rawGasLimit": 120000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10948,
         "readOnly": true,
         "rawReturnValue": "00000000000000000000000000000000000000000000000000000000000010e1",
         "comment": "read new min tips"
@@ -145,6 +155,7 @@
         "rawAmount": "8000",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 66284,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
             "rawBalance": "999999999999999999999984766"
@@ -166,6 +177,7 @@
         "rawAmount": "7000",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 56857,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -188,6 +200,7 @@
         "rawAmount": "7000",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 43145,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -210,6 +223,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 10852,
         "failed": true,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
@@ -232,6 +246,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1200000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 20605,
         "expectedBalances": [{
             "account": "io1757z4d53408usrx2nf2vr5jh0mc5f5qm8nkre2",
             "rawBalance": "999999999999999999999984766"
