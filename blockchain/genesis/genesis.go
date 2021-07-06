@@ -62,7 +62,7 @@ func defaultConfig() Genesis {
 			FairbankBlockHeight:     5165641,
 			GreenlandBlockHeight:    6544441,
 			HawaiiBlockHeight:       11267641,
-			IcelandBlockHeight:      21267641,
+			IcelandBlockHeight:      12289321,
 		},
 		Account: Account{
 			InitBalanceMap: make(map[string]string),
