@@ -76,6 +76,7 @@ func (log *BlkTransactionLog) Serialize() []byte {
 	return byteutil.Must(proto.Marshal(log.toProto()))
 }
 
+// GetLogs returns logs for BlkTransactionLog
 func (log *BlkTransactionLog) GetLogs() []*TransactionLog {
 	return log.actionLogs
 }
