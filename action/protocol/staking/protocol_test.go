@@ -24,6 +24,7 @@ import (
 	"github.com/iotexproject/iotex-core/pkg/unit"
 	"github.com/iotexproject/iotex-core/state"
 	"github.com/iotexproject/iotex-core/test/identityset"
+	"github.com/iotexproject/iotex-core/testutil"
 	"github.com/iotexproject/iotex-core/testutil/testdb"
 )
 
@@ -233,7 +234,15 @@ func Test_CreatePreStatesWithRegisterProtocol(t *testing.T) {
 	defer ctrl.Finish()
 	sm := testdb.NewMockStateManager(ctrl)
 
-	store := db.NewMemKVStore()
+	testPath, err := testutil.PathOfTempFile("test-bucket")
+	require.NoError(err)
+	defer func() {
+		testutil.CleanupPath(t, testPath)
+	}()
+
+	cfg := db.DefaultConfig
+	cfg.DbPath = testPath
+	store := db.NewBoltDB(cfg)
 	cbi, err := NewStakingCandidatesBucketsIndexer(store)
 	require.NoError(err)
 

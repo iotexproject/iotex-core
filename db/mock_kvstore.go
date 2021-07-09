@@ -506,19 +506,19 @@ func (mr *MockKVStoreForRangeIndexMockRecorder) Insert(arg0, arg1, arg2 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).Insert), arg0, arg1, arg2)
 }
 
-// Seek mocks base method
-func (m *MockKVStoreForRangeIndex) Seek(arg0 []byte, arg1 uint64) ([]byte, error) {
+// SeekNext mocks base method
+func (m *MockKVStoreForRangeIndex) SeekNext(arg0 []byte, arg1 uint64) ([]byte, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Seek", arg0, arg1)
+	ret := m.ctrl.Call(m, "SeekNext", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Seek indicates an expected call of Seek
-func (mr *MockKVStoreForRangeIndexMockRecorder) Seek(arg0, arg1 interface{}) *gomock.Call {
+// SeekNext indicates an expected call of SeekNext
+func (mr *MockKVStoreForRangeIndexMockRecorder) SeekNext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Seek", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).Seek), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeekNext", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).SeekNext), arg0, arg1)
 }
 
 // Remove mocks base method
@@ -577,4 +577,19 @@ func (m *MockKVStoreForRangeIndex) GetKeyByPrefix(namespace, prefix []byte) ([][
 func (mr *MockKVStoreForRangeIndexMockRecorder) GetKeyByPrefix(namespace, prefix interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKeyByPrefix", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).GetKeyByPrefix), namespace, prefix)
+}
+
+// SeekPrev mocks base method
+func (m *MockKVStoreForRangeIndex) SeekPrev(arg0 []byte, arg1 uint64) ([]byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SeekPrev", arg0, arg1)
+	ret0, _ := ret[0].([]byte)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SeekPrev indicates an expected call of SeekPrev
+func (mr *MockKVStoreForRangeIndexMockRecorder) SeekPrev(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SeekPrev", reflect.TypeOf((*MockKVStoreForRangeIndex)(nil).SeekPrev), arg0, arg1)
 }

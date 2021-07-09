@@ -16,9 +16,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/iotexproject/go-p2p"
-	goproto "github.com/iotexproject/iotex-proto/golang"
-	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
@@ -26,7 +23,11 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/iotexproject/iotex-core/config"
+	"github.com/iotexproject/go-p2p"
+	"github.com/iotexproject/go-pkgs/hash"
+	goproto "github.com/iotexproject/iotex-proto/golang"
+	"github.com/iotexproject/iotex-proto/golang/iotexrpc"
+
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/routine"
 )
@@ -75,34 +76,50 @@ type (
 
 	// HandleUnicastInboundAsync handles unicast message when agent listens it from the network
 	HandleUnicastInboundAsync func(context.Context, uint32, peerstore.PeerInfo, proto.Message)
+
+	// Network is the config of p2p
+	Network struct {
+		Host           string   `yaml:"host"`
+		Port           int      `yaml:"port"`
+		ExternalHost   string   `yaml:"externalHost"`
+		ExternalPort   int      `yaml:"externalPort"`
+		BootstrapNodes []string `yaml:"bootstrapNodes"`
+		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
+		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
+		// are supported: active, nat.
+		RelayType         string              `yaml:"relayType"`
+		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
+		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
+		EnableRateLimit   bool                `yaml:"enableRateLimit"`
+		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
+	}
+
+	// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
+	Agent struct {
+		cfg                        Network
+		topicSuffix                string
+		broadcastInboundHandler    HandleBroadcastInbound
+		unicastInboundAsyncHandler HandleUnicastInboundAsync
+		host                       *p2p.Host
+		unicastBlocklist           *BlockList
+		reconnectTimeout           time.Duration
+		reconnectTask              *routine.RecurringTask
+		qosMetrics                 *Qos
+	}
 )
 
-// Agent is the agent to help the blockchain node connect into the P2P networks and send/receive messages
-type Agent struct {
-	cfg                        config.Network
-	topicSuffix                string
-	broadcastInboundHandler    HandleBroadcastInbound
-	unicastInboundAsyncHandler HandleUnicastInboundAsync
-	host                       *p2p.Host
-	unicastBlocklist           *BlockList
-	reconnectTimeout           time.Duration
-	reconnectTask              *routine.RecurringTask
-	qosMetrics                 *Qos
-}
-
 // NewAgent instantiates a local P2P agent instance
-func NewAgent(cfg config.Config, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
-	gh := cfg.Genesis.Hash()
-	log.L().Info("p2p agent", log.Hex("topicSuffix", gh[22:]))
+func NewAgent(cfg Network, genesisHash hash.Hash256, broadcastHandler HandleBroadcastInbound, unicastHandler HandleUnicastInboundAsync) *Agent {
+	log.L().Info("p2p agent", log.Hex("topicSuffix", genesisHash[22:]))
 	return &Agent{
-		cfg: cfg.Network,
+		cfg: cfg,
 		// Make sure the honest node only care the messages related the chain from the same genesis
-		topicSuffix:                hex.EncodeToString(gh[22:]), // last 10 bytes of genesis hash
+		topicSuffix:                hex.EncodeToString(genesisHash[22:]), // last 10 bytes of genesis hash
 		broadcastInboundHandler:    broadcastHandler,
 		unicastInboundAsyncHandler: unicastHandler,
 		unicastBlocklist:           NewBlockList(blockListLen),
-		reconnectTimeout:           30 * cfg.DardanellesUpgrade.BlockInterval,
-		qosMetrics:                 NewQoS(time.Now(), 60*cfg.DardanellesUpgrade.BlockInterval),
+		reconnectTimeout:           cfg.ReconnectInterval,
+		qosMetrics:                 NewQoS(time.Now(), 2*cfg.ReconnectInterval),
 	}
 }
 

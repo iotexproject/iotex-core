@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/iotexproject/go-p2p"
+	gop2p "github.com/iotexproject/go-p2p"
 	"github.com/iotexproject/go-pkgs/crypto"
 	"github.com/iotexproject/iotex-election/committee"
 	"github.com/pkg/errors"
@@ -25,16 +25,13 @@ import (
 	"github.com/iotexproject/iotex-address/address"
 	"github.com/iotexproject/iotex-core/blockchain/genesis"
 	"github.com/iotexproject/iotex-core/db"
+	"github.com/iotexproject/iotex-core/p2p"
 	"github.com/iotexproject/iotex-core/pkg/log"
 	"github.com/iotexproject/iotex-core/pkg/unit"
 )
 
 // IMPORTANT: to define a config, add a field or a new config type to the existing config types. In addition, provide
 // the default value in Default var.
-
-func init() {
-
-}
 
 var (
 	_evmNetworkID uint32
@@ -77,15 +74,15 @@ var (
 	Default = Config{
 		Plugins: make(map[int]interface{}),
 		SubLogs: make(map[string]log.GlobalConfig),
-		Network: Network{
+		Network: p2p.Network{
 			Host:              "0.0.0.0",
 			Port:              4689,
 			ExternalHost:      "",
 			ExternalPort:      4689,
 			BootstrapNodes:    []string{},
 			MasterKey:         "",
-			RateLimit:         p2p.DefaultRatelimitConfig,
-			ReconnectInterval: 300 * time.Second,
+			RateLimit:         gop2p.DefaultRatelimitConfig,
+			ReconnectInterval: 150 * time.Second,
 			EnableRateLimit:   true,
 			PrivateNetworkPSK: "",
 		},
@@ -223,22 +220,6 @@ var (
 
 // Network is the config struct for network package
 type (
-	Network struct {
-		Host           string   `yaml:"host"`
-		Port           int      `yaml:"port"`
-		ExternalHost   string   `yaml:"externalHost"`
-		ExternalPort   int      `yaml:"externalPort"`
-		BootstrapNodes []string `yaml:"bootstrapNodes"`
-		MasterKey      string   `yaml:"masterKey"` // master key will be PrivateKey if not set.
-		// RelayType is the type of P2P network relay. By default, the value is empty, meaning disabled. Two relay types
-		// are supported: active, nat.
-		RelayType         string              `yaml:"relayType"`
-		ReconnectInterval time.Duration       `yaml:"reconnectInterval"`
-		RateLimit         p2p.RateLimitConfig `yaml:"rateLimit"`
-		EnableRateLimit   bool                `yaml:"enableRateLimit"`
-		PrivateNetworkPSK string              `yaml:"privateNetworkPSK"`
-	}
-
 	// Chain is the config struct for blockchain package
 	Chain struct {
 		ChainDBPath            string           `yaml:"chainDBPath"`
@@ -400,7 +381,7 @@ type (
 	// Config is the root config struct, each package's config should be put as its sub struct
 	Config struct {
 		Plugins            map[int]interface{}         `ymal:"plugins"`
-		Network            Network                     `yaml:"network"`
+		Network            p2p.Network                 `yaml:"network"`
 		Chain              Chain                       `yaml:"chain"`
 		ActPool            ActPool                     `yaml:"actPool"`
 		Consensus          Consensus                   `yaml:"consensus"`

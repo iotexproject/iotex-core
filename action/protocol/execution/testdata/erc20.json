@@ -15,6 +15,7 @@
         "rawAmount": "0",
         "rawGasLimit": 5000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 1979209,
         "expectedBalances": [],
         "comment": "deploy an erc20 contract"
     }],
@@ -24,6 +25,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 46015,
         "expectedBalances": [],
         "expectedLogs": [{}],
         "comment": "transfer 10000 tokens from producer to alfa"
@@ -33,6 +35,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 46015,
         "expectedBalances": [],
         "expectedLogs": [{}],
         "comment": "transfer 10000 tokens from producer to bravo"
@@ -42,6 +45,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 31015,
         "expectedBalances": [],
         "expectedLogs": [{}],
         "comment": "transfer 2000 tokens from alfa to bravo"
@@ -51,6 +55,7 @@
         "rawAmount": "0",
         "rawGasLimit": 1000000,
         "rawGasPrice": "0",
+        "rawExpectedGasConsumed": 14335,
         "readOnly": true,
         "rawReturnValue": "0000000000000000000000000000000000000000000000000000000000001f40",
         "expectedBalances": [],

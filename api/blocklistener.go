@@ -1,6 +1,8 @@
 package api
 
 import (
+	"encoding/hex"
+
 	"go.uber.org/zap"
 
 	"github.com/iotexproject/iotex-proto/golang/iotexapi"
@@ -34,8 +36,16 @@ func (bl *blockListener) Respond(blk *block.Block) error {
 		Block:    blk.ConvertToBlockPb(),
 		Receipts: receiptsPb,
 	}
+	h := blk.HashBlock()
+	blockID := &iotextypes.BlockIdentifier{
+		Hash:   hex.EncodeToString(h[:]),
+		Height: blk.Height(),
+	}
 	// send blockInfo thru streaming API
-	if err := bl.stream.Send(&iotexapi.StreamBlocksResponse{Block: blockInfo}); err != nil {
+	if err := bl.stream.Send(&iotexapi.StreamBlocksResponse{
+		Block:           blockInfo,
+		BlockIdentifier: blockID,
+	}); err != nil {
 		log.L().Info(
 			"Error when streaming the block",
 			zap.Uint64("height", blockInfo.GetBlock().GetHeader().GetCore().GetHeight()),
